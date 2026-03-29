@@ -167,7 +167,10 @@ class CopilotCompletionProvider(CompletionProvider):
         from copilot.generated.session_events import (  # type: ignore[reportMissingImports]
             SessionEventType,
         )
-        from copilot.types import PermissionHandler  # type: ignore[reportMissingImports]
+        from copilot.types import (  # type: ignore[reportMissingImports]
+            PermissionHandler,
+            SessionConfig,
+        )
 
         # Extract system message for session config, user message for prompt
         system_content = ""
@@ -178,16 +181,16 @@ class CopilotCompletionProvider(CompletionProvider):
             elif msg["role"] == "user":
                 user_content = msg["content"]
 
-        # Build create_session kwargs (SessionConfig was removed in SDK 0.1.0)
-        session_kwargs: dict[str, Any] = {
+        # Build SessionConfig (SDK 0.1.0 requires a typed config dict)
+        config: SessionConfig = {
             "model": self._model,
             "on_permission_request": PermissionHandler.approve_all,  # pyright: ignore[reportAttributeAccessIssue]
         }
         if system_content:
-            session_kwargs["system_message"] = {"mode": "replace", "content": system_content}
+            config["system_message"] = {"mode": "replace", "content": system_content}
 
         # Create session, send prompt, wait for response
-        session = await client.create_session(**session_kwargs)
+        session = await client.create_session(config)
         done = asyncio.Event()
         result_content: list[str] = []
         error_content: list[str] = []
