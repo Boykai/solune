@@ -324,6 +324,12 @@ jobs:
 
       - name: Backend import smoke test
         working-directory: solune/backend
+        env:
+          GITHUB_CLIENT_ID: ci-smoke
+          GITHUB_CLIENT_SECRET: ci-smoke-secret
+          SESSION_SECRET_KEY: ci-smoke-session-key-long-enough-for-validation
+          DEBUG: "true"
+          TESTING: "1"
         run: |
           uv run python -c "
           import importlib, pkgutil, sys
