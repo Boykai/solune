@@ -1,6 +1,13 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.models.tools import RepoMcpConfigResponse, RepoMcpServerConfig
+import pytest
+
+from src.models.tools import (
+    McpToolConfigListResponse,
+    McpToolConfigResponse,
+    RepoMcpConfigResponse,
+    RepoMcpServerConfig,
+)
 
 
 class TestToolsPresetsApi:
@@ -223,3 +230,164 @@ class TestRepoMcpConfigApi:
 
         assert resp.status_code == 502
         assert resp.json()["error"] == "Failed to delete repository MCP server"
+
+
+class TestToolsCrud:
+    """Tests for tool CRUD endpoints (create, get, update, list with pagination)."""
+
+    def _make_tool_response(self, **overrides):
+        defaults = {
+            "id": "tool-1",
+            "name": "test-tool",
+            "description": "A test tool",
+            "endpoint_url": "https://example.com/mcp",
+            "config_content": '{"mcpServers":{}}',
+            "sync_status": "synced",
+            "sync_error": "",
+            "synced_at": "2024-01-01T00:00:00Z",
+            "github_repo_target": "octo/widgets",
+            "is_active": True,
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+        defaults.update(overrides)
+        return McpToolConfigResponse(**defaults)
+
+    async def test_create_tool_success(self, client, mock_github_service):
+        mock_github_service.get_project_repository.return_value = ("octo", "widgets")
+        tool_resp = self._make_tool_response()
+
+        with (
+            patch("src.api.tools.ToolsService.create_tool", AsyncMock(return_value=tool_resp)),
+            patch("src.api.tools.log_event", new_callable=AsyncMock) as mock_log,
+        ):
+            resp = await client.post(
+                "/api/v1/tools/PVT_123",
+                json={
+                    "name": "test-tool",
+                    "config_content": '{"mcpServers":{}}',
+                },
+            )
+
+        assert resp.status_code == 201
+        assert resp.json()["name"] == "test-tool"
+        mock_log.assert_awaited_once()
+
+    async def test_create_tool_duplicate_name_returns_409(self, client, mock_github_service):
+        from src.services.tools.service import DuplicateToolNameError
+
+        mock_github_service.get_project_repository.return_value = ("octo", "widgets")
+
+        with patch(
+            "src.api.tools.ToolsService.create_tool",
+            AsyncMock(side_effect=DuplicateToolNameError("test-tool")),
+        ):
+            resp = await client.post(
+                "/api/v1/tools/PVT_123",
+                json={
+                    "name": "test-tool",
+                    "config_content": '{"mcpServers":{}}',
+                },
+            )
+
+        assert resp.status_code == 409
+
+    async def test_create_tool_resolve_failure(self, client):
+        with patch(
+            "src.api.tools.resolve_repository",
+            AsyncMock(side_effect=RuntimeError("cannot resolve")),
+        ):
+            resp = await client.post(
+                "/api/v1/tools/PVT_123",
+                json={
+                    "name": "test-tool",
+                    "config_content": '{"mcpServers":{}}',
+                },
+            )
+        assert resp.status_code == 422
+
+    async def test_get_tool_found(self, client):
+        tool_resp = self._make_tool_response()
+        with patch(
+            "src.api.tools.ToolsService.get_tool", AsyncMock(return_value=tool_resp)
+        ):
+            resp = await client.get("/api/v1/tools/PVT_123/tool-1")
+        assert resp.status_code == 200
+        assert resp.json()["id"] == "tool-1"
+
+    async def test_get_tool_not_found(self, client):
+        with patch(
+            "src.api.tools.ToolsService.get_tool", AsyncMock(return_value=None)
+        ):
+            resp = await client.get("/api/v1/tools/PVT_123/nonexistent")
+        assert resp.status_code == 404
+
+    async def test_update_tool_success(self, client, mock_github_service):
+        mock_github_service.get_project_repository.return_value = ("octo", "widgets")
+        tool_resp = self._make_tool_response(name="updated-tool")
+
+        with (
+            patch("src.api.tools.ToolsService.update_tool", AsyncMock(return_value=tool_resp)),
+            patch("src.api.tools.log_event", new_callable=AsyncMock),
+        ):
+            resp = await client.put(
+                "/api/v1/tools/PVT_123/tool-1",
+                json={"name": "updated-tool"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "updated-tool"
+
+    async def test_update_tool_not_found(self, client, mock_github_service):
+        mock_github_service.get_project_repository.return_value = ("octo", "widgets")
+
+        with patch(
+            "src.api.tools.ToolsService.update_tool",
+            AsyncMock(side_effect=LookupError("not found")),
+        ):
+            resp = await client.put(
+                "/api/v1/tools/PVT_123/tool-1",
+                json={"name": "updated-tool"},
+            )
+        assert resp.status_code == 404
+
+    async def test_update_tool_duplicate_name(self, client, mock_github_service):
+        from src.services.tools.service import DuplicateToolNameError
+
+        mock_github_service.get_project_repository.return_value = ("octo", "widgets")
+
+        with patch(
+            "src.api.tools.ToolsService.update_tool",
+            AsyncMock(side_effect=DuplicateToolNameError("dupe")),
+        ):
+            resp = await client.put(
+                "/api/v1/tools/PVT_123/tool-1",
+                json={"name": "dupe"},
+            )
+        assert resp.status_code == 409
+
+    async def test_list_tools_returns_result(self, client):
+        list_resp = McpToolConfigListResponse(
+            tools=[self._make_tool_response()],
+            count=1,
+        )
+        with patch(
+            "src.api.tools.ToolsService.list_tools", AsyncMock(return_value=list_resp)
+        ):
+            resp = await client.get("/api/v1/tools/PVT_123")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["count"] == 1
+
+    async def test_list_tools_with_pagination(self, client):
+        tools = [self._make_tool_response(id=f"tool-{i}") for i in range(3)]
+        list_resp = McpToolConfigListResponse(tools=tools, count=3)
+        with patch(
+            "src.api.tools.ToolsService.list_tools", AsyncMock(return_value=list_resp)
+        ):
+            resp = await client.get(
+                "/api/v1/tools/PVT_123", params={"limit": 2}
+            )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["tools"]) == 2
+        assert data["count"] == 3

@@ -117,6 +117,120 @@ class TestInitiateSignalLink:
         resp = await client.post("/api/v1/signal/connection/link", json={})
         assert resp.status_code == 200
 
+    async def test_link_httpx_status_error(self, client):
+        import httpx
+
+        response = httpx.Response(500, text="Internal error")
+        request = httpx.Request("POST", "http://signal/qr")
+        self.mock_get_conn.return_value = None
+        self.mock_qr.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=request, response=response
+        )
+        resp = await client.post(
+            "/api/v1/signal/connection/link",
+            json={"device_name": "TestDevice"},
+        )
+        assert resp.status_code == 502
+
+    async def test_link_httpx_connect_error(self, client):
+        import httpx
+
+        self.mock_get_conn.return_value = None
+        self.mock_qr.side_effect = httpx.ConnectError("Connection refused")
+        resp = await client.post(
+            "/api/v1/signal/connection/link",
+            json={"device_name": "TestDevice"},
+        )
+        assert resp.status_code == 502
+
+    async def test_link_httpx_timeout(self, client):
+        import httpx
+
+        self.mock_get_conn.return_value = None
+        self.mock_qr.side_effect = httpx.TimeoutException("Timed out")
+        resp = await client.post(
+            "/api/v1/signal/connection/link",
+            json={"device_name": "TestDevice"},
+        )
+        assert resp.status_code == 502
+
+    async def test_link_generic_exception(self, client):
+        self.mock_get_conn.return_value = None
+        self.mock_qr.side_effect = RuntimeError("unexpected")
+        resp = await client.post(
+            "/api/v1/signal/connection/link",
+            json={"device_name": "TestDevice"},
+        )
+        assert resp.status_code == 502
+
+
+# ── GET /signal/connection/link/status ────────────────────────────────────
+
+
+class TestCheckSignalLinkStatus:
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        with (
+            patch(f"{_API}.get_connection_by_user", new_callable=AsyncMock) as get_conn,
+            patch(f"{_API}.check_link_complete", new_callable=AsyncMock) as check,
+            patch(f"{_API}._hash_phone", return_value="hash-test") as hash_phone,
+            patch(f"{_API}.get_connection_by_phone_hash", new_callable=AsyncMock) as get_phone,
+            patch(f"{_API}.create_connection", new_callable=AsyncMock) as create_conn,
+            patch(f"{_BRIDGE}._get_encryption") as get_enc,
+        ):
+            self.mock_get_conn = get_conn
+            self.mock_check = check
+            self.mock_hash = hash_phone
+            self.mock_get_phone = get_phone
+            self.mock_create = create_conn
+            self.mock_enc = MagicMock()
+            get_enc.return_value = self.mock_enc
+            yield
+
+    async def test_already_connected(self, client):
+        self.mock_get_conn.return_value = _connected_conn()
+        self.mock_enc.decrypt.return_value = "+1234567890"
+        resp = await client.get("/api/v1/signal/connection/link/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "connected"
+        assert data["signal_identifier"] is not None
+
+    async def test_already_connected_decrypt_failure(self, client):
+        self.mock_get_conn.return_value = _connected_conn()
+        self.mock_enc.decrypt.side_effect = Exception("cannot decrypt")
+        resp = await client.get("/api/v1/signal/connection/link/status")
+        assert resp.status_code == 200
+        assert resp.json()["signal_identifier"] is None
+
+    async def test_pending(self, client):
+        self.mock_get_conn.return_value = None
+        self.mock_check.return_value = {}
+        resp = await client.get("/api/v1/signal/connection/link/status")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "pending"
+
+    async def test_linked_creates_connection(self, client):
+        self.mock_get_conn.return_value = None
+        self.mock_check.return_value = {"linked": True, "number": "+1234567890"}
+        self.mock_get_phone.return_value = None
+        with patch(f"{_BRIDGE}.send_welcome_message", new_callable=AsyncMock), \
+             patch(f"{_BRIDGE}.restart_signal_ws_listener", new_callable=AsyncMock), \
+             patch("src.services.task_registry.task_registry") as mock_registry:
+            mock_registry.create_task = MagicMock()
+            resp = await client.get("/api/v1/signal/connection/link/status")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "connected"
+        self.mock_create.assert_awaited_once()
+
+    async def test_linked_cross_user_conflict(self, client):
+        self.mock_get_conn.return_value = None
+        self.mock_check.return_value = {"linked": True, "number": "+1234567890"}
+        other_conn = _connected_conn(github_user_id="other-user")
+        self.mock_get_phone.return_value = other_conn
+        resp = await client.get("/api/v1/signal/connection/link/status")
+        assert resp.status_code == 409
+
 
 # ── DELETE /signal/connection ─────────────────────────────────────────────
 
@@ -161,6 +275,34 @@ class TestGetSignalPreferences:
     async def test_preferences_no_connection(self, client):
         self.mock_get_conn.return_value = None
         resp = await client.get("/api/v1/signal/preferences")
+        assert resp.status_code == 404
+
+
+# ── PUT /signal/preferences ──────────────────────────────────────────────
+
+
+class TestUpdateSignalPreferences:
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        with patch(f"{_API}.get_connection_by_user", new_callable=AsyncMock) as get_conn:
+            self.mock_get_conn = get_conn
+            yield
+
+    async def test_update_preferences_success(self, client):
+        self.mock_get_conn.return_value = _connected_conn()
+        resp = await client.put(
+            "/api/v1/signal/preferences",
+            json={"notification_mode": "actions_only"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["notification_mode"] == "actions_only"
+
+    async def test_update_preferences_no_connection(self, client):
+        self.mock_get_conn.return_value = None
+        resp = await client.put(
+            "/api/v1/signal/preferences",
+            json={"notification_mode": "all"},
+        )
         assert resp.status_code == 404
 
 
@@ -290,3 +432,35 @@ class TestInboundWebhook:
             headers={"X-Signal-Webhook-Secret": "test-secret"},
         )
         assert resp.status_code == 422
+
+    async def test_webhook_attachment_only_rejected(self, client):
+        conn = _connected_conn()
+        self.mock_get_phone.return_value = conn
+        resp = await client.post(
+            "/api/v1/signal/webhook/inbound",
+            json={
+                "source_number": "+1234567890",
+                "message_text": "",
+                "has_attachment": True,
+                "timestamp": "2024-01-01T00:00:00",
+            },
+            headers={"X-Signal-Webhook-Secret": "test-secret"},
+        )
+        assert resp.status_code == 422
+
+    async def test_webhook_not_configured(self, client):
+        """Webhook returns 503 when secret is not configured."""
+        with patch(f"{_API}.get_settings") as mock_settings:
+            s = MagicMock()
+            s.signal_webhook_secret = ""
+            mock_settings.return_value = s
+            resp = await client.post(
+                "/api/v1/signal/webhook/inbound",
+                json={
+                    "source_number": "+1234567890",
+                    "message_text": "Hello",
+                    "timestamp": "2024-01-01T00:00:00",
+                },
+                headers={"X-Signal-Webhook-Secret": "test-secret"},
+            )
+        assert resp.status_code == 503

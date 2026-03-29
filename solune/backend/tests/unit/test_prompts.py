@@ -63,6 +63,84 @@ class TestCreateIssueGenerationPrompt:
         msgs = create_issue_generation_prompt("x", "y")
         assert msgs[1]["role"] == "user"
 
+    # ── metadata_context tests ──────────────────────────────────────────
+
+    def test_metadata_context_with_labels(self):
+        ctx = {"labels": [{"name": "bug"}, {"name": "feature"}]}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert '"bug"' in content
+        assert '"feature"' in content
+        assert "AVAILABLE LABELS" in content
+
+    def test_metadata_context_with_string_labels(self):
+        ctx = {"labels": ["bug", "feature"]}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert '"bug"' in content
+        assert '"feature"' in content
+
+    def test_metadata_context_with_branches(self):
+        ctx = {"branches": [{"name": "main"}, {"name": "develop"}]}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert '"main"' in content
+        assert '"develop"' in content
+        assert "AVAILABLE BRANCHES" in content
+
+    def test_metadata_context_with_milestones(self):
+        ctx = {"milestones": [{"title": "v1.0"}, {"title": "v2.0"}]}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert '"v1.0"' in content
+        assert "AVAILABLE MILESTONES" in content
+
+    def test_metadata_context_with_collaborators(self):
+        ctx = {"collaborators": [{"login": "alice"}, {"login": "bob"}]}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert '"alice"' in content
+        assert '"bob"' in content
+        assert "ASSIGNEE CANDIDATES" in content
+
+    def test_metadata_context_all_fields(self):
+        ctx = {
+            "labels": [{"name": "bug"}],
+            "branches": [{"name": "main"}],
+            "milestones": [{"title": "v1.0"}],
+            "collaborators": [{"login": "alice"}],
+        }
+        msgs = create_issue_generation_prompt("Add dark mode", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert "AVAILABLE LABELS" in content
+        assert "AVAILABLE BRANCHES" in content
+        assert "AVAILABLE MILESTONES" in content
+        assert "ASSIGNEE CANDIDATES" in content
+        # Extra metadata fields should be injected for response schema
+        assert "assignees" in content
+        assert "milestone" in content
+        assert "branch" in content
+
+    def test_metadata_context_empty_lists_are_skipped(self):
+        ctx = {"labels": [], "branches": [], "milestones": [], "collaborators": []}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert "AVAILABLE LABELS" not in content
+        assert "AVAILABLE BRANCHES" not in content
+
+    def test_metadata_context_mixed_populated_empty(self):
+        ctx = {"labels": [{"name": "bug"}], "branches": [], "milestones": [], "collaborators": []}
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=ctx)
+        content = msgs[1]["content"]
+        assert "AVAILABLE LABELS" in content
+        assert "AVAILABLE BRANCHES" not in content
+
+    def test_no_metadata_context_has_no_extra_fields(self):
+        msgs = create_issue_generation_prompt("Add search", "Proj", metadata_context=None)
+        content = msgs[1]["content"]
+        assert "AVAILABLE LABELS" not in content
+        assert "assignees" not in content
+
 
 # =============================================================================
 # Feature request detection prompt
