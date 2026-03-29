@@ -159,5 +159,6 @@ also_copy = [
     "src/models/",
     "src/prompts/",
     "src/protocols.py",
+    "src/services/",
     "src/utils.py",
 ]
