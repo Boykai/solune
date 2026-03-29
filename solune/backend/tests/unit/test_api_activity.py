@@ -1,0 +1,413 @@
+"""Tests for Activity Feed API (src/api/activity.py).
+
+Covers:
+- _encode_cursor / _decode_cursor — round-trip, invalid data
+- _query_events — filtering, pagination, cursor handling
+- GET /api/v1/activity — get_activity_feed endpoint
+- GET /api/v1/activity/{entity_type}/{entity_id} — get_entity_history endpoint
+"""
+
+import base64
+import json
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from src.api.activity import _decode_cursor, _encode_cursor
+
+ACTIVITY_URL = "/api/v1/activity"
+
+
+@pytest.fixture(autouse=True)
+def _bypass_activity_project_access():
+    """Bypass verify_project_access called directly in activity endpoints."""
+    with patch("src.api.activity.verify_project_access", new_callable=AsyncMock):
+        yield
+
+
+# ── Cursor helpers ───────────────────────────────────────────────────────
+
+
+class TestEncodeCursor:
+    def test_round_trip(self):
+        ts, eid = "2024-01-01T00:00:00Z", "evt-42"
+        encoded = _encode_cursor(ts, eid)
+        decoded_ts, decoded_id = _decode_cursor(encoded)
+        assert decoded_ts == ts
+        assert decoded_id == eid
+
+    def test_returns_base64_string(self):
+        encoded = _encode_cursor("2024-01-01T00:00:00Z", "id-1")
+        # Should be decodable as base64
+        raw = base64.urlsafe_b64decode(encoded.encode())
+        parts = json.loads(raw)
+        assert len(parts) == 2
+
+
+class TestDecodeCursor:
+    def test_valid_cursor(self):
+        payload = json.dumps(["2024-06-15T12:00:00Z", "evt-99"])
+        cursor = base64.urlsafe_b64encode(payload.encode()).decode()
+        ts, eid = _decode_cursor(cursor)
+        assert ts == "2024-06-15T12:00:00Z"
+        assert eid == "evt-99"
+
+    def test_invalid_base64_raises(self):
+        with pytest.raises(ValueError):
+            _decode_cursor("not-valid-base64!!!")
+
+    def test_invalid_json_raises(self):
+        bad_json = base64.urlsafe_b64encode(b"not json").decode()
+        with pytest.raises(json.JSONDecodeError):
+            _decode_cursor(bad_json)
+
+    def test_empty_array_raises(self):
+        empty = base64.urlsafe_b64encode(json.dumps([]).encode()).decode()
+        with pytest.raises(IndexError):
+            _decode_cursor(empty)
+
+
+# ── Activity Feed endpoint ───────────────────────────────────────────────
+
+
+class TestGetActivityFeed:
+    """Tests for GET /api/v1/activity."""
+
+    async def _seed_events(self, db, project_id="PVT_123", count=5):
+        """Insert *count* activity events into the test database."""
+        for i in range(count):
+            await db.execute(
+                """INSERT INTO activity_events
+                   (id, event_type, entity_type, entity_id, project_id,
+                    actor, action, summary, detail, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    f"evt-{project_id}-{i}",
+                    "pipeline_crud",
+                    "pipeline",
+                    f"pipe-{i}",
+                    project_id,
+                    "testuser",
+                    "created",
+                    f"Pipeline {i} created",
+                    json.dumps({"index": i}),
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
+            )
+        await db.commit()
+
+    async def test_empty_feed(self, client, mock_db):
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["items"] == []
+        assert data["has_more"] is False
+        assert data["total_count"] == 0
+
+    async def test_returns_items(self, client, mock_db):
+        await self._seed_events(mock_db, "PVT_123", count=3)
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["items"]) == 3
+        assert data["total_count"] == 3
+
+    async def test_items_ordered_desc(self, client, mock_db):
+        await self._seed_events(mock_db, "PVT_123", count=3)
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        items = resp.json()["items"]
+        timestamps = [item["created_at"] for item in items]
+        assert timestamps == sorted(timestamps, reverse=True)
+
+    async def test_limit_respected(self, client, mock_db):
+        await self._seed_events(mock_db, "PVT_123", count=5)
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2})
+        data = resp.json()
+        assert len(data["items"]) == 2
+        assert data["has_more"] is True
+        assert data["next_cursor"] is not None
+
+    async def test_cursor_pagination(self, client, mock_db):
+        await self._seed_events(mock_db, "PVT_123", count=5)
+        # First page
+        resp1 = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2})
+        page1 = resp1.json()
+        cursor = page1["next_cursor"]
+        assert cursor is not None
+
+        # Second page
+        resp2 = await client.get(
+            ACTIVITY_URL,
+            params={"project_id": "PVT_123", "limit": 2, "cursor": cursor},
+        )
+        page2 = resp2.json()
+        # Second page should have different items
+        ids1 = {item["id"] for item in page1["items"]}
+        ids2 = {item["id"] for item in page2["items"]}
+        assert ids1.isdisjoint(ids2)
+
+    async def test_cursor_page_omits_total_count(self, client, mock_db):
+        await self._seed_events(mock_db, "PVT_123", count=5)
+        resp1 = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2})
+        cursor = resp1.json()["next_cursor"]
+
+        resp2 = await client.get(
+            ACTIVITY_URL,
+            params={"project_id": "PVT_123", "limit": 2, "cursor": cursor},
+        )
+        assert resp2.json()["total_count"] is None
+
+    async def test_event_type_filter(self, client, mock_db):
+        # Seed with different event types
+        await mock_db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "e1",
+                "pipeline_crud",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "created",
+                "Pipeline created",
+                "2024-01-01T00:00:00Z",
+            ),
+        )
+        await mock_db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "e2",
+                "tool_crud",
+                "tool",
+                "t1",
+                "PVT_123",
+                "user",
+                "created",
+                "Tool created",
+                "2024-01-01T00:01:00Z",
+            ),
+        )
+        await mock_db.commit()
+
+        resp = await client.get(
+            ACTIVITY_URL,
+            params={"project_id": "PVT_123", "event_type": "pipeline_crud"},
+        )
+        data = resp.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["event_type"] == "pipeline_crud"
+
+    async def test_multi_event_type_filter(self, client, mock_db):
+        for i, et in enumerate(["pipeline_crud", "tool_crud", "chore_crud"]):
+            await mock_db.execute(
+                """INSERT INTO activity_events
+                   (id, event_type, entity_type, entity_id, project_id,
+                    actor, action, summary, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    f"e{i}",
+                    et,
+                    "pipeline",
+                    f"p{i}",
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Event {i}",
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
+            )
+        await mock_db.commit()
+
+        resp = await client.get(
+            ACTIVITY_URL,
+            params={"project_id": "PVT_123", "event_type": "pipeline_crud,tool_crud"},
+        )
+        assert len(resp.json()["items"]) == 2
+
+    async def test_invalid_cursor_ignored(self, client, mock_db):
+        """Invalid cursor is logged and ignored (no 4xx error)."""
+        await self._seed_events(mock_db, "PVT_123", count=2)
+        resp = await client.get(
+            ACTIVITY_URL,
+            params={"project_id": "PVT_123", "cursor": "not-valid-cursor"},
+        )
+        assert resp.status_code == 200
+
+    async def test_detail_field_parsed_as_json(self, client, mock_db):
+        """The detail column is JSON-parsed into a dict on output."""
+        await mock_db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, detail, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "e1",
+                "test",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "x",
+                "s",
+                json.dumps({"key": "value"}),
+                "2024-01-01T00:00:00Z",
+            ),
+        )
+        await mock_db.commit()
+
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        items = resp.json()["items"]
+        assert items[0]["detail"] == {"key": "value"}
+
+    async def test_null_detail_field(self, client, mock_db):
+        """Null detail column renders as None."""
+        await mock_db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, detail, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "e1",
+                "test",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "x",
+                "s",
+                None,
+                "2024-01-01T00:00:00Z",
+            ),
+        )
+        await mock_db.commit()
+
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        assert resp.json()["items"][0]["detail"] is None
+
+    async def test_unparseable_detail_field(self, client, mock_db):
+        """Non-JSON detail column becomes None."""
+        await mock_db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, detail, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "e1",
+                "test",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "x",
+                "s",
+                "not-json{{{",
+                "2024-01-01T00:00:00Z",
+            ),
+        )
+        await mock_db.commit()
+
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        assert resp.json()["items"][0]["detail"] is None
+
+    async def test_project_scoping(self, client, mock_db):
+        """Events for other projects are not returned."""
+        await self._seed_events(mock_db, "PVT_123", count=2)
+        await self._seed_events(mock_db, "PVT_OTHER", count=3)
+
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123"})
+        assert resp.json()["total_count"] == 2
+
+
+# ── Entity History endpoint ──────────────────────────────────────────────
+
+
+class TestGetEntityHistory:
+    """Tests for GET /api/v1/activity/{entity_type}/{entity_id}."""
+
+    async def test_valid_entity_type(self, client, mock_db):
+        await mock_db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "e1",
+                "pipeline_crud",
+                "pipeline",
+                "pipe-1",
+                "PVT_123",
+                "user",
+                "created",
+                "Pipeline created",
+                "2024-01-01T00:00:00Z",
+            ),
+        )
+        await mock_db.commit()
+
+        resp = await client.get(
+            f"{ACTIVITY_URL}/pipeline/pipe-1",
+            params={"project_id": "PVT_123"},
+        )
+        assert resp.status_code == 200
+        assert len(resp.json()["items"]) == 1
+
+    async def test_invalid_entity_type_returns_422(self, client):
+        resp = await client.get(
+            f"{ACTIVITY_URL}/invalid_type/some-id",
+            params={"project_id": "PVT_123"},
+        )
+        assert resp.status_code == 422
+        assert "invalid_type" in resp.json()["error"].lower() or "Invalid" in resp.json()["error"]
+
+    async def test_all_allowed_entity_types(self, client, mock_db):
+        """All documented entity types are accepted."""
+        for et in ("pipeline", "chore", "agent", "app", "tool", "issue"):
+            resp = await client.get(
+                f"{ACTIVITY_URL}/{et}/some-id",
+                params={"project_id": "PVT_123"},
+            )
+            assert resp.status_code == 200, f"entity_type={et} rejected"
+
+    async def test_entity_id_scoping(self, client, mock_db):
+        """Only events for the specific entity are returned."""
+        for i, eid in enumerate(["pipe-1", "pipe-2"]):
+            await mock_db.execute(
+                """INSERT INTO activity_events
+                   (id, event_type, entity_type, entity_id, project_id,
+                    actor, action, summary, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    f"e{i}",
+                    "pipeline_crud",
+                    "pipeline",
+                    eid,
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Pipeline {eid}",
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
+            )
+        await mock_db.commit()
+
+        resp = await client.get(
+            f"{ACTIVITY_URL}/pipeline/pipe-1",
+            params={"project_id": "PVT_123"},
+        )
+        items = resp.json()["items"]
+        assert len(items) == 1
+        assert items[0]["entity_id"] == "pipe-1"
+
+    async def test_empty_history(self, client, mock_db):
+        resp = await client.get(
+            f"{ACTIVITY_URL}/pipeline/nonexistent",
+            params={"project_id": "PVT_123"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["items"] == []

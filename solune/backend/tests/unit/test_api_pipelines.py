@@ -853,3 +853,93 @@ class TestSubIssueErrors:
         assert resp.status_code == 200
         data = resp.json()
         assert data["success"] is False
+
+
+# ── Helper function tests ────────────────────────────────────────────────
+
+
+class TestNormalizeIssueDescription:
+    def test_strips_whitespace(self):
+        from src.api.pipelines import _normalize_issue_description
+
+        assert _normalize_issue_description("  hello  ") == "hello"
+
+    def test_empty_raises_validation_error(self):
+        from src.api.pipelines import _normalize_issue_description
+        from src.exceptions import ValidationError
+
+        with pytest.raises(ValidationError):
+            _normalize_issue_description("   ")
+
+    def test_whitespace_only_raises(self):
+        from src.api.pipelines import _normalize_issue_description
+        from src.exceptions import ValidationError
+
+        with pytest.raises(ValidationError):
+            _normalize_issue_description("\n\t\n")
+
+
+class TestDeriveIssueTitle:
+    def test_from_heading(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("# My Great Issue\n\nSome body text")
+        assert result == "My Great Issue"
+
+    def test_from_first_line_no_heading(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("First line here\nSecond line")
+        assert result == "First line here"
+
+    def test_empty_lines_skipped(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("\n\n\nActual content")
+        assert result == "Actual content"
+
+    def test_all_empty_returns_default(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("")
+        assert result == "Imported Parent Issue"
+
+    def test_long_title_truncated(self):
+        from src.api.pipelines import MAX_DERIVED_TITLE_LENGTH, _derive_issue_title
+
+        long_text = "# " + "A" * 200
+        result = _derive_issue_title(long_text)
+        assert len(result) <= MAX_DERIVED_TITLE_LENGTH
+        assert result.endswith("...")
+
+    def test_exact_max_length_not_truncated(self):
+        from src.api.pipelines import MAX_DERIVED_TITLE_LENGTH, _derive_issue_title
+
+        title = "X" * MAX_DERIVED_TITLE_LENGTH
+        result = _derive_issue_title(title)
+        assert result == title
+        assert "..." not in result
+
+    def test_strips_markdown_prefix(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("> * quoted bullet text\n")
+        assert result == "quoted bullet text"
+
+    def test_collapses_whitespace(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("Multiple   spaces   here")
+        assert result == "Multiple spaces here"
+
+    def test_heading_deep_level(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("###### Deep heading\nBody")
+        assert result == "Deep heading"
+
+    def test_markdown_prefix_only_returns_default(self):
+        from src.api.pipelines import _derive_issue_title
+
+        result = _derive_issue_title("> - * ")
+        assert result == "Imported Parent Issue"

@@ -19,7 +19,7 @@ jobs:
           version: "0.10.9"
 
       - name: Install CodeGraphContext
-        run: uv pip install --system "tree-sitter-language-pack<1.0.0" codegraphcontext
+        run: uv pip install --system --break-system-packages "tree-sitter-language-pack<1.0.0" codegraphcontext
 
       - name: Index the repository
         run: cgc index .

@@ -953,3 +953,127 @@ class TestSubIssueCacheLifecycle:
             assert mock_cache.delete.call_count >= 1, (
                 "cache.delete should be called for sub-issue cleanup on manual refresh"
             )
+
+
+# ── Helper function tests ────────────────────────────────────────────────
+
+
+class TestClassifyGithubError:
+    def test_rate_limit_429(self):
+        from unittest.mock import MagicMock
+
+        from src.api.board import _classify_github_error
+
+        exc = MagicMock(spec=["response"])
+        exc.response.status_code = 429
+        exc.__class__.__name__ = "RequestFailed"
+        # Need to use the actual RequestFailed type
+        from githubkit.exception import RequestFailed
+
+        response = MagicMock()
+        response.status_code = 429
+        real_exc = RequestFailed.__new__(RequestFailed)
+        real_exc.response = response
+        result = _classify_github_error(real_exc)
+        assert result == "GitHub API rate limit exceeded"
+
+    def test_server_error_500(self):
+        from unittest.mock import MagicMock
+
+        from githubkit.exception import RequestFailed
+
+        from src.api.board import _classify_github_error
+
+        response = MagicMock()
+        response.status_code = 503
+        exc = RequestFailed.__new__(RequestFailed)
+        exc.response = response
+        result = _classify_github_error(exc)
+        assert result == "GitHub API is temporarily unavailable"
+
+    def test_graphql_error(self):
+        from src.api.board import _classify_github_error
+
+        result = _classify_github_error(Exception("GraphQL error: query failed"))
+        assert result == "GitHub GraphQL query failed"
+
+    def test_timeout_error(self):
+        from src.api.board import _classify_github_error
+
+        result = _classify_github_error(Exception("Request timed out"))
+        assert result == "Request to GitHub API timed out"
+
+    def test_connect_error(self):
+        from src.api.board import _classify_github_error
+
+        result = _classify_github_error(Exception("Could not connect to host"))
+        assert result == "Could not connect to GitHub API"
+
+    def test_unknown_error(self):
+        from src.api.board import _classify_github_error
+
+        result = _classify_github_error(Exception("something completely unexpected"))
+        assert result == "Unexpected error communicating with GitHub"
+
+
+class TestNormalizeStatusColor:
+    def test_valid_color(self):
+        from src.api.board import _normalize_status_color
+
+        assert _normalize_status_color("GREEN") == StatusColor.GREEN
+
+    def test_lowercase_color(self):
+        from src.api.board import _normalize_status_color
+
+        assert _normalize_status_color("red") == StatusColor.RED
+
+    def test_none_returns_gray(self):
+        from src.api.board import _normalize_status_color
+
+        assert _normalize_status_color(None) == StatusColor.GRAY
+
+    def test_empty_returns_gray(self):
+        from src.api.board import _normalize_status_color
+
+        assert _normalize_status_color("") == StatusColor.GRAY
+
+    def test_invalid_returns_gray(self):
+        from src.api.board import _normalize_status_color
+
+        assert _normalize_status_color("MAGENTA") == StatusColor.GRAY
+
+
+class TestRetryAfterSeconds:
+    def test_timedelta(self):
+        from datetime import timedelta
+
+        from src.api.board import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = timedelta(seconds=30)
+        assert _retry_after_seconds(exc) == 30
+
+    def test_integer(self):
+        from src.api.board import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = 45
+        assert _retry_after_seconds(exc) == 45
+
+    def test_negative_clamped_to_one(self):
+        from src.api.board import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = -5
+        assert _retry_after_seconds(exc) == 1
+
+    def test_no_retry_after_defaults_to_60(self):
+        from src.api.board import _retry_after_seconds
+
+        assert _retry_after_seconds(Exception("error")) == 60
+
+    def test_retry_after_in_args(self):
+        from src.api.board import _retry_after_seconds
+
+        exc = Exception("rate limit", 15)
+        assert _retry_after_seconds(exc) == 15
