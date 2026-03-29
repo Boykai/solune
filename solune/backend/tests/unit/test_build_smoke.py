@@ -32,10 +32,7 @@ class TestAllModulesImport:
     @pytest.mark.parametrize("module_name", ALL_MODULES)
     def test_module_imports(self, module_name: str) -> None:
         """Import a single module — catches broken dependencies and moved symbols."""
-        try:
-            importlib.import_module(module_name)
-        except Exception as exc:
-            pytest.fail(f"Failed to import {module_name}: {exc}")
+        importlib.import_module(module_name)
 
 
 class TestCriticalImports:

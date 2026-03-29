@@ -96,7 +96,7 @@ describe('Build Smoke Tests', () => {
 
     it('exports useProjects hook', async () => {
       const mod = await import('@/hooks/useProjects');
-      expect(mod).toBeDefined();
+      expect(mod.useProjects).toBeDefined();
     });
   });
 
@@ -106,14 +106,15 @@ describe('Build Smoke Tests', () => {
       expect(mod.formatAgentName).toBeDefined();
     });
 
-    it('exports errorHints', async () => {
+    it('exports getErrorHint', async () => {
       const mod = await import('@/utils/errorHints');
-      expect(mod).toBeDefined();
+      expect(mod.getErrorHint).toBeDefined();
     });
 
     it('exports rateLimit utilities', async () => {
       const mod = await import('@/utils/rateLimit');
-      expect(mod).toBeDefined();
+      expect(mod.extractRateLimitInfo).toBeDefined();
+      expect(mod.isRateLimitApiError).toBeDefined();
     });
   });
 
