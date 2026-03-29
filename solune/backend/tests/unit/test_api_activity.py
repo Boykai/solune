@@ -53,7 +53,7 @@ class TestDecodeCursor:
         assert eid == "evt-99"
 
     def test_invalid_base64_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             _decode_cursor("not-valid-base64!!!")
 
     def test_invalid_json_raises(self):

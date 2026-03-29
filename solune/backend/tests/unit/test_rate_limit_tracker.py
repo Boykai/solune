@@ -9,7 +9,6 @@ Covers:
 
 from unittest.mock import patch
 
-import aiosqlite
 import pytest
 
 from src.services.rate_limit_tracker import RateLimitTracker, get_tracker
