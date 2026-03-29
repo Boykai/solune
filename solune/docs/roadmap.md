@@ -123,7 +123,7 @@ Woven into each release:
 
 ## Architecture Evolution
 
-```
+```text
 v0.1.0 (today)                    v0.5.0 (target)
 ─────────────────                 ─────────────────────────────────
 
