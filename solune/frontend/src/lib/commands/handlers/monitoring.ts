@@ -71,7 +71,7 @@ export function feedbackHandler(): CommandResult {
   return {
     success: true,
     message:
-      '💬 We\'d love to hear from you! Share feedback at: https://github.com/Boykai/github-workflows/discussions',
+      '💬 We\'d love to hear from you! Share feedback at: https://github.com/Boykai/solune/discussions',
     clearInput: true,
   };
 }

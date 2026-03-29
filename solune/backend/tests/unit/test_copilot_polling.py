@@ -9639,7 +9639,7 @@ class TestCopilotReviewChildPrFalsePositive:
     as a legitimate completion signal, posting a premature "copilot-review:
     Done!" marker before the actual Copilot code review was submitted.
 
-    See: https://github.com/Boykai/github-workflows/issues/1584
+    See: https://github.com/Boykai/solune/issues/1584
     """
 
     @pytest.fixture(autouse=True)

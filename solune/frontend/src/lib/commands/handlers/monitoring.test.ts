@@ -73,7 +73,7 @@ describe('feedbackHandler', () => {
 
     expect(result.success).toBe(true);
     expect(result.clearInput).toBe(true);
-    expect(result.message).toContain('https://github.com/Boykai/github-workflows/discussions');
+    expect(result.message).toContain('https://github.com/Boykai/solune/discussions');
     expect(result.message).toContain('feedback');
   });
 });
