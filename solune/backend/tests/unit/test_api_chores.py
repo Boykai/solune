@@ -103,11 +103,16 @@ class TestListTemplates:
     async def test_templates_success(self, client, mock_github_service):
         mock_github_service.get_directory_contents = AsyncMock(
             return_value=[
-                {"name": "chore-update-deps.md", "path": ".github/ISSUE_TEMPLATE/chore-update-deps.md"},
+                {
+                    "name": "chore-update-deps.md",
+                    "path": ".github/ISSUE_TEMPLATE/chore-update-deps.md",
+                },
             ]
         )
         mock_github_service.get_file_content = AsyncMock(
-            return_value={"content": "---\nname: Update Dependencies\nabout: Update all deps\n---\nBody"}
+            return_value={
+                "content": "---\nname: Update Dependencies\nabout: Update all deps\n---\nBody"
+            }
         )
         with patch(f"{_API}.resolve_repository", AsyncMock(return_value=("octo", "widgets"))):
             resp = await client.get("/api/v1/chores/PVT_123/templates")
@@ -209,7 +214,9 @@ class TestListChores:
 
     async def test_filter_by_schedule_type(self, client):
         chores = [
-            _make_chore(id="c-1", name="Scheduled", schedule_type=ScheduleType.TIME, schedule_value=7),
+            _make_chore(
+                id="c-1", name="Scheduled", schedule_type=ScheduleType.TIME, schedule_value=7
+            ),
             _make_chore(id="c-2", name="Unscheduled"),
         ]
         self.mock_service.list_chores = AsyncMock(return_value=chores)
@@ -222,7 +229,9 @@ class TestListChores:
     async def test_filter_by_schedule_type_time(self, client):
         chores = [
             _make_chore(id="c-1", name="Timed", schedule_type=ScheduleType.TIME, schedule_value=7),
-            _make_chore(id="c-2", name="Counted", schedule_type=ScheduleType.COUNT, schedule_value=10),
+            _make_chore(
+                id="c-2", name="Counted", schedule_type=ScheduleType.COUNT, schedule_value=10
+            ),
         ]
         self.mock_service.list_chores = AsyncMock(return_value=chores)
         resp = await client.get("/api/v1/chores/PVT_123", params={"schedule_type": "time"})

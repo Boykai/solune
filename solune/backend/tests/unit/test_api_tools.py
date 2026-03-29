@@ -306,17 +306,13 @@ class TestToolsCrud:
 
     async def test_get_tool_found(self, client):
         tool_resp = self._make_tool_response()
-        with patch(
-            "src.api.tools.ToolsService.get_tool", AsyncMock(return_value=tool_resp)
-        ):
+        with patch("src.api.tools.ToolsService.get_tool", AsyncMock(return_value=tool_resp)):
             resp = await client.get("/api/v1/tools/PVT_123/tool-1")
         assert resp.status_code == 200
         assert resp.json()["id"] == "tool-1"
 
     async def test_get_tool_not_found(self, client):
-        with patch(
-            "src.api.tools.ToolsService.get_tool", AsyncMock(return_value=None)
-        ):
+        with patch("src.api.tools.ToolsService.get_tool", AsyncMock(return_value=None)):
             resp = await client.get("/api/v1/tools/PVT_123/nonexistent")
         assert resp.status_code == 404
 
@@ -368,9 +364,7 @@ class TestToolsCrud:
             tools=[self._make_tool_response()],
             count=1,
         )
-        with patch(
-            "src.api.tools.ToolsService.list_tools", AsyncMock(return_value=list_resp)
-        ):
+        with patch("src.api.tools.ToolsService.list_tools", AsyncMock(return_value=list_resp)):
             resp = await client.get("/api/v1/tools/PVT_123")
         assert resp.status_code == 200
         data = resp.json()
@@ -379,12 +373,8 @@ class TestToolsCrud:
     async def test_list_tools_with_pagination(self, client):
         tools = [self._make_tool_response(id=f"tool-{i}") for i in range(3)]
         list_resp = McpToolConfigListResponse(tools=tools, count=3)
-        with patch(
-            "src.api.tools.ToolsService.list_tools", AsyncMock(return_value=list_resp)
-        ):
-            resp = await client.get(
-                "/api/v1/tools/PVT_123", params={"limit": 2}
-            )
+        with patch("src.api.tools.ToolsService.list_tools", AsyncMock(return_value=list_resp)):
+            resp = await client.get("/api/v1/tools/PVT_123", params={"limit": 2})
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["tools"]) == 2

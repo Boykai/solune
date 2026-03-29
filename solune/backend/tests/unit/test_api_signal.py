@@ -214,9 +214,11 @@ class TestCheckSignalLinkStatus:
         self.mock_get_conn.return_value = None
         self.mock_check.return_value = {"linked": True, "number": "+1234567890"}
         self.mock_get_phone.return_value = None
-        with patch(f"{_BRIDGE}.send_welcome_message", new_callable=AsyncMock), \
-             patch(f"{_BRIDGE}.restart_signal_ws_listener", new_callable=AsyncMock), \
-             patch("src.services.task_registry.task_registry") as mock_registry:
+        with (
+            patch(f"{_BRIDGE}.send_welcome_message", new_callable=AsyncMock),
+            patch(f"{_BRIDGE}.restart_signal_ws_listener", new_callable=AsyncMock),
+            patch("src.services.task_registry.task_registry") as mock_registry,
+        ):
             mock_registry.create_task = MagicMock()
             resp = await client.get("/api/v1/signal/connection/link/status")
         assert resp.status_code == 200

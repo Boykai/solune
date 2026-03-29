@@ -19,7 +19,9 @@ async def tracker(mock_db):
     """RateLimitTracker wired to the in-memory test database."""
     t = RateLimitTracker()
     t._table_ready = False
-    with patch("src.services.rate_limit_tracker.RateLimitTracker._ensure_table", wraps=t._ensure_table):
+    with patch(
+        "src.services.rate_limit_tracker.RateLimitTracker._ensure_table", wraps=t._ensure_table
+    ):
         with patch("src.services.database.get_db", return_value=mock_db):
             yield t
 
@@ -49,7 +51,9 @@ class TestEnsureTable:
         t = RateLimitTracker()
         t._table_ready = True
         # Should not call get_db at all
-        with patch("src.services.database.get_db", side_effect=RuntimeError("should not be called")):
+        with patch(
+            "src.services.database.get_db", side_effect=RuntimeError("should not be called")
+        ):
             await t._ensure_table()
 
 
@@ -59,7 +63,9 @@ class TestRecordSnapshot:
         t._table_ready = False
         with patch("src.services.database.get_db", return_value=mock_db):
             await t.record_snapshot(remaining=4500, limit=5000, reset_at=1700000000)
-        cursor = await mock_db.execute("SELECT remaining, \"limit\", reset_at FROM rate_limit_snapshots")
+        cursor = await mock_db.execute(
+            'SELECT remaining, "limit", reset_at FROM rate_limit_snapshots'
+        )
         rows = await cursor.fetchall()
         assert len(rows) == 1
         assert rows[0][0] == 4500
@@ -83,7 +89,7 @@ class TestRecordSnapshot:
             await t._ensure_table()
         # Manually insert an old row (48 hours ago)
         await mock_db.execute(
-            "INSERT INTO rate_limit_snapshots (timestamp, remaining, \"limit\", reset_at) "
+            'INSERT INTO rate_limit_snapshots (timestamp, remaining, "limit", reset_at) '
             "VALUES (strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-48 hours'), 100, 5000, 0)"
         )
         await mock_db.commit()

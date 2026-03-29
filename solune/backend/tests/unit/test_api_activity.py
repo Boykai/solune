@@ -121,9 +121,7 @@ class TestGetActivityFeed:
 
     async def test_limit_respected(self, client, mock_db):
         await self._seed_events(mock_db, "PVT_123", count=5)
-        resp = await client.get(
-            ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2}
-        )
+        resp = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2})
         data = resp.json()
         assert len(data["items"]) == 2
         assert data["has_more"] is True
@@ -132,9 +130,7 @@ class TestGetActivityFeed:
     async def test_cursor_pagination(self, client, mock_db):
         await self._seed_events(mock_db, "PVT_123", count=5)
         # First page
-        resp1 = await client.get(
-            ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2}
-        )
+        resp1 = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2})
         page1 = resp1.json()
         cursor = page1["next_cursor"]
         assert cursor is not None
@@ -152,9 +148,7 @@ class TestGetActivityFeed:
 
     async def test_cursor_page_omits_total_count(self, client, mock_db):
         await self._seed_events(mock_db, "PVT_123", count=5)
-        resp1 = await client.get(
-            ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2}
-        )
+        resp1 = await client.get(ACTIVITY_URL, params={"project_id": "PVT_123", "limit": 2})
         cursor = resp1.json()["next_cursor"]
 
         resp2 = await client.get(
@@ -170,16 +164,34 @@ class TestGetActivityFeed:
                (id, event_type, entity_type, entity_id, project_id,
                 actor, action, summary, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("e1", "pipeline_crud", "pipeline", "p1", "PVT_123",
-             "user", "created", "Pipeline created", "2024-01-01T00:00:00Z"),
+            (
+                "e1",
+                "pipeline_crud",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "created",
+                "Pipeline created",
+                "2024-01-01T00:00:00Z",
+            ),
         )
         await mock_db.execute(
             """INSERT INTO activity_events
                (id, event_type, entity_type, entity_id, project_id,
                 actor, action, summary, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("e2", "tool_crud", "tool", "t1", "PVT_123",
-             "user", "created", "Tool created", "2024-01-01T00:01:00Z"),
+            (
+                "e2",
+                "tool_crud",
+                "tool",
+                "t1",
+                "PVT_123",
+                "user",
+                "created",
+                "Tool created",
+                "2024-01-01T00:01:00Z",
+            ),
         )
         await mock_db.commit()
 
@@ -198,8 +210,17 @@ class TestGetActivityFeed:
                    (id, event_type, entity_type, entity_id, project_id,
                     actor, action, summary, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (f"e{i}", et, "pipeline", f"p{i}", "PVT_123",
-                 "user", "created", f"Event {i}", f"2024-01-01T00:0{i}:00Z"),
+                (
+                    f"e{i}",
+                    et,
+                    "pipeline",
+                    f"p{i}",
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Event {i}",
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
             )
         await mock_db.commit()
 
@@ -225,8 +246,18 @@ class TestGetActivityFeed:
                (id, event_type, entity_type, entity_id, project_id,
                 actor, action, summary, detail, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("e1", "test", "pipeline", "p1", "PVT_123",
-             "user", "x", "s", json.dumps({"key": "value"}), "2024-01-01T00:00:00Z"),
+            (
+                "e1",
+                "test",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "x",
+                "s",
+                json.dumps({"key": "value"}),
+                "2024-01-01T00:00:00Z",
+            ),
         )
         await mock_db.commit()
 
@@ -241,8 +272,18 @@ class TestGetActivityFeed:
                (id, event_type, entity_type, entity_id, project_id,
                 actor, action, summary, detail, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("e1", "test", "pipeline", "p1", "PVT_123",
-             "user", "x", "s", None, "2024-01-01T00:00:00Z"),
+            (
+                "e1",
+                "test",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "x",
+                "s",
+                None,
+                "2024-01-01T00:00:00Z",
+            ),
         )
         await mock_db.commit()
 
@@ -256,8 +297,18 @@ class TestGetActivityFeed:
                (id, event_type, entity_type, entity_id, project_id,
                 actor, action, summary, detail, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("e1", "test", "pipeline", "p1", "PVT_123",
-             "user", "x", "s", "not-json{{{", "2024-01-01T00:00:00Z"),
+            (
+                "e1",
+                "test",
+                "pipeline",
+                "p1",
+                "PVT_123",
+                "user",
+                "x",
+                "s",
+                "not-json{{{",
+                "2024-01-01T00:00:00Z",
+            ),
         )
         await mock_db.commit()
 
@@ -285,8 +336,17 @@ class TestGetEntityHistory:
                (id, event_type, entity_type, entity_id, project_id,
                 actor, action, summary, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            ("e1", "pipeline_crud", "pipeline", "pipe-1", "PVT_123",
-             "user", "created", "Pipeline created", "2024-01-01T00:00:00Z"),
+            (
+                "e1",
+                "pipeline_crud",
+                "pipeline",
+                "pipe-1",
+                "PVT_123",
+                "user",
+                "created",
+                "Pipeline created",
+                "2024-01-01T00:00:00Z",
+            ),
         )
         await mock_db.commit()
 
@@ -322,8 +382,17 @@ class TestGetEntityHistory:
                    (id, event_type, entity_type, entity_id, project_id,
                     actor, action, summary, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (f"e{i}", "pipeline_crud", "pipeline", eid, "PVT_123",
-                 "user", "created", f"Pipeline {eid}", f"2024-01-01T00:0{i}:00Z"),
+                (
+                    f"e{i}",
+                    "pipeline_crud",
+                    "pipeline",
+                    eid,
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Pipeline {eid}",
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
             )
         await mock_db.commit()
 
