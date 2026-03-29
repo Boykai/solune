@@ -10,10 +10,10 @@
       "pattern": "^https://img\\.shields\\.io/"
     },
     {
-      "pattern": "^https://github\\.com/Boykai/github-workflows/commits/main$"
+      "pattern": "^https://github\\.com/Boykai/solune/commits/main$"
     },
     {
-      "pattern": "^https://github\\.com/Boykai/github-workflows/blob/main/"
+      "pattern": "^https://github\\.com/Boykai/solune/blob/main/"
     },
     {
       "pattern": "^https?://localhost"

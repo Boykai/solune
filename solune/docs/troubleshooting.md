@@ -180,7 +180,7 @@ docker compose logs -f backend    # Backend only
 docker compose logs -f frontend   # Frontend only
 ```
 
-If you've tried the steps above and the issue persists, [open a GitHub Issue](https://github.com/Boykai/github-workflows/issues/new) with your error logs and we'll help you out.
+If you've tried the steps above and the issue persists, [open a GitHub Issue](https://github.com/Boykai/solune/issues/new) with your error logs and we'll help you out.
 
 ---
 
