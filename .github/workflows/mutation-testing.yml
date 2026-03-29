@@ -12,7 +12,7 @@ jobs:
   backend-mutation:
     name: Backend Mutation Testing
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     continue-on-error: true
     permissions:
       contents: read
@@ -58,7 +58,7 @@ jobs:
   frontend-mutation:
     name: Frontend Mutation Testing
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     continue-on-error: true
     permissions:
       contents: read
