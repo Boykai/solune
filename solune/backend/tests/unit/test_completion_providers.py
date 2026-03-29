@@ -134,11 +134,15 @@ class TestCopilotCompletionProvider:
         mock_event_type.SESSION_IDLE = "session_idle"
         mock_event_type.SESSION_ERROR = "session_error"
 
+        mock_permission_handler = MagicMock()
+        mock_permission_handler.approve_all = MagicMock()
+
         with (
             patch.dict(
                 "sys.modules",
                 {
                     "copilot": MagicMock(),
+                    "copilot.types": MagicMock(PermissionHandler=mock_permission_handler),
                     "copilot.session": MagicMock(),
                     "copilot.generated": MagicMock(),
                     "copilot.generated.session_events": MagicMock(SessionEventType=mock_event_type),

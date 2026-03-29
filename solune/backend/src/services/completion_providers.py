@@ -167,7 +167,7 @@ class CopilotCompletionProvider(CompletionProvider):
         from copilot.generated.session_events import (  # type: ignore[reportMissingImports]
             SessionEventType,
         )
-        from copilot.session import PermissionHandler  # type: ignore[reportMissingImports]
+        from copilot.types import PermissionHandler  # type: ignore[reportMissingImports]
 
         # Extract system message for session config, user message for prompt
         system_content = ""
