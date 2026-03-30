@@ -54,7 +54,7 @@ async def test_my_authenticated_flow(auth_client):
     # auth_client already has a valid session cookie
     response = await auth_client.get("/api/v1/auth/me")
     assert response.status_code == 200
-    assert response.json()["github_username"] == "test-user"
+    assert response.json()["github_username"] == "testuser"
 ```
 
 ### 2. Use the `unauthenticated_client` fixture for 401 tests

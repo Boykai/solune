@@ -16,6 +16,7 @@ import aiosqlite
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.constants import SESSION_COOKIE_NAME
 from src.main import create_app
 from tests.conftest import (
     TEST_ACCESS_TOKEN,
@@ -150,6 +151,10 @@ async def e2e_app(
         patch("src.api.projects.connection_manager", mock_connection_manager),
         patch("src.api.tasks.connection_manager", mock_connection_manager),
         patch("src.api.workflow.connection_manager", mock_connection_manager),
+        # ── Copilot polling: prevent background task leaks ──
+        # select_project triggers ensure_polling_started() which spawns
+        # long-lived background tasks.  Stub it to a no-op for E2E tests.
+        patch("src.api.projects._start_copilot_polling", new_callable=AsyncMock),
     ]
 
     with contextlib.ExitStack() as stack:
@@ -178,8 +183,8 @@ async def auth_client(e2e_app):
             json={"github_token": TEST_ACCESS_TOKEN},
         )
         assert response.status_code == 200, f"dev-login failed: {response.text}"
-        assert "session_id" in response.cookies or any(
-            "session_id" in str(h) for h in response.headers.raw
+        assert SESSION_COOKIE_NAME in response.cookies or any(
+            SESSION_COOKIE_NAME in str(h) for h in response.headers.raw
         ), "Session cookie not set after dev-login"
         yield client
 

@@ -36,7 +36,7 @@ This document defines the contracts for the test fixtures used by the authentica
 | Field | Value |
 |-------|-------|
 | `github_user_id` | `"12345"` |
-| `github_username` | `"test-user"` |
+| `github_username` | `"testuser"` |
 | `github_avatar_url` | `"https://avatars.githubusercontent.com/u/12345"` |
 | `access_token` | `"ghp_test_access_token"` |
 | `selected_project_id` | `None` (initially) |
@@ -142,7 +142,7 @@ This document defines the contracts for the test fixtures used by the authentica
 | Entity | Convention | Example |
 |--------|-----------|---------|
 | GitHub user ID | `"12345"` | Fixed across all tests |
-| GitHub username | `"test-user"` | Fixed across all tests |
+| GitHub username | `"testuser"` | Fixed across all tests |
 | Project ID | `"PVT_test{N}"` | `"PVT_test123"`, `"PVT_test456"` |
 | Pipeline name | `"Test Pipeline {N}"` | `"Test Pipeline 1"` |
 | Chat message | `"Test message {context}"` | `"Test message for chat flow"` |

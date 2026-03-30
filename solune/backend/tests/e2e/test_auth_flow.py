@@ -5,8 +5,11 @@ Verifies: dev-login → cookie set → session persistence → logout → invali
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
+from src.constants import SESSION_COOKIE_NAME
 from tests.conftest import TEST_GITHUB_USER_ID, TEST_GITHUB_USERNAME
 
 
@@ -55,7 +58,23 @@ class TestAuthLifecycle:
 
     @pytest.mark.asyncio
     async def test_invalid_cookie_returns_401(self, unauthenticated_client):
-        """A made-up session_id cookie is rejected with 401."""
-        unauthenticated_client.cookies.set("session_id", "bogus-invalid-session-id")
+        """A made-up session cookie is rejected with 401."""
+        unauthenticated_client.cookies.set(SESSION_COOKIE_NAME, "bogus-invalid-session-id")
         response = await unauthenticated_client.get("/api/v1/auth/me")
         assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_expired_session_returns_401(self, auth_client, test_db):
+        """A session whose updated_at is older than session_expire_hours returns 401."""
+        # Confirm logged in first
+        me = await auth_client.get("/api/v1/auth/me")
+        assert me.status_code == 200
+
+        # Force the session to be expired by backdating updated_at
+        expired_time = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
+        await test_db.execute("UPDATE user_sessions SET updated_at = ?", (expired_time,))
+        await test_db.commit()
+
+        # Now the session should be treated as expired → 401
+        me_after = await auth_client.get("/api/v1/auth/me")
+        assert me_after.status_code == 401
