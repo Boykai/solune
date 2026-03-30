@@ -99,13 +99,13 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Create `load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str, Any]` async function that queries `mcp_tool_configs` table for active configs matching `project_id`, converts each `McpToolConfig` to a dict compatible with `GitHubCopilotOptions.mcp_servers` (using `name` as key, `endpoint_url` and `config_content` as values), returns empty dict when no MCP tools configured or on error (FR-012), with appropriate logging in solune/backend/src/services/agent_tools.py
+- [ ] T021 [US3] Create `load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str, Any]` async function that queries `mcp_tool_configs` table for active configs matching `project_id`, converts each `McpToolConfig` to a dict compatible with `GitHubCopilotOptions.mcp_servers` (using `name` as key, `endpoint_url` and `config_content` as values), returns empty dict when no MCP tools configured (log at INFO level) or on error (log at WARNING/ERROR level per FR-012) in solune/backend/src/services/agent_tools.py
 - [ ] T022 [P] [US3] Update `create_agent()` and `_create_copilot_agent()` in agent_provider.py to accept optional `mcp_servers: dict[str, Any] | None = None` parameter and pass it to `GitHubCopilotOptions` when creating the Copilot agent in solune/backend/src/services/agent_provider.py
 - [ ] T023 [US3] Wire `load_mcp_tools()` into `ChatAgentService` — call `load_mcp_tools(project_id, db)` during agent creation and pass the resulting `mcp_servers` dict to `create_agent()` in solune/backend/src/services/chat_agent.py
 
 ### Tests for User Story 3
 
-- [ ] T024 [US3] Add `TestLoadMcpTools` test class with tests: returns valid config dicts when active MCP configs exist for project, returns empty dict when no MCP tools configured, returns empty dict and logs error on database failure (FR-012), only loads `is_active=True` configs in solune/backend/tests/unit/test_agent_tools.py
+- [ ] T024 [US3] Add `TestLoadMcpTools` test class with tests: returns valid config dicts when active MCP configs exist for project, returns empty dict when no MCP tools configured (INFO log), returns empty dict and logs warning/error on database failure (FR-012), only loads `is_active=True` configs in solune/backend/tests/unit/test_agent_tools.py
 
 **Checkpoint**: All three user stories are independently functional. MCP tools are loaded when available, skipped gracefully when not. Verify with `uv run pytest tests/unit/test_agent_tools.py tests/unit/test_chat_agent.py -x -v` from solune/backend/.
 
