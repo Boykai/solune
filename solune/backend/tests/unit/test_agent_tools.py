@@ -52,7 +52,7 @@ class TestCreateTaskProposal:
         ctx = _make_context()
         long_title = "A" * 300
         result = await create_task_proposal(ctx, title=long_title, description="desc")
-        assert len(result["action_data"]["proposed_title"]) <= 256
+        assert len(result["action_data"]["proposed_title"]) == 100
 
     async def test_truncates_long_description(self):
         ctx = _make_context()
