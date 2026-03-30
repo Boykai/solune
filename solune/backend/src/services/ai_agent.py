@@ -61,6 +61,11 @@ class StatusChangeIntent:
 class AIAgentService:
     """Service for AI-powered task generation and intent detection.
 
+    .. deprecated:: 0.2.0
+        Replaced by :class:`~src.services.chat_agent.ChatAgentService` which uses
+        the Microsoft Agent Framework.  This class will be removed in v0.3.0.
+        The :meth:`identify_target_task` method is still used by the new agent tools.
+
     Uses a pluggable CompletionProvider for LLM calls:
     - CopilotCompletionProvider (default): GitHub Copilot via user's OAuth token
     - AzureOpenAICompletionProvider (optional): Azure OpenAI with static keys
@@ -69,6 +74,14 @@ class AIAgentService:
     """
 
     def __init__(self, provider: CompletionProvider | None = None):
+        import warnings
+
+        warnings.warn(
+            "AIAgentService is deprecated and will be removed in v0.3.0. "
+            "Use ChatAgentService from src.services.chat_agent instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if provider is not None:
             self._provider = provider
         else:

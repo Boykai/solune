@@ -341,6 +341,127 @@ export const chatApi = {
   },
 
   /**
+   * Send a chat message with streaming response via SSE.
+   *
+   * Yields progressive token events as they arrive from the agent.
+   * Falls back to non-streaming sendMessage() on connection failure.
+   *
+   * @param data - The chat message request
+   * @param onToken - Callback for each token chunk received
+   * @param onDone - Callback when the complete message is ready
+   * @param onError - Callback on error
+   */
+  async sendMessageStream(
+    data: ChatMessageRequest,
+    onToken: (content: string) => void,
+    onDone: (message: ChatMessage) => void,
+    onError: (error: Error) => void,
+  ): Promise<void> {
+    const url = `${API_BASE_URL}/chat/messages/stream`;
+    const csrfToken = getCsrfToken();
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok || !response.body) {
+        // Fall back to non-streaming endpoint
+        const fallbackResult = await chatApi.sendMessage(data);
+        onDone(fallbackResult);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEventType = 'message';
+      let currentDataLines: string[] = [];
+
+      const tryParseJson = (value: unknown, fallback?: unknown): unknown => {
+        if (typeof value !== 'string') return value ?? fallback;
+        try { return JSON.parse(value); } catch { return fallback ?? value; }
+      };
+
+      const processFrame = (eventType: string, dataStr: string) => {
+        const trimmedData = dataStr.trim();
+        if (!trimmedData) return;
+
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(trimmedData);
+        } catch {
+          console.debug('[SSE] Failed to parse event data:', trimmedData);
+          return;
+        }
+
+        if (eventType === 'token') {
+          const tokenData = tryParseJson(parsed.data, { content: parsed.data }) ?? parsed;
+          const content = (tokenData as Record<string, unknown>).content;
+          if (content) onToken(content as string);
+        } else if (eventType === 'done') {
+          const msgData = tryParseJson(parsed.data, parsed.data) ?? parsed;
+          onDone(msgData as ChatMessage);
+        } else if (eventType === 'error') {
+          const message = (parsed.data || parsed.message || parsed.error || 'Stream error') as string;
+          onError(new Error(message));
+        } else if (parsed.content) {
+          // Fallback: direct token content without explicit event type
+          onToken(parsed.content as string);
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+
+          if (line === '') {
+            // Blank line = end of SSE frame
+            if (currentDataLines.length > 0) {
+              processFrame(currentEventType, currentDataLines.join('\n'));
+              currentEventType = 'message';
+              currentDataLines = [];
+            }
+            continue;
+          }
+
+          if (line.startsWith('event:')) {
+            currentEventType = line.slice('event:'.length).trim();
+          } else if (line.startsWith('data:')) {
+            currentDataLines.push(line.slice('data:'.length).replace(/^ /, ''));
+          }
+        }
+      }
+
+      // Flush any remaining buffered frame when the stream ends
+      if (currentDataLines.length > 0) {
+        processFrame(currentEventType, currentDataLines.join('\n'));
+      }
+    } catch {
+      // Fall back to non-streaming endpoint on any error
+      try {
+        const fallbackResult = await chatApi.sendMessage(data);
+        onDone(fallbackResult);
+      } catch (fallbackError) {
+        onError(fallbackError instanceof Error ? fallbackError : new Error('Stream failed'));
+      }
+    }
+  },
+
+  /**
    * Confirm an AI task proposal.
    */
   confirmProposal(proposalId: string, data?: ProposalConfirmRequest): Promise<AITaskProposal> {

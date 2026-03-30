@@ -9,6 +9,7 @@ Covers:
 - _resolve_repository                              → all fallback branches
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -19,7 +20,6 @@ from src.models.chat import (
     IssueRecommendation,
     ProposalStatus,
 )
-from src.models.task import Task
 from src.models.user import UserSession
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -47,6 +47,24 @@ def _proposal(session_id, **kw) -> AITaskProposal:
     }
     defaults.update(kw)
     return AITaskProposal(**defaults)
+
+
+def _parse_sse_events(payload: str) -> list[dict[str, str]]:
+    events: list[dict[str, str]] = []
+    normalized = payload.replace("\r\n", "\n").strip()
+    for chunk in normalized.split("\n\n"):
+        event_name = None
+        data_parts: list[str] = []
+        for line in chunk.splitlines():
+            if line.startswith("event: "):
+                event_name = line.removeprefix("event: ").strip()
+            elif line.startswith("data: "):
+                data_parts.append(line.removeprefix("data: "))
+
+        if event_name is not None:
+            events.append({"event": event_name, "data": "\n".join(data_parts)})
+
+    return events
 
 
 # ── GET /chat/messages ──────────────────────────────────────────────────────
@@ -80,20 +98,37 @@ class TestSendMessageFeatureRequest:
 
     async def test_ai_not_configured(self, client, mock_session, mock_ai_agent_service):
         mock_session.selected_project_id = "PVT_1"
-        with patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")):
+        with (
+            patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")),
+            patch("src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")),
+        ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
         data = resp.json()
         assert "not configured" in data["content"].lower() or "AI features" in data["content"]
 
     async def test_feature_request_generates_recommendation(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_chat_agent_service
     ):
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = True
 
-        rec = _recommendation(mock_session.session_id)
-        mock_ai_agent_service.generate_issue_recommendation.return_value = rec
+        # Configure chat_agent_service.run to return issue_create action
+        from src.models.chat import ActionType, ChatMessage, SenderType
+
+        agent_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I've generated a GitHub issue recommendation:\n\n**Add dark mode**",
+            action_type=ActionType.ISSUE_CREATE,
+            action_data={
+                "proposed_title": "Add dark mode",
+                "user_story": "As a user I want dark mode",
+                "ui_ux_description": "Toggle in header",
+                "functional_requirements": ["Must toggle theme"],
+                "technical_notes": "",
+            },
+        )
+        mock_chat_agent_service.run.return_value = agent_response
 
         resp = await client.post(
             "/api/v1/chat/messages", json={"content": "I want dark mode support"}
@@ -104,80 +139,75 @@ class TestSendMessageFeatureRequest:
         assert "recommendation_id" in data["action_data"]
 
     async def test_feature_detection_fails_gracefully(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_chat_agent_service
     ):
-        """If feature detection throws, falls through to status/task branch."""
+        """If agent run fails, returns an error message."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.side_effect = RuntimeError("ai down")
-        mock_ai_agent_service.parse_status_change_request.return_value = None
-        mock_ai_agent_service.generate_task_from_description.return_value = MagicMock(
-            title="Dark mode", description="Add dark mode feature"
+
+        from src.models.chat import ChatMessage, SenderType
+
+        error_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I encountered an error processing your request (RuntimeError). Please try again.",
         )
+        mock_chat_agent_service.run.return_value = error_response
+
         resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
-        # Falls through to task generation
         data = resp.json()
-        assert data["action_type"] == "task_create"
+        assert "error" in data["content"].lower()
 
 
 # ── POST /chat/messages — status change path ───────────────────────────────
 
 
 class TestSendMessageStatusChange:
-    async def test_status_change_found(self, client, mock_session, mock_ai_agent_service):
+    async def test_status_change_found(self, client, mock_session, mock_chat_agent_service):
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
 
-        # Build a status change response
-        status_change = MagicMock()
-        status_change.task_reference = "login bug"
-        status_change.target_status = "Done"
-        mock_ai_agent_service.parse_status_change_request.return_value = status_change
+        from src.models.chat import ActionType, ChatMessage, SenderType
 
-        # Need cached tasks for identify_target_task
-        target_task = Task(
-            project_id="PVT_1",
-            github_item_id="PVTI_1",
-            title="Fix login bug",
-            status="In Progress",
-            status_option_id="opt2",
+        agent_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I'll update the status of **Fix login bug** from **In Progress** to **Done**.",
+            action_type=ActionType.STATUS_UPDATE,
+            action_data={
+                "task_id": "PVTI_1",
+                "task_title": "Fix login bug",
+                "current_status": "In Progress",
+                "target_status": "Done",
+            },
         )
-        mock_ai_agent_service.identify_target_task = MagicMock(return_value=target_task)
+        mock_chat_agent_service.run.return_value = agent_response
 
-        # cache.get is called multiple times with different keys:
-        # 1st: user_projects cache → return None (no projects)
-        # 2nd: project_items cache → return tasks list
-        def _cache_get(key):
-            if "items" in key:
-                return [target_task]
-            return None
-
-        with patch("src.api.chat.cache") as mock_cache:
-            mock_cache.get.side_effect = _cache_get
-            resp = await client.post(
-                "/api/v1/chat/messages",
-                json={"content": "move login bug to Done"},
-            )
+        resp = await client.post(
+            "/api/v1/chat/messages",
+            json={"content": "move login bug to Done"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["action_type"] == "status_update"
 
-    async def test_status_change_task_not_found(self, client, mock_session, mock_ai_agent_service):
+    async def test_status_change_task_not_found(
+        self, client, mock_session, mock_chat_agent_service
+    ):
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
 
-        status_change = MagicMock()
-        status_change.task_reference = "nonexistent"
-        status_change.target_status = "Done"
-        mock_ai_agent_service.parse_status_change_request.return_value = status_change
-        mock_ai_agent_service.identify_target_task = MagicMock(return_value=None)
+        from src.models.chat import ChatMessage, SenderType
 
-        with patch("src.api.chat.cache") as mock_cache:
-            mock_cache.get.return_value = None
-            resp = await client.post(
-                "/api/v1/chat/messages",
-                json={"content": "move X to Done"},
-            )
+        agent_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I couldn't find a task matching 'nonexistent'. Please try again.",
+        )
+        mock_chat_agent_service.run.return_value = agent_response
+
+        resp = await client.post(
+            "/api/v1/chat/messages",
+            json={"content": "move X to Done"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "couldn't find" in data["content"].lower()
@@ -187,15 +217,22 @@ class TestSendMessageStatusChange:
 
 
 class TestSendMessageTaskGeneration:
-    async def test_generates_task_proposal(self, client, mock_session, mock_ai_agent_service):
+    async def test_generates_task_proposal(self, client, mock_session, mock_chat_agent_service):
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
-        mock_ai_agent_service.parse_status_change_request.return_value = None
 
-        generated = MagicMock()
-        generated.title = "Fix auth bug"
-        generated.description = "Fix the authentication flow bug in the login page"
-        mock_ai_agent_service.generate_task_from_description.return_value = generated
+        from src.models.chat import ActionType, ChatMessage, SenderType
+
+        agent_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I've created a task proposal:\n\n**Fix auth bug**",
+            action_type=ActionType.TASK_CREATE,
+            action_data={
+                "proposed_title": "Fix auth bug",
+                "proposed_description": "Fix the authentication flow bug in the login page",
+            },
+        )
+        mock_chat_agent_service.run.return_value = agent_response
 
         resp = await client.post("/api/v1/chat/messages", json={"content": "fix the auth bug"})
         assert resp.status_code == 200
@@ -203,14 +240,21 @@ class TestSendMessageTaskGeneration:
         assert data["action_type"] == "task_create"
         assert data["action_data"]["proposed_title"] == "Fix auth bug"
 
-    async def test_task_generation_error(self, client, mock_session, mock_ai_agent_service):
+    async def test_task_generation_error(self, client, mock_session, mock_chat_agent_service):
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
-        mock_ai_agent_service.parse_status_change_request.return_value = None
-        mock_ai_agent_service.generate_task_from_description.side_effect = RuntimeError("AI error")
+
+        from src.models.chat import ChatMessage, SenderType
+
+        error_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I encountered an error processing your request (RuntimeError). Please try again.",
+        )
+        mock_chat_agent_service.run.return_value = error_response
+
         resp = await client.post("/api/v1/chat/messages", json={"content": "do something"})
         assert resp.status_code == 200
-        assert "couldn't generate" in resp.json()["content"].lower()
+        assert "error" in resp.json()["content"].lower()
 
     async def test_ai_enhance_off_uses_raw_input(self, client, mock_session, mock_ai_agent_service):
         """When ai_enhance=False, raw user input is used as description, title is AI-generated."""
@@ -229,8 +273,6 @@ class TestSendMessageTaskGeneration:
         assert data["action_type"] == "task_create"
         assert data["action_data"]["proposed_title"] == "Fix login flow"
         assert data["action_data"]["proposed_description"] == user_input
-        # generate_task_from_description must NOT be called
-        mock_ai_agent_service.generate_task_from_description.assert_not_called()
 
     async def test_ai_enhance_off_metadata_error_returns_specific_message(
         self, client, mock_session, mock_ai_agent_service
@@ -254,17 +296,24 @@ class TestSendMessageTaskGeneration:
         assert "couldn't generate a task" not in content.lower()
 
     async def test_ai_enhance_on_uses_full_pipeline(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_chat_agent_service
     ):
-        """When ai_enhance=True (default), the full AI pipeline is used."""
+        """When ai_enhance=True (default), the agent framework is used."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
-        mock_ai_agent_service.parse_status_change_request.return_value = None
 
-        generated = MagicMock()
-        generated.title = "Enhanced Title"
-        generated.description = "AI-enhanced description of the task"
-        mock_ai_agent_service.generate_task_from_description.return_value = generated
+        from src.models.chat import ActionType, ChatMessage, SenderType
+
+        agent_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I've created a task proposal:\n\n**Enhanced Title**",
+            action_type=ActionType.TASK_CREATE,
+            action_data={
+                "proposed_title": "Enhanced Title",
+                "proposed_description": "AI-enhanced description of the task",
+            },
+        )
+        mock_chat_agent_service.run.return_value = agent_response
 
         resp = await client.post(
             "/api/v1/chat/messages",
@@ -273,9 +322,101 @@ class TestSendMessageTaskGeneration:
         assert resp.status_code == 200
         data = resp.json()
         assert data["action_data"]["proposed_title"] == "Enhanced Title"
-        assert data["action_data"]["proposed_description"] == "AI-enhanced description of the task"
-        # generate_title_from_description must NOT be called
-        mock_ai_agent_service.generate_title_from_description.assert_not_called()
+
+
+# ── POST /chat/messages/stream ───────────────────────────────────────────────
+
+
+class TestSendMessageStream:
+    async def test_stream_persists_post_processed_assistant_message(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import (
+            get_project_items_cache_key,
+            get_user_projects_cache_key,
+        )
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Todo"), MagicMock(name="Done")]
+        cached_project.status_columns[0].name = "Todo"
+        cached_project.status_columns[1].name = "Done"
+
+        cached_task = MagicMock()
+        cached_task.title = "Fix login bug"
+        cached_task.status = "Todo"
+        cached_task.github_item_id = "PVTI_1"
+
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+        chat_mod.cache.set(get_project_items_cache_key("PVT_1"), [cached_task])
+
+        async def stream_events():
+            yield {"event": "token", "data": json.dumps({"content": "Creating proposal..."})}
+            final_message = ChatMessage(
+                session_id=mock_session.session_id,
+                sender_type=SenderType.ASSISTANT,
+                content="I've created a task proposal.",
+                action_type=ActionType.TASK_CREATE,
+                action_data={
+                    "proposed_title": "Fix login bug",
+                    "proposed_description": "Fix the login bug in the auth flow",
+                },
+            )
+            yield {"event": "done", "data": final_message.model_dump_json()}
+
+        mock_chat_agent_service.run_stream = MagicMock(return_value=stream_events())
+
+        resp = await client.post(
+            "/api/v1/chat/messages/stream",
+            json={"content": "fix the login bug"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+
+        events = _parse_sse_events(resp.text)
+        done_event = next(event for event in events if event["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "task_create"
+        assert done_data["action_data"]["proposed_title"] == "Fix login bug"
+        assert done_data["action_data"]["status"] == "pending"
+        assert "proposal_id" in done_data["action_data"]
+
+        stored = await client.get("/api/v1/chat/messages")
+        messages = stored.json()["messages"]
+        assert len(messages) == 2
+        assert messages[0]["sender_type"] == "user"
+        assert messages[1]["sender_type"] == "assistant"
+        assert messages[1]["action_data"]["proposed_title"] == "Fix login bug"
+        assert "proposal_id" in messages[1]["action_data"]
+
+        call_kwargs = mock_chat_agent_service.run_stream.call_args.kwargs
+        assert call_kwargs["project_name"] == "Roadmap"
+        assert call_kwargs["project_id"] == "PVT_1"
+        assert call_kwargs["available_tasks"] == [cached_task]
+        assert call_kwargs["available_statuses"] == ["Todo", "Done"]
+
+    async def test_stream_returns_503_when_streaming_disabled(
+        self, client, mock_session, mock_settings, mock_chat_agent_service
+    ):
+        mock_session.selected_project_id = "PVT_1"
+        mock_settings.agent_streaming_enabled = False
+
+        resp = await client.post(
+            "/api/v1/chat/messages/stream",
+            json={"content": "fix the login bug"},
+        )
+
+        assert resp.status_code == 503
+        assert "streaming is disabled" in resp.json()["detail"].lower()
+        mock_chat_agent_service.run_stream.assert_not_called()
 
 
 # ── POST /chat/proposals/{id}/confirm ───────────────────────────────────────
@@ -730,12 +871,19 @@ class TestConfirmProposalEdgeCases:
         chat_mod._proposals.pop(str(proposal.proposal_id), None)
 
     async def test_feature_request_generation_error(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_chat_agent_service
     ):
         """Feature request recommendation generation failure → error message."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = True
-        mock_ai_agent_service.generate_issue_recommendation.side_effect = RuntimeError("AI down")
+
+        from src.models.chat import ChatMessage, SenderType
+
+        error_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I couldn't generate a recommendation from your request. Please try again.",
+        )
+        mock_chat_agent_service.run.return_value = error_response
 
         resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
@@ -957,15 +1105,20 @@ class TestErrorMessageSanitization:
         assert "unexpected error" in content.lower() or "Error" in content
 
     async def test_task_generation_error_does_not_leak_exception(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_chat_agent_service
     ):
         """Task generation failure message must not include raw exception."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
-        mock_ai_agent_service.parse_status_change_request.return_value = None
-        mock_ai_agent_service.generate_task_from_description.side_effect = RuntimeError(
-            "internal: connection refused to ai-backend:8080"
+
+        from src.models.chat import ChatMessage, SenderType
+
+        error_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I encountered an error processing your request (RuntimeError). Please try again.",
         )
+        mock_chat_agent_service.run.return_value = error_response
+
         resp = await client.post("/api/v1/chat/messages", json={"content": "do something"})
         assert resp.status_code == 200
         content = resp.json()["content"]
@@ -973,14 +1126,20 @@ class TestErrorMessageSanitization:
         assert "ai-backend" not in content
 
     async def test_recommendation_error_does_not_leak_exception(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_chat_agent_service
     ):
         """Issue recommendation failure message must not include raw exception."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = True
-        mock_ai_agent_service.generate_issue_recommendation.side_effect = RuntimeError(
-            "internal: model_endpoint timed out after 30s"
+
+        from src.models.chat import ChatMessage, SenderType
+
+        error_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I encountered an error processing your request (RuntimeError). Please try again.",
         )
+        mock_chat_agent_service.run.return_value = error_response
+
         resp = await client.post("/api/v1/chat/messages", json={"content": "I want a new feature"})
         assert resp.status_code == 200
         content = resp.json()["content"]

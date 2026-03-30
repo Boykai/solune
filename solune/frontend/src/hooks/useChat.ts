@@ -22,6 +22,8 @@ const makeLocalMsg = (sender: 'user' | 'system', content: string): ChatMessage =
 export function useChat() {
   const queryClient = useQueryClient();
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
+  const streamingContent = '';
+  const isStreaming = false;
   const proposals = useChatProposals();
 
   const {
@@ -169,6 +171,8 @@ export function useChat() {
     messages: allMessages,
     isLoading,
     isSending: sendMutation.isPending,
+    isStreaming,
+    streamingContent,
     error: error as Error | null,
     pendingProposals: proposals.pendingProposals,
     pendingStatusChanges: proposals.pendingStatusChanges,
