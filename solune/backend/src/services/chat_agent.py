@@ -27,7 +27,7 @@ from src.logging_utils import get_logger
 from src.models.chat import ActionType, ChatMessage, SenderType
 from src.prompts.agent_instructions import build_system_instructions
 from src.services.agent_provider import create_agent
-from src.services.agent_tools import register_tools
+from src.services.agent_tools import load_mcp_tools, register_tools
 from src.utils import utcnow
 
 logger = get_logger(__name__)
@@ -193,6 +193,7 @@ class ChatAgentService:
         available_statuses: list[str] | None = None,
         pipeline_id: str | None = None,
         file_urls: list[str] | None = None,
+        db: Any | None = None,
     ) -> ChatMessage:
         """Run the agent with a user message and return a ChatMessage.
 
@@ -206,6 +207,7 @@ class ChatAgentService:
             available_statuses: Valid status column names.
             pipeline_id: Optional pipeline configuration ID.
             file_urls: URLs of uploaded files.
+            db: Optional aiosqlite connection for MCP tool loading.
 
         Returns:
             ChatMessage with the agent's response, including action_type and
@@ -216,10 +218,16 @@ class ChatAgentService:
             available_statuses=available_statuses,
         )
 
+        # Load MCP tools if a database connection and project_id are available
+        mcp_servers = None
+        if db and project_id:
+            mcp_servers = await load_mcp_tools(project_id, db) or None
+
         agent = create_agent(
             instructions=instructions,
             tools=self._tools,
             github_token=github_token,
+            mcp_servers=mcp_servers,
         )
 
         agent_session = await self._session_mapping.get_or_create(str(session_id))

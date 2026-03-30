@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # Enable/disable the SSE streaming endpoint.
     agent_streaming_enabled: bool = True
 
+    # Allow the chat agent to autonomously create GitHub issues and launch
+    # pipelines.  When False (default), the agent presents a proposal instead.
+    chat_auto_create_enabled: bool = False
+
     # ── Observability (Phase 5) — all opt-in with safe defaults ──
 
     # OpenTelemetry — disabled by default; zero import/runtime overhead when off

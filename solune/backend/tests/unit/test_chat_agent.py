@@ -180,6 +180,40 @@ class TestChatAgentServiceRun:
         assert session.state["project_id"] == "PVT_1"
         assert "Todo" in session.state["available_statuses"]
 
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_converts_pipeline_launch_action(self, mock_create_agent):
+        """Verify _convert_response() correctly maps pipeline_launch action_type."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = json.dumps(
+            {
+                "content": "Pipeline launched",
+                "action_type": "pipeline_launch",
+                "action_data": {
+                    "pipeline_id": "pipe-1",
+                    "preset": "medium",
+                    "stages": ["Specify", "Plan", "Implement"],
+                },
+            }
+        )
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        result = await service.run(
+            message="launch the pipeline",
+            session_id=uuid4(),
+            github_token="test-token",
+        )
+
+        assert result.action_type == ActionType.PIPELINE_LAUNCH
+        assert result.action_data["pipeline_id"] == "pipe-1"
+        assert result.action_data["preset"] == "medium"
+        assert result.action_data["stages"] == ["Specify", "Plan", "Implement"]
+
 
 # ── ChatAgentService.run_stream() tests ─────────────────────────────────
 

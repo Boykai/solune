@@ -23,6 +23,7 @@ def create_agent(
     instructions: str,
     tools: list | None = None,
     github_token: str | None = None,
+    mcp_servers: dict[str, Any] | None = None,
 ) -> Any:
     """Create an Agent instance for the configured AI provider.
 
@@ -30,6 +31,7 @@ def create_agent(
         instructions: System instructions for the agent.
         tools: List of ``@tool``-decorated functions to register.
         github_token: GitHub OAuth token (required for ``copilot`` provider).
+        mcp_servers: Optional MCP server configs loaded from the project.
 
     Returns:
         A configured ``Agent`` instance.
@@ -45,6 +47,7 @@ def create_agent(
             instructions=instructions,
             tools=tools,
             github_token=github_token,
+            mcp_servers=mcp_servers,
         )
     elif provider == "azure_openai":
         return _create_azure_agent(
@@ -60,6 +63,7 @@ def _create_copilot_agent(
     instructions: str,
     tools: list | None = None,
     github_token: str | None = None,
+    mcp_servers: dict[str, Any] | None = None,
 ) -> Any:
     """Create an Agent using the GitHub Copilot provider.
 
@@ -83,6 +87,9 @@ def _create_copilot_agent(
         "model": settings.copilot_model,
         "on_permission_request": PermissionHandler.approve_all,
     }
+
+    if mcp_servers:
+        options["mcp_servers"] = mcp_servers
 
     client = CopilotClient({"github_token": github_token})
 
