@@ -137,12 +137,11 @@ describe('GitHubMcpConfigGenerator', () => {
 
     expect(screen.getByText('MCP Configuration for GitHub Agents')).toBeInTheDocument();
     expect(screen.getByText('context7')).toBeInTheDocument();
-    expect(screen.getByText('CodeGraphContext')).toBeInTheDocument();
-    expect(screen.getAllByText('Built-In', { selector: 'span' })).toHaveLength(4);
+    expect(screen.getAllByText('Built-In', { selector: 'span' })).toHaveLength(2);
     expect(screen.getByText('No custom project MCPs yet')).toBeInTheDocument();
     const activeProjectCard = screen.getByText('Active project MCPs').closest('div');
     expect(activeProjectCard).not.toBeNull();
-    expect(within(activeProjectCard!).getByText('2')).toBeInTheDocument();
+    expect(within(activeProjectCard!).getByText('1')).toBeInTheDocument();
   });
 
   it('includes user tools alongside built-in MCPs in generated config', () => {
@@ -166,8 +165,7 @@ describe('GitHubMcpConfigGenerator', () => {
 
     expect(screen.getByText('my-server')).toBeInTheDocument();
     expect(screen.getByText('context7')).toBeInTheDocument();
-    expect(screen.getByText('CodeGraphContext')).toBeInTheDocument();
-    expect(screen.getAllByText('Built-In', { selector: 'span' })).toHaveLength(4);
+    expect(screen.getAllByText('Built-In', { selector: 'span' })).toHaveLength(2);
     // No empty state guidance when user tools are present
     expect(screen.queryByText(/No custom project MCPs yet/i)).not.toBeInTheDocument();
   });
@@ -231,8 +229,8 @@ describe('GitHubMcpConfigGenerator', () => {
     render(<GitHubMcpConfigGenerator tools={tools} />);
 
     expect(screen.getByText('context7')).toBeInTheDocument();
-    expect(screen.getByText('CodeGraphContext')).toBeInTheDocument();
-    expect(screen.getAllByText('Built-In', { selector: 'span' })).toHaveLength(2);
+    expect(screen.getByText('context7')).toBeInTheDocument();
+    expect(screen.queryAllByText('Built-In', { selector: 'span' })).toHaveLength(0);
   });
 
   it('shows copy to clipboard button', async () => {
@@ -312,7 +310,6 @@ describe('GitHubMcpConfigGenerator', () => {
 
     const codeBlock = screen.getByTestId('github-mcp-config-code');
     expect(codeBlock.textContent).toContain('context7');
-    expect(codeBlock.textContent).toContain('CodeGraphContext');
   });
 
   it('renders builtin metadata in the generated configuration JSON', () => {
@@ -333,12 +330,9 @@ describe('GitHubMcpConfigGenerator', () => {
     render(<GitHubMcpConfigGenerator tools={[]} />);
 
     const codeBlock = screen.getByTestId('github-mcp-config-code');
-    expect(within(codeBlock).getAllByText('Built-In')).toHaveLength(2);
+    expect(within(codeBlock).getAllByText('Built-In')).toHaveLength(1);
     expect(
       within(codeBlock).getByLabelText('Context7 Built-In MCP', { selector: 'span' })
-    ).toBeInTheDocument();
-    expect(
-      within(codeBlock).getByLabelText('Code Graph Context Built-In MCP', { selector: 'span' })
     ).toBeInTheDocument();
   });
 
@@ -374,7 +368,7 @@ describe('GitHubMcpConfigGenerator', () => {
     expect(screen.queryByText('No custom project MCPs yet')).not.toBeInTheDocument();
     const activeProjectCard = screen.getByText('Active project MCPs').closest('div');
     expect(activeProjectCard).not.toBeNull();
-    expect(within(activeProjectCard!).getByText('3')).toBeInTheDocument();
+    expect(within(activeProjectCard!).getByText('2')).toBeInTheDocument();
   });
 });
 

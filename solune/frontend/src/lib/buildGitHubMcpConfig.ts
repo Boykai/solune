@@ -33,17 +33,6 @@ export const BUILTIN_MCPS: readonly BuiltInMcp[] = [
       },
     },
   },
-  {
-    name: 'Code Graph Context',
-    serverKey: 'CodeGraphContext',
-    config: {
-      builtin: true,
-      type: 'local',
-      command: 'uvx',
-      args: ['--from', 'codegraphcontext', 'cgc', 'mcp', 'start'],
-      tools: ['*'],
-    },
-  },
 ] as const;
 
 /* ── Config builder ─────────────────────────────────────────────────── */

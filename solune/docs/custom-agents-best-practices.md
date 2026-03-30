@@ -111,7 +111,6 @@ The following MCP servers are built-in and always present in every agent file:
 | Server | Type | Purpose |
 |--------|------|---------|
 | `context7` | HTTP | Library resolution and documentation lookup |
-| `CodeGraphContext` | Local (uvx) | Code graph analysis and navigation |
 
 These are defined in `.github/agents/mcp.json` and must stay in sync with the `BUILTIN_MCPS` constants in both `backend/src/services/agents/agent_mcp_sync.py` and `frontend/src/lib/buildGitHubMcpConfig.ts`. The backend test suite (`test_agent_mcp_sync.py`) validates the shape and contents of `BUILTIN_MCPS` — if you add or change a built-in MCP, update all three locations and run the tests to catch drift.
 
