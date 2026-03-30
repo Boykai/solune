@@ -83,6 +83,18 @@ class TestServiceGetters:
 
         assert _get_session_dep() is auth_get_session_dep
 
+    @pytest.mark.asyncio
+    async def test_require_session_honors_fastapi_dependency_overrides(self):
+        from src.api.auth import get_session_dep
+        from src.dependencies import _require_session
+
+        session = _session()
+        request = SimpleNamespace(
+            app=SimpleNamespace(dependency_overrides={get_session_dep: lambda: session})
+        )
+
+        assert await _require_session(request, None) is session
+
 
 class TestRequireAdmin:
     @pytest.mark.asyncio
@@ -206,6 +218,21 @@ class TestVerifyProjectAccess:
         with patch("src.dependencies.get_github_service", return_value=svc):
             with pytest.raises(AuthorizationError, match="Unable to verify project access"):
                 await verify_project_access(_request_with_state(), "PVT_123", _session())
+
+    @pytest.mark.asyncio
+    async def test_verify_project_access_chains_original_exception(self):
+        """Exception cause is preserved for debugging (not suppressed with 'from None')."""
+        from src.dependencies import verify_project_access
+
+        original = RuntimeError("GitHub unavailable")
+        svc = AsyncMock()
+        svc.list_user_projects.side_effect = original
+
+        with patch("src.dependencies.get_github_service", return_value=svc):
+            with pytest.raises(AuthorizationError) as exc_info:
+                await verify_project_access(_request_with_state(), "PVT_123", _session())
+
+        assert exc_info.value.__cause__ is original
 
 
 class TestRequireSelectedProject:
