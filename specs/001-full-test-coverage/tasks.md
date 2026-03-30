@@ -38,10 +38,10 @@
 
 **⚠️ CRITICAL**: No coverage expansion can begin until all bug fixes are applied and existing suites pass
 
-- [ ] T005 Fix devcontainers/ci@v0.3 invalid tag — pin to valid release tag in .github/workflows/devcontainer.yml
-- [ ] T006 [P] Fix silent exception swallowing in verify_project_access() — log at WARNING and re-raise as HTTPException(403) in solune/backend/src/dependencies.py
-- [ ] T007 [P] Add configurable timeout guard (default 5s) to RateLimitKeyMiddleware session resolution with IP-based fallback in solune/backend/src/middleware/rate_limit.py
-- [ ] T008 [P] Improve McpValidationError to include field_errors: dict[str, list[str]] parameter in solune/backend/src/exceptions.py
+- [x] T005 Fix devcontainers/ci@v0.3 invalid tag — pin to valid release tag in .github/workflows/devcontainer.yml
+- [x] T006 [P] Fix silent exception swallowing in verify_project_access() — log at WARNING and re-raise as HTTPException(403) in solune/backend/src/dependencies.py
+- [x] T007 [P] Add configurable timeout guard (default 5s) to RateLimitKeyMiddleware session resolution with IP-based fallback in solune/backend/src/middleware/rate_limit.py
+- [x] T008 [P] Improve McpValidationError to include field_errors: dict[str, list[str]] parameter in solune/backend/src/exceptions.py
 - [ ] T009 Run full backend suite to confirm green baseline (`uv run pytest` — exit code 0, zero failures) in solune/backend/
 - [ ] T010 Run full frontend suite to confirm green baseline (`npm run lint && npm run type-check && npm run test && npm run build`) in solune/frontend/
 
@@ -59,9 +59,9 @@
 
 > **NOTE: Write tests for each bug fix to verify correct behavior**
 
-- [ ] T011 [P] [US1] Add test for verify_project_access() exception propagation (log + HTTPException 403) in solune/backend/tests/unit/test_dependencies.py
-- [ ] T012 [P] [US1] Add test for RateLimitKeyMiddleware timeout behavior (timeout triggers IP-based fallback) in solune/backend/tests/unit/test_rate_limit.py
-- [ ] T013 [P] [US1] Add test for McpValidationError field-level errors (field_errors dict serializes into response) in solune/backend/tests/unit/test_exceptions.py
+- [x] T011 [P] [US1] Add test for verify_project_access() exception propagation (log + HTTPException 403) in solune/backend/tests/unit/test_dependencies.py
+- [x] T012 [P] [US1] Add test for RateLimitKeyMiddleware timeout behavior (timeout triggers IP-based fallback) in solune/backend/tests/unit/test_rate_limit.py
+- [x] T013 [P] [US1] Add test for McpValidationError field-level errors (field_errors dict serializes into response) in solune/backend/tests/unit/test_exceptions.py
 - [ ] T014 [P] [US1] Add CI validation test for devcontainer.yml — verify pinned tag format in .github/workflows/devcontainer.yml
 
 ### Implementation for User Story 1
@@ -81,13 +81,13 @@
 
 ### Sub-Phase 4a: Backend Untested Services (78% → ~85%)
 
-- [ ] T017 [P] [US2] Create test_agent_middleware.py with class-based tests for all paths in solune/backend/tests/unit/test_agent_middleware.py (target: solune/backend/src/services/agent_middleware.py)
-- [ ] T018 [P] [US2] Create test_agent_provider.py with class-based tests for all paths in solune/backend/tests/unit/test_agent_provider.py (target: solune/backend/src/services/agent_provider.py)
-- [ ] T019 [P] [US2] Create test_collision_resolver.py with tests for all resolution strategies in solune/backend/tests/unit/test_collision_resolver.py (target: solune/backend/src/services/collision_resolver.py)
+- [x] T017 [P] [US2] Create test_agent_middleware.py with class-based tests for all paths in solune/backend/tests/unit/test_agent_middleware.py (target: solune/backend/src/services/agent_middleware.py)
+- [x] T018 [P] [US2] Create test_agent_provider.py with class-based tests for all paths in solune/backend/tests/unit/test_agent_provider.py (target: solune/backend/src/services/agent_provider.py)
+- [x] T019 [P] [US2] Create test_collision_resolver.py with tests for all resolution strategies in solune/backend/tests/unit/test_collision_resolver.py (target: solune/backend/src/services/collision_resolver.py)
 - [ ] T020 [P] [US2] Create test_tools_presets.py for tools preset logic in solune/backend/tests/unit/test_tools_presets.py (target: solune/backend/src/services/tools/presets.py)
 - [ ] T021 [P] [US2] Add tests for chores service modules if not already fully covered in solune/backend/tests/unit/test_chores_service.py (target: solune/backend/src/services/chores/)
-- [ ] T022 [US2] Extend test_agents.py to cover _get_service() (0% → 100%), filter/sort logic, and all pending/purge/bulk branches in solune/backend/tests/unit/test_agents.py (target: solune/backend/src/api/agents.py)
-- [ ] T023 [US2] Extend test_activity.py to cover missing branches at lines 50, 54, 64, 69 in solune/backend/tests/unit/test_activity.py (target: solune/backend/src/api/activity.py)
+- [x] T022 [US2] Extend test_agents.py to cover _get_service() (0% → 100%), filter/sort logic, and all pending/purge/bulk branches in solune/backend/tests/unit/test_agents.py (target: solune/backend/src/api/agents.py)
+- [x] T023 [US2] Extend test_activity.py to cover missing branches at lines 50, 54, 64, 69 in solune/backend/tests/unit/test_activity.py (target: solune/backend/src/api/activity.py)
 - [ ] T024 [US2] Verify backend coverage ≥85% line and ≥80% branch after sub-phase 4a (`uv run pytest --cov=src --cov-branch --cov-fail-under=85`)
 - [ ] T025 [US2] Run mutation testing on new service modules and verify ≥80% kill rate (`uv run mutmut run` targeting new test files)
 

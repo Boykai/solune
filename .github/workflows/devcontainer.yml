@@ -74,13 +74,13 @@ jobs:
           echo "  ✓ post-start.sh syntax OK"
 
       - name: Build dev container image
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@f6235b5030b678b6479c59594e47a70bbf6f4e99 # v0.3
         with:
           runCmd: echo "Dev container built successfully"
           push: never
 
       - name: Verify backend setup
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@f6235b5030b678b6479c59594e47a70bbf6f4e99 # v0.3
         with:
           runCmd: |
             set -e
