@@ -149,14 +149,7 @@ async def update_task_status(
     # Retrieve available tasks from runtime kwargs
     available_tasks = context.kwargs.get("available_tasks", [])
 
-    # Reuse the existing identify_target_task logic
-    from src.services.ai_agent import AIAgentService
-
-    target_task = AIAgentService.identify_target_task(
-        None,  # static-compatible call
-        task_reference=task_reference,
-        available_tasks=available_tasks,
-    )
+    target_task = _identify_target_task(task_reference, available_tasks)
 
     if not target_task:
         return ToolResult(
@@ -191,9 +184,7 @@ async def analyze_transcript(
         context: Framework-injected invocation context.
         transcript_content: Raw transcript text content.
     """
-    logger.info(
-        "Tool analyze_transcript called: content_length=%d", len(transcript_content)
-    )
+    logger.info("Tool analyze_transcript called: content_length=%d", len(transcript_content))
 
     # Return structured result — the agent will synthesize the analysis
     return ToolResult(
@@ -270,6 +261,55 @@ async def get_pipeline_list(
         action_type=None,
         action_data=None,
     )
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────
+
+
+def _identify_target_task(task_reference: str, available_tasks: list[Any]) -> Any | None:
+    """Find the best matching task for a reference string.
+
+    Standalone extraction of ``AIAgentService.identify_target_task`` so the
+    new tool layer does not depend on the deprecated service class.
+
+    Args:
+        task_reference: User-provided reference (partial title/description).
+        available_tasks: Objects with a ``.title`` attribute.
+
+    Returns:
+        Best matching task or ``None``.
+    """
+    if not task_reference or not available_tasks:
+        return None
+
+    reference_lower = task_reference.lower()
+
+    # Exact match
+    for task in available_tasks:
+        if task.title.lower() == reference_lower:
+            return task
+
+    # Partial match
+    matches = [
+        task
+        for task in available_tasks
+        if reference_lower in task.title.lower() or task.title.lower() in reference_lower
+    ]
+    if len(matches) == 1:
+        return matches[0]
+
+    # Fuzzy match — highest word overlap wins
+    ref_words = set(reference_lower.split())
+    best_match = None
+    best_score = 0
+    for task in available_tasks:
+        title_words = set(task.title.lower().split())
+        overlap = len(ref_words & title_words)
+        if overlap > best_score:
+            best_score = overlap
+            best_match = task
+
+    return best_match if best_score > 0 else None
 
 
 # ── Tool registration ────────────────────────────────────────────────────
