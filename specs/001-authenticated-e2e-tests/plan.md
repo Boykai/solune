@@ -1,104 +1,98 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Add Authenticated E2E Tests for Core Application
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `001-authenticated-e2e-tests` | **Date**: 2026-03-30 | **Spec**: [spec.md](./spec.md)  
+**Input**: Feature specification from `/specs/001-authenticated-e2e-tests/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Add a comprehensive authenticated end-to-end test suite that exercises the core application flows (auth lifecycle, project CRUD, chat, pipelines, board operations) through the real FastAPI application. Tests use the dev-login endpoint for session bootstrapping with a real in-memory SQLite session store, mocking only external services (GitHub API, AI agents, WebSocket manager). An optional Phase 2 extends the frontend Playwright E2E fixtures to return authenticated user data and realistic API responses.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.12+ (backend), TypeScript (frontend)  
+**Primary Dependencies**: FastAPI >=0.135.0, httpx >=0.28.0 (test client), pytest >=9.0.0, pytest-asyncio >=1.3.0, aiosqlite >=0.22.0, Playwright (frontend E2E)  
+**Storage**: In-memory SQLite with migrations applied (`aiosqlite`, `:memory:` database path)  
+**Testing**: pytest with `asyncio_mode = "auto"`, httpx `AsyncClient` with `ASGITransport` for ASGI-level requests  
+**Target Platform**: Linux CI (GitHub Actions), local dev (macOS/Linux)  
+**Project Type**: Web application (monorepo: `solune/backend/` + `solune/frontend/`)  
+**Performance Goals**: Each E2E test completes within 5 seconds (SC-004)  
+**Constraints**: Zero external network calls; all GitHub API / AI agent calls mocked; test isolation via fresh app + DB per test  
+**Scale/Scope**: ~6 test files, ~25-35 test cases covering 5 authenticated flow domains + 1 frontend extension
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| **I. Specification-First** | ✅ PASS | `spec.md` contains 6 prioritized user stories (P1–P6) with Given-When-Then acceptance scenarios |
+| **II. Template-Driven** | ✅ PASS | All artifacts follow canonical templates from `.specify/templates/` |
+| **III. Agent-Orchestrated** | ✅ PASS | Plan phase produces `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md` |
+| **IV. Test Optionality** | ✅ PASS | This feature IS the tests — tests are the primary deliverable, explicitly requested in the specification. Test-first ordering applies: conftest fixtures (foundation) precede individual test files |
+| **V. Simplicity & DRY** | ✅ PASS | Reuses existing patterns from `tests/conftest.py` (`make_mock_github_service`, `_apply_migrations`), existing `test_api_e2e.py` patterns, and `test_full_workflow.py` app assembly. No new abstractions introduced beyond necessary fixtures |
+
+**Gate Result**: ✅ All principles satisfied. Proceeding to Phase 0 research.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/001-authenticated-e2e-tests/
+├── plan.md              # This file
+├── research.md          # Phase 0: Research findings
+├── data-model.md        # Phase 1: Test entity model
+├── quickstart.md        # Phase 1: Getting started guide
+├── contracts/           # Phase 1: Test contract definitions
+│   └── test-fixtures.md # Fixture contracts and interfaces
+└── tasks.md             # Phase 2 output (NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
+solune/backend/
 ├── src/
-│   ├── models/
+│   ├── api/
+│   │   ├── auth.py              # dev-login, logout, get_current_session (existing)
+│   │   ├── projects.py          # project CRUD, select_project (existing)
+│   │   ├── chat.py              # send_message, get_messages (existing)
+│   │   ├── pipelines.py         # pipeline CRUD, runs (existing)
+│   │   └── board.py             # board data, status updates (existing)
 │   ├── services/
-│   └── api/
-└── tests/
+│   │   ├── github_auth.py       # GitHubAuthService, create_session_from_token (existing)
+│   │   ├── session_store.py     # save_session, get_session, delete_session (existing)
+│   │   └── github_projects.py   # GitHubProjectsService (mocked in E2E)
+│   ├── models/
+│   │   └── user.py              # UserSession, UserResponse (existing)
+│   ├── dependencies.py          # get_github_service, verify_project_access (existing)
+│   ├── main.py                  # create_app() factory (existing)
+│   └── migrations/              # SQL migration files (existing)
+├── tests/
+│   ├── conftest.py              # Existing shared fixtures (existing)
+│   ├── test_api_e2e.py          # Existing unauthenticated E2E tests (existing)
+│   ├── e2e/                     # NEW: Authenticated E2E test suite
+│   │   ├── conftest.py          # Auth client fixture, mock_db_with_migrations
+│   │   ├── test_auth_flow.py    # Auth lifecycle tests
+│   │   ├── test_projects_flow.py # Project operations tests
+│   │   ├── test_chat_flow.py    # Chat flow tests
+│   │   ├── test_pipeline_flow.py # Pipeline CRUD tests
+│   │   └── test_board_flow.py   # Board operations tests
+│   └── helpers/
+│       ├── factories.py         # Test data factories (existing)
+│       └── assertions.py        # Custom assertions (existing)
+└── pyproject.toml               # pytest config (existing, no changes needed)
 
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+solune/frontend/
+├── e2e/
+│   ├── fixtures.ts              # Unauthenticated fixture pattern (existing)
+│   ├── authenticated-fixtures.ts # NEW: Authenticated fixture extension
+│   └── authenticated-flows.spec.ts # NEW: Authenticated UI flow tests
+└── playwright.config.ts         # Playwright config (existing)
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application monorepo structure. Backend E2E tests are placed in a new `tests/e2e/` directory to separate authenticated multi-request flow tests from the existing `tests/test_api_e2e.py` (which tests individual unauthenticated endpoints) and `tests/integration/` (which tests webhook/pipeline workflows). Frontend E2E tests extend the existing `e2e/` directory pattern.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+> No constitution violations detected. No complexity justifications required.
