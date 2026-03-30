@@ -127,8 +127,8 @@ solune/
 
 | Task | File | Action |
 |------|------|--------|
-| Fix devcontainer CI tag | `.devcontainer/devcontainer.json` | Pin `devcontainers/ci` to valid tag (replace `@v0.3`) |
-| Fix silent exception swallowing | `backend/src/api/dependencies.py` | Log or re-raise in `verify_project_access()` |
+| Fix devcontainer CI tag | `.github/workflows/devcontainer.yml` | Pin `devcontainers/ci` to valid tag (replace `@v0.3`) |
+| Fix silent exception swallowing | `solune/backend/src/dependencies.py` | Log or re-raise in `verify_project_access()` |
 | Add timeout guard | `backend/src/middleware/rate_limit.py` | Add configurable timeout to `RateLimitKeyMiddleware` session resolution |
 | Improve McpValidationError | `backend/src/exceptions.py` | Include field-level errors in exception payload |
 | Validate green baseline | CI | Run full backend + frontend suites, confirm zero failures |

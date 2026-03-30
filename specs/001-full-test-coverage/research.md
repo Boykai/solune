@@ -15,7 +15,7 @@
 **Alternatives considered**:
 - Pin to SHA: More deterministic but harder to maintain and read in YAML.
 - Use `@main`: Defeats the purpose of pinning — too volatile.
-- **Chosen**: Pin to the latest valid semver tag from the action's releases.
+- **Chosen**: Pin `devcontainers/ci` by commit SHA corresponding to a vetted, stable release.
 
 ---
 
@@ -30,7 +30,7 @@
 **Alternatives considered**:
 - Log only (no re-raise): Would silently grant access on verification failure — security risk.
 - Raise 500: Incorrect semantics — a failed access check is a 403, not a server error.
-- **Chosen**: Log at WARNING + re-raise as HTTPException(403).
+- **Chosen**: Log at WARNING and re-raise as `AuthorizationError` (an `AppException` subclass) that the global exception handler maps to an HTTP 403.
 
 ---
 
@@ -38,14 +38,14 @@
 
 **Context**: `RateLimitKeyMiddleware` resolves user sessions with no timeout, potentially hanging indefinitely.
 
-**Decision**: Add a configurable timeout (default: 5 seconds) using `asyncio.wait_for()` around session resolution. On timeout, fall back to IP-based rate limiting.
+**Decision**: Add a bounded timeout (5 seconds) using `asyncio.wait_for()` around session resolution, controlled by a module-level `RATE_LIMIT_SESSION_TIMEOUT` constant. On timeout, fall back to IP-based rate limiting.
 
-**Rationale**: Unbounded async operations in middleware risk blocking the entire request pipeline. A 5-second default balances session resolution latency against request responsiveness. IP-based fallback ensures rate limiting still functions.
+**Rationale**: Unbounded async operations in middleware risk blocking the entire request pipeline. A 5-second default balances session resolution latency against request responsiveness. IP-based fallback ensures rate limiting still functions, and the module-level constant allows code-level adjustment without exposing a deployment-time configuration surface.
 
 **Alternatives considered**:
-- Hard-coded timeout: Less flexible but simpler. Rejected because configuration may vary by deployment.
+- Settings/env-backed configurable timeout: More flexible per deployment, but adds configuration complexity and surface area. Rejected in favor of a simpler module-level constant.
 - Fail-open (no rate limit on timeout): Security risk — allows unlimited requests.
-- **Chosen**: Configurable timeout with IP-based fallback.
+- **Chosen**: Fixed timeout via module-level constant with IP-based fallback.
 
 ---
 
