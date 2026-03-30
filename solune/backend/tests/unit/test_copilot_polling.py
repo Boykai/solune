@@ -3196,7 +3196,7 @@ class TestAdvancePipeline:
         mock_update_tracking,
         mock_sleep,
     ):
-        """A newly-entered parallel group must be assigned immediately.
+        """A newly-entered parallel group must assign all agents concurrently.
 
         Regression for issue #3890: after a sequential group completed, the
         next parallel group was treated as already active because its status
@@ -3266,12 +3266,107 @@ class TestAdvancePipeline:
             "judge": "active",
         }
 
+        # All three agents dispatched concurrently via asyncio.gather
         assert mock_orchestrator.assign_agent_for_status.await_count == 3
-        called_indices = [
+        called_indices = sorted(
             call.kwargs["agent_index"]
             for call in mock_orchestrator.assign_agent_for_status.await_args_list
-        ]
+        )
         assert called_indices == [1, 2, 3]
+
+        # No inter-agent sleep for parallel dispatch
+        mock_sleep.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.connection_manager")
+    @patch("src.services.copilot_polling.get_issue_main_branch")
+    @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
+    @patch("src.services.copilot_polling.get_workflow_orchestrator")
+    @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.set_pipeline_state")
+    async def test_parallel_group_agents_fail_independently(
+        self,
+        mock_set_state,
+        mock_config,
+        mock_get_orchestrator,
+        mock_merge,
+        mock_get_branch,
+        mock_ws,
+        mock_service,
+        mock_update_tracking,
+    ):
+        """One agent failure in a parallel group must not prevent the others."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo
+
+        pipeline = PipelineState(
+            issue_number=42,
+            project_id="PVT_123",
+            status="In Progress",
+            agents=["speckit.implement", "linter", "archivist", "judge"],
+            current_agent_index=0,
+            completed_agents=[],
+            groups=[
+                PipelineGroupInfo(
+                    group_id="g1",
+                    execution_mode="sequential",
+                    agents=["speckit.implement"],
+                ),
+                PipelineGroupInfo(
+                    group_id="g2",
+                    execution_mode="parallel",
+                    agents=["linter", "archivist", "judge"],
+                    agent_statuses={
+                        "linter": "pending",
+                        "archivist": "pending",
+                        "judge": "pending",
+                    },
+                ),
+            ],
+            current_group_index=0,
+            current_agent_index_in_group=0,
+        )
+
+        mock_get_branch.return_value = None
+        mock_merge.return_value = None
+        mock_ws.broadcast_to_project = AsyncMock()
+
+        # archivist (flat index 2) fails, linter and judge succeed
+        async def _side_effect(ctx, status, agent_index=0):
+            if agent_index == 2:  # archivist
+                return False
+            return True
+
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.assign_agent_for_status = AsyncMock(side_effect=_side_effect)
+        mock_get_orchestrator.return_value = mock_orchestrator
+        mock_config.return_value = MagicMock()
+        mock_update_tracking.return_value = True
+
+        result = await _advance_pipeline(
+            access_token="token",
+            project_id="PVT_123",
+            item_id="PVTI_123",
+            owner="owner",
+            repo="repo",
+            issue_number=42,
+            issue_node_id="I_123",
+            pipeline=pipeline,
+            from_status="In Progress",
+            to_status="In Review",
+            task_title="Test Issue",
+        )
+
+        assert result["status"] == "error"
+        assert result["action"] == "parallel_group_assigned"
+        # All three were attempted
+        assert mock_orchestrator.assign_agent_for_status.await_count == 3
+        # archivist marked failed, others stay active
+        assert pipeline.groups[1].agent_statuses["linter"] == "active"
+        assert pipeline.groups[1].agent_statuses["archivist"] == "failed"
+        assert pipeline.groups[1].agent_statuses["judge"] == "active"
+        assert "archivist" in pipeline.failed_agents
 
 
 class TestFindCompletedChildPr:

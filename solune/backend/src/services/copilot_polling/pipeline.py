@@ -14,7 +14,6 @@ from .state import (
     ASSIGNMENT_GRACE_PERIOD_SECONDS,
     MAX_MERGE_RETRIES,
     RATE_LIMIT_PAUSE_THRESHOLD,
-    RATE_LIMIT_SLOW_THRESHOLD,
     _claimed_child_prs,
     _merge_failure_counts,
     _pending_agent_assignments,
@@ -2001,16 +2000,9 @@ async def _advance_pipeline(
                     "completed_agent": completed_agent,
                 }
 
-            # Adaptive stagger: 2s normally, 5s when budget is getting low
-            remaining_pre, _ = _get_rate_limit_remaining()
-            stagger_seconds = (
-                5 if remaining_pre is not None and remaining_pre <= RATE_LIMIT_SLOW_THRESHOLD else 2
-            )
-
-            success = True
+            # Resolve flat indices and mark all agents active before dispatch
+            agent_indices: list[tuple[str, int]] = []
             for i, agent_slug in enumerate(new_group.agents):
-                if i > 0:
-                    await asyncio.sleep(stagger_seconds)
                 try:
                     agent_flat_idx = pipeline.agents.index(agent_slug)
                 except ValueError:
@@ -2025,14 +2017,36 @@ async def _advance_pipeline(
                         pipeline.current_agent_index + i,
                         len(pipeline.agents) - 1,
                     )
+                agent_indices.append((agent_slug, agent_flat_idx))
                 new_group.agent_statuses[agent_slug] = "active"
+
+            # Dispatch all parallel agents concurrently
+            async def _assign_one(slug: str, flat_idx: int) -> tuple[str, bool]:
                 result = await orchestrator.assign_agent_for_status(
-                    ctx, agent_lookup_status, agent_index=agent_flat_idx
+                    ctx, agent_lookup_status, agent_index=flat_idx
                 )
-                if not result:
+                return slug, bool(result)
+
+            results = await asyncio.gather(
+                *(_assign_one(slug, idx) for slug, idx in agent_indices),
+                return_exceptions=True,
+            )
+
+            success = True
+            for entry in results:
+                if isinstance(entry, BaseException):
                     success = False
-                    new_group.agent_statuses[agent_slug] = "failed"
-                    pipeline.failed_agents.append(agent_slug)
+                    logger.error(
+                        "Parallel agent assignment raised for issue #%d: %s",
+                        issue_number,
+                        entry,
+                    )
+                else:
+                    slug, ok = entry
+                    if not ok:
+                        success = False
+                        new_group.agent_statuses[slug] = "failed"
+                        pipeline.failed_agents.append(slug)
             _cp.set_pipeline_state(issue_number, pipeline)
 
             if success:
