@@ -1,0 +1,356 @@
+openapi: "3.1.0"
+info:
+  title: Solune Chat API — v0.2.0 Agent Migration
+  version: "0.2.0"
+  description: |
+    Chat API contract for Solune's Intelligent Chat Agent feature.
+    This spec documents the existing endpoints (unchanged) and the new streaming
+    endpoint added in v0.2.0. The ChatMessage schema is fully backward-compatible.
+
+servers:
+  - url: /api/v1
+    description: Backend API prefix
+
+paths:
+  /chat/messages:
+    get:
+      operationId: getMessages
+      summary: Get paginated chat history
+      description: Returns chat messages for the current session, ordered by timestamp descending.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Number of messages to return
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Return messages before this timestamp (cursor pagination)
+      responses:
+        "200":
+          description: Chat messages retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ChatMessage"
+                  has_more:
+                    type: boolean
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      operationId: sendMessage
+      summary: Send a chat message (non-streaming)
+      description: |
+        Sends a user message and returns the agent's response. The agent selects
+        the appropriate tool (task creation, issue recommendation, status change,
+        transcript analysis, or clarifying question) based on reasoning.
+
+        When `ai_enhance=false`, bypasses the agent and uses simple title-only
+        generation (preserving current behavior).
+
+        **Rate limit**: 10 requests per minute per session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+      responses:
+        "200":
+          description: Agent response with optional action
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_message:
+                    $ref: "#/components/schemas/ChatMessage"
+                  assistant_message:
+                    $ref: "#/components/schemas/ChatMessage"
+        "400":
+          description: Invalid request (empty content, no project selected)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Rate limit exceeded
+
+    delete:
+      operationId: clearMessages
+      summary: Clear all chat messages for the current session
+      responses:
+        "200":
+          description: Messages cleared successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /chat/messages/stream:
+    post:
+      operationId: sendMessageStream
+      summary: Send a chat message (streaming via SSE)
+      description: |
+        **NEW in v0.2.0**. Sends a user message and returns the agent's response
+        progressively via Server-Sent Events. Tokens are delivered as they are
+        generated.
+
+        **Event types**:
+        - `token`: Incremental text chunk (`data` field contains the text)
+        - `tool_call`: Agent invoked a tool (`data` field contains JSON with tool name and arguments)
+        - `tool_result`: Tool execution completed (`data` field contains structured result)
+        - `done`: Stream complete (`data` field contains final ChatMessage JSON)
+        - `error`: An error occurred (`data` field contains error message)
+
+        **Fallback**: If streaming is unavailable, clients should fall back to
+        the non-streaming `POST /chat/messages` endpoint.
+
+        **Rate limit**: 10 requests per minute per session (shared with non-streaming).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+      responses:
+        "200":
+          description: SSE stream of agent response tokens
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events stream. Each event has:
+                  - `event`: Event type (token, tool_call, tool_result, done, error)
+                  - `data`: Event payload (text chunk or JSON string)
+        "400":
+          description: Invalid request
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: Rate limit exceeded
+        "503":
+          description: Streaming not available (disabled in config or agent error)
+
+  /chat/proposals/{proposal_id}/confirm:
+    post:
+      operationId: confirmProposal
+      summary: Confirm a pending proposal
+      description: |
+        Confirms a pending task proposal or issue recommendation and creates
+        the corresponding GitHub issue. Unchanged from v0.1.x.
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proposal confirmed, GitHub issue created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/ChatMessage"
+                  github_issue_url:
+                    type: string
+                    format: uri
+        "404":
+          description: Proposal not found
+        "410":
+          description: Proposal expired
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /chat/proposals/{proposal_id}:
+    delete:
+      operationId: cancelProposal
+      summary: Cancel a pending proposal
+      description: Rejects/cancels a pending task proposal or issue recommendation. Unchanged from v0.1.x.
+      parameters:
+        - name: proposal_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Proposal cancelled
+        "404":
+          description: Proposal not found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /chat/upload:
+    post:
+      operationId: uploadFile
+      summary: Upload a file attachment
+      description: |
+        Uploads a file for use in chat messages. Unchanged from v0.1.x.
+        - Max file size: 10 MB
+        - Max files per message: 5
+        - Allowed types: images (.png, .jpg, .jpeg, .gif, .webp, .svg),
+          documents (.pdf, .txt, .md, .csv, .json, .yaml, .yml, .vtt, .srt),
+          archives (.zip)
+        - Blocked types: .exe, .sh, .bat, .cmd, .js, .py, .rb
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  file_url:
+                    type: string
+                    description: URL to access the uploaded file
+                  filename:
+                    type: string
+        "400":
+          description: Invalid file (too large, blocked extension, too many files)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  schemas:
+    ChatMessage:
+      type: object
+      description: A single chat message. Schema is unchanged from v0.1.x.
+      required:
+        - message_id
+        - session_id
+        - sender_type
+        - content
+        - timestamp
+      properties:
+        message_id:
+          type: string
+          format: uuid
+          description: Unique message identifier
+        session_id:
+          type: string
+          format: uuid
+          description: Parent chat session identifier
+        sender_type:
+          $ref: "#/components/schemas/SenderType"
+        content:
+          type: string
+          maxLength: 100000
+          description: Message text content
+        action_type:
+          $ref: "#/components/schemas/ActionType"
+        action_data:
+          type: object
+          nullable: true
+          description: |
+            Action-specific structured payload. Shape depends on action_type:
+            - task_create: AITaskProposal fields
+            - issue_create: IssueRecommendation fields
+            - status_update: {task_id, task_title, target_status, confidence}
+            - project_select: {project_id, project_name}
+        timestamp:
+          type: string
+          format: date-time
+
+    ChatMessageRequest:
+      type: object
+      description: Request body for sending a chat message.
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: User message text
+        ai_enhance:
+          type: boolean
+          default: true
+          description: |
+            When true (default), the agent processes the message with full AI
+            capabilities. When false, bypasses the agent for simple title-only
+            generation.
+        file_urls:
+          type: array
+          items:
+            type: string
+          default: []
+          description: URLs of previously uploaded files to attach
+        pipeline_id:
+          type: string
+          nullable: true
+          description: Optional pipeline override identifier
+
+    SenderType:
+      type: string
+      enum:
+        - user
+        - assistant
+        - system
+      description: Who sent the message
+
+    ActionType:
+      type: string
+      nullable: true
+      enum:
+        - task_create
+        - status_update
+        - project_select
+        - issue_create
+      description: Type of action associated with the message
+
+    StreamEvent:
+      type: object
+      description: |
+        **NEW in v0.2.0**. A single Server-Sent Event in the streaming response.
+        Not a JSON schema per se — this documents the SSE event structure.
+      properties:
+        event:
+          type: string
+          enum:
+            - token
+            - tool_call
+            - tool_result
+            - done
+            - error
+          description: Event type
+        data:
+          type: string
+          description: |
+            Event payload. For `token` events, this is a text chunk.
+            For `tool_call`, `tool_result`, `done`, and `error` events,
+            this is a JSON string.
+
+  responses:
+    Unauthorized:
+      description: Authentication required or session expired
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: "Not authenticated"
