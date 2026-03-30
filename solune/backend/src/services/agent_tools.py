@@ -9,10 +9,13 @@ Tool registration is designed to accommodate future MCP tool integration (v0.4.0
 
 from __future__ import annotations
 
+import json
 from typing import Any, TypedDict
 
+import aiosqlite
 from agent_framework import FunctionInvocationContext, tool
 
+from src.config import get_settings
 from src.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -32,6 +35,17 @@ class ToolResult(TypedDict, total=False):
     content: str
     action_type: str | None
     action_data: dict[str, Any] | None
+
+
+# ── Constants ────────────────────────────────────────────────────────────
+
+DIFFICULTY_PRESET_MAP: dict[str, str] = {
+    "XS": "github-copilot",
+    "S": "easy",
+    "M": "medium",
+    "L": "hard",
+    "XL": "expert",
+}
 
 
 # ── Tool functions ───────────────────────────────────────────────────────
@@ -266,6 +280,254 @@ async def get_pipeline_list(
     )
 
 
+@tool
+async def assess_difficulty(
+    context: FunctionInvocationContext,
+    difficulty: str,
+    reasoning: str,
+) -> ToolResult:
+    """Assess the complexity of a project idea and record the difficulty rating.
+
+    Use this when the user describes a project they want to build. Rate the
+    complexity before selecting a pipeline preset or creating the project.
+
+    Args:
+        context: Framework-injected invocation context.
+        difficulty: Complexity rating — one of XS, S, M, L, XL.
+        reasoning: Brief explanation of why this difficulty level was chosen.
+    """
+    logger.info("Tool assess_difficulty called: difficulty=%s", difficulty)
+
+    difficulty_upper = difficulty.upper().strip()
+    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty_upper, "medium")
+
+    if context.session:
+        context.session.state["assessed_difficulty"] = difficulty_upper
+
+    return ToolResult(
+        content=(
+            f"**Difficulty Assessment**: {difficulty_upper}\n\n"
+            f"**Reasoning**: {reasoning}\n\n"
+            f"**Recommended Preset**: `{preset_id}`"
+        ),
+        action_type=None,
+        action_data=None,
+    )
+
+
+@tool
+async def select_pipeline_preset(
+    context: FunctionInvocationContext,
+    difficulty: str,
+    project_name: str,
+) -> ToolResult:
+    """Select the appropriate pipeline preset based on difficulty assessment.
+
+    Use this after assessing difficulty to configure the pipeline that will
+    be used for project execution.
+
+    Args:
+        context: Framework-injected invocation context.
+        difficulty: Complexity rating — one of XS, S, M, L, XL.
+        project_name: Name of the project being configured.
+    """
+    from src.services.pipelines.service import _PRESET_DEFINITIONS
+
+    logger.info(
+        "Tool select_pipeline_preset called: difficulty=%s, project=%s",
+        difficulty,
+        project_name[:80],
+    )
+
+    difficulty_upper = difficulty.upper().strip()
+    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty_upper, "medium")
+
+    # Look up preset details from definitions
+    preset = next((p for p in _PRESET_DEFINITIONS if p["preset_id"] == preset_id), None)
+
+    if preset is None:
+        # Fallback to medium if somehow the preset isn't found
+        preset_id = "medium"
+        preset = next((p for p in _PRESET_DEFINITIONS if p["preset_id"] == preset_id), None)
+
+    if context.session:
+        context.session.state["selected_preset_id"] = preset_id
+
+    if preset:
+        stages = [stage["name"] for stage in preset.get("stages", [])]
+        agents: list[str] = []
+        for stage in preset.get("stages", []):
+            for agent in stage.get("agents", []):
+                display = agent.get("agent_display_name", agent.get("agent_slug", ""))
+                if display and display not in agents:
+                    agents.append(display)
+
+        stages_str = " → ".join(stages) if stages else "No stages"
+        agents_str = ", ".join(agents) if agents else "No agents"
+
+        return ToolResult(
+            content=(
+                f"**Pipeline Preset Selected**: {preset['name']} (`{preset_id}`)\n\n"
+                f"**Project**: {project_name}\n"
+                f"**Stages**: {stages_str}\n"
+                f"**Agents**: {agents_str}\n\n"
+                f"{preset.get('description', '')}"
+            ),
+            action_type=None,
+            action_data=None,
+        )
+
+    return ToolResult(
+        content=f"Selected pipeline preset `{preset_id}` for **{project_name}**.",
+        action_type=None,
+        action_data=None,
+    )
+
+
+@tool
+async def create_project_issue(
+    context: FunctionInvocationContext,
+    title: str,
+    body: str,
+) -> ToolResult:
+    """Create a GitHub issue for a new project.
+
+    Use this after assessing difficulty and selecting a pipeline preset.
+    When autonomous creation is disabled, returns a proposal instead.
+
+    Args:
+        context: Framework-injected invocation context.
+        title: Issue title for the new project.
+        body: Issue body with project description and requirements.
+    """
+    logger.info("Tool create_project_issue called: title=%s", title[:80])
+
+    settings = get_settings()
+
+    if not settings.chat_auto_create_enabled:
+        state = context.session.state if context.session else {}
+        preset_id = state.get("selected_preset_id", "medium")
+        return ToolResult(
+            content=(
+                f"**Project Proposal** (autonomous creation is disabled)\n\n"
+                f"**Title**: {title}\n\n"
+                f"**Pipeline Preset**: `{preset_id}`\n\n"
+                f"{body[:500]}{'...' if len(body) > 500 else ''}\n\n"
+                f"To create this project, enable `CHAT_AUTO_CREATE_ENABLED=true` "
+                f"or create the issue manually."
+            ),
+            action_type=None,
+            action_data=None,
+        )
+
+    state = context.session.state if context.session else {}
+    github_token = state.get("github_token")
+    project_name = state.get("project_name", "Unknown Project")
+    preset_id = state.get("selected_preset_id", "medium")
+
+    if not github_token:
+        return ToolResult(
+            content="Cannot create issue: GitHub authentication is required.",
+            action_type=None,
+            action_data=None,
+        )
+
+    try:
+        from src.services.github_projects.service import GitHubProjectsService
+
+        service = GitHubProjectsService()
+        owner = settings.default_repo_owner
+        repo = settings.default_repo_name
+
+        if not owner or not repo:
+            return ToolResult(
+                content="Cannot create issue: default repository is not configured.",
+                action_type=None,
+                action_data=None,
+            )
+
+        issue = await service.create_issue(
+            access_token=github_token,
+            owner=owner,
+            repo=repo,
+            title=title,
+            body=body,
+        )
+
+        return ToolResult(
+            content=(
+                f"**Issue Created**: #{issue['number']}\n\n"
+                f"**URL**: {issue['html_url']}\n"
+                f"**Pipeline Preset**: `{preset_id}`\n"
+                f"**Project**: {project_name}"
+            ),
+            action_type="issue_create",
+            action_data={
+                "issue_number": issue["number"],
+                "issue_url": issue["html_url"],
+                "preset_id": preset_id,
+                "project_name": project_name,
+            },
+        )
+    except Exception as e:
+        logger.error("Failed to create project issue: %s", e, exc_info=True)
+        return ToolResult(
+            content=f"Failed to create issue: {e}",
+            action_type=None,
+            action_data=None,
+        )
+
+
+@tool
+async def launch_pipeline(
+    context: FunctionInvocationContext,
+    pipeline_id: str = "",
+) -> ToolResult:
+    """Launch a pipeline for the current project.
+
+    Use this after creating a project issue to start the configured
+    pipeline execution.
+
+    Args:
+        context: Framework-injected invocation context.
+        pipeline_id: Optional pipeline configuration ID override.
+    """
+    state = context.session.state if context.session else {}
+    preset_id = state.get("selected_preset_id", "medium")
+    project_id = state.get("project_id", "")
+    effective_pipeline_id = pipeline_id or state.get("pipeline_id", "")
+
+    logger.info(
+        "Tool launch_pipeline called: preset=%s, project_id=%s, pipeline_id=%s",
+        preset_id,
+        project_id[:20] if project_id else "",
+        effective_pipeline_id[:20] if effective_pipeline_id else "",
+    )
+
+    from src.services.pipelines.service import _PRESET_DEFINITIONS
+
+    preset = next((p for p in _PRESET_DEFINITIONS if p["preset_id"] == preset_id), None)
+    stages: list[str] = []
+    if preset:
+        stages = [stage["name"] for stage in preset.get("stages", [])]
+
+    return ToolResult(
+        content=(
+            f"**Pipeline Launched**\n\n"
+            f"**Preset**: `{preset_id}`\n"
+            f"**Stages**: {' → '.join(stages) if stages else 'Default'}\n"
+            f"**Project ID**: {project_id or 'Not set'}\n\n"
+            f"The pipeline has been configured and is ready for execution."
+        ),
+        action_type="pipeline_launch",
+        action_data={
+            "pipeline_id": effective_pipeline_id,
+            "preset": preset_id,
+            "stages": stages,
+        },
+    )
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
@@ -334,4 +596,82 @@ def register_tools() -> list:
         ask_clarifying_question,
         get_project_context,
         get_pipeline_list,
+        assess_difficulty,
+        select_pipeline_preset,
+        create_project_issue,
+        launch_pipeline,
     ]
+
+
+# ── MCP tool loading ────────────────────────────────────────────────────
+
+
+async def load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str, Any]:
+    """Load active MCP tool configurations for a project.
+
+    Queries the ``mcp_tool_configs`` table for active configs matching
+    *project_id* and converts each row into a dict compatible with
+    ``GitHubCopilotOptions.mcp_servers``.
+
+    Returns an empty dict (and logs accordingly) when no MCP tools are
+    configured or on error.
+
+    Args:
+        project_id: The project ID to load MCP tools for.
+        db: An open aiosqlite connection.
+
+    Returns:
+        Mapping of server name → config dict.
+    """
+    if not project_id:
+        logger.info("load_mcp_tools: no project_id provided, skipping MCP tool loading")
+        return {}
+
+    try:
+        cursor = await db.execute(
+            "SELECT name, endpoint_url, config_content "
+            "FROM mcp_tool_configs "
+            "WHERE project_id = ? AND is_active = 1",
+            (project_id,),
+        )
+        rows = await cursor.fetchall()
+
+        if not rows:
+            logger.info(
+                "load_mcp_tools: no active MCP tools configured for project %s",
+                project_id[:20],
+            )
+            return {}
+
+        mcp_servers: dict[str, Any] = {}
+        for row in rows:
+            name, endpoint_url, config_content = row
+            try:
+                config = json.loads(config_content) if config_content else {}
+            except (json.JSONDecodeError, TypeError) as exc:
+                logger.warning(
+                    "load_mcp_tools: invalid JSON config for MCP server %r: %s",
+                    name,
+                    exc,
+                )
+                config = {}
+
+            mcp_servers[name] = {
+                "endpoint_url": endpoint_url,
+                "config": config,
+            }
+
+        logger.info(
+            "load_mcp_tools: loaded %d MCP tool(s) for project %s",
+            len(mcp_servers),
+            project_id[:20],
+        )
+        return mcp_servers
+
+    except Exception as e:
+        logger.warning(
+            "load_mcp_tools: failed to load MCP tools for project %s: %s",
+            project_id[:20],
+            e,
+        )
+        return {}
