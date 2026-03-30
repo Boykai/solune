@@ -322,6 +322,7 @@ class TestSendMessageTaskGeneration:
         assert resp.status_code == 200
         data = resp.json()
         assert data["action_data"]["proposed_title"] == "Enhanced Title"
+        assert mock_chat_agent_service.run.call_args.kwargs["db"] is not None
 
 
 # ── POST /chat/messages/stream ───────────────────────────────────────────────
@@ -402,6 +403,7 @@ class TestSendMessageStream:
         assert call_kwargs["project_id"] == "PVT_1"
         assert call_kwargs["available_tasks"] == [cached_task]
         assert call_kwargs["available_statuses"] == ["Todo", "Done"]
+        assert call_kwargs["db"] is not None
 
     async def test_stream_returns_503_when_streaming_disabled(
         self, client, mock_session, mock_settings, mock_chat_agent_service

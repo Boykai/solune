@@ -270,6 +270,7 @@ class ChatAgentService:
         project_id: str = "",
         available_tasks: list[Any] | None = None,
         available_statuses: list[str] | None = None,
+        db: Any | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Run the agent in streaming mode, yielding SSE-compatible events.
 
@@ -288,10 +289,15 @@ class ChatAgentService:
             available_statuses=available_statuses,
         )
 
+        mcp_servers = None
+        if db and project_id:
+            mcp_servers = await load_mcp_tools(project_id, db) or None
+
         agent = create_agent(
             instructions=instructions,
             tools=self._tools,
             github_token=github_token,
+            mcp_servers=mcp_servers,
         )
 
         agent_session = await self._session_mapping.get_or_create(str(session_id))
