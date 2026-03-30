@@ -648,7 +648,12 @@ async def load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str,
             name, endpoint_url, config_content = row
             try:
                 config = json.loads(config_content) if config_content else {}
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError) as exc:
+                logger.warning(
+                    "load_mcp_tools: invalid JSON config for MCP server %r: %s",
+                    name,
+                    exc,
+                )
                 config = {}
 
             mcp_servers[name] = {
