@@ -11,6 +11,7 @@ don't go through the full lifespan).
 
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING
 
 from fastapi import Cookie, Depends, Request
@@ -68,10 +69,18 @@ def _get_session_dep():
 
 
 async def _require_session(
+    request: Request,
     session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
 ) -> UserSession:
     """Resolve the current session without importing auth dependencies eagerly."""
     get_session_dep = _get_session_dep()
+    dependency_override = request.app.dependency_overrides.get(get_session_dep)
+    if dependency_override is not None:
+        result = dependency_override()
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
     return await get_session_dep(session_id)
 
 

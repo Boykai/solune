@@ -83,6 +83,18 @@ class TestServiceGetters:
 
         assert _get_session_dep() is auth_get_session_dep
 
+    @pytest.mark.asyncio
+    async def test_require_session_honors_fastapi_dependency_overrides(self):
+        from src.api.auth import get_session_dep
+        from src.dependencies import _require_session
+
+        session = _session()
+        request = SimpleNamespace(
+            app=SimpleNamespace(dependency_overrides={get_session_dep: lambda: session})
+        )
+
+        assert await _require_session(request, None) is session
+
 
 class TestRequireAdmin:
     @pytest.mark.asyncio
