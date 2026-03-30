@@ -25,8 +25,8 @@
 
 **Purpose**: Create the `tests/e2e/` directory and verify project prerequisites
 
-- [ ] T001 Create the `solune/backend/tests/e2e/` directory with an empty `__init__.py` file
-- [ ] T002 Verify existing test suite passes before adding new tests by running `cd solune/backend && uv run pytest tests/test_api_e2e.py -v --tb=short`
+- [x] T001 Create the `solune/backend/tests/e2e/` directory with an empty `__init__.py` file
+- [x] T002 Verify existing test suite passes before adding new tests by running `cd solune/backend && uv run pytest tests/test_api_e2e.py -v --tb=short`
 
 ---
 
@@ -36,7 +36,7 @@
 
 **⚠️ CRITICAL**: No user story test file can be implemented until this phase is complete.
 
-- [ ] T003 Create the authenticated E2E conftest with all shared fixtures in `solune/backend/tests/e2e/conftest.py`:
+- [x] T003 Create the authenticated E2E conftest with all shared fixtures in `solune/backend/tests/e2e/conftest.py`:
   - `test_db` fixture (function-scoped): Creates a fresh in-memory SQLite database via `aiosqlite.connect(":memory:")`, applies all migrations using `_apply_migrations()` from `tests/conftest.py`, yields the connection, closes on teardown
   - `mock_github_projects_service` fixture: Creates a pre-configured `GitHubProjectsService` mock using `make_mock_github_service()` from `tests/conftest.py`
   - `mock_chat_agent_service` fixture: Creates an `AsyncMock` with spec `ChatAgentService` that returns mock chat responses
@@ -46,7 +46,7 @@
   - `auth_client` fixture (function-scoped): Creates `httpx.AsyncClient` with `ASGITransport(app=e2e_app)` and `base_url="http://testserver"`, calls `POST /api/v1/auth/dev-login` with `{"github_token": "ghp_test_access_token"}`, asserts 200 response and session cookie presence, yields authenticated client, closes on teardown
   - `unauthenticated_client` fixture (function-scoped): Creates `httpx.AsyncClient` with same app but no login call, yields client, closes on teardown
   - Set environment variables: `TESTING=1`, `DEBUG=true`, `DATABASE_PATH=:memory:`
-- [ ] T004 Validate the foundational fixtures work by running `cd solune/backend && uv run pytest tests/e2e/conftest.py --co -v` to verify fixture collection succeeds
+- [x] T004 Validate the foundational fixtures work by running `cd solune/backend && uv run pytest tests/e2e/conftest.py --co -v` to verify fixture collection succeeds
 
 **Checkpoint**: Foundation ready — all user story E2E test files can now be implemented in parallel.
 
@@ -60,13 +60,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Create auth lifecycle E2E tests in `solune/backend/tests/e2e/test_auth_flow.py`:
+- [x] T005 [US1] Create auth lifecycle E2E tests in `solune/backend/tests/e2e/test_auth_flow.py`:
   - `test_dev_login_sets_session_cookie_and_returns_user(auth_client)` — Verify the auth_client fixture successfully logged in: call `GET /api/v1/auth/me`, assert 200 with `github_username == "test-user"` and `github_user_id == "12345"`
   - `test_session_persists_across_multiple_requests(auth_client)` — Make 3+ sequential authenticated requests (e.g., `GET /api/v1/auth/me` three times), assert all return 200 with consistent user data, verifying cookie reuse
   - `test_logout_invalidates_session(auth_client)` — Call `POST /api/v1/auth/logout`, then call `GET /api/v1/auth/me`, assert 401 response
   - `test_unauthenticated_request_returns_401(unauthenticated_client)` — Call `GET /api/v1/auth/me` without session cookie, assert 401
   - `test_invalid_cookie_returns_401(unauthenticated_client)` — Manually set an invalid `session_id` cookie on the client, call `GET /api/v1/auth/me`, assert 401
-- [ ] T006 [US1] Run and verify auth flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_auth_flow.py -v`
+- [x] T006 [US1] Run and verify auth flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_auth_flow.py -v`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. The auth lifecycle (login → session reuse → logout → invalidation) is verified E2E.
 
@@ -80,14 +80,14 @@
 
 ### Implementation for User Story 2
 
-- [ ] T007 [P] [US2] Create project operations E2E tests in `solune/backend/tests/e2e/test_projects_flow.py`:
+- [x] T007 [P] [US2] Create project operations E2E tests in `solune/backend/tests/e2e/test_projects_flow.py`:
   - `test_list_projects(auth_client, mock_github_projects_service)` — Configure `mock_github_projects_service.list_user_projects` to return a list of mock projects (e.g., `[{"id": "PVT_test123", "title": "Test Project", "number": 1}]`), call `GET /api/v1/projects`, assert 200 with project data
   - `test_select_project_updates_session(auth_client, mock_github_projects_service)` — Configure mock to allow project access, call `POST /api/v1/projects/PVT_test123/select`, assert 200 with `selected_project_id` in response, then call `GET /api/v1/auth/me` and verify `selected_project_id` is set
   - `test_get_project_details(auth_client, mock_github_projects_service)` — Select a project first, then call `GET /api/v1/projects/PVT_test123`, assert 200 with project details
   - `test_list_project_tasks(auth_client, mock_github_projects_service)` — Select a project, configure mock to return task list, call `GET /api/v1/projects/PVT_test123/tasks`, assert 200 with task data
   - `test_create_task_in_project(auth_client, mock_github_projects_service)` — Select a project, configure mock `create_issue` return value, call task creation endpoint, assert task is created
   - `test_project_operations_require_auth(unauthenticated_client)` — Call `GET /api/v1/projects` without auth, assert 401
-- [ ] T008 [US2] Run and verify project flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_projects_flow.py -v`
+- [x] T008 [US2] Run and verify project flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_projects_flow.py -v`
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. Project CRUD operations are verified E2E with session state propagation.
 
@@ -101,12 +101,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T009 [P] [US3] Create chat flow E2E tests in `solune/backend/tests/e2e/test_chat_flow.py`:
+- [x] T009 [P] [US3] Create chat flow E2E tests in `solune/backend/tests/e2e/test_chat_flow.py`:
   - `test_send_message_requires_selected_project(auth_client)` — Without selecting a project, call `POST /api/v1/chat/messages` with `{"content": "Hello"}`, assert error response indicating a project must be selected
   - `test_send_message_with_selected_project(auth_client, mock_github_projects_service, mock_chat_agent_service)` — Select a project first, configure mock chat agent to return a response, call `POST /api/v1/chat/messages` with `{"content": "Test message for chat flow"}`, assert 200 with message response
   - `test_get_chat_history(auth_client, mock_github_projects_service, mock_chat_agent_service)` — Select a project, send a message, then call `GET /api/v1/chat/messages`, assert 200 with history containing the sent message
   - `test_chat_requires_auth(unauthenticated_client)` — Call `POST /api/v1/chat/messages` without auth, assert 401
-- [ ] T010 [US3] Run and verify chat flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_chat_flow.py -v`
+- [x] T010 [US3] Run and verify chat flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_chat_flow.py -v`
 
 **Checkpoint**: Chat operations are verified E2E — project-selection enforcement, message persistence, and history retrieval all work with real session state.
 
@@ -120,12 +120,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T011 [P] [US4] Create pipeline CRUD E2E tests in `solune/backend/tests/e2e/test_pipeline_flow.py`:
+- [x] T011 [P] [US4] Create pipeline CRUD E2E tests in `solune/backend/tests/e2e/test_pipeline_flow.py`:
   - `test_list_pipelines(auth_client, mock_github_projects_service)` — Select a project, call `GET /api/v1/pipelines/{project_id}`, assert 200 with pipeline list (initially empty)
   - `test_create_pipeline(auth_client, mock_github_projects_service)` — Select a project, call `POST /api/v1/pipelines/{project_id}` with pipeline config data, assert 200 with created pipeline, then call list and verify it appears
   - `test_assign_pipeline_to_project(auth_client, mock_github_projects_service)` — Create a pipeline, call `PUT /api/v1/pipelines/{project_id}/{pipeline_id}/assignment` with assignment data, assert 200
   - `test_pipeline_operations_require_auth(unauthenticated_client)` — Call `GET /api/v1/pipelines/PVT_test123` without auth, assert 401
-- [ ] T012 [US4] Run and verify pipeline flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_pipeline_flow.py -v`
+- [x] T012 [US4] Run and verify pipeline flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_pipeline_flow.py -v`
 
 **Checkpoint**: Pipeline CRUD operations are verified E2E — create, list, assign lifecycle works with real database persistence and authenticated sessions.
 
@@ -139,12 +139,12 @@
 
 ### Implementation for User Story 5
 
-- [ ] T013 [P] [US5] Create board operations E2E tests in `solune/backend/tests/e2e/test_board_flow.py`:
+- [x] T013 [P] [US5] Create board operations E2E tests in `solune/backend/tests/e2e/test_board_flow.py`:
   - `test_get_board_projects(auth_client, mock_github_projects_service)` — Configure mock to return board project list, call `GET /api/v1/board/projects`, assert 200 with project data
   - `test_get_board_data_with_columns(auth_client, mock_github_projects_service)` — Configure mock to return board data with columns (Backlog, In Progress, Done) and items, call `GET /api/v1/board/projects/{project_id}`, assert 200 with column and item data
   - `test_move_task_between_columns(auth_client, mock_github_projects_service)` — Configure mock for status update, call `PATCH /api/v1/board/projects/{project_id}/items/{item_id}/status` with `{"status": "In Progress"}`, assert 200 with updated status
   - `test_board_operations_require_auth(unauthenticated_client)` — Call `GET /api/v1/board/projects` without auth, assert 401
-- [ ] T014 [US5] Run and verify board flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_board_flow.py -v`
+- [x] T014 [US5] Run and verify board flow tests pass: `cd solune/backend && uv run pytest tests/e2e/test_board_flow.py -v`
 
 **Checkpoint**: Board operations are verified E2E — column retrieval and task movement work with real auth and session context.
 
@@ -158,7 +158,7 @@
 
 ### Implementation for User Story 6
 
-- [ ] T015 [P] [US6] Create authenticated Playwright fixtures in `solune/frontend/e2e/authenticated-fixtures.ts`:
+- [x] T015 [P] [US6] Create authenticated Playwright fixtures in `solune/frontend/e2e/authenticated-fixtures.ts`:
   - Extend the existing `fixtures.ts` pattern using `test.extend()`
   - Route `/api/v1/auth/me` → 200 with mock user (`{ github_username: "test-user", github_user_id: "12345", github_avatar_url: "https://avatars.githubusercontent.com/u/12345", selected_project_id: "PVT_test123" }`)
   - Route `/api/v1/projects` → 200 with mock project list
@@ -167,12 +167,12 @@
   - Route `/api/v1/chat/messages` GET → 200 with mock chat history
   - Route `/api/v1/health` → 200 with `{ status: "healthy" }`
   - All other `/api/**` routes → 404 fallback
-- [ ] T016 [US6] Create authenticated UI flow tests in `solune/frontend/e2e/authenticated-flows.spec.ts`:
+- [x] T016 [US6] Create authenticated UI flow tests in `solune/frontend/e2e/authenticated-flows.spec.ts`:
   - `test('dashboard renders with authenticated user data')` — Navigate to `/`, verify user info displays, project list renders
   - `test('project selector works with authenticated data')` — Verify project selector shows projects, selecting one updates the UI
   - `test('kanban board shows tasks in columns')` — Navigate to board page, verify columns (Backlog, In Progress, Done) and task items render
   - `test('navigation between pages works')` — Navigate between dashboard, board, and other pages, verify content renders correctly
-- [ ] T017 [US6] Run and verify frontend E2E tests pass: `cd solune/frontend && npx playwright test e2e/authenticated-flows.spec.ts`
+- [x] T017 [US6] Run and verify frontend E2E tests pass: `cd solune/frontend && npx playwright test e2e/authenticated-flows.spec.ts`
 
 **Checkpoint**: Frontend authenticated flows are verified — the UI correctly renders authenticated user data and handles realistic API responses.
 
@@ -182,10 +182,10 @@
 
 **Purpose**: Final validation, regression check, and documentation
 
-- [ ] T018 Run the full backend test suite to verify zero regressions: `cd solune/backend && uv run pytest tests/ -v`
-- [ ] T019 [P] Verify each E2E test completes within 5 seconds (SC-004): `cd solune/backend && uv run pytest tests/e2e/ -v --durations=0`
-- [ ] T020 [P] Verify test isolation — no shared state between tests: Review all fixtures use function scope, each test gets a fresh app and database
-- [ ] T021 Run quickstart.md validation: Execute all commands in `specs/001-authenticated-e2e-tests/quickstart.md` and verify they succeed
+- [x] T018 Run the full backend test suite to verify zero regressions: `cd solune/backend && uv run pytest tests/ -v`
+- [x] T019 [P] Verify each E2E test completes within 5 seconds (SC-004): `cd solune/backend && uv run pytest tests/e2e/ -v --durations=0`
+- [x] T020 [P] Verify test isolation — no shared state between tests: Review all fixtures use function scope, each test gets a fresh app and database
+- [x] T021 Run quickstart.md validation: Execute all commands in `specs/001-authenticated-e2e-tests/quickstart.md` and verify they succeed
 
 ---
 
