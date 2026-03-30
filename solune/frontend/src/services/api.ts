@@ -417,8 +417,9 @@ export const chatApi = {
                 // Direct token content
                 onToken(parsed.content);
               }
-            } catch {
-              // Skip malformed SSE data
+            } catch (parseError) {
+              // Skip malformed SSE data — log for debugging
+              console.debug('[SSE] Failed to parse event data:', jsonStr, parseError);
             }
           }
         }
