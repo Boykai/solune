@@ -3368,6 +3368,95 @@ class TestAdvancePipeline:
         assert pipeline.groups[1].agent_statuses["judge"] == "active"
         assert "archivist" in pipeline.failed_agents
 
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.connection_manager")
+    @patch("src.services.copilot_polling.get_issue_main_branch")
+    @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
+    @patch("src.services.copilot_polling.get_workflow_orchestrator")
+    @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.set_pipeline_state")
+    async def test_parallel_agent_exception_marks_correct_slug_failed(
+        self,
+        mock_set_state,
+        mock_config,
+        mock_get_orchestrator,
+        mock_merge,
+        mock_get_branch,
+        mock_ws,
+        mock_service,
+        mock_update_tracking,
+    ):
+        """An exception in one parallel agent must mark that specific agent failed."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo
+
+        pipeline = PipelineState(
+            issue_number=42,
+            project_id="PVT_123",
+            status="In Progress",
+            agents=["speckit.implement", "linter", "archivist", "judge"],
+            current_agent_index=0,
+            completed_agents=[],
+            groups=[
+                PipelineGroupInfo(
+                    group_id="g1",
+                    execution_mode="sequential",
+                    agents=["speckit.implement"],
+                ),
+                PipelineGroupInfo(
+                    group_id="g2",
+                    execution_mode="parallel",
+                    agents=["linter", "archivist", "judge"],
+                    agent_statuses={
+                        "linter": "pending",
+                        "archivist": "pending",
+                        "judge": "pending",
+                    },
+                ),
+            ],
+            current_group_index=0,
+            current_agent_index_in_group=0,
+        )
+
+        mock_get_branch.return_value = None
+        mock_merge.return_value = None
+        mock_ws.broadcast_to_project = AsyncMock()
+
+        # archivist (flat index 2) raises an exception, others succeed
+        async def _side_effect(ctx, status, agent_index=0):
+            if agent_index == 2:  # archivist
+                raise RuntimeError("GitHub API timeout")
+            return True
+
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.assign_agent_for_status = AsyncMock(side_effect=_side_effect)
+        mock_get_orchestrator.return_value = mock_orchestrator
+        mock_config.return_value = MagicMock()
+        mock_update_tracking.return_value = True
+
+        result = await _advance_pipeline(
+            access_token="token",
+            project_id="PVT_123",
+            item_id="PVTI_123",
+            owner="owner",
+            repo="repo",
+            issue_number=42,
+            issue_node_id="I_123",
+            pipeline=pipeline,
+            from_status="In Progress",
+            to_status="In Review",
+            task_title="Test Issue",
+        )
+
+        assert result["status"] == "error"
+        # The raising agent is correctly identified as failed (not stuck as active)
+        assert pipeline.groups[1].agent_statuses["archivist"] == "failed"
+        assert "archivist" in pipeline.failed_agents
+        # Other agents completed successfully
+        assert pipeline.groups[1].agent_statuses["linter"] == "active"
+        assert pipeline.groups[1].agent_statuses["judge"] == "active"
+
 
 class TestFindCompletedChildPr:
     """Tests for _find_completed_child_pr function."""

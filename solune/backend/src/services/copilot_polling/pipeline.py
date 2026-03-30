@@ -2022,31 +2022,31 @@ async def _advance_pipeline(
 
             # Dispatch all parallel agents concurrently
             async def _assign_one(slug: str, flat_idx: int) -> tuple[str, bool]:
-                result = await orchestrator.assign_agent_for_status(
-                    ctx, agent_lookup_status, agent_index=flat_idx
-                )
-                return slug, bool(result)
+                try:
+                    result = await orchestrator.assign_agent_for_status(
+                        ctx, agent_lookup_status, agent_index=flat_idx
+                    )
+                    return slug, bool(result)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception(
+                        "Parallel agent '%s' assignment raised for issue #%d",
+                        slug,
+                        issue_number,
+                    )
+                    return slug, False
 
-            results = await asyncio.gather(
+            results: list[tuple[str, bool]] = await asyncio.gather(
                 *(_assign_one(slug, idx) for slug, idx in agent_indices),
-                return_exceptions=True,
             )
 
             success = True
-            for entry in results:
-                if isinstance(entry, BaseException):
+            for slug, ok in results:
+                if not ok:
                     success = False
-                    logger.error(
-                        "Parallel agent assignment raised for issue #%d: %s",
-                        issue_number,
-                        entry,
-                    )
-                else:
-                    slug, ok = entry
-                    if not ok:
-                        success = False
-                        new_group.agent_statuses[slug] = "failed"
-                        pipeline.failed_agents.append(slug)
+                    new_group.agent_statuses[slug] = "failed"
+                    pipeline.failed_agents.append(slug)
             _cp.set_pipeline_state(issue_number, pipeline)
 
             if success:
