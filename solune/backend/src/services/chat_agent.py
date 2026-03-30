@@ -72,6 +72,26 @@ def _extract_action_payload(value: Any) -> tuple[str | None, dict[str, Any] | No
             if isinstance(data, dict) and "action_type" in data:
                 return data["action_type"], data.get("action_data")
 
+    # Check Message.contents for function_result Content items.
+    # The Agent Framework stores tool return values as Content objects
+    # of type "function_result" whose ``result`` field is a JSON string.
+    contents = getattr(value, "contents", None)
+    if contents:
+        for item in contents:
+            if getattr(item, "type", None) != "function_result":
+                continue
+            raw = getattr(item, "result", None)
+            if raw is None:
+                continue
+            parsed = raw
+            if isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if isinstance(parsed, dict) and "action_type" in parsed:
+                return parsed["action_type"], parsed.get("action_data")
+
     return None, None
 
 

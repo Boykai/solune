@@ -214,6 +214,60 @@ class TestChatAgentServiceRun:
         assert result.action_data["preset"] == "medium"
         assert result.action_data["stages"] == ["Specify", "Plan", "Implement"]
 
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_extracts_action_from_function_result_content(self, mock_create_agent):
+        """Verify _convert_response() extracts action_type from function_result Content items."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+
+        # Simulate an assistant message with text (LLM summarisation)
+        assistant_msg = MagicMock()
+        assistant_msg.text = "I've created a task proposal."
+        assistant_msg.content = None
+        assistant_msg.contents = None
+        assistant_msg.tool_result = None
+        assistant_msg.additional_properties = None
+        assistant_msg.annotations = None
+
+        # Simulate the tool-role message containing a function_result Content item.
+        # The Agent Framework stores the tool return value in Content.result as
+        # a JSON string inside a message with role="tool".
+        tool_msg = MagicMock()
+        tool_msg.text = None
+        tool_msg.content = None
+        tool_msg.tool_result = None
+        tool_msg.additional_properties = None
+        tool_msg.annotations = None
+
+        fn_result_content = MagicMock()
+        fn_result_content.type = "function_result"
+        fn_result_content.result = json.dumps(
+            {
+                "content": "Task proposal created",
+                "action_type": "task_create",
+                "action_data": {
+                    "proposed_title": "Add login tests",
+                    "proposed_description": "Cover edge cases",
+                },
+            }
+        )
+        tool_msg.contents = [fn_result_content]
+
+        mock_response.messages = [tool_msg, assistant_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        result = await service.run(
+            message="Add unit tests for login",
+            session_id=uuid4(),
+            github_token="test-token",
+        )
+
+        assert result.action_type == ActionType.TASK_CREATE
+        assert result.action_data["proposed_title"] == "Add login tests"
+        assert result.action_data["proposed_description"] == "Cover edge cases"
+
     @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
     @patch("src.services.chat_agent.create_agent")
     async def test_run_loads_mcp_servers_for_project_context(
