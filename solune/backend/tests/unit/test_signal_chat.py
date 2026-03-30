@@ -462,6 +462,9 @@ class TestRunAiPipeline:
         monkeypatch.setattr(
             "src.services.ai_agent.get_ai_agent_service", Mock(side_effect=ValueError)
         )
+        monkeypatch.setattr(
+            "src.services.chat_agent.get_chat_agent_service", Mock(side_effect=ValueError)
+        )
         monkeypatch.setattr(signal_chat, "_reply", reply)
 
         await signal_chat._run_ai_pipeline(
@@ -480,16 +483,29 @@ class TestRunAiPipeline:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         conn = _connected_connection()
-        ai_service = Mock()
-        ai_service.detect_feature_request_intent = AsyncMock(return_value=True)
-        ai_service.generate_issue_recommendation = AsyncMock(
-            return_value=SimpleNamespace(
-                recommendation_id="rec-1",
-                title="Improve coverage dashboard",
-                user_story="As a maintainer, I want clearer coverage reporting.",
-                functional_requirements=["Show totals", "Highlight regressions"],
+
+        # Mock ChatAgentService.run() to return an issue recommendation
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from uuid import NAMESPACE_URL, uuid5
+
+        signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
+        mock_chat_agent = Mock()
+        mock_chat_agent.run = AsyncMock(
+            return_value=ChatMessage(
+                session_id=signal_sid,
+                sender_type=SenderType.ASSISTANT,
+                content="Issue recommendation generated",
+                action_type=ActionType.ISSUE_CREATE,
+                action_data={
+                    "proposed_title": "Improve coverage dashboard",
+                    "user_story": "As a maintainer, I want clearer coverage reporting.",
+                    "ui_ux_description": "",
+                    "functional_requirements": ["Show totals", "Highlight regressions"],
+                    "technical_notes": "",
+                },
             )
         )
+
         cache = Mock()
         cache.get.side_effect = [[self._project()], []]
         add_message = AsyncMock()
@@ -500,7 +516,8 @@ class TestRunAiPipeline:
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(return_value=ai_service)
+            "src.services.chat_agent.get_chat_agent_service",
+            Mock(return_value=mock_chat_agent),
         )
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr("src.api.chat.add_message", add_message)
@@ -511,11 +528,7 @@ class TestRunAiPipeline:
             conn, "we need a better dashboard", "project-1", "+15551234567"
         )
 
-        assert signal_chat._signal_pending[conn.github_user_id] == {
-            "type": "issue_create",
-            "recommendation_id": "rec-1",
-            "project_id": "project-1",
-        }
+        assert signal_chat._signal_pending[conn.github_user_id]["type"] == "issue_create"
         store_recommendation.assert_awaited_once()
         add_message.assert_awaited_once()
         reply_with_audit.assert_awaited_once()
@@ -526,12 +539,20 @@ class TestRunAiPipeline:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         conn = _connected_connection()
-        ai_service = Mock()
-        ai_service.detect_feature_request_intent = AsyncMock(return_value=False)
-        ai_service.parse_status_change_request = AsyncMock(
-            return_value=SimpleNamespace(task_reference="missing task", target_status="Done")
+
+        from src.models.chat import ChatMessage, SenderType
+        from uuid import NAMESPACE_URL, uuid5
+
+        signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
+        mock_chat_agent = Mock()
+        mock_chat_agent.run = AsyncMock(
+            return_value=ChatMessage(
+                session_id=signal_sid,
+                sender_type=SenderType.ASSISTANT,
+                content="I couldn't find a task matching 'missing task'.",
+            )
         )
-        ai_service.identify_target_task = Mock(return_value=None)
+
         cache = Mock()
         cache.get.side_effect = [
             [self._project()],
@@ -544,7 +565,8 @@ class TestRunAiPipeline:
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(return_value=ai_service)
+            "src.services.chat_agent.get_chat_agent_service",
+            Mock(return_value=mock_chat_agent),
         )
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr("src.api.chat.add_message", add_message)
@@ -564,13 +586,28 @@ class TestRunAiPipeline:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         conn = _connected_connection()
-        target_task = SimpleNamespace(title="Existing", status="Backlog", github_item_id="item-1")
-        ai_service = Mock()
-        ai_service.detect_feature_request_intent = AsyncMock(return_value=False)
-        ai_service.parse_status_change_request = AsyncMock(
-            return_value=SimpleNamespace(task_reference="Existing", target_status="Done")
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from uuid import NAMESPACE_URL, uuid5
+
+        signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
+        mock_chat_agent = Mock()
+        mock_chat_agent.run = AsyncMock(
+            return_value=ChatMessage(
+                session_id=signal_sid,
+                sender_type=SenderType.ASSISTANT,
+                content="I'll update the status of Existing to Done.",
+                action_type=ActionType.STATUS_UPDATE,
+                action_data={
+                    "task_id": "item-1",
+                    "task_title": "Existing",
+                    "current_status": "Backlog",
+                    "target_status": "Done",
+                },
+            )
         )
-        ai_service.identify_target_task = Mock(return_value=target_task)
+
+        target_task = SimpleNamespace(title="Existing", status="Backlog", github_item_id="item-1")
         cache = Mock()
         cache.get.side_effect = [[self._project()], [target_task]]
         add_message = AsyncMock()
@@ -581,7 +618,8 @@ class TestRunAiPipeline:
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(return_value=ai_service)
+            "src.services.chat_agent.get_chat_agent_service",
+            Mock(return_value=mock_chat_agent),
         )
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr("src.api.chat.add_message", add_message)
@@ -603,16 +641,25 @@ class TestRunAiPipeline:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         conn = _connected_connection()
-        ai_service = Mock()
-        ai_service.detect_feature_request_intent = AsyncMock(
-            side_effect=RuntimeError("parse failed")
-        )
-        ai_service.parse_status_change_request = AsyncMock(return_value=None)
-        ai_service.generate_task_from_description = AsyncMock(
-            return_value=SimpleNamespace(
-                title="Write fallback tests", description="Cover the fallback path."
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from uuid import NAMESPACE_URL, uuid5
+
+        signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
+        mock_chat_agent = Mock()
+        mock_chat_agent.run = AsyncMock(
+            return_value=ChatMessage(
+                session_id=signal_sid,
+                sender_type=SenderType.ASSISTANT,
+                content="Task proposal created",
+                action_type=ActionType.TASK_CREATE,
+                action_data={
+                    "proposed_title": "Write fallback tests",
+                    "proposed_description": "Cover the fallback path.",
+                },
             )
         )
+
         cache = Mock()
         cache.get.side_effect = [[self._project()], []]
         add_message = AsyncMock()
@@ -623,7 +670,8 @@ class TestRunAiPipeline:
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(return_value=ai_service)
+            "src.services.chat_agent.get_chat_agent_service",
+            Mock(return_value=mock_chat_agent),
         )
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr("src.api.chat.add_message", add_message)
@@ -643,15 +691,25 @@ class TestRunAiPipeline:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         conn = _connected_connection()
-        ai_service = Mock()
-        ai_service.detect_feature_request_intent = AsyncMock(return_value=False)
-        ai_service.parse_status_change_request = AsyncMock(return_value=None)
-        ai_service.generate_task_from_description = AsyncMock(
-            return_value=SimpleNamespace(
-                title="Write regression tests",
-                description="Cover the remaining workflow edge cases.",
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from uuid import NAMESPACE_URL, uuid5
+
+        signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
+        mock_chat_agent = Mock()
+        mock_chat_agent.run = AsyncMock(
+            return_value=ChatMessage(
+                session_id=signal_sid,
+                sender_type=SenderType.ASSISTANT,
+                content="Task proposal created",
+                action_type=ActionType.TASK_CREATE,
+                action_data={
+                    "proposed_title": "Write regression tests",
+                    "proposed_description": "Cover the remaining workflow edge cases.",
+                },
             )
         )
+
         cache = Mock()
         cache.get.side_effect = [[self._project()], []]
         add_message = AsyncMock()
@@ -662,7 +720,8 @@ class TestRunAiPipeline:
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(return_value=ai_service)
+            "src.services.chat_agent.get_chat_agent_service",
+            Mock(return_value=mock_chat_agent),
         )
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr("src.api.chat.add_message", add_message)
@@ -682,10 +741,10 @@ class TestRunAiPipeline:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         conn = _connected_connection()
-        ai_service = Mock()
-        ai_service.detect_feature_request_intent = AsyncMock(return_value=False)
-        ai_service.parse_status_change_request = AsyncMock(return_value=None)
-        ai_service.generate_task_from_description = AsyncMock(side_effect=RuntimeError("boom"))
+
+        mock_chat_agent = Mock()
+        mock_chat_agent.run = AsyncMock(side_effect=RuntimeError("boom"))
+
         cache = Mock()
         cache.get.side_effect = [[self._project()], []]
         add_message = AsyncMock()
@@ -695,7 +754,8 @@ class TestRunAiPipeline:
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(return_value=ai_service)
+            "src.services.chat_agent.get_chat_agent_service",
+            Mock(return_value=mock_chat_agent),
         )
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr("src.api.chat.add_message", add_message)

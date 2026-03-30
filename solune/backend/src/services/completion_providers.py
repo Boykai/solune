@@ -1,5 +1,9 @@
 """LLM completion providers for AI agent operations.
 
+.. deprecated:: 0.2.0
+    Replaced by the Microsoft Agent Framework providers in
+    :mod:`src.services.agent_provider`.  These classes will be removed in v0.3.0.
+
 Provides a unified interface for different AI backends:
 - CopilotCompletionProvider: Default. Uses GitHub Copilot SDK with user's OAuth token.
 - AzureOpenAICompletionProvider: Optional. Uses Azure OpenAI with static API keys.
@@ -103,7 +107,11 @@ def get_copilot_client_pool() -> CopilotClientPool:
 
 
 class CompletionProvider(ABC):
-    """Abstract interface for LLM completion providers."""
+    """Abstract interface for LLM completion providers.
+
+    .. deprecated:: 0.2.0
+        Use :mod:`src.services.agent_provider` instead. Will be removed in v0.3.0.
+    """
 
     @abstractmethod
     async def complete(
