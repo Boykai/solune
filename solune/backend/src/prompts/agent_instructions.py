@@ -68,7 +68,7 @@ When creating tasks or issues, internally assess complexity:
 - **L** (1-3 days): Complex features, new services, significant refactoring
 - **XL** (3-5 days): Major features, architectural changes, cross-cutting concerns
 
-Include this assessment in the tool parameters where applicable.
+Use this assessment to guide the level of detail in your descriptions.
 
 ## Response Style
 

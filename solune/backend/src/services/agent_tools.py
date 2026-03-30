@@ -55,9 +55,9 @@ async def create_task_proposal(
     """
     logger.info("Tool create_task_proposal called: title=%s", title[:80])
 
-    # Enforce length limits
-    if len(title) > 256:
-        title = title[:253] + "..."
+    # Enforce length limits (aligned with docstring contract)
+    if len(title) > 100:
+        title = title[:97] + "..."
     if len(description) > 65535:
         description = description[:65532] + "..."
 

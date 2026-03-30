@@ -1087,7 +1087,7 @@ async def send_message(
                 chat_request.pipeline_id,
             )
         # Explicitly avoid routing to the agent when ai_enhance=False.
-        return ChatMessage(
+        assistant_msg = ChatMessage(
             session_id=session.session_id,
             sender_type=SenderType.ASSISTANT,
             content=content,
@@ -1097,6 +1097,18 @@ async def send_message(
                 "proposed_description": "",
             },
         )
+        assistant_msg = await _post_process_agent_response(
+            session=session,
+            message=assistant_msg,
+            project_name=project_name,
+            pipeline_id=chat_request.pipeline_id,
+            file_urls=chat_request.file_urls,
+            cached_projects=cached_projects,
+            selected_project_id=selected_project_id,
+            user_content=content,
+        )
+        await add_message(session.session_id, assistant_msg)
+        return assistant_msg
 
     # ── Agent-powered dispatch (v0.2.0) ──────────────────────────────
     # The agent decides which tool to invoke based on its reasoning,
@@ -1339,6 +1351,16 @@ async def send_message_stream(
 
     selected_project_id = require_selected_project(session)
 
+    # Streaming requires the agent — reject unsupported options early.
+    if not getattr(chat_request, "ai_enhance", True):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "detail": "ai_enhance=False is not supported for streaming. "
+                "Use /messages endpoint instead."
+            },
+        )
+
     try:
         chat_agent_svc = get_chat_agent_service()
     except Exception:
@@ -1377,9 +1399,16 @@ async def send_message_stream(
     tasks_cache_key = get_project_items_cache_key(selected_project_id)
     current_tasks = cache.get(tasks_cache_key) or []
 
+    # Extract transcript content from uploaded files (mirrors non-streaming path)
+    stream_message = chat_request.content
+    if chat_request.file_urls:
+        transcript_content = await _extract_transcript_content(chat_request.file_urls)
+        if transcript_content:
+            stream_message = f"[Uploaded transcript file]\n\n{transcript_content}"
+
     async def event_generator():
         async for event in chat_agent_svc.run_stream(
-            message=chat_request.content,
+            message=stream_message,
             session_id=session.session_id,
             github_token=session.access_token,
             project_name=project_name,

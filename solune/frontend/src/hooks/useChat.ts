@@ -22,8 +22,8 @@ const makeLocalMsg = (sender: 'user' | 'system', content: string): ChatMessage =
 export function useChat() {
   const queryClient = useQueryClient();
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
-  const [streamingContent] = useState<string>('');
-  const [isStreaming] = useState(false);
+  const streamingContent = '';
+  const isStreaming = false;
   const proposals = useChatProposals();
 
   const {
