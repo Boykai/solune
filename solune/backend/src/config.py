@@ -113,6 +113,10 @@ class Settings(BaseSettings):
     # Enable/disable the SSE streaming endpoint.
     agent_streaming_enabled: bool = True
 
+    # Timeout for Copilot SDK send_and_wait calls (seconds).
+    # The SDK default is 60s which can be too low with many tools registered.
+    agent_copilot_timeout_seconds: int = 120
+
     # Allow the chat agent to autonomously create GitHub issues and launch
     # pipelines.  When False (default), the agent presents a proposal instead.
     chat_auto_create_enabled: bool = False

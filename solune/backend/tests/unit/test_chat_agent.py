@@ -471,7 +471,7 @@ class TestProviderFactory:
 
         mock_settings.return_value = MagicMock(ai_provider="copilot", copilot_model="gpt-4o")
         with pytest.raises(ValueError, match="GitHub OAuth token required"):
-            create_agent(instructions="test", github_token=None)
+            await create_agent(instructions="test", github_token=None)
 
     @patch("src.services.agent_provider.get_settings")
     async def test_azure_provider_requires_credentials(self, mock_settings):
@@ -483,7 +483,7 @@ class TestProviderFactory:
             azure_openai_key=None,
         )
         with pytest.raises(ValueError, match="Azure OpenAI credentials"):
-            create_agent(instructions="test")
+            await create_agent(instructions="test")
 
     @patch("src.services.agent_provider.get_settings")
     async def test_unknown_provider_raises(self, mock_settings):
@@ -491,4 +491,4 @@ class TestProviderFactory:
 
         mock_settings.return_value = MagicMock(ai_provider="unknown_provider")
         with pytest.raises(ValueError, match="Unknown AI_PROVIDER"):
-            create_agent(instructions="test")
+            await create_agent(instructions="test")

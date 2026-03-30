@@ -156,6 +156,12 @@ class AgentSessionMapping:
         del self._sessions[oldest_sid]
         logger.debug("Evicted oldest AgentSession: %s", oldest_sid[:8])
 
+    async def invalidate(self, session_id: str) -> None:
+        """Remove a session, e.g. after an error leaves it in a bad state."""
+        async with self._lock:
+            if self._sessions.pop(session_id, None) is not None:
+                logger.debug("Invalidated AgentSession: %s", session_id[:8])
+
     @property
     def session_count(self) -> int:
         """Number of active sessions."""
@@ -223,7 +229,7 @@ class ChatAgentService:
         if db and project_id:
             mcp_servers = await load_mcp_tools(project_id, db) or None
 
-        agent = create_agent(
+        agent = await create_agent(
             instructions=instructions,
             tools=self._tools,
             github_token=github_token,
@@ -246,6 +252,7 @@ class ChatAgentService:
             }
         )
 
+        sid = str(session_id)
         try:
             response: AgentResponse = await agent.run(
                 message,
@@ -254,6 +261,9 @@ class ChatAgentService:
             return self._convert_response(response, session_id)
         except Exception as e:
             logger.error("Agent run failed: %s", e, exc_info=True)
+            # Invalidate the session so the next attempt gets a fresh one
+            # instead of resuming a potentially stuck Copilot session.
+            await self._session_mapping.invalidate(sid)
             return ChatMessage(
                 session_id=session_id,
                 sender_type=SenderType.ASSISTANT,
@@ -293,7 +303,7 @@ class ChatAgentService:
         if db and project_id:
             mcp_servers = await load_mcp_tools(project_id, db) or None
 
-        agent = create_agent(
+        agent = await create_agent(
             instructions=instructions,
             tools=self._tools,
             github_token=github_token,
@@ -375,6 +385,7 @@ class ChatAgentService:
 
         except Exception as e:
             logger.error("Agent stream failed: %s", e, exc_info=True)
+            await self._session_mapping.invalidate(str(session_id))
             yield {
                 "event": "error",
                 "data": json.dumps({"error": str(e)}),

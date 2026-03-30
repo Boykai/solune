@@ -18,7 +18,7 @@ from src.logging_utils import get_logger
 logger = get_logger(__name__)
 
 
-def create_agent(
+async def create_agent(
     *,
     instructions: str,
     tools: list | None = None,
@@ -43,7 +43,7 @@ def create_agent(
     provider = settings.ai_provider
 
     if provider == "copilot":
-        return _create_copilot_agent(
+        return await _create_copilot_agent(
             instructions=instructions,
             tools=tools,
             github_token=github_token,
@@ -58,7 +58,7 @@ def create_agent(
         raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")
 
 
-def _create_copilot_agent(
+async def _create_copilot_agent(
     *,
     instructions: str,
     tools: list | None = None,
@@ -68,12 +68,13 @@ def _create_copilot_agent(
     """Create an Agent using the GitHub Copilot provider.
 
     Uses ``agent-framework-github-copilot`` which wraps the Copilot SDK
-    as a MAF-compatible provider. A pre-configured CopilotClient with
-    the user's OAuth token is injected so each user authenticates with
-    their own GitHub identity.
+    as a MAF-compatible provider. Reuses the shared CopilotClientPool so
+    only one CLI server process exists per GitHub token.
     """
     from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
-    from copilot import CopilotClient, PermissionHandler  # type: ignore[reportMissingImports]
+    from copilot import PermissionHandler  # type: ignore[reportMissingImports]
+
+    from src.services.completion_providers import get_copilot_client_pool
 
     if not github_token:
         raise ValueError(
@@ -86,12 +87,13 @@ def _create_copilot_agent(
     options: GitHubCopilotOptions = {
         "model": settings.copilot_model,
         "on_permission_request": PermissionHandler.approve_all,
+        "timeout": float(settings.agent_copilot_timeout_seconds),
     }
 
     if mcp_servers:
         options["mcp_servers"] = mcp_servers
 
-    client = CopilotClient({"github_token": github_token})
+    client = await get_copilot_client_pool().get_or_create(github_token)
 
     agent = GitHubCopilotAgent(
         name="solune-agent",
