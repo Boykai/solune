@@ -214,15 +214,49 @@ class TestChatAgentServiceRun:
         assert result.action_data["preset"] == "medium"
         assert result.action_data["stages"] == ["Specify", "Plan", "Implement"]
 
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_loads_mcp_servers_for_project_context(
+        self, mock_create_agent, mock_load_mcp_tools
+    ):
+        """Verify run() loads MCP configs and passes them to the agent factory."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = "OK"
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+        mock_load_mcp_tools.return_value = {
+            "docs": {"endpoint_url": "https://example.com/mcp", "config": {}}
+        }
+
+        service = ChatAgentService()
+        fake_db = object()
+
+        await service.run(
+            message="test",
+            session_id=uuid4(),
+            github_token="test-token",
+            project_id="PVT_1",
+            db=fake_db,
+        )
+
+        mock_load_mcp_tools.assert_awaited_once_with("PVT_1", fake_db)
+        assert mock_create_agent.call_args.kwargs["mcp_servers"] == mock_load_mcp_tools.return_value
+
 
 # ── ChatAgentService.run_stream() tests ─────────────────────────────────
 
 
 class TestChatAgentServiceRunStream:
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
     @patch("src.services.chat_agent.create_agent")
-    async def test_stream_yields_events(self, mock_create_agent):
+    async def test_stream_yields_events(self, mock_create_agent, mock_load_mcp_tools):
         """Verify run_stream() yields SSE-compatible events."""
         mock_agent = AsyncMock()
+        mock_load_mcp_tools.return_value = {}
 
         # Create an async iterator for streaming
         async def mock_stream(*args, **kwargs):
@@ -251,6 +285,42 @@ class TestChatAgentServiceRunStream:
         done_events = [e for e in events if e["event"] == "done"]
         assert len(token_events) == 2
         assert len(done_events) == 1
+
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_stream_loads_mcp_servers_for_project_context(
+        self, mock_create_agent, mock_load_mcp_tools
+    ):
+        """Verify run_stream() loads MCP configs and passes them to the agent factory."""
+        mock_agent = AsyncMock()
+        mock_load_mcp_tools.return_value = {
+            "docs": {"endpoint_url": "https://example.com/mcp", "config": {}}
+        }
+
+        async def mock_stream(*args, **kwargs):
+            update = MagicMock(spec=["text"])
+            update.text = "Hello"
+            yield update
+
+        mock_agent.run = MagicMock(return_value=mock_stream())
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        fake_db = object()
+        events = [
+            event
+            async for event in service.run_stream(
+                message="test",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_id="PVT_1",
+                db=fake_db,
+            )
+        ]
+
+        assert next(e for e in events if e["event"] == "done")
+        mock_load_mcp_tools.assert_awaited_once_with("PVT_1", fake_db)
+        assert mock_create_agent.call_args.kwargs["mcp_servers"] == mock_load_mcp_tools.return_value
 
     @patch("src.services.chat_agent.create_agent")
     async def test_stream_done_event_contains_accumulated_text(self, mock_create_agent):

@@ -299,6 +299,8 @@ class TestSendMessageTaskGeneration:
         self, client, mock_session, mock_chat_agent_service
     ):
         """When ai_enhance=True (default), the agent framework is used."""
+        import src.api.chat as chat_mod
+
         mock_session.selected_project_id = "PVT_1"
 
         from src.models.chat import ActionType, ChatMessage, SenderType
@@ -314,6 +316,7 @@ class TestSendMessageTaskGeneration:
             },
         )
         mock_chat_agent_service.run.return_value = agent_response
+        expected_db = chat_mod.get_db()
 
         resp = await client.post(
             "/api/v1/chat/messages",
@@ -322,6 +325,7 @@ class TestSendMessageTaskGeneration:
         assert resp.status_code == 200
         data = resp.json()
         assert data["action_data"]["proposed_title"] == "Enhanced Title"
+        assert mock_chat_agent_service.run.call_args.kwargs["db"] is expected_db
 
 
 # ── POST /chat/messages/stream ───────────────────────────────────────────────
@@ -372,6 +376,7 @@ class TestSendMessageStream:
             yield {"event": "done", "data": final_message.model_dump_json()}
 
         mock_chat_agent_service.run_stream = MagicMock(return_value=stream_events())
+        expected_db = chat_mod.get_db()
 
         resp = await client.post(
             "/api/v1/chat/messages/stream",
@@ -402,6 +407,7 @@ class TestSendMessageStream:
         assert call_kwargs["project_id"] == "PVT_1"
         assert call_kwargs["available_tasks"] == [cached_task]
         assert call_kwargs["available_statuses"] == ["Todo", "Done"]
+        assert call_kwargs["db"] is expected_db
 
     async def test_stream_returns_503_when_streaming_disabled(
         self, client, mock_session, mock_settings, mock_chat_agent_service
