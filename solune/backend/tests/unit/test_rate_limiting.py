@@ -254,6 +254,7 @@ class TestRateLimitKeyMiddleware:
 
         assert seen_key == "ip:127.0.0.1"
         assert any(
-            "Rate limit session resolution timed out" in record.message and "0.0s" in record.message
+            "Rate limit session resolution timed out" in record.message
+            and "falling back to IP-based key" in record.message
             for record in caplog.records
         )
