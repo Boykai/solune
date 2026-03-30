@@ -1,7 +1,8 @@
-"""Agent middleware for logging and security.
+"""Agent middleware components for logging and security.
 
-Middleware components plug into the Agent Framework's middleware pipeline
-and run on every agent invocation.
+This module defines reusable middleware designed to be plugged into the
+Agent Framework's middleware pipeline and run on each agent invocation
+when registered by the agent creation logic.
 """
 
 from __future__ import annotations
@@ -62,10 +63,10 @@ _INJECTION_PATTERNS = [
 
 
 class SecurityMiddleware(AgentMiddleware):
-    """Detects prompt injection attempts and validates tool arguments.
+    """Detects potential prompt injection attempts in user input.
 
     - Scans user input for known injection patterns.
-    - Validates that tool arguments don't contain excessively long payloads.
+    - Logs suspicious content but does not block execution.
     """
 
     async def invoke(
@@ -78,9 +79,7 @@ class SecurityMiddleware(AgentMiddleware):
         if isinstance(input_text, str):
             for pattern in _INJECTION_PATTERNS:
                 if pattern.search(input_text):
-                    logger.warning(
-                        "Potential prompt injection detected in user input"
-                    )
+                    logger.warning("Potential prompt injection detected in user input")
                     # Don't block — log and continue (false positives are common)
                     break
 

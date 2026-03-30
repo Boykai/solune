@@ -381,6 +381,41 @@ export const chatApi = {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let currentEventType = 'message';
+      let currentDataLines: string[] = [];
+
+      const tryParseJson = (value: unknown, fallback?: unknown): unknown => {
+        if (typeof value !== 'string') return value ?? fallback;
+        try { return JSON.parse(value); } catch { return fallback ?? value; }
+      };
+
+      const processFrame = (eventType: string, dataStr: string) => {
+        const trimmedData = dataStr.trim();
+        if (!trimmedData) return;
+
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(trimmedData);
+        } catch {
+          console.debug('[SSE] Failed to parse event data:', trimmedData);
+          return;
+        }
+
+        if (eventType === 'token') {
+          const tokenData = tryParseJson(parsed.data, { content: parsed.data }) ?? parsed;
+          const content = (tokenData as Record<string, unknown>).content;
+          if (content) onToken(content as string);
+        } else if (eventType === 'done') {
+          const msgData = tryParseJson(parsed.data, parsed.data) ?? parsed;
+          onDone(msgData as ChatMessage);
+        } else if (eventType === 'error') {
+          const message = (parsed.data || parsed.message || parsed.error || 'Stream error') as string;
+          onError(new Error(message));
+        } else if (parsed.content) {
+          // Fallback: direct token content without explicit event type
+          onToken(parsed.content as string);
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -390,39 +425,30 @@ export const chatApi = {
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const jsonStr = line.slice(6).trim();
-            if (!jsonStr) continue;
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
 
-            try {
-              const parsed = JSON.parse(jsonStr);
-
-              // Check if this is a wrapped SSE event with event+data fields
-              if (parsed.event === 'token' && parsed.data) {
-                const tokenData = typeof parsed.data === 'string'
-                  ? JSON.parse(parsed.data)
-                  : parsed.data;
-                onToken(tokenData.content || '');
-              } else if (parsed.event === 'done' && parsed.data) {
-                const msgData = typeof parsed.data === 'string'
-                  ? JSON.parse(parsed.data)
-                  : parsed.data;
-                onDone(msgData as ChatMessage);
-                return;
-              } else if (parsed.event === 'error') {
-                onError(new Error(parsed.data || 'Stream error'));
-                return;
-              } else if (parsed.content) {
-                // Direct token content
-                onToken(parsed.content);
-              }
-            } catch (parseError) {
-              // Skip malformed SSE data — log for debugging
-              console.debug('[SSE] Failed to parse event data:', jsonStr, parseError);
+          if (line === '') {
+            // Blank line = end of SSE frame
+            if (currentDataLines.length > 0) {
+              processFrame(currentEventType, currentDataLines.join('\n'));
+              currentEventType = 'message';
+              currentDataLines = [];
             }
+            continue;
+          }
+
+          if (line.startsWith('event:')) {
+            currentEventType = line.slice('event:'.length).trim();
+          } else if (line.startsWith('data:')) {
+            currentDataLines.push(line.slice('data:'.length).replace(/^ /, ''));
           }
         }
+      }
+
+      // Flush any remaining buffered frame when the stream ends
+      if (currentDataLines.length > 0) {
+        processFrame(currentEventType, currentDataLines.join('\n'));
       }
     } catch (error) {
       // Fall back to non-streaming endpoint on any error

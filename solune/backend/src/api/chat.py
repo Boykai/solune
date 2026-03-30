@@ -1076,14 +1076,26 @@ async def send_message(
     content = _re.sub(r"^/plan\s+", "", content)
 
     # ── ai_enhance=False bypass — preserves v0.1.x behaviour ────────
-    if not chat_request.ai_enhance and ai_service is not None:
-        return await _handle_task_generation(
-            session,
-            content,
-            ai_service,
-            project_name,
-            chat_request.ai_enhance,
-            chat_request.pipeline_id,
+    if not chat_request.ai_enhance:
+        if ai_service is not None:
+            return await _handle_task_generation(
+                session,
+                content,
+                ai_service,
+                project_name,
+                chat_request.ai_enhance,
+                chat_request.pipeline_id,
+            )
+        # Explicitly avoid routing to the agent when ai_enhance=False.
+        return ChatMessage(
+            session_id=session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content=content,
+            action_type=ActionType.TASK_CREATE,
+            action_data={
+                "proposed_title": content,
+                "proposed_description": "",
+            },
         )
 
     # ── Agent-powered dispatch (v0.2.0) ──────────────────────────────
@@ -1120,6 +1132,7 @@ async def send_message(
             file_urls=chat_request.file_urls,
             cached_projects=cached_projects,
             selected_project_id=selected_project_id,
+            user_content=content,
         )
 
         await add_message(session.session_id, assistant_message)
@@ -1228,6 +1241,7 @@ async def _post_process_agent_response(
     file_urls: list[str] | None,
     cached_projects: list | None,
     selected_project_id: str,
+    user_content: str = "",
 ) -> ChatMessage:
     """Create proposals/recommendations from agent tool results.
 
@@ -1242,7 +1256,7 @@ async def _post_process_agent_response(
     if message.action_type == ActionType.TASK_CREATE:
         proposal = AITaskProposal(
             session_id=session.session_id,
-            original_input=action_data.get("proposed_description", ""),
+            original_input=user_content or action_data.get("proposed_description", ""),
             proposed_title=action_data.get("proposed_title", "Untitled"),
             proposed_description=action_data.get("proposed_description", ""),
             selected_pipeline_id=pipeline_id or None,
@@ -1255,8 +1269,8 @@ async def _post_process_agent_response(
     elif message.action_type == ActionType.ISSUE_CREATE:
         recommendation = IssueRecommendation(
             session_id=session.session_id,
-            original_input=action_data.get("proposed_title", ""),
-            original_context=action_data.get("proposed_title", ""),
+            original_input=user_content or action_data.get("proposed_title", ""),
+            original_context=user_content or action_data.get("proposed_title", ""),
             title=action_data.get("proposed_title", "Untitled"),
             user_story=action_data.get("user_story", ""),
             ui_ux_description=action_data.get("ui_ux_description", ""),
@@ -1384,6 +1398,7 @@ async def send_message_stream(
                         file_urls=chat_request.file_urls,
                         cached_projects=cached_projects,
                         selected_project_id=selected_project_id,
+                        user_content=chat_request.content,
                     )
                     await add_message(session.session_id, assistant_message)
                     _trigger_signal_delivery(session, assistant_message, project_name)
