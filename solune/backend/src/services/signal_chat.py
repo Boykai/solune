@@ -664,8 +664,6 @@ async def _run_ai_pipeline(
     from src.models.recommendation import (
         AITaskProposal,
         IssueRecommendation,
-        ProposalStatus,
-        RecommendationStatus,
     )
     from src.services.cache import (
         cache,

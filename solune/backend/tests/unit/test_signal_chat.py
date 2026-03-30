@@ -485,8 +485,9 @@ class TestRunAiPipeline:
         conn = _connected_connection()
 
         # Mock ChatAgentService.run() to return an issue recommendation
-        from src.models.chat import ActionType, ChatMessage, SenderType
         from uuid import NAMESPACE_URL, uuid5
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
 
         signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
         mock_chat_agent = Mock()
@@ -540,8 +541,9 @@ class TestRunAiPipeline:
     ) -> None:
         conn = _connected_connection()
 
-        from src.models.chat import ChatMessage, SenderType
         from uuid import NAMESPACE_URL, uuid5
+
+        from src.models.chat import ChatMessage, SenderType
 
         signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
         mock_chat_agent = Mock()
@@ -587,8 +589,9 @@ class TestRunAiPipeline:
     ) -> None:
         conn = _connected_connection()
 
-        from src.models.chat import ActionType, ChatMessage, SenderType
         from uuid import NAMESPACE_URL, uuid5
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
 
         signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
         mock_chat_agent = Mock()
@@ -642,8 +645,9 @@ class TestRunAiPipeline:
     ) -> None:
         conn = _connected_connection()
 
-        from src.models.chat import ActionType, ChatMessage, SenderType
         from uuid import NAMESPACE_URL, uuid5
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
 
         signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
         mock_chat_agent = Mock()
@@ -692,8 +696,9 @@ class TestRunAiPipeline:
     ) -> None:
         conn = _connected_connection()
 
-        from src.models.chat import ActionType, ChatMessage, SenderType
         from uuid import NAMESPACE_URL, uuid5
+
+        from src.models.chat import ActionType, ChatMessage, SenderType
 
         signal_sid = uuid5(NAMESPACE_URL, f"signal:{conn.github_user_id}")
         mock_chat_agent = Mock()

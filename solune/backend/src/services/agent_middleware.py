@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any
+from collections.abc import Awaitable, Callable
 
-from agent_framework import AgentMiddleware, AgentMiddlewareLayer
+from agent_framework import AgentContext, AgentMiddleware
 
 from src.logging_utils import get_logger
 
@@ -27,20 +27,19 @@ class LoggingAgentMiddleware(AgentMiddleware):
     Logged at INFO level with structured fields for observability.
     """
 
-    async def invoke(
+    async def process(
         self,
-        context: Any,
-        next_handler: AgentMiddlewareLayer,
-    ) -> Any:
+        context: AgentContext,
+        call_next: Callable[[], Awaitable[None]],
+    ) -> None:
         start = time.monotonic()
         try:
-            result = await next_handler(context)
+            await call_next()
             elapsed_ms = (time.monotonic() - start) * 1000
             logger.info(
                 "Agent invocation completed in %.1fms",
                 elapsed_ms,
             )
-            return result
         except Exception:
             elapsed_ms = (time.monotonic() - start) * 1000
             logger.warning(
@@ -54,11 +53,13 @@ class LoggingAgentMiddleware(AgentMiddleware):
 
 # Common prompt injection patterns to detect
 _INJECTION_PATTERNS = [
-    re.compile(r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?)", re.I),
-    re.compile(r"you\s+are\s+now\s+(?:a|an)\s+\w+", re.I),
-    re.compile(r"system\s*:\s*", re.I),
-    re.compile(r"<\|im_start\|>", re.I),
-    re.compile(r"\[INST\]", re.I),
+    re.compile(
+        r"ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?)", re.IGNORECASE
+    ),
+    re.compile(r"you\s+are\s+now\s+(?:a|an)\s+\w+", re.IGNORECASE),
+    re.compile(r"system\s*:\s*", re.IGNORECASE),
+    re.compile(r"<\|im_start\|>", re.IGNORECASE),
+    re.compile(r"\[INST\]", re.IGNORECASE),
 ]
 
 
@@ -69,18 +70,22 @@ class SecurityMiddleware(AgentMiddleware):
     - Logs suspicious content but does not block execution.
     """
 
-    async def invoke(
+    async def process(
         self,
-        context: Any,
-        next_handler: AgentMiddlewareLayer,
-    ) -> Any:
+        context: AgentContext,
+        call_next: Callable[[], Awaitable[None]],
+    ) -> None:
         # Extract user input from context if available
-        input_text = getattr(context, "input", None) or ""
-        if isinstance(input_text, str):
+        input_text = " ".join(
+            text
+            for message in context.messages
+            if isinstance((text := getattr(message, "text", "")), str) and text
+        )
+        if input_text:
             for pattern in _INJECTION_PATTERNS:
                 if pattern.search(input_text):
                     logger.warning("Potential prompt injection detected in user input")
                     # Don't block — log and continue (false positives are common)
                     break
 
-        return await next_handler(context)
+        await call_next()
