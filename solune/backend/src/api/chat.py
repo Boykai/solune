@@ -1371,6 +1371,31 @@ async def send_message_stream(
             available_tasks=current_tasks,
             available_statuses=project_columns,
         ):
+            if event.get("event") == "done":
+                try:
+                    assistant_message = ChatMessage.model_validate_json(event["data"])
+                    assistant_message = await _post_process_agent_response(
+                        session=session,
+                        message=assistant_message,
+                        project_name=project_name,
+                        pipeline_id=chat_request.pipeline_id,
+                        file_urls=chat_request.file_urls,
+                        cached_projects=cached_projects,
+                        selected_project_id=selected_project_id,
+                    )
+                    await add_message(session.session_id, assistant_message)
+                    _trigger_signal_delivery(session, assistant_message, project_name)
+                    yield {
+                        "event": "done",
+                        "data": assistant_message.model_dump_json(),
+                    }
+                except Exception:
+                    logger.error(
+                        "Failed to persist or post-process streamed agent response",
+                        exc_info=True,
+                    )
+                    yield event
+                continue
             yield event
 
     return EventSourceResponse(event_generator())
