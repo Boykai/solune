@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Awaitable, Callable
+
 from agent_framework import AgentContext, AgentMiddleware
 
 from src.logging_utils import get_logger
@@ -75,7 +76,11 @@ class SecurityMiddleware(AgentMiddleware):
         call_next: Callable[[], Awaitable[None]],
     ) -> None:
         # Extract user input from context if available
-        input_text = " ".join(message.text for message in context.messages)
+        input_text = " ".join(
+            text
+            for message in context.messages
+            if isinstance((text := getattr(message, "text", "")), str) and text
+        )
         if input_text:
             for pattern in _INJECTION_PATTERNS:
                 if pattern.search(input_text):
