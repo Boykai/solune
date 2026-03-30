@@ -68,9 +68,8 @@ def _create_copilot_agent(
     the user's OAuth token is injected so each user authenticates with
     their own GitHub identity.
     """
-    from copilot import CopilotClient, PermissionHandler  # type: ignore[reportMissingImports]
-
     from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
+    from copilot import CopilotClient, PermissionHandler  # type: ignore[reportMissingImports]
 
     if not github_token:
         raise ValueError(

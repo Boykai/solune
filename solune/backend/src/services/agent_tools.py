@@ -254,7 +254,9 @@ async def get_pipeline_list(
     Use this when the user asks about available pipelines or workflow
     configurations.
     """
-    available_statuses = context.session.state.get("available_statuses", []) if context.session else []
+    available_statuses = (
+        context.session.state.get("available_statuses", []) if context.session else []
+    )
     statuses_str = ", ".join(available_statuses) if available_statuses else "No statuses configured"
 
     return ToolResult(

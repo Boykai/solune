@@ -225,16 +225,18 @@ class ChatAgentService:
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
         # Inject runtime context into session state for tool access
-        agent_session.state.update({
-            "project_name": project_name,
-            "project_id": project_id,
-            "available_tasks": available_tasks or [],
-            "available_statuses": available_statuses or [],
-            "github_token": github_token,
-            "session_id": str(session_id),
-            "pipeline_id": pipeline_id,
-            "file_urls": file_urls or [],
-        })
+        agent_session.state.update(
+            {
+                "project_name": project_name,
+                "project_id": project_id,
+                "available_tasks": available_tasks or [],
+                "available_statuses": available_statuses or [],
+                "github_token": github_token,
+                "session_id": str(session_id),
+                "pipeline_id": pipeline_id,
+                "file_urls": file_urls or [],
+            }
+        )
 
         try:
             response: AgentResponse = await agent.run(
@@ -287,14 +289,16 @@ class ChatAgentService:
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
         # Inject runtime context into session state for tool access
-        agent_session.state.update({
-            "project_name": project_name,
-            "project_id": project_id,
-            "available_tasks": available_tasks or [],
-            "available_statuses": available_statuses or [],
-            "github_token": github_token,
-            "session_id": str(session_id),
-        })
+        agent_session.state.update(
+            {
+                "project_name": project_name,
+                "project_id": project_id,
+                "available_tasks": available_tasks or [],
+                "available_statuses": available_statuses or [],
+                "github_token": github_token,
+                "session_id": str(session_id),
+            }
+        )
 
         try:
             accumulated_text = ""
