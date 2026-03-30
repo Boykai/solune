@@ -34,7 +34,7 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Create unified system instruction with tool usage guidance, clarifying-question policy (2–3 questions before acting), difficulty assessment, and dynamic project context injection in solune/backend/src/prompts/agent_instructions.py
+- [ ] T003 [P] Create unified system instruction with tool usage guidance, clarifying-question policy (2–3 questions before acting), difficulty assessment, and dynamic project context injection in solune/backend/src/prompts/agent_instructions.py
 - [ ] T004 [P] Create agent provider factory with create_agent() returning Agent for copilot or azure_openai based on Settings.ai_provider in solune/backend/src/services/agent_provider.py
 - [ ] T005 [P] Create ToolResult TypedDict (content, action_type, action_data) and register_tools() helper for tool list assembly in solune/backend/src/services/agent_tools.py
 
@@ -225,7 +225,7 @@
 ### Parallel Opportunities
 
 - All Setup tasks marked [P] can run in parallel (T001, T002)
-- All Foundational tasks marked [P] can run in parallel (T003, T004, T005 — T004 and T005 are parallel; T003 is also independent)
+- All Foundational tasks marked [P] can run in parallel (T003, T004, T005 — all three target different files with no dependencies)
 - All tool implementation tasks within US1 (T011–T015) can run in parallel (different @tool functions in same file)
 - All test tasks within a story marked [P] can run in parallel
 - US3 and US4 can run in parallel (different tools, different endpoints)
