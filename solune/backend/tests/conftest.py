@@ -208,6 +208,14 @@ def mock_ai_agent_service() -> AsyncMock:
 
 
 @pytest.fixture
+def mock_chat_agent_service() -> AsyncMock:
+    """AsyncMock replacing the ``ChatAgentService`` returned by ``get_chat_agent_service()``."""
+    from src.services.chat_agent import ChatAgentService
+
+    return AsyncMock(name="ChatAgentService", spec=ChatAgentService)
+
+
+@pytest.fixture
 def mock_websocket_manager() -> AsyncMock:
     """AsyncMock replacing the global ``connection_manager`` instance."""
     mock = AsyncMock(name="ConnectionManager", spec=ConnectionManager)
@@ -272,6 +280,7 @@ async def client(
     mock_github_service: AsyncMock,
     mock_github_auth_service: AsyncMock,
     mock_ai_agent_service: AsyncMock,
+    mock_chat_agent_service: AsyncMock,
     mock_websocket_manager: AsyncMock,
 ):
     """httpx.AsyncClient wired to the FastAPI app with all deps overridden.
@@ -313,8 +322,10 @@ async def client(
         # github_auth_service — patched where imported
         patch("src.api.auth.github_auth_service", mock_github_auth_service),
         patch("src.api.projects.github_auth_service", mock_github_auth_service),
-        # AI agent service
+        # AI agent service (legacy, used for ai_enhance=False fallback)
         patch("src.api.chat.get_ai_agent_service", return_value=mock_ai_agent_service),
+        # Chat agent service (v0.2.0 — agent-framework powered)
+        patch("src.api.chat.get_chat_agent_service", return_value=mock_chat_agent_service),
         # connection_manager — patched in every API module that broadcasts
         patch("src.api.projects.connection_manager", mock_websocket_manager),
         patch("src.api.tasks.connection_manager", mock_websocket_manager),

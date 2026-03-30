@@ -40,9 +40,11 @@ from src.models.recommendation import (
 from src.models.user import UserSession
 from src.models.workflow import WorkflowConfiguration
 from src.services.ai_agent import get_ai_agent_service
+from src.services.chat_agent import get_chat_agent_service
 
 if TYPE_CHECKING:
     from src.services.ai_agent import AIAgentService
+    from src.services.chat_agent import ChatAgentService
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
@@ -1010,11 +1012,20 @@ async def send_message(
         except Exception as exc:
             handle_service_error(exc, "validate pipeline")
 
-    # Try to get AI service (optional)
+    # Try to get AI service (optional) — used for ai_enhance=False fallback
     try:
         ai_service = get_ai_agent_service()
     except ValueError:
-        # AI not configured - return error message
+        ai_service = None  # type: ignore[assignment]
+
+    # Try to get the new ChatAgentService
+    try:
+        chat_agent_service = get_chat_agent_service()
+    except Exception:
+        chat_agent_service = None  # type: ignore[assignment]
+
+    if ai_service is None and chat_agent_service is None:
+        # Neither service available — return error
         error_msg = ChatMessage(
             session_id=session.session_id,
             sender_type=SenderType.ASSISTANT,
@@ -1065,7 +1076,59 @@ async def send_message(
 
     content = _re.sub(r"^/plan\s+", "", content)
 
-    # ── Priority 0.5: Transcript upload → issue recommendation ────────
+    # ── ai_enhance=False bypass — preserves v0.1.x behaviour ────────
+    if not chat_request.ai_enhance and ai_service is not None:
+        return await _handle_task_generation(
+            session,
+            content,
+            ai_service,
+            project_name,
+            chat_request.ai_enhance,
+            chat_request.pipeline_id,
+        )
+
+    # ── Agent-powered dispatch (v0.2.0) ──────────────────────────────
+    # The agent decides which tool to invoke based on its reasoning,
+    # replacing the old priority cascade.
+    if chat_agent_service is not None:
+        # Handle transcript uploads by including content in the message
+        transcript_content = None
+        if chat_request.file_urls:
+            transcript_content = await _extract_transcript_content(chat_request.file_urls)
+
+        agent_input = content
+        if transcript_content:
+            agent_input = f"[Uploaded transcript file]\n\n{transcript_content}"
+
+        assistant_message = await chat_agent_service.run(
+            message=agent_input,
+            session_id=session.session_id,
+            github_token=session.access_token,
+            project_name=project_name,
+            project_id=selected_project_id,
+            available_tasks=current_tasks,
+            available_statuses=project_columns,
+            pipeline_id=chat_request.pipeline_id,
+            file_urls=chat_request.file_urls,
+        )
+
+        # Post-process: create proposals/recommendations from action_data
+        assistant_message = await _post_process_agent_response(
+            session=session,
+            message=assistant_message,
+            project_name=project_name,
+            pipeline_id=chat_request.pipeline_id,
+            file_urls=chat_request.file_urls,
+            cached_projects=cached_projects,
+            selected_project_id=selected_project_id,
+        )
+
+        await add_message(session.session_id, assistant_message)
+        _trigger_signal_delivery(session, assistant_message, project_name)
+        return assistant_message
+
+    # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
+    # Priority 0.5: Transcript upload → issue recommendation
     transcript_msg = await _handle_transcript_upload(
         session,
         ai_service,
@@ -1076,7 +1139,7 @@ async def send_message(
     if transcript_msg:
         return transcript_msg
 
-    # ── Priority 1: Feature request → issue recommendation ───────────
+    # Priority 1: Feature request → issue recommendation
     feature_msg = await _handle_feature_request(
         session,
         content,
@@ -1089,7 +1152,7 @@ async def send_message(
     if feature_msg:
         return feature_msg
 
-    # ── Priority 2: Status change request ────────────────────────────
+    # Priority 2: Status change request
     status_msg = await _handle_status_change(
         session,
         content,
@@ -1103,7 +1166,7 @@ async def send_message(
     if status_msg:
         return status_msg
 
-    # ── Priority 3: Task generation (metadata-only or full AI) ───────
+    # Priority 3: Task generation (metadata-only or full AI)
     return await _handle_task_generation(
         session,
         content,
@@ -1112,6 +1175,205 @@ async def send_message(
         chat_request.ai_enhance,
         chat_request.pipeline_id,
     )
+
+
+# ── Agent response post-processing helpers ───────────────────────────────
+
+
+async def _extract_transcript_content(file_urls: list[str]) -> str | None:
+    """Extract transcript text from uploaded files, if any.
+
+    Returns the first detected transcript content, or None.
+    """
+    from src.services.transcript_detector import detect_transcript
+
+    upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
+
+    for file_url in file_urls:
+        raw_name = file_url.rsplit("/", 1)[-1] if "/" in file_url else file_url
+        filename = os.path.basename(raw_name)  # noqa: PTH119
+        if not filename:
+            continue
+
+        candidate = os.path.normpath(os.path.join(str(upload_dir), filename))  # noqa: PTH118
+        safe_prefix = os.path.normpath(str(upload_dir)) + os.sep
+        if not candidate.startswith(safe_prefix):
+            continue
+
+        file_path = Path(candidate)
+        if not file_path.exists():
+            continue
+
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+        original_name = filename[9:] if len(filename) > 9 and filename[8] == "-" else filename
+        result = detect_transcript(original_name, content)
+        if result.is_transcript:
+            return content
+
+    return None
+
+
+async def _post_process_agent_response(
+    *,
+    session: UserSession,
+    message: ChatMessage,
+    project_name: str,
+    pipeline_id: str | None,
+    file_urls: list[str] | None,
+    cached_projects: list | None,
+    selected_project_id: str,
+) -> ChatMessage:
+    """Create proposals/recommendations from agent tool results.
+
+    When the agent invokes an action tool, the result needs to be stored
+    as a proposal or recommendation so that the confirm/reject flow works.
+    """
+    if not message.action_data or not message.action_type:
+        return message
+
+    action_data = message.action_data
+
+    if message.action_type == ActionType.TASK_CREATE:
+        proposal = AITaskProposal(
+            session_id=session.session_id,
+            original_input=action_data.get("proposed_description", ""),
+            proposed_title=action_data.get("proposed_title", "Untitled"),
+            proposed_description=action_data.get("proposed_description", ""),
+            selected_pipeline_id=pipeline_id or None,
+        )
+        await store_proposal(proposal)
+        action_data["proposal_id"] = str(proposal.proposal_id)
+        action_data["status"] = ProposalStatus.PENDING.value
+        message.action_data = action_data
+
+    elif message.action_type == ActionType.ISSUE_CREATE:
+        recommendation = IssueRecommendation(
+            session_id=session.session_id,
+            original_input=action_data.get("proposed_title", ""),
+            original_context=action_data.get("proposed_title", ""),
+            title=action_data.get("proposed_title", "Untitled"),
+            user_story=action_data.get("user_story", ""),
+            ui_ux_description=action_data.get("ui_ux_description", ""),
+            functional_requirements=action_data.get("functional_requirements", []),
+            technical_notes=action_data.get("technical_notes", ""),
+        )
+        recommendation.selected_pipeline_id = pipeline_id or None
+        recommendation.file_urls = file_urls or []
+        await store_recommendation(recommendation)
+        action_data["recommendation_id"] = str(recommendation.recommendation_id)
+        action_data["status"] = RecommendationStatus.PENDING.value
+        action_data["file_urls"] = file_urls
+        action_data["pipeline_id"] = pipeline_id
+        message.action_data = action_data
+
+    elif message.action_type == ActionType.STATUS_UPDATE:
+        # Look up status IDs from cached projects
+        target_status = action_data.get("target_status", "")
+        status_option_id = ""
+        status_field_id = ""
+        if cached_projects:
+            for p in cached_projects:
+                if p.project_id == selected_project_id:
+                    for col in p.status_columns:
+                        if col.name.lower() == target_status.lower():
+                            status_option_id = col.option_id
+                            status_field_id = col.field_id
+                            target_status = col.name
+                            break
+                    break
+
+        proposal = AITaskProposal(
+            session_id=session.session_id,
+            original_input=action_data.get("task_title", ""),
+            proposed_title=action_data.get("task_title", ""),
+            proposed_description=f"Move from '{action_data.get('current_status', '')}' to '{target_status}'",
+        )
+        await store_proposal(proposal)
+        action_data["proposal_id"] = str(proposal.proposal_id)
+        action_data["status_option_id"] = status_option_id
+        action_data["status_field_id"] = status_field_id
+        action_data["status"] = ProposalStatus.PENDING.value
+        message.action_data = action_data
+
+    return message
+
+
+# ── Streaming endpoint (US4) ────────────────────────────────────────────
+
+
+@router.post("/messages/stream")
+@limiter.limit("10/minute")
+async def send_message_stream(
+    request: Request,
+    chat_request: ChatMessageRequest,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Send a chat message and stream the AI response via SSE.
+
+    Returns Server-Sent Events with progressive token delivery.
+    Event types: token, tool_call, tool_result, done, error.
+    """
+    from sse_starlette.sse import EventSourceResponse
+
+    from src.config import get_settings as _get_settings
+
+    selected_project_id = require_selected_project(session)
+
+    try:
+        chat_agent_svc = get_chat_agent_service()
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Streaming not available. Use /messages endpoint instead."},
+        )
+
+    settings = _get_settings()
+    if not settings.agent_streaming_enabled:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Streaming is disabled. Use /messages endpoint instead."},
+        )
+
+    # Create user message
+    user_message = ChatMessage(
+        session_id=session.session_id,
+        sender_type=SenderType.USER,
+        content=chat_request.content,
+    )
+    await add_message(session.session_id, user_message)
+
+    # Get project details
+    project_name = "Unknown Project"
+    project_columns: list[str] = []
+    cache_key = get_user_projects_cache_key(session.github_user_id)
+    cached_projects = cache.get(cache_key)
+    if cached_projects:
+        for p in cached_projects:
+            if p.project_id == selected_project_id:
+                project_name = p.name
+                project_columns = [col.name for col in p.status_columns]
+                break
+
+    tasks_cache_key = get_project_items_cache_key(selected_project_id)
+    current_tasks = cache.get(tasks_cache_key) or []
+
+    async def event_generator():
+        async for event in chat_agent_svc.run_stream(
+            message=chat_request.content,
+            session_id=session.session_id,
+            github_token=session.access_token,
+            project_name=project_name,
+            project_id=selected_project_id,
+            available_tasks=current_tasks,
+            available_statuses=project_columns,
+        ):
+            yield event
+
+    return EventSourceResponse(event_generator())
 
 
 @router.post("/proposals/{proposal_id}/confirm", response_model=AITaskProposal)

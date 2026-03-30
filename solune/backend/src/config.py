@@ -102,6 +102,17 @@ class Settings(BaseSettings):
     # authenticated user is auto-promoted (with a warning).
     admin_github_user_id: int | None = None
 
+    # ── Agent Framework (v0.2.0) ──
+
+    # AgentSession TTL: inactive sessions are evicted after this many seconds.
+    agent_session_ttl_seconds: int = 3600  # 1 hour
+
+    # Maximum concurrent AgentSession instances held in memory.
+    agent_max_concurrent_sessions: int = 100
+
+    # Enable/disable the SSE streaming endpoint.
+    agent_streaming_enabled: bool = True
+
     # ── Observability (Phase 5) — all opt-in with safe defaults ──
 
     # OpenTelemetry — disabled by default; zero import/runtime overhead when off

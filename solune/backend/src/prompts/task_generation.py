@@ -1,4 +1,10 @@
-"""AI prompt templates for task generation."""
+"""AI prompt templates for task generation.
+
+.. deprecated:: 0.2.0
+    Replaced by :mod:`src.prompts.agent_instructions` which provides unified
+    system instructions for the Microsoft Agent Framework agent.
+    These templates will be removed in v0.3.0.
+"""
 
 TASK_GENERATION_SYSTEM_PROMPT = """You are an AI assistant that helps developers create well-structured tasks for GitHub Projects.
 
