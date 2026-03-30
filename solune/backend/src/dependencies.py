@@ -74,6 +74,10 @@ async def _require_session(
 ) -> UserSession:
     """Resolve the current session without importing auth dependencies eagerly."""
     get_session_dep = _get_session_dep()
+    # FastAPI overrides are keyed by the original dependency callable
+    # (get_session_dep). Because this helper wraps that callable to avoid a
+    # circular import, tests that override get_session_dep would otherwise be
+    # bypassed and fall back to real cookie resolution.
     dependency_override = request.app.dependency_overrides.get(get_session_dep)
     if dependency_override is not None:
         result = dependency_override()
