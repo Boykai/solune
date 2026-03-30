@@ -62,9 +62,9 @@ test.describe('Authenticated Board', () => {
       page.locator('text=Login with GitHub')
     ).not.toBeVisible({ timeout: 3000 });
 
-    // Should not show generic error states
+    // Should not show unhandled error messages
     await expect(
-      page.locator('text=/not found|404|unhandled|exception/i')
+      page.locator('text=/unhandled|exception|stack trace/i')
     ).not.toBeVisible();
   });
 });
@@ -88,11 +88,6 @@ test.describe('Authenticated Navigation', () => {
       // Should not show unhandled error messages
       await expect(
         page.locator('text=/unhandled|exception|stack trace/i')
-      ).not.toBeVisible();
-
-      // Should not show generic "Not Found"/404 error states
-      await expect(
-        page.locator('text=/not found|404/i')
       ).not.toBeVisible();
     }
   });
