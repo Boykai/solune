@@ -341,6 +341,100 @@ export const chatApi = {
   },
 
   /**
+   * Send a chat message with streaming response via SSE.
+   *
+   * Yields progressive token events as they arrive from the agent.
+   * Falls back to non-streaming sendMessage() on connection failure.
+   *
+   * @param data - The chat message request
+   * @param onToken - Callback for each token chunk received
+   * @param onDone - Callback when the complete message is ready
+   * @param onError - Callback on error
+   */
+  async sendMessageStream(
+    data: ChatMessageRequest,
+    onToken: (content: string) => void,
+    onDone: (message: ChatMessage) => void,
+    onError: (error: Error) => void,
+  ): Promise<void> {
+    const url = `${API_BASE_URL}/chat/messages/stream`;
+    const csrfToken = getCsrfToken();
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok || !response.body) {
+        // Fall back to non-streaming endpoint
+        const fallbackResult = await chatApi.sendMessage(data);
+        onDone(fallbackResult);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6).trim();
+            if (!jsonStr) continue;
+
+            try {
+              const parsed = JSON.parse(jsonStr);
+
+              // Check if this is a wrapped SSE event with event+data fields
+              if (parsed.event === 'token' && parsed.data) {
+                const tokenData = typeof parsed.data === 'string'
+                  ? JSON.parse(parsed.data)
+                  : parsed.data;
+                onToken(tokenData.content || '');
+              } else if (parsed.event === 'done' && parsed.data) {
+                const msgData = typeof parsed.data === 'string'
+                  ? JSON.parse(parsed.data)
+                  : parsed.data;
+                onDone(msgData as ChatMessage);
+                return;
+              } else if (parsed.event === 'error') {
+                onError(new Error(parsed.data || 'Stream error'));
+                return;
+              } else if (parsed.content) {
+                // Direct token content
+                onToken(parsed.content);
+              }
+            } catch {
+              // Skip malformed SSE data
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // Fall back to non-streaming endpoint on any error
+      try {
+        const fallbackResult = await chatApi.sendMessage(data);
+        onDone(fallbackResult);
+      } catch (fallbackError) {
+        onError(fallbackError instanceof Error ? fallbackError : new Error('Stream failed'));
+      }
+    }
+  },
+
+  /**
    * Confirm an AI task proposal.
    */
   confirmProposal(proposalId: string, data?: ProposalConfirmRequest): Promise<AITaskProposal> {
