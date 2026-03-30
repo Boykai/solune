@@ -235,9 +235,7 @@ class TestBuiltinMcps:
         result = await _build_active_mcp_dict(db, "project-1")
         # 3 user servers + 1 built-in = 4
         assert len(result) == 4
-        assert all(
-            k in result for k in ("server1", "server2", "server3", "context7")
-        )
+        assert all(k in result for k in ("server1", "server2", "server3", "context7"))
 
     @pytest.mark.asyncio
     async def test_build_active_mcp_dict_duplicate_user_key_first_wins(self):
