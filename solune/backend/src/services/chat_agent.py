@@ -224,8 +224,8 @@ class ChatAgentService:
 
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
-        # Build runtime kwargs for tool context injection
-        function_kwargs = {
+        # Inject runtime context into session state for tool access
+        agent_session.state.update({
             "project_name": project_name,
             "project_id": project_id,
             "available_tasks": available_tasks or [],
@@ -234,13 +234,12 @@ class ChatAgentService:
             "session_id": str(session_id),
             "pipeline_id": pipeline_id,
             "file_urls": file_urls or [],
-        }
+        })
 
         try:
             response: AgentResponse = await agent.run(
                 message,
                 session=agent_session,
-                function_invocation_kwargs=function_kwargs,
             )
             return self._convert_response(response, session_id)
         except Exception as e:
@@ -287,14 +286,15 @@ class ChatAgentService:
 
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
-        function_kwargs = {
+        # Inject runtime context into session state for tool access
+        agent_session.state.update({
             "project_name": project_name,
             "project_id": project_id,
             "available_tasks": available_tasks or [],
             "available_statuses": available_statuses or [],
             "github_token": github_token,
             "session_id": str(session_id),
-        }
+        })
 
         try:
             accumulated_text = ""
@@ -305,7 +305,6 @@ class ChatAgentService:
                 message,
                 stream=True,
                 session=agent_session,
-                function_invocation_kwargs=function_kwargs,
             )
             async for update in stream:
                 update_text = _extract_text(update)

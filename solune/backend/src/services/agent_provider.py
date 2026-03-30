@@ -64,8 +64,12 @@ def _create_copilot_agent(
     """Create an Agent using the GitHub Copilot provider.
 
     Uses ``agent-framework-github-copilot`` which wraps the Copilot SDK
-    as a MAF-compatible provider. Per-user token is passed via options.
+    as a MAF-compatible provider. A pre-configured CopilotClient with
+    the user's OAuth token is injected so each user authenticates with
+    their own GitHub identity.
     """
+    from copilot import CopilotClient, PermissionHandler  # type: ignore[reportMissingImports]
+
     from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
 
     if not github_token:
@@ -76,13 +80,19 @@ def _create_copilot_agent(
 
     settings = get_settings()
 
-    options: GitHubCopilotOptions = {"model": settings.copilot_model}
+    options: GitHubCopilotOptions = {
+        "model": settings.copilot_model,
+        "on_permission_request": PermissionHandler.approve_all,
+    }
+
+    client = CopilotClient({"github_token": github_token})
 
     agent = GitHubCopilotAgent(
         name="solune-agent",
         instructions=instructions,
         tools=tools or [],
         default_options=options,
+        client=client,
     )
     logger.info("Created GitHubCopilotAgent (model: %s)", settings.copilot_model)
     return agent

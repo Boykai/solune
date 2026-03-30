@@ -20,9 +20,9 @@ from src.services.agent_tools import (
 
 
 def _make_context(**kwargs) -> MagicMock:
-    """Create a mock FunctionInvocationContext with given kwargs."""
+    """Create a mock FunctionInvocationContext with session state."""
     ctx = MagicMock()
-    ctx.kwargs = kwargs
+    ctx.session.state = dict(kwargs)
     return ctx
 
 

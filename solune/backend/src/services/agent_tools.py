@@ -2,7 +2,7 @@
 
 Each tool is a standalone async function decorated with ``@tool``.
 Runtime context (project_id, github_token, session_id) is injected via
-``FunctionInvocationContext.kwargs`` — never exposed to the LLM schema.
+``AgentSession.state`` — never exposed to the LLM schema.
 
 Tool registration is designed to accommodate future MCP tool integration (v0.4.0).
 """
@@ -146,8 +146,8 @@ async def update_task_status(
         target_status,
     )
 
-    # Retrieve available tasks from runtime kwargs
-    available_tasks = context.kwargs.get("available_tasks", [])
+    # Retrieve available tasks from session state
+    available_tasks = context.session.state.get("available_tasks", []) if context.session else []
 
     target_task = _identify_target_task(task_reference, available_tasks)
 
@@ -234,8 +234,9 @@ async def get_project_context(
     Use this when the user asks about project status, available tasks,
     or project configuration.
     """
-    project_name = context.kwargs.get("project_name", "Unknown Project")
-    project_id = context.kwargs.get("project_id", "")
+    state = context.session.state if context.session else {}
+    project_name = state.get("project_name", "Unknown Project")
+    project_id = state.get("project_id", "")
 
     return ToolResult(
         content=f"**Current Project**: {project_name} (ID: {project_id})",
@@ -253,7 +254,7 @@ async def get_pipeline_list(
     Use this when the user asks about available pipelines or workflow
     configurations.
     """
-    available_statuses = context.kwargs.get("available_statuses", [])
+    available_statuses = context.session.state.get("available_statuses", []) if context.session else []
     statuses_str = ", ".join(available_statuses) if available_statuses else "No statuses configured"
 
     return ToolResult(

@@ -152,8 +152,8 @@ class TestChatAgentServiceRun:
         assert result.action_data["proposed_title"] == "Fix bug"
 
     @patch("src.services.chat_agent.create_agent")
-    async def test_run_passes_function_kwargs(self, mock_create_agent):
-        """Verify runtime context is passed to the agent as function_invocation_kwargs."""
+    async def test_run_passes_context_via_session_state(self, mock_create_agent):
+        """Verify runtime context is injected into AgentSession.state."""
         mock_agent = AsyncMock()
         mock_response = MagicMock()
         mock_msg = MagicMock()
@@ -173,13 +173,12 @@ class TestChatAgentServiceRun:
             available_statuses=["Todo", "Done"],
         )
 
-        # Verify the agent was called with function_invocation_kwargs
+        # Verify the agent was called with a session containing state
         call_kwargs = mock_agent.run.call_args.kwargs
-        assert "function_invocation_kwargs" in call_kwargs
-        fkw = call_kwargs["function_invocation_kwargs"]
-        assert fkw["project_name"] == "My Project"
-        assert fkw["project_id"] == "PVT_1"
-        assert "Todo" in fkw["available_statuses"]
+        session = call_kwargs["session"]
+        assert session.state["project_name"] == "My Project"
+        assert session.state["project_id"] == "PVT_1"
+        assert "Todo" in session.state["available_statuses"]
 
 
 # ── ChatAgentService.run_stream() tests ─────────────────────────────────
