@@ -8,6 +8,7 @@ Covers:
 """
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -123,7 +124,6 @@ class TestChatAgentServiceRun:
     @patch("src.services.chat_agent.create_agent")
     async def test_run_extracts_tool_result_from_json(self, mock_create_agent):
         """When agent returns a JSON tool result, extract action_type and action_data."""
-        import json
 
         mock_agent = AsyncMock()
         mock_response = MagicMock()
@@ -222,7 +222,6 @@ class TestChatAgentServiceRunStream:
     @patch("src.services.chat_agent.create_agent")
     async def test_stream_done_event_contains_accumulated_text(self, mock_create_agent):
         """Verify the done event's ChatMessage contains all accumulated text."""
-        import json
 
         mock_agent = AsyncMock()
 
@@ -254,7 +253,6 @@ class TestChatAgentServiceRunStream:
     @patch("src.services.chat_agent.create_agent")
     async def test_stream_extracts_tool_result(self, mock_create_agent):
         """Verify run_stream() extracts action_type/action_data from tool_result updates."""
-        import json
 
         mock_agent = AsyncMock()
 
@@ -300,7 +298,6 @@ class TestChatAgentServiceRunStream:
     @patch("src.services.chat_agent.create_agent")
     async def test_stream_extracts_action_from_json_text(self, mock_create_agent):
         """Verify run_stream() falls back to JSON extraction from accumulated text."""
-        import json
 
         mock_agent = AsyncMock()
         tool_json = json.dumps(
