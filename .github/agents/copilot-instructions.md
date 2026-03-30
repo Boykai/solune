@@ -17,7 +17,6 @@ Last updated: 2026-03-18
 - **Security / crypto:** `cryptography>=46.0.5` (Fernet token-at-rest encryption)
 - **Rate limiting:** `slowapi>=0.1.9`
 - **Utilities:** `tenacity>=9.1.0`, `websockets>=16.0`, `python-multipart>=0.0.22`, `pyyaml>=6.0.3`
-- **Code graph analysis:** `codegraphcontext>=0.2.9` (MCP server + CLI)
 - **Dev tools:** `ruff>=0.15.0`, `pyright>=1.1.408`, `pytest>=9.0.0`, `pytest-asyncio>=1.3.0`, `pytest-cov>=7.0.0`
 
 ### Frontend
@@ -138,7 +137,7 @@ npx playwright test             # E2E
 - Prefer focused, minimal fixes over broad refactors unless the task explicitly calls for architectural work.
 - Tailwind v4 uses the CSS-first setup in `solune/frontend/src/index.css`; do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - Agent `.agent.md` files live in `.github/agents/`; corresponding `.prompt.md` shortcuts live in `.github/prompts/`.
-- `.github/agents/mcp.json` declares MCP servers for remote GitHub Custom Agents (currently Context7, Azure MCP, CodeGraphContext, and Bicep MCP). Do not confuse with `.vscode/mcp.json` (local IDE MCP servers).
+- `.github/agents/mcp.json` declares MCP servers for remote GitHub Custom Agents (currently Context7, Azure MCP, and Bicep MCP). Do not confuse with `.vscode/mcp.json` (local IDE MCP servers).
 
 ## CHANGELOG
 
@@ -213,7 +212,7 @@ All agents live in `.github/agents/`. The repository includes both **Spec Kit pi
 | `tester` | Adds tests for changed behavior and improves testability |
 
 ### MCP Configuration
-- `.github/agents/mcp.json` — Declares MCP servers available to remote GitHub Custom Agents (Context7 for documentation lookup, Azure MCP for resource schema lookups and Well-Architected Framework guidance, Bicep MCP for Bicep best practices, resource type schemas, and Azure Verified Modules metadata, and CodeGraphContext for codebase analysis).
+- `.github/agents/mcp.json` — Declares MCP servers available to remote GitHub Custom Agents (Context7 for documentation lookup, Azure MCP for resource schema lookups and Well-Architected Framework guidance, and Bicep MCP for Bicep best practices, resource type schemas, and Azure Verified Modules metadata).
 
 ### Agent Degradation Rules
 

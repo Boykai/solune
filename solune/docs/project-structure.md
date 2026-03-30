@@ -27,7 +27,7 @@ solune/
 │   │   ├── speckit.specify.agent.md
 │   │   ├── speckit.tasks.agent.md
 │   │   ├── speckit.taskstoissues.agent.md
-│   │   ├── mcp.json              #   Built-in MCP server definitions (Context7, CodeGraphContext)
+│   │   ├── mcp.json              #   Built-in MCP server definitions (Context7, Azure, Bicep)
 │   │   └── copilot-instructions.md
 │   ├── prompts/                  # GitHub Copilot prompt files
 │   └── workflows/                # GitHub Actions workflows

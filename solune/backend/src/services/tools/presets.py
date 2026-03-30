@@ -156,30 +156,6 @@ _PRESETS: tuple[McpPresetResponse, ...] = (
             }
         ),
     ),
-    McpPresetResponse(
-        id="codegraphcontext",
-        name="Code Graph Context",
-        description="Code indexing and graph analysis for call chains, dead code detection, and complexity metrics.",
-        category="Code Analysis",
-        icon="git-branch",
-        config_content=_dump_config(
-            {
-                "mcpServers": {
-                    "CodeGraphContext": {
-                        "type": "local",
-                        "command": "uvx",
-                        "args": ["--from", "codegraphcontext", "cgc", "mcp", "start"],
-                        "tools": ["*"],
-                        "env": {
-                            "IGNORE_TEST_FILES": "false",
-                            "IGNORE_HIDDEN_FILES": "true",
-                            "MAX_FILE_SIZE_MB": "10",
-                        },
-                    }
-                }
-            }
-        ),
-    ),
 )
 
 

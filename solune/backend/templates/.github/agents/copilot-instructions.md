@@ -17,7 +17,6 @@ Last updated: 2026-03-18
 - **Security / crypto:** `cryptography>=46.0.5` (Fernet token-at-rest encryption)
 - **Rate limiting:** `slowapi>=0.1.9`
 - **Utilities:** `tenacity>=9.1.0`, `websockets>=16.0`, `python-multipart>=0.0.22`, `pyyaml>=6.0.3`
-- **Code graph analysis:** `codegraphcontext>=0.2.9` (MCP server + CLI)
 - **Dev tools:** `ruff>=0.15.0`, `pyright>=1.1.408`, `pytest>=9.0.0`, `pytest-asyncio>=1.3.0`, `pytest-cov>=7.0.0`
 
 ### Frontend

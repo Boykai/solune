@@ -146,12 +146,10 @@ class TestMergeMcpServers:
 
 
 class TestBuiltinMcps:
-    def test_builtin_mcps_contains_context7_and_codegraph(self):
-        """T024: BUILTIN_MCPS has context7 (http) and CodeGraphContext (local)."""
+    def test_builtin_mcps_contains_context7(self):
+        """T024: BUILTIN_MCPS has context7 (http)."""
         assert "context7" in BUILTIN_MCPS
         assert BUILTIN_MCPS["context7"]["type"] == "http"
-        assert "CodeGraphContext" in BUILTIN_MCPS
-        assert BUILTIN_MCPS["CodeGraphContext"]["type"] == "local"
 
     def test_merge_always_includes_builtins(self):
         """T025: built-in MCPs always included even if removed from file."""
@@ -159,7 +157,6 @@ class TestBuiltinMcps:
         fm = {"name": "Test", "mcp-servers": {}}
         updated, _ = _merge_mcps_into_frontmatter(fm, active, "agent.md")
         assert "context7" in updated["mcp-servers"]
-        assert "CodeGraphContext" in updated["mcp-servers"]
 
     @pytest.mark.asyncio
     async def test_build_active_mcp_dict_builtin_precedence(self):
@@ -200,11 +197,10 @@ class TestBuiltinMcps:
         db.execute.return_value = cursor_mock
 
         result = await _build_active_mcp_dict(db, "project-1")
-        # Bad MCP skipped, good MCP + 2 built-ins present
+        # Bad MCP skipped, good MCP + 1 built-in present
         assert "good_server" in result
         assert "context7" in result
-        assert "CodeGraphContext" in result
-        assert len(result) == 3
+        assert len(result) == 2
 
     @pytest.mark.asyncio
     async def test_build_active_mcp_dict_multiple_user_mcps(self):
@@ -237,11 +233,9 @@ class TestBuiltinMcps:
         db.execute.return_value = cursor_mock
 
         result = await _build_active_mcp_dict(db, "project-1")
-        # 3 user servers + 2 built-ins = 5
-        assert len(result) == 5
-        assert all(
-            k in result for k in ("server1", "server2", "server3", "context7", "CodeGraphContext")
-        )
+        # 3 user servers + 1 built-in = 4
+        assert len(result) == 4
+        assert all(k in result for k in ("server1", "server2", "server3", "context7"))
 
     @pytest.mark.asyncio
     async def test_build_active_mcp_dict_duplicate_user_key_first_wins(self):
@@ -569,7 +563,6 @@ class TestSyncAgentMcps:
 
         # Built-in MCPs should always appear
         assert "context7" in result.synced_mcps
-        assert "CodeGraphContext" in result.synced_mcps
 
     @pytest.mark.asyncio
     async def test_sync_global_exception_marks_failure(self):
