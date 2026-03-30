@@ -18,16 +18,16 @@ import json
 import time
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from agent_framework import Agent, AgentResponse, AgentSession
+from agent_framework import AgentResponse, AgentSession
 
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.models.chat import ActionType, ChatMessage, SenderType
 from src.prompts.agent_instructions import build_system_instructions
 from src.services.agent_provider import create_agent
-from src.services.agent_tools import ToolResult, register_tools
+from src.services.agent_tools import register_tools
 from src.utils import utcnow
 
 if TYPE_CHECKING:
@@ -272,6 +272,34 @@ class ChatAgentService:
                     accumulated_text += update.text
                     yield {"event": "token", "data": json.dumps({"content": update.text})}
 
+                # Extract tool results from stream updates when present
+                if hasattr(update, "tool_result") and update.tool_result:
+                    tool_result = update.tool_result
+                    if isinstance(tool_result, dict):
+                        if tool_result.get("action_type"):
+                            action_type = tool_result["action_type"]
+                            action_data = tool_result.get("action_data")
+                            yield {
+                                "event": "tool_result",
+                                "data": json.dumps(
+                                    {
+                                        "action_type": action_type,
+                                        "action_data": action_data,
+                                    }
+                                ),
+                            }
+
+            # Fallback: try to extract tool result from accumulated text (JSON)
+            if action_type is None and accumulated_text:
+                try:
+                    parsed = json.loads(accumulated_text)
+                    if isinstance(parsed, dict) and "action_type" in parsed:
+                        action_type = parsed["action_type"]
+                        action_data = parsed.get("action_data")
+                        accumulated_text = parsed.get("content", accumulated_text)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
             # Build final message
             final_msg = ChatMessage(
                 session_id=session_id,
@@ -292,9 +320,7 @@ class ChatAgentService:
                 "data": json.dumps({"error": str(e)}),
             }
 
-    def _convert_response(
-        self, response: AgentResponse, session_id: UUID
-    ) -> ChatMessage:
+    def _convert_response(self, response: AgentResponse, session_id: UUID) -> ChatMessage:
         """Convert an AgentResponse into a ChatMessage.
 
         Extracts action_type and action_data from tool results embedded
@@ -310,9 +336,7 @@ class ChatAgentService:
                 if isinstance(msg.content, str):
                     content_parts.append(msg.content)
                 elif isinstance(msg.content, list):
-                    for part in msg.content:
-                        if hasattr(part, "text"):
-                            content_parts.append(part.text)
+                    content_parts.extend(part.text for part in msg.content if hasattr(part, "text"))
 
             # Check for tool results in annotations or metadata
             if hasattr(msg, "annotations"):

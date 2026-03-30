@@ -5,10 +5,9 @@ Covers all @tool-decorated functions with mocked FunctionInvocationContext.
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.services.agent_tools import (
     ToolResult,
+    _identify_target_task,
     analyze_transcript,
     ask_clarifying_question,
     create_issue_recommendation,
@@ -108,18 +107,14 @@ class TestUpdateTaskStatus:
         task.github_item_id = "PVTI_1"
 
         ctx = _make_context(available_tasks=[task])
-        result = await update_task_status(
-            ctx, task_reference="Fix login bug", target_status="Done"
-        )
+        result = await update_task_status(ctx, task_reference="Fix login bug", target_status="Done")
         assert result["action_type"] == "status_update"
         assert result["action_data"]["task_title"] == "Fix login bug"
         assert result["action_data"]["target_status"] == "Done"
 
     async def test_task_not_found_returns_none_action(self):
         ctx = _make_context(available_tasks=[])
-        result = await update_task_status(
-            ctx, task_reference="nonexistent", target_status="Done"
-        )
+        result = await update_task_status(ctx, task_reference="nonexistent", target_status="Done")
         assert result["action_type"] is None
         assert "couldn't find" in result["content"].lower()
 
@@ -149,9 +144,7 @@ class TestAnalyzeTranscript:
 class TestAskClarifyingQuestion:
     async def test_returns_question_with_no_action(self):
         ctx = _make_context()
-        result = await ask_clarifying_question(
-            ctx, question="What specific feature do you want?"
-        )
+        result = await ask_clarifying_question(ctx, question="What specific feature do you want?")
         assert result["action_type"] is None
         assert result["action_data"] is None
         assert "What specific feature" in result["content"]
@@ -183,6 +176,51 @@ class TestGetPipelineList:
         ctx = _make_context(available_statuses=[])
         result = await get_pipeline_list(ctx)
         assert "No statuses" in result["content"]
+
+
+# ── _identify_target_task ────────────────────────────────────────────────
+
+
+class TestIdentifyTargetTask:
+    def _make_task(self, title: str, **kwargs) -> MagicMock:
+        task = MagicMock()
+        task.title = title
+        for k, v in kwargs.items():
+            setattr(task, k, v)
+        return task
+
+    def test_exact_match(self):
+        task = self._make_task("Fix login bug")
+        result = _identify_target_task("Fix login bug", [task])
+        assert result is task
+
+    def test_exact_match_case_insensitive(self):
+        task = self._make_task("Fix Login Bug")
+        result = _identify_target_task("fix login bug", [task])
+        assert result is task
+
+    def test_partial_match(self):
+        task = self._make_task("Fix login bug in auth module")
+        result = _identify_target_task("login bug", [task])
+        assert result is task
+
+    def test_fuzzy_match_by_word_overlap(self):
+        task1 = self._make_task("Update CI pipeline config")
+        task2 = self._make_task("Fix login authentication")
+        result = _identify_target_task("login auth fix", [task1, task2])
+        assert result is task2
+
+    def test_returns_none_for_empty_reference(self):
+        task = self._make_task("Fix bug")
+        assert _identify_target_task("", [task]) is None
+
+    def test_returns_none_for_empty_tasks(self):
+        assert _identify_target_task("Fix bug", []) is None
+
+    def test_returns_none_for_no_match(self):
+        task = self._make_task("Unrelated task")
+        result = _identify_target_task("xyz123abc", [task])
+        assert result is None
 
 
 # ── register_tools ──────────────────────────────────────────────────────
