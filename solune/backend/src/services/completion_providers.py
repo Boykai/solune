@@ -213,7 +213,7 @@ class CopilotCompletionProvider(CompletionProvider):
                 done.set()
 
         session.on(on_event)
-        await session.send(user_content)
+        await session.send({"prompt": user_content})
 
         try:
             await asyncio.wait_for(done.wait(), timeout=120)
