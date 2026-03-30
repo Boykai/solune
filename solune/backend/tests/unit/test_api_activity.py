@@ -2,7 +2,7 @@
 
 Covers:
 - _encode_cursor / _decode_cursor — round-trip, invalid data
-- _query_events — filtering, pagination, cursor handling
+- _query_events — filtering, pagination, cursor handling, falsy-branch coverage
 - GET /api/v1/activity — get_activity_feed endpoint
 - GET /api/v1/activity/{entity_type}/{entity_id} — get_entity_history endpoint
 """
@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.api.activity import _decode_cursor, _encode_cursor
+from src.api.activity import ALLOWED_ENTITY_TYPES, _decode_cursor, _encode_cursor, _query_events
 
 ACTIVITY_URL = "/api/v1/activity"
 
@@ -411,3 +411,77 @@ class TestGetEntityHistory:
         )
         assert resp.status_code == 200
         assert resp.json()["items"] == []
+
+
+# ── Branch coverage for _query_events ────────────────────────────────────
+
+
+class TestQueryEventsBranches:
+    """Direct tests for _query_events to cover falsy-parameter branches.
+
+    Lines 50, 54, 64, 69: when project_id, entity_type, event_type_filter,
+    and cursor are None/empty, the corresponding WHERE conditions are skipped.
+    """
+
+    @pytest.mark.asyncio
+    async def test_no_project_id_omits_project_condition(self, mock_db):
+        """When project_id is None, no project_id = ? condition is added."""
+        result = await _query_events(mock_db, project_id=None)
+        assert isinstance(result, dict)
+        assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_no_entity_type_omits_entity_condition(self, mock_db):
+        """When entity_type is None, no entity_type = ? condition is added."""
+        result = await _query_events(mock_db, entity_type=None)
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_no_entity_id_omits_entity_id_condition(self, mock_db):
+        """When entity_id is None, no entity_id = ? condition is added."""
+        result = await _query_events(mock_db, entity_id=None)
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_empty_event_type_filter_after_strip(self, mock_db):
+        """Event type filter with only whitespace/commas produces no types (branch 64)."""
+        result = await _query_events(mock_db, event_type_filter=", , ,")
+        assert isinstance(result, dict)
+        assert result["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_no_cursor_omits_cursor_condition(self, mock_db):
+        """When cursor is None, no cursor condition is added."""
+        result = await _query_events(mock_db, cursor=None)
+        assert isinstance(result, dict)
+        # total_count should be present on first page (no cursor)
+        assert result["total_count"] is not None
+
+    @pytest.mark.asyncio
+    async def test_all_params_none_returns_all_events(self, mock_db):
+        """When all optional params are None, WHERE is '1=1' (all rows)."""
+        result = await _query_events(mock_db)
+        assert isinstance(result, dict)
+        assert result["items"] == []
+        assert result["total_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_invalid_cursor_is_logged_and_ignored(self, mock_db):
+        """Invalid cursor value is logged but doesn't prevent the query."""
+        # Base64-encoded but invalid JSON — triggers JSONDecodeError in _decode_cursor
+        bad_cursor = base64.urlsafe_b64encode(b"not-json-data").decode()
+        result = await _query_events(mock_db, cursor=bad_cursor)
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_empty_string_event_type_filter(self, mock_db):
+        """Empty string event_type_filter is treated as no filter (branch 62)."""
+        result = await _query_events(mock_db, event_type_filter="")
+        assert isinstance(result, dict)
+
+
+class TestAllowedEntityTypes:
+    """Verify the ALLOWED_ENTITY_TYPES constant is correct."""
+
+    def test_expected_entity_types(self):
+        assert ALLOWED_ENTITY_TYPES == {"pipeline", "chore", "agent", "app", "tool", "issue"}

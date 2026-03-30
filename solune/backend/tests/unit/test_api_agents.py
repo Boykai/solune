@@ -381,3 +381,91 @@ class TestAgentChat:
         )
         assert resp.status_code == 200
         assert resp.json()["reply"] == "Hello!"
+
+    async def test_agent_chat_generic_error_returns_500(self, client):
+        """Generic exceptions from chat are mapped via handle_service_error."""
+        self.svc.chat.side_effect = Exception("unexpected failure")
+        resp = await client.post(
+            f"{BASE}/chat",
+            json={"message": "trigger error"},
+        )
+        assert resp.status_code == 500
+
+
+# ── _get_service() ────────────────────────────────────────────────────────
+
+
+class TestGetService:
+    """Tests for the _get_service helper function."""
+
+    def test_get_service_returns_agents_service(self):
+        """_get_service() returns an AgentsService instance."""
+        from src.api.agents import _get_service
+
+        mock_db = MagicMock()
+        with patch("src.api.agents.get_db", return_value=mock_db):
+            service = _get_service()
+        assert service is not None
+
+
+# ── resolve_repository error paths ────────────────────────────────────────
+
+
+class TestResolveRepositoryErrors:
+    """Tests for resolve_repository error handling across endpoints."""
+
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        svc = _mock_service()
+        self.svc = svc
+        with (
+            patch("src.api.agents._get_service", return_value=svc),
+            patch("src.api.agents.get_db", return_value=MagicMock()),
+        ):
+            yield
+
+    async def test_list_agents_resolve_repo_app_exception_propagates(self, client):
+        """AppException from resolve_repository is re-raised as-is."""
+        from src.exceptions import AppException
+
+        with patch(
+            "src.api.agents.resolve_repository",
+            new_callable=AsyncMock,
+            side_effect=AppException("project error", status_code=400),
+        ):
+            resp = await client.get(BASE)
+        assert resp.status_code == 400
+
+    async def test_list_agents_resolve_repo_generic_error(self, client):
+        """Non-AppException from resolve_repository is mapped to ValidationError."""
+        with patch(
+            "src.api.agents.resolve_repository",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("network failure"),
+        ):
+            resp = await client.get(BASE)
+        assert resp.status_code == 422
+
+    async def test_list_agents_with_pagination(self, client):
+        """List agents with limit param triggers pagination logic."""
+        with patch(
+            "src.api.agents.resolve_repository",
+            new_callable=AsyncMock,
+            return_value=("owner", "repo"),
+        ):
+            self.svc.list_agents.return_value = [_sample_agent()]
+            resp = await client.get(BASE, params={"limit": 10})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "items" in data
+
+    async def test_delete_agent_value_error_returns_422(self, client):
+        """ValueError from delete_agent is mapped to 422."""
+        with patch(
+            "src.api.agents.resolve_repository",
+            new_callable=AsyncMock,
+            return_value=("owner", "repo"),
+        ):
+            self.svc.delete_agent.side_effect = ValueError("invalid agent")
+            resp = await client.delete(f"{BASE}/{AGENT_ID}")
+        assert resp.status_code == 422
