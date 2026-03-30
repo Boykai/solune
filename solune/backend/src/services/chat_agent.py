@@ -7,8 +7,8 @@ Key design decisions:
 - SQLite remains the canonical store for conversation history.
 - AgentSession holds a lightweight summary for multi-turn context.
 - Sessions are evicted after configurable inactivity (TTL).
-- The Agent is created per-invocation for Copilot (token-bound) or as
-  a singleton for Azure OpenAI (static credentials).
+- The Agent is created per invocation; provider-specific caching may be
+  introduced as an optimization if needed.
 """
 
 from __future__ import annotations
