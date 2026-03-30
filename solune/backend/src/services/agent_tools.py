@@ -472,7 +472,10 @@ async def create_project_issue(
     except Exception as e:
         logger.error("Failed to create project issue: %s", e, exc_info=True)
         return ToolResult(
-            content=f"Failed to create issue: {e}",
+            content=(
+                "Failed to create issue due to an internal error. "
+                "Please try again later or create the issue manually."
+            ),
             action_type=None,
             action_data=None,
         )
@@ -517,7 +520,8 @@ async def launch_pipeline(
             f"**Preset**: `{preset_id}`\n"
             f"**Stages**: {' → '.join(stages) if stages else 'Default'}\n"
             f"**Project ID**: {project_id or 'Not set'}\n\n"
-            f"The pipeline has been configured and is ready for execution."
+            f"The pipeline configuration has been prepared. "
+            f"The orchestration layer will handle execution."
         ),
         action_type="pipeline_launch",
         action_data={
@@ -628,13 +632,13 @@ async def load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str,
         return {}
 
     try:
-        cursor = await db.execute(
+        async with db.execute(
             "SELECT name, endpoint_url, config_content "
             "FROM mcp_tool_configs "
             "WHERE project_id = ? AND is_active = 1",
             (project_id,),
-        )
-        rows = await cursor.fetchall()
+        ) as cursor:
+            rows = await cursor.fetchall()
 
         if not rows:
             logger.info(

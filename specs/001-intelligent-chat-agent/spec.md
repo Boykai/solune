@@ -17,7 +17,7 @@ As a user chatting with Solune, I want the agent to evaluate the complexity of m
 
 **Acceptance Scenarios**:
 
-1. **Given** a user describes a simple project idea (e.g., "Create a static landing page"), **When** the agent processes the message, **Then** the agent assesses the difficulty as XS or S and recommends the "github-copilot" pipeline preset with an explanation of why this level fits.
+1. **Given** a user describes a simple project idea (e.g., "Create a static landing page"), **When** the agent processes the message, **Then** the agent assesses the difficulty as XS and recommends the "github-copilot" pipeline preset with an explanation of why this level fits.
 2. **Given** a user describes a complex project idea (e.g., "Build a multi-tenant SaaS with payment processing and real-time dashboards"), **When** the agent processes the message, **Then** the agent assesses the difficulty as L or XL and recommends the "hard" or "expert" pipeline preset with reasoning.
 3. **Given** a user describes a moderately complex project, **When** the agent assesses difficulty, **Then** the agent provides a clear explanation of the assessed complexity level and the pipeline preset it maps to, including what stages and agents are included.
 4. **Given** a user provides a vague or ambiguous project description, **When** the agent cannot confidently assess difficulty, **Then** the agent asks clarifying questions before making an assessment, or defaults to a "medium" assessment with a note that more details could refine the recommendation.
@@ -72,7 +72,7 @@ As a user, I want the chat agent to dynamically load and use MCP (Model Context 
 ### Functional Requirements
 
 - **FR-001**: System MUST provide an automated difficulty assessment that classifies project complexity on a five-level scale (XS, S, M, L, XL) based on the user's project description.
-- **FR-002**: System MUST map assessed difficulty levels to pipeline presets using a deterministic mapping: XS/S → "github-copilot", S/M → "easy", M/L → "medium", L → "hard", XL → "expert".
+- **FR-002**: System MUST map assessed difficulty levels to pipeline presets using a deterministic one-to-one mapping: XS → "github-copilot", S → "easy", M → "medium", L → "hard", XL → "expert".
 - **FR-003**: System MUST explain the assessed difficulty and selected pipeline preset to the user, including what the preset provides (stages, agent roles).
 - **FR-004**: System MUST record the assessed difficulty and selected preset in the conversation session state so subsequent tools can reference them.
 - **FR-005**: System MUST support creating GitHub issues autonomously from the chat conversation, using the project details gathered during the conversation.

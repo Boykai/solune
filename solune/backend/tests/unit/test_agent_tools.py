@@ -467,14 +467,28 @@ class TestLaunchPipeline:
 
 
 class TestLoadMcpTools:
-    async def test_returns_valid_config_dicts(self):
+    def _mock_db_with_cursor(self, cursor):
+        """Create a mock db where execute() returns an async context manager wrapping cursor.
+
+        aiosqlite's Connection.execute() returns a _ContextManager that is both
+        awaitable *and* an async-context-manager.  We replicate that by making
+        execute a *non*-async callable that returns an object supporting
+        ``__aenter__``/``__aexit__``.
+        """
         mock_db = AsyncMock()
+        ctx = AsyncMock()
+        ctx.__aenter__.return_value = cursor
+        ctx.__aexit__.return_value = False
+        mock_db.execute = MagicMock(return_value=ctx)
+        return mock_db
+
+    async def test_returns_valid_config_dicts(self):
         mock_cursor = AsyncMock()
         mock_cursor.fetchall.return_value = [
             ("mcp-server-1", "https://example.com/mcp1", '{"key": "value"}'),
             ("mcp-server-2", "https://example.com/mcp2", "{}"),
         ]
-        mock_db.execute.return_value = mock_cursor
+        mock_db = self._mock_db_with_cursor(mock_cursor)
 
         result = await load_mcp_tools("PVT_123", mock_db)
 
@@ -485,10 +499,9 @@ class TestLoadMcpTools:
         assert "mcp-server-2" in result
 
     async def test_returns_empty_dict_when_no_tools_configured(self):
-        mock_db = AsyncMock()
         mock_cursor = AsyncMock()
         mock_cursor.fetchall.return_value = []
-        mock_db.execute.return_value = mock_cursor
+        mock_db = self._mock_db_with_cursor(mock_cursor)
 
         result = await load_mcp_tools("PVT_123", mock_db)
         assert result == {}
@@ -506,12 +519,11 @@ class TestLoadMcpTools:
         assert result == {}
 
     async def test_handles_invalid_json_config(self):
-        mock_db = AsyncMock()
         mock_cursor = AsyncMock()
         mock_cursor.fetchall.return_value = [
             ("mcp-server", "https://example.com/mcp", "not-valid-json"),
         ]
-        mock_db.execute.return_value = mock_cursor
+        mock_db = self._mock_db_with_cursor(mock_cursor)
 
         result = await load_mcp_tools("PVT_123", mock_db)
         assert len(result) == 1

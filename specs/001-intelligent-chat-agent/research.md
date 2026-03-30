@@ -18,15 +18,14 @@
 
 ### R2: Difficulty-to-Preset Mapping Strategy
 
-**Decision**: Use a deterministic Python dict mapping difficulty levels to preset IDs. The mapping is:
+**Decision**: Use a deterministic Python dict mapping each difficulty level to exactly one preset ID:
 - `"XS"` → `"github-copilot"`
-- `"S"` → `"github-copilot"` (primary), `"easy"` (overlap)
-- `"M"` → `"medium"` (primary), `"easy"` (overlap)
-- `"L"` → `"hard"` (primary), `"medium"` (overlap)
+- `"S"` → `"easy"`
+- `"M"` → `"medium"`
+- `"L"` → `"hard"`
 - `"XL"` → `"expert"`
 - Unknown/ambiguous → `"medium"` (fallback per FR-013)
 
-Simplified primary mapping used in the tool:
 ```python
 DIFFICULTY_PRESET_MAP = {
     "XS": "github-copilot",
@@ -37,7 +36,7 @@ DIFFICULTY_PRESET_MAP = {
 }
 ```
 
-**Rationale**: The parent issue specifies overlap ranges (e.g., S/M→easy) but the tool needs a single deterministic selection. Using the higher preset for each level ensures adequate tooling. The fallback to `"medium"` (FR-013) handles edge cases.
+**Rationale**: The parent issue specifies overlap ranges (e.g., S/M→easy) but the tool needs a single deterministic selection. A one-to-one mapping avoids ambiguity and simplifies testing. The fallback to `"medium"` (FR-013) handles edge cases.
 
 **Alternatives considered**:
 - LLM-based preset selection: Rejected — adds latency and non-determinism. The mapping is simple enough to be deterministic.
