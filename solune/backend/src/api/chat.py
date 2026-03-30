@@ -44,7 +44,6 @@ from src.services.chat_agent import get_chat_agent_service
 
 if TYPE_CHECKING:
     from src.services.ai_agent import AIAgentService
-    from src.services.chat_agent import ChatAgentService
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
@@ -1128,6 +1127,9 @@ async def send_message(
         return assistant_message
 
     # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
+    if ai_service is None:
+        raise RuntimeError("AI service is required for fallback priority dispatch")
+
     # Priority 0.5: Transcript upload → issue recommendation
     transcript_msg = await _handle_transcript_upload(
         session,
@@ -1371,6 +1373,31 @@ async def send_message_stream(
             available_tasks=current_tasks,
             available_statuses=project_columns,
         ):
+            if event.get("event") == "done":
+                try:
+                    assistant_message = ChatMessage.model_validate_json(event["data"])
+                    assistant_message = await _post_process_agent_response(
+                        session=session,
+                        message=assistant_message,
+                        project_name=project_name,
+                        pipeline_id=chat_request.pipeline_id,
+                        file_urls=chat_request.file_urls,
+                        cached_projects=cached_projects,
+                        selected_project_id=selected_project_id,
+                    )
+                    await add_message(session.session_id, assistant_message)
+                    _trigger_signal_delivery(session, assistant_message, project_name)
+                    yield {
+                        "event": "done",
+                        "data": assistant_message.model_dump_json(),
+                    }
+                except Exception:
+                    logger.error(
+                        "Failed to persist or post-process streamed agent response",
+                        exc_info=True,
+                    )
+                    yield event
+                continue
             yield event
 
     return EventSourceResponse(event_generator())

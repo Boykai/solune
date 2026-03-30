@@ -9,6 +9,7 @@ Covers:
 - _resolve_repository                              → all fallback branches
 """
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -19,7 +20,6 @@ from src.models.chat import (
     IssueRecommendation,
     ProposalStatus,
 )
-from src.models.task import Task
 from src.models.user import UserSession
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -47,6 +47,24 @@ def _proposal(session_id, **kw) -> AITaskProposal:
     }
     defaults.update(kw)
     return AITaskProposal(**defaults)
+
+
+def _parse_sse_events(payload: str) -> list[dict[str, str]]:
+    events: list[dict[str, str]] = []
+    normalized = payload.replace("\r\n", "\n").strip()
+    for chunk in normalized.split("\n\n"):
+        event_name = None
+        data_parts: list[str] = []
+        for line in chunk.splitlines():
+            if line.startswith("event: "):
+                event_name = line.removeprefix("event: ").strip()
+            elif line.startswith("data: "):
+                data_parts.append(line.removeprefix("data: "))
+
+        if event_name is not None:
+            events.append({"event": event_name, "data": "\n".join(data_parts)})
+
+    return events
 
 
 # ── GET /chat/messages ──────────────────────────────────────────────────────
@@ -82,9 +100,7 @@ class TestSendMessageFeatureRequest:
         mock_session.selected_project_id = "PVT_1"
         with (
             patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")),
-            patch(
-                "src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")
-            ),
+            patch("src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")),
         ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
@@ -306,6 +322,101 @@ class TestSendMessageTaskGeneration:
         assert resp.status_code == 200
         data = resp.json()
         assert data["action_data"]["proposed_title"] == "Enhanced Title"
+
+
+# ── POST /chat/messages/stream ───────────────────────────────────────────────
+
+
+class TestSendMessageStream:
+    async def test_stream_persists_post_processed_assistant_message(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import (
+            get_project_items_cache_key,
+            get_user_projects_cache_key,
+        )
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Todo"), MagicMock(name="Done")]
+        cached_project.status_columns[0].name = "Todo"
+        cached_project.status_columns[1].name = "Done"
+
+        cached_task = MagicMock()
+        cached_task.title = "Fix login bug"
+        cached_task.status = "Todo"
+        cached_task.github_item_id = "PVTI_1"
+
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+        chat_mod.cache.set(get_project_items_cache_key("PVT_1"), [cached_task])
+
+        async def stream_events():
+            yield {"event": "token", "data": json.dumps({"content": "Creating proposal..."})}
+            final_message = ChatMessage(
+                session_id=mock_session.session_id,
+                sender_type=SenderType.ASSISTANT,
+                content="I've created a task proposal.",
+                action_type=ActionType.TASK_CREATE,
+                action_data={
+                    "proposed_title": "Fix login bug",
+                    "proposed_description": "Fix the login bug in the auth flow",
+                },
+            )
+            yield {"event": "done", "data": final_message.model_dump_json()}
+
+        mock_chat_agent_service.run_stream = MagicMock(return_value=stream_events())
+
+        resp = await client.post(
+            "/api/v1/chat/messages/stream",
+            json={"content": "fix the login bug"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+
+        events = _parse_sse_events(resp.text)
+        done_event = next(event for event in events if event["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "task_create"
+        assert done_data["action_data"]["proposed_title"] == "Fix login bug"
+        assert done_data["action_data"]["status"] == "pending"
+        assert "proposal_id" in done_data["action_data"]
+
+        stored = await client.get("/api/v1/chat/messages")
+        messages = stored.json()["messages"]
+        assert len(messages) == 2
+        assert messages[0]["sender_type"] == "user"
+        assert messages[1]["sender_type"] == "assistant"
+        assert messages[1]["action_data"]["proposed_title"] == "Fix login bug"
+        assert "proposal_id" in messages[1]["action_data"]
+
+        call_kwargs = mock_chat_agent_service.run_stream.call_args.kwargs
+        assert call_kwargs["project_name"] == "Roadmap"
+        assert call_kwargs["project_id"] == "PVT_1"
+        assert call_kwargs["available_tasks"] == [cached_task]
+        assert call_kwargs["available_statuses"] == ["Todo", "Done"]
+
+    async def test_stream_returns_503_when_streaming_disabled(
+        self, client, mock_session, mock_settings, mock_chat_agent_service
+    ):
+        mock_session.selected_project_id = "PVT_1"
+        mock_settings.agent_streaming_enabled = False
+
+        resp = await client.post(
+            "/api/v1/chat/messages/stream",
+            json={"content": "fix the login bug"},
+        )
+
+        assert resp.status_code == 503
+        assert "streaming is disabled" in resp.json()["detail"].lower()
+        mock_chat_agent_service.run_stream.assert_not_called()
 
 
 # ── POST /chat/proposals/{id}/confirm ───────────────────────────────────────
