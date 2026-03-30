@@ -17,7 +17,7 @@
 
 - **Monorepo**: `solune/backend/` (Python 3.12+, FastAPI, pytest) + `solune/frontend/` (TypeScript, React 18+, Vitest)
 - Backend source: `solune/backend/src/`; tests: `solune/backend/tests/`
-- Frontend source: `solune/frontend/src/`; tests co-located as `*.test.tsx`
+- Frontend source: `solune/frontend/src/`; tests co-located as `*.test.tsx` (exception: `src/components/agents/` uses `__tests__/` subdirectory)
 
 ---
 
@@ -39,8 +39,8 @@
 **⚠️ CRITICAL**: No coverage expansion can begin until all bug fixes are applied and existing suites pass
 
 - [x] T005 Fix devcontainers/ci@v0.3 invalid tag — pin to valid release tag in .github/workflows/devcontainer.yml
-- [x] T006 [P] Fix silent exception swallowing in verify_project_access() — log at WARNING and re-raise as HTTPException(403) in solune/backend/src/dependencies.py
-- [x] T007 [P] Add configurable timeout guard (default 5s) to RateLimitKeyMiddleware session resolution with IP-based fallback in solune/backend/src/middleware/rate_limit.py
+- [x] T006 [P] Fix silent exception swallowing in verify_project_access() — log at WARNING and re-raise as AuthorizationError (AppException subclass, maps to HTTP 403) in solune/backend/src/dependencies.py
+- [x] T007 [P] Add timeout guard (default 5s via module-level constant) to RateLimitKeyMiddleware session resolution with IP-based fallback in solune/backend/src/middleware/rate_limit.py
 - [x] T008 [P] Improve McpValidationError to include field_errors: dict[str, list[str]] parameter in solune/backend/src/exceptions.py
 - [ ] T009 Run full backend suite to confirm green baseline (`uv run pytest` — exit code 0, zero failures) in solune/backend/
 - [ ] T010 Run full frontend suite to confirm green baseline (`npm run lint && npm run type-check && npm run test && npm run build`) in solune/frontend/
