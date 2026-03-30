@@ -180,15 +180,137 @@ class TestChatAgentServiceRun:
         assert session.state["project_id"] == "PVT_1"
         assert "Todo" in session.state["available_statuses"]
 
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_converts_pipeline_launch_action(self, mock_create_agent):
+        """Verify _convert_response() correctly maps pipeline_launch action_type."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = json.dumps(
+            {
+                "content": "Pipeline launched",
+                "action_type": "pipeline_launch",
+                "action_data": {
+                    "pipeline_id": "pipe-1",
+                    "preset": "medium",
+                    "stages": ["Specify", "Plan", "Implement"],
+                },
+            }
+        )
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        result = await service.run(
+            message="launch the pipeline",
+            session_id=uuid4(),
+            github_token="test-token",
+        )
+
+        assert result.action_type == ActionType.PIPELINE_LAUNCH
+        assert result.action_data["pipeline_id"] == "pipe-1"
+        assert result.action_data["preset"] == "medium"
+        assert result.action_data["stages"] == ["Specify", "Plan", "Implement"]
+
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_extracts_action_from_function_result_content(self, mock_create_agent):
+        """Verify _convert_response() extracts action_type from function_result Content items."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+
+        # Simulate an assistant message with text (LLM summarisation)
+        assistant_msg = MagicMock()
+        assistant_msg.text = "I've created a task proposal."
+        assistant_msg.content = None
+        assistant_msg.contents = None
+        assistant_msg.tool_result = None
+        assistant_msg.additional_properties = None
+        assistant_msg.annotations = None
+
+        # Simulate the tool-role message containing a function_result Content item.
+        # The Agent Framework stores the tool return value in Content.result as
+        # a JSON string inside a message with role="tool".
+        tool_msg = MagicMock()
+        tool_msg.text = None
+        tool_msg.content = None
+        tool_msg.tool_result = None
+        tool_msg.additional_properties = None
+        tool_msg.annotations = None
+
+        fn_result_content = MagicMock()
+        fn_result_content.type = "function_result"
+        fn_result_content.result = json.dumps(
+            {
+                "content": "Task proposal created",
+                "action_type": "task_create",
+                "action_data": {
+                    "proposed_title": "Add login tests",
+                    "proposed_description": "Cover edge cases",
+                },
+            }
+        )
+        tool_msg.contents = [fn_result_content]
+
+        mock_response.messages = [tool_msg, assistant_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        result = await service.run(
+            message="Add unit tests for login",
+            session_id=uuid4(),
+            github_token="test-token",
+        )
+
+        assert result.action_type == ActionType.TASK_CREATE
+        assert result.action_data["proposed_title"] == "Add login tests"
+        assert result.action_data["proposed_description"] == "Cover edge cases"
+
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_loads_mcp_servers_for_project_context(
+        self, mock_create_agent, mock_load_mcp_tools
+    ):
+        """Verify run() loads MCP configs and passes them to the agent factory."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = "OK"
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+        mock_load_mcp_tools.return_value = {
+            "docs": {"endpoint_url": "https://example.com/mcp", "config": {}}
+        }
+
+        service = ChatAgentService()
+        fake_db = object()
+
+        await service.run(
+            message="test",
+            session_id=uuid4(),
+            github_token="test-token",
+            project_id="PVT_1",
+            db=fake_db,
+        )
+
+        mock_load_mcp_tools.assert_awaited_once_with("PVT_1", fake_db)
+        assert mock_create_agent.call_args.kwargs["mcp_servers"] == mock_load_mcp_tools.return_value
+
 
 # ── ChatAgentService.run_stream() tests ─────────────────────────────────
 
 
 class TestChatAgentServiceRunStream:
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
     @patch("src.services.chat_agent.create_agent")
-    async def test_stream_yields_events(self, mock_create_agent):
+    async def test_stream_yields_events(self, mock_create_agent, mock_load_mcp_tools):
         """Verify run_stream() yields SSE-compatible events."""
         mock_agent = AsyncMock()
+        mock_load_mcp_tools.return_value = {}
 
         # Create an async iterator for streaming
         async def mock_stream(*args, **kwargs):
@@ -217,6 +339,42 @@ class TestChatAgentServiceRunStream:
         done_events = [e for e in events if e["event"] == "done"]
         assert len(token_events) == 2
         assert len(done_events) == 1
+
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_stream_loads_mcp_servers_for_project_context(
+        self, mock_create_agent, mock_load_mcp_tools
+    ):
+        """Verify run_stream() loads MCP configs and passes them to the agent factory."""
+        mock_agent = AsyncMock()
+        mock_load_mcp_tools.return_value = {
+            "docs": {"endpoint_url": "https://example.com/mcp", "config": {}}
+        }
+
+        async def mock_stream(*args, **kwargs):
+            update = MagicMock(spec=["text"])
+            update.text = "Hello"
+            yield update
+
+        mock_agent.run = MagicMock(return_value=mock_stream())
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        fake_db = object()
+        events = [
+            event
+            async for event in service.run_stream(
+                message="test",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_id="PVT_1",
+                db=fake_db,
+            )
+        ]
+
+        assert next(e for e in events if e["event"] == "done")
+        mock_load_mcp_tools.assert_awaited_once_with("PVT_1", fake_db)
+        assert mock_create_agent.call_args.kwargs["mcp_servers"] == mock_load_mcp_tools.return_value
 
     @patch("src.services.chat_agent.create_agent")
     async def test_stream_done_event_contains_accumulated_text(self, mock_create_agent):
@@ -367,7 +525,7 @@ class TestProviderFactory:
 
         mock_settings.return_value = MagicMock(ai_provider="copilot", copilot_model="gpt-4o")
         with pytest.raises(ValueError, match="GitHub OAuth token required"):
-            create_agent(instructions="test", github_token=None)
+            await create_agent(instructions="test", github_token=None)
 
     @patch("src.services.agent_provider.get_settings")
     async def test_azure_provider_requires_credentials(self, mock_settings):
@@ -379,7 +537,7 @@ class TestProviderFactory:
             azure_openai_key=None,
         )
         with pytest.raises(ValueError, match="Azure OpenAI credentials"):
-            create_agent(instructions="test")
+            await create_agent(instructions="test")
 
     @patch("src.services.agent_provider.get_settings")
     async def test_unknown_provider_raises(self, mock_settings):
@@ -387,4 +545,4 @@ class TestProviderFactory:
 
         mock_settings.return_value = MagicMock(ai_provider="unknown_provider")
         with pytest.raises(ValueError, match="Unknown AI_PROVIDER"):
-            create_agent(instructions="test")
+            await create_agent(instructions="test")

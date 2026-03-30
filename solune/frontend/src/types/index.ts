@@ -9,7 +9,7 @@ export type ProjectType = 'organization' | 'user' | 'repository';
 
 export type SenderType = 'user' | 'assistant' | 'system';
 
-export type ActionType = 'task_create' | 'status_update' | 'project_select' | 'issue_create';
+export type ActionType = 'task_create' | 'status_update' | 'project_select' | 'issue_create' | 'pipeline_launch';
 
 export type ProposalStatus = 'pending' | 'confirmed' | 'edited' | 'cancelled';
 
@@ -110,11 +110,18 @@ export interface ProjectSelectActionData {
   project_name: string;
 }
 
+export interface PipelineLaunchActionData {
+  pipeline_id: string;
+  preset: string;
+  stages: string[];
+}
+
 export type ActionData =
   | TaskCreateActionData
   | StatusUpdateActionData
   | ProjectSelectActionData
-  | IssueCreateActionData;
+  | IssueCreateActionData
+  | PipelineLaunchActionData;
 
 export type MessageStatus = 'pending' | 'sent' | 'failed';
 
