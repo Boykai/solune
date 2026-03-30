@@ -15,6 +15,7 @@ from src.services.github_projects.graphql import (
     GET_PROJECT_FIELDS_QUERY,
     GET_PROJECT_ITEMS_QUERY,
     GET_PROJECT_OWNER_INFO_QUERY,
+    GET_PROJECT_REPOS_QUERY,
     GET_PROJECT_REPOSITORY_QUERY,
     GET_PROJECT_STATUS_FIELD_QUERY,
     LINK_PROJECT_V2_TO_REPO_MUTATION,
@@ -543,7 +544,16 @@ class ProjectsMixin:
         project_id: str,
     ) -> tuple[str, str] | None:
         """
-        Get the repository associated with a project by examining project items.
+        Get the repository associated with a project.
+
+        Uses the ``repositories`` connection on the ProjectV2 node to get
+        repos directly linked to the project.  When multiple repos are
+        linked, the one whose name matches the project title (case-
+        insensitive) is preferred — this handles the common pattern where
+        a project like "Solune" is linked to the ``solune`` repository.
+
+        Falls back to scanning project items when the ``repositories``
+        connection is empty or unavailable.
 
         Args:
             access_token: GitHub OAuth access token
@@ -552,6 +562,52 @@ class ProjectsMixin:
         Returns:
             Tuple of (owner, repo_name) or None if no repository found
         """
+        # ── Primary: use the repositories connection ──────────────────
+        try:
+            repos_data = await self._graphql(
+                access_token,
+                GET_PROJECT_REPOS_QUERY,
+                {"projectId": project_id},
+            )
+            project_node = repos_data.get("node") or {}
+            title = (project_node.get("title") or "").strip()
+            repos = (project_node.get("repositories") or {}).get("nodes") or []
+
+            valid_repos = [
+                (r.get("owner", {}).get("login", ""), r.get("name", ""))
+                for r in repos
+                if r.get("owner", {}).get("login") and r.get("name")
+            ]
+
+            if len(valid_repos) == 1:
+                owner, name = valid_repos[0]
+                logger.info("Found single project repository %s/%s", owner, name)
+                return owner, name
+
+            if valid_repos and title:
+                # Prefer the repo whose name matches the project title.
+                title_lower = title.lower()
+                for owner, name in valid_repos:
+                    if name.lower() == title_lower:
+                        logger.info(
+                            "Matched repository %s/%s to project title '%s'",
+                            owner,
+                            name,
+                            title,
+                        )
+                        return owner, name
+
+            if valid_repos:
+                owner, name = valid_repos[0]
+                logger.info("Returning first linked repository %s/%s", owner, name)
+                return owner, name
+        except Exception:
+            logger.debug(
+                "repositories connection unavailable for project %s, falling back to items",
+                project_id,
+            )
+
+        # ── Fallback: scan project items ──────────────────────────────
         data = await self._graphql(
             access_token,
             GET_PROJECT_REPOSITORY_QUERY,
