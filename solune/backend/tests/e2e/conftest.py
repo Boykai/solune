@@ -10,14 +10,13 @@ network-dependent services (GitHub API, AI agents, WebSocket manager).
 from __future__ import annotations
 
 import contextlib
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import aiosqlite
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.main import create_app
-from src.models.user import UserSession
 from tests.conftest import (
     TEST_ACCESS_TOKEN,
     TEST_GITHUB_USER_ID,

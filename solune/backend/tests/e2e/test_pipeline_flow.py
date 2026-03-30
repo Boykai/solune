@@ -73,9 +73,7 @@ class TestPipelineCRUD:
         assert data["total"] == 1
 
     @pytest.mark.asyncio
-    async def test_assign_pipeline_to_project(
-        self, auth_client, mock_github_projects_service
-    ):
+    async def test_assign_pipeline_to_project(self, auth_client, mock_github_projects_service):
         """PUT /pipelines/{project_id}/assignment sets the pipeline assignment."""
         await _select_project(auth_client, mock_github_projects_service)
 

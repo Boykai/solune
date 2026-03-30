@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from src.models.project import GitHubProject, StatusColumn
-from tests.conftest import TEST_ACCESS_TOKEN, TEST_GITHUB_USERNAME
+from tests.conftest import TEST_GITHUB_USERNAME
 
 
 def _make_test_project(project_id: str = "PVT_test123") -> GitHubProject:
@@ -45,9 +45,7 @@ class TestProjectOperations:
         assert data["projects"][0]["name"] == "Test Project"
 
     @pytest.mark.asyncio
-    async def test_select_project_updates_session(
-        self, auth_client, mock_github_projects_service
-    ):
+    async def test_select_project_updates_session(self, auth_client, mock_github_projects_service):
         """POST /projects/{id}/select updates selected_project_id in the session."""
         project = _make_test_project()
         mock_github_projects_service.list_user_projects.return_value = [project]

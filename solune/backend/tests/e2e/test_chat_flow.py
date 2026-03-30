@@ -65,11 +65,8 @@ class TestChatFlow:
         select_resp = await auth_client.post("/api/v1/projects/PVT_test123/select")
         assert select_resp.status_code == 200
 
-        # Get the session_id from /auth/me to build a proper response
-        me = await auth_client.get("/api/v1/auth/me")
-        session_id = uuid4()  # Placeholder — the endpoint creates its own ChatMessage
-
         # Configure the mock chat agent to return a proper ChatMessage
+        session_id = uuid4()  # Placeholder — the endpoint creates its own ChatMessage
         mock_chat_agent_service.run.return_value = _make_assistant_message(session_id)
 
         response = await auth_client.post(

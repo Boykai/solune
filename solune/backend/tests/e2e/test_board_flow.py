@@ -12,7 +12,6 @@ from src.models.board import (
     BoardDataResponse,
     BoardItem,
     BoardProject,
-    BoardProjectListResponse,
     StatusColor,
     StatusField,
     StatusOption,
@@ -60,9 +59,7 @@ def _make_board_data() -> BoardDataResponse:
         project=board_project,
         columns=[
             BoardColumn(
-                status=StatusOption(
-                    option_id="opt1", name="Backlog", color=StatusColor.GRAY
-                ),
+                status=StatusOption(option_id="opt1", name="Backlog", color=StatusColor.GRAY),
                 items=[
                     BoardItem(
                         item_id="PVTI_item1",
@@ -76,16 +73,12 @@ def _make_board_data() -> BoardDataResponse:
                 item_count=1,
             ),
             BoardColumn(
-                status=StatusOption(
-                    option_id="opt2", name="In Progress", color=StatusColor.YELLOW
-                ),
+                status=StatusOption(option_id="opt2", name="In Progress", color=StatusColor.YELLOW),
                 items=[],
                 item_count=0,
             ),
             BoardColumn(
-                status=StatusOption(
-                    option_id="opt3", name="Done", color=StatusColor.GREEN
-                ),
+                status=StatusOption(option_id="opt3", name="Done", color=StatusColor.GREEN),
                 items=[],
                 item_count=0,
             ),
@@ -99,9 +92,7 @@ class TestBoardOperations:
     @pytest.mark.asyncio
     async def test_get_board_projects(self, auth_client, mock_github_projects_service):
         """GET /board/projects returns the board project list."""
-        mock_github_projects_service.list_board_projects.return_value = [
-            _make_board_project()
-        ]
+        mock_github_projects_service.list_board_projects.return_value = [_make_board_project()]
 
         response = await auth_client.get("/api/v1/board/projects")
         assert response.status_code == 200
@@ -110,9 +101,7 @@ class TestBoardOperations:
         assert data["projects"][0]["project_id"] == "PVT_test123"
 
     @pytest.mark.asyncio
-    async def test_get_board_data_with_columns(
-        self, auth_client, mock_github_projects_service
-    ):
+    async def test_get_board_data_with_columns(self, auth_client, mock_github_projects_service):
         """GET /board/projects/{id} returns board data with columns and items."""
         mock_github_projects_service.get_board_data.return_value = _make_board_data()
 
@@ -129,9 +118,7 @@ class TestBoardOperations:
         assert backlog["items"][0]["title"] == "Test Task"
 
     @pytest.mark.asyncio
-    async def test_move_task_between_columns(
-        self, auth_client, mock_github_projects_service
-    ):
+    async def test_move_task_between_columns(self, auth_client, mock_github_projects_service):
         """PATCH /board/projects/{id}/items/{item_id}/status updates the status."""
         mock_github_projects_service.update_item_status_by_name.return_value = True
 
