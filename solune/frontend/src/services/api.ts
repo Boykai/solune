@@ -384,6 +384,11 @@ export const chatApi = {
       let currentEventType = 'message';
       let currentDataLines: string[] = [];
 
+      const tryParseJson = (value: unknown, fallback?: unknown): unknown => {
+        if (typeof value !== 'string') return value ?? fallback;
+        try { return JSON.parse(value); } catch { return fallback ?? value; }
+      };
+
       const processFrame = (eventType: string, dataStr: string) => {
         const trimmedData = dataStr.trim();
         if (!trimmedData) return;
@@ -397,15 +402,11 @@ export const chatApi = {
         }
 
         if (eventType === 'token') {
-          const tokenData = typeof parsed.data === 'string'
-            ? (() => { try { return JSON.parse(parsed.data as string); } catch { return { content: parsed.data }; } })()
-            : (parsed.data ?? parsed);
+          const tokenData = tryParseJson(parsed.data, { content: parsed.data }) ?? parsed;
           const content = (tokenData as Record<string, unknown>).content;
           if (content) onToken(content as string);
         } else if (eventType === 'done') {
-          const msgData = typeof parsed.data === 'string'
-            ? (() => { try { return JSON.parse(parsed.data as string); } catch { return parsed.data; } })()
-            : (parsed.data ?? parsed);
+          const msgData = tryParseJson(parsed.data, parsed.data) ?? parsed;
           onDone(msgData as ChatMessage);
         } else if (eventType === 'error') {
           const message = (parsed.data || parsed.message || parsed.error || 'Stream error') as string;
