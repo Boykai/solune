@@ -506,82 +506,135 @@ class TestDetectChanges:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class TestGetProjectRepository:
-    @pytest.mark.asyncio
-    async def test_success(self, service):
-        """Should extract owner/repo from the first item with a repository."""
-        service._graphql.return_value = {
-            "node": {
-                "items": {
-                    "nodes": [
-                        {
-                            "content": {
-                                "repository": {
-                                    "owner": {"login": "acme"},
-                                    "name": "web-app",
-                                }
+def _repos_response(title, repos):
+    """Build a mock GraphQL response for GET_PROJECT_REPOS_QUERY."""
+    return {
+        "node": {
+            "title": title,
+            "repositories": {
+                "nodes": [
+                    {"owner": {"login": o}, "name": n} for o, n in repos
+                ]
+            },
+        }
+    }
+
+
+def _items_response(items):
+    """Build a mock GraphQL response for GET_PROJECT_REPOSITORY_QUERY."""
+    return {
+        "node": {
+            "items": {
+                "nodes": [
+                    {
+                        "content": {
+                            "repository": {
+                                "owner": {"login": o},
+                                "name": n,
                             }
                         }
-                    ]
-                }
+                    }
+                    for o, n in items
+                ]
             }
         }
+    }
+
+
+class TestGetProjectRepository:
+    @pytest.mark.asyncio
+    async def test_single_repo(self, service):
+        """Should return the only linked repository directly."""
+        service._graphql.return_value = _repos_response("Solune", [("acme", "web-app")])
 
         result = await service.get_project_repository("tok", "PVT_1")
-
         assert result == ("acme", "web-app")
 
     @pytest.mark.asyncio
-    async def test_missing_repository_data(self, service):
-        """Should return None when no items have repository info."""
-        service._graphql.return_value = {
-            "node": {
-                "items": {
-                    "nodes": [
-                        {"content": {}},
-                    ]
-                }
-            }
-        }
+    async def test_title_match_preferred(self, service):
+        """Should prefer the repo whose name matches the project title."""
+        service._graphql.return_value = _repos_response(
+            "solune",
+            [("acme", "github-workflows"), ("acme", "solune")],
+        )
+
+        result = await service.get_project_repository("tok", "PVT_1")
+        assert result == ("acme", "solune")
+
+    @pytest.mark.asyncio
+    async def test_title_match_case_insensitive(self, service):
+        """Title matching should be case-insensitive."""
+        service._graphql.return_value = _repos_response(
+            "Solune",
+            [("acme", "other"), ("acme", "solune")],
+        )
+
+        result = await service.get_project_repository("tok", "PVT_1")
+        assert result == ("acme", "solune")
+
+    @pytest.mark.asyncio
+    async def test_multiple_repos_no_title_match(self, service):
+        """When no repo matches the title, return the first valid one."""
+        service._graphql.return_value = _repos_response(
+            "My Project",
+            [("acme", "web-app"), ("acme", "api-server")],
+        )
+
+        result = await service.get_project_repository("tok", "PVT_1")
+        assert result == ("acme", "web-app")
+
+    @pytest.mark.asyncio
+    async def test_repos_empty_falls_back_to_items(self, service):
+        """Should fall back to items when repositories connection is empty."""
+        service._graphql.side_effect = [
+            _repos_response("Solune", []),
+            _items_response([("acme", "web-app")]),
+        ]
+
+        result = await service.get_project_repository("tok", "PVT_1")
+        assert result == ("acme", "web-app")
+
+    @pytest.mark.asyncio
+    async def test_repos_exception_falls_back_to_items(self, service):
+        """Should fall back to items when repositories query raises."""
+        service._graphql.side_effect = [
+            RuntimeError("GraphQL error"),
+            _items_response([("acme", "web-app")]),
+        ]
+
+        result = await service.get_project_repository("tok", "PVT_1")
+        assert result == ("acme", "web-app")
+
+    @pytest.mark.asyncio
+    async def test_both_empty_returns_none(self, service):
+        """Should return None when both repos and items are empty."""
+        service._graphql.side_effect = [
+            _repos_response("Solune", []),
+            {"node": {"items": {"nodes": []}}},
+        ]
 
         result = await service.get_project_repository("tok", "PVT_1")
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_empty_items(self, service):
-        """Should return None when there are no items."""
-        service._graphql.return_value = {"node": {"items": {"nodes": []}}}
+    async def test_skips_repos_with_empty_owner(self, service):
+        """Repos with empty owner or name should be skipped."""
+        service._graphql.return_value = _repos_response(
+            "Proj",
+            [("", "web-app"), ("acme", "real-repo")],
+        )
 
+        # The helper builds nodes with login="" which is falsy → filtered out
         result = await service.get_project_repository("tok", "PVT_1")
-        assert result is None
+        assert result == ("acme", "real-repo")
 
     @pytest.mark.asyncio
-    async def test_skips_items_with_empty_owner(self, service):
-        """Items with empty owner or name should be skipped."""
-        service._graphql.return_value = {
-            "node": {
-                "items": {
-                    "nodes": [
-                        {
-                            "content": {
-                                "repository": {
-                                    "owner": {"login": ""},
-                                    "name": "web-app",
-                                }
-                            }
-                        },
-                        {
-                            "content": {
-                                "repository": {
-                                    "owner": {"login": "acme"},
-                                    "name": "real-repo",
-                                }
-                            }
-                        },
-                    ]
-                }
-            }
-        }
+    async def test_items_fallback_skips_empty_owner(self, service):
+        """Items with empty owner or name should be skipped in fallback."""
+        service._graphql.side_effect = [
+            _repos_response("Proj", []),
+            _items_response([("", "web-app"), ("acme", "real-repo")]),
+        ]
 
         result = await service.get_project_repository("tok", "PVT_1")
         assert result == ("acme", "real-repo")

@@ -226,7 +226,30 @@ query($projectId: ID!) {
 }
 """
 
-# Query to get repository info from project items (for issue creation target)
+# Query to get the repositories linked to a project (preferred approach).
+# Uses the ``repositories`` connection on ProjectV2 which returns the
+# actual repos associated with the project rather than inferring from
+# individual items — much more reliable for multi-repo projects.
+GET_PROJECT_REPOS_QUERY = """
+query($projectId: ID!) {
+  node(id: $projectId) {
+    ... on ProjectV2 {
+      title
+      repositories(first: 20) {
+        nodes {
+          owner {
+            login
+          }
+          name
+        }
+      }
+    }
+  }
+}
+"""
+
+# Fallback query to get repository info from project items (for issue creation
+# target).  Used when the ``repositories`` connection is unavailable or empty.
 GET_PROJECT_REPOSITORY_QUERY = """
 query($projectId: ID!) {
   node(id: $projectId) {
