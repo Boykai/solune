@@ -1127,7 +1127,8 @@ async def send_message(
         return assistant_message
 
     # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
-    assert ai_service is not None
+    if ai_service is None:
+        raise RuntimeError("AI service is required for fallback priority dispatch")
 
     # Priority 0.5: Transcript upload → issue recommendation
     transcript_msg = await _handle_transcript_upload(
