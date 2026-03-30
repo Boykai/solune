@@ -44,7 +44,6 @@ from src.services.chat_agent import get_chat_agent_service
 
 if TYPE_CHECKING:
     from src.services.ai_agent import AIAgentService
-    from src.services.chat_agent import ChatAgentService
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
@@ -1128,6 +1127,8 @@ async def send_message(
         return assistant_message
 
     # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
+    assert ai_service is not None
+
     # Priority 0.5: Transcript upload → issue recommendation
     transcript_msg = await _handle_transcript_upload(
         session,

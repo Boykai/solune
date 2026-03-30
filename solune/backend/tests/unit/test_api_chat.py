@@ -20,7 +20,6 @@ from src.models.chat import (
     IssueRecommendation,
     ProposalStatus,
 )
-from src.models.task import Task
 from src.models.user import UserSession
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -101,9 +100,7 @@ class TestSendMessageFeatureRequest:
         mock_session.selected_project_id = "PVT_1"
         with (
             patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")),
-            patch(
-                "src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")
-            ),
+            patch("src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")),
         ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
@@ -355,7 +352,9 @@ class TestSendMessageStream:
         cached_task.status = "Todo"
         cached_task.github_item_id = "PVTI_1"
 
-        chat_mod.cache.set(get_user_projects_cache_key(mock_session.github_user_id), [cached_project])
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
         chat_mod.cache.set(get_project_items_cache_key("PVT_1"), [cached_task])
 
         async def stream_events():
