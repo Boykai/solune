@@ -207,6 +207,21 @@ class TestVerifyProjectAccess:
             with pytest.raises(AuthorizationError, match="Unable to verify project access"):
                 await verify_project_access(_request_with_state(), "PVT_123", _session())
 
+    @pytest.mark.asyncio
+    async def test_verify_project_access_chains_original_exception(self):
+        """Exception cause is preserved for debugging (not suppressed with 'from None')."""
+        from src.dependencies import verify_project_access
+
+        original = RuntimeError("GitHub unavailable")
+        svc = AsyncMock()
+        svc.list_user_projects.side_effect = original
+
+        with patch("src.dependencies.get_github_service", return_value=svc):
+            with pytest.raises(AuthorizationError) as exc_info:
+                await verify_project_access(_request_with_state(), "PVT_123", _session())
+
+        assert exc_info.value.__cause__ is original
+
 
 class TestRequireSelectedProject:
     def test_require_selected_project_returns_selected_value(self):

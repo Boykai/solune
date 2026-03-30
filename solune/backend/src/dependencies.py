@@ -201,7 +201,7 @@ async def verify_project_access(
             e,
             exc_info=True,
         )
-        raise AuthorizationError("Unable to verify project access") from None
+        raise AuthorizationError("Unable to verify project access") from e
 
     raise AuthorizationError("You do not have access to this project")
 

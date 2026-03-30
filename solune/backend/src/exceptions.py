@@ -80,10 +80,24 @@ class ConflictError(AppException):
 
 
 class McpValidationError(AppException):
-    """MCP configuration validation failed (e.g. SSRF, invalid URL)."""
+    """MCP configuration validation failed (e.g. SSRF, invalid URL).
 
-    def __init__(self, message: str):
-        super().__init__(message, status_code=status.HTTP_400_BAD_REQUEST)
+    Attributes:
+        field_errors: Per-field validation errors mapping field names to
+            lists of error messages.  Included in the ``details`` dict
+            under the ``"field_errors"`` key for structured API responses.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        field_errors: dict[str, list[str]] | None = None,
+    ):
+        self.field_errors: dict[str, list[str]] = field_errors or {}
+        details: dict = {}
+        if self.field_errors:
+            details["field_errors"] = self.field_errors
+        super().__init__(message, status_code=status.HTTP_400_BAD_REQUEST, details=details)
 
 
 class McpLimitExceededError(AppException):
