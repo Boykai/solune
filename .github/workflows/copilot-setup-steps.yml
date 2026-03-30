@@ -12,26 +12,3 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          version: "0.10.9"
-
-      - name: Install CodeGraphContext
-        run: |
-          uv venv /tmp/cgc-env
-          VIRTUAL_ENV=/tmp/cgc-env UV_LINK_MODE=copy uv pip install "tree-sitter-language-pack<1.0.0" codegraphcontext
-          echo "/tmp/cgc-env/bin" >> "$GITHUB_PATH"
-
-      - name: Index the repository
-        run: cgc index .
-        env:
-          IGNORE_TEST_FILES: "false"
-          IGNORE_HIDDEN_FILES: "true"
-          MAX_FILE_SIZE_MB: "10"
-
-      - name: Start CodeGraphContext MCP server
-        run: |
-          nohup cgc mcp start > /tmp/cgc-mcp.log 2>&1 &
-          echo "CodeGraphContext MCP server started (pid=$!)"

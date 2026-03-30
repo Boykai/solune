@@ -77,9 +77,7 @@ describe('buildGitHubMcpConfig', () => {
       mcpServers: Record<string, { builtin?: boolean }>;
     };
     expect(parsed.mcpServers).toHaveProperty('context7');
-    expect(parsed.mcpServers).toHaveProperty('CodeGraphContext');
     expect(parsed.mcpServers.context7.builtin).toBe(true);
-    expect(parsed.mcpServers.CodeGraphContext.builtin).toBe(true);
   });
 
   it('merges user tools with built-in MCPs', () => {
@@ -102,7 +100,6 @@ describe('buildGitHubMcpConfig', () => {
     const parsed = JSON.parse(configJson) as { mcpServers: Record<string, unknown> };
     expect(parsed.mcpServers).toHaveProperty('my-custom');
     expect(parsed.mcpServers).toHaveProperty('context7');
-    expect(parsed.mcpServers).toHaveProperty('CodeGraphContext');
   });
 
   it('user tool overrides built-in when keys collide', () => {
