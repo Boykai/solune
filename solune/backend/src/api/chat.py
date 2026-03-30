@@ -995,7 +995,6 @@ async def send_message(
 
     # Validate pipeline_id if provided
     if chat_request.pipeline_id:
-        from src.services.database import get_db
         from src.services.pipelines.service import PipelineService
 
         try:
@@ -1133,6 +1132,7 @@ async def send_message(
             available_statuses=project_columns,
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
+            db=get_db(),
         )
 
         # Post-process: create proposals/recommendations from action_data
@@ -1415,6 +1415,7 @@ async def send_message_stream(
             project_id=selected_project_id,
             available_tasks=current_tasks,
             available_statuses=project_columns,
+            db=get_db(),
         ):
             if event.get("event") == "done":
                 try:

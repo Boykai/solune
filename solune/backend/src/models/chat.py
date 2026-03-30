@@ -61,6 +61,7 @@ class ActionType(StrEnum):
     STATUS_UPDATE = "status_update"
     PROJECT_SELECT = "project_select"
     ISSUE_CREATE = "issue_create"
+    PIPELINE_LAUNCH = "pipeline_launch"
 
 
 class ChatMessage(BaseModel):

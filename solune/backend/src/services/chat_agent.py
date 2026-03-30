@@ -27,7 +27,7 @@ from src.logging_utils import get_logger
 from src.models.chat import ActionType, ChatMessage, SenderType
 from src.prompts.agent_instructions import build_system_instructions
 from src.services.agent_provider import create_agent
-from src.services.agent_tools import register_tools
+from src.services.agent_tools import load_mcp_tools, register_tools
 from src.utils import utcnow
 
 logger = get_logger(__name__)
@@ -71,6 +71,26 @@ def _extract_action_payload(value: Any) -> tuple[str | None, dict[str, Any] | No
             data = getattr(annotation, "data", None)
             if isinstance(data, dict) and "action_type" in data:
                 return data["action_type"], data.get("action_data")
+
+    # Check Message.contents for function_result Content items.
+    # The Agent Framework stores tool return values as Content objects
+    # of type "function_result" whose ``result`` field is a JSON string.
+    contents = getattr(value, "contents", None)
+    if contents:
+        for item in contents:
+            if getattr(item, "type", None) != "function_result":
+                continue
+            raw = getattr(item, "result", None)
+            if raw is None:
+                continue
+            parsed = raw
+            if isinstance(raw, str):
+                try:
+                    parsed = json.loads(raw)
+                except (json.JSONDecodeError, TypeError):
+                    continue
+            if isinstance(parsed, dict) and "action_type" in parsed:
+                return parsed["action_type"], parsed.get("action_data")
 
     return None, None
 
@@ -156,6 +176,12 @@ class AgentSessionMapping:
         del self._sessions[oldest_sid]
         logger.debug("Evicted oldest AgentSession: %s", oldest_sid[:8])
 
+    async def invalidate(self, session_id: str) -> None:
+        """Remove a session, e.g. after an error leaves it in a bad state."""
+        async with self._lock:
+            if self._sessions.pop(session_id, None) is not None:
+                logger.debug("Invalidated AgentSession: %s", session_id[:8])
+
     @property
     def session_count(self) -> int:
         """Number of active sessions."""
@@ -193,6 +219,7 @@ class ChatAgentService:
         available_statuses: list[str] | None = None,
         pipeline_id: str | None = None,
         file_urls: list[str] | None = None,
+        db: Any | None = None,
     ) -> ChatMessage:
         """Run the agent with a user message and return a ChatMessage.
 
@@ -206,6 +233,7 @@ class ChatAgentService:
             available_statuses: Valid status column names.
             pipeline_id: Optional pipeline configuration ID.
             file_urls: URLs of uploaded files.
+            db: Optional aiosqlite connection for MCP tool loading.
 
         Returns:
             ChatMessage with the agent's response, including action_type and
@@ -216,10 +244,16 @@ class ChatAgentService:
             available_statuses=available_statuses,
         )
 
-        agent = create_agent(
+        # Load MCP tools if a database connection and project_id are available
+        mcp_servers = None
+        if db and project_id:
+            mcp_servers = await load_mcp_tools(project_id, db) or None
+
+        agent = await create_agent(
             instructions=instructions,
             tools=self._tools,
             github_token=github_token,
+            mcp_servers=mcp_servers,
         )
 
         agent_session = await self._session_mapping.get_or_create(str(session_id))
@@ -238,6 +272,7 @@ class ChatAgentService:
             }
         )
 
+        sid = str(session_id)
         try:
             response: AgentResponse = await agent.run(
                 message,
@@ -246,6 +281,9 @@ class ChatAgentService:
             return self._convert_response(response, session_id)
         except Exception as e:
             logger.error("Agent run failed: %s", e, exc_info=True)
+            # Invalidate the session so the next attempt gets a fresh one
+            # instead of resuming a potentially stuck Copilot session.
+            await self._session_mapping.invalidate(sid)
             return ChatMessage(
                 session_id=session_id,
                 sender_type=SenderType.ASSISTANT,
@@ -262,6 +300,7 @@ class ChatAgentService:
         project_id: str = "",
         available_tasks: list[Any] | None = None,
         available_statuses: list[str] | None = None,
+        db: Any | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Run the agent in streaming mode, yielding SSE-compatible events.
 
@@ -280,10 +319,15 @@ class ChatAgentService:
             available_statuses=available_statuses,
         )
 
-        agent = create_agent(
+        mcp_servers = None
+        if db and project_id:
+            mcp_servers = await load_mcp_tools(project_id, db) or None
+
+        agent = await create_agent(
             instructions=instructions,
             tools=self._tools,
             github_token=github_token,
+            mcp_servers=mcp_servers,
         )
 
         agent_session = await self._session_mapping.get_or_create(str(session_id))
@@ -361,6 +405,7 @@ class ChatAgentService:
 
         except Exception as e:
             logger.error("Agent stream failed: %s", e, exc_info=True)
+            await self._session_mapping.invalidate(str(session_id))
             yield {
                 "event": "error",
                 "data": json.dumps({"error": str(e)}),
