@@ -209,7 +209,7 @@ class TestRateLimitKeyMiddleware:
         assert called is True
 
     @pytest.mark.asyncio
-    async def test_timeout_falls_back_to_ip_key(self, monkeypatch):
+    async def test_timeout_falls_back_to_ip_key(self, monkeypatch, caplog):
         """When session resolution takes longer than the timeout, fall back to IP-based key."""
         import asyncio
 
@@ -249,6 +249,12 @@ class TestRateLimitKeyMiddleware:
         async def send(_message):
             return None
 
-        await middleware(scope, receive, send)
+        with caplog.at_level("WARNING", logger="src.middleware.rate_limit"):
+            await middleware(scope, receive, send)
 
         assert seen_key == "ip:127.0.0.1"
+        assert any(
+            "Rate limit session resolution timed out" in record.message
+            and "falling back to IP-based key" in record.message
+            for record in caplog.records
+        )
