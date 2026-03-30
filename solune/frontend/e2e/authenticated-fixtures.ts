@@ -135,7 +135,9 @@ const MOCK_CHAT_HISTORY = {
  * authenticated UI flows.
  */
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  page: async function PageFixture({ page }, use) {
+    const applyFixture = use;
+
     await page.route('**/api/**', (route) => {
       const url = new URL(route.request().url());
       const pathname = url.pathname;
@@ -223,7 +225,7 @@ export const test = base.extend({
       });
     });
 
-    await use(page);
+    await applyFixture(page);
   },
 });
 
