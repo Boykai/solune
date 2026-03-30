@@ -200,7 +200,7 @@ class TestChatAgentServiceRunStream:
             update2.text = "World"
             yield update2
 
-        mock_agent.run_stream = mock_stream
+        mock_agent.run = MagicMock(return_value=mock_stream())
         mock_create_agent.return_value = mock_agent
 
         service = ChatAgentService()
@@ -233,7 +233,7 @@ class TestChatAgentServiceRunStream:
             update2.text = "World"
             yield update2
 
-        mock_agent.run_stream = mock_stream
+        mock_agent.run = MagicMock(return_value=mock_stream())
         mock_create_agent.return_value = mock_agent
 
         service = ChatAgentService()
@@ -270,7 +270,7 @@ class TestChatAgentServiceRunStream:
             }
             yield tool_update
 
-        mock_agent.run_stream = mock_stream
+        mock_agent.run = MagicMock(return_value=mock_stream())
         mock_create_agent.return_value = mock_agent
 
         service = ChatAgentService()
@@ -313,7 +313,7 @@ class TestChatAgentServiceRunStream:
             update.text = tool_json
             yield update
 
-        mock_agent.run_stream = mock_stream
+        mock_agent.run = MagicMock(return_value=mock_stream())
         mock_create_agent.return_value = mock_agent
 
         service = ChatAgentService()
@@ -341,7 +341,7 @@ class TestChatAgentServiceRunStream:
             raise RuntimeError("Stream failed")
             yield  # pragma: no cover — makes this function an async generator
 
-        mock_agent.run_stream = failing_stream
+        mock_agent.run = MagicMock(return_value=failing_stream())
         mock_create_agent.return_value = mock_agent
 
         service = ChatAgentService()

@@ -450,7 +450,7 @@ export const chatApi = {
       if (currentDataLines.length > 0) {
         processFrame(currentEventType, currentDataLines.join('\n'));
       }
-    } catch (error) {
+    } catch {
       // Fall back to non-streaming endpoint on any error
       try {
         const fallbackResult = await chatApi.sendMessage(data);

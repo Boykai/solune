@@ -17,7 +17,7 @@ import asyncio
 import json
 import time
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import UUID
 
 from agent_framework import AgentResponse, AgentSession
@@ -30,10 +30,49 @@ from src.services.agent_provider import create_agent
 from src.services.agent_tools import register_tools
 from src.utils import utcnow
 
-if TYPE_CHECKING:
-    pass
-
 logger = get_logger(__name__)
+
+
+def _extract_text(value: Any) -> str:
+    """Extract text content from framework messages/updates or test doubles."""
+    text = getattr(value, "text", None)
+    if isinstance(text, str):
+        return text
+
+    content = getattr(value, "content", None)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            part_text = getattr(part, "text", None)
+            if isinstance(part_text, str):
+                parts.append(part_text)
+        return "".join(parts)
+
+    return ""
+
+
+def _extract_action_payload(value: Any) -> tuple[str | None, dict[str, Any] | None]:
+    """Extract action payloads from compatible message/update shapes."""
+    tool_result = getattr(value, "tool_result", None)
+    if isinstance(tool_result, dict) and "action_type" in tool_result:
+        return tool_result["action_type"], tool_result.get("action_data")
+
+    additional = getattr(value, "additional_properties", None)
+    if isinstance(additional, dict):
+        payload = additional.get("tool_result")
+        if isinstance(payload, dict) and "action_type" in payload:
+            return payload["action_type"], payload.get("action_data")
+
+    annotations = getattr(value, "annotations", None)
+    if annotations:
+        for annotation in annotations:
+            data = getattr(annotation, "data", None)
+            if isinstance(data, dict) and "action_type" in data:
+                return data["action_type"], data.get("action_data")
+
+    return None, None
 
 
 # ── Session mapping ──────────────────────────────────────────────────────
@@ -199,7 +238,7 @@ class ChatAgentService:
 
         try:
             response: AgentResponse = await agent.run(
-                input=message,
+                message,
                 session=agent_session,
                 function_invocation_kwargs=function_kwargs,
             )
@@ -262,32 +301,36 @@ class ChatAgentService:
             action_type = None
             action_data = None
 
-            async for update in agent.run_stream(
-                input=message,
+            stream = agent.run(
+                message,
+                stream=True,
                 session=agent_session,
                 function_invocation_kwargs=function_kwargs,
-            ):
-                # AgentResponseUpdate has .text for partial content
-                if hasattr(update, "text") and update.text:
-                    accumulated_text += update.text
-                    yield {"event": "token", "data": json.dumps({"content": update.text})}
+            )
+            async for update in stream:
+                update_text = _extract_text(update)
+                if update_text:
+                    accumulated_text += update_text
+                    yield {"event": "token", "data": json.dumps({"content": update_text})}
 
-                # Extract tool results from stream updates when present
-                if hasattr(update, "tool_result") and update.tool_result:
-                    tool_result = update.tool_result
-                    if isinstance(tool_result, dict):
-                        if tool_result.get("action_type"):
-                            action_type = tool_result["action_type"]
-                            action_data = tool_result.get("action_data")
-                            yield {
-                                "event": "tool_result",
-                                "data": json.dumps(
-                                    {
-                                        "action_type": action_type,
-                                        "action_data": action_data,
-                                    }
-                                ),
+                current_action_type, current_action_data = _extract_action_payload(update)
+                if current_action_type:
+                    action_type = current_action_type
+                    action_data = current_action_data
+                    yield {
+                        "event": "tool_result",
+                        "data": json.dumps(
+                            {
+                                "action_type": action_type,
+                                "action_data": action_data,
                             }
+                        ),
+                    }
+
+            if hasattr(stream, "get_final_response"):
+                final_response = await stream.get_final_response()
+                if not accumulated_text:
+                    accumulated_text = final_response.text
 
             # Fallback: try to extract tool result from accumulated text (JSON)
             if action_type is None and accumulated_text:
@@ -331,21 +374,14 @@ class ChatAgentService:
         action_data: dict[str, Any] | None = None
 
         for msg in response.messages:
-            # Agent messages contain the text content
-            if hasattr(msg, "content") and msg.content:
-                if isinstance(msg.content, str):
-                    content_parts.append(msg.content)
-                elif isinstance(msg.content, list):
-                    content_parts.extend(part.text for part in msg.content if hasattr(part, "text"))
+            msg_text = _extract_text(msg)
+            if msg_text:
+                content_parts.append(msg_text)
 
-            # Check for tool results in annotations or metadata
-            if hasattr(msg, "annotations"):
-                for annotation in msg.annotations or []:
-                    if hasattr(annotation, "data") and isinstance(annotation.data, dict):
-                        tool_result = annotation.data
-                        if "action_type" in tool_result:
-                            action_type = tool_result["action_type"]
-                            action_data = tool_result.get("action_data")
+            current_action_type, current_action_data = _extract_action_payload(msg)
+            if current_action_type:
+                action_type = current_action_type
+                action_data = current_action_data
 
         # If no content was extracted from messages, use a default
         content = "\n".join(content_parts) if content_parts else "I processed your request."
@@ -354,9 +390,10 @@ class ChatAgentService:
         if action_type is None and response.messages:
             last_msg = response.messages[-1]
             # Check if the content itself is a structured tool result
-            if hasattr(last_msg, "content") and isinstance(last_msg.content, str):
+            last_msg_text = _extract_text(last_msg)
+            if last_msg_text:
                 try:
-                    parsed = json.loads(last_msg.content)
+                    parsed = json.loads(last_msg_text)
                     if isinstance(parsed, dict) and "action_type" in parsed:
                         action_type = parsed["action_type"]
                         action_data = parsed.get("action_data")

@@ -10,13 +10,10 @@ Supported providers:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any
 
 from src.config import get_settings
 from src.logging_utils import get_logger
-
-if TYPE_CHECKING:
-    from agent_framework import Agent
 
 logger = get_logger(__name__)
 
@@ -26,7 +23,7 @@ def create_agent(
     instructions: str,
     tools: list | None = None,
     github_token: str | None = None,
-) -> "Agent":
+) -> Any:
     """Create an Agent instance for the configured AI provider.
 
     Args:
@@ -55,9 +52,7 @@ def create_agent(
             tools=tools,
         )
     else:
-        raise ValueError(
-            f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'."
-        )
+        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")
 
 
 def _create_copilot_agent(
@@ -65,7 +60,7 @@ def _create_copilot_agent(
     instructions: str,
     tools: list | None = None,
     github_token: str | None = None,
-) -> "Agent":
+) -> Any:
     """Create an Agent using the GitHub Copilot provider.
 
     Uses ``agent-framework-github-copilot`` which wraps the Copilot SDK
@@ -81,10 +76,7 @@ def _create_copilot_agent(
 
     settings = get_settings()
 
-    options = GitHubCopilotOptions(
-        github_token=github_token,
-        model=settings.copilot_model,
-    )
+    options: GitHubCopilotOptions = {"model": settings.copilot_model}
 
     agent = GitHubCopilotAgent(
         name="solune-agent",
@@ -100,7 +92,7 @@ def _create_azure_agent(
     *,
     instructions: str,
     tools: list | None = None,
-) -> "Agent":
+) -> Any:
     """Create an Agent using Azure OpenAI as the backend.
 
     Uses ``AzureOpenAIChatClient`` from ``agent-framework-azure-ai``.
@@ -117,9 +109,9 @@ def _create_azure_agent(
         )
 
     client = AzureOpenAIChatClient(
-        azure_endpoint=settings.azure_openai_endpoint,
+        endpoint=settings.azure_openai_endpoint,
         api_key=settings.azure_openai_key,
-        model=settings.azure_openai_deployment,
+        deployment_name=settings.azure_openai_deployment,
     )
 
     agent = Agent(
@@ -128,7 +120,5 @@ def _create_azure_agent(
         client=client,
         tools=tools or [],
     )
-    logger.info(
-        "Created Azure OpenAI Agent (deployment: %s)", settings.azure_openai_deployment
-    )
+    logger.info("Created Azure OpenAI Agent (deployment: %s)", settings.azure_openai_deployment)
     return agent
