@@ -283,7 +283,7 @@ With multiple developers:
 - Each user story should be independently completable and testable
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- Phase 2 (frontend, US6) is optional per spec — backend stories are the priority deliverable
+- Phase 8 (frontend, US6) is optional per spec — backend stories are the priority deliverable
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
 - **Total tasks**: 21
 - **Tasks per user story**: US1: 2, US2: 2, US3: 2, US4: 2, US5: 2, US6: 3
