@@ -207,3 +207,54 @@ class TestRateLimitKeyMiddleware:
         await middleware(scope, receive, send)
 
         assert called is True
+
+    @pytest.mark.asyncio
+    async def test_timeout_falls_back_to_ip_key(self, monkeypatch, caplog):
+        """When session resolution takes longer than the timeout, fall back to IP-based key."""
+        import asyncio
+
+        from src.middleware.rate_limit import RATE_LIMIT_SESSION_TIMEOUT
+
+        seen_key = None
+
+        async def app(scope, receive, send):
+            nonlocal seen_key
+            seen_key = scope["state"].get("rate_limit_key")
+
+        async def slow_get_session(_db, _session_id):
+            await asyncio.sleep(RATE_LIMIT_SESSION_TIMEOUT + 1)
+            return SimpleNamespace(github_user_id="gh-user-99")
+
+        monkeypatch.setattr("src.services.database.get_db", lambda: object())
+        monkeypatch.setattr("src.services.session_store.get_session", slow_get_session)
+        monkeypatch.setattr("src.middleware.rate_limit.RATE_LIMIT_SESSION_TIMEOUT", 0.01)
+
+        middleware = RateLimitKeyMiddleware(app)
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/limited",
+            "headers": [(b"cookie", b"session_id=session-123")],
+            "query_string": b"",
+            "state": {},
+            "client": ("127.0.0.1", 1234),
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "http_version": "1.1",
+        }
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(_message):
+            return None
+
+        with caplog.at_level("WARNING", logger="src.middleware.rate_limit"):
+            await middleware(scope, receive, send)
+
+        assert seen_key == "ip:127.0.0.1"
+        assert any(
+            "Rate limit session resolution timed out" in record.message
+            and "falling back to IP-based key" in record.message
+            for record in caplog.records
+        )

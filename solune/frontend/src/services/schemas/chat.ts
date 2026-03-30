@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const ActionTypeSchema = z.enum(['task_create', 'status_update', 'project_select', 'issue_create']);
+const ActionTypeSchema = z.enum(['task_create', 'status_update', 'project_select', 'issue_create', 'pipeline_launch']);
 const ProposalStatusSchema = z.enum(['pending', 'confirmed', 'edited', 'cancelled']);
 const RecommendationStatusSchema = z.enum(['pending', 'confirmed', 'rejected']);
 const IssuePrioritySchema = z.enum(['P0', 'P1', 'P2', 'P3']);
@@ -74,11 +74,18 @@ const IssueCreateActionDataSchema = z.object({
   status: RecommendationStatusSchema,
 });
 
+const PipelineLaunchActionDataSchema = z.object({
+  pipeline_id: z.string(),
+  preset: z.string(),
+  stages: z.array(z.string()),
+});
+
 const ActionDataSchema = z.union([
   TaskCreateActionDataSchema,
   StatusUpdateActionDataSchema,
   ProjectSelectActionDataSchema,
   IssueCreateActionDataSchema,
+  PipelineLaunchActionDataSchema,
 ]);
 
 const ChatMessageSchema = z.object({

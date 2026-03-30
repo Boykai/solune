@@ -5,6 +5,8 @@ Provides per-user and per-IP rate limiting for sensitive/expensive endpoints.
 
 from __future__ import annotations
 
+import asyncio
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
@@ -13,6 +15,9 @@ from src.constants import SESSION_COOKIE_NAME
 from src.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+#: Default timeout (seconds) for session resolution in rate-limit middleware.
+RATE_LIMIT_SESSION_TIMEOUT: float = 5.0
 
 
 def get_user_key(request: Request) -> str:
@@ -84,9 +89,19 @@ class RateLimitKeyMiddleware:
                 from src.services.session_store import get_session
 
                 db = get_db()
-                session = await get_session(db, session_id)
+                session = await asyncio.wait_for(
+                    get_session(db, session_id),
+                    timeout=RATE_LIMIT_SESSION_TIMEOUT,
+                )
                 if session and session.github_user_id:
                     request.state.rate_limit_key = f"user:{session.github_user_id}"
+            except TimeoutError:
+                logger.warning(
+                    "Rate limit session resolution timed out after %.1fs, "
+                    "falling back to IP-based key",
+                    RATE_LIMIT_SESSION_TIMEOUT,
+                )
+                request.state.rate_limit_key = f"ip:{get_remote_address(request)}"
             except Exception:
                 logger.debug("Rate limit key resolution failed", exc_info=True)
 

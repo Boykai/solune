@@ -88,6 +88,20 @@ describe('ChatMessagesResponseSchema', () => {
     expect(result.messages[0].action_type).toBe('issue_create');
   });
 
+  it('parses message with pipeline_launch action', () => {
+    const msg = {
+      ...baseMessage,
+      action_type: 'pipeline_launch' as const,
+      action_data: {
+        pipeline_id: 'pipe-1',
+        preset: 'medium',
+        stages: ['Specify', 'Plan', 'Implement'],
+      },
+    };
+    const result = ChatMessagesResponseSchema.parse({ messages: [msg] });
+    expect(result.messages[0].action_type).toBe('pipeline_launch');
+  });
+
   it('rejects invalid sender_type', () => {
     const data = { messages: [{ ...baseMessage, sender_type: 'bot' }] };
     expect(() => ChatMessagesResponseSchema.parse(data)).toThrow();
@@ -99,7 +113,7 @@ describe('ChatMessagesResponseSchema', () => {
   });
 
   it('accepts all action_type enum values', () => {
-    for (const at of ['task_create', 'status_update', 'project_select', 'issue_create'] as const) {
+    for (const at of ['task_create', 'status_update', 'project_select', 'issue_create', 'pipeline_launch'] as const) {
       // Just verifying the enum values don't throw when used as action_type
       // (action_data must match, but task_id satisfies the union for status_update)
       const msg = {
@@ -112,14 +126,16 @@ describe('ChatMessagesResponseSchema', () => {
               ? { proposal_id: 'p-1', status: 'pending' }
               : at === 'project_select'
                 ? { project_id: 'p-1', project_name: 'P' }
-                : {
-                    recommendation_id: 'r-1',
-                    proposed_title: 'T',
-                    user_story: 'U',
-                    ui_ux_description: 'D',
-                    functional_requirements: [],
-                    status: 'pending',
-                  },
+                : at === 'pipeline_launch'
+                  ? { pipeline_id: 'pipe-1', preset: 'medium', stages: ['Specify', 'Plan'] }
+                  : {
+                      recommendation_id: 'r-1',
+                      proposed_title: 'T',
+                      user_story: 'U',
+                      ui_ux_description: 'D',
+                      functional_requirements: [],
+                      status: 'pending',
+                    },
       };
       expect(() => ChatMessagesResponseSchema.parse({ messages: [msg] })).not.toThrow();
     }

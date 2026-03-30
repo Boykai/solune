@@ -4,8 +4,13 @@ from src.exceptions import (
     AppException,
     AuthenticationError,
     AuthorizationError,
+    ConflictError,
+    DatabaseError,
     GitHubAPIError,
+    McpLimitExceededError,
+    McpValidationError,
     NotFoundError,
+    PersistenceError,
     RateLimitError,
     ValidationError,
 )
@@ -111,3 +116,73 @@ class TestExceptionInheritance:
 
     def test_all_inherit_from_exception(self):
         assert issubclass(AppException, Exception)
+
+
+class TestConflictError:
+    def test_default_message(self):
+        exc = ConflictError()
+        assert exc.message == "Resource conflict"
+        assert exc.status_code == 409
+
+    def test_custom_message_and_details(self):
+        exc = ConflictError("Duplicate name", details={"name": "existing"})
+        assert exc.message == "Duplicate name"
+        assert exc.details == {"name": "existing"}
+
+
+class TestMcpValidationError:
+    def test_basic_message(self):
+        exc = McpValidationError("Invalid URL")
+        assert exc.message == "Invalid URL"
+        assert exc.status_code == 400
+        assert exc.field_errors == {}
+        assert exc.details == {}
+
+    def test_with_field_errors(self):
+        field_errors = {
+            "url": ["URL must be HTTPS", "URL is unreachable"],
+            "name": ["Name is required"],
+        }
+        exc = McpValidationError("Validation failed", field_errors=field_errors)
+        assert exc.field_errors == field_errors
+        assert exc.details == {"field_errors": field_errors}
+
+    def test_backward_compatible_positional_message(self):
+        """Existing callers that only pass message should still work."""
+        exc = McpValidationError("SSRF detected")
+        assert exc.message == "SSRF detected"
+        assert exc.field_errors == {}
+
+    def test_inherits_from_app_exception(self):
+        assert issubclass(McpValidationError, AppException)
+
+
+class TestMcpLimitExceededError:
+    def test_basic_message(self):
+        exc = McpLimitExceededError("Too many MCPs")
+        assert exc.message == "Too many MCPs"
+        assert exc.status_code == 409
+
+    def test_inherits_from_app_exception(self):
+        assert issubclass(McpLimitExceededError, AppException)
+
+
+class TestDatabaseError:
+    def test_default_message(self):
+        exc = DatabaseError()
+        assert exc.message == "Database error"
+        assert exc.status_code == 500
+
+    def test_custom_details(self):
+        exc = DatabaseError("Failed query", details={"query": "SELECT *"})
+        assert exc.details == {"query": "SELECT *"}
+
+
+class TestPersistenceError:
+    def test_default_message(self):
+        exc = PersistenceError()
+        assert exc.message == "Persistence failed"
+        assert exc.status_code == 500
+
+    def test_inherits_from_database_error(self):
+        assert issubclass(PersistenceError, DatabaseError)

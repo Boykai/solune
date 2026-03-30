@@ -11,10 +11,12 @@ don't go through the full lifespan).
 
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING
 
-from fastapi import Depends, Request
+from fastapi import Cookie, Depends, Request
 
+from src.constants import SESSION_COOKIE_NAME
 from src.exceptions import AppException, AuthorizationError
 from src.logging_utils import get_logger
 
@@ -66,9 +68,32 @@ def _get_session_dep():
     return get_session_dep
 
 
+async def _require_session(
+    request: Request,
+    session_id: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+) -> UserSession:
+    """Resolve the current session without importing auth dependencies eagerly."""
+    get_session_dep = _get_session_dep()
+    # FastAPI overrides are keyed by the original dependency callable
+    # (get_session_dep). Because this helper wraps that callable to avoid a
+    # circular import, tests that override get_session_dep would otherwise be
+    # bypassed and fall back to real cookie resolution.
+    dependency_override = request.app.dependency_overrides.get(get_session_dep)
+    if dependency_override is not None:
+        result = dependency_override()
+        if inspect.isawaitable(result):
+            return await result
+        return result
+
+    return await get_session_dep(session_id)
+
+
+_session_dependency = Depends(_require_session)
+
+
 async def require_admin(
     request: Request,
-    session=Depends(_get_session_dep()),  # noqa: B008
+    session: UserSession = _session_dependency,
 ) -> UserSession:
     """Verify the current session belongs to the admin user.
 
@@ -181,7 +206,7 @@ async def require_admin(
 async def verify_project_access(
     request: Request,
     project_id: str,
-    session: UserSession = Depends(_get_session_dep()),  # noqa: B008
+    session: UserSession = _session_dependency,
 ) -> None:
     """Verify the authenticated user has access to *project_id*.
 
@@ -201,7 +226,7 @@ async def verify_project_access(
             e,
             exc_info=True,
         )
-        raise AuthorizationError("Unable to verify project access") from None
+        raise AuthorizationError("Unable to verify project access") from e
 
     raise AuthorizationError("You do not have access to this project")
 
