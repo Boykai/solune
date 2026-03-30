@@ -227,9 +227,7 @@ class TestRateLimitKeyMiddleware:
 
         monkeypatch.setattr("src.services.database.get_db", lambda: object())
         monkeypatch.setattr("src.services.session_store.get_session", slow_get_session)
-        monkeypatch.setattr(
-            "src.middleware.rate_limit.RATE_LIMIT_SESSION_TIMEOUT", 0.01
-        )
+        monkeypatch.setattr("src.middleware.rate_limit.RATE_LIMIT_SESSION_TIMEOUT", 0.01)
 
         middleware = RateLimitKeyMiddleware(app)
         scope = {
