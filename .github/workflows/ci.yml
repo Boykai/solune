@@ -36,8 +36,7 @@ jobs:
         run: uv sync --locked --extra dev
 
       - name: Dependency audit with pip-audit
-        # CVE-2026-4539 currently has no patched Pygments release on PyPI.
-        run: uv run pip-audit . --ignore-vuln CVE-2026-4539
+        run: uv run pip-audit .
 
       - name: Lint with ruff
         run: uv run ruff check src tests
