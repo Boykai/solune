@@ -511,11 +511,7 @@ def _repos_response(title, repos):
     return {
         "node": {
             "title": title,
-            "repositories": {
-                "nodes": [
-                    {"owner": {"login": o}, "name": n} for o, n in repos
-                ]
-            },
+            "repositories": {"nodes": [{"owner": {"login": o}, "name": n} for o, n in repos]},
         }
     }
 

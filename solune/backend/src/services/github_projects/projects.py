@@ -591,7 +591,9 @@ class ProjectsMixin:
                     if name.lower() == title_lower:
                         logger.info(
                             "Matched repository %s/%s to project title '%s'",
-                            owner, name, title,
+                            owner,
+                            name,
+                            title,
                         )
                         return owner, name
 
@@ -601,8 +603,7 @@ class ProjectsMixin:
                 return owner, name
         except Exception:
             logger.debug(
-                "repositories connection unavailable for project %s, "
-                "falling back to items",
+                "repositories connection unavailable for project %s, falling back to items",
                 project_id,
             )
 
