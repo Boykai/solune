@@ -566,18 +566,22 @@ class ChatAgentService:
             if is_refining:
                 yield {
                     "event": "thinking",
-                    "data": json.dumps({
-                        "phase": "refining",
-                        "detail": "Incorporating your feedback…",
-                    }),
+                    "data": json.dumps(
+                        {
+                            "phase": "refining",
+                            "detail": "Incorporating your feedback…",
+                        }
+                    ),
                 }
             else:
                 yield {
                     "event": "thinking",
-                    "data": json.dumps({
-                        "phase": "researching",
-                        "detail": "Analyzing project context…",
-                    }),
+                    "data": json.dumps(
+                        {
+                            "phase": "researching",
+                            "detail": "Analyzing project context…",
+                        }
+                    ),
                 }
 
             accumulated_text = ""
@@ -597,10 +601,12 @@ class ChatAgentService:
                     if not planning_event_emitted and not is_refining:
                         yield {
                             "event": "thinking",
-                            "data": json.dumps({
-                                "phase": "planning",
-                                "detail": "Drafting implementation plan…",
-                            }),
+                            "data": json.dumps(
+                                {
+                                    "phase": "planning",
+                                    "detail": "Drafting implementation plan…",
+                                }
+                            ),
                         }
                         planning_event_emitted = True
                     accumulated_text += update_text
@@ -612,10 +618,12 @@ class ChatAgentService:
                     action_data = current_action_data
                     yield {
                         "event": "tool_result",
-                        "data": json.dumps({
-                            "action_type": action_type,
-                            "action_data": action_data,
-                        }),
+                        "data": json.dumps(
+                            {
+                                "action_type": action_type,
+                                "action_data": action_data,
+                            }
+                        ),
                     }
 
             if hasattr(stream, "get_final_response"):

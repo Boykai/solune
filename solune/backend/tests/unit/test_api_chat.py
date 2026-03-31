@@ -58,7 +58,7 @@ async def _save_plan(mock_db, session_id: str, **kw) -> dict:
         "steps",
         [
             PlanStep(
-                step_id="step-1",
+                step_id=f"{plan_id}-step-1",
                 plan_id=plan_id,
                 position=0,
                 title="Investigate planning mode",
@@ -480,7 +480,9 @@ class TestPlanModeEndpoints:
         cached_project.status_columns = [MagicMock(name="Backlog"), MagicMock(name="In Progress")]
         cached_project.status_columns[0].name = "Backlog"
         cached_project.status_columns[1].name = "In Progress"
-        chat_mod.cache.set(get_user_projects_cache_key(mock_session.github_user_id), [cached_project])
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
 
         agent_response = ChatMessage(
             session_id=mock_session.session_id,
@@ -546,7 +548,9 @@ class TestPlanModeEndpoints:
         cached_project.status_columns = [MagicMock(name="Backlog"), MagicMock(name="Done")]
         cached_project.status_columns[0].name = "Backlog"
         cached_project.status_columns[1].name = "Done"
-        chat_mod.cache.set(get_user_projects_cache_key(mock_session.github_user_id), [cached_project])
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
 
         async def stream_events():
             yield {
