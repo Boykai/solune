@@ -6,7 +6,7 @@
 
 ## Overview
 
-This feature adds a centralized `LabelClassificationService` that uses the existing AI completion provider to auto-generate content-based labels for parent GitHub issues. All three issue creation paths (pipeline launch, task creation, agent tool) call this shared service instead of hardcoding labels or applying none.
+This feature adds a centralized `label_classifier` module that uses the existing AI completion provider to auto-generate content-based labels for parent GitHub issues. All three issue creation paths (pipeline launch, task creation, agent tool) call this shared module instead of hardcoding labels or applying none.
 
 ## New Files
 

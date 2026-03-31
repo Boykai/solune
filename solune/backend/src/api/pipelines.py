@@ -347,10 +347,17 @@ async def execute_pipeline_launch(
 
         from src.services.label_classifier import classify_labels
 
+        # Build path-specific fallback: preserve original hardcoded labels on
+        # classifier failure so pipeline launch never loses its pipeline label.
+        pipeline_fallback = ["ai-generated"]
+        if _pipeline_name:
+            pipeline_fallback.append(build_pipeline_label(_pipeline_name))
+
         issue_labels = await classify_labels(
             title=issue_title,
             description=issue_description,
             github_token=session.access_token,
+            fallback_labels=pipeline_fallback,
         )
         if _pipeline_name:
             pipeline_label = build_pipeline_label(_pipeline_name)

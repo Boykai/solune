@@ -90,6 +90,7 @@ components:
               description: str = "",
               *,
               github_token: str,
+              fallback_labels: list[str] | None = None,
           ) -> list[str]
         parameters:
           - name: title
@@ -105,6 +106,13 @@ components:
             type: str
             required: true
             description: GitHub OAuth token for AI provider authentication
+          - name: fallback_labels
+            type: list[str] | None
+            required: false
+            default: null
+            description: >
+              Path-specific fallback labels returned when classification fails.
+              When None, defaults to ["ai-generated", "feature"].
         returns:
           type: list[str]
           description: Validated label list
@@ -116,8 +124,9 @@ components:
         raises:
           - Never raises — all exceptions caught internally
         fallback: >
-          On any failure, returns ["ai-generated", "feature"] as the
-          minimum valid label set.
+          On any failure, returns the caller-supplied fallback_labels (if
+          provided) or ["ai-generated", "feature"] as the minimum valid
+          label set.  The AI call is wrapped in a 5-second timeout.
 
       validate_labels:
         description: >

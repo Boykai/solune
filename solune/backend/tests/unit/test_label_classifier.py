@@ -2,21 +2,23 @@
 
 Tests cover:
 - validate_labels: taxonomy filtering, dedup, type-label default, ai-generated guarantee
-- classify_labels: happy path with mocked AI, fallback on failure, empty input fast path
+- classify_labels: happy path with mocked AI, fallback on failure, empty input fast path,
+  timeout handling, custom fallback_labels
 - _parse_labels_response: JSON parsing edge cases
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from src.constants import TYPE_LABELS
 from src.services.label_classifier import (
     ALWAYS_INCLUDED_LABEL,
     DEFAULT_TYPE_LABEL,
-    TYPE_LABELS,
     _parse_labels_response,
     classify_labels,
     validate_labels,
@@ -109,6 +111,11 @@ class TestParseLabelsResponse:
     def test_invalid_json_raises(self):
         with pytest.raises(json.JSONDecodeError):
             _parse_labels_response("not json at all")
+
+    def test_labels_as_string_returns_empty(self):
+        """When AI returns labels as a string instead of a list, return []."""
+        raw = json.dumps({"labels": "bug"})
+        assert _parse_labels_response(raw) == []
 
 
 # ── classify_labels ─────────────────────────────────────────────────────────
@@ -229,4 +236,95 @@ class TestClassifyLabels:
             )
 
         mock_provider.complete.assert_called_once()
+        assert "feature" in result
+
+    @pytest.mark.anyio
+    async def test_custom_fallback_labels_on_failure(self):
+        """When classification fails, caller-supplied fallback_labels are returned."""
+        mock_provider = AsyncMock()
+        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels(
+                title="Some issue",
+                github_token="tok",
+                fallback_labels=["ai-generated", "pipeline:core"],
+            )
+
+        assert result == ["ai-generated", "pipeline:core"]
+
+    @pytest.mark.anyio
+    async def test_empty_title_with_description_returns_fallback(self):
+        """When title is blank (even with a description), skip the AI call."""
+        mock_provider = AsyncMock()
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels(
+                title="   ",
+                description="Some description here",
+                github_token="tok",
+            )
+
+        mock_provider.complete.assert_not_called()
+        assert result == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
+
+    @pytest.mark.anyio
+    async def test_timeout_returns_fallback(self):
+        """When the AI call exceeds the timeout, fallback labels are returned."""
+
+        async def slow_complete(**kwargs):
+            await asyncio.sleep(60)
+            return json.dumps({"labels": ["bug"]})
+
+        mock_provider = AsyncMock()
+        mock_provider.complete.side_effect = slow_complete
+
+        with (
+            patch(
+                "src.services.completion_providers.create_completion_provider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "src.services.label_classifier._CLASSIFICATION_TIMEOUT_SECONDS",
+                0.1,
+            ),
+        ):
+            result = await classify_labels(
+                title="Some issue",
+                github_token="tok",
+            )
+
+        assert result == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
+
+    @pytest.mark.anyio
+    async def test_description_truncated_in_prompt(self):
+        """Descriptions longer than 2,000 chars are truncated before the AI call."""
+        ai_response = json.dumps({"labels": ["feature", "backend"]})
+        mock_provider = AsyncMock()
+        mock_provider.complete.return_value = ai_response
+
+        long_desc = "x" * 5_000
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels(
+                title="Big issue",
+                description=long_desc,
+                github_token="tok",
+            )
+
+        # Verify the prompt was called and description was truncated.
+        mock_provider.complete.assert_called_once()
+        messages = mock_provider.complete.call_args.kwargs["messages"]
+        user_msg = messages[1]["content"]
+        # The description portion should not contain the full 5,000 chars.
+        assert len(user_msg) < 5_000
         assert "feature" in result

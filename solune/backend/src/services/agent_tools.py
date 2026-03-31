@@ -448,8 +448,10 @@ async def create_project_issue(
                 action_data=None,
             )
 
-        if labels:
-            issue_labels = labels
+        if labels is not None:
+            from src.services.label_classifier import validate_labels
+
+            issue_labels = validate_labels(labels)
         else:
             from src.services.label_classifier import classify_labels
 

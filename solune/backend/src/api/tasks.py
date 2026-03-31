@@ -106,6 +106,7 @@ async def create_task(
         title=request.title,
         description=request.description or "",
         github_token=session.access_token,
+        fallback_labels=["ai-generated"],
     )
 
     # Step 1: Create a real GitHub Issue via REST API

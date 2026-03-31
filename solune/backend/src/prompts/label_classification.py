@@ -1,27 +1,22 @@
 """Prompt template for AI-assisted label classification of GitHub issues.
 
-Dynamically injects the predefined label taxonomy from ``constants.LABELS``
-so that the prompt always reflects the current taxonomy (FR-010).
+Dynamically injects the predefined label taxonomy from ``constants`` so that
+the prompt always reflects the current taxonomy (FR-010).  Category sets
+(TYPE_LABELS, SCOPE_LABELS, DOMAIN_LABELS) are imported from constants.py —
+adding a label there automatically updates the prompt.
 """
 
-from src.constants import LABELS
+from src.constants import DOMAIN_LABELS, LABELS, SCOPE_LABELS, TYPE_LABELS
 
 # Maximum characters of issue description to include in the prompt.
 _MAX_DESCRIPTION_LENGTH = 2_000
 
-# ── Label categories (derived from constants.LABELS comments/structure) ──────
-# These are kept as programmatic constants so the prompt is built dynamically.
-
-_TYPE_LABELS = ["feature", "bug", "enhancement", "refactor", "documentation", "testing", "infrastructure"]
-_SCOPE_LABELS = ["frontend", "backend", "database", "api"]
-_DOMAIN_LABELS = ["security", "performance", "accessibility", "ux"]
-
 
 def _build_system_prompt() -> str:
     """Build the system prompt dynamically from the label taxonomy."""
-    type_str = ", ".join(lb for lb in _TYPE_LABELS if lb in LABELS)
-    scope_str = ", ".join(lb for lb in _SCOPE_LABELS if lb in LABELS)
-    domain_str = ", ".join(lb for lb in _DOMAIN_LABELS if lb in LABELS)
+    type_str = ", ".join(sorted(TYPE_LABELS))
+    scope_str = ", ".join(sorted(SCOPE_LABELS))
+    domain_str = ", ".join(sorted(DOMAIN_LABELS))
 
     return f"""You are a label classifier for GitHub issues.
 

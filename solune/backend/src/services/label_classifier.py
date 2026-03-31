@@ -16,25 +16,16 @@ ensures the label set satisfies the invariants defined in the contract:
 
 from __future__ import annotations
 
+import asyncio
 import json
 
-from src.constants import LABELS
+from src.constants import LABELS, TYPE_LABELS
 from src.logging_utils import get_logger
 from src.prompts.label_classification import build_label_classification_prompt
 
 logger = get_logger(__name__)
 
 # ── Category constants ──────────────────────────────────────────────────────
-
-TYPE_LABELS: set[str] = {
-    "feature",
-    "bug",
-    "enhancement",
-    "refactor",
-    "documentation",
-    "testing",
-    "infrastructure",
-}
 
 DEFAULT_TYPE_LABEL: str = "feature"
 ALWAYS_INCLUDED_LABEL: str = "ai-generated"
@@ -45,6 +36,9 @@ _VALID_LABELS: set[str] = {label.lower() for label in LABELS}
 # Minimum valid fallback when classification fails entirely.
 _FALLBACK_LABELS: list[str] = [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
 
+# Maximum seconds to wait for the AI provider before falling back.
+_CLASSIFICATION_TIMEOUT_SECONDS: float = 5.0
+
 
 # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -54,24 +48,31 @@ async def classify_labels(
     description: str = "",
     *,
     github_token: str,
+    fallback_labels: list[str] | None = None,
 ) -> list[str]:
     """Classify labels for a GitHub issue based on its title and description.
 
     Returns a validated, deduplicated label list guaranteed to include
     ``"ai-generated"`` and exactly one type label.  On **any** failure the
-    function falls back to ``["ai-generated", "feature"]`` — it never raises.
+    function falls back to *fallback_labels* (or ``["ai-generated", "feature"]``
+    when not supplied) — it never raises.
 
     Args:
         title: Issue title.
         description: Optional issue body (truncated internally).
         github_token: GitHub OAuth token for the AI provider.
+        fallback_labels: Optional path-specific fallback labels returned when
+            classification fails.  When ``None``, the default
+            ``["ai-generated", "feature"]`` is used.
 
     Returns:
         Validated label list.
     """
-    # Fast path: if both inputs are effectively empty, skip the AI call.
-    if not title.strip() and not (description and description.strip()):
-        return list(_FALLBACK_LABELS)
+    fallback = list(fallback_labels) if fallback_labels is not None else list(_FALLBACK_LABELS)
+
+    # Fast path: if the required title is effectively empty, skip the AI call.
+    if not title.strip():
+        return fallback
 
     try:
         from src.services.completion_providers import create_completion_provider
@@ -79,11 +80,14 @@ async def classify_labels(
         provider = create_completion_provider()
         messages = build_label_classification_prompt(title, description)
 
-        raw_response = await provider.complete(
-            messages=messages,
-            temperature=0.3,
-            max_tokens=200,
-            github_token=github_token,
+        raw_response = await asyncio.wait_for(
+            provider.complete(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=200,
+                github_token=github_token,
+            ),
+            timeout=_CLASSIFICATION_TIMEOUT_SECONDS,
         )
 
         raw_labels = _parse_labels_response(raw_response)
@@ -95,7 +99,7 @@ async def classify_labels(
             title[:80],
             exc_info=True,
         )
-        return list(_FALLBACK_LABELS)
+        return fallback
 
 
 def validate_labels(raw_labels: list[str]) -> list[str]:
@@ -155,7 +159,10 @@ def _parse_labels_response(raw: str) -> list[str]:
     parsed = json.loads(text)
 
     if isinstance(parsed, dict):
-        return list(parsed.get("labels", []))
+        labels = parsed.get("labels")
+        if isinstance(labels, list):
+            return list(labels)
+        return []
     if isinstance(parsed, list):
         return list(parsed)
 
