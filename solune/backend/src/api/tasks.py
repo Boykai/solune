@@ -16,6 +16,7 @@ from src.models.user import UserSession
 from src.models.workflow import WorkflowConfiguration
 from src.services.cache import cache, get_project_items_cache_key
 from src.services.github_projects import github_projects_service
+from src.services.label_classifier import LabelClassificationError, classify_labels
 from src.services.websocket import connection_manager
 from src.services.workflow_orchestrator import (
     WorkflowContext,
@@ -99,13 +100,25 @@ async def create_task(
     # Resolve repository info for issue creation
     owner, repo = await resolve_repository(session.access_token, project_id)
 
+    issue_body = request.description or ""
+    issue_labels = ["ai-generated"]
+    try:
+        issue_labels = await classify_labels(
+            title=request.title,
+            description=issue_body,
+            github_token=session.access_token,
+        )
+    except LabelClassificationError:
+        logger.warning("Falling back to default task issue labels", exc_info=True)
+
     # Step 1: Create a real GitHub Issue via REST API
     issue = await github_projects_service.create_issue(
         access_token=session.access_token,
         owner=owner,
         repo=repo,
         title=request.title,
-        body=request.description or "",
+        body=issue_body,
+        labels=issue_labels,
     )
 
     issue_number = issue["number"]

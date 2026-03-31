@@ -25,6 +25,7 @@ from src.services.agent_tools import (
     select_pipeline_preset,
     update_task_status,
 )
+from src.services.label_classifier import LabelClassificationError
 
 
 def _make_context(**kwargs) -> MagicMock:
@@ -379,6 +380,123 @@ class TestCreateProjectIssue:
         assert result["action_type"] == "issue_create"
         assert result["action_data"]["issue_number"] == 42
         assert result["action_data"]["preset_id"] == "easy"
+
+    @patch("src.services.agent_tools.get_settings")
+    async def test_auto_create_uses_explicit_labels_without_classifying(self, mock_settings):
+        mock_settings.return_value = MagicMock(
+            chat_auto_create_enabled=True,
+            default_repo_owner="testowner",
+            default_repo_name="testrepo",
+        )
+        mock_service = AsyncMock()
+        mock_service.create_issue.return_value = {
+            "number": 42,
+            "html_url": "https://github.com/testowner/testrepo/issues/42",
+        }
+        ctx = _make_context(
+            github_token="test-token",
+            project_name="My Project",
+            selected_preset_id="easy",
+        )
+
+        with (
+            patch(
+                "src.services.github_projects.service.GitHubProjectsService",
+                return_value=mock_service,
+            ),
+            patch(
+                "src.services.agent_tools.classify_labels", new_callable=AsyncMock
+            ) as mock_classify,
+        ):
+            await create_project_issue(
+                ctx,
+                title="Stock Tracker",
+                body="Build a stock tracking app",
+                labels=["bug", "frontend"],
+            )
+
+        mock_classify.assert_not_awaited()
+        _, kwargs = mock_service.create_issue.await_args
+        assert kwargs["labels"] == ["bug", "frontend"]
+
+    @patch("src.services.agent_tools.get_settings")
+    async def test_auto_create_classifies_when_labels_omitted(self, mock_settings):
+        mock_settings.return_value = MagicMock(
+            chat_auto_create_enabled=True,
+            default_repo_owner="testowner",
+            default_repo_name="testrepo",
+        )
+        mock_service = AsyncMock()
+        mock_service.create_issue.return_value = {
+            "number": 42,
+            "html_url": "https://github.com/testowner/testrepo/issues/42",
+        }
+        ctx = _make_context(
+            github_token="test-token",
+            project_name="My Project",
+            selected_preset_id="easy",
+        )
+
+        with (
+            patch(
+                "src.services.github_projects.service.GitHubProjectsService",
+                return_value=mock_service,
+            ),
+            patch(
+                "src.services.agent_tools.classify_labels",
+                new_callable=AsyncMock,
+                return_value=["ai-generated", "enhancement", "backend"],
+            ) as mock_classify,
+        ):
+            await create_project_issue(
+                ctx,
+                title="Stock Tracker",
+                body="Build a stock tracking app",
+            )
+
+        mock_classify.assert_awaited_once()
+        _, kwargs = mock_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated", "enhancement", "backend"]
+
+    @patch("src.services.agent_tools.get_settings")
+    async def test_auto_create_falls_back_to_ai_generated_on_classification_error(
+        self, mock_settings
+    ):
+        mock_settings.return_value = MagicMock(
+            chat_auto_create_enabled=True,
+            default_repo_owner="testowner",
+            default_repo_name="testrepo",
+        )
+        mock_service = AsyncMock()
+        mock_service.create_issue.return_value = {
+            "number": 42,
+            "html_url": "https://github.com/testowner/testrepo/issues/42",
+        }
+        ctx = _make_context(
+            github_token="test-token",
+            project_name="My Project",
+            selected_preset_id="easy",
+        )
+
+        with (
+            patch(
+                "src.services.github_projects.service.GitHubProjectsService",
+                return_value=mock_service,
+            ),
+            patch(
+                "src.services.agent_tools.classify_labels",
+                new_callable=AsyncMock,
+                side_effect=LabelClassificationError("boom"),
+            ),
+        ):
+            await create_project_issue(
+                ctx,
+                title="Stock Tracker",
+                body="Build a stock tracking app",
+            )
+
+        _, kwargs = mock_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated"]
 
     @patch("src.services.agent_tools.get_settings")
     async def test_auto_create_no_token_returns_error(self, mock_settings):

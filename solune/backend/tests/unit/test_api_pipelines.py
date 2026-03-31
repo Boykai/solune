@@ -12,6 +12,7 @@ from src.models.pipeline import (
     PipelineConfigCreate,
     PipelineStage,
 )
+from src.services.label_classifier import LabelClassificationError
 from src.services.pipelines.service import PipelineService
 
 
@@ -102,6 +103,115 @@ class TestLaunchPipelineIssue:
         _, kwargs = mock_github_service.create_issue.await_args
         assert kwargs["title"] == "Import this issue"
         assert "Carry over the original context." in kwargs["body"]
+
+    @pytest.mark.anyio
+    async def test_launch_applies_classified_labels(self, client, mock_db, mock_github_service):
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 42,
+            "node_id": "I_node_42",
+            "html_url": "https://github.com/owner/repo/issues/42",
+        }
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_42"
+            return "PVTI_42"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch(
+                "src.api.pipelines.classify_labels",
+                new_callable=AsyncMock,
+                return_value=["ai-generated", "enhancement", "backend"],
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Import this issue\n\nCarry over the original context.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_github_service.create_issue.await_args
+        assert kwargs["labels"] == [
+            "ai-generated",
+            "enhancement",
+            "backend",
+            "pipeline:Imported Issue Pipeline",
+        ]
+
+    @pytest.mark.anyio
+    async def test_launch_falls_back_to_pipeline_labels_on_classification_error(
+        self, client, mock_db, mock_github_service
+    ):
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 42,
+            "node_id": "I_node_42",
+            "html_url": "https://github.com/owner/repo/issues/42",
+        }
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_42"
+            return "PVTI_42"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch(
+                "src.api.pipelines.classify_labels",
+                new_callable=AsyncMock,
+                side_effect=LabelClassificationError("boom"),
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Import this issue\n\nCarry over the original context.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_github_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated", "pipeline:Imported Issue Pipeline"]
 
     @pytest.mark.anyio
     async def test_launch_rejects_whitespace_only_description(self, client, mock_db):

@@ -12,6 +12,7 @@ import pytest
 
 from src.models.task import Task
 from src.models.workflow import WorkflowConfiguration
+from src.services.label_classifier import LabelClassificationError
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,74 @@ class TestCreateTask:
         assert data["title"] == "New task"
         assert data["issue_number"] == 42
         mock_websocket_manager.broadcast_to_project.assert_called_once()
+
+    async def test_create_task_applies_classified_labels(
+        self, client, mock_session, mock_github_service
+    ):
+        mock_session.selected_project_id = "PVT_abc"
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 200042,
+            "number": 42,
+            "node_id": "I_abc",
+            "html_url": "https://github.com/owner/repo/issues/42",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_new"
+
+        with (
+            patch(
+                "src.api.tasks._create_parent_issue_sub_issues",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.api.tasks.classify_labels",
+                new_callable=AsyncMock,
+                return_value=["ai-generated", "bug", "frontend"],
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/tasks",
+                json={"project_id": "PVT_abc", "title": "New task", "description": "desc"},
+            )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_github_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated", "bug", "frontend"]
+
+    async def test_create_task_falls_back_to_ai_generated_on_classification_error(
+        self, client, mock_session, mock_github_service
+    ):
+        mock_session.selected_project_id = "PVT_abc"
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 200042,
+            "number": 42,
+            "node_id": "I_abc",
+            "html_url": "https://github.com/owner/repo/issues/42",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_new"
+
+        with (
+            patch(
+                "src.api.tasks._create_parent_issue_sub_issues",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.api.tasks.classify_labels",
+                new_callable=AsyncMock,
+                side_effect=LabelClassificationError("boom"),
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/tasks",
+                json={"project_id": "PVT_abc", "title": "New task", "description": "desc"},
+            )
+
+        assert resp.status_code == 200
+        _, kwargs = mock_github_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated"]
 
     async def test_create_task_precreates_pipeline_sub_issues(
         self, client, mock_session, mock_github_service
