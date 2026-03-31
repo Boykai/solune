@@ -531,16 +531,18 @@ async def get_plan(
     steps = []
     for s in step_rows:
         if isinstance(s, tuple):
-            steps.append({
-                "step_id": s[0],
-                "plan_id": s[1],
-                "position": s[2],
-                "title": s[3],
-                "description": s[4],
-                "dependencies": json.loads(s[5]) if s[5] else [],
-                "issue_number": s[6],
-                "issue_url": s[7],
-            })
+            steps.append(
+                {
+                    "step_id": s[0],
+                    "plan_id": s[1],
+                    "position": s[2],
+                    "title": s[3],
+                    "description": s[4],
+                    "dependencies": json.loads(s[5]) if s[5] else [],
+                    "issue_number": s[6],
+                    "issue_url": s[7],
+                }
+            )
         else:
             d = dict(s)
             raw_deps = d.get("dependencies")
