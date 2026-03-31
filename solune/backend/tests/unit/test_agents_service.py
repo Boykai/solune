@@ -1,11 +1,18 @@
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.models.agents import AgentSource, AgentStatus
-from src.services.agents.service import AgentsService
-from src.services.cache import cache
+from src.models.agents import Agent, AgentSource, AgentStatus
+from src.services.agents.service import (
+    _SESSION_TTL_SECONDS,
+    AgentsService,
+    _chat_session_timestamps,
+    _chat_sessions,
+    _prune_expired_sessions,
+)
+from src.services.cache import cache, get_repo_agents_cache_key
 
 PROJECT_ID = "project-123"
 OWNER = "octo"
@@ -515,37 +522,25 @@ class TestAgentsServiceUpdate:
 # New coverage tests
 # ---------------------------------------------------------------------------
 
-import time
-
-from src.models.agents import Agent
-from src.services.agents.service import (
-    _chat_sessions,
-    _chat_session_timestamps,
-    _FRONTMATTER_RE,
-    _prune_expired_sessions,
-    _SESSION_TTL_SECONDS,
-)
-from src.services.cache import get_repo_agents_cache_key
-
 
 def _make_repo_agent(slug: str = "reviewer", **overrides) -> Agent:
-    defaults = dict(
-        id=f"repo:{slug}",
-        name=slug.replace("-", " ").title(),
-        slug=slug,
-        description="A test agent",
-        system_prompt="Do things.",
-        default_model_id="",
-        default_model_name="",
-        status=AgentStatus.ACTIVE,
-        tools=["read"],
-        status_column=None,
-        github_issue_number=None,
-        github_pr_number=None,
-        branch_name=None,
-        source=AgentSource.REPO,
-        created_at=None,
-    )
+    defaults = {
+        "id": f"repo:{slug}",
+        "name": slug.replace("-", " ").title(),
+        "slug": slug,
+        "description": "A test agent",
+        "system_prompt": "Do things.",
+        "default_model_id": "",
+        "default_model_name": "",
+        "status": AgentStatus.ACTIVE,
+        "tools": ["read"],
+        "status_column": None,
+        "github_issue_number": None,
+        "github_pr_number": None,
+        "branch_name": None,
+        "source": AgentSource.REPO,
+        "created_at": None,
+    }
     defaults.update(overrides)
     return Agent(**defaults)
 
@@ -599,9 +594,7 @@ class TestListAgentsPreferenceOverlay:
         yield
         cache.clear()
 
-    async def test_list_agents_overlays_local_preferences_on_cached_repo_agents(
-        self, mock_db
-    ):
+    async def test_list_agents_overlays_local_preferences_on_cached_repo_agents(self, mock_db):
         # Insert a local agent row with saved model prefs
         await _insert_agent_row_with_prefs(
             mock_db,
@@ -765,23 +758,17 @@ class TestYAMLFrontmatterParsing:
 
 class TestNormalizeMCPServerConfig:
     def test_stdio_type_becomes_local(self):
-        result = AgentsService._normalize_mcp_server_config(
-            {"type": "stdio", "command": "npx foo"}
-        )
+        result = AgentsService._normalize_mcp_server_config({"type": "stdio", "command": "npx foo"})
         assert result is not None
         assert result["type"] == "local"
 
     def test_dict_with_command_infers_local_type(self):
-        result = AgentsService._normalize_mcp_server_config(
-            {"command": "node server.js"}
-        )
+        result = AgentsService._normalize_mcp_server_config({"command": "node server.js"})
         assert result is not None
         assert result["type"] == "local"
 
     def test_dict_with_url_infers_http_type(self):
-        result = AgentsService._normalize_mcp_server_config(
-            {"url": "https://example.com/mcp"}
-        )
+        result = AgentsService._normalize_mcp_server_config({"url": "https://example.com/mcp"})
         assert result is not None
         assert result["type"] == "http"
 
@@ -839,7 +826,7 @@ class TestToolResolution:
         await _insert_mcp_tool(mock_db, tool_id="tool-abc")
         service = AgentsService(mock_db)
 
-        display, allowlist, ids, mcp = await service._resolve_agent_tool_selection(
+        display, _allowlist, ids, mcp = await service._resolve_agent_tool_selection(
             project_id=PROJECT_ID,
             github_user_id=GITHUB_USER_ID,
             requested_tools=["tool-abc"],
@@ -864,7 +851,7 @@ class TestToolResolution:
 
     async def test_duplicate_tools_deduped(self, mock_db):
         service = AgentsService(mock_db)
-        display, allowlist, ids, mcp = await service._resolve_agent_tool_selection(
+        display, allowlist, _ids, _mcp = await service._resolve_agent_tool_selection(
             project_id=PROJECT_ID,
             github_user_id=GITHUB_USER_ID,
             requested_tools=["read", "read"],
