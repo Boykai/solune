@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class PlanStatus(StrEnum):
@@ -59,12 +59,6 @@ class Plan(BaseModel):
     steps: list[PlanStep] = Field(default_factory=list, description="Ordered plan steps")
     created_at: str | None = Field(default=None, description="Creation timestamp")
     updated_at: str | None = Field(default=None, description="Last-updated timestamp")
-
-    @field_validator("steps")
-    @classmethod
-    def _validate_step_positions(cls, v: list[PlanStep]) -> list[PlanStep]:
-        """Ensure step positions are non-negative (already enforced by PlanStep.position ge=0)."""
-        return v
 
 
 # ---------------------------------------------------------------------------
