@@ -368,13 +368,16 @@ class TestCreateProjectIssue:
             selected_preset_id="easy",
         )
 
-        with patch(
-            "src.services.github_projects.service.GitHubProjectsService",
-            return_value=mock_service,
-        ), patch(
-            "src.services.agent_tools.classify_labels",
-            new_callable=AsyncMock,
-            return_value=["ai-generated", "feature", "backend"],
+        with (
+            patch(
+                "src.services.github_projects.service.GitHubProjectsService",
+                return_value=mock_service,
+            ),
+            patch(
+                "src.services.agent_tools.classify_labels",
+                new_callable=AsyncMock,
+                return_value=["ai-generated", "feature", "backend"],
+            ),
         ):
             result = await create_project_issue(
                 ctx, title="Stock Tracker", body="Build a stock tracking app"
@@ -400,10 +403,15 @@ class TestCreateProjectIssue:
         }
         ctx = _make_context(github_token="test-token")
 
-        with patch(
-            "src.services.github_projects.service.GitHubProjectsService",
-            return_value=mock_service,
-        ), patch("src.services.agent_tools.classify_labels", new_callable=AsyncMock) as mock_classify:
+        with (
+            patch(
+                "src.services.github_projects.service.GitHubProjectsService",
+                return_value=mock_service,
+            ),
+            patch(
+                "src.services.agent_tools.classify_labels", new_callable=AsyncMock
+            ) as mock_classify,
+        ):
             await create_project_issue(
                 ctx,
                 title="Stock Tracker",
@@ -411,7 +419,7 @@ class TestCreateProjectIssue:
                 labels=["bug", "frontend"],
             )
 
-        mock_classify.assert_not_awaited()
+        assert mock_classify.await_count == 0
         _, kwargs = mock_service.create_issue.await_args
         assert kwargs["labels"] == ["bug", "frontend"]
 

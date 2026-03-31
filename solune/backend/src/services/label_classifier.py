@@ -7,20 +7,11 @@ from typing import Any
 
 from src.constants import LABELS
 from src.logging_utils import get_logger
-from src.prompts.label_classification import build_label_classification_messages
+from src.prompts.label_classification import TYPE_LABELS, build_label_classification_messages
 from src.services.completion_providers import create_completion_provider
 
 logger = get_logger(__name__)
 
-TYPE_LABELS = {
-    "feature",
-    "bug",
-    "enhancement",
-    "refactor",
-    "documentation",
-    "testing",
-    "infrastructure",
-}
 DEFAULT_TYPE_LABEL = "feature"
 ALWAYS_INCLUDED_LABEL = "ai-generated"
 FALLBACK_LABELS = [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]

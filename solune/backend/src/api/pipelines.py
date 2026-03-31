@@ -351,9 +351,7 @@ async def execute_pipeline_launch(
             github_token=session.access_token,
         )
         if _pipeline_name:
-            pipeline_label = build_pipeline_label(_pipeline_name)
-            if pipeline_label not in issue_labels:
-                issue_labels.append(pipeline_label)
+            issue_labels.append(build_pipeline_label(_pipeline_name))
 
         issue = await github_projects_service.create_issue(
             access_token=session.access_token,

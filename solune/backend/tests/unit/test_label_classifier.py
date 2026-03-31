@@ -12,7 +12,7 @@ class TestValidateLabels:
         labels = validate_labels(["backend", "invalid", "backend", "performance", "feature"])
         assert labels == ["ai-generated", "backend", "performance", "feature"]
 
-    def test_always_includes_ai_generated(self):
+    def test_defaults_type_when_only_scope_labels_are_present(self):
         assert validate_labels(["backend"]) == ["ai-generated", "backend", "feature"]
 
     def test_defaults_type_label_when_missing(self):
@@ -35,7 +35,9 @@ class TestClassifyLabels:
             "src.services.label_classifier.create_completion_provider",
             return_value=mock_provider,
         ):
-            labels = await classify_labels("Improve API latency", "Tune slow database query", github_token="t")
+            labels = await classify_labels(
+                "Improve API latency", "Tune slow database query", github_token="t"
+            )
 
         assert labels == ["ai-generated", "backend", "performance", "enhancement"]
 
@@ -48,7 +50,9 @@ class TestClassifyLabels:
             "src.services.label_classifier.create_completion_provider",
             return_value=mock_provider,
         ):
-            labels = await classify_labels("Improve API latency", "Tune slow database query", github_token="t")
+            labels = await classify_labels(
+                "Improve API latency", "Tune slow database query", github_token="t"
+            )
 
         assert labels == ["ai-generated", "feature"]
 
@@ -61,7 +65,9 @@ class TestClassifyLabels:
             "src.services.label_classifier.create_completion_provider",
             return_value=mock_provider,
         ):
-            labels = await classify_labels("Improve API latency", "Tune slow database query", github_token="t")
+            labels = await classify_labels(
+                "Improve API latency", "Tune slow database query", github_token="t"
+            )
 
         assert labels == ["ai-generated", "feature"]
 
