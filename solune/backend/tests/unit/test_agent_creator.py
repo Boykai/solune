@@ -1263,6 +1263,83 @@ class TestAIServiceFailures:
         assert state_after.preview is not None
         assert state_after.preview.name == original_name
 
+    # T032b
+    async def test_edit_can_retry_after_failure(self, admin_db: aiosqlite.Connection):
+        """A failed edit keeps the preview so a later retry can still succeed."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "RetryBot",
+                "description": "Test",
+                "system_prompt": "Prompt.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            initial_result = await handle_agent_command(
+                message="#agent Build a bot #Done",
+                session_key="sess-t032b",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Agent Preview" in initial_result
+        assert "RetryBot" in initial_result
+
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai_fail:
+            failing_service = AsyncMock()
+            failing_service.edit_agent_config.side_effect = RuntimeError("Edit failed")
+            mock_ai_fail.return_value = failing_service
+
+            failed_result = await handle_agent_command(
+                message="change name to FooBot",
+                session_key="sess-t032b",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Error" in failed_result
+
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai_retry:
+            retry_service = AsyncMock()
+            retry_service.edit_agent_config.return_value = {
+                "name": "RetryBotV2",
+                "description": "Updated",
+                "system_prompt": "Updated prompt.",
+                "tools": [],
+            }
+            mock_ai_retry.return_value = retry_service
+
+            retry_result = await handle_agent_command(
+                message="change name to RetryBotV2",
+                session_key="sess-t032b",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Agent Preview" in retry_result
+        assert "RetryBotV2" in retry_result
+        state_after_retry = get_active_session("sess-t032b")
+        assert state_after_retry is not None
+        assert state_after_retry.step == CreationStep.EDIT_LOOP
+        assert state_after_retry.preview is not None
+        assert state_after_retry.preview.name == "RetryBotV2"
+
     # T033
     async def test_ai_returns_string_tools_defaults_to_empty(self, admin_db: aiosqlite.Connection):
         """When AI returns a non-list for tools, it defaults to empty list."""
