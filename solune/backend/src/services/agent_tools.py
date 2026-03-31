@@ -676,7 +676,8 @@ async def save_plan(
 
     plan_steps = []
     for i, s in enumerate(steps):
-        # Validate and normalize step title
+        # Validate and normalize step title (auto-generated if missing; titles
+    # are user-facing labels that benefit from a sensible default)
         raw_title = s.get("title")
         if isinstance(raw_title, str) and raw_title.strip():
             title_value = raw_title
@@ -708,7 +709,7 @@ async def save_plan(
         )
 
     # Preserve created_at from existing plan when refining
-    existing_created_at = existing_plan["created_at"] if existing_plan else None
+    existing_created_at = existing_plan.get("created_at") if existing_plan else None
 
     plan = Plan(
         plan_id=active_plan_id,
