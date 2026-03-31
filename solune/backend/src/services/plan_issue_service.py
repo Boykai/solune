@@ -32,8 +32,13 @@ async def create_plan_issues(
         db: aiosqlite database connection.
 
     Returns:
-        Dict with ``parent_issue_number``, ``parent_issue_url``, and
-        ``steps`` (list of step dicts with issue links).
+        Dict with:
+            - ``parent_issue_number``: The number of the parent issue.
+            - ``parent_issue_url``: The HTML URL of the parent issue.
+            - ``created_issues``: List of successfully created sub-issue
+              dicts (one per plan step).
+            - ``failed_steps``: List of plan steps for which issue
+              creation failed.
 
     Raises:
         RuntimeError: If the parent issue creation fails outright.

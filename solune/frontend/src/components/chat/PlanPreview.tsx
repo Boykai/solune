@@ -36,7 +36,7 @@ export function PlanPreview({
   isApproving = false,
   approveError = null,
 }: PlanPreviewProps) {
-  const status = approvedData ? 'completed' : plan.status;
+  const status = approvedData?.status ?? plan.status;
   const badge = STATUS_BADGES[status] || STATUS_BADGES.draft;
 
   // Build a map of step_id -> issue data from approvedData

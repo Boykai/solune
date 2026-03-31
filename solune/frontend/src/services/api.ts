@@ -509,6 +509,16 @@ export const chatApi = {
   },
 
   /**
+   * Send a plan-mode message (non-streaming).
+   */
+  sendPlanMessage(data: ChatMessageRequest): Promise<ChatMessage> {
+    return request<ChatMessage>('/chat/messages/plan', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
    * Enter plan mode with SSE streaming and thinking events.
    */
   async sendPlanMessageStream(
@@ -533,8 +543,9 @@ export const chatApi = {
       });
 
       if (!response.ok || !response.body) {
-        const errorData = await response.json().catch(() => ({ detail: 'Plan mode failed' }));
-        onError(new Error(errorData.detail || 'Plan mode failed'));
+        // Fall back to non-streaming plan endpoint
+        const fallbackResult = await chatApi.sendPlanMessage(data);
+        onDone(fallbackResult);
         return;
       }
 
@@ -623,7 +634,13 @@ export const chatApi = {
         processFrame(currentEventType, currentDataLines.join('\n'));
       }
     } catch {
-      onError(new Error('Plan stream failed'));
+      // Fall back to non-streaming plan endpoint on any error
+      try {
+        const fallbackResult = await chatApi.sendPlanMessage(data);
+        onDone(fallbackResult);
+      } catch (fallbackError) {
+        onError(fallbackError instanceof Error ? fallbackError : new Error('Plan stream failed'));
+      }
     }
   },
 

@@ -699,6 +699,10 @@ async def save_plan(
             provided_id if isinstance(provided_id, str) and provided_id.strip() else str(uuid4())
         )
 
+        # Coerce dependencies to a list of strings (agent may provide invalid types)
+        raw_deps = s.get("dependencies", [])
+        deps = [str(d) for d in raw_deps] if isinstance(raw_deps, list) else []
+
         plan_steps.append(
             PlanStep(
                 step_id=step_id,
@@ -706,26 +710,34 @@ async def save_plan(
                 position=i,
                 title=title_value[:256],
                 description=raw_description[:65536],
-                dependencies=s.get("dependencies", []),
+                dependencies=deps,
             )
         )
 
     # Preserve created_at from existing plan when refining
     existing_created_at = existing_plan.get("created_at") if existing_plan else None
 
-    plan = Plan(
-        plan_id=active_plan_id,
-        session_id=session_id,
-        title=title[:256],
-        summary=summary[:65536],
-        status=PlanStatus.DRAFT,
-        project_id=project_id,
-        project_name=project_name,
-        repo_owner=repo_owner,
-        repo_name=repo_name,
-        steps=plan_steps,
-        created_at=existing_created_at,
-    )
+    try:
+        plan = Plan(
+            plan_id=active_plan_id,
+            session_id=session_id,
+            title=title[:256],
+            summary=summary[:65536],
+            status=PlanStatus.DRAFT,
+            project_id=project_id,
+            project_name=project_name,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            steps=plan_steps,
+            created_at=existing_created_at,
+        )
+    except (ValueError, TypeError) as exc:
+        logger.warning("Plan model validation failed: %s", exc)
+        return ToolResult(
+            content=f"Cannot save plan: invalid data — {exc}",
+            action_type=None,
+            action_data=None,
+        )
 
     try:
         await chat_store.save_plan(db, plan)
