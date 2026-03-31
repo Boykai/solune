@@ -686,6 +686,31 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix="/api/v1")
 
+    # ── MCP Server (v0.4.0) — mount when enabled ──
+    if settings.mcp_server_enabled:
+        from src.services.mcp_server import create_mcp_server, get_mcp_app
+
+        create_mcp_server()
+        mcp_app = get_mcp_app()
+        app.mount("/api/v1/mcp", mcp_app)
+        logger.info("MCP server mounted at /api/v1/mcp")
+
+    # MCP server configuration discovery endpoint (FR-037)
+    # Available regardless of mcp_server_enabled so clients can check.
+    @app.get("/api/v1/mcp/config")
+    async def mcp_server_config() -> dict:
+        """Return MCP server connection details for external agents."""
+        return {
+            "server_name": settings.mcp_server_name,
+            "enabled": settings.mcp_server_enabled,
+            "url": "/api/v1/mcp",
+            "transport": "streamable-http",
+            "auth": {
+                "type": "bearer",
+                "description": "Provide a GitHub Personal Access Token (PAT) as a Bearer token.",
+            },
+        }
+
     return app
 
 
