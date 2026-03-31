@@ -704,12 +704,6 @@ async def _process_pipeline_completion(
             )
 
         if completed:
-            # If one agent finishes, advance the pipeline for that specific agent
-            # The existing _advance_pipeline logic is already smart enough
-            # to handle parallel groups (it waits for everyone to be done).
-            await _cp._advance_pipeline(pipeline, agent)
-
-        if completed:
             return await _advance_pipeline(
                 access_token=access_token,
                 project_id=project_id,
