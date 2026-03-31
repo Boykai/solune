@@ -268,8 +268,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - N/A (client-side only; progress derived from hook states) (002-celestial-progress-ring)
 - Python >=3.12 + FastAPI >=0.135.0, Pydantic >=2.12.0, agent-framework-core >=1.0.0b1, agent-framework-azure-ai (preview), agent-framework-github-copilot >=1.0.0b1, aiosqlite >=0.22.0, githubkit >=0.14.6, sse-starlette >=3.0.0 (001-intelligent-chat-agent)
 - SQLite via aiosqlite (settings.db — sessions, pipeline configs, MCP tool configs, conversation history) (001-intelligent-chat-agent)
-- Markdown (documentation only — no code changes) + Existing documentation structure in `solune/docs/` (002-docs-chat-features)
-- N/A (file-based markdown documents) (002-docs-chat-features)
+- Python >=3.12 (pyright target: py313) + FastAPI >=0.135.0, pytest >=9.0.0, pytest-asyncio >=1.3.0, aiosqlite >=0.22.0, githubkit >=0.14.6, pydantic >=2.12.0 (002-backend-test-coverage)
+- SQLite via aiosqlite (settings.db — projects, agent configs, chores, MCP tool configs) (002-backend-test-coverage)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 
