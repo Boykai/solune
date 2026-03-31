@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class PlanStatus(StrEnum):
@@ -33,12 +33,18 @@ class PlanStep(BaseModel):
     step_id: str = Field(default_factory=lambda: str(uuid4()), description="Unique step identifier")
     plan_id: str = Field(..., description="Parent plan reference")
     position: int = Field(..., ge=0, description="Step order (0-indexed)")
-    title: str = Field(..., min_length=1, max_length=256, description="Step title (becomes issue title)")
+    title: str = Field(
+        ..., min_length=1, max_length=256, description="Step title (becomes issue title)"
+    )
     description: str = Field(
         ..., min_length=1, max_length=65536, description="Step description (becomes issue body)"
     )
-    dependencies: list[str] = Field(default_factory=list, description="step_ids this step depends on")
-    issue_number: int | None = Field(default=None, description="GitHub issue number (post-approval)")
+    dependencies: list[str] = Field(
+        default_factory=list, description="step_ids this step depends on"
+    )
+    issue_number: int | None = Field(
+        default=None, description="GitHub issue number (post-approval)"
+    )
     issue_url: str | None = Field(default=None, description="GitHub issue URL (post-approval)")
 
 
@@ -48,23 +54,23 @@ class Plan(BaseModel):
     plan_id: str = Field(default_factory=lambda: str(uuid4()), description="Unique plan identifier")
     session_id: str = Field(..., description="Parent chat session")
     title: str = Field(..., min_length=1, max_length=256, description="Plan title")
-    summary: str = Field(..., min_length=1, max_length=65536, description="Plan summary/description")
+    summary: str = Field(
+        ..., min_length=1, max_length=65536, description="Plan summary/description"
+    )
     status: PlanStatus = Field(default=PlanStatus.DRAFT, description="Plan lifecycle status")
     project_id: str = Field(..., min_length=1, description="Associated GitHub project ID")
     project_name: str = Field(..., min_length=1, description="Project display name")
     repo_owner: str = Field(..., min_length=1, description="GitHub repository owner")
     repo_name: str = Field(..., min_length=1, description="GitHub repository name")
-    parent_issue_number: int | None = Field(default=None, description="Parent issue number (post-approval)")
-    parent_issue_url: str | None = Field(default=None, description="Parent issue URL (post-approval)")
+    parent_issue_number: int | None = Field(
+        default=None, description="Parent issue number (post-approval)"
+    )
+    parent_issue_url: str | None = Field(
+        default=None, description="Parent issue URL (post-approval)"
+    )
     steps: list[PlanStep] = Field(default_factory=list, description="Ordered plan steps")
     created_at: str | None = Field(default=None, description="Creation timestamp")
     updated_at: str | None = Field(default=None, description="Last-updated timestamp")
-
-    @field_validator("steps")
-    @classmethod
-    def _validate_step_positions(cls, v: list[PlanStep]) -> list[PlanStep]:
-        """Ensure step positions are non-negative (already enforced by PlanStep.position ge=0)."""
-        return v
 
 
 # ---------------------------------------------------------------------------
