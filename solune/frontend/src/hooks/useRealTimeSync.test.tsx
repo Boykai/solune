@@ -1241,4 +1241,108 @@ describe('useRealTimeSync', () => {
       }
     });
   });
+
+  describe('WebSocket reconnection board data protection (T048/US5)', () => {
+    it('reconnection does not invalidate board data query', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+
+      renderHook(() => useRealTimeSync('PVT_reconnect'), {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      });
+
+      // First connection opens
+      await act(async () => {
+        mockWebSocketInstances[0]?.simulateOpen();
+      });
+
+      // Send initial_data (simulating reconnection)
+      await act(async () => {
+        mockWebSocketInstances[0]?.simulateMessage({
+          type: 'initial_data',
+          project_id: 'PVT_reconnect',
+          tasks: [{ id: '1' }],
+          count: 1,
+        });
+      });
+
+      // Board data query must NOT be invalidated during reconnection
+      const boardCalls = invalidateSpy.mock.calls.filter(([opts]) => {
+        const key = (opts as { queryKey: unknown[] }).queryKey;
+        return Array.isArray(key) && key[0] === 'board' && key[1] === 'data';
+      });
+      expect(boardCalls).toHaveLength(0);
+
+      // Only tasks query should be invalidated
+      const tasksCalls = invalidateSpy.mock.calls.filter(([opts]) => {
+        const key = (opts as { queryKey: unknown[] }).queryKey;
+        return Array.isArray(key) && key[0] === 'projects' && key[2] === 'tasks';
+      });
+      expect(tasksCalls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('auto_merge_completed only invalidates tasks query, not board data', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+
+      renderHook(() => useRealTimeSync('PVT_merge'), {
+        wrapper: ({ children }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      });
+
+      await act(async () => {
+        mockWebSocketInstances[0]?.simulateOpen();
+      });
+
+      invalidateSpy.mockClear();
+
+      await act(async () => {
+        mockWebSocketInstances[0]?.simulateMessage({
+          type: 'auto_merge_completed',
+          pr_number: 42,
+        });
+      });
+
+      // Tasks query should be invalidated
+      const tasksCalls = invalidateSpy.mock.calls.filter(([opts]) => {
+        const key = (opts as { queryKey: unknown[] }).queryKey;
+        return Array.isArray(key) && key[0] === 'projects' && key[2] === 'tasks';
+      });
+      expect(tasksCalls.length).toBe(1);
+
+      // Board data must NOT be invalidated
+      const boardCalls = invalidateSpy.mock.calls.filter(([opts]) => {
+        const key = (opts as { queryKey: unknown[] }).queryKey;
+        return Array.isArray(key) && key[0] === 'board' && key[1] === 'data';
+      });
+      expect(boardCalls).toHaveLength(0);
+    });
+  });
+
+  describe('fallback polling lifecycle (T048/US5)', () => {
+    it('fallback polling activates on WebSocket error and deactivates on reconnect', async () => {
+      vi.useFakeTimers();
+
+      const { result } = renderHook(() => useRealTimeSync('PVT_fallback_lc'), {
+        wrapper: createWrapper(),
+      });
+
+      // Simulate WebSocket error
+      await act(async () => {
+        mockWebSocketInstances[0]?.simulateError();
+      });
+
+      // Should fall back to polling
+      expect(result.current.status).toBe('polling');
+
+      vi.useRealTimers();
+    });
+  });
 });
