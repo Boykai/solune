@@ -48,7 +48,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Create docs/pages/chat.md with page title, introduction paragraph, and document skeleton (12 section headers)
+- [ ] T003 [US1] Create docs/pages/chat.md with page title, introduction paragraph, and document skeleton (11 content sections covering all 12 chat capabilities — "Message Types and Actions" is one combined section per data-model.md)
 - [ ] T004 [US1] Write "Sending Messages" section in solune/docs/pages/chat.md — Enter/Shift+Enter behavior, character limit
 - [ ] T005 [US1] Write "AI Enhance" section in solune/docs/pages/chat.md — two modes (Agent Framework vs metadata-only), localStorage persistence, behavioral differences
 - [ ] T006 [US1] Write "@Mention Pipeline Selection" section in solune/docs/pages/chat.md — @ trigger, autocomplete, inline tokens, one-active-per-message constraint
