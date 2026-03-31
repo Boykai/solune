@@ -2,11 +2,13 @@
 
 Implements _attempt_auto_merge() which discovers the main PR, checks CI and
 mergeability, and performs a squash merge when all conditions are met.
-Also implements dispatch_devops_agent() for CI failure recovery.
+Also implements dispatch_devops_agent() for CI failure recovery and
+schedule_auto_merge_retry() for delayed retries when CI is still pending.
 """
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -413,4 +415,234 @@ async def dispatch_devops_agent(
         },
     )
 
+    return True
+
+
+async def _auto_merge_retry_loop(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    project_id: str,
+    item_id: str,
+    task_title: str,
+) -> None:
+    """Background coroutine that retries auto-merge with exponential backoff.
+
+    Called when ``_attempt_auto_merge`` returns ``retry_later`` (typically
+    because CI checks are still running).  Retries up to
+    ``MAX_AUTO_MERGE_RETRIES`` times with delays of 60s, 120s, 240s, etc.
+
+    On success, transitions the issue to Done and closes it.
+    On ``devops_needed``, dispatches the DevOps agent.
+    On exhaust of retries, broadcasts a failure event and stops.
+    """
+    import src.services.copilot_polling as _cp
+
+    from .state import (
+        AUTO_MERGE_RETRY_BASE_DELAY,
+        MAX_AUTO_MERGE_RETRIES,
+        _pending_auto_merge_retries,
+    )
+
+    for attempt in range(1, MAX_AUTO_MERGE_RETRIES + 1):
+        delay = AUTO_MERGE_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+        logger.info(
+            "Auto-merge retry scheduled for issue #%d: attempt %d/%d in %.0fs",
+            issue_number,
+            attempt,
+            MAX_AUTO_MERGE_RETRIES,
+            delay,
+        )
+
+        await asyncio.sleep(delay)
+
+        # Update tracking
+        _pending_auto_merge_retries[issue_number] = attempt
+
+        retry_result = await _attempt_auto_merge(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+        )
+
+        if retry_result.status == "merged":
+            # ── Transition to Done ──
+            done_status = "Done"
+            try:
+                _config = await _cp.get_workflow_config(project_id)
+                if _config:
+                    done_status = getattr(_config, "status_done", None) or "Done"
+            except Exception:
+                pass
+
+            try:
+                await _cp.github_projects_service.update_item_status_by_name(
+                    access_token=access_token,
+                    project_id=project_id,
+                    item_id=item_id,
+                    status_name=done_status,
+                )
+            except Exception:
+                logger.warning(
+                    "Auto-merge retry: failed to update status to %s for issue #%d",
+                    done_status,
+                    issue_number,
+                    exc_info=True,
+                )
+
+            try:
+                await _cp.github_projects_service.update_issue_state(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                    state="closed",
+                    state_reason="completed",
+                )
+            except Exception:
+                logger.warning(
+                    "Auto-merge retry: failed to close parent issue #%d",
+                    issue_number,
+                    exc_info=True,
+                )
+
+            try:
+                from src.services.workflow_orchestrator.transitions import (
+                    clear_issue_main_branch,
+                )
+
+                clear_issue_main_branch(issue_number)
+            except Exception:
+                pass
+
+            await _cp.connection_manager.broadcast_to_project(
+                project_id,
+                {
+                    "type": "auto_merge_completed",
+                    "issue_number": issue_number,
+                    "pr_number": retry_result.pr_number,
+                    "merge_commit": retry_result.merge_commit,
+                },
+            )
+
+            logger.info(
+                "Auto-merge retry succeeded for issue #%d (attempt %d, PR #%s)",
+                issue_number,
+                attempt,
+                retry_result.pr_number,
+            )
+            _pending_auto_merge_retries.pop(issue_number, None)
+            return
+
+        if retry_result.status == "devops_needed":
+            logger.info(
+                "Auto-merge retry: DevOps needed for issue #%d on attempt %d",
+                issue_number,
+                attempt,
+            )
+            pipeline_metadata: dict[str, Any] = {
+                "devops_attempts": 0,
+                "devops_active": False,
+            }
+            await dispatch_devops_agent(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+                pipeline_metadata=pipeline_metadata,
+                project_id=project_id,
+                merge_result_context=retry_result.context,
+            )
+            _pending_auto_merge_retries.pop(issue_number, None)
+            return
+
+        if retry_result.status == "merge_failed":
+            logger.warning(
+                "Auto-merge retry: merge_failed for issue #%d on attempt %d: %s",
+                issue_number,
+                attempt,
+                retry_result.error,
+            )
+            await _cp.connection_manager.broadcast_to_project(
+                project_id,
+                {
+                    "type": "auto_merge_failed",
+                    "issue_number": issue_number,
+                    "pr_number": retry_result.pr_number,
+                    "error": retry_result.error,
+                },
+            )
+            _pending_auto_merge_retries.pop(issue_number, None)
+            return
+
+        # retry_later again → continue to next attempt
+        logger.info(
+            "Auto-merge retry: still retry_later for issue #%d (attempt %d/%d)",
+            issue_number,
+            attempt,
+            MAX_AUTO_MERGE_RETRIES,
+        )
+
+    # Exhausted all retries
+    logger.warning(
+        "Auto-merge retries exhausted for issue #%d after %d attempts",
+        issue_number,
+        MAX_AUTO_MERGE_RETRIES,
+    )
+    await _cp.connection_manager.broadcast_to_project(
+        project_id,
+        {
+            "type": "auto_merge_failed",
+            "issue_number": issue_number,
+            "error": f"CI checks did not pass after {MAX_AUTO_MERGE_RETRIES} retry attempts",
+        },
+    )
+    _pending_auto_merge_retries.pop(issue_number, None)
+
+
+def schedule_auto_merge_retry(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    project_id: str,
+    item_id: str,
+    task_title: str,
+) -> bool:
+    """Schedule a background auto-merge retry loop if not already pending.
+
+    Returns True if a retry was scheduled, False if one is already running.
+    """
+    from .state import _pending_auto_merge_retries
+
+    if issue_number in _pending_auto_merge_retries:
+        logger.info(
+            "Auto-merge retry already pending for issue #%d — skipping",
+            issue_number,
+        )
+        return False
+
+    _pending_auto_merge_retries[issue_number] = 0
+
+    _task = asyncio.create_task(
+        _auto_merge_retry_loop(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            project_id=project_id,
+            item_id=item_id,
+            task_title=task_title,
+        ),
+        name=f"auto-merge-retry-{issue_number}",
+    )
+    # Reference stored to prevent garbage collection (RUF006).
+    _ = _task
+
+    logger.info(
+        "Scheduled auto-merge retry loop for issue #%d",
+        issue_number,
+    )
     return True
