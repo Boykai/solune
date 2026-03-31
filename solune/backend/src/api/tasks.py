@@ -99,6 +99,15 @@ async def create_task(
     # Resolve repository info for issue creation
     owner, repo = await resolve_repository(session.access_token, project_id)
 
+    # Classify labels from issue content
+    from src.services.label_classifier import classify_labels
+
+    issue_labels = await classify_labels(
+        title=request.title,
+        description=request.description or "",
+        github_token=session.access_token,
+    )
+
     # Step 1: Create a real GitHub Issue via REST API
     issue = await github_projects_service.create_issue(
         access_token=session.access_token,
@@ -106,6 +115,7 @@ async def create_task(
         repo=repo,
         title=request.title,
         body=request.description or "",
+        labels=issue_labels,
     )
 
     issue_number = issue["number"]
