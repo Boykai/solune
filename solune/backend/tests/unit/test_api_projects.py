@@ -316,14 +316,12 @@ class TestStartCopilotPolling:
 
 
 def _make_request_failed(status_code: int, headers: dict | None = None):
-    """Build a mock that behaves like ``githubkit.exception.RequestFailed``."""
-    mock_exc = MagicMock(spec=RequestFailed)
-    mock_exc.response = MagicMock()
-    mock_exc.response.status_code = status_code
-    mock_exc.response.headers = headers or {}
-    # Make isinstance() checks work
-    mock_exc.__class__ = RequestFailed
-    return mock_exc
+    """Build a real ``RequestFailed`` instance with a mocked response."""
+    exc = RequestFailed.__new__(RequestFailed)
+    exc.response = MagicMock()
+    exc.response.status_code = status_code
+    exc.response.headers = headers or {}
+    return exc
 
 
 # ── _is_github_rate_limit_error ────────────────────────────────────────────
@@ -333,8 +331,7 @@ class TestRateLimitDetection:
     """T008-T009: direct tests for _is_github_rate_limit_error."""
 
     def test_primary_rate_limit_exceeded(self):
-        exc = MagicMock(spec=PrimaryRateLimitExceeded)
-        exc.__class__ = PrimaryRateLimitExceeded
+        exc = PrimaryRateLimitExceeded.__new__(PrimaryRateLimitExceeded)
         with patch("src.api.projects.github_projects_service") as svc:
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
@@ -569,8 +566,8 @@ class TestWebSocketSubscribe:
     async def test_stale_revalidation_counter_reaches_limit(
         self, mock_session, mock_github_service, mock_websocket_manager
     ):
-        """T018: After STALE_REVALIDATION_LIMIT stale cache returns,
-        the websocket's send_tasks triggers a fresh API fetch."""
+        """T018: WebSocket subscribe handles a timeout cycle followed by
+        disconnection, calling get_project_items for the initial fetch."""
         from fastapi import WebSocketDisconnect
 
         from src.api.projects import websocket_subscribe
@@ -578,12 +575,6 @@ class TestWebSocketSubscribe:
 
         p = _project()
         t = _task()
-        call_count = 0
-
-        async def counting_get_items(*_a, **_kw):
-            nonlocal call_count
-            call_count += 1
-            return [t]
 
         mock_ws = AsyncMock()
         mock_ws.cookies = {SESSION_COOKIE_NAME: "test-session-id"}
@@ -620,10 +611,6 @@ class TestWebSocketSubscribe:
             mock_cache.get_stale.return_value = None
             mock_cache.get_entry.return_value = None
             mock_github_service.get_project_items = AsyncMock(return_value=[t])
-
-            # Make the periodic check fire immediately
-            with patch("asyncio.wait_for", side_effect=TimeoutError()):
-                pass  # we handle it via mock_receive
 
             await websocket_subscribe(mock_ws, "PVT_abc")
 
