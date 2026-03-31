@@ -270,8 +270,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite (settings.db — sessions, pipeline configs, MCP tool configs, conversation history) (001-intelligent-chat-agent)
 - Python >=3.12 (pyright target: py313) + FastAPI >=0.135.0, pytest >=9.0.0, pytest-asyncio >=1.3.0, aiosqlite >=0.22.0, githubkit >=0.14.6, pydantic >=2.12.0 (002-backend-test-coverage)
 - SQLite via aiosqlite (settings.db — projects, agent configs, chores, MCP tool configs) (002-backend-test-coverage)
-- Python 3.11+ + FastAPI, Pydantic, Microsoft Agent Framework (semantic-kernel), GitHub Copilot SDK (001-auto-generate-labels)
-- SQLite via aiosqlite (no schema changes needed for this feature) (001-auto-generate-labels)
+- Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
+- In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

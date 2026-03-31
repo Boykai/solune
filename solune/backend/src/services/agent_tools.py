@@ -623,6 +623,197 @@ def register_tools() -> list:
     ]
 
 
+# ── Plan-mode tools ─────────────────────────────────────────────────────
+
+
+@tool
+async def save_plan(
+    context: FunctionInvocationContext,
+    title: str,
+    summary: str,
+    steps: list[dict[str, Any]],
+) -> ToolResult:
+    """Save or update the current implementation plan.
+
+    Call this when you have drafted a complete plan or incorporated user
+    feedback into an existing plan.  Each step becomes a future GitHub issue.
+
+    Args:
+        context: Framework-injected invocation context.
+        title: Short, action-oriented plan title (max 256 characters).
+        summary: Overview of what the plan accomplishes (1-3 paragraphs).
+        steps: Ordered list of step dicts, each with keys:
+            - title (str): Step title (max 256 chars).
+            - description (str): Detailed step description.
+            - dependencies (list[str], optional): step_ids this step depends on.
+    """
+    from uuid import uuid4
+
+    from src.models.plan import Plan, PlanStatus, PlanStep
+    from src.services import chat_store
+
+    logger.info("Tool save_plan called: title=%s, steps=%d", title[:80], len(steps))
+
+    state = context.session.state if context.session else {}
+    session_id = state.get("session_id", "")
+    project_id = state.get("project_id", "")
+    project_name = state.get("project_name", "Unknown Project")
+    repo_owner = state.get("repo_owner", "")
+    repo_name = state.get("repo_name", "")
+    db = state.get("db")
+
+    if not session_id or not db:
+        return ToolResult(
+            content="Cannot save plan: missing session context.",
+            action_type=None,
+            action_data=None,
+        )
+
+    if not steps:
+        return ToolResult(
+            content="Cannot save plan: at least one step is required.",
+            action_type=None,
+            action_data=None,
+        )
+
+    # Reuse existing plan_id when refining in-place
+    active_plan_id = state.get("active_plan_id") or str(uuid4())
+
+    # Reject updates for non-draft plans to prevent status regression
+    existing_plan = None
+    if state.get("active_plan_id"):
+        existing_plan = await chat_store.get_plan(db, active_plan_id)
+        if existing_plan and existing_plan.get("status") not in (None, "draft"):
+            return ToolResult(
+                content="Cannot update plan: only draft plans can be modified.",
+                action_type=None,
+                action_data=None,
+            )
+
+    plan_steps = []
+    for i, s in enumerate(steps):
+        # Validate and normalize step title (auto-generated if missing; titles
+        # are user-facing labels that benefit from a sensible default)
+        raw_title = s.get("title")
+        if isinstance(raw_title, str) and raw_title.strip():
+            title_value = raw_title
+        else:
+            title_value = f"Step {i + 1}"
+
+        # Validate and normalize step description (required, non-empty)
+        raw_description = s.get("description")
+        if not isinstance(raw_description, str) or not raw_description.strip():
+            return ToolResult(
+                content=f"Cannot save plan: step {i + 1} must include a non-empty description.",
+                action_type=None,
+                action_data=None,
+            )
+
+        # Preserve step_id when provided (e.g. during refinement)
+        provided_id = s.get("step_id")
+        step_id = (
+            provided_id if isinstance(provided_id, str) and provided_id.strip() else str(uuid4())
+        )
+
+        # Coerce dependencies to a list of strings (agent may provide invalid types)
+        raw_deps = s.get("dependencies", [])
+        deps = [str(d) for d in raw_deps] if isinstance(raw_deps, list) else []
+
+        plan_steps.append(
+            PlanStep(
+                step_id=step_id,
+                plan_id=active_plan_id,
+                position=i,
+                title=title_value[:256],
+                description=raw_description[:65536],
+                dependencies=deps,
+            )
+        )
+
+    # Preserve created_at from existing plan when refining
+    existing_created_at = existing_plan.get("created_at") if existing_plan else None
+
+    try:
+        plan = Plan(
+            plan_id=active_plan_id,
+            session_id=session_id,
+            title=title[:256],
+            summary=summary[:65536],
+            status=PlanStatus.DRAFT,
+            project_id=project_id,
+            project_name=project_name,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            steps=plan_steps,
+            created_at=existing_created_at,
+        )
+    except (ValueError, TypeError) as exc:
+        logger.warning("Plan model validation failed: %s", exc)
+        return ToolResult(
+            content=f"Cannot save plan: invalid data — {exc}",
+            action_type=None,
+            action_data=None,
+        )
+
+    try:
+        await chat_store.save_plan(db, plan)
+    except Exception as e:
+        logger.error("Failed to save plan: %s", e, exc_info=True)
+        return ToolResult(
+            content="Failed to save plan due to an internal error. Please try again.",
+            action_type=None,
+            action_data=None,
+        )
+
+    # Store active plan id in session state for refinement
+    if context.session:
+        context.session.state["active_plan_id"] = active_plan_id
+        context.session.state["is_plan_mode"] = True
+
+    step_summaries = [
+        {
+            "step_id": s.step_id,
+            "position": s.position,
+            "title": s.title,
+            "description": s.description,
+            "dependencies": s.dependencies,
+        }
+        for s in plan_steps
+    ]
+
+    return ToolResult(
+        content=(
+            f"Plan saved: **{plan.title}** with {len(plan_steps)} steps.\n\n"
+            f"{plan.summary[:300]}{'…' if len(plan.summary) > 300 else ''}"
+        ),
+        action_type="plan_create",
+        action_data={
+            "plan_id": plan.plan_id,
+            "title": plan.title,
+            "summary": plan.summary,
+            "status": plan.status.value,
+            "project_id": plan.project_id,
+            "project_name": plan.project_name,
+            "repo_owner": plan.repo_owner,
+            "repo_name": plan.repo_name,
+            "steps": step_summaries,
+        },
+    )
+
+
+def register_plan_tools() -> list:
+    """Return the restricted read-only toolset for plan mode plus ``save_plan``.
+
+    Returns:
+        List of ``@tool``-decorated functions suitable for plan-mode agents.
+    """
+    return [
+        get_project_context,
+        get_pipeline_list,
+        save_plan,
+    ]
+
+
 # ── MCP tool loading ────────────────────────────────────────────────────
 
 
