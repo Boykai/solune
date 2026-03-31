@@ -144,6 +144,13 @@ class Settings(BaseSettings):
     alert_webhook_url: str = ""
     alert_cooldown_minutes: int = 15
 
+    # ── MCP Server (v0.4.0) — opt-in, disabled by default ──
+
+    # Mount the MCP server at /api/v1/mcp when True.
+    mcp_server_enabled: bool = False
+    # Name passed to the FastMCP constructor (appears in server metadata).
+    mcp_server_name: str = "solune"
+
     @model_validator(mode="after")
     def _validate_production_secrets(self) -> "Settings":
         """Enforce mandatory secrets in non-debug (production) mode.
