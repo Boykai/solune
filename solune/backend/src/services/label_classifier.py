@@ -85,7 +85,7 @@ async def classify_labels(
     title: str,
     description: str = "",
     *,
-    github_token: str | None,
+    github_token: str,
 ) -> list[str]:
     """Classify labels from an issue title and optional description."""
     normalized_title = title.strip()

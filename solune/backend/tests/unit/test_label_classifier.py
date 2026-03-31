@@ -68,7 +68,7 @@ class TestClassifyLabels:
     @pytest.mark.asyncio
     async def test_truncates_long_description_before_prompting(self):
         provider = AsyncMock()
-        provider.complete.return_value = {"labels": ["testing"]}
+        provider.complete.return_value = '{"labels":["testing"]}'
         description = "x" * 5000
 
         with patch(
