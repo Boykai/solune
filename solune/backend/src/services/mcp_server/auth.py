@@ -169,7 +169,7 @@ class GitHubTokenVerifier:
         for k in expired:
             del self._cache[k]
         # If still over limit, remove oldest entries
-        while len(self._cache) >= self._max_cache_size:
+        while len(self._cache) > self._max_cache_size:
             oldest_key = min(self._cache, key=lambda k: self._cache[k].expires_at)
             del self._cache[oldest_key]
 

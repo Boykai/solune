@@ -38,10 +38,11 @@ class McpAuthMiddleware:
 
         mcp_ctx = None
         if auth_value.lower().startswith("bearer "):
-            token = auth_value[7:]
-            access_token = await self.verifier.verify_token(token)
-            if access_token:
-                mcp_ctx = self.verifier.get_context_for_token(token)
+            token = auth_value[7:].strip()
+            if token:
+                access_token = await self.verifier.verify_token(token)
+                if access_token:
+                    mcp_ctx = self.verifier.get_context_for_token(token)
 
         set_current_mcp_context(mcp_ctx)
         try:
