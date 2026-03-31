@@ -2148,7 +2148,7 @@ async def update_plan_endpoint(
     request: Request,
 ):
     """Update plan metadata (title and/or summary)."""
-    from src.models.plan import PlanUpdateRequest
+    from src.models.plan import PlanResponse, PlanStepResponse, PlanUpdateRequest
     from src.services import chat_store
 
     body = await request.json()
@@ -2168,7 +2168,36 @@ async def update_plan_endpoint(
 
     await chat_store.update_plan(db, plan_id, title=update_req.title, summary=update_req.summary)
     updated = await chat_store.get_plan(db, plan_id)
-    return updated
+    if updated is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found after update."})
+    steps = [
+        PlanStepResponse(
+            step_id=s["step_id"],
+            position=s["position"],
+            title=s["title"],
+            description=s["description"],
+            dependencies=s.get("dependencies", []),
+            issue_number=s.get("issue_number"),
+            issue_url=s.get("issue_url"),
+        )
+        for s in updated.get("steps", [])
+    ]
+    return PlanResponse(
+        plan_id=updated["plan_id"],
+        session_id=updated["session_id"],
+        title=updated["title"],
+        summary=updated["summary"],
+        status=updated["status"],
+        project_id=updated["project_id"],
+        project_name=updated["project_name"],
+        repo_owner=updated["repo_owner"],
+        repo_name=updated["repo_name"],
+        parent_issue_number=updated.get("parent_issue_number"),
+        parent_issue_url=updated.get("parent_issue_url"),
+        steps=steps,
+        created_at=updated["created_at"],
+        updated_at=updated["updated_at"],
+    )
 
 
 @router.post("/plans/{plan_id}/approve")

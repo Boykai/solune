@@ -167,7 +167,7 @@ export interface PlanCreateActionData {
 
 export interface PlanApprovalResponse {
   plan_id: string;
-  status: string;
+  status: PlanStatus;
   parent_issue_number?: number;
   parent_issue_url?: string;
   steps: PlanStep[];
@@ -176,7 +176,7 @@ export interface PlanApprovalResponse {
 export interface PlanExitResponse {
   message: string;
   plan_id: string;
-  plan_status: string;
+  plan_status: PlanStatus;
 }
 
 export type ActionData =

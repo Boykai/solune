@@ -663,19 +663,53 @@ async def save_plan(
     # Reuse existing plan_id when refining in-place
     active_plan_id = state.get("active_plan_id") or str(uuid4())
 
+    # Reject updates for non-draft plans to prevent status regression
+    existing_plan = None
+    if state.get("active_plan_id"):
+        existing_plan = await chat_store.get_plan(db, active_plan_id)
+        if existing_plan and existing_plan.get("status") not in (None, "draft"):
+            return ToolResult(
+                content="Cannot update plan: only draft plans can be modified.",
+                action_type=None,
+                action_data=None,
+            )
+
     plan_steps = []
     for i, s in enumerate(steps):
-        step_id = str(uuid4())
+        # Validate and normalize step title (auto-generated if missing; titles
+    # are user-facing labels that benefit from a sensible default)
+        raw_title = s.get("title")
+        if isinstance(raw_title, str) and raw_title.strip():
+            title_value = raw_title
+        else:
+            title_value = f"Step {i + 1}"
+
+        # Validate and normalize step description (required, non-empty)
+        raw_description = s.get("description")
+        if not isinstance(raw_description, str) or not raw_description.strip():
+            return ToolResult(
+                content=f"Cannot save plan: step {i + 1} must include a non-empty description.",
+                action_type=None,
+                action_data=None,
+            )
+
+        # Preserve step_id when provided (e.g. during refinement)
+        provided_id = s.get("step_id")
+        step_id = provided_id if isinstance(provided_id, str) and provided_id.strip() else str(uuid4())
+
         plan_steps.append(
             PlanStep(
                 step_id=step_id,
                 plan_id=active_plan_id,
                 position=i,
-                title=s.get("title", f"Step {i + 1}")[:256],
-                description=s.get("description", "")[:65536],
+                title=title_value[:256],
+                description=raw_description[:65536],
                 dependencies=s.get("dependencies", []),
             )
         )
+
+    # Preserve created_at from existing plan when refining
+    existing_created_at = existing_plan.get("created_at") if existing_plan else None
 
     plan = Plan(
         plan_id=active_plan_id,
@@ -688,6 +722,7 @@ async def save_plan(
         repo_owner=repo_owner,
         repo_name=repo_name,
         steps=plan_steps,
+        created_at=existing_created_at,
     )
 
     try:

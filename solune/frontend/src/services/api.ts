@@ -564,9 +564,22 @@ export const chatApi = {
         if (eventType === 'thinking') {
           onThinking(parsed as unknown as ThinkingEvent);
         } else if (eventType === 'token') {
-          const tokenData = tryParseJson(parsed.data, { content: parsed.data }) ?? parsed;
-          const content = (tokenData as Record<string, unknown>).content;
-          if (content) onToken(content as string);
+          let content: unknown;
+
+          // Primary schema: backend sends { "content": "..." } as the event data.
+          if (Object.prototype.hasOwnProperty.call(parsed, 'content')) {
+            content = (parsed as { content?: unknown }).content;
+          } else if (Object.prototype.hasOwnProperty.call(parsed, 'data')) {
+            // Legacy/alternative schema: backend wraps content in a "data" field.
+            const dataValue = (parsed as { data?: unknown }).data;
+            const tokenData =
+              tryParseJson(dataValue, { content: dataValue }) ?? parsed;
+            content = (tokenData as Record<string, unknown>).content;
+          }
+
+          if (typeof content === 'string' && content) {
+            onToken(content);
+          }
         } else if (eventType === 'done') {
           const msgData = tryParseJson(parsed.data, parsed.data) ?? parsed;
           onDone(msgData as ChatMessage);
