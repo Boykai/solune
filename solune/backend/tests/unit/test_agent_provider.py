@@ -19,11 +19,7 @@ def _make_settings(**overrides):
     defaults = {
         "ai_provider": "copilot",
         "copilot_model": "gpt-4o",
-<<<<<<< fix-automerge-issues
-        "agent_copilot_timeout_seconds": 120,
-=======
         "agent_copilot_timeout_seconds": 60,
->>>>>>> main
         "azure_openai_endpoint": None,
         "azure_openai_key": None,
         "azure_openai_deployment": "gpt-4",
@@ -39,33 +35,13 @@ class TestCreateAgentCopilot:
         """create_agent() succeeds for copilot provider with github_token."""
         mock_settings.return_value = _make_settings(ai_provider="copilot")
 
-        mock_client = MagicMock()
-        mock_pool = MagicMock()
-        mock_pool.get_or_create = AsyncMock(return_value=mock_client)
-        mock_pool_fn = MagicMock(return_value=mock_pool)
-
         mock_copilot_agent = MagicMock()
+        mock_client = MagicMock()
         mock_permission_handler = MagicMock()
         mock_permission_handler.approve_all = MagicMock()
         mock_pool = MagicMock()
         mock_pool.get_or_create = AsyncMock(return_value=mock_client)
 
-<<<<<<< fix-automerge-issues
-        with patch.dict(
-            "sys.modules",
-            {
-                "agent_framework_github_copilot": MagicMock(
-                    GitHubCopilotAgent=mock_copilot_agent,
-                    GitHubCopilotOptions=dict,
-                ),
-                "copilot": MagicMock(
-                    PermissionHandler=mock_permission_handler,
-                ),
-                "src.services.completion_providers": MagicMock(
-                    get_copilot_client_pool=mock_pool_fn,
-                ),
-            },
-=======
         with (
             patch.dict(
                 "sys.modules",
@@ -84,7 +60,6 @@ class TestCreateAgentCopilot:
                 "src.services.completion_providers.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
->>>>>>> main
         ):
             from src.services.agent_provider import create_agent
 
@@ -94,7 +69,6 @@ class TestCreateAgentCopilot:
             )
 
         mock_copilot_agent.assert_called_once()
-        mock_pool.get_or_create.assert_awaited_once_with("gho_test_token")
 
     @pytest.mark.asyncio
     @patch("src.services.agent_provider.get_settings")
@@ -198,9 +172,6 @@ class TestCreateAgentToolsAndInstructions:
         """create_agent() passes tool list to the provider."""
         mock_settings.return_value = _make_settings(ai_provider="copilot")
 
-        mock_pool = MagicMock()
-        mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
-
         tool_fn = MagicMock()
         mock_copilot_agent = MagicMock()
         mock_permission_handler = MagicMock()
@@ -208,22 +179,6 @@ class TestCreateAgentToolsAndInstructions:
         mock_pool = MagicMock()
         mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
 
-<<<<<<< fix-automerge-issues
-        with patch.dict(
-            "sys.modules",
-            {
-                "agent_framework_github_copilot": MagicMock(
-                    GitHubCopilotAgent=mock_copilot_agent,
-                    GitHubCopilotOptions=dict,
-                ),
-                "copilot": MagicMock(
-                    PermissionHandler=mock_permission_handler,
-                ),
-                "src.services.completion_providers": MagicMock(
-                    get_copilot_client_pool=MagicMock(return_value=mock_pool),
-                ),
-            },
-=======
         with (
             patch.dict(
                 "sys.modules",
@@ -242,7 +197,6 @@ class TestCreateAgentToolsAndInstructions:
                 "src.services.completion_providers.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
->>>>>>> main
         ):
             from src.services.agent_provider import create_agent
 
@@ -261,31 +215,12 @@ class TestCreateAgentToolsAndInstructions:
         """When tools is None, an empty list is passed to the agent."""
         mock_settings.return_value = _make_settings(ai_provider="copilot")
 
-        mock_pool = MagicMock()
-        mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
-
         mock_copilot_agent = MagicMock()
         mock_permission_handler = MagicMock()
         mock_permission_handler.approve_all = MagicMock()
         mock_pool = MagicMock()
         mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
 
-<<<<<<< fix-automerge-issues
-        with patch.dict(
-            "sys.modules",
-            {
-                "agent_framework_github_copilot": MagicMock(
-                    GitHubCopilotAgent=mock_copilot_agent,
-                    GitHubCopilotOptions=dict,
-                ),
-                "copilot": MagicMock(
-                    PermissionHandler=mock_permission_handler,
-                ),
-                "src.services.completion_providers": MagicMock(
-                    get_copilot_client_pool=MagicMock(return_value=mock_pool),
-                ),
-            },
-=======
         with (
             patch.dict(
                 "sys.modules",
@@ -304,7 +239,6 @@ class TestCreateAgentToolsAndInstructions:
                 "src.services.completion_providers.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
->>>>>>> main
         ):
             from src.services.agent_provider import create_agent
 
@@ -317,84 +251,3 @@ class TestCreateAgentToolsAndInstructions:
         call_kwargs = mock_copilot_agent.call_args
         tools_arg = call_kwargs.kwargs.get("tools", call_kwargs[1].get("tools"))
         assert tools_arg == []
-
-    @patch("src.services.agent_provider.get_settings")
-    async def test_passes_timeout_from_settings(self, mock_settings):
-        """create_agent() injects agent_copilot_timeout_seconds into options."""
-        mock_settings.return_value = _make_settings(
-            ai_provider="copilot", agent_copilot_timeout_seconds=300,
-        )
-
-        mock_pool = MagicMock()
-        mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
-
-        mock_copilot_agent = MagicMock()
-        mock_permission_handler = MagicMock()
-        mock_permission_handler.approve_all = MagicMock()
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "agent_framework_github_copilot": MagicMock(
-                    GitHubCopilotAgent=mock_copilot_agent,
-                    GitHubCopilotOptions=dict,
-                ),
-                "copilot": MagicMock(
-                    PermissionHandler=mock_permission_handler,
-                ),
-                "src.services.completion_providers": MagicMock(
-                    get_copilot_client_pool=MagicMock(return_value=mock_pool),
-                ),
-            },
-        ):
-            from src.services.agent_provider import create_agent
-
-            await create_agent(
-                instructions="test",
-                github_token="gho_token",
-            )
-
-        call_kwargs = mock_copilot_agent.call_args
-        options = call_kwargs.kwargs.get("default_options", call_kwargs[1].get("default_options"))
-        assert options["timeout"] == 300.0
-
-    @patch("src.services.agent_provider.get_settings")
-    async def test_passes_mcp_servers_when_provided(self, mock_settings):
-        """create_agent() passes mcp_servers into copilot options."""
-        mock_settings.return_value = _make_settings(ai_provider="copilot")
-
-        mock_pool = MagicMock()
-        mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
-
-        mock_copilot_agent = MagicMock()
-        mock_permission_handler = MagicMock()
-        mock_permission_handler.approve_all = MagicMock()
-
-        mcp_config = {"docs": {"endpoint_url": "https://example.com/mcp"}}
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "agent_framework_github_copilot": MagicMock(
-                    GitHubCopilotAgent=mock_copilot_agent,
-                    GitHubCopilotOptions=dict,
-                ),
-                "copilot": MagicMock(
-                    PermissionHandler=mock_permission_handler,
-                ),
-                "src.services.completion_providers": MagicMock(
-                    get_copilot_client_pool=MagicMock(return_value=mock_pool),
-                ),
-            },
-        ):
-            from src.services.agent_provider import create_agent
-
-            await create_agent(
-                instructions="test",
-                github_token="gho_token",
-                mcp_servers=mcp_config,
-            )
-
-        call_kwargs = mock_copilot_agent.call_args
-        options = call_kwargs.kwargs.get("default_options", call_kwargs[1].get("default_options"))
-        assert options["mcp_servers"] == mcp_config

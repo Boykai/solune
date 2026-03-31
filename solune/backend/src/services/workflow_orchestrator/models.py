@@ -178,10 +178,14 @@ class PipelineState:
     def current_agent(self) -> str | None:
         """Return the current agent slug based on the flat agents list or group index."""
         if self.groups:
-            if self.current_group_index < len(self.groups):
-                group = self.groups[self.current_group_index]
+            idx = self.current_group_index
+            while idx < len(self.groups):
+                group = self.groups[idx]
                 if group.agents and self.current_agent_index_in_group < len(group.agents):
                     return group.agents[self.current_agent_index_in_group]
+                if group.agents:
+                    break  # Non-empty group but index out of range
+                idx += 1  # Skip empty groups
             return None
 
         if 0 <= self.current_agent_index < len(self.agents):
