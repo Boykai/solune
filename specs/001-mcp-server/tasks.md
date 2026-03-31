@@ -295,6 +295,6 @@ With multiple developers:
 - Verify tests fail before implementing
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- 22 tools total: 12 Tier 1 (US1 + US2) + 10 Tier 2 (US4), plus 3 resources (US5) + 3 prompts (US6)
+- 22 MCP tools total: 12 Tier 1 (US1 + US2) + 10 Tier 2 (US4). Additionally: 3 resource templates (US5) + 3 prompt templates (US6) — resources and prompts are separate MCP concepts, not tools
 - All MCP tools delegate to existing services — no business logic duplication (FR-038, FR-039)
 - Token verification caches for 60s (FR-007), rate limits at 10/60s per token hash (FR-009)
