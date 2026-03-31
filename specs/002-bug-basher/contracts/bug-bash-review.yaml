@@ -1,0 +1,222 @@
+# Bug Bash Review Process Contract
+#
+# Process-level contract for the Bug Basher code review workflow.
+# Defines the review methodology, finding schemas, validation gates,
+# and output format that all review tasks must follow.
+# This is not an HTTP API — it documents the review process agreement.
+
+openapi: "3.1.0"
+info:
+  title: Bug Bash Review Process Contract
+  version: "1.0.0"
+  description: >
+    Process contract for the Bug Basher full codebase review.
+    Defines schemas for findings, validation gates for each fix,
+    and the summary report format. All review tasks must conform
+    to this contract.
+
+components:
+  schemas:
+    BugFinding:
+      type: object
+      required:
+        - id
+        - file
+        - lines
+        - category
+        - description
+        - status
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Sequential finding number
+        file:
+          type: string
+          description: Relative file path from repository root
+          example: "solune/backend/src/api/auth.py"
+        lines:
+          type: string
+          description: Line number or range
+          pattern: "^\\d+(-\\d+)?$"
+          example: "42-45"
+        category:
+          type: string
+          enum:
+            - Security
+            - Runtime
+            - Logic
+            - Test Quality
+            - Code Quality
+          description: Bug category, ordered by priority (Security highest)
+        description:
+          type: string
+          maxLength: 500
+          description: Clear explanation of the bug and why it is a problem
+        status:
+          type: string
+          enum:
+            - Fixed
+            - Flagged
+          description: Whether the bug was fixed or flagged for human review
+        commit_sha:
+          type: string
+          pattern: "^[a-f0-9]{40}$"
+          description: Commit SHA containing the fix (required if Fixed)
+        regression_test:
+          type: string
+          description: >
+            Test file path and test name that guards against recurrence.
+            Required if status is Fixed.
+          example: "solune/backend/tests/unit/test_auth.py::test_session_validation_rejects_expired_tokens"
+        todo_comment:
+          type: string
+          description: >
+            The TODO(bug-bash) comment text added to source.
+            Required if status is Flagged.
+          example: "# TODO(bug-bash): Consider adding rate limiting to this endpoint. Options: slowapi decorator vs. middleware. Needs human decision on threshold values."
+
+    BugCategory:
+      type: string
+      enum:
+        - Security
+        - Runtime
+        - Logic
+        - Test Quality
+        - Code Quality
+      description: >
+        Priority-ordered bug classification.
+        Security (P1) > Runtime (P2) > Logic (P3) > Test Quality (P4) > Code Quality (P5).
+        When a bug spans multiple categories, use the highest-priority one.
+
+    SummaryReport:
+      type: object
+      required:
+        - findings
+        - total_files_audited
+        - total_fixed
+        - total_flagged
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BugFinding"
+          description: All findings ordered by ID
+        total_files_audited:
+          type: integer
+          minimum: 0
+          description: Total files reviewed during the audit
+        total_fixed:
+          type: integer
+          minimum: 0
+          description: Count of findings with status Fixed
+        total_flagged:
+          type: integer
+          minimum: 0
+          description: Count of findings with status Flagged
+
+    RegressionTest:
+      type: object
+      required:
+        - test_file
+        - test_name
+        - finding_id
+        - description
+      properties:
+        test_file:
+          type: string
+          description: Path to test file relative to repo root
+          example: "solune/backend/tests/unit/test_encryption.py"
+        test_name:
+          type: string
+          description: Fully qualified test function name
+          example: "test_encryption_key_rotation_handles_empty_key"
+        finding_id:
+          type: integer
+          minimum: 1
+          description: References the BugFinding this test guards
+        description:
+          type: string
+          description: What the test verifies (matches test docstring)
+
+  # Review process behavioral contract
+  x-review-process:
+    review_order:
+      description: >
+        Files are reviewed in risk-tiered order per research.md RT-005.
+        Within each file, all five bug categories are checked in one pass.
+      tiers:
+        - name: Critical
+          description: Security-critical modules reviewed first
+          modules:
+            - src/config.py
+            - src/api/auth.py
+            - src/api/webhooks.py
+            - src/services/encryption.py
+            - src/dependencies.py
+            - src/main.py
+        - name: High
+          description: Large/complex modules with high bug density risk
+          criteria: ">1,000 LOC or complex state management"
+        - name: Standard
+          description: All remaining modules in alphabetical order
+
+    fix_validation_gate:
+      description: >
+        Every fix must pass this gate before being committed.
+        Corresponds to FR-006, FR-007, FR-008.
+      steps:
+        - step: 1
+          action: Apply the fix to the source file
+          validation: Change is minimal (FR-013) and preserves code style (FR-012)
+        - step: 2
+          action: Add at least one regression test
+          validation: Test reproduces the bug precondition and verifies correct behavior
+        - step: 3
+          action: Run linting checks
+          validation: >
+            Backend: ruff check src tests && ruff format --check src tests
+            Frontend: npm run lint && npx prettier --check src/
+        - step: 4
+          action: Run type checking
+          validation: >
+            Backend: uv run pyright src
+            Frontend: tsc --noEmit (supplementary)
+        - step: 5
+          action: Run test suite
+          validation: >
+            Backend: pytest tests/unit/ (all pass including new regression test)
+            Frontend: npm run test (all pass including new regression test)
+        - step: 6
+          action: Commit with descriptive message
+          validation: >
+            Commit message explains: what the bug was, why it is a bug,
+            and how the fix resolves it (FR-004)
+
+    flagging_criteria:
+      description: >
+        When ANY of these conditions apply, the finding is flagged
+        with a TODO(bug-bash) comment instead of being fixed.
+      conditions:
+        - Fix would change the public API surface or module interface
+        - Fix involves a trade-off between two valid approaches
+        - Intended behavior is unclear from context
+        - Fix would require changing >20 lines or >2 files
+        - Fix could have cascading effects not fully testable with unit tests
+
+    constraints:
+      - name: No architecture changes
+        ref: FR-010
+        description: Module structure and public interfaces must not change
+      - name: No new dependencies
+        ref: FR-011
+        description: No new packages in pyproject.toml or package.json
+      - name: Preserve code style
+        ref: FR-012
+        description: Follow existing patterns, naming, and formatting
+      - name: Minimal fixes
+        ref: FR-013
+        description: Each fix is focused on one bug, no drive-by refactors
+      - name: Tests must pass
+        ref: FR-006
+        description: Full test suite green after all fixes applied
