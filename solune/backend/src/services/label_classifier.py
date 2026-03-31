@@ -109,7 +109,7 @@ def validate_labels(raw_labels: list[str]) -> list[str]:
 
     This is a pure function with no side effects.
     """
-    # 1. Normalise to lowercase and filter against taxonomy.
+    # 1. Normalize to lowercase and filter against taxonomy.
     seen: set[str] = set()
     filtered: list[str] = []
     for label in raw_labels:
