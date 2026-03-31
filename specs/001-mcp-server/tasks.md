@@ -24,9 +24,9 @@
 
 **Purpose**: Add the MCP SDK dependency and feature flag configuration
 
-- [ ] T001 Add `mcp>=1.26.0,<2` dependency to `solune/backend/pyproject.toml` under `[project.dependencies]`
-- [ ] T002 [P] Add `mcp_server_enabled: bool = False` and `mcp_server_name: str = "solune"` settings to `solune/backend/src/config.py` following the existing pydantic-settings pattern (env vars: `MCP_SERVER_ENABLED`, `MCP_SERVER_NAME`)
-- [ ] T003 [P] Create `solune/backend/src/services/mcp_server/` package directory with `__init__.py` that exports `create_mcp_server()` and `get_mcp_app()`
+- [x] T001 Add `mcp>=1.26.0,<2` dependency to `solune/backend/pyproject.toml` under `[project.dependencies]`
+- [x] T002 [P] Add `mcp_server_enabled: bool = False` and `mcp_server_name: str = "solune"` settings to `solune/backend/src/config.py` following the existing pydantic-settings pattern (env vars: `MCP_SERVER_ENABLED`, `MCP_SERVER_NAME`)
+- [x] T003 [P] Create `solune/backend/src/services/mcp_server/` package directory with `__init__.py` that exports `create_mcp_server()` and `get_mcp_app()`
 
 ---
 
@@ -36,12 +36,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create `solune/backend/src/services/mcp_server/context.py` — define `McpContext` dataclass with fields: `github_token: str`, `github_user_id: int`, `github_login: str` per data-model.md. Include validation (non-empty token, positive user ID, non-empty login)
-- [ ] T005 [P] Create `solune/backend/src/services/mcp_server/auth.py` — implement `GitHubTokenVerifier` class with `verify_token(token: str) -> AccessToken | None` method. Calls `GET https://api.github.com/user` via httpx with the provided PAT. Returns `AccessToken(token=token, client_id=str(github_user_id), scopes=[])`. Implements SHA-256 token hashing for cache keys, 60-second TTL cache (`dict[str, TokenCacheEntry]`), and rate limiting (max 10 attempts per 60s sliding window per token hash using `collections.deque`). Defines `TokenCacheEntry` and `RateLimitEntry` per data-model.md
-- [ ] T006 Create `solune/backend/src/services/mcp_server/server.py` — implement `create_mcp_server()` function that instantiates `FastMCP("solune", stateless_http=True, json_response=True)` with a lifespan that initializes DB connection. Pass `token_verifier=GitHubTokenVerifier()` for auth. Set `instructions` parameter with Solune server description. Implement `get_mcp_app()` that returns `mcp.streamable_http_app()`. Register all tool, resource, and prompt modules
-- [ ] T007 Create `solune/backend/src/services/mcp_server/tools/__init__.py` — empty package init for tool modules
-- [ ] T008 Mount MCP server into FastAPI app — modify `solune/backend/src/main.py`: if `settings.mcp_server_enabled`, import and call `create_mcp_server()`, mount its `streamable_http_app()` at `/api/v1/mcp`, add `mcp.session_manager.run()` to the lifespan context manager. Log `"MCP server mounted at /api/v1/mcp"` on startup
-- [ ] T009 [P] Create `solune/backend/tests/unit/test_mcp_server/__init__.py` — empty package init for MCP server unit tests
+- [x] T004 Create `solune/backend/src/services/mcp_server/context.py` — define `McpContext` dataclass with fields: `github_token: str`, `github_user_id: int`, `github_login: str` per data-model.md. Include validation (non-empty token, positive user ID, non-empty login)
+- [x] T005 [P] Create `solune/backend/src/services/mcp_server/auth.py` — implement `GitHubTokenVerifier` class with `verify_token(token: str) -> AccessToken | None` method. Calls `GET https://api.github.com/user` via httpx with the provided PAT. Returns `AccessToken(token=token, client_id=str(github_user_id), scopes=[])`. Implements SHA-256 token hashing for cache keys, 60-second TTL cache (`dict[str, TokenCacheEntry]`), and rate limiting (max 10 attempts per 60s sliding window per token hash using `collections.deque`). Defines `TokenCacheEntry` and `RateLimitEntry` per data-model.md
+- [x] T006 Create `solune/backend/src/services/mcp_server/server.py` — implement `create_mcp_server()` function that instantiates `FastMCP("solune", stateless_http=True, json_response=True)` with a lifespan that initializes DB connection. Pass `token_verifier=GitHubTokenVerifier()` for auth. Set `instructions` parameter with Solune server description. Implement `get_mcp_app()` that returns `mcp.streamable_http_app()`. Register all tool, resource, and prompt modules
+- [x] T007 Create `solune/backend/src/services/mcp_server/tools/__init__.py` — empty package init for tool modules
+- [x] T008 Mount MCP server into FastAPI app — modify `solune/backend/src/main.py`: if `settings.mcp_server_enabled`, import and call `create_mcp_server()`, mount its `streamable_http_app()` at `/api/v1/mcp`, add `mcp.session_manager.run()` to the lifespan context manager. Log `"MCP server mounted at /api/v1/mcp"` on startup
+- [x] T009 [P] Create `solune/backend/tests/unit/test_mcp_server/__init__.py` — empty package init for MCP server unit tests
 
 **Checkpoint**: Foundation ready — MCP server mounts, authenticates tokens, and is ready for tool registration
 
@@ -57,16 +57,16 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US1] Create `solune/backend/tests/unit/test_mcp_server/test_auth.py` — test `GitHubTokenVerifier`: valid token returns `AccessToken`, invalid token returns `None`, expired cache entry triggers re-verification, rate limiting blocks after 10 attempts in 60s, cache hit avoids GitHub API call, revoked token invalidates cache. Mock httpx calls to GitHub API
-- [ ] T011 [P] [US1] Create `solune/backend/tests/unit/test_mcp_server/test_tools_projects.py` — test `list_projects`, `get_project`, `get_board`, `get_project_tasks` tools: mock `GitHubProjectsService` methods, verify correct service delegation and structured return data. Test project access validation rejects unauthorized users
+- [x] T010 [P] [US1] Create `solune/backend/tests/unit/test_mcp_server/test_auth.py` — test `GitHubTokenVerifier`: valid token returns `AccessToken`, invalid token returns `None`, expired cache entry triggers re-verification, rate limiting blocks after 10 attempts in 60s, cache hit avoids GitHub API call, revoked token invalidates cache. Mock httpx calls to GitHub API
+- [x] T011 [P] [US1] Create `solune/backend/tests/unit/test_mcp_server/test_tools_projects.py` — test `list_projects`, `get_project`, `get_board`, `get_project_tasks` tools: mock `GitHubProjectsService` methods, verify correct service delegation and structured return data. Test project access validation rejects unauthorized users
 
 ### Implementation for User Story 1
 
-- [ ] T012 [P] [US1] Create `solune/backend/src/services/mcp_server/tools/projects.py` — implement `list_projects` tool: `@mcp.tool()` async function, extract `McpContext` from `ctx.request_context.lifespan_context`, instantiate `GitHubProjectsService` with user's token, call `list_user_projects()`, return structured `{projects: [{project_id, name, url}]}`. (FR-011)
-- [ ] T013 [US1] Add `get_project(project_id: str)` tool to `solune/backend/src/services/mcp_server/tools/projects.py` — validate project access via `verify_project_access()` pattern, call `GitHubProjectsService.get_project()`, return project details with status columns. (FR-012)
-- [ ] T014 [US1] Add `get_board(project_id: str)` tool to `solune/backend/src/services/mcp_server/tools/projects.py` — validate project access, call `GitHubProjectsService.get_board_data()`, return full kanban state (columns + items). (FR-013)
-- [ ] T015 [US1] Add `get_project_tasks(project_id: str)` tool to `solune/backend/src/services/mcp_server/tools/projects.py` — validate project access, call `GitHubProjectsService.get_board_data()`, return all items/issues with status, type, and labels. (FR-014)
-- [ ] T016 [US1] Register project tools in `solune/backend/src/services/mcp_server/server.py` — import `tools/projects.py` and register all four tool functions on the FastMCP instance
+- [x] T012 [P] [US1] Create `solune/backend/src/services/mcp_server/tools/projects.py` — implement `list_projects` tool: `@mcp.tool()` async function, extract `McpContext` from `ctx.request_context.lifespan_context`, instantiate `GitHubProjectsService` with user's token, call `list_user_projects()`, return structured `{projects: [{project_id, name, url}]}`. (FR-011)
+- [x] T013 [US1] Add `get_project(project_id: str)` tool to `solune/backend/src/services/mcp_server/tools/projects.py` — validate project access via `verify_project_access()` pattern, call `GitHubProjectsService.get_project()`, return project details with status columns. (FR-012)
+- [x] T014 [US1] Add `get_board(project_id: str)` tool to `solune/backend/src/services/mcp_server/tools/projects.py` — validate project access, call `GitHubProjectsService.get_board_data()`, return full kanban state (columns + items). (FR-013)
+- [x] T015 [US1] Add `get_project_tasks(project_id: str)` tool to `solune/backend/src/services/mcp_server/tools/projects.py` — validate project access, call `GitHubProjectsService.get_board_data()`, return all items/issues with status, type, and labels. (FR-014)
+- [x] T016 [US1] Register project tools in `solune/backend/src/services/mcp_server/server.py` — import `tools/projects.py` and register all four tool functions on the FastMCP instance
 
 **Checkpoint**: User Story 1 complete — external agents can connect, authenticate, discover tools, and query project/board data
 
@@ -80,17 +80,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [P] [US2] Create `solune/backend/tests/unit/test_mcp_server/test_tools_pipelines.py` — test `list_pipelines`, `launch_pipeline`, `get_pipeline_states`, `retry_pipeline` tools: mock pipeline services, verify correct delegation to `execute_pipeline_launch()` and pipeline state store. Test project access validation
+- [x] T017 [P] [US2] Create `solune/backend/tests/unit/test_mcp_server/test_tools_pipelines.py` — test `list_pipelines`, `launch_pipeline`, `get_pipeline_states`, `retry_pipeline` tools: mock pipeline services, verify correct delegation to `execute_pipeline_launch()` and pipeline state store. Test project access validation
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Create `solune/backend/src/services/mcp_server/tools/tasks.py` — implement `create_task(project_id, title, description)` tool: validate project access, delegate to the same task creation logic as `POST /tasks` endpoint (create issue + add to project + generate sub-issues). Implement `create_issue(project_id, title, body, labels?)` tool: validate project access, call `GitHubProjectsService.create_issue()` + `add_issue_to_project()`. (FR-015, FR-016)
-- [ ] T019 [P] [US2] Create `solune/backend/src/services/mcp_server/tools/pipelines.py` — implement `list_pipelines(project_id)` tool: validate project access, query pipeline configurations. (FR-017)
-- [ ] T020 [US2] Add `launch_pipeline(project_id, pipeline_id, issue_description)` to `solune/backend/src/services/mcp_server/tools/pipelines.py` — validate project access, delegate to `execute_pipeline_launch()`, return parent issue, sub-issues, and pipeline state. (FR-018)
-- [ ] T021 [US2] Add `get_pipeline_states(project_id)` to `solune/backend/src/services/mcp_server/tools/pipelines.py` — validate project access, query pipeline state store, return all active states with stage progress. (FR-019)
-- [ ] T022 [US2] Add `retry_pipeline(project_id, issue_number)` to `solune/backend/src/services/mcp_server/tools/pipelines.py` — validate project access, delegate to pipeline retry logic, return success status and updated state. (FR-020)
-- [ ] T023 [P] [US2] Create `solune/backend/src/services/mcp_server/tools/activity.py` — implement `get_activity(project_id, limit=20)` tool: validate project access, return paginated activity feed. Implement `update_item_status(project_id, item_id, status)` tool: validate project access, call `GitHubProjectsService.update_item_status()`, return new status. (FR-021, FR-022)
-- [ ] T024 [US2] Register task, pipeline, and activity tools in `solune/backend/src/services/mcp_server/server.py` — import `tools/tasks.py`, `tools/pipelines.py`, `tools/activity.py` and register all tool functions on the FastMCP instance
+- [x] T018 [P] [US2] Create `solune/backend/src/services/mcp_server/tools/tasks.py` — implement `create_task(project_id, title, description)` tool: validate project access, delegate to the same task creation logic as `POST /tasks` endpoint (create issue + add to project + generate sub-issues). Implement `create_issue(project_id, title, body, labels?)` tool: validate project access, call `GitHubProjectsService.create_issue()` + `add_issue_to_project()`. (FR-015, FR-016)
+- [x] T019 [P] [US2] Create `solune/backend/src/services/mcp_server/tools/pipelines.py` — implement `list_pipelines(project_id)` tool: validate project access, query pipeline configurations. (FR-017)
+- [x] T020 [US2] Add `launch_pipeline(project_id, pipeline_id, issue_description)` to `solune/backend/src/services/mcp_server/tools/pipelines.py` — validate project access, delegate to `execute_pipeline_launch()`, return parent issue, sub-issues, and pipeline state. (FR-018)
+- [x] T021 [US2] Add `get_pipeline_states(project_id)` to `solune/backend/src/services/mcp_server/tools/pipelines.py` — validate project access, query pipeline state store, return all active states with stage progress. (FR-019)
+- [x] T022 [US2] Add `retry_pipeline(project_id, issue_number)` to `solune/backend/src/services/mcp_server/tools/pipelines.py` — validate project access, delegate to pipeline retry logic, return success status and updated state. (FR-020)
+- [x] T023 [P] [US2] Create `solune/backend/src/services/mcp_server/tools/activity.py` — implement `get_activity(project_id, limit=20)` tool: validate project access, return paginated activity feed. Implement `update_item_status(project_id, item_id, status)` tool: validate project access, call `GitHubProjectsService.update_item_status()`, return new status. (FR-021, FR-022)
+- [x] T024 [US2] Register task, pipeline, and activity tools in `solune/backend/src/services/mcp_server/server.py` — import `tools/tasks.py`, `tools/pipelines.py`, `tools/activity.py` and register all tool functions on the FastMCP instance
 
 **Checkpoint**: User Stories 1 AND 2 complete — external agents can read project data AND create tasks, launch/manage pipelines
 
@@ -106,10 +106,10 @@
 
 > Note: Core auth was built in Phase 2 (T005). This phase adds hardening, edge case handling, and integration wiring.
 
-- [ ] T025 [US3] Enhance `solune/backend/src/services/mcp_server/auth.py` — add error handling for GitHub API unreachability (return `None`, do NOT cache failures), add cache invalidation on verification failure for previously cached tokens, add `AuthSettings` configuration and wire into `FastMCP` constructor. Handle edge case: multiple simultaneous clients with different tokens (per-connection auth context isolation)
-- [ ] T026 [US3] Create shared access validation helper in `solune/backend/src/services/mcp_server/tools/__init__.py` or a `solune/backend/src/services/mcp_server/access.py` module — implement `verify_mcp_project_access(ctx, project_id)` that extracts `McpContext` from the MCP context, instantiates `GitHubProjectsService`, and calls the `verify_project_access()` pattern from `dependencies.py`. Raise a descriptive error for access denied vs. project not found
-- [ ] T027 [US3] Audit and ensure all project-scoped tools in `tools/projects.py`, `tools/tasks.py`, `tools/pipelines.py`, and `tools/activity.py` call `verify_mcp_project_access()` before executing. Add clear error messages for access denied, project not found, and authentication failures
-- [ ] T028 [P] [US3] Add additional test cases to `solune/backend/tests/unit/test_mcp_server/test_auth.py` — test GitHub API unreachability handling, cache invalidation on token revocation, concurrent clients with different tokens, edge case for expired cache during long-running tool call
+- [x] T025 [US3] Enhance `solune/backend/src/services/mcp_server/auth.py` — add error handling for GitHub API unreachability (return `None`, do NOT cache failures), add cache invalidation on verification failure for previously cached tokens, add `AuthSettings` configuration and wire into `FastMCP` constructor. Handle edge case: multiple simultaneous clients with different tokens (per-connection auth context isolation)
+- [x] T026 [US3] Create shared access validation helper in `solune/backend/src/services/mcp_server/tools/__init__.py` or a `solune/backend/src/services/mcp_server/access.py` module — implement `verify_mcp_project_access(ctx, project_id)` that extracts `McpContext` from the MCP context, instantiates `GitHubProjectsService`, and calls the `verify_project_access()` pattern from `dependencies.py`. Raise a descriptive error for access denied vs. project not found
+- [x] T027 [US3] Audit and ensure all project-scoped tools in `tools/projects.py`, `tools/tasks.py`, `tools/pipelines.py`, and `tools/activity.py` call `verify_mcp_project_access()` before executing. Add clear error messages for access denied, project not found, and authentication failures
+- [x] T028 [P] [US3] Add additional test cases to `solune/backend/tests/unit/test_mcp_server/test_auth.py` — test GitHub API unreachability handling, cache invalidation on token revocation, concurrent clients with different tokens, edge case for expired cache during long-running tool call
 
 **Checkpoint**: User Stories 1, 2, AND 3 complete — full auth, access scoping, and rate limiting in place
 
@@ -123,11 +123,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T029 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/agents.py` — implement `list_agents(project_id)` tool: validate project access, delegate to `AgentsService.list_agents()`, return agent list. Implement `create_agent(project_id, name, instructions, model?)` tool: validate project access, delegate to `AgentsService.create_agent()`, return agent ID and PR URL. (FR-023)
-- [ ] T030 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/apps.py` — implement `list_apps()` tool: return all managed apps with status. Implement `get_app_status(app_name)` tool: return health check. Implement `create_app(name, owner, template?, pipeline_id?)` tool: scaffold app with optional pipeline launch. (FR-024)
-- [ ] T031 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/chores.py` — implement `list_chores(project_id)` tool: validate project access, return chore list. Implement `trigger_chore(project_id, chore_id)` tool: validate project access, execute chore, return result. (FR-025)
-- [ ] T032 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/chat.py` — implement `send_chat_message(project_id, message)` tool: validate project access, delegate to `ChatAgentService.run()`, return AI response. Implement `get_metadata(owner, repo)` tool: delegate to `GitHubProjectsService` (RepositoryMixin), return labels, branches, milestones, collaborators. Implement `cleanup_preflight(project_id)` tool: validate project access, return stale branches/PRs preview. (FR-026, FR-027, FR-028)
-- [ ] T033 [US4] Register all Tier 2 tools in `solune/backend/src/services/mcp_server/server.py` — import `tools/agents.py`, `tools/apps.py`, `tools/chores.py`, `tools/chat.py` and register all tool functions on the FastMCP instance
+- [x] T029 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/agents.py` — implement `list_agents(project_id)` tool: validate project access, delegate to `AgentsService.list_agents()`, return agent list. Implement `create_agent(project_id, name, instructions, model?)` tool: validate project access, delegate to `AgentsService.create_agent()`, return agent ID and PR URL. (FR-023)
+- [x] T030 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/apps.py` — implement `list_apps()` tool: return all managed apps with status. Implement `get_app_status(app_name)` tool: return health check. Implement `create_app(name, owner, template?, pipeline_id?)` tool: scaffold app with optional pipeline launch. (FR-024)
+- [x] T031 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/chores.py` — implement `list_chores(project_id)` tool: validate project access, return chore list. Implement `trigger_chore(project_id, chore_id)` tool: validate project access, execute chore, return result. (FR-025)
+- [x] T032 [P] [US4] Create `solune/backend/src/services/mcp_server/tools/chat.py` — implement `send_chat_message(project_id, message)` tool: validate project access, delegate to `ChatAgentService.run()`, return AI response. Implement `get_metadata(owner, repo)` tool: delegate to `GitHubProjectsService` (RepositoryMixin), return labels, branches, milestones, collaborators. Implement `cleanup_preflight(project_id)` tool: validate project access, return stale branches/PRs preview. (FR-026, FR-027, FR-028)
+- [x] T033 [US4] Register all Tier 2 tools in `solune/backend/src/services/mcp_server/server.py` — import `tools/agents.py`, `tools/apps.py`, `tools/chores.py`, `tools/chat.py` and register all tool functions on the FastMCP instance
 
 **Checkpoint**: User Story 4 complete — full platform administration via MCP (22 tools total)
 
@@ -141,10 +141,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T034 [US5] Create `solune/backend/src/services/mcp_server/resources.py` — register three MCP resource templates using `@mcp.resource()`: `solune://projects/{project_id}/pipelines` (returns pipeline states JSON), `solune://projects/{project_id}/board` (returns board state JSON), `solune://projects/{project_id}/activity` (returns recent activity JSON). Each handler validates project access and delegates to existing services. (FR-031)
-- [ ] T035 [US5] Add resource change notification hooks — integrate with the existing `ConnectionManager.broadcast_to_project()` in `solune/backend/src/services/websocket.py`: when a board update or pipeline state change is broadcast via WebSocket, also call `ctx.session.send_resource_updated(uri)` for MCP subscribers. Guard with feature flag check (`if settings.mcp_server_enabled`). (FR-032, FR-033)
-- [ ] T036 [US5] Register resource templates in `solune/backend/src/services/mcp_server/server.py` — import `resources.py` and register all resource handlers on the FastMCP instance
-- [ ] T037 [US5] Add dynamic pipeline template tool registration to `solune/backend/src/services/mcp_server/server.py` — during server creation, query pipeline configurations from DB (`DIFFICULTY_PRESET_MAP` pattern from `agent_tools.py`). For each preset, dynamically register a convenience tool (e.g., `launch_easy_pipeline(project_id, description)`) using closures and `mcp.tool()` API. Each delegates to `launch_pipeline` with the preset's pipeline ID. (FR-029, FR-030)
+- [x] T034 [US5] Create `solune/backend/src/services/mcp_server/resources.py` — register three MCP resource templates using `@mcp.resource()`: `solune://projects/{project_id}/pipelines` (returns pipeline states JSON), `solune://projects/{project_id}/board` (returns board state JSON), `solune://projects/{project_id}/activity` (returns recent activity JSON). Each handler validates project access and delegates to existing services. (FR-031)
+- [x] T035 [US5] Add resource change notification hooks — integrate with the existing `ConnectionManager.broadcast_to_project()` in `solune/backend/src/services/websocket.py`: when a board update or pipeline state change is broadcast via WebSocket, also call `ctx.session.send_resource_updated(uri)` for MCP subscribers. Guard with feature flag check (`if settings.mcp_server_enabled`). (FR-032, FR-033)
+- [x] T036 [US5] Register resource templates in `solune/backend/src/services/mcp_server/server.py` — import `resources.py` and register all resource handlers on the FastMCP instance
+- [x] T037 [US5] Add dynamic pipeline template tool registration to `solune/backend/src/services/mcp_server/server.py` — during server creation, query pipeline configurations from DB (`DIFFICULTY_PRESET_MAP` pattern from `agent_tools.py`). For each preset, dynamically register a convenience tool (e.g., `launch_easy_pipeline(project_id, description)`) using closures and `mcp.tool()` API. Each delegates to `launch_pipeline` with the preset's pipeline ID. (FR-029, FR-030)
 
 **Checkpoint**: User Story 5 complete — real-time subscriptions and pipeline template tools active
 
@@ -158,10 +158,10 @@
 
 ### Implementation for User Story 6
 
-- [ ] T038 [US6] Create `solune/backend/src/services/mcp_server/prompts.py` — register three MCP prompt templates using `@mcp.prompt()`: `create-project` (guided project creation flow with optional `project_name` arg), `pipeline-status` (check running pipelines with optional `project_id` arg), `daily-standup` (summarize recent activity with optional `days` arg). Each returns structured messages per the MCP prompt protocol. (FR-036)
-- [ ] T039 [US6] Register prompt templates in `solune/backend/src/services/mcp_server/server.py` — import `prompts.py` and register all prompt handlers on the FastMCP instance. Verify `instructions` parameter is set on `FastMCP` with a rich description of Solune's capabilities. (FR-034, FR-035)
-- [ ] T040 [US6] Add MCP configuration endpoint — create `GET /api/v1/mcp/config` route (in `solune/backend/src/main.py` or a new `solune/backend/src/api/mcp_config.py`). Returns JSON: `{server_name, url, transport: "streamable-http", auth: {type: "bearer", description: "..."}}`. No authentication required. (FR-037)
-- [ ] T041 [P] [US6] Create or update `.vscode/mcp.json` in the repository root — add Solune MCP server entry: `{servers: {solune: {type: "http", url: "http://localhost:8000/api/v1/mcp", headers: {Authorization: "Bearer ${input:github_pat}"}}}}` for local development
+- [x] T038 [US6] Create `solune/backend/src/services/mcp_server/prompts.py` — register three MCP prompt templates using `@mcp.prompt()`: `create-project` (guided project creation flow with optional `project_name` arg), `pipeline-status` (check running pipelines with optional `project_id` arg), `daily-standup` (summarize recent activity with optional `days` arg). Each returns structured messages per the MCP prompt protocol. (FR-036)
+- [x] T039 [US6] Register prompt templates in `solune/backend/src/services/mcp_server/server.py` — import `prompts.py` and register all prompt handlers on the FastMCP instance. Verify `instructions` parameter is set on `FastMCP` with a rich description of Solune's capabilities. (FR-034, FR-035)
+- [x] T040 [US6] Add MCP configuration endpoint — create `GET /api/v1/mcp/config` route (in `solune/backend/src/main.py` or a new `solune/backend/src/api/mcp_config.py`). Returns JSON: `{server_name, url, transport: "streamable-http", auth: {type: "bearer", description: "..."}}`. No authentication required. (FR-037)
+- [x] T041 [P] [US6] Create or update `.vscode/mcp.json` in the repository root — add Solune MCP server entry: `{servers: {solune: {type: "http", url: "http://localhost:8000/api/v1/mcp", headers: {Authorization: "Bearer ${input:github_pat}"}}}}` for local development
 
 **Checkpoint**: User Story 6 complete — full self-documentation, prompt workflows, and configuration discovery
 
@@ -171,12 +171,12 @@
 
 **Purpose**: Integration testing, documentation, and validation across all stories
 
-- [ ] T042 Create `solune/backend/tests/integration/test_mcp_e2e.py` — integration test: MCP client connects to the mounted server, authenticates with a GitHub PAT, lists tools (verify 22+ tools), calls `list_projects`, `get_board`, `launch_pipeline`. Test auth scoping (user without project access gets rejected). Mock GitHub API for token verification
-- [ ] T043 [P] Update `solune/backend/src/services/mcp_server/__init__.py` — verify all public exports are correct: `create_mcp_server()`, `get_mcp_app()`. Add module-level docstring documenting the MCP server package purpose and architecture
-- [ ] T044 [P] Document shared service layer architecture — add comments or docstring in `solune/backend/src/services/mcp_server/server.py` explicitly documenting that MCP tools, REST API endpoints, and internal `@tool` functions all delegate to the same `GitHubProjectsService`, `WorkflowOrchestrator`, `ChatAgentService`, etc. (FR-038, FR-039, per Phase 7 of plan)
-- [ ] T045 Run quickstart.md validation — verify all steps in `specs/001-mcp-server/quickstart.md`: enable feature flag, install dependency, start server, connect MCP client, verify tool discovery and invocation. Fix any discrepancies
-- [ ] T046 [P] Security review — verify token hashing uses SHA-256 (not plaintext), cache entries are properly evicted, rate limiting is enforced, no raw tokens are logged, project access is checked on every project-scoped tool
-- [ ] T047 Code cleanup — ensure consistent error handling across all tools (descriptive errors for auth failure, access denied, project not found, tool execution failure), verify all tools have rich docstrings for auto-generated JSON Schema
+- [x] T042 Create `solune/backend/tests/integration/test_mcp_e2e.py` — integration test: MCP client connects to the mounted server, authenticates with a GitHub PAT, lists tools (verify 22+ tools), calls `list_projects`, `get_board`, `launch_pipeline`. Test auth scoping (user without project access gets rejected). Mock GitHub API for token verification
+- [x] T043 [P] Update `solune/backend/src/services/mcp_server/__init__.py` — verify all public exports are correct: `create_mcp_server()`, `get_mcp_app()`. Add module-level docstring documenting the MCP server package purpose and architecture
+- [x] T044 [P] Document shared service layer architecture — add comments or docstring in `solune/backend/src/services/mcp_server/server.py` explicitly documenting that MCP tools, REST API endpoints, and internal `@tool` functions all delegate to the same `GitHubProjectsService`, `WorkflowOrchestrator`, `ChatAgentService`, etc. (FR-038, FR-039, per Phase 7 of plan)
+- [x] T045 Run quickstart.md validation — verify all steps in `specs/001-mcp-server/quickstart.md`: enable feature flag, install dependency, start server, connect MCP client, verify tool discovery and invocation. Fix any discrepancies
+- [x] T046 [P] Security review — verify token hashing uses SHA-256 (not plaintext), cache entries are properly evicted, rate limiting is enforced, no raw tokens are logged, project access is checked on every project-scoped tool
+- [x] T047 Code cleanup — ensure consistent error handling across all tools (descriptive errors for auth failure, access denied, project not found, tool execution failure), verify all tools have rich docstrings for auto-generated JSON Schema
 
 ---
 
