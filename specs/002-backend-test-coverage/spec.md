@@ -36,7 +36,7 @@ As a developer, I need comprehensive tests for the project management layer so t
 1. **Given** the external service returns a 403 status with a rate-limit-remaining header of zero, **When** the system processes this response, **Then** rate limiting is correctly detected and handled gracefully.
 2. **Given** the external service returns a 403 status with an empty rate limit dictionary, **When** the system processes this response, **Then** the system does not falsely trigger rate limit handling.
 3. **Given** the task retrieval service encounters an exception, **When** the fallback mechanism activates, **Then** the system retrieves completed items from the local cache instead.
-4. **Given** the project list cache is empty (empty list vs. None), **When** a project listing is requested, **Then** the system distinguishes between "no projects" and "cache not populated" and behaves appropriately for each case.
+4. **Given** the project list cache contains a falsy value (empty list or None), **When** a project listing is requested, **Then** the system treats both as a cache miss and fetches fresh data from the API.
 5. **Given** a non-rate-limit error occurs during project listing, **When** the fallback activates, **Then** the system uses the appropriate error handling path without triggering rate limit logic.
 6. **Given** a requested project is not in the cached project list, **When** the system looks up the project, **Then** it handles the miss gracefully.
 7. **Given** a project refresh is requested but an error occurs, **When** the refresh=True parameter is used, **Then** the system handles the error and falls back appropriately.
@@ -104,7 +104,7 @@ As a developer, I need comprehensive tests for the chores (scheduled tasks) serv
 **Acceptance Scenarios**:
 
 1. **Given** preset chores already exist, **When** the seeding process runs again, **Then** it is idempotent and does not create duplicates.
-2. **Given** the preset file is unreadable, **When** seeding is attempted, **Then** the system handles the file read failure gracefully.
+2. **Given** the preset file is unreadable, **When** seeding is attempted, **Then** the file read error propagates as an exception (the implementation does not suppress file I/O failures).
 3. **Given** the system has 3 built-in presets, **When** seeding completes successfully, **Then** all 3 presets are present with unique identifiers.
 4. **Given** a chore update with inconsistent schedule parameters, **When** validation runs, **Then** the inconsistency is rejected with a clear error.
 5. **Given** a chore update with boolean values where integer values are expected, **When** the update is processed, **Then** boolean values are correctly converted to integers.
