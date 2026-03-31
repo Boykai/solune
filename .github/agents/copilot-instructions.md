@@ -270,6 +270,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite (settings.db — sessions, pipeline configs, MCP tool configs, conversation history) (001-intelligent-chat-agent)
 - Python >=3.12 (pyright target: py313) + FastAPI >=0.135.0, pytest >=9.0.0, pytest-asyncio >=1.3.0, aiosqlite >=0.22.0, githubkit >=0.14.6, pydantic >=2.12.0 (002-backend-test-coverage)
 - SQLite via aiosqlite (settings.db — projects, agent configs, chores, MCP tool configs) (002-backend-test-coverage)
+- Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
+- In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
 - Python ≥3.12 (targets 3.13 for ruff/pyright, 3.14-slim in Docker) + FastAPI ≥0.135.0, mcp ≥1.26.0 (new), httpx ≥0.28.0, pydantic ≥2.12.0, aiosqlite ≥0.22.0 (001-mcp-server)
 - SQLite via aiosqlite (existing `settings.db`; pipeline states, MCP configs, session data) (001-mcp-server)
 - Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
