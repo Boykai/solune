@@ -39,6 +39,8 @@ A floating chat panel is available on every page, accessible from the bottom-rig
 - **Attach files** — drag or paste files into the chat for context
 - **Review proposals** — when an agent proposes an issue or status change, you can accept or reject it directly in the chat
 
+For the full chat feature guide, see [Chat](chat.md).
+
 ## Command Palette
 
 Press **Ctrl+K** (or **Cmd+K** on Mac) to open the Command Palette. This is the fastest way to get around Solune.
