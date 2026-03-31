@@ -27,7 +27,6 @@ function slugifyHeading(heading: string): string {
   return heading
     .trim()
     .toLowerCase()
-    .replace(/<[^>]+>/g, '')
     .replace(/[`*_~]/g, '')
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-');
