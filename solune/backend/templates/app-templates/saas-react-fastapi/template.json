@@ -1,0 +1,43 @@
+{
+  "id": "saas-react-fastapi",
+  "name": "SaaS \u2014 React + FastAPI",
+  "description": "Full-stack SaaS application with React frontend and FastAPI backend, including user auth scaffolding and PostgreSQL integration.",
+  "category": "saas",
+  "difficulty": "L",
+  "tech_stack": ["react", "fastapi", "postgresql"],
+  "scaffold_type": "starter",
+  "recommended_preset_id": "hard",
+  "iac_target": "azure",
+  "files": [
+    {
+      "source": "files/backend/main.py.tmpl",
+      "target": "backend/main.py",
+      "variables": ["app_name", "description", "port"]
+    },
+    {
+      "source": "files/backend/requirements.txt.tmpl",
+      "target": "backend/requirements.txt",
+      "variables": []
+    },
+    {
+      "source": "files/frontend/App.tsx.tmpl",
+      "target": "frontend/src/App.tsx",
+      "variables": ["app_name", "description"]
+    },
+    {
+      "source": "files/frontend/package.json.tmpl",
+      "target": "frontend/package.json",
+      "variables": ["app_name"]
+    },
+    {
+      "source": "files/README.md.tmpl",
+      "target": "README.md",
+      "variables": ["app_name", "description"]
+    },
+    {
+      "source": "files/docker-compose.yml.tmpl",
+      "target": "docker-compose.yml",
+      "variables": ["app_name", "port"]
+    }
+  ]
+}

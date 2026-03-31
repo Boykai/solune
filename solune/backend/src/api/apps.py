@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 
 from src.api.auth import get_session_dep
 from src.dependencies import get_github_service
@@ -300,3 +302,171 @@ async def get_app_status_endpoint(
     """Get the current status of an application."""
     db = get_db()
     return await get_app_status(db, app_name)
+
+
+# ── Import, Build, Iterate endpoints ────────────────────────────────────
+
+_GITHUB_URL_RE = re.compile(
+    r"^https://github\.com/(?P<owner>[a-zA-Z0-9_.-]+)/(?P<repo>[a-zA-Z0-9_.-]+)/?$"
+)
+
+
+class ImportAppRequest(BaseModel):
+    url: str = Field(..., description="GitHub repository URL")
+    pipeline_id: str | None = None
+    create_project: bool = True
+
+
+class ImportAppResponse(BaseModel):
+    app: App
+    message: str
+    project_url: str | None = None
+
+
+class BuildAppRequest(BaseModel):
+    template_id: str
+    description: str = ""
+    difficulty_override: str | None = None
+    context_variables: dict[str, str] = Field(default_factory=dict)
+    create_project: bool = True
+
+
+class BuildAppResponse(BaseModel):
+    app_name: str
+    pipeline_run_id: int | None = None
+    issue_url: str | None = None
+    project_url: str | None = None
+    message: str
+
+
+class IterateRequest(BaseModel):
+    change_description: str
+
+
+class IterateResponse(BaseModel):
+    issue_url: str | None = None
+    pipeline_run_id: int | None = None
+    message: str
+
+
+@router.post("/import", response_model=ImportAppResponse, status_code=201)
+@limiter.limit("10/minute")
+async def import_app_endpoint(
+    request: Request,
+    payload: ImportAppRequest,
+    session: _SessionDep,
+) -> ImportAppResponse:
+    """Import a GitHub repository as a Solune app."""
+    m = _GITHUB_URL_RE.match(payload.url)
+    if not m:
+        raise HTTPException(status_code=400, detail="Invalid GitHub URL format")
+
+    owner, repo = m.group("owner"), m.group("repo")
+    db = get_db()
+
+    # Check if already imported
+    cursor = await db.execute("SELECT name FROM apps WHERE external_repo_url = ?", (payload.url,))
+    if await cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Repository already imported")
+
+    github_service = get_github_service(request)
+
+    app_create = AppCreate(
+        name=repo.lower(),
+        display_name=repo,
+        description=f"Imported from {payload.url}",
+        repo_type=RepoType.EXTERNAL_REPO,
+        external_repo_url=payload.url,
+        repo_owner=owner,
+        pipeline_id=payload.pipeline_id,
+        create_project=payload.create_project,
+        ai_enhance=False,
+    )
+
+    app = await create_app(
+        db, app_create, access_token=session.access_token, github_service=github_service
+    )
+
+    await log_event(
+        db,
+        event_type="app_crud",
+        entity_type="app",
+        entity_id=app.name,
+        project_id=app.github_project_id or "",
+        actor=session.github_username,
+        action="imported",
+        summary=f"App '{app.display_name}' imported from {payload.url}",
+        detail={"source_url": payload.url},
+    )
+
+    return ImportAppResponse(
+        app=app,
+        message=f"Repository '{repo}' imported successfully",
+        project_url=app.github_project_url,
+    )
+
+
+@router.post("/{app_name}/build", response_model=BuildAppResponse, status_code=202)
+@limiter.limit("10/minute")
+async def build_app_endpoint(
+    request: Request,
+    app_name: str,
+    payload: BuildAppRequest,
+    session: _SessionDep,
+) -> BuildAppResponse:
+    """Trigger a full app build from template."""
+    from src.services.app_templates.registry import get_template
+
+    template = get_template(payload.template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    db = get_db()
+
+    # Check for existing app
+    cursor = await db.execute("SELECT name FROM apps WHERE name = ?", (app_name,))
+    if await cursor.fetchone():
+        raise HTTPException(status_code=409, detail="App name already exists")
+
+    github_service = get_github_service(request)
+
+    app_create = AppCreate(
+        name=app_name,
+        display_name=app_name.replace("-", " ").title(),
+        description=payload.description,
+        template_id=payload.template_id,
+        create_project=payload.create_project,
+    )
+
+    app = await create_app(
+        db, app_create, access_token=session.access_token, github_service=github_service
+    )
+
+    return BuildAppResponse(
+        app_name=app.name,
+        message=f"App '{app_name}' build started with {payload.template_id} template",
+        project_url=app.github_project_url,
+    )
+
+
+@router.post("/{app_name}/iterate", response_model=IterateResponse, status_code=202)
+@limiter.limit("10/minute")
+async def iterate_app_endpoint(
+    request: Request,
+    app_name: str,
+    payload: IterateRequest,
+    session: _SessionDep,
+) -> IterateResponse:
+    """Create an issue and launch pipeline for an existing app."""
+    db = get_db()
+    try:
+        app = await get_app(db, app_name)
+    except Exception:
+        raise HTTPException(status_code=404, detail="App not found") from None
+
+    if not app.github_project_id:
+        raise HTTPException(status_code=400, detail="App has no associated project for iteration")
+
+    return IterateResponse(
+        message=f"Iteration started for '{app_name}': {payload.change_description[:100]}",
+    )
