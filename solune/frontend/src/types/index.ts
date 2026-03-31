@@ -9,7 +9,7 @@ export type ProjectType = 'organization' | 'user' | 'repository';
 
 export type SenderType = 'user' | 'assistant' | 'system';
 
-export type ActionType = 'task_create' | 'status_update' | 'project_select' | 'issue_create' | 'pipeline_launch';
+export type ActionType = 'task_create' | 'status_update' | 'project_select' | 'issue_create' | 'pipeline_launch' | 'plan_create';
 
 export type ProposalStatus = 'pending' | 'confirmed' | 'edited' | 'cancelled';
 
@@ -116,12 +116,76 @@ export interface PipelineLaunchActionData {
   stages: string[];
 }
 
+// ============ Plan Mode Types ============
+
+export type PlanStatus = 'draft' | 'approved' | 'completed' | 'failed';
+export type ThinkingPhase = 'researching' | 'planning' | 'refining';
+
+export interface ThinkingEvent {
+  phase: ThinkingPhase;
+  detail: string;
+}
+
+export interface PlanStep {
+  step_id: string;
+  position: number;
+  title: string;
+  description: string;
+  dependencies: string[];
+  issue_number?: number;
+  issue_url?: string;
+}
+
+export interface Plan {
+  plan_id: string;
+  session_id: string;
+  title: string;
+  summary: string;
+  status: PlanStatus;
+  project_id: string;
+  project_name: string;
+  repo_owner: string;
+  repo_name: string;
+  parent_issue_number?: number;
+  parent_issue_url?: string;
+  steps: PlanStep[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanCreateActionData {
+  plan_id: string;
+  title: string;
+  summary: string;
+  status: PlanStatus;
+  project_id: string;
+  project_name: string;
+  repo_owner: string;
+  repo_name: string;
+  steps: PlanStep[];
+}
+
+export interface PlanApprovalResponse {
+  plan_id: string;
+  status: PlanStatus;
+  parent_issue_number?: number;
+  parent_issue_url?: string;
+  steps: PlanStep[];
+}
+
+export interface PlanExitResponse {
+  message: string;
+  plan_id: string;
+  plan_status: PlanStatus;
+}
+
 export type ActionData =
   | TaskCreateActionData
   | StatusUpdateActionData
   | ProjectSelectActionData
   | IssueCreateActionData
-  | PipelineLaunchActionData;
+  | PipelineLaunchActionData
+  | PlanCreateActionData;
 
 export type MessageStatus = 'pending' | 'sent' | 'failed';
 
