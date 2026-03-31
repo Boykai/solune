@@ -5717,7 +5717,7 @@ class TestPollLoop:
         await _poll_loop("tok", "P1", "o", "r", 60)
 
         assert _polling_state.errors_count == 1
-        assert _polling_state.last_error == "net err"
+        assert _polling_state.last_error == "Exception"
 
     @pytest.mark.asyncio
     async def test_not_running_exits_immediately(self):

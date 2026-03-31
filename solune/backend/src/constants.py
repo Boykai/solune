@@ -157,9 +157,12 @@ def cache_key_review_requested(issue_number: int, project_id: str = "") -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 # Canonical list of allowed issue labels.  IssueLabel enum in models/chat.py
 # is derived from this list — do NOT duplicate or redefine these values.
+#
+# Category sets below are the authoritative groupings used by the label
+# classifier prompt and validation logic.  When adding a new label, place it
+# in the appropriate category set *and* keep the flat LABELS list in sync.
 
-LABELS: list[str] = [
-    # Type labels (pick ONE primary type)
+TYPE_LABELS: set[str] = {
     "feature",
     "bug",
     "enhancement",
@@ -167,21 +170,34 @@ LABELS: list[str] = [
     "documentation",
     "testing",
     "infrastructure",
-    # Scope labels (pick all that apply)
+}
+
+SCOPE_LABELS: set[str] = {
     "frontend",
     "backend",
     "database",
     "api",
+}
+
+DOMAIN_LABELS: set[str] = {
+    "security",
+    "performance",
+    "accessibility",
+    "ux",
+}
+
+LABELS: list[str] = [
+    # Type labels (pick ONE primary type)
+    *sorted(TYPE_LABELS),
+    # Scope labels (pick all that apply)
+    *sorted(SCOPE_LABELS),
     # Status labels
     "ai-generated",
     "sub-issue",
     "good first issue",
     "help wanted",
     # Domain labels
-    "security",
-    "performance",
-    "accessibility",
-    "ux",
+    *sorted(DOMAIN_LABELS),
     # Pipeline state labels (dynamic prefixed labels are also valid)
     "active",
     "stalled",

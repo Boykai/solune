@@ -9,6 +9,9 @@ import type {
   IssueCreateActionData,
   WorkflowResult,
   StatusChangeProposal,
+  PlanCreateActionData,
+  PlanApprovalResponse,
+  ThinkingPhase,
 } from '@/types';
 import { MessageBubble } from './MessageBubble';
 import { SystemMessage } from './SystemMessage';
@@ -20,6 +23,8 @@ import { PipelineIndicator } from './PipelineIndicator';
 import { TaskPreview } from './TaskPreview';
 import { StatusChangePreview } from './StatusChangePreview';
 import { IssueRecommendationPreview } from './IssueRecommendationPreview';
+import { PlanPreview } from './PlanPreview';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { ChatToolbar } from './ChatToolbar';
 import { FilePreviewChips } from './FilePreviewChips';
 import { PipelineWarningBanner } from './PipelineWarningBanner';
@@ -32,7 +37,7 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useMentionAutocomplete } from '@/hooks/useMentionAutocomplete';
 import type { CommandDefinition } from '@/lib/commands/types';
-import { History, Mic } from '@/lib/icons';
+import { History, ListChecks, Mic } from '@/lib/icons';
 
 function formatDateSeparator(date: Date): string {
   const today = new Date();
@@ -67,6 +72,16 @@ interface ChatInterfaceProps {
   onRejectProposal: (proposalId: string) => void;
   onRejectRecommendation: (recommendationId: string) => Promise<void>;
   onNewChat: () => void;
+  /** Plan mode state */
+  thinkingPhase?: ThinkingPhase | null;
+  thinkingDetail?: string;
+  isPlanMode?: boolean;
+  planProjectName?: string;
+  onApprovePlan?: (planId: string) => Promise<PlanApprovalResponse>;
+  onExitPlanMode?: (planId: string) => Promise<void>;
+  approvedPlanData?: PlanApprovalResponse | null;
+  isApprovingPlan?: boolean;
+  approvePlanError?: string | null;
 }
 
 const AI_ENHANCE_STORAGE_KEY = 'chat-ai-enhance';
@@ -95,6 +110,15 @@ export function ChatInterface({
   onRejectProposal,
   onRejectRecommendation,
   onNewChat,
+  thinkingPhase,
+  thinkingDetail,
+  isPlanMode,
+  planProjectName,
+  onApprovePlan,
+  onExitPlanMode,
+  approvedPlanData,
+  isApprovingPlan,
+  approvePlanError,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
@@ -527,31 +551,61 @@ export function ChatInterface({
                     onReject={onRejectRecommendation}
                   />
                 )}
+
+                {message.action_type === 'plan_create' && message.action_data && (() => {
+                  const plan = message.action_data as PlanCreateActionData;
+                  const isCurrentPlan =
+                    approvedPlanData && approvedPlanData.plan_id === plan.plan_id;
+
+                  return (
+                    <PlanPreview
+                      plan={plan}
+                      onApprove={onApprovePlan}
+                      onExit={onExitPlanMode}
+                      onRequestChanges={() => mentionInputRef.current?.focus()}
+                      approvedData={isCurrentPlan ? approvedPlanData : undefined}
+                      isApproving={isCurrentPlan ? isApprovingPlan : false}
+                      approveError={isCurrentPlan ? approvePlanError : undefined}
+                    />
+                  );
+                })()}
               </div>
             );
           })
         )}
 
         {isSending && (
-          <div className="self-start ml-11">
-            <div className="flex gap-1 rounded-2xl border border-border bg-background/56 p-3">
-              <span
-                className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                style={{ animationDelay: '-0.32s' }}
-              ></span>
-              <span
-                className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                style={{ animationDelay: '-0.16s' }}
-              ></span>
-              <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></span>
+          thinkingPhase ? (
+            <ThinkingIndicator phase={thinkingPhase} detail={thinkingDetail} />
+          ) : (
+            <div className="self-start ml-11">
+              <div className="flex gap-1 rounded-2xl border border-border bg-background/56 p-3">
+                <span
+                  className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                  style={{ animationDelay: '-0.32s' }}
+                ></span>
+                <span
+                  className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                  style={{ animationDelay: '-0.16s' }}
+                ></span>
+                <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></span>
+              </div>
             </div>
-          </div>
+          )
         )}
 
         <div ref={messagesEndRef} />
       </div>
 
       {projectId && <PipelineWarningBanner projectId={projectId} />}
+
+      {isPlanMode && planProjectName && (
+        <div className="flex items-center gap-2 border-b border-primary/20 bg-primary/5 px-4 py-2 text-sm">
+          <ListChecks className="h-4 w-4 text-primary shrink-0" />
+          <span className="font-medium text-primary">Plan mode</span>
+          <span className="text-muted-foreground">&mdash; {planProjectName}</span>
+        </div>
+      )}
 
       <ChatToolbar
         aiEnhance={aiEnhance}

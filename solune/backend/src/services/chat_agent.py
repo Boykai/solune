@@ -26,8 +26,9 @@ from src.config import get_settings
 from src.logging_utils import get_logger
 from src.models.chat import ActionType, ChatMessage, SenderType
 from src.prompts.agent_instructions import build_system_instructions
+from src.prompts.plan_instructions import build_plan_instructions
 from src.services.agent_provider import create_agent
-from src.services.agent_tools import load_mcp_tools, register_tools
+from src.services.agent_tools import load_mcp_tools, register_plan_tools, register_tools
 from src.utils import utcnow
 
 logger = get_logger(__name__)
@@ -205,6 +206,7 @@ class ChatAgentService:
             max_sessions=settings.agent_max_concurrent_sessions,
         )
         self._tools = register_tools()
+        self._plan_tools = register_plan_tools()
         logger.info("ChatAgentService initialized with %d tools", len(self._tools))
 
     async def run(
@@ -271,6 +273,20 @@ class ChatAgentService:
                 "file_urls": file_urls or [],
             }
         )
+
+        # Auto-delegate to plan mode if the session is in plan mode
+        if agent_session.state.get("is_plan_mode"):
+            return await self.run_plan(
+                message=message,
+                session_id=session_id,
+                github_token=github_token,
+                project_name=project_name,
+                project_id=project_id,
+                available_statuses=available_statuses,
+                repo_owner=agent_session.state.get("repo_owner", ""),
+                repo_name=agent_session.state.get("repo_name", ""),
+                db=db,
+            )
 
         sid = str(session_id)
         try:
@@ -344,6 +360,22 @@ class ChatAgentService:
             }
         )
 
+        # Auto-delegate to plan mode if the session is in plan mode
+        if agent_session.state.get("is_plan_mode"):
+            async for event in self.run_plan_stream(
+                message=message,
+                session_id=session_id,
+                github_token=github_token,
+                project_name=project_name,
+                project_id=project_id,
+                available_statuses=available_statuses,
+                repo_owner=agent_session.state.get("repo_owner", ""),
+                repo_name=agent_session.state.get("repo_name", ""),
+                db=db,
+            ):
+                yield event
+            return
+
         try:
             accumulated_text = ""
             action_type = None
@@ -410,6 +442,231 @@ class ChatAgentService:
                 "event": "error",
                 "data": json.dumps({"error": str(e)}),
             }
+
+    # ── Plan mode methods ────────────────────────────────────────────────
+
+    async def run_plan(
+        self,
+        *,
+        message: str,
+        session_id: UUID,
+        github_token: str | None = None,
+        project_name: str = "Unknown Project",
+        project_id: str = "",
+        available_statuses: list[str] | None = None,
+        repo_owner: str = "",
+        repo_name: str = "",
+        db: Any | None = None,
+    ) -> ChatMessage:
+        """Run the plan-mode agent (non-streaming).
+
+        Sets ``is_plan_mode=True`` and ``repo_owner``/``repo_name`` in
+        session state so follow-up messages auto-delegate.
+        """
+        instructions = build_plan_instructions(
+            project_name=project_name,
+            project_id=project_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            available_statuses=available_statuses,
+        )
+
+        agent = await create_agent(
+            instructions=instructions,
+            tools=self._plan_tools,
+            github_token=github_token,
+        )
+
+        agent_session = await self._session_mapping.get_or_create(str(session_id))
+
+        # Inject plan-mode context
+        agent_session.state.update(
+            {
+                "project_name": project_name,
+                "project_id": project_id,
+                "available_statuses": available_statuses or [],
+                "github_token": github_token,
+                "session_id": str(session_id),
+                "is_plan_mode": True,
+                "repo_owner": repo_owner,
+                "repo_name": repo_name,
+                "db": db,
+            }
+        )
+
+        sid = str(session_id)
+        try:
+            response: AgentResponse = await agent.run(
+                message,
+                session=agent_session,
+            )
+            return self._convert_response(response, session_id)
+        except Exception as e:
+            logger.error("Plan agent run failed: %s", e, exc_info=True)
+            await self._session_mapping.invalidate(sid)
+            return ChatMessage(
+                session_id=session_id,
+                sender_type=SenderType.ASSISTANT,
+                content=f"I encountered an error in plan mode ({type(e).__name__}). Please try again.",
+            )
+
+    async def run_plan_stream(
+        self,
+        *,
+        message: str,
+        session_id: UUID,
+        github_token: str | None = None,
+        project_name: str = "Unknown Project",
+        project_id: str = "",
+        available_statuses: list[str] | None = None,
+        repo_owner: str = "",
+        repo_name: str = "",
+        db: Any | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Run the plan-mode agent in streaming mode with thinking events.
+
+        Yields SSE events including ``thinking`` events for phase-aware UI.
+        """
+        instructions = build_plan_instructions(
+            project_name=project_name,
+            project_id=project_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            available_statuses=available_statuses,
+        )
+
+        agent = await create_agent(
+            instructions=instructions,
+            tools=self._plan_tools,
+            github_token=github_token,
+        )
+
+        agent_session = await self._session_mapping.get_or_create(str(session_id))
+
+        # Determine thinking phase based on whether we are refining
+        is_refining = agent_session.state.get("active_plan_id") is not None
+
+        # Inject plan-mode context
+        agent_session.state.update(
+            {
+                "project_name": project_name,
+                "project_id": project_id,
+                "available_statuses": available_statuses or [],
+                "github_token": github_token,
+                "session_id": str(session_id),
+                "is_plan_mode": True,
+                "repo_owner": repo_owner,
+                "repo_name": repo_name,
+                "db": db,
+            }
+        )
+
+        try:
+            # Emit initial thinking event
+            if is_refining:
+                yield {
+                    "event": "thinking",
+                    "data": json.dumps(
+                        {
+                            "phase": "refining",
+                            "detail": "Incorporating your feedback…",
+                        }
+                    ),
+                }
+            else:
+                yield {
+                    "event": "thinking",
+                    "data": json.dumps(
+                        {
+                            "phase": "researching",
+                            "detail": "Analyzing project context…",
+                        }
+                    ),
+                }
+
+            accumulated_text = ""
+            action_type = None
+            action_data = None
+            planning_event_emitted = False
+
+            stream = agent.run(
+                message,
+                stream=True,
+                session=agent_session,
+            )
+            async for update in stream:
+                update_text = _extract_text(update)
+                if update_text:
+                    # Emit planning phase on first text output
+                    if not planning_event_emitted and not is_refining:
+                        yield {
+                            "event": "thinking",
+                            "data": json.dumps(
+                                {
+                                    "phase": "planning",
+                                    "detail": "Drafting implementation plan…",
+                                }
+                            ),
+                        }
+                        planning_event_emitted = True
+                    accumulated_text += update_text
+                    yield {"event": "token", "data": json.dumps({"content": update_text})}
+
+                current_action_type, current_action_data = _extract_action_payload(update)
+                if current_action_type:
+                    action_type = current_action_type
+                    action_data = current_action_data
+                    yield {
+                        "event": "tool_result",
+                        "data": json.dumps(
+                            {
+                                "action_type": action_type,
+                                "action_data": action_data,
+                            }
+                        ),
+                    }
+
+            if hasattr(stream, "get_final_response"):
+                final_response = await stream.get_final_response()
+                if not accumulated_text:
+                    accumulated_text = final_response.text
+
+            # Fallback: extract tool result from accumulated text
+            if action_type is None and accumulated_text:
+                try:
+                    parsed = json.loads(accumulated_text)
+                    if isinstance(parsed, dict) and "action_type" in parsed:
+                        action_type = parsed["action_type"]
+                        action_data = parsed.get("action_data")
+                        accumulated_text = parsed.get("content", accumulated_text)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            final_msg = ChatMessage(
+                session_id=session_id,
+                sender_type=SenderType.ASSISTANT,
+                content=accumulated_text or "I processed your plan request.",
+                action_type=ActionType(action_type) if action_type else None,
+                action_data=action_data,
+            )
+            yield {
+                "event": "done",
+                "data": final_msg.model_dump_json(),
+            }
+
+        except Exception as e:
+            logger.error("Plan agent stream failed: %s", e, exc_info=True)
+            await self._session_mapping.invalidate(str(session_id))
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)}),
+            }
+
+    async def exit_plan_mode(self, session_id: UUID) -> None:
+        """Clear plan-mode state from the agent session."""
+        agent_session = await self._session_mapping.get_or_create(str(session_id))
+        agent_session.state.pop("is_plan_mode", None)
+        agent_session.state.pop("active_plan_id", None)
 
     def _convert_response(self, response: AgentResponse, session_id: UUID) -> ChatMessage:
         """Convert an AgentResponse into a ChatMessage.

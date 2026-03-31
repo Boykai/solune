@@ -9,7 +9,9 @@ import pytest
 from src.services.copilot_polling.auto_merge import (
     AutoMergeResult,
     _attempt_auto_merge,
+    _auto_merge_retry_loop,
     dispatch_devops_agent,
+    schedule_auto_merge_retry,
 )
 
 
@@ -406,3 +408,220 @@ class TestAutoMergeResult:
         result = AutoMergeResult(status="merge_failed", error="Branch protection")
         assert result.status == "merge_failed"
         assert result.error == "Branch protection"
+
+
+class TestScheduleAutoMergeRetry:
+    """Tests for schedule_auto_merge_retry()."""
+
+    def test_schedules_retry_when_not_pending(self):
+        """Should schedule a retry task and return True."""
+        with patch(
+            "src.services.copilot_polling.auto_merge.asyncio.create_task"
+        ) as mock_create_task:
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(999, None)
+
+            result = schedule_auto_merge_retry(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=999,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            assert result is True
+            mock_create_task.assert_called_once()
+            # Clean up
+            _pending_auto_merge_retries.pop(999, None)
+
+    def test_skips_when_already_pending(self):
+        """Should skip and return False if a retry is already pending."""
+        from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+        _pending_auto_merge_retries[999] = 1
+
+        with patch(
+            "src.services.copilot_polling.auto_merge.asyncio.create_task"
+        ) as mock_create_task:
+            result = schedule_auto_merge_retry(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=999,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            assert result is False
+            mock_create_task.assert_not_called()
+
+        # Clean up
+        _pending_auto_merge_retries.pop(999, None)
+
+
+class TestAutoMergeRetryLoop:
+    """Tests for _auto_merge_retry_loop()."""
+
+    @pytest.mark.asyncio
+    async def test_retry_succeeds_on_second_attempt(self, mock_service, mock_ws):
+        """retry_later then merged → success on attempt 2."""
+        results = iter(
+            [
+                AutoMergeResult(
+                    status="retry_later",
+                    pr_number=42,
+                    context={"reason": "checks_pending"},
+                ),
+                AutoMergeResult(
+                    status="merged",
+                    pr_number=42,
+                    merge_commit="abc123",
+                ),
+            ]
+        )
+
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                side_effect=lambda **_: next(results),
+            ) as mock_attempt,
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+            patch(
+                "src.services.copilot_polling.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.services.copilot_polling.github_projects_service") as svc,
+        ):
+            svc.update_item_status_by_name = AsyncMock()
+            svc.update_issue_state = AsyncMock()
+
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            assert mock_attempt.await_count == 2
+            # First delay = 60s, second delay = 120s
+            assert mock_sleep.await_count == 2
+            assert mock_sleep.await_args_list[0][0][0] == 60.0
+            assert mock_sleep.await_args_list[1][0][0] == 120.0
+            # Should have broadcast auto_merge_completed
+            broadcast_calls = mock_ws.broadcast_to_project.call_args_list
+            completed_events = [
+                c for c in broadcast_calls if c[0][1].get("type") == "auto_merge_completed"
+            ]
+            assert len(completed_events) == 1
+            # Tracking cleaned up
+            assert 42 not in _pending_auto_merge_retries
+
+    @pytest.mark.asyncio
+    async def test_retry_exhausted_broadcasts_failure(self, mock_ws):
+        """All retries return retry_later → broadcasts failure."""
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                return_value=AutoMergeResult(
+                    status="retry_later",
+                    pr_number=42,
+                    context={"reason": "checks_pending"},
+                ),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            # Should broadcast auto_merge_failed
+            broadcast_calls = mock_ws.broadcast_to_project.call_args_list
+            failed_events = [
+                c for c in broadcast_calls if c[0][1].get("type") == "auto_merge_failed"
+            ]
+            assert len(failed_events) == 1
+            assert "retry" in failed_events[0][0][1]["error"].lower()
+            # Tracking cleaned up
+            assert 42 not in _pending_auto_merge_retries
+
+    @pytest.mark.asyncio
+    async def test_retry_devops_needed_dispatches_and_stops(self, mock_service, mock_ws):
+        """retry_later then devops_needed → dispatches devops and stops retrying."""
+        results = iter(
+            [
+                AutoMergeResult(
+                    status="retry_later",
+                    pr_number=42,
+                    context={"reason": "checks_pending"},
+                ),
+                AutoMergeResult(
+                    status="devops_needed",
+                    pr_number=42,
+                    context={"reason": "ci_failure", "failed_checks": []},
+                ),
+            ]
+        )
+
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            return_value=("ISSUE_NODE_ID", "ITEM_ID")
+        )
+        mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                side_effect=lambda **_: next(results),
+            ) as mock_attempt,
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            assert mock_attempt.await_count == 2
+            mock_service.assign_copilot_to_issue.assert_awaited_once()
+            assert 42 not in _pending_auto_merge_retries

@@ -1597,5 +1597,5 @@ async def check_issue_for_copilot_completion(
         return {
             "status": "error",
             "issue_number": issue_number,
-            "error": str(e),
+            "error": "Failed to check issue completion",
         }

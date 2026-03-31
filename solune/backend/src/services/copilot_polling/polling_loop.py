@@ -490,9 +490,9 @@ async def _poll_loop(
                 continue
 
         except Exception as e:
-            logger.error("Error in polling loop: %s", e)
+            logger.error("Error in polling loop: %s", e, exc_info=True)
             _polling_state.errors_count += 1
-            _polling_state.last_error = str(e)
+            _polling_state.last_error = type(e).__name__
 
             # If the error came from a rate-limit 403, the cached headers
             # may show remaining=0 with a reset_at that is already past

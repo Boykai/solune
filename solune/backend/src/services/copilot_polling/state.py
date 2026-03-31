@@ -198,6 +198,15 @@ _merge_failure_counts: BoundedDict[int, int] = BoundedDict(
 )  # issue_number -> consecutive failure count
 MAX_MERGE_RETRIES: int = 3
 
+# Auto-merge retry tracking: when _attempt_auto_merge returns "retry_later"
+# (e.g. CI still running), we schedule delayed retries.  This dict prevents
+# unbounded retries and allows deduplication.
+_pending_auto_merge_retries: BoundedDict[int, int] = BoundedDict(
+    maxlen=200
+)  # issue_number -> attempt count so far
+MAX_AUTO_MERGE_RETRIES: int = 3
+AUTO_MERGE_RETRY_BASE_DELAY: float = 60.0  # seconds; doubles each attempt
+
 # Delay (seconds) after merging / before status updates to let GitHub sync.
 POST_ACTION_DELAY_SECONDS: float = 2.0
 
