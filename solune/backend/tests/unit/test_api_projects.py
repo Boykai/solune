@@ -16,7 +16,6 @@ import pytest
 from githubkit.exception import PrimaryRateLimitExceeded, RequestFailed
 
 from src.api.projects import _is_github_rate_limit_error, _start_copilot_polling
-from src.exceptions import GitHubAPIError
 from src.models.project import GitHubProject, StatusColumn
 from src.models.task import Task
 
@@ -380,7 +379,7 @@ class TestRateLimitDetection:
             assert _is_github_rate_limit_error(exc) is False
 
 
-# ── GET /projects/{id}/tasks – fallback paths ─────────────────────────────
+# ── GET /projects/{id}/tasks - fallback paths ─────────────────────────────
 
 
 class TestGetProjectTasksFallback:
@@ -415,9 +414,7 @@ class TestGetProjectTasksFallback:
         assert len(data["tasks"]) == 1
         assert data["tasks"][0]["title"] == "Done task"
 
-    async def test_api_failure_and_empty_done_items_reraises(
-        self, client, mock_github_service
-    ):
+    async def test_api_failure_and_empty_done_items_reraises(self, client, mock_github_service):
         """T011: cached_fetch raises + get_done_items() returns [] → re-raises."""
         with (
             patch(
@@ -435,15 +432,13 @@ class TestGetProjectTasksFallback:
             await client.get("/api/v1/projects/PVT_abc/tasks")
 
 
-# ── GET /projects – cache edge cases ──────────────────────────────────────
+# ── GET /projects - cache edge cases ──────────────────────────────────────
 
 
 class TestListProjectsCacheEdgeCases:
     """T012-T014: edge cases around cache truthiness and stale fallback."""
 
-    async def test_empty_list_is_falsy_triggers_api_call(
-        self, client, mock_github_service
-    ):
+    async def test_empty_list_is_falsy_triggers_api_call(self, client, mock_github_service):
         """T012: cache returns [] (falsy) → API call triggered."""
         p = _project()
         mock_github_service.list_user_projects.return_value = [p]
@@ -454,9 +449,7 @@ class TestListProjectsCacheEdgeCases:
         assert resp.status_code == 200
         mock_github_service.list_user_projects.assert_called_once()
 
-    async def test_cache_returns_none_triggers_api_call(
-        self, client, mock_github_service
-    ):
+    async def test_cache_returns_none_triggers_api_call(self, client, mock_github_service):
         """T013: cache returns None → API call triggered."""
         mock_github_service.list_user_projects.return_value = []
         with patch("src.api.projects.cache") as mock_cache:
@@ -465,9 +458,7 @@ class TestListProjectsCacheEdgeCases:
         assert resp.status_code == 200
         mock_github_service.list_user_projects.assert_called_once()
 
-    async def test_non_rate_limit_error_with_stale_fallback(
-        self, client, mock_github_service
-    ):
+    async def test_non_rate_limit_error_with_stale_fallback(self, client, mock_github_service):
         """T014: Non-rate-limit error with stale cache available → stale served."""
         p = _project(name="Stale Project")
         mock_github_service.list_user_projects.side_effect = RuntimeError("network")
@@ -479,9 +470,7 @@ class TestListProjectsCacheEdgeCases:
         assert resp.status_code == 200
         assert resp.json()["projects"][0]["name"] == "Stale Project"
 
-    async def test_non_rate_limit_error_no_stale_raises(
-        self, client, mock_github_service
-    ):
+    async def test_non_rate_limit_error_no_stale_raises(self, client, mock_github_service):
         """Non-rate-limit error + no stale cache → raises GitHubAPIError."""
         mock_github_service.list_user_projects.side_effect = RuntimeError("network")
         mock_github_service.get_last_rate_limit.return_value = None
@@ -492,7 +481,7 @@ class TestListProjectsCacheEdgeCases:
         assert resp.status_code == 502
 
 
-# ── GET /projects/{id} – cache edge cases ─────────────────────────────────
+# ── GET /projects/{id} - cache edge cases ─────────────────────────────────
 
 
 class TestGetProjectCacheEdgeCases:
@@ -507,9 +496,7 @@ class TestGetProjectCacheEdgeCases:
             resp = await client.get("/api/v1/projects/PVT_missing")
         assert resp.status_code == 404
 
-    async def test_api_error_propagated_through_get_project(
-        self, client, mock_github_service
-    ):
+    async def test_api_error_propagated_through_get_project(self, client, mock_github_service):
         """T016: refresh=True via get_project but API error → error propagated."""
         mock_github_service.list_user_projects.side_effect = RuntimeError("boom")
         mock_github_service.get_last_rate_limit.return_value = None
@@ -562,7 +549,11 @@ class TestWebSocketSubscribe:
         t = _task()
 
         with (
-            patch("src.api.projects.get_current_session", new_callable=AsyncMock, return_value=mock_session),
+            patch(
+                "src.api.projects.get_current_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
             patch("src.api.projects.cache") as mock_cache,
             patch("src.api.projects.github_projects_service", mock_github_service),
             patch("src.api.projects.connection_manager", mock_websocket_manager),
@@ -580,8 +571,6 @@ class TestWebSocketSubscribe:
     ):
         """T018: After STALE_REVALIDATION_LIMIT stale cache returns,
         the websocket's send_tasks triggers a fresh API fetch."""
-        import asyncio
-
         from fastapi import WebSocketDisconnect
 
         from src.api.projects import websocket_subscribe
@@ -614,13 +603,17 @@ class TestWebSocketSubscribe:
         mock_ws.receive_json = mock_receive
 
         with (
-            patch("src.api.projects.get_current_session", new_callable=AsyncMock, return_value=mock_session),
+            patch(
+                "src.api.projects.get_current_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
             patch("src.api.projects.cache") as mock_cache,
             patch("src.api.projects.github_projects_service", mock_github_service),
             patch("src.api.projects.connection_manager", mock_websocket_manager),
         ):
             mock_cache.get.side_effect = [
-                [p],   # project access check (list of projects)
+                [p],  # project access check (list of projects)
                 None,  # send_tasks initial force_refresh → cache miss
                 None,  # periodic send_tasks → cache miss
             ]

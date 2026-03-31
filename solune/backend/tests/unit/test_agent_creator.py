@@ -878,7 +878,6 @@ class TestStatusResolution:
         """Typing an out-of-range number returns a helpful error."""
         # First trigger the ambiguous prompt by providing a status that matches
         # two columns.
-        from src.services.agent_creator import _agent_sessions
 
         result = await handle_agent_command(
             message="#agent My agent #review",
@@ -1265,9 +1264,7 @@ class TestAIServiceFailures:
         assert state_after.preview.name == original_name
 
     # T033
-    async def test_ai_returns_string_tools_defaults_to_empty(
-        self, admin_db: aiosqlite.Connection
-    ):
+    async def test_ai_returns_string_tools_defaults_to_empty(self, admin_db: aiosqlite.Connection):
         """When AI returns a non-list for tools, it defaults to empty list."""
         with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
             svc = AsyncMock()
