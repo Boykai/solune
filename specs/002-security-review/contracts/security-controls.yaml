@@ -1,0 +1,349 @@
+# Security Controls Contract
+#
+# Documents the security control interfaces, behavioral requirements,
+# and verification criteria for the Security, Privacy & Vulnerability Audit.
+# Defined as OpenAPI-style YAML for consistency with the speckit workflow.
+
+openapi: "3.1.0"
+info:
+  title: Solune Security Controls
+  version: "1.0.0"
+  description: >
+    Security control contracts for the 21 OWASP findings across authentication,
+    authorization, cryptography, transport security, rate limiting, data protection,
+    error handling, container hardening, and supply-chain controls.
+
+components:
+  schemas:
+    SessionCookie:
+      type: object
+      description: Session cookie configuration for OAuth callback
+      required:
+        - httponly
+        - samesite
+        - secure
+        - max_age
+      properties:
+        httponly:
+          type: boolean
+          const: true
+          description: Cookie inaccessible to JavaScript (prevents XSS token theft)
+        samesite:
+          type: string
+          const: strict
+          description: Prevents CSRF via cross-origin navigation
+        secure:
+          type: boolean
+          description: >
+            Must be true in production. Auto-detected from FRONTEND_URL scheme.
+            Startup fails in production if not set.
+        max_age:
+          type: integer
+          description: Cookie lifetime in seconds (default 8 hours = 28800)
+          default: 28800
+
+    ProductionSecretsValidation:
+      type: object
+      description: Required secrets validated at startup in non-debug mode
+      required:
+        - encryption_key
+        - github_webhook_secret
+        - session_secret_key
+        - admin_github_user_id
+      properties:
+        encryption_key:
+          type: string
+          description: >
+            Fernet base64 key for encrypting OAuth tokens at rest.
+            Must be set in production; missing key halts startup.
+        github_webhook_secret:
+          type: string
+          description: >
+            Secret for HMAC-SHA256 webhook signature verification.
+            Must be set in production; missing secret halts startup.
+        session_secret_key:
+          type: string
+          minLength: 64
+          description: >
+            Session signing key. Minimum 64 characters enforced always
+            (both debug and production modes).
+        admin_github_user_id:
+          type: integer
+          minimum: 1
+          description: >
+            Numeric GitHub user ID for admin access.
+            Must be > 0 in production.
+
+    ProjectAccessVerification:
+      type: object
+      description: Centralized project ownership check
+      required:
+        - project_id
+        - session
+      properties:
+        project_id:
+          type: string
+          description: GitHub Projects V2 node ID
+        session:
+          $ref: "#/components/schemas/UserSession"
+      x-behavior:
+        method: verify_project_access
+        file: src/dependencies.py
+        check: >
+          Calls github_projects_service.list_user_projects(access_token, username)
+          and confirms project_id is in the returned list.
+        on_failure: >
+          Raises AuthorizationError (HTTP 403 Forbidden).
+          WebSocket connections rejected before any data transmission.
+
+    UserSession:
+      type: object
+      required:
+        - session_id
+        - github_user_id
+        - access_token
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        github_user_id:
+          type: integer
+        github_username:
+          type: string
+        access_token:
+          type: string
+          description: Fernet-encrypted GitHub OAuth token
+        selected_project_id:
+          type: string
+          nullable: true
+
+    RateLimitResponse:
+      type: object
+      description: Response when rate limit exceeded
+      properties:
+        detail:
+          type: string
+          example: Rate limit exceeded
+        retry_after:
+          type: integer
+          description: Seconds until rate limit window resets
+
+    SecurityHeaders:
+      type: object
+      description: Required HTTP security headers on all frontend responses
+      required:
+        - content_security_policy
+        - strict_transport_security
+        - referrer_policy
+        - permissions_policy
+        - x_content_type_options
+        - x_frame_options
+      properties:
+        content_security_policy:
+          type: string
+          description: "CSP restricting script/style/img sources"
+          example: "default-src 'self'; script-src 'self'; img-src 'self' https://avatars.githubusercontent.com data:; connect-src 'self' ws: wss:"
+        strict_transport_security:
+          type: string
+          description: HSTS with 1-year max-age
+          example: "max-age=31536000"
+        referrer_policy:
+          type: string
+          example: "strict-origin-when-cross-origin"
+        permissions_policy:
+          type: string
+          description: Disable unnecessary browser APIs
+          example: "camera=(), microphone=(), geolocation=()"
+        x_content_type_options:
+          type: string
+          const: nosniff
+        x_frame_options:
+          type: string
+          const: SAMEORIGIN
+      x-absent-headers:
+        - X-XSS-Protection  # Deprecated; must NOT be present
+      x-server-tokens:
+        value: "off"
+        description: nginx must not disclose version in Server header
+
+  x-service-interfaces:
+    encryption_service:
+      module: src.services.encryption
+      class: EncryptionService
+      methods:
+        encrypt:
+          signature: "def encrypt(self, plaintext: str) -> str"
+          description: Encrypts a string using Fernet (AES-128 + HMAC)
+          guarantees:
+            - Returns URL-safe base64 Fernet token
+            - Raises ValueError if ENCRYPTION_KEY not configured (production)
+        decrypt:
+          signature: "def decrypt(self, ciphertext: str) -> str"
+          description: Decrypts a Fernet token back to plaintext
+          guarantees:
+            - Detects legacy plaintext tokens (gho_, ghp_, ghr_ prefixes) and returns as-is
+            - Raises ValueError on corrupted ciphertext
+            - Logs warning for plaintext fallback
+
+    verify_project_access:
+      module: src.dependencies
+      signature: |
+        async def verify_project_access(
+            request: Request,
+            project_id: str,
+            session: UserSession,
+        ) -> None
+      description: >
+        Centralized project ownership verification. Must be called by every
+        endpoint that accepts a project identifier.
+      raises:
+        - AuthorizationError (403) if user does not have access
+      applied_to:
+        - src/api/tasks.py (all task CRUD endpoints)
+        - src/api/projects.py (project list/detail endpoints)
+        - src/api/workflow.py (workflow configuration endpoints)
+        - src/api/agents.py (agent invocation endpoints)
+        - src/api/chat.py (chat endpoints)
+        - src/api/activity.py (activity feed endpoints)
+        - src/api/board.py (board endpoints)
+        - src/api/pipelines.py (pipeline endpoints)
+
+    webhook_verification:
+      module: src.api.webhooks
+      methods:
+        verify_webhook_signature:
+          signature: |
+            def verify_webhook_signature(
+                payload: bytes, signature: str | None, secret: str
+            ) -> bool
+          description: >
+            HMAC-SHA256 signature verification for GitHub webhooks.
+            Uses hmac.compare_digest() for constant-time comparison.
+          guarantees:
+            - Always performs verification (never conditional on DEBUG)
+            - Returns False for missing/invalid signatures
+        signal_webhook_verify:
+          description: >
+            Signal webhook secret comparison using hmac.compare_digest().
+            Located in src/api/signal.py.
+
+  x-behavioral-contracts:
+    authentication:
+      session_delivery:
+        method: HttpOnly cookie only
+        never_in: [URL parameters, response body, JavaScript-accessible storage]
+        verification: "After login, no credentials appear in browser URL bar, history, or access logs"
+
+      dev_login:
+        method: POST body (JSON) only
+        never_in: [URL query parameters]
+        restricted_to: DEBUG mode only (returns 404 in production)
+
+    startup_validation:
+      non_debug_mode:
+        - ENCRYPTION_KEY must be set (else ValueError with generation hint)
+        - GITHUB_WEBHOOK_SECRET must be set
+        - SESSION_SECRET_KEY >= 64 characters
+        - cookie_secure=true OR FRONTEND_URL starts with https://
+        - ADMIN_GITHUB_USER_ID > 0
+        - DATABASE_PATH must be absolute path
+      always:
+        - SESSION_SECRET_KEY >= 64 characters
+
+    container_security:
+      frontend:
+        user: nginx-app (non-root)
+        base_image: nginx:alpine
+        verification: "docker exec <container> id returns non-root UID"
+      backend:
+        user: appuser (non-root)
+        base_image: python:3.14-slim
+        verification: "docker exec <container> id returns non-root UID"
+
+    database_permissions:
+      directory: "0700 (owner read/write/execute only)"
+      file: "0600 (owner read/write only)"
+      path: "/var/lib/solune/data/ (outside application root)"
+
+    rate_limiting:
+      library: slowapi
+      key_resolution:
+        - "user:{github_user_id} (primary)"
+        - "user:{session_id} (fallback)"
+        - "ip:{remote_addr} (unauthenticated)"
+      on_exceed: HTTP 429 Too Many Requests
+      endpoints:
+        - path: /api/v1/auth/github/callback
+          limit: "20/minute per IP"
+        - path: /api/v1/chat/*
+          limit: Per-user configured limit
+        - path: /api/v1/agents/*
+          limit: Per-user configured limit
+
+    cors_validation:
+      format: Comma-separated URLs
+      each_origin: Must have scheme (http/https) + hostname
+      on_malformed: Startup failure with error message
+
+    network_binding:
+      development: "127.0.0.1 only (all services)"
+      production: "Services behind reverse proxy; no direct port exposure"
+
+    client_storage:
+      chat_messages:
+        storage: React state (memory only)
+        never_in: [localStorage, sessionStorage, IndexedDB]
+        on_logout: All client state cleared + legacy localStorage removed
+
+    error_sanitization:
+      github_api_errors:
+        client_response: Generic sanitized message only
+        server_log: Full error details for debugging
+        never_expose: [query structure, token scopes, stack traces]
+
+    avatar_validation:
+      protocol: HTTPS only
+      allowed_hosts: ["avatars.githubusercontent.com"]
+      on_failure: Placeholder SVG displayed
+
+    github_actions:
+      default_permissions: "{} (deny all)"
+      job_permissions: "Minimum required with justification"
+
+  x-verification-checklist:
+    - id: V-001
+      check: "After login, no credentials appear in browser URL bar, history, or access logs"
+      finding: "#1 Session token in URL"
+    - id: V-002
+      check: "Backend refuses to start in non-debug mode without ENCRYPTION_KEY set"
+      finding: "#2 At-rest encryption not enforced"
+    - id: V-003
+      check: "docker exec into frontend container — id returns non-root UID"
+      finding: "#3 Frontend container runs as root"
+    - id: V-004
+      check: "Authenticated request with unowned project_id returns 403"
+      finding: "#4 Project resources not scoped"
+    - id: V-005
+      check: "WebSocket connection to unowned project rejected before data sent"
+      finding: "#4 Project resources not scoped (WebSocket)"
+    - id: V-006
+      check: "All webhook secret comparisons use constant-time function"
+      finding: "#5 Timing attack on Signal webhook"
+    - id: V-007
+      check: "curl -I frontend returns CSP, HSTS, Referrer-Policy; no nginx version"
+      finding: "#6 Missing HTTP security headers"
+    - id: V-008
+      check: "After rate limit threshold, expensive endpoints return 429"
+      finding: "#11 No rate limiting"
+    - id: V-009
+      check: "After logout, localStorage contains no message content"
+      finding: "#18 Chat history in localStorage"
+    - id: V-010
+      check: "DB directory permissions 0700; file permissions 0600"
+      finding: "#15 SQLite world-readable"
+    - id: V-011
+      check: "OAuth scopes do not include broad repo (or justified if retained)"
+      finding: "#8 Overly broad repo scope"
+    - id: V-012
+      check: "Dev login rejects credentials in URL query parameters"
+      finding: "#7 Dev endpoint accepts PAT in URL"
