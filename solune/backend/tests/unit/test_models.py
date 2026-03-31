@@ -451,6 +451,117 @@ class TestPipelineStateGroupProperties:
         )
         assert ps.current_agent is None
 
+    def test_current_agents_parallel_returns_all(self):
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1",
+                execution_mode="parallel",
+                agents=["linter", "archivist", "judge"],
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["linter", "archivist", "judge"],
+            groups=groups,
+        )
+        assert ps.current_agents == ["linter", "archivist", "judge"]
+
+    def test_current_agents_sequential_returns_single(self):
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1",
+                execution_mode="sequential",
+                agents=["specify", "plan", "implement"],
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["specify", "plan", "implement"],
+            groups=groups,
+            current_agent_index_in_group=1,
+        )
+        assert ps.current_agents == ["plan"]
+
+    def test_current_agents_empty_group_skipped(self):
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(group_id="g1", execution_mode="sequential", agents=[]),
+            PipelineGroupInfo(
+                group_id="g2",
+                execution_mode="parallel",
+                agents=["linter", "judge"],
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["linter", "judge"],
+            groups=groups,
+            current_group_index=0,
+        )
+        assert ps.current_agents == ["linter", "judge"]
+
+    def test_current_agents_flat_fallback(self):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["speckit.specify", "speckit.plan"],
+        )
+        assert ps.current_agents == ["speckit.specify"]
+
+    def test_is_complete_sequential_group_done(self):
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1",
+                execution_mode="sequential",
+                agents=["a1", "a2"],
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2"],
+            groups=groups,
+            current_agent_index_in_group=2,
+        )
+        assert ps.is_complete is True
+
+    def test_is_complete_sequential_group_not_done(self):
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1",
+                execution_mode="sequential",
+                agents=["a1", "a2", "a3"],
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2", "a3"],
+            groups=groups,
+            current_agent_index_in_group=1,
+        )
+        assert ps.is_complete is False
+
 
 class TestPipelineGroupInfo:
     """Tests for PipelineGroupInfo dataclass."""

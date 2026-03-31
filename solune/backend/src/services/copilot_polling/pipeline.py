@@ -668,15 +668,12 @@ async def _process_pipeline_completion(
             task_title=task.title,
         )
 
-    # Check if current agent has completed
-    # Iterate through ALL active agents in the group
-    # Phase 2: Iterate through ALL active agents in the group
+    # Check if current agent(s) have completed — iterate ALL agents in the
+    # current group so parallel groups are fully checked each polling cycle.
     for agent in pipeline.current_agents:
-        # Skip if already terminal in this cycle
         if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
             continue
 
-        # Check if THIS specific agent is finished
         completed = await _cp._check_agent_done_on_sub_or_parent(
             access_token=access_token,
             owner=task_owner,
@@ -687,8 +684,6 @@ async def _process_pipeline_completion(
         )
 
         if completed:
-            # Advance specifically for THIS agent.
-            # _advance_pipeline handles marking the agent done.
             await _advance_pipeline(
                 access_token=access_token,
                 project_id=project_id,
@@ -703,143 +698,117 @@ async def _process_pipeline_completion(
                 task_title=task.title,
             )
 
-        if completed:
-            return await _advance_pipeline(
-                access_token=access_token,
-                project_id=project_id,
-                item_id=task.github_item_id,
-                owner=task_owner,
-                repo=task_repo,
-                issue_number=task.issue_number,
-                issue_node_id=task.github_content_id,
-                pipeline=pipeline,
-                from_status=from_status,
-                to_status=to_status,
-                task_title=task.title,
+    # ── Recovery: check if any current agents were never assigned. ──
+    # After a container restart the very first agent in the pipeline may
+    # never have been assigned (or its assignment was lost).  The
+    # grace-period, tracking-table, and in-memory pending checks below
+    # still prevent premature or duplicate assignments.
+
+    # Grace period: if the pipeline was started or last advanced recently,
+    # Copilot likely hasn't created its WIP PR yet.  Skip the expensive
+    # "agent never assigned" checks to avoid duplicate assignments.
+    if pipeline.started_at:
+        age = (utcnow() - pipeline.started_at).total_seconds()
+        if age < ASSIGNMENT_GRACE_PERIOD_SECONDS:
+            logger.debug(
+                "Issue #%d within grace period (%.0fs / %ds) — waiting",
+                task.issue_number,
+                age,
+                ASSIGNMENT_GRACE_PERIOD_SECONDS,
             )
+            return None
 
-        # If current agent hasn't completed, check if it was ever assigned.
-        # First, consult the tracking table in the issue body — this is the
-        # durable source of truth and survives server restarts.
-        # NOTE: We intentionally do NOT require `pipeline.completed_agents`
-        # here.  After a container restart the very first agent in the
-        # pipeline may never have been assigned (or its assignment was lost).
-        # Gating on `completed_agents` would silently skip it because there
-        # are no prior completions.  The grace-period, tracking-table, and
-        # in-memory pending checks below still prevent premature or duplicate
-        # assignments for freshly-started pipelines.
-        if not completed:
-            # ── Grace period: if the pipeline was started or last advanced
-            # recently, Copilot likely hasn't created its WIP PR yet.
-            # Skip the expensive "agent never assigned" checks to avoid
-            # duplicate assignments.
-            if pipeline.started_at:
-                age = (utcnow() - pipeline.started_at).total_seconds()
-                if age < ASSIGNMENT_GRACE_PERIOD_SECONDS:
-                    logger.debug(
-                        "Issue #%d within grace period (%.0fs / %ds) — waiting",
-                        task.issue_number,
-                        age,
-                        ASSIGNMENT_GRACE_PERIOD_SECONDS,
-                    )
-                    return None
+    # Check the issue body tracking table once (expensive API call)
+    body, _comments = await _cp._get_tracking_state_from_issue(
+        access_token=access_token,
+        owner=task_owner,
+        repo=task_repo,
+        issue_number=task.issue_number,
+    )
+    tracking_step = _cp.get_current_agent_from_tracking(body)
 
-            # Check the issue body tracking table once (expensive API call)
-            body, _comments = await _cp._get_tracking_state_from_issue(
-                access_token=access_token,
-                owner=task_owner,
-                repo=task_repo,
-                issue_number=task.issue_number,
+    # Loop over ALL current agents for "agent never assigned" recovery.
+    # For parallel groups this reassigns every unassigned agent; for
+    # sequential groups this iterates exactly once.
+    for agent in pipeline.current_agents:
+        if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
+            continue
+
+        # Check if this agent is active in the tracking table
+        if tracking_step and tracking_step.agent_name == agent:
+            logger.debug(
+                "Agent '%s' is 🔄 Active in issue #%d tracking table — waiting",
+                agent,
+                task.issue_number,
             )
-            tracking_step = _cp.get_current_agent_from_tracking(body)
+            continue
 
-            # Loop over ALL parallel agents for "agent never assigned" recovery
-            for agent in pipeline.current_agents:
-                # 1. Skip agents that are already finished
-                if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
-                    continue
+        # Check the in-memory pending set for THIS specific agent
+        pending_key = f"{task.issue_number}:{agent}"
+        pending_ts = _pending_agent_assignments.get(pending_key)
 
-                # 2. Check if this agent is active in the tracking table
-                if tracking_step and tracking_step.agent_name == agent:
-                    logger.debug(
-                        "Agent '%s' is 🔄 Active in issue #%d tracking table — waiting",
-                        agent,
-                        task.issue_number,
-                    )
-                    continue
+        if pending_ts is not None:
+            logger.debug(
+                "Agent '%s' already assigned for issue #%d (in-memory, %.0fs ago), waiting for Copilot to start working",
+                agent,
+                task.issue_number,
+                (utcnow() - pending_ts).total_seconds(),
+            )
+            continue
 
-                # 3. Check the in-memory pending set for THIS specific agent
-                pending_key = f"{task.issue_number}:{agent}"
-                pending_ts = _pending_agent_assignments.get(pending_key)
+        # All durable and in-memory indicators agree that the agent was
+        # never assigned — assign it now.  Dedup guards inside
+        # assign_agent_for_status prevent duplicate assignments.
+        logger.info(
+            "Agent '%s' was never assigned for issue #%d "
+            "(tracking=Pending, no pending flag, grace period elapsed) "
+            "— assigning now",
+            agent,
+            task.issue_number,
+        )
+        orchestrator = _cp.get_workflow_orchestrator()
+        ctx = _cp.WorkflowContext(
+            session_id="polling",
+            project_id=project_id,
+            access_token=access_token,
+            repository_owner=task_owner,
+            repository_name=task_repo,
+            issue_id=task.github_content_id,
+            issue_number=task.issue_number,
+            project_item_id=task.github_item_id,
+            current_state=_cp.WorkflowState.READY,
+        )
+        ctx.config = await _cp.get_workflow_config(project_id)
 
-                if pending_ts is not None:
-                    logger.debug(
-                        "Agent '%s' already assigned for issue #%d (in-memory, %.0fs ago), waiting for Copilot to start working",
-                        agent,
-                        task.issue_number,
-                        (utcnow() - pending_ts).total_seconds(),
-                    )
-                    continue
+        # Prefer pipeline.original_status for agent lookup.
+        # When external automation moved the issue (e.g. Ready → In
+        # Progress), from_status may reflect the updated board status,
+        # but the pipeline's agents belong to the ORIGINAL status.
+        effective_assign_status = pipeline.original_status or from_status
 
-                # At this point, all durable and in-memory indicators agree
-                # that the agent was never assigned:
-                #   - No Done! marker exists (checked above)
-                #   - Tracking table shows ⏳ Pending, not 🔄 Active
-                #   - No in-memory pending assignment flag
-                #   - Grace period has elapsed
-                # Assign the agent now.  Dedup guards inside
-                # assign_agent_for_status prevent duplicate assignments
-                # even in edge cases.
-                logger.info(
-                    "Agent '%s' was never assigned for issue #%d "
-                    "(tracking=Pending, no pending flag, grace period elapsed) "
-                    "— assigning now",
-                    agent,
-                    task.issue_number,
-                )
-                orchestrator = _cp.get_workflow_orchestrator()
-                ctx = _cp.WorkflowContext(
-                    session_id="polling",
-                    project_id=project_id,
-                    access_token=access_token,
-                    repository_owner=task_owner,
-                    repository_name=task_repo,
-                    issue_id=task.github_content_id,
-                    issue_number=task.issue_number,
-                    project_item_id=task.github_item_id,
-                    current_state=_cp.WorkflowState.READY,
-                )
-                ctx.config = await _cp.get_workflow_config(project_id)
+        # Check rate limit budget before assignment
+        if await _wait_if_rate_limited(
+            f"first-agent assignment '{agent}' on issue #{task.issue_number}"
+        ):
+            return None  # Defer to next polling cycle
 
-                # Prefer pipeline.original_status for agent lookup.
-                # When external automation moved the issue (e.g. Ready → In
-                # Progress), from_status may reflect the updated board status,
-                # but the pipeline's agents belong to the ORIGINAL status.
-                effective_assign_status = pipeline.original_status or from_status
-
-                # Check rate limit budget before assignment
-                if await _wait_if_rate_limited(
-                    f"first-agent assignment '{agent}' on issue #{task.issue_number}"
-                ):
-                    return None  # Defer to next polling cycle
-
-                try:
-                    # Find the flat index for this specific agent
-                    agent_flat_idx = pipeline.agents.index(agent)
-                    assigned = await orchestrator.assign_agent_for_status(
-                        ctx, effective_assign_status, agent_index=agent_flat_idx
-                    )
-                    if assigned:
-                        _pending_agent_assignments[pending_key] = utcnow()
-                        return {
-                            "status": "success",
-                            "issue_number": task.issue_number,
-                            "action": "agent_assigned_after_reconstruction",
-                            "agent_name": agent,
-                            "from_status": from_status,
-                        }
-                except ValueError:
-                    continue
+        try:
+            # Find the flat index for this specific agent
+            agent_flat_idx = pipeline.agents.index(agent)
+            assigned = await orchestrator.assign_agent_for_status(
+                ctx, effective_assign_status, agent_index=agent_flat_idx
+            )
+            if assigned:
+                _pending_agent_assignments[pending_key] = utcnow()
+                return {
+                    "status": "success",
+                    "issue_number": task.issue_number,
+                    "action": "agent_assigned_after_reconstruction",
+                    "agent_name": agent,
+                    "from_status": from_status,
+                }
+        except ValueError:
+            continue
 
     return None
 

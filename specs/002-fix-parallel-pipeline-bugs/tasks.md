@@ -37,11 +37,11 @@
 
 **⚠️ CRITICAL**: US1 and US3 cannot begin until `current_agents` property is implemented and tested.
 
-- [ ] T001 Add `current_agents` property to `PipelineState` class in `solune/backend/src/services/workflow_orchestrator/models.py` (~line 193, after `current_agent`). Parallel groups return all agents; sequential returns single-element list; empty groups are skipped; non-grouped pipelines fall back to `[current_agent]`. Return type: `list[str]`. See `contracts/pipeline-state.yaml` for behavioral contract and `quickstart.md` Change A for reference implementation.
-- [ ] T002 [P] Add test `test_current_agents_parallel_returns_all` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a parallel group containing 3 agents (`["linter", "archivist", "judge"]`). Assert `current_agents` returns all 3 agents. Place near existing group tests (~line 348-450).
-- [ ] T003 [P] Add test `test_current_agents_sequential_returns_single` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a sequential group containing 3 agents and `current_agent_index_in_group = 1`. Assert `current_agents` returns `["plan"]` (single-element list with agent at index 1).
-- [ ] T004 [P] Add test `test_current_agents_empty_group_skipped` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` where the current group has an empty agents list, followed by a non-empty group. Assert `current_agents` skips the empty group and returns agents from the next non-empty group.
-- [ ] T005 [P] Add test `test_current_agents_flat_fallback` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with no groups configured (flat agent list). Assert `current_agents` returns `[current_agent]` as a single-element list.
+- [X] T001 Add `current_agents` property to `PipelineState` class in `solune/backend/src/services/workflow_orchestrator/models.py` (~line 193, after `current_agent`). Parallel groups return all agents; sequential returns single-element list; empty groups are skipped; non-grouped pipelines fall back to `[current_agent]`. Return type: `list[str]`. See `contracts/pipeline-state.yaml` for behavioral contract and `quickstart.md` Change A for reference implementation.
+- [X] T002 [P] Add test `test_current_agents_parallel_returns_all` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a parallel group containing 3 agents (`["linter", "archivist", "judge"]`). Assert `current_agents` returns all 3 agents. Place near existing group tests (~line 348-450).
+- [X] T003 [P] Add test `test_current_agents_sequential_returns_single` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a sequential group containing 3 agents and `current_agent_index_in_group = 1`. Assert `current_agents` returns `["plan"]` (single-element list with agent at index 1).
+- [X] T004 [P] Add test `test_current_agents_empty_group_skipped` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` where the current group has an empty agents list, followed by a non-empty group. Assert `current_agents` skips the empty group and returns agents from the next non-empty group.
+- [X] T005 [P] Add test `test_current_agents_flat_fallback` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with no groups configured (flat agent list). Assert `current_agents` returns `[current_agent]` as a single-element list.
 
 **Checkpoint**: `current_agents` property ready — `pytest tests/unit/test_models.py -v -k "current_agents"` passes. US1 and US3 can now proceed.
 
@@ -55,11 +55,11 @@
 
 ### Tests for User Story 1
 
-- [ ] T006 [US1] Add test `test_process_pipeline_completion_checks_all_parallel_agents` in `solune/backend/tests/unit/test_copilot_polling.py`. Create a pipeline with a parallel group of 3 agents. Mock `_check_agent_done_on_sub_or_parent` to return `True` for agent 2 only. Verify that the mock is called once for each of the 3 non-completed agents in a single polling cycle. Verify `_advance_pipeline` is called exactly once (for agent 2 only). Place near existing parallel tests (~line 3187-3449).
+- [X] T006 [US1] Add test `test_process_pipeline_completion_checks_all_parallel_agents` in `solune/backend/tests/unit/test_copilot_polling.py`. Create a pipeline with a parallel group of 3 agents. Mock `_check_agent_done_on_sub_or_parent` to return `True` for agent 2 only. Verify that the mock is called once for each of the 3 non-completed agents in a single polling cycle. Verify `_advance_pipeline` is called exactly once (for agent 2 only). Place near existing parallel tests (~line 3187-3449).
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Fix `_process_pipeline_completion` polling loop in `solune/backend/src/services/copilot_polling/pipeline.py` (~line 680). Replace single `current_agent` check with `for agent in pipeline.current_agents:` loop — skip completed/failed agents, check each via `_check_agent_done_on_sub_or_parent`, advance completed ones via `_advance_pipeline`. See `quickstart.md` Change C for before/after reference.
+- [X] T007 [US1] Fix `_process_pipeline_completion` polling loop in `solune/backend/src/services/copilot_polling/pipeline.py` (~line 680). Replace single `current_agent` check with `for agent in pipeline.current_agents:` loop — skip completed/failed agents, check each via `_check_agent_done_on_sub_or_parent`, advance completed ones via `_advance_pipeline`. See `quickstart.md` Change C for before/after reference.
 
 **Checkpoint**: Parallel polling fixed — `pytest tests/unit/test_copilot_polling.py -v -k "parallel"` passes. A parallel group of N agents now achieves ~1x slowest agent duration instead of N× sequential sum.
 
@@ -73,12 +73,12 @@
 
 ### Tests for User Story 2
 
-- [ ] T008 [P] [US2] Add test `test_is_complete_sequential_group_done` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a sequential group of 2 agents and set `current_agent_index_in_group = 2` (past end). Assert `is_complete` returns `True`.
-- [ ] T009 [P] [US2] Add test `test_is_complete_sequential_group_not_done` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a sequential group of 3 agents and set `current_agent_index_in_group = 1` (agents remain). Assert `is_complete` returns `False`.
+- [X] T008 [P] [US2] Add test `test_is_complete_sequential_group_done` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a sequential group of 2 agents and set `current_agent_index_in_group = 2` (past end). Assert `is_complete` returns `True`.
+- [X] T009 [P] [US2] Add test `test_is_complete_sequential_group_not_done` in `solune/backend/tests/unit/test_models.py`. Create a `PipelineState` with a sequential group of 3 agents and set `current_agent_index_in_group = 1` (agents remain). Assert `is_complete` returns `False`.
 
 ### Implementation for User Story 2
 
-- [ ] T010 [US2] Fix `is_complete` property in `PipelineState` in `solune/backend/src/services/workflow_orchestrator/models.py` (~line 217). In the sequential group branch, replace the unconditional `return False` with `return self.current_agent_index_in_group >= len(group.agents)`. This checks whether the agent index has advanced past all agents in the group. See `quickstart.md` Change B for before/after reference.
+- [X] T010 [US2] Fix `is_complete` property in `PipelineState` in `solune/backend/src/services/workflow_orchestrator/models.py` (~line 217). In the sequential group branch, replace the unconditional `return False` with `return self.current_agent_index_in_group >= len(group.agents)`. This checks whether the agent index has advanced past all agents in the group. See `quickstart.md` Change B for before/after reference.
 
 **Checkpoint**: Sequential completion fixed — `pytest tests/unit/test_models.py -v -k "complete"` passes. Sequential groups correctly signal completion, preventing pipeline stalls at group boundaries.
 
@@ -92,11 +92,11 @@
 
 ### Tests for User Story 3
 
-- [ ] T011 [US3] Add test `test_recovery_reassigns_all_unassigned_parallel_agents` in `solune/backend/tests/unit/test_copilot_polling.py`. Create a pipeline with a parallel group of 3 agents where none appear in the tracking table or pending cache. Mock `assign_agent_for_status`. Verify the recovery path calls the assignment function for all 3 agents. Also test the partial case: agent 1 is Active (in tracking table), agents 2 and 3 are unassigned — verify only agents 2 and 3 are reassigned.
+- [X] T011 [US3] Add test `test_recovery_reassigns_all_unassigned_parallel_agents` in `solune/backend/tests/unit/test_copilot_polling.py`. Create a pipeline with a parallel group of 3 agents where none appear in the tracking table or pending cache. Mock `assign_agent_for_status`. Verify the recovery path calls the assignment function for all 3 agents. Also test the partial case: agent 1 is Active (in tracking table), agents 2 and 3 are unassigned — verify only agents 2 and 3 are reassigned.
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Fix recovery path in `_process_pipeline_completion` in `solune/backend/src/services/copilot_polling/pipeline.py` (~line 710). Replace single `current_agent` reassignment check with `for agent in pipeline.current_agents:` loop — skip completed/failed agents, skip agents already Active in tracking table, skip agents in pending cache, reassign remaining via `assign_agent_for_status`. See `quickstart.md` Change D for before/after reference.
+- [X] T012 [US3] Fix recovery path in `_process_pipeline_completion` in `solune/backend/src/services/copilot_polling/pipeline.py` (~line 710). Replace single `current_agent` reassignment check with `for agent in pipeline.current_agents:` loop — skip completed/failed agents, skip agents already Active in tracking table, skip agents in pending cache, reassign remaining via `assign_agent_for_status`. See `quickstart.md` Change D for before/after reference.
 
 **Checkpoint**: Recovery path fixed — `pytest tests/unit/test_copilot_polling.py -v -k "recovery"` passes. After service restart, all parallel agents are recovered within a single recovery cycle.
 
@@ -106,9 +106,9 @@
 
 **Purpose**: Validate no regressions across the full test suite, verify property invariants hold, and run linting/type checks on modified files.
 
-- [ ] T013 [P] Run property invariant test suite: `cd solune/backend && uv run pytest tests/property/test_pipeline_state_machine.py -v` — verify all existing property-based invariants still hold with the new `current_agents` property and fixed `is_complete`.
-- [ ] T014 [P] Run lint and type checks on modified source files: `cd solune/backend && .venv/bin/ruff check src/services/workflow_orchestrator/models.py src/services/copilot_polling/pipeline.py && .venv/bin/ruff format --check src/services/workflow_orchestrator/models.py src/services/copilot_polling/pipeline.py && uv run pyright src/services/workflow_orchestrator/models.py`
-- [ ] T015 Run full regression test suite: `cd solune/backend && uv run pytest tests/unit/ tests/property/ -v --tb=short` — zero regressions expected. Sequential pipeline behavior must be unchanged (FR-008). Existing parallel tests must still pass (SC-005).
+- [X] T013 [P] Run property invariant test suite: `cd solune/backend && uv run pytest tests/property/test_pipeline_state_machine.py -v` — verify all existing property-based invariants still hold with the new `current_agents` property and fixed `is_complete`.
+- [X] T014 [P] Run lint and type checks on modified source files: `cd solune/backend && .venv/bin/ruff check src/services/workflow_orchestrator/models.py src/services/copilot_polling/pipeline.py && .venv/bin/ruff format --check src/services/workflow_orchestrator/models.py src/services/copilot_polling/pipeline.py && uv run pyright src/services/workflow_orchestrator/models.py`
+- [X] T015 Run full regression test suite: `cd solune/backend && uv run pytest tests/unit/ tests/property/ -v --tb=short` — zero regressions expected. Sequential pipeline behavior must be unchanged (FR-008). Existing parallel tests must still pass (SC-005).
 
 ---
 
