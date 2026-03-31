@@ -343,15 +343,25 @@ async def execute_pipeline_launch(
                 f"Issue description is too large for GitHub's {GITHUB_ISSUE_BODY_MAX_LENGTH}-character limit"
             )
 
-        issue_labels = ["ai-generated"]
+        issue_title = issue_title_override or _derive_issue_title(issue_description)
+
+        from src.services.label_classifier import classify_labels
+
+        issue_labels = await classify_labels(
+            title=issue_title,
+            description=issue_description,
+            github_token=session.access_token,
+        )
         if _pipeline_name:
-            issue_labels.append(build_pipeline_label(_pipeline_name))
+            pipeline_label = build_pipeline_label(_pipeline_name)
+            if pipeline_label not in issue_labels:
+                issue_labels.append(pipeline_label)
 
         issue = await github_projects_service.create_issue(
             access_token=session.access_token,
             owner=owner,
             repo=repo,
-            title=issue_title_override or _derive_issue_title(issue_description),
+            title=issue_title,
             body=issue_body,
             labels=issue_labels,
         )
