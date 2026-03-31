@@ -13,6 +13,9 @@ ALLOWLIST: set[tuple[str, str]] = {
     # services → api: signal integration bridges back into chat API
     ("src/services/signal_bridge.py", "src.api.chat"),
     ("src/services/signal_chat.py", "src.api.chat"),
+    # services → api: MCP launch_pipeline delegates to the shared pipeline
+    # orchestrator in api/pipelines.py — planned refactor to service layer.
+    ("src/services/mcp_server/tools/pipelines.py", "src.api.pipelines"),
 }
 
 

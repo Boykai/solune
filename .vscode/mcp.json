@@ -78,6 +78,13 @@
         "Azure.Bicep.McpServer",
         "--yes"
       ]
+    },
+    "solune": {
+      "type": "http",
+      "url": "http://localhost:8000/api/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:github_pat}"
+      }
     }
   },
   "inputs": [
@@ -85,6 +92,12 @@
       "id": "CONTEXT7_API_KEY",
       "type": "promptString",
       "description": "API key for authentication",
+      "password": true
+    },
+    {
+      "id": "github_pat",
+      "type": "promptString",
+      "description": "GitHub Personal Access Token for Solune MCP server",
       "password": true
     }
   ],
