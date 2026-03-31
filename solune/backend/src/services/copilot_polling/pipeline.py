@@ -669,16 +669,45 @@ async def _process_pipeline_completion(
         )
 
     # Check if current agent has completed
-    current_agent = pipeline.current_agent
-    if current_agent:
+    # Iterate through ALL active agents in the group
+    # Phase 2: Iterate through ALL active agents in the group
+    for agent in pipeline.current_agents:
+        # Skip if already terminal in this cycle
+        if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
+            continue
+
+        # Check if THIS specific agent is finished
         completed = await _cp._check_agent_done_on_sub_or_parent(
             access_token=access_token,
             owner=task_owner,
             repo=task_repo,
             parent_issue_number=task.issue_number,
-            agent_name=current_agent,
+            agent_name=agent,
             pipeline=pipeline,
         )
+
+        if completed:
+            # Advance specifically for THIS agent.
+            # _advance_pipeline handles marking the agent done.
+            await _advance_pipeline(
+                access_token=access_token,
+                project_id=project_id,
+                item_id=task.github_item_id,
+                owner=task_owner,
+                repo=task_repo,
+                issue_number=task.issue_number,
+                issue_node_id=task.github_content_id,
+                pipeline=pipeline,
+                from_status=from_status,
+                to_status=to_status,
+                task_title=task.title,
+            )
+
+        if completed:
+            # If one agent finishes, advance the pipeline for that specific agent
+            # The existing _advance_pipeline logic is already smart enough
+            # to handle parallel groups (it waits for everyone to be done).
+            await _cp._advance_pipeline(pipeline, agent)
 
         if completed:
             return await _advance_pipeline(
@@ -739,16 +768,39 @@ async def _process_pipeline_completion(
                 return None  # Already assigned, wait for it to finish
 
             # Also check in-memory pending set (belt and suspenders)
-            pending_key = f"{task.issue_number}:{current_agent}"
+            # Phase 2: Fix "agent never assigned" recovery path (loop over ALL parallel agents)
+        for agent in pipeline.current_agents:
+            # 1. Skip agents that are already finished
+            if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
+                continue
+
+            # 2. Check the in-memory pending set for THIS specific agent
+            pending_key = f"{task.issue_number}:{agent}"
             pending_ts = _pending_agent_assignments.get(pending_key)
+            
             if pending_ts is not None:
                 logger.debug(
                     "Agent '%s' already assigned for issue #%d (in-memory, %.0fs ago), waiting for Copilot to start working",
-                    current_agent,
+                    agent,
                     task.issue_number,
                     (utcnow() - pending_ts).total_seconds(),
                 )
-                return None
+                continue # Use continue inside the loop instead of return None
+
+            # ... Keep the rest of the checks (Grace period, Tracking table) ...
+            # IMPORTANT: Inside this loop, replace every mention of 'current_agent' with 'agent'
+            
+            # When you get to the actual assignment call:
+            try:
+                # Find the flat index for this specific agent
+                agent_flat_idx = pipeline.agents.index(agent)
+                assigned = await orchestrator.assign_agent_for_status(
+                    ctx, effective_assign_status, agent_index=agent_flat_idx
+                )
+                if assigned:
+                    _pending_agent_assignments[pending_key] = utcnow()
+            except ValueError:
+                continue
 
             # At this point, all durable and in-memory indicators agree
             # that the current agent was never assigned:
@@ -895,9 +947,9 @@ async def check_backlog_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking backlog issues: %s", e)
+        logger.error("Error checking backlog issues: %s", e, exc_info=True)
         _polling_state.errors_count += 1
-        _polling_state.last_error = str(e)
+        _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -988,9 +1040,9 @@ async def check_ready_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking ready issues: %s", e)
+        logger.error("Error checking ready issues: %s", e, exc_info=True)
         _polling_state.errors_count += 1
-        _polling_state.last_error = str(e)
+        _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -2868,9 +2920,9 @@ async def check_in_review_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking in-review issues: %s", e)
+        logger.error("Error checking in-review issues: %s", e, exc_info=True)
         _polling_state.errors_count += 1
-        _polling_state.last_error = str(e)
+        _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -3048,9 +3100,9 @@ async def check_in_progress_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking in-progress issues: %s", e)
+        logger.error("Error checking in-progress issues: %s", e, exc_info=True)
         _polling_state.errors_count += 1
-        _polling_state.last_error = str(e)
+        _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -3282,11 +3334,12 @@ async def process_in_progress_issue(
             "Error processing issue #%d: %s",
             issue_number,
             e,
+            exc_info=True,
         )
         return {
             "status": "error",
             "issue_number": issue_number,
-            "error": str(e),
+            "error": "Failed to process issue",
         }
 
 
