@@ -103,7 +103,7 @@ The chat page guide is the largest deliverable. Its structure follows the patter
 | Field | Value |
 |-------|-------|
 | Method | POST |
-| Path | `/chat/messages` (streaming) |
+| Path | `/chat/messages/stream` (streaming) |
 | Description | Send message with SSE streaming response (`ai_enhance=true` required) |
 
 ### New Subsections

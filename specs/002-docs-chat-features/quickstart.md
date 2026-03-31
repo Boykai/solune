@@ -36,18 +36,19 @@ This guide provides step-by-step instructions for implementing the documentation
 **Time estimate**: ~15 minutes
 **Spec coverage**: FR-002, FR-003, FR-004
 
-1. In the Chat section, update the POST /chat/messages row description to mention streaming, `ai_enhance`, `file_urls`, `pipeline_id`
-2. Update the GET /chat/messages row to note pagination (`limit`, `offset`)
-3. Add a `### Streaming` subsection after the endpoint table:
-   - SSE event types table: token, tool_call, tool_result, done, error
-   - Note: requires `ai_enhance=true`
-   - Note: rate limiting applies
-4. Add a `### File Upload Constraints` subsection:
+1. In the Chat section, update the `POST /chat/messages` (non-streaming) row description to mention synchronous responses, `ai_enhance`, `file_urls`, and `pipeline_id`, and to note that streaming responses use a separate `POST /chat/messages/stream` SSE endpoint
+2. Add or update the `POST /chat/messages/stream` row to document the SSE streaming endpoint, and cross-reference the `### Streaming` subsection for event types and behavior
+3. Update the `GET /chat/messages` row to note pagination (`limit`, `offset`)
+4. Add a `### Streaming` subsection after the endpoint table describing `POST /chat/messages/stream`:
+   - SSE event types table: `token`, `tool_call`, `tool_result`, `done`, `error`
+   - Note: `POST /chat/messages/stream` requires `ai_enhance=true` for model-generated content and streams partial results over SSE
+   - Note: rate limiting applies (10 streaming requests per minute)
+5. Add a `### File Upload Constraints` subsection:
    - Size: 10 MB per file
    - Count: 5 files per message
    - Types: allowed and blocked lists
    - Transcript: .vtt/.srt auto-detection
-5. Verify: New content follows existing table and subsection format
+6. Verify: New content follows existing table and subsection format
 
 ## Phase 3: Update Architecture Documentation
 

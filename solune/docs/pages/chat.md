@@ -133,7 +133,7 @@ The agent may propose changing the status of an existing issue. Review the propo
 
 ## Streaming Responses
 
-When AI Enhance is on, responses stream in real time — you see tokens appear as the agent generates them, rather than waiting for the full response.
+When AI Enhance is on, responses stream in real time via the `POST /chat/messages/stream` SSE endpoint — you see tokens appear as the agent generates them, rather than waiting for the full response. The non-streaming `POST /chat/messages` endpoint returns a single JSON response.
 
 **What you see during streaming:**
 
@@ -141,7 +141,7 @@ When AI Enhance is on, responses stream in real time — you see tokens appear a
 - **Tool call indicators** show when the agent is invoking a tool (e.g., searching issues, creating a task)
 - **Skeleton loading** displays a placeholder while the agent prepares its first token
 
-Streaming requires `ai_enhance=true`. When AI Enhance is off, responses arrive as a single complete message.
+Streaming uses the dedicated `POST /chat/messages/stream` endpoint with `ai_enhance=true`. When AI Enhance is off, the client uses the non-streaming `POST /chat/messages` endpoint and responses arrive as a single complete message.
 
 ## Markdown Rendering
 
