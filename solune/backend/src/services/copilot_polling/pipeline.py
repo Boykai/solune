@@ -729,7 +729,7 @@ async def _process_pipeline_completion(
                     age,
                     ASSIGNMENT_GRACE_PERIOD_SECONDS,
                 )
-                continue
+                return None  # Grace period is pipeline-wide; defer all agents
 
         # Check the issue body tracking table
         body, _comments = await _cp._get_tracking_state_from_issue(
@@ -817,6 +817,11 @@ async def _process_pipeline_completion(
                     "from_status": from_status,
                 }
         except ValueError:
+            logger.warning(
+                "Agent '%s' not found in pipeline.agents for issue #%d — skipping",
+                agent,
+                task.issue_number,
+            )
             continue
 
     return None
