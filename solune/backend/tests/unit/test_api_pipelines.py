@@ -82,6 +82,11 @@ class TestLaunchPipelineIssue:
             ),
             patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch(
+                "src.api.pipelines.classify_labels",
+                new_callable=AsyncMock,
+                return_value=["ai-generated", "enhancement", "backend"],
+            ),
             patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
             patch("src.api.pipelines.get_pipeline_state", return_value=None),
         ):
@@ -102,6 +107,12 @@ class TestLaunchPipelineIssue:
         _, kwargs = mock_github_service.create_issue.await_args
         assert kwargs["title"] == "Import this issue"
         assert "Carry over the original context." in kwargs["body"]
+        assert kwargs["labels"] == [
+            "ai-generated",
+            "enhancement",
+            "backend",
+            "pipeline:Imported Issue Pipeline",
+        ]
 
     @pytest.mark.anyio
     async def test_launch_rejects_whitespace_only_description(self, client, mock_db):

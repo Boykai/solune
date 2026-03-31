@@ -17,6 +17,7 @@ from agent_framework import FunctionInvocationContext, tool
 
 from src.config import get_settings
 from src.logging_utils import get_logger
+from src.services.label_classifier import classify_labels
 
 logger = get_logger(__name__)
 
@@ -389,6 +390,7 @@ async def create_project_issue(
     context: FunctionInvocationContext,
     title: str,
     body: str,
+    labels: list[str] | None = None,
 ) -> ToolResult:
     """Create a GitHub issue for a new project.
 
@@ -399,6 +401,7 @@ async def create_project_issue(
         context: Framework-injected invocation context.
         title: Issue title for the new project.
         body: Issue body with project description and requirements.
+        labels: Optional explicit labels. When omitted, labels are auto-generated.
     """
     logger.info("Tool create_project_issue called: title=%s", title[:80])
 
@@ -446,12 +449,19 @@ async def create_project_issue(
                 action_data=None,
             )
 
+        issue_labels = labels or await classify_labels(
+            title=title,
+            description=body,
+            github_token=github_token,
+        )
+
         issue = await service.create_issue(
             access_token=github_token,
             owner=owner,
             repo=repo,
             title=title,
             body=body,
+            labels=issue_labels,
         )
 
         return ToolResult(

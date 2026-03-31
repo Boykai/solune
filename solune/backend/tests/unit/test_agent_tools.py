@@ -371,6 +371,10 @@ class TestCreateProjectIssue:
         with patch(
             "src.services.github_projects.service.GitHubProjectsService",
             return_value=mock_service,
+        ), patch(
+            "src.services.agent_tools.classify_labels",
+            new_callable=AsyncMock,
+            return_value=["ai-generated", "feature", "backend"],
         ):
             result = await create_project_issue(
                 ctx, title="Stock Tracker", body="Build a stock tracking app"
@@ -379,6 +383,37 @@ class TestCreateProjectIssue:
         assert result["action_type"] == "issue_create"
         assert result["action_data"]["issue_number"] == 42
         assert result["action_data"]["preset_id"] == "easy"
+        _, kwargs = mock_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated", "feature", "backend"]
+
+    @patch("src.services.agent_tools.get_settings")
+    async def test_explicit_labels_skip_auto_classification(self, mock_settings):
+        mock_settings.return_value = MagicMock(
+            chat_auto_create_enabled=True,
+            default_repo_owner="testowner",
+            default_repo_name="testrepo",
+        )
+        mock_service = AsyncMock()
+        mock_service.create_issue.return_value = {
+            "number": 42,
+            "html_url": "https://github.com/testowner/testrepo/issues/42",
+        }
+        ctx = _make_context(github_token="test-token")
+
+        with patch(
+            "src.services.github_projects.service.GitHubProjectsService",
+            return_value=mock_service,
+        ), patch("src.services.agent_tools.classify_labels", new_callable=AsyncMock) as mock_classify:
+            await create_project_issue(
+                ctx,
+                title="Stock Tracker",
+                body="Build a stock tracking app",
+                labels=["bug", "frontend"],
+            )
+
+        mock_classify.assert_not_awaited()
+        _, kwargs = mock_service.create_issue.await_args
+        assert kwargs["labels"] == ["bug", "frontend"]
 
     @patch("src.services.agent_tools.get_settings")
     async def test_auto_create_no_token_returns_error(self, mock_settings):
