@@ -46,12 +46,38 @@ Chat endpoints power the conversational interface — send messages, receive AI 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/chat/messages` | Get chat messages for session |
-| POST | `/chat/messages` | Send message, get AI response (supports `#agent` command) |
+| GET | `/chat/messages` | Get chat messages for session (supports `limit` and `offset` pagination) |
+| POST | `/chat/messages` | Send message, get AI response (supports `#agent` command). Pass `ai_enhance=true` for streaming SSE via Agent Framework. Accepts optional `file_urls` and `pipeline_id` params |
 | DELETE | `/chat/messages` | Clear chat history |
 | POST | `/chat/proposals/{id}/confirm` | Confirm task proposal |
 | DELETE | `/chat/proposals/{id}` | Cancel task proposal |
 | POST | `/chat/upload` | Upload a file attachment |
+
+### Streaming
+
+When `ai_enhance=true`, the `POST /chat/messages` endpoint returns a streaming SSE (Server-Sent Events) response instead of a single JSON object. The client receives incremental events as the agent generates its response.
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `token` | Partial text string | Incremental text content from the agent |
+| `tool_call` | Tool name + arguments | Agent is invoking a registered tool |
+| `tool_result` | Tool output + action payload | Tool execution completed |
+| `done` | Final `ChatMessage` JSON | Stream complete, includes the full message |
+| `error` | Error message string | An error occurred during streaming |
+
+> **Rate limit**: Streaming requests are subject to rate limiting. The standard per-user rate limit applies.
+
+### File Upload Constraints
+
+The `POST /chat/upload` endpoint and `file_urls` parameter on `POST /chat/messages` are subject to the following constraints:
+
+| Constraint | Value |
+|------------|-------|
+| Maximum file size | 10 MB per file |
+| Maximum files per message | 5 |
+| Allowed types | Images, PDFs, plain text, CSV, VTT, SRT, common document formats |
+| Blocked types | Executables, archives, system files |
+| Transcript auto-detection | `.vtt` and `.srt` files are automatically detected as transcripts |
 
 ### `#agent` Command
 

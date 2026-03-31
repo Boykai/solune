@@ -11,6 +11,7 @@ Solune is organized into pages you can navigate from the sidebar. After signing 
 | [Projects](projects.md) | Kanban board for managing GitHub issues | [projects.md](projects.md) |
 | [Pipeline](pipeline.md) | Build multi-agent automation workflows | [pipeline.md](pipeline.md) |
 | [Agents](agents.md) | Browse available AI agents | [agents.md](agents.md) |
+| [Chat](chat.md) | AI chat panel — messaging, proposals, file uploads, and streaming | [chat.md](chat.md) |
 | [Tools](tools.md) | Manage MCP tool integrations | [tools.md](tools.md) |
 | [Chores](chores.md) | Set up recurring automated tasks | [chores.md](chores.md) |
 | [Settings](settings.md) | Configure AI, display, and integrations | [settings.md](settings.md) |
