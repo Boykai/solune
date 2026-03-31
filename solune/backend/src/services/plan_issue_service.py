@@ -123,7 +123,7 @@ async def create_plan_issues(
                     "step_id": step["step_id"],
                     "position": step["position"],
                     "title": step["title"],
-                    "error": str(e),
+                    "error": "Issue creation failed",
                 }
             )
 
