@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/002-security-review/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Not explicitly requested. Verification is behavior-based per the 10-check verification checklist in quickstart.md.
+**Tests**: No automated tests required for this specification. Verification is behavior-based per the 10-check checklist in quickstart.md. Unit tests are recommended but not mandated for configuration/infrastructure changes.
 
 **Organization**: Tasks are grouped by user story to enable independent verification and sign-off. All 21 security findings have been remediated — tasks focus on verification, documentation, and edge-case hardening.
 
@@ -353,7 +353,7 @@
 
 ---
 
-## Phase 22: Polish & Cross-Cutting Concerns
+## Final Phase: Polish & Cross-Cutting Concerns
 
 **Purpose**: Final verification sweep and documentation updates
 
