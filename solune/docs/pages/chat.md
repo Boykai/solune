@@ -76,9 +76,9 @@ Attach files to your message for additional context. Drag files into the chat, p
 | Maximum files per message | 5 |
 | Maximum file size | 10 MB per file |
 
-**Allowed file types:** Images, PDFs, plain text, CSV, VTT, SRT, and common document formats.
+**Allowed file types:** Images (png, jpg, jpeg, gif, webp, svg), documents (pdf, txt, md, csv, json, yaml, yml, vtt, srt), and archives (zip).
 
-**Blocked file types:** Executables, archives, and system files.
+**Blocked file types:** Executables and scripts (exe, sh, bat, cmd, js, py, rb).
 
 **Transcript auto-detection:** When you upload a `.vtt` or `.srt` subtitle file, Solune automatically detects it as a transcript and processes it accordingly.
 
