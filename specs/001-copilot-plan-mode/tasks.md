@@ -140,7 +140,7 @@
 ### Implementation for User Story 6
 
 - [ ] T030 [US6] Add plan mode banner to ChatInterface in frontend/src/components/chat/ChatInterface.tsx — render a banner above the chat input area when isPlanMode (from usePlan hook) is true, displaying "Plan mode — {project_name}" with a subtle background color and dismiss/exit action
-- [ ] T031 [US6] Ensure PlanPreview header in frontend/src/components/chat/PlanPreview.tsx includes project badge showing repo_owner/repo_name (e.g., "octocat/my-app") sourced from the plan's action_data — verify this was included in T011 and refine styling if needed
+- [ ] T031 [US6] Refine PlanPreview header in frontend/src/components/chat/PlanPreview.tsx to ensure project badge showing repo_owner/repo_name (e.g., "octocat/my-app") is prominently styled — depends on T011 (which creates the initial PlanPreview with project badge); adjust badge styling, spacing, or layout if needed for context clarity
 
 **Checkpoint**: User Story 6 is fully functional — plan mode banner and project context are clearly displayed
 
