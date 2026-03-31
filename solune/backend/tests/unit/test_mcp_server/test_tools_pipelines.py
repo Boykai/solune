@@ -127,14 +127,44 @@ class TestRetryPipeline:
         new_callable=AsyncMock,
     )
     @patch("src.services.pipeline_state_store.get_pipeline_state")
-    async def test_retry_existing_pipeline(self, mock_get_state, mock_access):
-        mock_get_state.return_value = MagicMock()
+    @patch("src.services.pipeline_state_store.set_pipeline_state")
+    @patch("src.services.workflow_orchestrator.orchestrator.get_workflow_orchestrator")
+    @patch("src.services.workflow_orchestrator.config.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.utils.resolve_repository", new_callable=AsyncMock)
+    @patch("src.services.github_projects.GitHubProjectsService")
+    async def test_retry_existing_pipeline(
+        self,
+        MockGHSvc,
+        mock_resolve_repo,
+        mock_get_config,
+        mock_get_orch,
+        mock_set_state,
+        mock_get_state,
+        mock_access,
+    ):
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = False
+        state.current_agent = "speckit.specify"
+        state.current_agent_index = 0
+        state.status = "Todo"
+        state.error = "some error"
+        mock_get_state.return_value = state
+
+        mock_resolve_repo.return_value = ("owner", "repo")
+        mock_get_config.return_value = MagicMock()
+        mock_get_orch.return_value.assign_agent_for_status = AsyncMock(return_value=True)
+        MockGHSvc.return_value.get_issue_with_comments = AsyncMock(
+            return_value={"node_id": "I_abc", "html_url": "https://github.com/test/1"}
+        )
 
         ctx = _make_ctx()
         result = await retry_pipeline(ctx, "PVT_abc", 42)
 
-        assert result["status"] == "retry_requested"
+        assert result["success"] is True
         assert result["issue_number"] == 42
+        assert result["agent"] == "speckit.specify"
+        assert state.error is None  # Error was cleared
 
     @patch(
         "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",

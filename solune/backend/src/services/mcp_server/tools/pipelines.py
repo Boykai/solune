@@ -140,7 +140,7 @@ async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> di
 
     # Clear the error state so retry proceeds
     state.error = None
-    set_pipeline_state(issue_number, state)
+    await set_pipeline_state(issue_number, state)
 
     # Clear any pending assignment dedup guards for this agent
     try:
@@ -152,9 +152,9 @@ async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> di
         pass
 
     # Retry the assignment
-    from src.services.orchestrator import get_workflow_orchestrator
-    from src.services.workflow_config import get_workflow_config
-    from src.services.workflow_context import WorkflowContext
+    from src.services.workflow_orchestrator.config import get_workflow_config
+    from src.services.workflow_orchestrator.models import WorkflowContext
+    from src.services.workflow_orchestrator.orchestrator import get_workflow_orchestrator
     from src.utils import resolve_repository
 
     config = await get_workflow_config(project_id)
@@ -196,8 +196,9 @@ async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> di
         }
 
     orchestrator = get_workflow_orchestrator()
+    agent_index = getattr(state, "current_agent_index", 0) or 0
     success = await orchestrator.assign_agent_for_status(
-        wf_ctx, state.status, agent_index=getattr(state, "current_agent_index", None)
+        wf_ctx, state.status, agent_index=agent_index
     )
 
     return {

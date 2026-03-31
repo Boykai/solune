@@ -179,9 +179,7 @@ class GitHubTokenVerifier:
             return
         cutoff = now - self._rate_limit_window
         stale = [
-            k
-            for k, v in self._rate_limits.items()
-            if not v.attempts or v.attempts[-1] < cutoff
+            k for k, v in self._rate_limits.items() if not v.attempts or v.attempts[-1] < cutoff
         ]
         for k in stale:
             del self._rate_limits[k]
