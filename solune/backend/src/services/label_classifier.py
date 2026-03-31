@@ -26,7 +26,10 @@ DEFAULT_TYPE_LABEL = "feature"
 ALWAYS_INCLUDED_LABEL = "ai-generated"
 
 
-def validate_labels(labels: list[str] | None, repo_labels: list[object] | None = None) -> list[str]:
+def validate_labels(
+    labels: list[str] | None,
+    repo_labels: list[str | dict[str, Any]] | None = None,
+) -> list[str]:
     """Normalize and validate a label list, ensuring required defaults exist."""
     valid_label_set = {label.lower() for label in LABELS}
     if repo_labels:
