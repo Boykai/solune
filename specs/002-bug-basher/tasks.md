@@ -41,7 +41,7 @@
 
 - [ ] T006 Analyze bandit security scan results from /tmp/bandit-report.json and triage findings by severity (High/Medium/Low) for solune/backend/src/
 - [ ] T007 [P] Run ruff extended rule check (`uv run ruff check src --select=ALL`) in solune/backend/ and catalog findings by category (security, bugbear, complexity)
-- [ ] T008 [P] Search for weak test patterns in solune/backend/tests/ — scan for `assert True`, `assert mock*.called$` without call args, `MagicMock()` used as file paths, bare `except:`, tests with no assertions
+- [ ] T008 [P] Search for weak test patterns in solune/backend/tests/ — scan for `assert True`, `assert mock_*.called` without `assert_called_with()`, `MagicMock()` used as file paths, bare `except:`, tests with no assertions
 - [ ] T009 [P] Search for potential security patterns in solune/backend/src/ — scan for hardcoded secrets, `eval()`, `exec()`, unvalidated redirects, `subprocess.call` with `shell=True`, unsanitized SQL
 - [ ] T010 [P] Search for dead code patterns in solune/backend/src/ — scan for unused imports (F401), unreachable code after return/raise, commented-out code blocks, empty except/pass blocks
 - [ ] T011 Compile triage list of all static analysis findings categorized by user story (Security/Runtime/Logic/Test Quality/Code Quality) to guide manual review phases
@@ -231,8 +231,8 @@
 
 ### TODO Flag Verification
 
-- [ ] T090 [P] [US6] Verify all `# TODO(bug-bash):` comments in solune/backend/src/ follow the required format — each must describe: (1) the issue, (2) available options, (3) why human judgment is needed
-- [ ] T091 [P] [US6] Verify all `// TODO(bug-bash):` comments in solune/frontend/src/ follow the required format — same three-part structure as backend
+- [ ] T090 [P] [US6] Verify all `# TODO(bug-bash):` comments in solune/backend/src/ follow the required format — each must describe: (1) the issue, (2) available options, (3) why human judgment is needed. Example: `# TODO(bug-bash): Session timeout is 24h which may be too long for admin sessions. Options: reduce to 1h for admins, keep 24h for all. Needs human decision on UX trade-off.`
+- [ ] T091 [P] [US6] Verify all `// TODO(bug-bash):` comments in solune/frontend/src/ follow the required format — same three-part structure: issue description, options, reason for human decision
 
 ### Summary Report Generation
 
