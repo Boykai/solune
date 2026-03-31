@@ -2222,18 +2222,8 @@ async def _transition_after_pipeline_complete(
     if to_status.lower() == "in review":
         from .auto_merge import _attempt_auto_merge
 
-        # Check pipeline-level auto_merge (state is still available —
-        # callers defer remove_pipeline_state until after this function).
-        pipeline_auto_merge = False
-        try:
-            pipeline_state = _cp.get_pipeline_state(issue_number)
-            if pipeline_state is not None:
-                pipeline_auto_merge = bool(getattr(pipeline_state, "auto_merge", False))
-        except Exception:
-            logger.debug(
-                "Auto-merge pipeline-state check skipped for issue #%d",
-                issue_number,
-            )
+        # Use pipeline-level auto_merge captured BEFORE state removal above.
+        pipeline_auto_merge = _pipeline_auto_merge
 
         project_auto_merge = False
         try:
@@ -2345,12 +2335,12 @@ async def _transition_after_pipeline_complete(
             elif merge_result.status == "devops_needed":
                 from .auto_merge import dispatch_devops_agent
 
-                # Use in-memory pipeline metadata if still available for
-                # DevOps retry tracking; otherwise start fresh.
-                existing_pipeline = _cp.get_pipeline_state(issue_number)
-                pipeline_metadata: dict[str, Any] = (
-                    dict(existing_pipeline.__dict__) if existing_pipeline else {}
-                )
+                # Pipeline state was already removed above; start fresh
+                # metadata for DevOps retry tracking.
+                pipeline_metadata: dict[str, Any] = {
+                    "devops_attempts": 0,
+                    "devops_active": False,
+                }
                 dispatched = await dispatch_devops_agent(
                     access_token=access_token,
                     owner=owner,
@@ -2381,7 +2371,20 @@ async def _transition_after_pipeline_complete(
                         "error": merge_result.error,
                     },
                 )
-            # retry_later: no action needed, will retry on next poll cycle
+            elif merge_result.status == "retry_later":
+                # CI checks still running or mergeability unknown — schedule
+                # a background retry loop that will re-attempt after a delay.
+                from .auto_merge import schedule_auto_merge_retry
+
+                schedule_auto_merge_retry(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                    project_id=project_id,
+                    item_id=item_id,
+                    task_title=task_title,
+                )
 
     # When transitioning to "In Review", convert main PR from draft→ready
     # and request Copilot code review on the main PR.
@@ -2554,10 +2557,10 @@ async def _transition_after_pipeline_complete(
             elif done_merge_result.status == "devops_needed":
                 from .auto_merge import dispatch_devops_agent
 
-                existing_pipeline = _cp.get_pipeline_state(issue_number)
-                done_pipeline_metadata: dict[str, Any] = (
-                    dict(existing_pipeline.__dict__) if existing_pipeline else {}
-                )
+                done_pipeline_metadata: dict[str, Any] = {
+                    "devops_attempts": 0,
+                    "devops_active": False,
+                }
                 await dispatch_devops_agent(
                     access_token=access_token,
                     owner=owner,
@@ -2573,7 +2576,18 @@ async def _transition_after_pipeline_complete(
                     issue_number,
                     done_merge_result.error,
                 )
-            # retry_later: PR will remain unmerged; user can merge manually
+            elif done_merge_result.status == "retry_later":
+                from .auto_merge import schedule_auto_merge_retry
+
+                schedule_auto_merge_retry(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                    project_id=project_id,
+                    item_id=item_id,
+                    task_title=task_title,
+                )
 
     # Send status transition WebSocket notification
     await _cp.connection_manager.broadcast_to_project(

@@ -5,7 +5,7 @@
 repos:
   # Backend Python hooks
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.0
+    rev: v0.15.5
     hooks:
       - id: ruff-format
         name: Format Python (ruff)
@@ -20,6 +20,13 @@ repos:
       - id: backend-pyright
         name: Type Check Backend (pyright)
         entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null || true && pyright src'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+      - id: backend-bandit
+        name: Security Scan Backend (bandit)
+        entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null || true && bandit -r src/ -ll -ii --skip B104,B608'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
@@ -55,6 +62,22 @@ repos:
         files: ^backend/.*\.py$
         pass_filenames: false
         stages: [pre-push]  # Run tests only on push, not every commit
+
+      - id: frontend-build
+        name: Build Frontend
+        entry: bash -c 'cd frontend && npm run build'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+        stages: [pre-push]  # Build verification only on push
+
+      - id: contract-validation
+        name: Validate API Contracts
+        entry: bash scripts/validate-contracts.sh
+        language: system
+        files: (^backend/openapi\.json$|^frontend/src/api/|^scripts/validate-contracts\.sh$)
+        pass_filenames: false
+        stages: [pre-push]  # Requires both backend and frontend deps
 
   # Documentation hooks
   - repo: https://github.com/igorshubovych/markdownlint-cli
