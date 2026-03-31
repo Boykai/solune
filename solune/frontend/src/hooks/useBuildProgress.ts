@@ -3,7 +3,7 @@
  * Filters events by app_name and exposes current progress state.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type {
   BuildCompletePayload,
   BuildFailedPayload,
