@@ -49,7 +49,8 @@ test.describe('Authentication', () => {
       // Should redirect to GitHub OAuth or auth endpoint
       await navigationPromise;
       const url = page.url();
-      expect(url.includes('github.com') || url.includes('/auth/github')).toBeTruthy();
+      const parsedHost = new URL(url).hostname;
+      expect(parsedHost === 'github.com' || url.includes('/auth/github')).toBeTruthy();
     }
   });
 });

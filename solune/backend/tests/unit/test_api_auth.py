@@ -94,7 +94,9 @@ class TestInitiateOAuth:
         )
         resp = await client.get("/api/v1/auth/github", follow_redirects=False)
         assert resp.status_code == 302
-        assert "github.com" in resp.headers["location"]
+        from urllib.parse import urlparse
+
+        assert urlparse(resp.headers["location"]).hostname == "github.com"
 
 
 # ── GET /auth/github/callback ──────────────────────────────────────────────
