@@ -72,13 +72,13 @@ The frontend is a single-page React application that provides the visual pipelin
 |-----------|----------|
 | `components/auth/` | `LoginButton` — GitHub OAuth login |
 | `components/board/` | `ProjectBoard`, `BoardColumn`, `IssueCard`, `IssueDetailModal`, `ProjectIssueLaunchPanel`, agent config UI (`AgentPresetSelector`, `AgentConfigRow`, `AgentTile`, `AgentSaveBar`, `AddAgentPopover`) |
-| `components/chat/` | `ChatInterface`, `ChatPopup`, `MessageBubble`, `TaskPreview`, `StatusChangePreview`, `IssueRecommendationPreview`, `CommandAutocomplete`, `SystemMessage`, `ChatToolbar`, `VoiceInputButton` |
+| `components/chat/` | `ChatInterface`, `ChatPopup`, `MessageBubble`, `TaskPreview`, `StatusChangePreview`, `IssueRecommendationPreview`, `CommandAutocomplete`, `SystemMessage`, `ChatToolbar`, `VoiceInputButton`, `MentionInput`, `MentionAutocomplete`, `FilePreviewChips`, `MarkdownRenderer`, `ChatMessageSkeleton`, `PipelineWarningBanner`, `PipelineIndicator` |
 | `components/settings/` | `AIPreferences`, `DisplayPreferences`, `WorkflowDefaults`, `NotificationPreferences`, `ProjectSettings`, `GlobalSettings`, `SignalConnection`, `McpSettings` |
 | `components/common/` | `ErrorBoundary`, `CelestialCatalogHero` (reusable hero with celestial animations), `CelestialLoader` (orbital loading indicator), `ThemedAgentIcon`, `ProjectSelectionEmptyState`, `agentIcons` |
 | `components/agents/` | `AgentsPanel`, `AgentCard`, `AgentAvatar`, `AgentChatFlow`, `AgentInlineEditor`, `AddAgentModal`, `AgentIconPickerModal`, `BulkModelUpdateDialog` |
 | `components/pipeline/` | `PipelineBoard`, `PipelineFlowGraph`, `AgentNode`, `StageCard`, `ExecutionGroupCard`, `ModelSelector`, `PipelineModelDropdown`, `PipelineToolbar`, `SavedWorkflowsList`, `UnsavedChangesDialog` |
 | `components/tools/` | `ToolsPanel`, `ToolSelectorModal`, `ToolCard`, `McpPresetsGallery`, `EditRepoMcpModal`, `UploadMcpModal`, `RepoConfigPanel`, `GitHubMcpConfigGenerator` |
-| `hooks/` | `useAuth`, `useChat`, `useChatHistory`, `useProjects`, `useWorkflow`, `useRealTimeSync`, `useProjectBoard`, `useAppTheme`, `useAgentConfig`, `useAgents`, `useSettings`, `useSettingsForm`, `useBoardRefresh`, `useCommands`, `useCleanup`, `useChores`, `useMcpSettings`, `useMetadata`, `useSidebarState`, `useMediaQuery`, `usePipelineConfig`, `usePipelineBoardMutations`, `usePipelineModelOverride`, `usePipelineReducer`, `useTools`, `useNotifications`, `useVoiceInput` |
+| `hooks/` | `useAuth`, `useChat`, `useChatHistory`, `useProjects`, `useWorkflow`, `useRealTimeSync`, `useProjectBoard`, `useAppTheme`, `useAgentConfig`, `useAgents`, `useSettings`, `useSettingsForm`, `useBoardRefresh`, `useCommands`, `useCleanup`, `useChores`, `useMcpSettings`, `useMetadata`, `useSidebarState`, `useMediaQuery`, `usePipelineConfig`, `usePipelineBoardMutations`, `usePipelineModelOverride`, `usePipelineReducer`, `useTools`, `useNotifications`, `useVoiceInput`, `useChatProposals`, `useFileUpload`, `useMentionAutocomplete` |
 | `pages/` | `AgentsPage`, `AgentsPipelinePage`, `AppPage`, `ChoresPage`, `LoginPage`, `NotFoundPage`, `ProjectsPage`, `SettingsPage`, `ToolsPage` |
 | `services/` | `api.ts` — centralized HTTP/WS client for all backend endpoints |
 
@@ -125,6 +125,23 @@ The backend uses a pluggable `CompletionProvider` abstraction:
 | Azure OpenAI | `AzureOpenAICompletionProvider` | No | Static API key from env vars |
 
 Set via `AI_PROVIDER` env var (`copilot` or `azure_openai`).
+
+### ChatAgentService
+
+`ChatAgentService` wraps the Microsoft Agent Framework to power Solune's chat experience. It manages agent sessions, registers tools via MCP, and provides both synchronous and streaming response modes.
+
+**Session management** — `AgentSessionMapping` maintains an in-memory pool of agent sessions. Sessions expire after a configurable TTL (default 3600 seconds) and are evicted using LRU when the pool reaches the maximum of 100 concurrent sessions.
+
+**Tool registration** — When a project context is available, `ChatAgentService` loads MCP tool configurations from the project and registers them with the Agent Framework. This allows the chat agent to use project-specific tools during conversations.
+
+**Dual dispatch** — The service routes requests based on the `ai_enhance` parameter:
+
+| `ai_enhance` | Path | Behavior |
+|---------------|------|----------|
+| `true` | Agent Framework | Full reasoning, tool use, multi-turn conversation, streaming |
+| `false` | Fallback | Metadata-only response without agent invocation |
+
+**Streaming** — The `run_stream()` method returns an async iterator of SSE events (`token`, `tool_call`, `tool_result`, `done`, `error`) for real-time response delivery.
 
 ### Startup Lifecycle (`main.py`)
 

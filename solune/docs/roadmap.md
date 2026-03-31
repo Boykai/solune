@@ -10,13 +10,13 @@ Replace the current completion-based chat with a Microsoft Agent Framework agent
 
 ### Features
 
-- **Agent Framework chat agent** — multi-turn conversations with memory, tool use, and decision-making
-- **Clarifying questions** — agent asks 2-3 targeted questions before acting ("What tech stack?", "Need auth?", "Any integrations?")
-- **Difficulty assessment** — agent evaluates request complexity and selects the appropriate pipeline preset automatically
-- **Autonomous project creation** — agent creates GitHub parent issues, configures pipelines, and launches execution from a single chat message
-- **Tool/skill extensibility** — register custom tools and skills the chat agent can invoke via MCP
-- **Model flexibility** — swap underlying models (GPT-4o, Claude, Llama) without changing agent logic
-- **Conversation history** — persistent multi-session memory so the agent remembers project context
+- ✅ **Agent Framework chat agent** — multi-turn conversations with memory, tool use, and decision-making
+- ✅ **Clarifying questions** — agent asks 2-3 targeted questions before acting ("What tech stack?", "Need auth?", "Any integrations?")
+- ✅ **Difficulty assessment** — agent evaluates request complexity and selects the appropriate pipeline preset automatically
+- ✅ **Autonomous project creation** — agent creates GitHub parent issues, configures pipelines, and launches execution from a single chat message
+- ✅ **Tool/skill extensibility** — register custom tools and skills the chat agent can invoke via MCP
+- ✅ **Model flexibility** — swap underlying models (GPT-4o, Claude, Llama) without changing agent logic
+- ✅ **Conversation history** — persistent multi-session memory so the agent remembers project context
 
 ### Why first
 
@@ -114,7 +114,7 @@ Woven into each release:
 
 | Version | Theme | Target |
 |---------|-------|--------|
-| **v0.2.0** | Microsoft Agent Framework chat | Q2 2026 |
+| **v0.2.0** | Microsoft Agent Framework chat | ✅ Shipped |
 | **v0.3.0** | Full duplex voice (browser + Signal) | Q3 2026 |
 | **v0.4.0** | Solune MCP server | Q3 2026 |
 | **v0.5.0** | Autonomous app builder | Q4 2026 |
@@ -124,15 +124,15 @@ Woven into each release:
 ## Architecture Evolution
 
 ```text
-v0.1.0 (today)                    v0.5.0 (target)
+v0.2.0 (current)                  v0.5.0 (target)
 ─────────────────                 ─────────────────────────────────
 
- Browser Chat ──► Completion API   Voice/Chat ──► Agent Framework
-                                                    │
-                                                    ├── Tools & Skills
-                                                    ├── MCP Servers (external)
-                                                    ├── Solune MCP (self-driving)
-                                                    └── Pipeline Engine
+ Voice/Chat ──► Agent Framework    Voice/Chat ──► Agent Framework
+                  │                                  │
+                  ├── Tools & Skills                 ├── Tools & Skills
+                  └── MCP Servers (project)          ├── MCP Servers (external)
+                                                     ├── Solune MCP (self-driving)
+                                                     └── Pipeline Engine
 
  Pipeline Engine ──► GitHub        Pipeline Engine ──► GitHub
    (unchanged)                       (unchanged — agents use it as a tool)

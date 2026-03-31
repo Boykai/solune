@@ -25,8 +25,8 @@
 
 **Purpose**: No code setup needed — this is a documentation-only feature. Verify existing documentation structure and conventions before writing.
 
-- [ ] T001 Verify existing documentation structure and conventions in solune/docs/ match research.md findings
-- [ ] T002 [P] Review existing pages for style reference (solune/docs/pages/layout.md, solune/docs/pages/README.md)
+- [x] T001 Verify existing documentation structure and conventions in solune/docs/ match research.md findings
+- [x] T002 [P] Review existing pages for style reference (solune/docs/pages/layout.md, solune/docs/pages/README.md)
 
 ---
 
@@ -48,18 +48,18 @@
 
 ### Implementation for User Story 1
 
-- [ ] T003 [US1] Create docs/pages/chat.md with page title, introduction paragraph, and document skeleton (11 content sections covering all 12 chat capabilities — "Message Types and Actions" is one combined section per data-model.md)
-- [ ] T004 [US1] Write "Sending Messages" section in solune/docs/pages/chat.md — Enter/Shift+Enter behavior, character limit
-- [ ] T005 [US1] Write "AI Enhance" section in solune/docs/pages/chat.md — two modes (Agent Framework vs metadata-only), localStorage persistence, behavioral differences
-- [ ] T006 [US1] Write "@Mention Pipeline Selection" section in solune/docs/pages/chat.md — @ trigger, autocomplete, inline tokens, one-active-per-message constraint
-- [ ] T007 [US1] Write "Voice Input" section in solune/docs/pages/chat.md — Web Speech API, en-US, HTTPS requirement, recording states (idle/recording/processing)
-- [ ] T008 [US1] Write "File Attachments" section in solune/docs/pages/chat.md — limits table (5 files, 10 MB), allowed/blocked types, .vtt/.srt transcript auto-detection
-- [ ] T009 [US1] Write "Chat History Navigation" section in solune/docs/pages/chat.md — Arrow Up/Down, shell-like behavior, 100 message buffer, in-memory
-- [ ] T010 [US1] Write "Slash Commands" section in solune/docs/pages/chat.md — / trigger, available commands (/help, /theme, /clear), #agent command reference
-- [ ] T011 [US1] Write "AI Proposals" section in solune/docs/pages/chat.md — task proposals (structured preview, confirm/reject), issue recommendations (preview + metadata), status changes
-- [ ] T012 [US1] Write "Streaming Responses" section in solune/docs/pages/chat.md — real-time token delivery, tool call indicators, skeleton loading
-- [ ] T013 [US1] Write "Markdown Rendering" section in solune/docs/pages/chat.md — GFM support, code blocks + copy button, tables, links
-- [ ] T014 [US1] Write "Message Types and Actions" section in solune/docs/pages/chat.md — user/assistant/system types, retry, copy, clear actions
+- [x] T003 [US1] Create docs/pages/chat.md with page title, introduction paragraph, and document skeleton (11 content sections covering all 12 chat capabilities — "Message Types and Actions" is one combined section per data-model.md)
+- [x] T004 [US1] Write "Sending Messages" section in solune/docs/pages/chat.md — Enter/Shift+Enter behavior, character limit
+- [x] T005 [US1] Write "AI Enhance" section in solune/docs/pages/chat.md — two modes (Agent Framework vs metadata-only), localStorage persistence, behavioral differences
+- [x] T006 [US1] Write "@Mention Pipeline Selection" section in solune/docs/pages/chat.md — @ trigger, autocomplete, inline tokens, one-active-per-message constraint
+- [x] T007 [US1] Write "Voice Input" section in solune/docs/pages/chat.md — Web Speech API, en-US, HTTPS requirement, recording states (idle/recording/processing)
+- [x] T008 [US1] Write "File Attachments" section in solune/docs/pages/chat.md — limits table (5 files, 10 MB), allowed/blocked types, .vtt/.srt transcript auto-detection
+- [x] T009 [US1] Write "Chat History Navigation" section in solune/docs/pages/chat.md — Arrow Up/Down, shell-like behavior, 100 message buffer, in-memory
+- [x] T010 [US1] Write "Slash Commands" section in solune/docs/pages/chat.md — / trigger, available commands (/help, /theme, /clear), #agent command reference
+- [x] T011 [US1] Write "AI Proposals" section in solune/docs/pages/chat.md — task proposals (structured preview, confirm/reject), issue recommendations (preview + metadata), status changes
+- [x] T012 [US1] Write "Streaming Responses" section in solune/docs/pages/chat.md — real-time token delivery, tool call indicators, skeleton loading
+- [x] T013 [US1] Write "Markdown Rendering" section in solune/docs/pages/chat.md — GFM support, code blocks + copy button, tables, links
+- [x] T014 [US1] Write "Message Types and Actions" section in solune/docs/pages/chat.md — user/assistant/system types, retry, copy, clear actions
 
 **Checkpoint**: `docs/pages/chat.md` exists with all 12 capability sections. User Story 1 is fully functional and independently testable.
 
@@ -73,10 +73,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T015 [P] [US2] Update POST /chat/messages description in solune/docs/api-reference.md — add streaming note (ai_enhance=true), file_urls, pipeline_id params
-- [ ] T016 [P] [US2] Update GET /chat/messages description in solune/docs/api-reference.md — add pagination params (limit, offset)
-- [ ] T017 [US2] Add "Streaming" subsection under Chat section in solune/docs/api-reference.md — SSE event types table (token, tool_call, tool_result, done, error), ai_enhance=true requirement, rate limit note
-- [ ] T018 [US2] Add "File Upload Constraints" subsection in solune/docs/api-reference.md — allowed/blocked types, 10 MB per-file limit, 5-file maximum, .vtt/.srt transcript auto-detection
+- [x] T015 [P] [US2] Update POST /chat/messages description in solune/docs/api-reference.md — add streaming note (ai_enhance=true), file_urls, pipeline_id params
+- [x] T016 [P] [US2] Update GET /chat/messages description in solune/docs/api-reference.md — add pagination params (limit, offset)
+- [x] T017 [US2] Add "Streaming" subsection under Chat section in solune/docs/api-reference.md — SSE event types table (token, tool_call, tool_result, done, error), ai_enhance=true requirement, rate limit note
+- [x] T018 [US2] Add "File Upload Constraints" subsection in solune/docs/api-reference.md — allowed/blocked types, 10 MB per-file limit, 5-file maximum, .vtt/.srt transcript auto-detection
 
 **Checkpoint**: API reference contains complete streaming endpoint documentation, file constraints, and updated parameters. User Story 2 is independently testable.
 
@@ -90,9 +90,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T019 [US3] Add "ChatAgentService" subsection after "AI Completion Providers" in solune/docs/architecture.md — Agent Framework wrapper, session management (TTL eviction 3600s, 100 max concurrent, LRU), tool registration + MCP, dual dispatch (ai_enhance on → Agent Framework, off → fallback), streaming (run_stream())
-- [ ] T020 [P] [US3] Update components/chat/ row in Key Frontend Modules table in solune/docs/architecture.md — append MentionInput, MentionAutocomplete, FilePreviewChips, MarkdownRenderer, ChatMessageSkeleton, PipelineWarningBanner, PipelineIndicator
-- [ ] T021 [P] [US3] Update hooks/ row in Key Frontend Modules table in solune/docs/architecture.md — append useChatProposals, useFileUpload, useMentionAutocomplete
+- [x] T019 [US3] Add "ChatAgentService" subsection after "AI Completion Providers" in solune/docs/architecture.md — Agent Framework wrapper, session management (TTL eviction 3600s, 100 max concurrent, LRU), tool registration + MCP, dual dispatch (ai_enhance on → Agent Framework, off → fallback), streaming (run_stream())
+- [x] T020 [P] [US3] Update components/chat/ row in Key Frontend Modules table in solune/docs/architecture.md — append MentionInput, MentionAutocomplete, FilePreviewChips, MarkdownRenderer, ChatMessageSkeleton, PipelineWarningBanner, PipelineIndicator
+- [x] T021 [P] [US3] Update hooks/ row in Key Frontend Modules table in solune/docs/architecture.md — append useChatProposals, useFileUpload, useMentionAutocomplete
 
 **Checkpoint**: Architecture page has ChatAgentService subsection and all chat components/hooks in tables. User Story 3 is independently testable.
 
@@ -106,9 +106,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] Add chat_agent.py, agent_provider.py, and agent_tools.py to backend services/ tree in solune/docs/project-structure.md — with inline # comments describing each
-- [ ] T023 [P] [US4] Update components/chat/ listing in frontend tree in solune/docs/project-structure.md — add 7 missing components (MentionInput, MentionAutocomplete, FilePreviewChips, MarkdownRenderer, ChatMessageSkeleton, PipelineWarningBanner, PipelineIndicator)
-- [ ] T024 [P] [US4] Update hooks/ listing in frontend tree in solune/docs/project-structure.md — add useFileUpload, useMentionAutocomplete, useChatProposals
+- [x] T022 [US4] Add chat_agent.py, agent_provider.py, and agent_tools.py to backend services/ tree in solune/docs/project-structure.md — with inline # comments describing each
+- [x] T023 [P] [US4] Update components/chat/ listing in frontend tree in solune/docs/project-structure.md — add 7 missing components (MentionInput, MentionAutocomplete, FilePreviewChips, MarkdownRenderer, ChatMessageSkeleton, PipelineWarningBanner, PipelineIndicator)
+- [x] T024 [P] [US4] Update hooks/ listing in frontend tree in solune/docs/project-structure.md — add useFileUpload, useMentionAutocomplete, useChatProposals
 
 **Checkpoint**: Project structure page lists all chat-related backend services, frontend components, and hooks. User Story 4 is independently testable.
 
@@ -122,9 +122,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T025 [US5] Mark all v0.2.0 feature bullets as implemented (✅) in solune/docs/roadmap.md
-- [ ] T026 [US5] Update architecture evolution diagram in solune/docs/roadmap.md — change "v0.1.0 (today)" to "v0.2.0 (current)", update left side to reflect Agent Framework architecture
-- [ ] T027 [US5] Update timeline table in solune/docs/roadmap.md — reflect v0.2.0 as shipped
+- [x] T025 [US5] Mark all v0.2.0 feature bullets as implemented (✅) in solune/docs/roadmap.md
+- [x] T026 [US5] Update architecture evolution diagram in solune/docs/roadmap.md — change "v0.1.0 (today)" to "v0.2.0 (current)", update left side to reflect Agent Framework architecture
+- [x] T027 [US5] Update timeline table in solune/docs/roadmap.md — reflect v0.2.0 as shipped
 
 **Checkpoint**: Roadmap accurately reflects v0.2.0 as the current implemented version. User Story 5 is independently testable.
 
@@ -140,8 +140,8 @@
 
 ### Implementation for User Story 6
 
-- [ ] T028 [P] [US6] Add cross-reference link to chat.md in the Chat Panel section of solune/docs/pages/layout.md — "For the full chat feature guide, see [Chat](chat.md)."
-- [ ] T029 [P] [US6] Add Chat row to Page Overview table in solune/docs/pages/README.md — "| [Chat](chat.md) | AI chat panel — messaging, proposals, file uploads, and streaming | [chat.md](chat.md) |"
+- [x] T028 [P] [US6] Add cross-reference link to chat.md in the Chat Panel section of solune/docs/pages/layout.md — "For the full chat feature guide, see [Chat](chat.md)."
+- [x] T029 [P] [US6] Add Chat row to Page Overview table in solune/docs/pages/README.md — "| [Chat](chat.md) | AI chat panel — messaging, proposals, file uploads, and streaming | [chat.md](chat.md) |"
 
 **Checkpoint**: Cross-reference links in place. All internal links resolve to existing files.
 
@@ -151,9 +151,9 @@
 
 **Purpose**: Final verification and quality checks across all updated documentation.
 
-- [ ] T030 Verify all internal markdown links resolve across updated files — zero broken links (FR-011, SC-003)
-- [ ] T031 Verify documentation follows existing conventions — markdown tables, bullets, callouts, "What's next?" footers where applicable (FR-012, SC-002)
-- [ ] T032 Verify no code, env vars, or configuration changes were introduced (SC-008)
+- [x] T030 Verify all internal markdown links resolve across updated files — zero broken links (FR-011, SC-003)
+- [x] T031 Verify documentation follows existing conventions — markdown tables, bullets, callouts, "What's next?" footers where applicable (FR-012, SC-002)
+- [x] T032 Verify no code, env vars, or configuration changes were introduced (SC-008)
 
 ---
 
