@@ -70,15 +70,12 @@ async def create_agent(
     db = get_db()
     agents_svc = AgentsService(db)
 
-    body_kwargs: dict[str, str] = {
-        "name": name,
-        "system_prompt": instructions,
-    }
-    if model is not None:
-        body_kwargs["default_model_id"] = model
-        body_kwargs["default_model_name"] = model
-
-    body = AgentCreate(**body_kwargs)
+    body = AgentCreate(
+        name=name,
+        system_prompt=instructions,
+        default_model_id=model or "",
+        default_model_name=model or "",
+    )
     result = await agents_svc.create_agent(
         project_id=project_id,
         owner=owner,
