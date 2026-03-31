@@ -113,6 +113,8 @@ Use `#agent <description> #<status-name>` to create a custom GitHub agent inline
 
 For example: `#agent code reviewer that checks for security issues #in-review`
 
+The `#<status-name>` part maps to a column on your project board. Solune uses fuzzy matching, so `#in-review`, `#InReview`, and `#IN_REVIEW` all resolve to the same column.
+
 ## AI Proposals
 
 When the AI agent determines that an action is appropriate, it sends a **proposal** — a structured preview you can review before confirming.
