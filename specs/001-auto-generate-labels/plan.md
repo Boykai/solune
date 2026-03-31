@@ -1,104 +1,93 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Auto-generate Labels for GitHub Parent Issues
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `001-auto-generate-labels` | **Date**: 2026-03-31 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/001-auto-generate-labels/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Three code paths create parent GitHub issues, but only the recommendation confirmation path auto-generates content-based labels. The pipeline launch path hardcodes `["ai-generated"]` + `pipeline:<name>`, and the task creation path applies zero labels. This plan introduces a centralized `LabelClassificationService` that all three paths share. The service accepts an issue title and optional description, calls the existing AI completion provider with a structured prompt referencing the predefined label taxonomy from `constants.py`, validates and deduplicates the response, and returns a guaranteed-valid label set (always including `"ai-generated"` + exactly one type label). Each issue creation path is then updated to call this shared service, with graceful fallback to current behavior on failure.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.11+
+**Primary Dependencies**: FastAPI, Pydantic, Microsoft Agent Framework (semantic-kernel), GitHub Copilot SDK
+**Storage**: SQLite via aiosqlite (no schema changes needed for this feature)
+**Testing**: pytest + pytest-asyncio (backend), Vitest (frontend — no frontend changes expected)
+**Target Platform**: Linux server (Docker)
+**Project Type**: Web application (backend + frontend monorepo under `solune/`)
+**Performance Goals**: Label classification adds ≤ 3 seconds latency to issue creation (SC-006)
+**Constraints**: Classification failure must never block issue creation (SC-003); all labels must come from predefined taxonomy in `constants.py` (FR-002)
+**Scale/Scope**: 3 issue creation paths to update; 1 new service module; ~200-300 lines of new code
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Specification-First | ✅ PASS | `spec.md` exists with 4 prioritized user stories (P1-P3), Given-When-Then scenarios, edge cases, and clear scope boundaries |
+| II. Template-Driven | ✅ PASS | All artifacts follow canonical templates from `.specify/templates/` |
+| III. Agent-Orchestrated | ✅ PASS | Single-responsibility: this plan phase produces design artifacts; implementation deferred to `/speckit.tasks` + `/speckit.implement` |
+| IV. Test Optionality | ✅ PASS | Tests not mandated by spec; will be included if requested during implementation phase. Unit tests recommended for the classifier service given its centrality |
+| V. Simplicity and DRY | ✅ PASS | Core approach eliminates label duplication across 3 paths via a single shared service. No premature abstractions — the service is a single async function, not a framework |
+
+**Gate Result**: ALL PASS — proceeding to Phase 0.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/001-auto-generate-labels/
+├── plan.md              # This file
+├── research.md          # Phase 0: Research findings
+├── data-model.md        # Phase 1: Entity and data model
+├── quickstart.md        # Phase 1: Developer quickstart guide
+├── contracts/           # Phase 1: API contracts
+│   └── label-classification.yaml  # Label classifier interface contract
+└── tasks.md             # Phase 2 output (/speckit.tasks — NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
+solune/backend/
 ├── src/
+│   ├── api/
+│   │   ├── pipelines.py          # MODIFY: Call label classifier before create_issue
+│   │   ├── tasks.py              # MODIFY: Call label classifier before create_issue
+│   │   └── workflow.py           # NO CHANGE: Already uses _build_labels via orchestrator
+│   ├── constants.py              # EXISTING: LABELS taxonomy (single source of truth)
 │   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
+│   │   └── recommendation.py     # EXISTING: IssueLabel, IssueMetadata (no changes needed)
+│   ├── prompts/
+│   │   └── label_classification.py  # NEW: Prompt template for label classification
 │   └── services/
+│       ├── label_classifier.py   # NEW: LabelClassificationService
+│       ├── agent_tools.py        # MODIFY: Add optional labels param to create_project_issue
+│       └── workflow_orchestrator/
+│           └── orchestrator.py   # EXISTING: _build_labels (reference implementation)
 └── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+    └── unit/
+        └── test_label_classifier.py  # NEW: Unit tests for classification service
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application structure (Option 2). All changes are backend-only within `solune/backend/`. The new `label_classifier.py` service module and `label_classification.py` prompt template are the only new files in `src/`. The feature adds no new dependencies, using the existing AI completion provider infrastructure.
+
+## Constitution Re-Check (Post-Design)
+
+*Re-evaluation after Phase 1 design artifacts are complete.*
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Specification-First | ✅ PASS | Design artifacts (data-model, contracts, quickstart) all trace back to spec.md requirements |
+| II. Template-Driven | ✅ PASS | All generated artifacts follow canonical templates |
+| III. Agent-Orchestrated | ✅ PASS | Plan phase complete; handoff to `/speckit.tasks` for task decomposition |
+| IV. Test Optionality | ✅ PASS | Test file (`test_label_classifier.py`) listed as recommended, not mandated |
+| V. Simplicity and DRY | ✅ PASS | Single `classify_labels()` function shared by all 3 paths; no repository pattern, no cache layer, no event system — just a function |
+
+**Gate Result**: ALL PASS — ready for Phase 2 (`/speckit.tasks`).
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+> No constitution violations — this section is intentionally empty.
