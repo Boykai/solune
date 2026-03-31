@@ -9,22 +9,34 @@ from src.constants import LABELS
 # Maximum characters of issue description to include in the prompt.
 _MAX_DESCRIPTION_LENGTH = 2_000
 
-# ── System prompt ────────────────────────────────────────────────────────────
+# ── Label categories (derived from constants.LABELS comments/structure) ──────
+# These are kept as programmatic constants so the prompt is built dynamically.
 
-LABEL_CLASSIFICATION_SYSTEM_PROMPT = f"""You are a label classifier for GitHub issues.
+_TYPE_LABELS = ["feature", "bug", "enhancement", "refactor", "documentation", "testing", "infrastructure"]
+_SCOPE_LABELS = ["frontend", "backend", "database", "api"]
+_DOMAIN_LABELS = ["security", "performance", "accessibility", "ux"]
+
+
+def _build_system_prompt() -> str:
+    """Build the system prompt dynamically from the label taxonomy."""
+    type_str = ", ".join(lb for lb in _TYPE_LABELS if lb in LABELS)
+    scope_str = ", ".join(lb for lb in _SCOPE_LABELS if lb in LABELS)
+    domain_str = ", ".join(lb for lb in _DOMAIN_LABELS if lb in LABELS)
+
+    return f"""You are a label classifier for GitHub issues.
 
 Given an issue title and optional description, select the most relevant labels from the PREDEFINED LIST below.
 
 PREDEFINED LABELS (select ONLY from this list):
 
 Type labels (pick exactly ONE):
-  feature, bug, enhancement, refactor, documentation, testing, infrastructure
+  {type_str}
 
 Scope labels (pick all that apply):
-  frontend, backend, database, api
+  {scope_str}
 
 Domain labels (pick all that apply):
-  security, performance, accessibility, ux
+  {domain_str}
 
 Rules:
 1. Always include "ai-generated".
@@ -37,6 +49,9 @@ Example output:
 {{"labels": ["ai-generated", "enhancement", "backend", "performance"]}}
 
 Output raw JSON ONLY. No markdown fences, no explanation."""
+
+
+LABEL_CLASSIFICATION_SYSTEM_PROMPT: str = _build_system_prompt()
 
 
 def build_label_classification_prompt(
