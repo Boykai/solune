@@ -12,10 +12,14 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 import aiosqlite
 
 from src.logging_utils import get_logger
+
+if TYPE_CHECKING:
+    from src.models.plan import Plan
 
 logger = get_logger(__name__)
 
@@ -399,3 +403,217 @@ def recommendation_status_from_db(status: str) -> str:
 def _recommendation_status_to_db(status: str) -> str:
     """Map model enum values to the legacy SQLite status constraint."""
     return "accepted" if status == "confirmed" else status
+
+
+# ============================================================================
+# Plan CRUD
+# ============================================================================
+
+
+async def save_plan(
+    db: aiosqlite.Connection,
+    plan: Plan,
+) -> None:
+    """Persist a plan and its steps to SQLite (insert or replace).
+
+    Uses a transaction to atomically write the plan header and all steps.
+    """
+    from src.utils import utcnow
+
+    now = utcnow().isoformat()
+    async with transaction(db):
+        await db.execute(
+            """INSERT OR REPLACE INTO chat_plans
+               (plan_id, session_id, title, summary, status,
+                project_id, project_name, repo_owner, repo_name,
+                parent_issue_number, parent_issue_url,
+                created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                plan.plan_id,
+                plan.session_id,
+                plan.title,
+                plan.summary,
+                plan.status.value if hasattr(plan.status, "value") else plan.status,
+                plan.project_id,
+                plan.project_name,
+                plan.repo_owner,
+                plan.repo_name,
+                plan.parent_issue_number,
+                plan.parent_issue_url,
+                plan.created_at or now,
+                now,
+            ),
+        )
+        # Replace all steps: delete old ones, insert new ones
+        await db.execute(
+            "DELETE FROM chat_plan_steps WHERE plan_id = ?",
+            (plan.plan_id,),
+        )
+        for step in plan.steps:
+            await db.execute(
+                """INSERT INTO chat_plan_steps
+                   (step_id, plan_id, position, title, description,
+                    dependencies, issue_number, issue_url)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    step.step_id,
+                    plan.plan_id,
+                    step.position,
+                    step.title,
+                    step.description,
+                    json.dumps(step.dependencies),
+                    step.issue_number,
+                    step.issue_url,
+                ),
+            )
+
+
+async def get_plan(
+    db: aiosqlite.Connection,
+    plan_id: str,
+) -> dict | None:
+    """Retrieve a plan with all its steps joined."""
+    cursor = await db.execute(
+        """SELECT plan_id, session_id, title, summary, status,
+                  project_id, project_name, repo_owner, repo_name,
+                  parent_issue_number, parent_issue_url,
+                  created_at, updated_at
+           FROM chat_plans WHERE plan_id = ?""",
+        (plan_id,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+
+    if isinstance(row, tuple):
+        plan_dict = {
+            "plan_id": row[0],
+            "session_id": row[1],
+            "title": row[2],
+            "summary": row[3],
+            "status": row[4],
+            "project_id": row[5],
+            "project_name": row[6],
+            "repo_owner": row[7],
+            "repo_name": row[8],
+            "parent_issue_number": row[9],
+            "parent_issue_url": row[10],
+            "created_at": row[11],
+            "updated_at": row[12],
+        }
+    else:
+        plan_dict = dict(row)
+
+    # Fetch steps
+    step_cursor = await db.execute(
+        """SELECT step_id, plan_id, position, title, description,
+                  dependencies, issue_number, issue_url
+           FROM chat_plan_steps WHERE plan_id = ?
+           ORDER BY position ASC""",
+        (plan_id,),
+    )
+    step_rows = await step_cursor.fetchall()
+    steps = []
+    for s in step_rows:
+        if isinstance(s, tuple):
+            steps.append({
+                "step_id": s[0],
+                "plan_id": s[1],
+                "position": s[2],
+                "title": s[3],
+                "description": s[4],
+                "dependencies": json.loads(s[5]) if s[5] else [],
+                "issue_number": s[6],
+                "issue_url": s[7],
+            })
+        else:
+            d = dict(s)
+            raw_deps = d.get("dependencies")
+            d["dependencies"] = json.loads(raw_deps) if raw_deps else []
+            steps.append(d)
+
+    plan_dict["steps"] = steps
+    return plan_dict
+
+
+async def update_plan(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    title: str | None = None,
+    summary: str | None = None,
+) -> bool:
+    """Update plan metadata (title and/or summary). Returns True if updated."""
+    from src.utils import utcnow
+
+    sets: list[str] = []
+    params: list[str] = []
+    if title is not None:
+        sets.append("title = ?")
+        params.append(title)
+    if summary is not None:
+        sets.append("summary = ?")
+        params.append(summary)
+    if not sets:
+        return False
+
+    sets.append("updated_at = ?")
+    params.append(utcnow().isoformat())
+    params.append(plan_id)
+
+    async with transaction(db):
+        cursor = await db.execute(
+            f"UPDATE chat_plans SET {', '.join(sets)} WHERE plan_id = ?",
+            tuple(params),
+        )
+    return (cursor.rowcount or 0) > 0
+
+
+async def update_plan_status(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    status: str,
+) -> bool:
+    """Transition a plan to a new lifecycle status. Returns True if updated."""
+    from src.utils import utcnow
+
+    async with transaction(db):
+        cursor = await db.execute(
+            "UPDATE chat_plans SET status = ?, updated_at = ? WHERE plan_id = ?",
+            (status, utcnow().isoformat(), plan_id),
+        )
+    return (cursor.rowcount or 0) > 0
+
+
+async def update_plan_step_issue(
+    db: aiosqlite.Connection,
+    step_id: str,
+    issue_number: int,
+    issue_url: str,
+) -> bool:
+    """Update a step with its GitHub issue number and URL after creation."""
+    async with transaction(db):
+        cursor = await db.execute(
+            "UPDATE chat_plan_steps SET issue_number = ?, issue_url = ? WHERE step_id = ?",
+            (issue_number, issue_url, step_id),
+        )
+    return (cursor.rowcount or 0) > 0
+
+
+async def update_plan_parent_issue(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    parent_issue_number: int,
+    parent_issue_url: str,
+) -> bool:
+    """Update a plan with its parent GitHub issue number and URL."""
+    from src.utils import utcnow
+
+    async with transaction(db):
+        cursor = await db.execute(
+            """UPDATE chat_plans
+               SET parent_issue_number = ?, parent_issue_url = ?, updated_at = ?
+               WHERE plan_id = ?""",
+            (parent_issue_number, parent_issue_url, utcnow().isoformat(), plan_id),
+        )
+    return (cursor.rowcount or 0) > 0

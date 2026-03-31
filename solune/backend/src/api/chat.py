@@ -1925,3 +1925,363 @@ async def upload_file(
         file_size=len(content),
         content_type=file.content_type or "application/octet-stream",
     )
+
+
+# ── Plan mode endpoints ──────────────────────────────────────────────────
+
+
+@router.post("/messages/plan")
+@limiter.limit("10/minute")
+async def send_plan_message(
+    request: Request,
+    chat_request: ChatMessageRequest,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Enter plan mode (non-streaming).
+
+    The user's message is treated as a feature description for the plan agent.
+    """
+    selected_project_id = require_selected_project(session)
+
+    content = chat_request.content.strip()
+    # Strip /plan prefix if present
+    if content.lower().startswith("/plan"):
+        content = content[5:].strip()
+    if not content:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Please provide a feature description after /plan."},
+        )
+
+    try:
+        owner, repo = await _resolve_repository(session)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "No repository linked to the selected project."},
+        )
+
+    # Get project details
+    project_name = "Unknown Project"
+    project_columns: list[str] = []
+    cache_key = get_user_projects_cache_key(session.github_user_id)
+    cached_projects = cache.get(cache_key)
+    if cached_projects:
+        for p in cached_projects:
+            if p.project_id == selected_project_id:
+                project_name = p.name
+                project_columns = [col.name for col in p.status_columns]
+                break
+
+    # Create user message
+    user_message = ChatMessage(
+        session_id=session.session_id,
+        sender_type=SenderType.USER,
+        content=chat_request.content,
+    )
+    await add_message(session.session_id, user_message)
+
+    try:
+        chat_agent_svc = get_chat_agent_service()
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Plan mode not available."},
+        )
+
+    result = await chat_agent_svc.run_plan(
+        message=content,
+        session_id=session.session_id,
+        github_token=session.access_token,
+        project_name=project_name,
+        project_id=selected_project_id,
+        available_statuses=project_columns,
+        repo_owner=owner,
+        repo_name=repo,
+        db=get_db(),
+    )
+    await add_message(session.session_id, result)
+    return result
+
+
+@router.post("/messages/plan/stream")
+@limiter.limit("10/minute")
+async def send_plan_message_stream(
+    request: Request,
+    chat_request: ChatMessageRequest,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Enter plan mode with SSE streaming and thinking events."""
+    from sse_starlette.sse import EventSourceResponse
+
+    selected_project_id = require_selected_project(session)
+
+    content = chat_request.content.strip()
+    if content.lower().startswith("/plan"):
+        content = content[5:].strip()
+    if not content:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Please provide a feature description after /plan."},
+        )
+
+    try:
+        owner, repo = await _resolve_repository(session)
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "No repository linked to the selected project."},
+        )
+
+    # Get project details
+    project_name = "Unknown Project"
+    project_columns: list[str] = []
+    cache_key = get_user_projects_cache_key(session.github_user_id)
+    cached_projects = cache.get(cache_key)
+    if cached_projects:
+        for p in cached_projects:
+            if p.project_id == selected_project_id:
+                project_name = p.name
+                project_columns = [col.name for col in p.status_columns]
+                break
+
+    # Create user message
+    user_message = ChatMessage(
+        session_id=session.session_id,
+        sender_type=SenderType.USER,
+        content=chat_request.content,
+    )
+    await add_message(session.session_id, user_message)
+
+    try:
+        chat_agent_svc = get_chat_agent_service()
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Plan mode not available."},
+        )
+
+    async def event_generator():
+        async for event in chat_agent_svc.run_plan_stream(
+            message=content,
+            session_id=session.session_id,
+            github_token=session.access_token,
+            project_name=project_name,
+            project_id=selected_project_id,
+            available_statuses=project_columns,
+            repo_owner=owner,
+            repo_name=repo,
+            db=get_db(),
+        ):
+            if event.get("event") == "done":
+                try:
+                    assistant_message = ChatMessage.model_validate_json(event["data"])
+                    await add_message(session.session_id, assistant_message)
+                    yield {
+                        "event": "done",
+                        "data": assistant_message.model_dump_json(),
+                    }
+                except Exception:
+                    logger.error(
+                        "Failed to persist plan streamed response",
+                        exc_info=True,
+                    )
+                    yield event
+                continue
+            yield event
+
+    return EventSourceResponse(event_generator())
+
+
+@router.get("/plans/{plan_id}")
+async def get_plan_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Retrieve a plan with all steps."""
+    from src.models.plan import PlanResponse, PlanStepResponse
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    # Verify the plan belongs to this session
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    steps = [
+        PlanStepResponse(
+            step_id=s["step_id"],
+            position=s["position"],
+            title=s["title"],
+            description=s["description"],
+            dependencies=s.get("dependencies", []),
+            issue_number=s.get("issue_number"),
+            issue_url=s.get("issue_url"),
+        )
+        for s in plan.get("steps", [])
+    ]
+    return PlanResponse(
+        plan_id=plan["plan_id"],
+        session_id=plan["session_id"],
+        title=plan["title"],
+        summary=plan["summary"],
+        status=plan["status"],
+        project_id=plan["project_id"],
+        project_name=plan["project_name"],
+        repo_owner=plan["repo_owner"],
+        repo_name=plan["repo_name"],
+        parent_issue_number=plan.get("parent_issue_number"),
+        parent_issue_url=plan.get("parent_issue_url"),
+        steps=steps,
+        created_at=plan["created_at"],
+        updated_at=plan["updated_at"],
+    )
+
+
+@router.patch("/plans/{plan_id}")
+async def update_plan_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    request: Request,
+):
+    """Update plan metadata (title and/or summary)."""
+    from src.models.plan import PlanUpdateRequest
+    from src.services import chat_store
+
+    body = await request.json()
+    update_req = PlanUpdateRequest(**body)
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["status"] != "draft":
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Only draft plans can be updated."},
+        )
+
+    await chat_store.update_plan(db, plan_id, title=update_req.title, summary=update_req.summary)
+    updated = await chat_store.get_plan(db, plan_id)
+    return updated
+
+
+@router.post("/plans/{plan_id}/approve")
+async def approve_plan_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Approve a plan and create GitHub issues."""
+    from src.models.plan import PlanApprovalResponse, PlanStepResponse
+    from src.services import chat_store
+    from src.services.plan_issue_service import create_plan_issues
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["status"] != "draft":
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Only draft plans can be approved."},
+        )
+    if not plan.get("steps"):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "Cannot approve a plan with zero steps."},
+        )
+
+    # Set status to approved before creating issues
+    await chat_store.update_plan_status(db, plan_id, "approved")
+
+    try:
+        result = await create_plan_issues(
+            access_token=session.access_token,
+            plan=plan,
+            owner=plan["repo_owner"],
+            repo=plan["repo_name"],
+            db=db,
+        )
+    except Exception as e:
+        logger.error("Plan issue creation failed: %s", e, exc_info=True)
+        await chat_store.update_plan_status(db, plan_id, "failed")
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "GitHub issue creation failed",
+                "plan_id": plan_id,
+                "status": "failed",
+                "detail": str(e),
+            },
+        )
+
+    if result.get("failed_steps"):
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": "Partial issue creation failure",
+                "plan_id": plan_id,
+                "status": "failed",
+                "created_issues": result["created_issues"],
+                "failed_steps": result["failed_steps"],
+            },
+        )
+
+    # Re-fetch for accurate state
+    updated_plan = await chat_store.get_plan(db, plan_id)
+    steps = [
+        PlanStepResponse(
+            step_id=s["step_id"],
+            position=s["position"],
+            title=s["title"],
+            description=s["description"],
+            dependencies=s.get("dependencies", []),
+            issue_number=s.get("issue_number"),
+            issue_url=s.get("issue_url"),
+        )
+        for s in (updated_plan or plan).get("steps", [])
+    ]
+    return PlanApprovalResponse(
+        plan_id=plan_id,
+        status="completed",
+        parent_issue_number=result.get("parent_issue_number"),
+        parent_issue_url=result.get("parent_issue_url"),
+        steps=steps,
+    )
+
+
+@router.post("/plans/{plan_id}/exit")
+async def exit_plan_mode_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Exit plan mode and return to normal chat."""
+    from src.models.plan import PlanExitResponse
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    # Clear plan mode from agent session
+    try:
+        chat_agent_svc = get_chat_agent_service()
+        await chat_agent_svc.exit_plan_mode(session.session_id)
+    except Exception:
+        logger.warning("Failed to clear plan mode from agent session", exc_info=True)
+
+    return PlanExitResponse(
+        message="Plan mode deactivated",
+        plan_id=plan_id,
+        plan_status=plan["status"],
+    )
