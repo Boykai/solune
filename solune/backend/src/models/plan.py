@@ -10,7 +10,7 @@ from __future__ import annotations
 from enum import StrEnum
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PlanStatus(StrEnum):
@@ -130,5 +130,23 @@ class PlanExitResponse(BaseModel):
 class PlanUpdateRequest(BaseModel):
     """Request body for updating plan metadata."""
 
-    title: str | None = None
-    summary: str | None = None
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Updated plan title (must be non-empty when provided)",
+    )
+    summary: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Updated plan summary (must be non-empty when provided)",
+    )
+
+    @field_validator("title", "summary")
+    @classmethod
+    def _non_empty_when_provided(cls, v: str | None) -> str | None:
+        """Ensure provided strings are not empty or whitespace-only."""
+        if v is None:
+            return None
+        if not v.strip():
+            raise ValueError("must not be empty or whitespace only")
+        return v

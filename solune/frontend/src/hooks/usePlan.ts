@@ -26,7 +26,7 @@ export function usePlan() {
       if (activePlan) {
         setActivePlan({
           ...activePlan,
-          status: data.status as Plan['status'],
+          status: data.status,
           parent_issue_number: data.parent_issue_number,
           parent_issue_url: data.parent_issue_url,
           steps: data.steps.map((s) => ({

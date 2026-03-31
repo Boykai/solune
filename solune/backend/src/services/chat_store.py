@@ -421,20 +421,34 @@ async def save_plan(
     from src.utils import utcnow
 
     now = utcnow().isoformat()
+    status_val = plan.status.value if hasattr(plan.status, "value") else plan.status
     async with transaction(db):
+        # Preserve created_at for existing rows via UPSERT
         await db.execute(
-            """INSERT OR REPLACE INTO chat_plans
+            """INSERT INTO chat_plans
                (plan_id, session_id, title, summary, status,
                 project_id, project_name, repo_owner, repo_name,
                 parent_issue_number, parent_issue_url,
                 created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(plan_id) DO UPDATE SET
+                 session_id = excluded.session_id,
+                 title = excluded.title,
+                 summary = excluded.summary,
+                 status = excluded.status,
+                 project_id = excluded.project_id,
+                 project_name = excluded.project_name,
+                 repo_owner = excluded.repo_owner,
+                 repo_name = excluded.repo_name,
+                 parent_issue_number = excluded.parent_issue_number,
+                 parent_issue_url = excluded.parent_issue_url,
+                 updated_at = excluded.updated_at""",
             (
                 plan.plan_id,
                 plan.session_id,
                 plan.title,
                 plan.summary,
-                plan.status.value if hasattr(plan.status, "value") else plan.status,
+                status_val,
                 plan.project_id,
                 plan.project_name,
                 plan.repo_owner,

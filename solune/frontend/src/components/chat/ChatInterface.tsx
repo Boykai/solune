@@ -552,17 +552,23 @@ export function ChatInterface({
                   />
                 )}
 
-                {message.action_type === 'plan_create' && message.action_data && (
-                  <PlanPreview
-                    plan={message.action_data as PlanCreateActionData}
-                    onApprove={onApprovePlan}
-                    onExit={onExitPlanMode}
-                    onRequestChanges={() => mentionInputRef.current?.focus()}
-                    approvedData={approvedPlanData}
-                    isApproving={isApprovingPlan}
-                    approveError={approvePlanError}
-                  />
-                )}
+                {message.action_type === 'plan_create' && message.action_data && (() => {
+                  const plan = message.action_data as PlanCreateActionData;
+                  const isCurrentPlan =
+                    approvedPlanData && approvedPlanData.plan_id === plan.plan_id;
+
+                  return (
+                    <PlanPreview
+                      plan={plan}
+                      onApprove={onApprovePlan}
+                      onExit={onExitPlanMode}
+                      onRequestChanges={() => mentionInputRef.current?.focus()}
+                      approvedData={isCurrentPlan ? approvedPlanData : undefined}
+                      isApproving={isCurrentPlan ? isApprovingPlan : false}
+                      approveError={isCurrentPlan ? approvePlanError : undefined}
+                    />
+                  );
+                })()}
               </div>
             );
           })
