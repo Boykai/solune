@@ -2209,8 +2209,8 @@ async def approve_plan_endpoint(
             repo=plan["repo_name"],
             db=db,
         )
-    except Exception as e:
-        logger.error("Plan issue creation failed: %s", e, exc_info=True)
+    except Exception:
+        logger.error("Plan issue creation failed", exc_info=True)
         await chat_store.update_plan_status(db, plan_id, "failed")
         return JSONResponse(
             status_code=502,
@@ -2218,11 +2218,21 @@ async def approve_plan_endpoint(
                 "error": "GitHub issue creation failed",
                 "plan_id": plan_id,
                 "status": "failed",
-                "detail": str(e),
+                "detail": "An error occurred while creating GitHub issues. Please try again.",
             },
         )
 
     if result.get("failed_steps"):
+        # Sanitize error messages from failed steps to avoid exposing internals
+        sanitized_steps = [
+            {
+                "step_id": fs["step_id"],
+                "position": fs["position"],
+                "title": fs["title"],
+                "error": "Issue creation failed",
+            }
+            for fs in result["failed_steps"]
+        ]
         return JSONResponse(
             status_code=502,
             content={
@@ -2230,7 +2240,7 @@ async def approve_plan_endpoint(
                 "plan_id": plan_id,
                 "status": "failed",
                 "created_issues": result["created_issues"],
-                "failed_steps": result["failed_steps"],
+                "failed_steps": sanitized_steps,
             },
         )
 
