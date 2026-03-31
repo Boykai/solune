@@ -70,8 +70,10 @@ describe('TemplateBrowser', () => {
   it('filters by category when filter button clicked', () => {
     render(<TemplateBrowser templates={MOCK_TEMPLATES} onSelectTemplate={vi.fn()} />);
 
-    // Click the API filter
-    fireEvent.click(screen.getByText('API'));
+    // Click the API filter button (find the button specifically)
+    const apiButtons = screen.getAllByText('API');
+    // The first one is the filter button
+    fireEvent.click(apiButtons[0]);
 
     // Only API template should be visible
     expect(screen.getByTestId('template-card-api-fastapi')).toBeInTheDocument();
@@ -83,7 +85,8 @@ describe('TemplateBrowser', () => {
     render(<TemplateBrowser templates={MOCK_TEMPLATES} onSelectTemplate={vi.fn()} />);
 
     // First filter to API
-    fireEvent.click(screen.getByText('API'));
+    const apiButtons = screen.getAllByText('API');
+    fireEvent.click(apiButtons[0]);
     expect(screen.queryByTestId('template-card-cli-python')).not.toBeInTheDocument();
 
     // Then click All
@@ -119,8 +122,9 @@ describe('TemplateBrowser', () => {
   it('displays tech stack tags', () => {
     render(<TemplateBrowser templates={MOCK_TEMPLATES} onSelectTemplate={vi.fn()} />);
 
-    expect(screen.getByText('react')).toBeInTheDocument();
-    expect(screen.getByText('fastapi')).toBeInTheDocument();
+    // Use getAllByText since tech stack items appear in multiple templates
+    expect(screen.getAllByText('react').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('fastapi').length).toBeGreaterThan(0);
     expect(screen.getByText('click')).toBeInTheDocument();
   });
 });
