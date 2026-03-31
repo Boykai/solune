@@ -54,6 +54,7 @@ repos:
         language: system
         files: ^frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
+        stages: [pre-push]  # Run tests only on push, not every commit
 
       - id: backend-test
         name: Test Backend (pytest)
