@@ -8,10 +8,10 @@ from collections.abc import Awaitable, Callable, ItemsView, Iterator, KeysView, 
 from datetime import UTC, datetime
 from typing import TypeVar, overload
 from urllib.parse import urlparse
-from typing import TypeVar, Callable, Awaitable
-R = TypeVar("R")
+
 from src.logging_utils import get_logger
 
+R = TypeVar("R")
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
@@ -19,10 +19,7 @@ V = TypeVar("V")
 logger = get_logger(__name__)
 
 
-from typing import TypeVar, Generic
-T = TypeVar("T")
-
-class BoundedSet(Generic[T]):
+class BoundedSet[T]:
     """Set with a maximum capacity that evicts oldest entries (FIFO).
 
     Backed by an ``OrderedDict`` to maintain insertion order. When the
@@ -73,7 +70,8 @@ class BoundedSet(Generic[T]):
 K = TypeVar("K")
 V = TypeVar("V")
 
-class BoundedDict(Generic[K, V]):
+
+class BoundedDict[K, V]:
     """Dict with a maximum capacity that evicts oldest entries (FIFO).
 
     Backed by an ``OrderedDict`` to maintain insertion order.
@@ -345,7 +343,7 @@ async def _resolve_repository_rest(access_token: str, project_id: str) -> tuple[
         return None
 
 
-async def cached_fetch(
+async def cached_fetch[R](
     cache_key: str,
     fetch_fn: Callable[..., Awaitable[R]],
     *args: object,

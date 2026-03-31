@@ -172,15 +172,19 @@ class PipelineState:
     recovered_at: datetime | None = None  # Timestamp of label-driven state recovery
     # Auto merge: True when pipeline should auto-squash-merge parent PR on completion
     auto_merge: bool = False
-# 1. KEEP THIS (OR ADD IT BACK) - The system needs a single agent name for logging/labels
+
+    # 1. KEEP THIS (OR ADD IT BACK) - The system needs a single agent name for logging/labels
     @property
     def current_agent(self) -> str | None:
         """Return the current agent slug based on the flat agents list or group index."""
-        if self.groups and self.current_group_index < len(self.groups):
-            group = self.groups[self.current_group_index]
-            if group.agents and self.current_agent_index_in_group < len(group.agents):
-                return group.agents[self.current_agent_index_in_group]
-        
+        if self.groups:
+            if self.current_group_index < len(self.groups):
+                group = self.groups[self.current_group_index]
+                if group.agents and self.current_agent_index_in_group < len(group.agents):
+                    return group.agents[self.current_agent_index_in_group]
+            # All groups exhausted — no current agent
+            return None
+
         if 0 <= self.current_agent_index < len(self.agents):
             return self.agents[self.current_agent_index]
         return None
@@ -201,26 +205,7 @@ class PipelineState:
                     break
                 idx += 1
             return []
-        
-        agent = self.current_agent
-        return [agent] if agent else []
-    @property
-    def current_agents(self) -> list[str]:
-        """Returns ALL agents in the current group if parallel, otherwise the single current agent."""
-        if self.groups:
-            idx = self.current_group_index
-            while idx < len(self.groups):
-                group = self.groups[idx]
-                if group.agents:
-                    if group.execution_mode == "parallel":
-                        return group.agents
-                    if self.current_agent_index_in_group < len(group.agents):
-                        return [group.agents[self.current_agent_index_in_group]]
-                    break
-                idx += 1
-            return []
-        
-        # Flat fallback
+
         agent = self.current_agent
         return [agent] if agent else []
 
@@ -239,7 +224,7 @@ class PipelineState:
                 if len(group.agent_statuses) < len(group.agents):
                     return False
                 return all(s in ("completed", "failed") for s in group.agent_statuses.values())
-            
+
             # Fix: Sequential groups are complete when index reaches the end
             return self.current_agent_index_in_group >= len(group.agents)
         # Flat fallback (existing behavior)

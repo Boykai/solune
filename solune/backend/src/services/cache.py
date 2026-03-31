@@ -4,22 +4,18 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any
+from typing import Any, TypeVar
 
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.utils import utcnow
-from typing import TypeVar, Callable, Awaitable, Any
 
 T = TypeVar("T")
 
 logger = get_logger(__name__)
 
 
-from typing import TypeVar, Generic
-T = TypeVar("T")
-
-class CacheEntry(Generic[T]):
+class CacheEntry[T]:
     """Cache entry with expiration and optional ETag support."""
 
     def __init__(
@@ -190,7 +186,7 @@ class InMemoryCache:
 cache = InMemoryCache()
 
 
-async def cached_fetch(
+async def cached_fetch[T](
     cache_instance: InMemoryCache,
     key: str,
     fetch_fn: Callable[[], Awaitable[T]],
