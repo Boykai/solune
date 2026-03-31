@@ -12,7 +12,15 @@ _MAX_DESCRIPTION_LENGTH = 2_000
 # ── Label categories (derived from constants.LABELS comments/structure) ──────
 # These are kept as programmatic constants so the prompt is built dynamically.
 
-_TYPE_LABELS = ["feature", "bug", "enhancement", "refactor", "documentation", "testing", "infrastructure"]
+_TYPE_LABELS = [
+    "feature",
+    "bug",
+    "enhancement",
+    "refactor",
+    "documentation",
+    "testing",
+    "infrastructure",
+]
 _SCOPE_LABELS = ["frontend", "backend", "database", "api"]
 _DOMAIN_LABELS = ["security", "performance", "accessibility", "ux"]
 
