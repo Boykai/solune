@@ -18,9 +18,8 @@ async def create_task(
 ) -> dict[str, Any]:
     """Create a new task (GitHub issue) and add it to a project board.
 
-    Delegates to the same logic as the ``POST /tasks`` REST endpoint:
-    creates the issue on GitHub, adds it to the project, and optionally
-    generates sub-issues.
+    Creates the issue on GitHub and adds it to the specified project.
+    For full pipeline sub-issue generation, use ``launch_pipeline`` instead.
 
     Args:
         project_id: The GitHub Project V2 node ID.

@@ -17,11 +17,15 @@ logger = get_logger(__name__)
 def get_mcp_context(ctx: Any) -> McpContext:
     """Extract the ``McpContext`` from the MCP tool context.
 
-    The ``McpContext`` is stored in the lifespan context by the server's
-    lifespan function after token verification.
+    Checks the lifespan context first, then falls back to the
+    ``contextvars.ContextVar`` set by the ASGI auth middleware.
     """
     lifespan_ctx = ctx.request_context.lifespan_context
     mcp_ctx: McpContext | None = lifespan_ctx.get("mcp_context")
+    if mcp_ctx is None:
+        from src.services.mcp_server.context import get_current_mcp_context
+
+        mcp_ctx = get_current_mcp_context()
     if mcp_ctx is None:
         raise AuthorizationError("Authentication required")
     return mcp_ctx

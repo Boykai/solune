@@ -7,7 +7,25 @@ available to all MCP tool handlers through the ``FastMCP`` lifespan context.
 
 from __future__ import annotations
 
+import contextvars
 from dataclasses import dataclass
+
+# ── Contextvar for per-request MCP context ──────────────────────────
+# Used by the ASGI auth middleware to pass the resolved context into
+# the MCP tool handler without relying solely on the lifespan dict.
+_current_mcp_context: contextvars.ContextVar[McpContext | None] = contextvars.ContextVar(
+    "_current_mcp_context", default=None
+)
+
+
+def set_current_mcp_context(ctx: McpContext | None) -> None:
+    """Set the per-request ``McpContext`` contextvar."""
+    _current_mcp_context.set(ctx)
+
+
+def get_current_mcp_context() -> McpContext | None:
+    """Return the per-request ``McpContext``, or ``None``."""
+    return _current_mcp_context.get()
 
 
 @dataclass(frozen=True, slots=True)

@@ -6,9 +6,9 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [x] Implementation details are scoped to protocol/transport decisions only
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
+- [x] Stakeholder-readable with necessary technical specificity for an MCP server spec
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
@@ -27,7 +27,7 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [x] No implementation details leak into specification beyond protocol-level decisions
 
 ## Notes
 

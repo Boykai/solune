@@ -28,10 +28,13 @@ async def list_pipelines(ctx: Context, project_id: str) -> dict[str, Any]:
     db = get_db()
     pipeline_svc = PipelineService(db)
     result = await pipeline_svc.list_pipelines(project_id)
-    return {
-        "project_id": project_id,
-        "pipelines": result.model_dump() if hasattr(result, "model_dump") else result,
-    }
+    data = result.model_dump() if hasattr(result, "model_dump") else result
+    response: dict[str, Any] = {"project_id": project_id}
+    if isinstance(data, dict):
+        response.update(data)
+    else:
+        response["pipelines"] = data
+    return response
 
 
 async def launch_pipeline(
@@ -109,11 +112,14 @@ async def get_pipeline_states(ctx: Context, project_id: str) -> dict[str, Any]:
 async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> dict[str, Any]:
     """Retry a failed pipeline by re-assigning the agent.
 
+    Clears the error state and dedup guards, then re-drives agent
+    assignment for the current pipeline stage.
+
     Args:
         project_id: The GitHub Project V2 node ID.
         issue_number: The GitHub issue number of the pipeline's parent issue.
     """
-    from src.services.pipeline_state_store import get_pipeline_state
+    from src.services.pipeline_state_store import get_pipeline_state, set_pipeline_state
 
     mcp_ctx = get_mcp_context(ctx)
     await verify_mcp_project_access(mcp_ctx, project_id)
@@ -122,10 +128,87 @@ async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> di
     if state is None:
         return {"error": f"No pipeline state found for issue #{issue_number}"}
 
-    # The retry logic follows the same pattern as the API endpoint
+    if getattr(state, "project_id", None) != project_id:
+        return {"error": f"No pipeline state found for issue #{issue_number}"}
+
+    if getattr(state, "is_complete", False):
+        return {"message": "Pipeline already complete", "issue_number": issue_number}
+
+    current_agent = getattr(state, "current_agent", None)
+    if not current_agent:
+        return {"message": "No pending agent to retry", "issue_number": issue_number}
+
+    # Clear the error state so retry proceeds
+    state.error = None
+    await set_pipeline_state(issue_number, state)
+
+    # Clear any pending assignment dedup guards for this agent
+    try:
+        from src.services.copilot_polling import _pending_agent_assignments
+
+        pending_key = f"{issue_number}:{current_agent}"
+        _pending_agent_assignments.pop(pending_key, None)
+    except ImportError:
+        pass
+
+    # Retry the assignment
+    from src.services.workflow_orchestrator.config import get_workflow_config
+    from src.services.workflow_orchestrator.models import WorkflowContext
+    from src.services.workflow_orchestrator.orchestrator import get_workflow_orchestrator
+    from src.utils import resolve_repository
+
+    config = await get_workflow_config(project_id)
+    if not config:
+        return {"error": "No workflow configuration found for this project"}
+
+    owner, repo = await resolve_repository(mcp_ctx.github_token, project_id)
+
+    wf_ctx = WorkflowContext(
+        session_id="mcp",
+        project_id=project_id,
+        access_token=mcp_ctx.github_token,
+        repository_owner=owner,
+        repository_name=repo,
+        config=config,
+        user_chat_model="",
+        user_agent_model="",
+    )
+
+    # Fetch issue context for the orchestrator
+    from src.services.github_projects import GitHubProjectsService
+
+    svc = GitHubProjectsService()
+    try:
+        issue_data = await svc.get_issue_with_comments(
+            access_token=mcp_ctx.github_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+        )
+        wf_ctx.issue_id = issue_data.get("node_id", "")
+        wf_ctx.issue_number = issue_number
+        wf_ctx.issue_url = issue_data.get("html_url", "")
+    except Exception:
+        return {
+            "success": False,
+            "issue_number": issue_number,
+            "message": f"Could not fetch issue #{issue_number} for retry",
+        }
+
+    orchestrator = get_workflow_orchestrator()
+    agent_index = getattr(state, "current_agent_index", 0) or 0
+    success = await orchestrator.assign_agent_for_status(
+        wf_ctx, state.status, agent_index=agent_index
+    )
+
     return {
-        "status": "retry_requested",
+        "success": success,
         "issue_number": issue_number,
         "project_id": project_id,
-        "message": "Pipeline retry has been requested. The agent will be re-assigned.",
+        "agent": current_agent,
+        "message": (
+            f"Successfully retried agent '{current_agent}' on issue #{issue_number}"
+            if success
+            else f"Retry failed for agent '{current_agent}' on issue #{issue_number}"
+        ),
     }

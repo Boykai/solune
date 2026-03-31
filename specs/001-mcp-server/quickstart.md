@@ -140,11 +140,12 @@ Expected response:
 ```json
 {
   "server_name": "solune",
-  "url": "http://localhost:8000/api/v1/mcp",
+  "enabled": true,
+  "url": "/api/v1/mcp",
   "transport": "streamable-http",
   "auth": {
     "type": "bearer",
-    "description": "GitHub Personal Access Token with repo and read:org scopes"
+    "description": "Provide a GitHub Personal Access Token (PAT) as a Bearer token."
   }
 }
 ```

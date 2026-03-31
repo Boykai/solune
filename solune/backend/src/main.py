@@ -707,9 +707,14 @@ def create_app() -> FastAPI:
     # ── MCP Server (v0.4.0) — mount when enabled ──
     if settings.mcp_server_enabled:
         from src.services.mcp_server import create_mcp_server, get_mcp_app
+        from src.services.mcp_server.middleware import McpAuthMiddleware
+        from src.services.mcp_server.server import get_token_verifier
 
         create_mcp_server()
         mcp_app = get_mcp_app()
+        verifier = get_token_verifier()
+        if verifier is not None:
+            mcp_app = McpAuthMiddleware(mcp_app, verifier)
         app.mount("/api/v1/mcp", mcp_app)
         logger.info("MCP server mounted at /api/v1/mcp")
 

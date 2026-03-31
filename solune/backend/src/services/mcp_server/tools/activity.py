@@ -20,7 +20,7 @@ async def get_activity(ctx: Context, project_id: str, limit: int = 20) -> dict[s
         project_id: The GitHub Project V2 node ID.
         limit: Maximum number of events to return (default 20, max 100).
     """
-    from src.api.activity import _query_events
+    from src.services.activity_service import query_events
     from src.services.database import get_db
 
     mcp_ctx = get_mcp_context(ctx)
@@ -28,7 +28,7 @@ async def get_activity(ctx: Context, project_id: str, limit: int = 20) -> dict[s
 
     db = get_db()
     limit = min(max(limit, 1), 100)
-    result = await _query_events(db, project_id=project_id, limit=limit)
+    result = await query_events(db, project_id=project_id, limit=limit)
     return {"project_id": project_id, **result}
 
 
