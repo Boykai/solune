@@ -2233,13 +2233,22 @@ async def approve_plan_endpoint(
             }
             for fs in result["failed_steps"]
         ]
+        # Sanitize created_issues to only include safe fields
+        sanitized_created = [
+            {
+                "step_id": ci["step_id"],
+                "issue_number": ci["issue_number"],
+                "issue_url": ci["issue_url"],
+            }
+            for ci in result.get("created_issues", [])
+        ]
         return JSONResponse(
             status_code=502,
             content={
                 "error": "Partial issue creation failure",
                 "plan_id": plan_id,
                 "status": "failed",
-                "created_issues": result["created_issues"],
+                "created_issues": sanitized_created,
                 "failed_steps": sanitized_steps,
             },
         )
