@@ -509,3 +509,631 @@ class TestAgentsServiceUpdate:
         assert "url: https://example.com/mcp" in content
         assert "solune-tool-ids: tool-123" in content
         assert "tool-123" not in content.split("mcp-servers:", 1)[0]
+
+
+# ---------------------------------------------------------------------------
+# New coverage tests
+# ---------------------------------------------------------------------------
+
+import time
+
+from src.models.agents import Agent
+from src.services.agents.service import (
+    _chat_sessions,
+    _chat_session_timestamps,
+    _FRONTMATTER_RE,
+    _prune_expired_sessions,
+    _SESSION_TTL_SECONDS,
+)
+from src.services.cache import get_repo_agents_cache_key
+
+
+def _make_repo_agent(slug: str = "reviewer", **overrides) -> Agent:
+    defaults = dict(
+        id=f"repo:{slug}",
+        name=slug.replace("-", " ").title(),
+        slug=slug,
+        description="A test agent",
+        system_prompt="Do things.",
+        default_model_id="",
+        default_model_name="",
+        status=AgentStatus.ACTIVE,
+        tools=["read"],
+        status_column=None,
+        github_issue_number=None,
+        github_pr_number=None,
+        branch_name=None,
+        source=AgentSource.REPO,
+        created_at=None,
+    )
+    defaults.update(overrides)
+    return Agent(**defaults)
+
+
+async def _insert_agent_row_with_prefs(
+    db,
+    *,
+    agent_id: str,
+    slug: str,
+    default_model_id: str = "",
+    default_model_name: str = "",
+    icon_name: str | None = None,
+    lifecycle_status: str = "active",
+) -> None:
+    """Insert an agent_configs row that includes model/icon preferences."""
+    await db.execute(
+        """INSERT INTO agent_configs
+           (id, name, slug, description, system_prompt, status_column,
+            tools, project_id, owner, repo, created_by,
+            default_model_id, default_model_name, icon_name,
+            created_at, lifecycle_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)""",
+        (
+            agent_id,
+            slug.title(),
+            slug,
+            "desc",
+            "prompt",
+            "",
+            "[]",
+            PROJECT_ID,
+            OWNER,
+            REPO,
+            GITHUB_USER_ID,
+            default_model_id,
+            default_model_name,
+            icon_name,
+            lifecycle_status,
+        ),
+    )
+    await db.commit()
+
+
+# ── T035 / T036: list_agents preference overlay + stale fallback ─────────
+
+
+class TestListAgentsPreferenceOverlay:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_list_agents_overlays_local_preferences_on_cached_repo_agents(
+        self, mock_db
+    ):
+        # Insert a local agent row with saved model prefs
+        await _insert_agent_row_with_prefs(
+            mock_db,
+            agent_id="local-rev",
+            slug="reviewer",
+            default_model_id="model-x",
+            default_model_name="Model X",
+            icon_name="star",
+        )
+
+        # Seed the cache with a repo agent (no model prefs)
+        cache_key = get_repo_agents_cache_key(OWNER, REPO)
+        repo_agent = _make_repo_agent("reviewer")
+        cache.set(cache_key, [repo_agent])
+
+        service = AgentsService(mock_db)
+        agents = await service.list_agents(
+            project_id=PROJECT_ID,
+            owner=OWNER,
+            repo=REPO,
+            access_token=ACCESS_TOKEN,
+        )
+
+        assert len(agents) == 1
+        assert agents[0].default_model_id == "model-x"
+        assert agents[0].default_model_name == "Model X"
+        assert agents[0].icon_name == "star"
+
+    async def test_list_agents_stale_fallback_when_repo_unavailable(self, mock_db):
+        # Seed cache, then expire it so only get_stale returns data
+        cache_key = get_repo_agents_cache_key(OWNER, REPO)
+        repo_agent = _make_repo_agent("reviewer")
+        cache.set(cache_key, [repo_agent], ttl_seconds=0)
+
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.side_effect = RuntimeError("offline")
+
+        service = AgentsService(mock_db)
+        with patch("src.services.agents.service.github_projects_service", mock_github_service):
+            agents = await service.list_agents(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                access_token=ACCESS_TOKEN,
+            )
+
+        # Stale data should still be returned
+        assert len(agents) == 1
+        assert agents[0].slug == "reviewer"
+
+    async def test_list_agents_empty_when_no_cache_and_repo_fails(self, mock_db):
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.side_effect = RuntimeError("offline")
+
+        service = AgentsService(mock_db)
+        with patch("src.services.agents.service.github_projects_service", mock_github_service):
+            agents = await service.list_agents(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                access_token=ACCESS_TOKEN,
+            )
+
+        assert agents == []
+
+
+# ── T041-T043: YAML frontmatter parsing ─────────────────────────────────
+
+
+class TestYAMLFrontmatterParsing:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_missing_yaml_fields_uses_defaults(self, mock_db):
+        # Frontmatter with only an unrelated key — name/description/tools all absent
+        content_minimal = "---\ncustom_key: value\n---\nJust a prompt."
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.return_value = [
+            {"name": "helper.agent.md", "content": content_minimal}
+        ]
+
+        service = AgentsService(mock_db)
+        with patch("src.services.agents.service.github_projects_service", mock_github_service):
+            agents, available = await service._list_repo_agents(
+                owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
+            )
+
+        assert available is True
+        assert len(agents) == 1
+        agent = agents[0]
+        assert agent.slug == "helper"
+        assert agent.description == ""
+        assert agent.tools == []
+        assert agent.system_prompt == "Just a prompt."
+        # Name falls back to titlecased slug
+        assert agent.name == "Helper"
+
+    async def test_yaml_parse_error_falls_back_to_basic_agent(self, mock_db):
+        bad_yaml = "---\n: invalid: yaml: [[[broken\n---\nSome prompt."
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.return_value = [
+            {"name": "bad.agent.md", "content": bad_yaml}
+        ]
+
+        service = AgentsService(mock_db)
+        with patch("src.services.agents.service.github_projects_service", mock_github_service):
+            agents, available = await service._list_repo_agents(
+                owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
+            )
+
+        assert available is True
+        assert len(agents) == 1
+        assert agents[0].slug == "bad"
+        assert agents[0].system_prompt == "Some prompt."
+
+    async def test_no_frontmatter_uses_content_as_system_prompt(self, mock_db):
+        raw_content = "This is just a raw system prompt with no YAML."
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.return_value = [
+            {"name": "simple.agent.md", "content": raw_content}
+        ]
+
+        service = AgentsService(mock_db)
+        with patch("src.services.agents.service.github_projects_service", mock_github_service):
+            agents, available = await service._list_repo_agents(
+                owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
+            )
+
+        assert available is True
+        assert len(agents) == 1
+        assert agents[0].system_prompt == raw_content
+        assert agents[0].description == ""
+        assert agents[0].tools == []
+
+    async def test_full_frontmatter_parsed_correctly(self, mock_db):
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.return_value = [
+            {"name": "reviewer.agent.md", "content": AGENT_FILE_CONTENT}
+        ]
+
+        service = AgentsService(mock_db)
+        with patch("src.services.agents.service.github_projects_service", mock_github_service):
+            agents, available = await service._list_repo_agents(
+                owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
+            )
+
+        assert available is True
+        assert len(agents) == 1
+        agent = agents[0]
+        assert agent.name == "Reviewer"
+        assert agent.description == "Reviews pull requests"
+        assert agent.tools == ["read", "comment"]
+        assert agent.system_prompt == "Review pull requests carefully."
+
+
+# ── T044-T046: _normalize_mcp_server_config ──────────────────────────────
+
+
+class TestNormalizeMCPServerConfig:
+    def test_stdio_type_becomes_local(self):
+        result = AgentsService._normalize_mcp_server_config(
+            {"type": "stdio", "command": "npx foo"}
+        )
+        assert result is not None
+        assert result["type"] == "local"
+
+    def test_dict_with_command_infers_local_type(self):
+        result = AgentsService._normalize_mcp_server_config(
+            {"command": "node server.js"}
+        )
+        assert result is not None
+        assert result["type"] == "local"
+
+    def test_dict_with_url_infers_http_type(self):
+        result = AgentsService._normalize_mcp_server_config(
+            {"url": "https://example.com/mcp"}
+        )
+        assert result is not None
+        assert result["type"] == "http"
+
+    def test_explicit_type_preserved(self):
+        result = AgentsService._normalize_mcp_server_config(
+            {"type": "http", "url": "https://example.com/mcp", "tools": ["search"]}
+        )
+        assert result is not None
+        assert result["type"] == "http"
+        assert result["tools"] == ["search"]
+
+    def test_empty_tools_defaults_to_wildcard(self):
+        result = AgentsService._normalize_mcp_server_config(
+            {"type": "http", "url": "https://example.com/mcp"}
+        )
+        assert result is not None
+        assert result["tools"] == ["*"]
+
+    def test_non_dict_returns_none(self):
+        assert AgentsService._normalize_mcp_server_config("just a string") is None
+        assert AgentsService._normalize_mcp_server_config(42) is None
+        assert AgentsService._normalize_mcp_server_config(None) is None
+
+    def test_empty_tools_list_defaults_to_wildcard(self):
+        result = AgentsService._normalize_mcp_server_config(
+            {"type": "http", "url": "https://x.com", "tools": []}
+        )
+        assert result is not None
+        assert result["tools"] == ["*"]
+
+
+# ── Tool resolution ──────────────────────────────────────────────────────
+
+
+class TestToolResolution:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_empty_tools_returns_empty(self, mock_db):
+        service = AgentsService(mock_db)
+        display, allowlist, ids, mcp = await service._resolve_agent_tool_selection(
+            project_id=PROJECT_ID,
+            github_user_id=GITHUB_USER_ID,
+            requested_tools=[],
+        )
+        assert display == []
+        assert allowlist == []
+        assert ids == []
+        assert mcp == {}
+
+    async def test_mcp_tool_lookup_from_db(self, mock_db):
+        await _insert_mcp_tool(mock_db, tool_id="tool-abc")
+        service = AgentsService(mock_db)
+
+        display, allowlist, ids, mcp = await service._resolve_agent_tool_selection(
+            project_id=PROJECT_ID,
+            github_user_id=GITHUB_USER_ID,
+            requested_tools=["tool-abc"],
+        )
+
+        assert "Context7" in display
+        assert "tool-abc" in ids
+        assert "context7" in mcp
+
+    async def test_unknown_tool_treated_as_explicit(self, mock_db):
+        service = AgentsService(mock_db)
+        display, allowlist, ids, mcp = await service._resolve_agent_tool_selection(
+            project_id=PROJECT_ID,
+            github_user_id=GITHUB_USER_ID,
+            requested_tools=["read"],
+        )
+
+        assert display == ["read"]
+        assert "read" in allowlist
+        assert ids == []
+        assert mcp == {}
+
+    async def test_duplicate_tools_deduped(self, mock_db):
+        service = AgentsService(mock_db)
+        display, allowlist, ids, mcp = await service._resolve_agent_tool_selection(
+            project_id=PROJECT_ID,
+            github_user_id=GITHUB_USER_ID,
+            requested_tools=["read", "read"],
+        )
+
+        assert display == ["read"]
+        assert allowlist == ["read"]
+
+
+# ── T047-T049: create_agent ──────────────────────────────────────────────
+
+
+class TestCreateAgent:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_slug_from_special_chars(self, mock_db):
+        service = AgentsService(mock_db)
+        mock_github_service = AsyncMock()
+        mock_github_service.get_file_content.side_effect = FileNotFoundError()
+
+        body = SimpleNamespace(
+            name="My Cool Agent!",
+            description="test",
+            icon_name=None,
+            system_prompt="Do stuff.",
+            tools=[],
+            status_column="",
+            default_model_id="",
+            default_model_name="",
+            raw=True,
+        )
+
+        with (
+            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=_workflow_result(pr_number=100, issue_number=70)),
+            ),
+        ):
+            result = await service.create_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=body,
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        assert result.agent.slug == "my-cool-agent"
+        assert result.pr_number == 100
+
+    async def test_ai_failure_fallback_to_raw_input(self, mock_db):
+        service = AgentsService(mock_db)
+        mock_github_service = AsyncMock()
+        mock_github_service.get_file_content.side_effect = FileNotFoundError()
+
+        body = SimpleNamespace(
+            name="Fallback Agent",
+            description="",
+            icon_name=None,
+            system_prompt="Help users.",
+            tools=[],
+            status_column="",
+            default_model_id="",
+            default_model_name="",
+            raw=False,
+        )
+
+        with (
+            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch.object(
+                service, "_enhance_agent_content", AsyncMock(side_effect=RuntimeError("AI down"))
+            ),
+            patch.object(
+                service,
+                "_generate_rich_descriptions",
+                AsyncMock(side_effect=RuntimeError("AI down")),
+            ),
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=_workflow_result(pr_number=101, issue_number=71)),
+            ),
+        ):
+            result = await service.create_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=body,
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        # Fallback: description defaults to name, system_prompt stays original
+        assert result.agent.description == "Fallback Agent"
+        assert result.agent.system_prompt == "Help users."
+
+    async def test_raw_mode_skips_ai_enhancement(self, mock_db):
+        service = AgentsService(mock_db)
+        mock_github_service = AsyncMock()
+        mock_github_service.get_file_content.side_effect = FileNotFoundError()
+
+        enhance_mock = AsyncMock()
+
+        body = SimpleNamespace(
+            name="Raw Agent",
+            description="My desc",
+            icon_name=None,
+            system_prompt="Exact prompt.",
+            tools=["read"],
+            status_column="",
+            default_model_id="",
+            default_model_name="",
+            raw=True,
+        )
+
+        with (
+            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch.object(service, "_enhance_agent_content", enhance_mock),
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=_workflow_result(pr_number=102, issue_number=72)),
+            ),
+        ):
+            result = await service.create_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=body,
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        enhance_mock.assert_not_awaited()
+        assert result.agent.system_prompt == "Exact prompt."
+        assert result.agent.description == "My desc"
+
+
+# ── T039: bulk_update_models partial failure ─────────────────────────────
+
+
+class TestBulkUpdatePartialFailure:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_partial_failure_continues_and_reports(self, mock_db):
+        service = AgentsService(mock_db)
+
+        good_agent = SimpleNamespace(
+            id="repo:good",
+            slug="good",
+            icon_name=None,
+            default_model_id="old",
+            default_model_name="Old",
+            status=AgentStatus.ACTIVE,
+        )
+        bad_agent = SimpleNamespace(
+            id="repo:bad",
+            slug="bad",
+            icon_name=None,
+            default_model_id="old",
+            default_model_name="Old",
+            status=AgentStatus.ACTIVE,
+        )
+        body = SimpleNamespace(target_model_id="model-1", target_model_name="GPT-5")
+
+        call_count = 0
+
+        async def _side_effect(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if kwargs["agent"].slug == "bad":
+                raise RuntimeError("DB failure")
+
+        with (
+            patch.object(service, "list_agents", AsyncMock(return_value=[good_agent, bad_agent])),
+            patch.object(service, "list_pending_agents", AsyncMock(return_value=[])),
+            patch.object(service, "_save_runtime_preferences", AsyncMock(side_effect=_side_effect)),
+        ):
+            result = await service.bulk_update_models(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                github_user_id=GITHUB_USER_ID,
+                body=body,
+                access_token=ACCESS_TOKEN,
+            )
+
+        assert result.success is False
+        assert result.updated_count == 1
+        assert result.failed_count == 1
+        assert "good" in result.updated_agents
+        assert "bad" in result.failed_agents
+
+
+# ── get_agent_preferences ────────────────────────────────────────────────
+
+
+class TestGetAgentPreferences:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_returns_slug_to_prefs_mapping(self, mock_db):
+        await _insert_agent_row_with_prefs(
+            mock_db,
+            agent_id="pref-1",
+            slug="reviewer",
+            default_model_id="m-1",
+            default_model_name="Model One",
+            icon_name="star",
+        )
+        await _insert_agent_row_with_prefs(
+            mock_db,
+            agent_id="pref-2",
+            slug="writer",
+        )
+
+        service = AgentsService(mock_db)
+        prefs = await service.get_agent_preferences(PROJECT_ID)
+
+        assert "reviewer" in prefs
+        assert prefs["reviewer"]["default_model_id"] == "m-1"
+        assert prefs["reviewer"]["default_model_name"] == "Model One"
+        assert prefs["reviewer"]["icon_name"] == "star"
+        # Writer has no prefs set → not in result
+        assert "writer" not in prefs
+
+
+# ── T037: session pruning ────────────────────────────────────────────────
+
+
+class TestSessionPruning:
+    @pytest.fixture(autouse=True)
+    def _clean_sessions(self):
+        _chat_sessions.clear()
+        _chat_session_timestamps.clear()
+        yield
+        _chat_sessions.clear()
+        _chat_session_timestamps.clear()
+
+    def test_prune_removes_expired_sessions(self):
+        now = time.monotonic()
+        _chat_sessions["old"] = [{"role": "user", "content": "hi"}]
+        _chat_session_timestamps["old"] = now - _SESSION_TTL_SECONDS - 1
+
+        _chat_sessions["fresh"] = [{"role": "user", "content": "hello"}]
+        _chat_session_timestamps["fresh"] = now
+
+        _prune_expired_sessions()
+
+        assert "old" not in _chat_sessions
+        assert "old" not in _chat_session_timestamps
+        assert "fresh" in _chat_sessions
+        assert "fresh" in _chat_session_timestamps
+
+    def test_prune_no_op_when_all_fresh(self):
+        now = time.monotonic()
+        _chat_sessions["a"] = []
+        _chat_session_timestamps["a"] = now
+
+        _prune_expired_sessions()
+
+        assert "a" in _chat_sessions

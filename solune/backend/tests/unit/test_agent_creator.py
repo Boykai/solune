@@ -788,3 +788,760 @@ class TestToolAssignment:
         """Prompt file path contains the slug."""
         files = generate_config_files(preview_with_tools)
         assert "tool-agent" in files[1]["path"]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Status resolution — _resolve_status_step / _handle_status_selection
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestStatusResolution:
+    """Tests for the status resolution flow via handle_agent_command."""
+
+    @pytest.fixture
+    async def seeded_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture
+    async def admin_db(self, seeded_db: aiosqlite.Connection):
+        await seeded_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await seeded_db.commit()
+        return seeded_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    # T024
+    async def test_empty_status_prompts_for_column(self, admin_db: aiosqlite.Connection):
+        """When no status is provided, user is asked to choose a column."""
+        result = await handle_agent_command(
+            message="#agent Reviews PRs",
+            session_key="sess-t024",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+            project_columns=["Todo", "In Progress", "Done"],
+        )
+        assert "Which status column" in result
+        assert "1. Todo" in result
+        state = get_active_session("sess-t024")
+        assert state is not None
+        assert state.step == CreationStep.RESOLVE_STATUS
+
+    # T025
+    async def test_case_insensitive_match_resolves(self, admin_db: aiosqlite.Connection):
+        """Status provided as 'in-progress' matches 'In Progress' column."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "Reviewer",
+                "description": "Reviews code",
+                "system_prompt": "You review code.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            result = await handle_agent_command(
+                message="#agent Reviews code #in-progress",
+                session_key="sess-t025",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        assert "Agent Preview" in result
+        state = get_active_session("sess-t025")
+        assert state is not None
+        assert state.resolved_status == "In Progress"
+        assert state.is_new_column is False
+
+    # T026
+    async def test_out_of_range_selection_returns_error(self, admin_db: aiosqlite.Connection):
+        """Typing an out-of-range number returns a helpful error."""
+        # First trigger the ambiguous prompt by providing a status that matches
+        # two columns.
+        from src.services.agent_creator import _agent_sessions
+
+        result = await handle_agent_command(
+            message="#agent My agent #review",
+            session_key="sess-t026",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+            project_columns=["In Review", "Code Review"],
+        )
+        assert "Multiple columns" in result
+
+        # Now respond with invalid number
+        result2 = await handle_agent_command(
+            message="99",
+            session_key="sess-t026",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+            project_columns=["In Review", "Code Review"],
+        )
+        assert "between 1 and" in result2
+
+    # T027
+    async def test_no_match_proposes_new_column(self, admin_db: aiosqlite.Connection):
+        """Unrecognized status results in a new column proposal."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "Triager",
+                "description": "Triages issues",
+                "system_prompt": "You triage issues.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            result = await handle_agent_command(
+                message="#agent Triages issues #brand-new-status",
+                session_key="sess-t027",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+        assert "Agent Preview" in result
+        state = get_active_session("sess-t027")
+        assert state is not None
+        assert state.is_new_column is True
+        assert state.resolved_status == "Brand New Status"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Creation pipeline — _execute_creation_pipeline
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestCreationPipeline:
+    """Tests for the 7-step creation pipeline."""
+
+    @pytest.fixture
+    async def seeded_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture
+    async def admin_db(self, seeded_db: aiosqlite.Connection):
+        await seeded_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await seeded_db.commit()
+        return seeded_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    def _ai_mock(self, name: str = "TestBot"):
+        """Return a patched AI service mock with valid generate_agent_config."""
+        patcher = patch("src.services.agent_creator.get_ai_agent_service")
+        mock_ai = patcher.start()
+        svc = AsyncMock()
+        svc.generate_agent_config.return_value = {
+            "name": name,
+            "description": "A test bot",
+            "system_prompt": "You are a test bot.",
+            "tools": ["tool1"],
+        }
+        svc.edit_agent_config.return_value = {
+            "name": name,
+            "description": "Edited",
+            "system_prompt": "Edited prompt.",
+        }
+        mock_ai.return_value = svc
+        return patcher, svc
+
+    def _gps_mock(self):
+        """Return a patched github_projects_service mock with all pipeline methods."""
+        patcher = patch("src.services.agent_creator.github_projects_service")
+        mock_gps = patcher.start()
+        mock_gps.create_issue = AsyncMock(
+            return_value={
+                "number": 42,
+                "node_id": "I_42",
+                "id": 1,
+                "html_url": "https://github.com/o/r/issues/42",
+            }
+        )
+        mock_gps.get_repository_info = AsyncMock(
+            return_value={
+                "repository_id": "R_1",
+                "head_oid": "abc123",
+                "default_branch": "main",
+            }
+        )
+        mock_gps.create_branch = AsyncMock(return_value="ref-id-1")
+        mock_gps.commit_files = AsyncMock(return_value="commit-oid-1")
+        mock_gps.create_pull_request = AsyncMock(
+            return_value={"number": 10, "url": "https://github.com/o/r/pull/10"}
+        )
+        mock_gps.add_issue_to_project = AsyncMock(return_value="item-1")
+        mock_gps.update_item_status_by_name = AsyncMock()
+        return patcher, mock_gps
+
+    async def _drive_to_preview(
+        self,
+        admin_db: aiosqlite.Connection,
+        session_key: str,
+        *,
+        name: str = "TestBot",
+    ) -> str:
+        """Drive the conversation through to the preview step."""
+        ai_patcher, _ = self._ai_mock(name)
+        try:
+            result = await handle_agent_command(
+                message=f"#agent Build a {name} #Done",
+                session_key=session_key,
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            ai_patcher.stop()
+        return result
+
+    # T028
+    async def test_duplicate_name_halts_pipeline(self, admin_db: aiosqlite.Connection):
+        """Pipeline stops when an agent with the same name already exists."""
+        # Pre-insert an agent with the same name
+        await admin_db.execute(
+            """INSERT INTO agent_configs
+               (id, name, slug, description, system_prompt, status_column,
+                tools, project_id, owner, repo, created_by, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                "existing-id",
+                "TestBot",
+                "test-bot",
+                "Already exists",
+                "prompt",
+                "Done",
+                "[]",
+                "PVT_1",
+                "o",
+                "r",
+                "12345",
+                "2024-01-01T00:00:00Z",
+            ),
+        )
+        await admin_db.commit()
+
+        preview_result = await self._drive_to_preview(admin_db, "sess-t028")
+        assert "Agent Preview" in preview_result
+
+        # Now confirm to trigger pipeline
+        gps_patcher, _ = self._gps_mock()
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-t028",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "already exists" in result
+        assert get_active_session("sess-t028") is None
+
+    # T029
+    async def test_issue_creation_failure_continues(self, admin_db: aiosqlite.Connection):
+        """When issue creation fails, pipeline continues with a warning."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-t029", name="IssueBot")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, mock_gps = self._gps_mock()
+        mock_gps.create_issue = AsyncMock(side_effect=RuntimeError("GitHub API error"))
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-t029",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "Create GitHub Issue" in result
+        # Issue step should be marked as failed
+        assert "GitHub API error" in result
+
+    # T030
+    async def test_pr_creation_failure_logged(self, admin_db: aiosqlite.Connection):
+        """When PR creation fails, pipeline continues and reports the error."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-t030", name="PrBot")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, mock_gps = self._gps_mock()
+        mock_gps.create_pull_request = AsyncMock(side_effect=RuntimeError("PR API error"))
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-t030",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "Open Pull Request" in result
+        assert "PR API error" in result
+        # Issue creation should have succeeded
+        assert "Create GitHub Issue" in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# AI service failures
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestAIServiceFailures:
+    """Tests for AI service error handling paths."""
+
+    @pytest.fixture
+    async def seeded_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture
+    async def admin_db(self, seeded_db: aiosqlite.Connection):
+        await seeded_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await seeded_db.commit()
+        return seeded_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    # T031
+    async def test_generate_config_raises_clears_session(self, admin_db: aiosqlite.Connection):
+        """When generate_agent_config raises, session is cleared and error returned."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.side_effect = RuntimeError("AI down")
+            mock_ai.return_value = svc
+
+            result = await handle_agent_command(
+                message="#agent Build a bot #Done",
+                session_key="sess-t031",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Error" in result
+        assert "AI down" in result
+        assert get_active_session("sess-t031") is None
+
+    # T032
+    async def test_edit_config_fails_preserves_preview(self, admin_db: aiosqlite.Connection):
+        """When edit_agent_config fails, error returned but preview preserved."""
+        # First get to preview
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "EditBot",
+                "description": "Test",
+                "system_prompt": "Prompt.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            await handle_agent_command(
+                message="#agent Build a bot #Done",
+                session_key="sess-t032",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        state_before = get_active_session("sess-t032")
+        assert state_before is not None
+        assert state_before.preview is not None
+        original_name = state_before.preview.name
+
+        # Now try an edit that fails
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai2:
+            svc2 = AsyncMock()
+            svc2.edit_agent_config.side_effect = RuntimeError("Edit failed")
+            mock_ai2.return_value = svc2
+
+            result = await handle_agent_command(
+                message="change name to FooBot",
+                session_key="sess-t032",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Error" in result
+        assert "Edit failed" in result
+        # Preview should still exist
+        state_after = get_active_session("sess-t032")
+        assert state_after is not None
+        assert state_after.preview is not None
+        assert state_after.preview.name == original_name
+
+    # T033
+    async def test_ai_returns_string_tools_defaults_to_empty(
+        self, admin_db: aiosqlite.Connection
+    ):
+        """When AI returns a non-list for tools, it defaults to empty list."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "ToolBot",
+                "description": "A bot",
+                "system_prompt": "Prompt.",
+                "tools": "not-a-list",
+            }
+            mock_ai.return_value = svc
+
+            result = await handle_agent_command(
+                message="#agent Build a bot #Done",
+                session_key="sess-t033",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Agent Preview" in result
+        state = get_active_session("sess-t033")
+        assert state is not None
+        assert state.preview is not None
+        assert state.preview.tools == []
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Additional coverage — status selection, edit flow, edge cases
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestStatusSelectionFlow:
+    """Tests for _handle_status_selection via handle_agent_command."""
+
+    @pytest.fixture
+    async def seeded_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture
+    async def admin_db(self, seeded_db: aiosqlite.Connection):
+        await seeded_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await seeded_db.commit()
+        return seeded_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    async def test_valid_numeric_selection_resolves(self, admin_db: aiosqlite.Connection):
+        """Typing a valid number picks that column and generates preview."""
+        # Trigger ambiguous status
+        result = await handle_agent_command(
+            message="#agent My agent #review",
+            session_key="sess-sel1",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+            project_columns=["In Review", "Code Review"],
+        )
+        assert "Multiple columns" in result
+
+        # Respond with valid number
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "Reviewer",
+                "description": "Reviews",
+                "system_prompt": "You review.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            result2 = await handle_agent_command(
+                message="1",
+                session_key="sess-sel1",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["In Review", "Code Review"],
+            )
+        assert "Agent Preview" in result2
+        state = get_active_session("sess-sel1")
+        assert state is not None
+        assert state.resolved_status == "In Review"
+
+    async def test_text_selection_creates_new_column(self, admin_db: aiosqlite.Connection):
+        """Typing free text during status selection creates a new column."""
+        # First prompt for status (no status provided)
+        result = await handle_agent_command(
+            message="#agent My agent",
+            session_key="sess-sel2",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+            project_columns=["Todo", "Done"],
+        )
+        assert "Which status column" in result
+
+        # Respond with free text
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "Agent",
+                "description": "An agent",
+                "system_prompt": "You are an agent.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            result2 = await handle_agent_command(
+                message="custom-status",
+                session_key="sess-sel2",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+        assert "Agent Preview" in result2
+        state = get_active_session("sess-sel2")
+        assert state is not None
+        assert state.is_new_column is True
+        assert state.resolved_status == "Custom Status"
+
+
+class TestEditFlow:
+    """Tests for the _apply_edit path via handle_agent_command."""
+
+    @pytest.fixture
+    async def seeded_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture
+    async def admin_db(self, seeded_db: aiosqlite.Connection):
+        await seeded_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await seeded_db.commit()
+        return seeded_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    async def test_successful_edit_updates_preview(self, admin_db: aiosqlite.Connection):
+        """Successful edit updates the preview and sets step to EDIT_LOOP."""
+        # Get to preview
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "OldName",
+                "description": "Old desc",
+                "system_prompt": "Old prompt.",
+                "tools": ["tool1"],
+            }
+            mock_ai.return_value = svc
+
+            await handle_agent_command(
+                message="#agent Build a bot #Done",
+                session_key="sess-edit1",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        # Now send an edit
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai2:
+            svc2 = AsyncMock()
+            svc2.edit_agent_config.return_value = {
+                "name": "NewName",
+                "description": "New desc",
+                "system_prompt": "New prompt.",
+            }
+            mock_ai2.return_value = svc2
+
+            result = await handle_agent_command(
+                message="change the name to NewName",
+                session_key="sess-edit1",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        assert "Agent Preview" in result
+        assert "NewName" in result
+        state = get_active_session("sess-edit1")
+        assert state is not None
+        assert state.step == CreationStep.EDIT_LOOP
+        assert state.preview is not None
+        assert state.preview.name == "NewName"
+
+    async def test_empty_status_no_columns(self, admin_db: aiosqlite.Connection):
+        """When no status and no columns, user gets a free-text prompt."""
+        result = await handle_agent_command(
+            message="#agent A simple agent",
+            session_key="sess-edit2",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+            project_columns=[],
+        )
+        assert "type a column name" in result
+
+    async def test_missing_context_returns_error(self, admin_db: aiosqlite.Connection):
+        """Pipeline with missing project_id returns error."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "Bot",
+                "description": "A bot",
+                "system_prompt": "Prompt.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            await handle_agent_command(
+                message="#agent Build a bot #Done",
+                session_key="sess-edit3",
+                project_id=None,
+                owner=None,
+                repo=None,
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        # Session should be in RESOLVE_PROJECT step (Signal flow)
+        state = get_active_session("sess-edit3")
+        assert state is not None
+        assert state.step == CreationStep.RESOLVE_PROJECT
