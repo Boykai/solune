@@ -1593,9 +1593,9 @@ async def check_issue_for_copilot_completion(
         }
 
     except Exception as e:
-        logger.error("Error checking issue #%d: %s", issue_number, e)
+        logger.error("Error checking issue #%d: %s", issue_number, e, exc_info=True)
         return {
             "status": "error",
             "issue_number": issue_number,
-            "error": str(e),
+            "error": "Failed to check issue completion",
         }

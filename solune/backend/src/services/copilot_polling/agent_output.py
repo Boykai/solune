@@ -1051,8 +1051,8 @@ async def post_agent_outputs_from_pr(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error posting agent outputs from PRs: %s", e)
+        logger.error("Error posting agent outputs from PRs: %s", e, exc_info=True)
         _polling_state.errors_count += 1
-        _polling_state.last_error = str(e)
+        _polling_state.last_error = type(e).__name__
 
     return results
