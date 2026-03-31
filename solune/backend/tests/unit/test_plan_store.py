@@ -8,11 +8,9 @@ Covers:
 - Edge cases: missing plan, empty steps, plan replacement
 """
 
-import json
-
 import pytest
 
-from src.models.plan import Plan, PlanStatus, PlanStep
+from src.models.plan import Plan, PlanStep
 from src.services.chat_store import (
     get_plan,
     save_plan,
@@ -21,7 +19,6 @@ from src.services.chat_store import (
     update_plan_status,
     update_plan_step_issue,
 )
-
 
 # =============================================================================
 # Helpers
@@ -133,15 +130,21 @@ class TestSavePlanAndGetPlan:
     @pytest.mark.anyio
     async def test_save_plan_replaces_existing(self, mock_db):
         """INSERT OR REPLACE should update the plan and re-create steps."""
-        plan_v1 = _make_plan(title="Version 1", steps=[
-            _make_step(step_id="s-old", position=0, title="Old Step"),
-        ])
+        plan_v1 = _make_plan(
+            title="Version 1",
+            steps=[
+                _make_step(step_id="s-old", position=0, title="Old Step"),
+            ],
+        )
         await save_plan(mock_db, plan_v1)
 
-        plan_v2 = _make_plan(title="Version 2", steps=[
-            _make_step(step_id="s-new-1", position=0, title="New Step 1"),
-            _make_step(step_id="s-new-2", position=1, title="New Step 2"),
-        ])
+        plan_v2 = _make_plan(
+            title="Version 2",
+            steps=[
+                _make_step(step_id="s-new-1", position=0, title="New Step 1"),
+                _make_step(step_id="s-new-2", position=1, title="New Step 2"),
+            ],
+        )
         await save_plan(mock_db, plan_v2)
 
         result = await get_plan(mock_db, "plan-1")
@@ -307,9 +310,7 @@ class TestUpdatePlanIssueLinks:
         steps = [_make_step(step_id="s-1", position=0)]
         await save_plan(mock_db, _make_plan(steps=steps))
 
-        ok = await update_plan_step_issue(
-            mock_db, "s-1", 42, "https://github.com/o/r/issues/42"
-        )
+        ok = await update_plan_step_issue(mock_db, "s-1", 42, "https://github.com/o/r/issues/42")
         assert ok is True
 
         result = await get_plan(mock_db, "plan-1")
@@ -319,9 +320,7 @@ class TestUpdatePlanIssueLinks:
 
     @pytest.mark.anyio
     async def test_update_step_issue_nonexistent(self, mock_db):
-        ok = await update_plan_step_issue(
-            mock_db, "nonexistent", 1, "https://example.com"
-        )
+        ok = await update_plan_step_issue(mock_db, "nonexistent", 1, "https://example.com")
         assert ok is False
 
     @pytest.mark.anyio
@@ -340,7 +339,5 @@ class TestUpdatePlanIssueLinks:
 
     @pytest.mark.anyio
     async def test_update_parent_issue_nonexistent(self, mock_db):
-        ok = await update_plan_parent_issue(
-            mock_db, "nonexistent", 1, "https://example.com"
-        )
+        ok = await update_plan_parent_issue(mock_db, "nonexistent", 1, "https://example.com")
         assert ok is False

@@ -45,16 +45,9 @@ async def create_plan_issues(
     steps = plan.get("steps", [])
 
     # ── 1. Build parent issue body with step checklist ────────────────
-    checklist_lines = [
-        f"- [ ] **Step {step['position'] + 1}**: {step['title']}"
-        for step in steps
-    ]
+    checklist_lines = [f"- [ ] **Step {step['position'] + 1}**: {step['title']}" for step in steps]
 
-    parent_body = (
-        f"{plan['summary']}\n\n"
-        f"## Implementation Steps\n\n"
-        + "\n".join(checklist_lines)
-    )
+    parent_body = f"{plan['summary']}\n\n## Implementation Steps\n\n" + "\n".join(checklist_lines)
 
     # ── 2. Create parent issue ────────────────────────────────────────
     parent_issue = await service.create_issue(
@@ -100,13 +93,15 @@ async def create_plan_issues(
             await chat_store.update_plan_step_issue(
                 db, step["step_id"], issue["number"], issue["html_url"]
             )
-            created_issues.append({
-                "step_id": step["step_id"],
-                "position": step["position"],
-                "title": step["title"],
-                "issue_number": issue["number"],
-                "issue_url": issue["html_url"],
-            })
+            created_issues.append(
+                {
+                    "step_id": step["step_id"],
+                    "position": step["position"],
+                    "title": step["title"],
+                    "issue_number": issue["number"],
+                    "issue_url": issue["html_url"],
+                }
+            )
 
             # Small delay to respect GitHub rate limits
             await asyncio.sleep(0.1)
@@ -118,12 +113,14 @@ async def create_plan_issues(
                 e,
                 exc_info=True,
             )
-            failed_steps.append({
-                "step_id": step["step_id"],
-                "position": step["position"],
-                "title": step["title"],
-                "error": str(e),
-            })
+            failed_steps.append(
+                {
+                    "step_id": step["step_id"],
+                    "position": step["position"],
+                    "title": step["title"],
+                    "error": str(e),
+                }
+            )
 
     # ── 4. Update plan status ─────────────────────────────────────────
     if failed_steps:

@@ -15,7 +15,6 @@ from src.models.plan import Plan, PlanStep
 from src.services.chat_store import get_plan, save_plan
 from src.services.plan_issue_service import create_plan_issues
 
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -88,16 +87,33 @@ class TestCreatePlanIssues:
             repo_owner="octocat",
             repo_name="hello-world",
             steps=[
-                PlanStep(step_id="s-1", plan_id="plan-1", position=0, title="Step 1", description="D1"),
-                PlanStep(step_id="s-2", plan_id="plan-1", position=1, title="Step 2", description="D2", dependencies=["s-1"]),
+                PlanStep(
+                    step_id="s-1", plan_id="plan-1", position=0, title="Step 1", description="D1"
+                ),
+                PlanStep(
+                    step_id="s-2",
+                    plan_id="plan-1",
+                    position=1,
+                    title="Step 2",
+                    description="D2",
+                    dependencies=["s-1"],
+                ),
             ],
         )
         await save_plan(mock_db, plan_model)
 
-        plan_dict = _make_plan_dict(steps=[
-            _make_step_dict(step_id="s-1", position=0, title="Step 1", description="D1"),
-            _make_step_dict(step_id="s-2", position=1, title="Step 2", description="D2", dependencies=["s-1"]),
-        ])
+        plan_dict = _make_plan_dict(
+            steps=[
+                _make_step_dict(step_id="s-1", position=0, title="Step 1", description="D1"),
+                _make_step_dict(
+                    step_id="s-2",
+                    position=1,
+                    title="Step 2",
+                    description="D2",
+                    dependencies=["s-1"],
+                ),
+            ]
+        )
 
         issue_counter = {"n": 99}
 
@@ -219,8 +235,17 @@ class TestCreatePlanIssues:
             repo_owner="o",
             repo_name="r",
             steps=[
-                PlanStep(step_id="dep-1", plan_id="plan-3", position=0, title="Base", description="D"),
-                PlanStep(step_id="dep-2", plan_id="plan-3", position=1, title="Depends", description="D", dependencies=["dep-1"]),
+                PlanStep(
+                    step_id="dep-1", plan_id="plan-3", position=0, title="Base", description="D"
+                ),
+                PlanStep(
+                    step_id="dep-2",
+                    plan_id="plan-3",
+                    position=1,
+                    title="Depends",
+                    description="D",
+                    dependencies=["dep-1"],
+                ),
             ],
         )
         await save_plan(mock_db, plan_model)
@@ -231,7 +256,13 @@ class TestCreatePlanIssues:
             summary="S",
             steps=[
                 _make_step_dict(step_id="dep-1", position=0, title="Base", description="Base desc"),
-                _make_step_dict(step_id="dep-2", position=1, title="Depends", description="Dep desc", dependencies=["dep-1"]),
+                _make_step_dict(
+                    step_id="dep-2",
+                    position=1,
+                    title="Depends",
+                    description="Dep desc",
+                    dependencies=["dep-1"],
+                ),
             ],
         )
 
@@ -279,8 +310,12 @@ class TestCreatePlanIssues:
             repo_owner="o",
             repo_name="r",
             steps=[
-                PlanStep(step_id="x-1", plan_id="plan-4", position=0, title="Step A", description="D"),
-                PlanStep(step_id="x-2", plan_id="plan-4", position=1, title="Step B", description="D"),
+                PlanStep(
+                    step_id="x-1", plan_id="plan-4", position=0, title="Step A", description="D"
+                ),
+                PlanStep(
+                    step_id="x-2", plan_id="plan-4", position=1, title="Step B", description="D"
+                ),
             ],
         )
         await save_plan(mock_db, plan_model)
