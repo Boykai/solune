@@ -147,12 +147,10 @@ class GitHubProjectsService(
         retry_after = response.headers.get("Retry-After")
         if retry_after and response.status_code in (403, 429):
             wait = int(retry_after) if retry_after.isdigit() else 60
-            _sanitized_path = path.split("?")[0]  # Strip query params for logging
             logger.warning(
-                "GitHub secondary rate limit on REST %s %s (status=%d, Retry-After=%s). "
+                "GitHub secondary rate limit on REST %s (status=%d, Retry-After=%s). "
                 "Waiting %ds before raising.",
                 method,
-                _sanitized_path,
                 response.status_code,
                 retry_after,
                 wait,
