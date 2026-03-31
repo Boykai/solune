@@ -677,7 +677,7 @@ async def save_plan(
     plan_steps = []
     for i, s in enumerate(steps):
         # Validate and normalize step title (auto-generated if missing; titles
-    # are user-facing labels that benefit from a sensible default)
+        # are user-facing labels that benefit from a sensible default)
         raw_title = s.get("title")
         if isinstance(raw_title, str) and raw_title.strip():
             title_value = raw_title
@@ -695,7 +695,9 @@ async def save_plan(
 
         # Preserve step_id when provided (e.g. during refinement)
         provided_id = s.get("step_id")
-        step_id = provided_id if isinstance(provided_id, str) and provided_id.strip() else str(uuid4())
+        step_id = (
+            provided_id if isinstance(provided_id, str) and provided_id.strip() else str(uuid4())
+        )
 
         plan_steps.append(
             PlanStep(
