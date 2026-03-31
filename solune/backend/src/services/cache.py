@@ -9,11 +9,17 @@ from typing import Any
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.utils import utcnow
+from typing import TypeVar, Callable, Awaitable, Any
+
+T = TypeVar("T")
 
 logger = get_logger(__name__)
 
 
-class CacheEntry[T]:
+from typing import TypeVar, Generic
+T = TypeVar("T")
+
+class CacheEntry(Generic[T]):
     """Cache entry with expiration and optional ETag support."""
 
     def __init__(
@@ -184,7 +190,7 @@ class InMemoryCache:
 cache = InMemoryCache()
 
 
-async def cached_fetch[T](
+async def cached_fetch(
     cache_instance: InMemoryCache,
     key: str,
     fetch_fn: Callable[[], Awaitable[T]],

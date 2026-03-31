@@ -924,9 +924,9 @@ async def recover_stalled_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error in recovery check: %s", e)
+        logger.error("Error in recovery check: %s", e, exc_info=True)
         _polling_state.errors_count += 1
-        _polling_state.last_error = f"Recovery error: {e}"
+        _polling_state.last_error = type(e).__name__
 
     return results
 

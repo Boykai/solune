@@ -46,12 +46,39 @@ Chat endpoints power the conversational interface — send messages, receive AI 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/chat/messages` | Get chat messages for session |
-| POST | `/chat/messages` | Send message, get AI response (supports `#agent` command) |
+| GET | `/chat/messages` | Get chat messages for session (supports `limit` and `offset` pagination) |
+| POST | `/chat/messages` | Send message, get AI response (supports `#agent` command). Accepts optional `ai_enhance`, `file_urls`, and `pipeline_id` params. Rate limit: 10/min |
+| POST | `/chat/messages/stream` | Send message and stream AI response via SSE. Requires `ai_enhance=true`. Rate limit: 10/min |
 | DELETE | `/chat/messages` | Clear chat history |
 | POST | `/chat/proposals/{id}/confirm` | Confirm task proposal |
 | DELETE | `/chat/proposals/{id}` | Cancel task proposal |
 | POST | `/chat/upload` | Upload a file attachment |
+
+### Streaming
+
+The `POST /chat/messages/stream` endpoint returns a streaming SSE (Server-Sent Events) response. The client receives incremental events as the agent generates its response. This endpoint requires `ai_enhance=true`; if `ai_enhance=false` is passed, it returns a 400 error directing clients to use the non-streaming `POST /chat/messages` endpoint instead.
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `token` | Partial text string | Incremental text content from the agent |
+| `tool_call` | Tool name + arguments | Agent is invoking a registered tool |
+| `tool_result` | Tool output + action payload | Tool execution completed |
+| `done` | Final `ChatMessage` JSON | Stream complete, includes the full message |
+| `error` | Error message string | An error occurred during streaming |
+
+> **Rate limit**: Both `POST /chat/messages` and `POST /chat/messages/stream` are rate-limited to **10 requests per minute** per user.
+
+### File Upload Constraints
+
+The `POST /chat/upload` endpoint and `file_urls` parameter on `POST /chat/messages` and `POST /chat/messages/stream` are subject to the following constraints:
+
+| Constraint | Value |
+|------------|-------|
+| Maximum file size | 10 MB per file |
+| Maximum files per message | 5 |
+| Allowed types | Images (png, jpg, jpeg, gif, webp, svg), documents (pdf, txt, md, csv, json, yaml, yml, vtt, srt), archives (zip) |
+| Blocked types | Executables and scripts (exe, sh, bat, cmd, js, py, rb) |
+| Transcript auto-detection | `.vtt` and `.srt` files are automatically detected as transcripts |
 
 ### `#agent` Command
 

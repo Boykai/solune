@@ -126,8 +126,11 @@ solune/
 │   │       │   └── service.py    #   ToolsService CRUD
 │   │       ├── agent_creator.py  #   #agent command: guided agent creation flow
 │   │       ├── agent_tracking.py #   Agent pipeline tracking (issue body markdown)
+│   │       ├── agent_provider.py #   Agent provider factory (creates Agent Framework agents)
+│   │       ├── agent_tools.py    #   Agent tool definitions (task proposals, status changes, recommendations)
 │   │       ├── ai_agent.py       #   AI issue generation (via CompletionProvider)
 │   │       ├── cache.py          #   In-memory TTL cache
+│   │       ├── chat_agent.py     #   ChatAgentService (Microsoft Agent Framework wrapper)
 │   │       ├── chat_store.py     #   Chat message persistence (async SQLite)
 │   │       ├── cleanup_service.py  # Stale resource cleanup service
 │   │       ├── completion_providers.py  # Pluggable LLM: Copilot SDK / Azure OpenAI
@@ -179,7 +182,11 @@ solune/
 │   │   │   ├── chat/             # ChatInterface, ChatPopup, MessageBubble,
 │   │   │   │                     # TaskPreview, StatusChangePreview,
 │   │   │   │                     # IssueRecommendationPreview, CommandAutocomplete,
-│   │   │   │                     # ChatToolbar, VoiceInputButton
+│   │   │   │                     # ChatToolbar, VoiceInputButton,
+│   │   │   │                     # MentionInput, MentionAutocomplete,
+│   │   │   │                     # FilePreviewChips, MarkdownRenderer,
+│   │   │   │                     # ChatMessageSkeleton, PipelineWarningBanner,
+│   │   │   │                     # PipelineIndicator
 │   │   │   ├── common/           # ErrorBoundary, CelestialCatalogHero,
 │   │   │   │                     # CelestialLoader, ThemedAgentIcon, agentIcons
 │   │   │   ├── agents/           # AgentsPanel, AgentCard, AgentAvatar,
@@ -202,6 +209,10 @@ solune/
 │   │   │   │                     # McpSettings, AdvancedSettings
 │   │   │   └── ui/               # Shared UI primitives (button, input, card, tooltip)
 │   │   ├── hooks/                # React hooks (see Architecture doc)
+│   │   │                         # useAuth, useChat, useChatHistory,
+│   │   │                         # useChatProposals, useFileUpload,
+│   │   │                         # useMentionAutocomplete, useVoiceInput,
+│   │   │                         # useProjects, useWorkflow, and more
 │   │   ├── lib/                 # Shared utilities and helpers
 │   │   │   ├── utils.ts         #   cn() class-name helper
 │   │   │   ├── buildGitHubMcpConfig.ts  # GitHub.com MCP config generator
