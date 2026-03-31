@@ -59,9 +59,9 @@ def register_resources(mcp: FastMCP) -> None:
         """
         import json
 
-        from src.api.activity import _query_events
+        from src.services.activity_service import query_events
         from src.services.database import get_db
 
         db = get_db()
-        result = await _query_events(db, project_id=project_id, limit=20)
+        result = await query_events(db, project_id=project_id, limit=20)
         return json.dumps({"project_id": project_id, **result}, default=str)
