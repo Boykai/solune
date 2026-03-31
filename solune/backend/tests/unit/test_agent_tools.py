@@ -368,9 +368,16 @@ class TestCreateProjectIssue:
             selected_preset_id="easy",
         )
 
-        with patch(
-            "src.services.github_projects.service.GitHubProjectsService",
-            return_value=mock_service,
+        with (
+            patch(
+                "src.services.github_projects.service.GitHubProjectsService",
+                return_value=mock_service,
+            ),
+            patch(
+                "src.services.agent_tools.classify_labels",
+                new_callable=AsyncMock,
+                return_value=["ai-generated", "feature", "backend"],
+            ),
         ):
             result = await create_project_issue(
                 ctx, title="Stock Tracker", body="Build a stock tracking app"
@@ -379,6 +386,8 @@ class TestCreateProjectIssue:
         assert result["action_type"] == "issue_create"
         assert result["action_data"]["issue_number"] == 42
         assert result["action_data"]["preset_id"] == "easy"
+        _, kwargs = mock_service.create_issue.await_args
+        assert kwargs["labels"] == ["ai-generated", "feature", "backend"]
 
     @patch("src.services.agent_tools.get_settings")
     async def test_auto_create_no_token_returns_error(self, mock_settings):
