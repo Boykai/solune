@@ -1276,7 +1276,7 @@ class TestAIServiceFailures:
             }
             mock_ai.return_value = svc
 
-            await handle_agent_command(
+            initial_result = await handle_agent_command(
                 message="#agent Build a bot #Done",
                 session_key="sess-t032b",
                 project_id="PVT_1",
@@ -1287,6 +1287,9 @@ class TestAIServiceFailures:
                 db=admin_db,
                 project_columns=["Todo", "Done"],
             )
+
+        assert "Agent Preview" in initial_result
+        assert "RetryBot" in initial_result
 
         with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai_fail:
             failing_service = AsyncMock()
@@ -1313,6 +1316,7 @@ class TestAIServiceFailures:
                 "name": "RetryBotV2",
                 "description": "Updated",
                 "system_prompt": "Updated prompt.",
+                "tools": [],
             }
             mock_ai_retry.return_value = retry_service
 
