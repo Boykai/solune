@@ -9,7 +9,7 @@ Three code paths create parent GitHub issues, but only the recommendation confir
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+
+**Language/Version**: Python 3.12+
 **Primary Dependencies**: FastAPI, Pydantic, Microsoft Agent Framework (semantic-kernel), GitHub Copilot SDK
 **Storage**: SQLite via aiosqlite (no schema changes needed for this feature)
 **Testing**: pytest + pytest-asyncio (backend), Vitest (frontend — no frontend changes expected)
