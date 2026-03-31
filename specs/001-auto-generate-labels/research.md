@@ -63,11 +63,11 @@ Log the error at WARNING level (not ERROR) since fallback behavior is expected a
 **Decision**: Post-processing pipeline after AI response parsing:
 1. Parse JSON response to extract `labels` array
 2. Filter: keep only labels present in `constants.LABELS` (case-insensitive match, lowercase output)
-3. Deduplicate: convert to `set`, then back to `list`
-4. Ensure "ai-generated" is present (insert at position 0 if missing)
-5. Ensure exactly one type label: if zero type labels, add "feature"; if multiple, keep the first one
+3. Deduplicate while preserving order: iterate over the filtered list, append each label to a new list only if it has not been seen before (track a `seen` set); this keeps the first occurrence of each label and preserves their relative order
+4. Ensure "ai-generated" is present and first: if missing, insert at position 0; if present but not at position 0, move it to position 0 while keeping the relative order of all other labels
+5. Ensure exactly one type label: determine which labels are type labels according to the taxonomy; if zero type labels, insert the default type label `"feature"` immediately after "ai-generated"; if multiple type labels are present, keep only the first one based on the preserved order from step 3
 
-**Rationale**: Strict validation ensures the classifier can never produce invalid labels regardless of AI output quality. The type label default ("feature") matches the spec edge case requirement. Processing order ensures deterministic output.
+**Rationale**: Strict validation ensures the classifier can never produce invalid labels regardless of AI output quality. The type label default ("feature") matches the spec edge case requirement. The order-preserving dedup step and explicit reordering rules ensure deterministic, stable output given the same input.
 
 **Alternatives considered**:
 - **Pydantic model validation**: Would require a custom validator model just for labels; simpler to validate inline with list operations since the taxonomy is a flat list.

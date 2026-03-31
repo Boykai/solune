@@ -26,7 +26,7 @@
 **Purpose**: Create new files and directory structure required by the feature
 
 - [ ] T001 [P] Create label classification prompt template with dynamic taxonomy injection in `solune/backend/src/prompts/label_classification.py`. The module must expose a function that builds the system prompt by importing `LABELS` from `src.constants` (satisfying FR-010) and instructing the model to return a JSON object with a `labels` array. Truncate description input to 2,000 characters per RT-006.
-- [ ] T002 [P] Implement category constants and `validate_labels()` pure function in `solune/backend/src/services/label_classifier.py`. Define `TYPE_LABELS`, `DEFAULT_TYPE_LABEL = "feature"`, and `ALWAYS_INCLUDED_LABEL = "ai-generated"`. Implement the post-processing pipeline from RT-004: filter against `constants.LABELS`, deduplicate, ensure `"ai-generated"` at index 0, ensure exactly one type label (default to `"feature"`).
+- [ ] T002 [P] Implement category constants and `validate_labels()` pure function in `solune/backend/src/services/label_classifier.py`. Define `TYPE_LABELS`, `DEFAULT_TYPE_LABEL = "feature"`, and `ALWAYS_INCLUDED_LABEL = "ai-generated"`. Implement the post-processing pipeline from RT-004: filter against `constants.LABELS`, then perform order-preserving deduplication on the model-returned sequence (do not use unordered set-based deduplication that can reorder labels). Apply a deterministic ordering rule to the final `labels` array: (1) `ALWAYS_INCLUDED_LABEL` (`"ai-generated"`) must be present and at index 0; (2) ensure exactly one type label from `TYPE_LABELS` (if none remain after filtering, insert `DEFAULT_TYPE_LABEL = "feature"`), placing that type label immediately after `"ai-generated"` while preserving its first-seen position relative to other candidates; and (3) append all remaining non-type labels after these, in the order of their first occurrence in the model response after filtering and deduplication.
 
 ---
 
@@ -42,7 +42,7 @@
 
 > **NOTE: Write these tests FIRST if following TDD; ensure they FAIL before implementation**
 
-- [ ] T003 [P] [US4] Create unit tests for `validate_labels()` in `solune/backend/tests/unit/test_label_classifier.py`. Cover: taxonomy filtering (invalid labels removed), deduplication, `"ai-generated"` always present, exactly one type label (default `"feature"`), empty input returns `["ai-generated", "feature"]`, multiple type labels keeps first only, label ordering invariant.
+- [ ] T003 [P] [US4] Create unit tests for `validate_labels()` in `solune/backend/tests/unit/test_label_classifier.py`. Cover: taxonomy filtering (invalid labels removed), deduplication, `"ai-generated"` always present, exactly one type label (default `"feature"`), empty input returns `["ai-generated", "feature"]`, multiple type labels keeps first only, label ordering invariant: output labels MUST always be ordered by category as `[ "ai-generated", <type>, ...scope/domain labels ]`, with all non-type labels (scope/domain) appearing after the single type label in the deterministic order defined by `constants.LABELS`.
 - [ ] T004 [P] [US4] Create unit tests for `classify_labels()` in `solune/backend/tests/unit/test_label_classifier.py`. Cover: successful classification with mocked `CompletionProvider` returning valid JSON, fallback to `["ai-generated", "feature"]` on AI failure (exception), fallback on invalid JSON response, fallback on empty/whitespace title and description, verify description truncation to 2,000 chars.
 
 ### Implementation for US4
