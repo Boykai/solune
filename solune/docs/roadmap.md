@@ -17,6 +17,12 @@ Replace the current completion-based chat with a Microsoft Agent Framework agent
 - ✅ **Tool/skill extensibility** — register custom tools and skills the chat agent can invoke via MCP
 - ✅ **Model flexibility** — swap underlying models (GPT-4o, Claude, Llama) without changing agent logic
 - ✅ **Conversation history** — persistent multi-session memory so the agent remembers project context
+- ✅ **Streaming responses** — AI Enhance conversations stream tokens, tool calls, and results in real time
+- ✅ **File uploads** — attach up to 5 files (10 MB each), including transcript-aware `.vtt` and `.srt` uploads
+- ✅ **@mention pipeline selection** — pick one active pipeline inline per message with autocomplete
+- ✅ **AI Enhance toggle** — switch between Agent Framework reasoning and lightweight metadata-only replies
+- ✅ **Chat history navigation** — reuse up to 100 prior prompts with shell-style Arrow Up/Down shortcuts
+- ✅ **Markdown rendering** — assistant replies support GFM, code blocks with copy, tables, and links
 
 ### Why first
 
