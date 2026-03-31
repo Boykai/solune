@@ -70,7 +70,12 @@ async def create_agent(
     db = get_db()
     agents_svc = AgentsService(db)
 
-    body = AgentCreate(name=name, system_prompt=instructions)
+    body = AgentCreate(
+        name=name,
+        system_prompt=instructions,
+        default_model_id=model or "",
+        default_model_name=model or "",
+    )
     result = await agents_svc.create_agent(
         project_id=project_id,
         owner=owner,

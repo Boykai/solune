@@ -60,7 +60,7 @@ async def create_app(
         template: Optional template repository to clone from.
         pipeline_id: Optional pipeline to launch after app creation.
     """
-    from src.models.app import AppCreate
+    from src.models.app import AppCreate, RepoType
     from src.services.app_service import create_app as _create_app
     from src.services.database import get_db
     from src.services.github_projects import GitHubProjectsService
@@ -69,7 +69,13 @@ async def create_app(
 
     db = get_db()
     svc = GitHubProjectsService()
-    payload = AppCreate(name=name, display_name=name)
+    payload = AppCreate(
+        name=name,
+        display_name=name,
+        pipeline_id=pipeline_id,
+        repo_type=RepoType.NEW_REPO,
+        repo_owner=owner,
+    )
     result = await _create_app(db, payload, access_token=mcp_ctx.github_token, github_service=svc)
     return (
         result.model_dump()
