@@ -8,15 +8,13 @@ from src.services.app_templates.loader import load_template
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_DIR = (
-    Path(__file__).resolve().parents[3] / "templates" / "app-templates"
-)
+_TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "templates" / "app-templates"
 
 _cache: dict[str, AppTemplate] | None = None
 
 
 def _ensure_cache() -> dict[str, AppTemplate]:
-    global _cache  # noqa: PLW0603
+    global _cache
     if _cache is None:
         _cache = discover_templates(_TEMPLATES_DIR)
     return _cache
@@ -62,5 +60,5 @@ def list_templates(category: AppCategory | None = None) -> list[AppTemplate]:
 
 def reload_templates() -> None:
     """Force re-scan of templates from disk (useful for testing)."""
-    global _cache  # noqa: PLW0603
+    global _cache
     _cache = None

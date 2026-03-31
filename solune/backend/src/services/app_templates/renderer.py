@@ -50,7 +50,7 @@ def render_template_from(
     target_dir: Path,
 ) -> list[Path]:
     """Render files from a loaded *template* instance into *target_dir*."""
-    base_dir = Path(template._base_dir)  # noqa: SLF001
+    base_dir = Path(template._base_dir)
     if not base_dir.is_dir():
         msg = f"Template base directory does not exist: {base_dir}"
         raise ValueError(msg)
@@ -106,9 +106,7 @@ def _substitute(text: str, context: dict[str, str]) -> str:
     return _VAR_RE.sub(_replacer, text)
 
 
-def _validate_path_boundary(
-    resolved: Path, boundary: str, original: str
-) -> None:
+def _validate_path_boundary(resolved: Path, boundary: str, original: str) -> None:
     """Ensure *resolved* stays within *boundary*."""
     real = os.path.realpath(resolved)
     if not real.startswith(boundary + os.sep) and real != boundary:
