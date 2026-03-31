@@ -49,6 +49,42 @@ def _proposal(session_id, **kw) -> AITaskProposal:
     return AITaskProposal(**defaults)
 
 
+async def _save_plan(mock_db, session_id: str, **kw) -> dict:
+    from src.models.plan import Plan, PlanStatus, PlanStep
+    from src.services.chat_store import get_plan, save_plan
+
+    plan_id = kw.pop("plan_id", "plan-1")
+    steps = kw.pop(
+        "steps",
+        [
+            PlanStep(
+                step_id=f"{plan_id}-step-1",
+                plan_id=plan_id,
+                position=0,
+                title="Investigate planning mode",
+                description="Review how /plan mode should behave.",
+            )
+        ],
+    )
+    plan = Plan(
+        plan_id=plan_id,
+        session_id=session_id,
+        title=kw.pop("title", "Planning Mode"),
+        summary=kw.pop("summary", "Create a plan for persistent planning mode."),
+        status=kw.pop("status", PlanStatus.DRAFT),
+        project_id=kw.pop("project_id", "PVT_1"),
+        project_name=kw.pop("project_name", "Roadmap"),
+        repo_owner=kw.pop("repo_owner", "octocat"),
+        repo_name=kw.pop("repo_name", "hello-world"),
+        steps=steps,
+        **kw,
+    )
+    await save_plan(mock_db, plan)
+    saved = await get_plan(mock_db, plan_id)
+    assert saved is not None
+    return saved
+
+
 def _parse_sse_events(payload: str) -> list[dict[str, str]]:
     events: list[dict[str, str]] = []
     normalized = payload.replace("\r\n", "\n").strip()
@@ -423,6 +459,276 @@ class TestSendMessageStream:
         assert resp.status_code == 503
         assert "streaming is disabled" in resp.json()["detail"].lower()
         mock_chat_agent_service.run_stream.assert_not_called()
+
+
+# ── Plan mode endpoints ───────────────────────────────────────────────────────
+
+
+class TestPlanModeEndpoints:
+    async def test_send_plan_message_uses_project_and_repo_context(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import get_user_projects_cache_key
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Backlog"), MagicMock(name="In Progress")]
+        cached_project.status_columns[0].name = "Backlog"
+        cached_project.status_columns[1].name = "In Progress"
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+
+        agent_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="I've drafted a plan for this feature.",
+            action_type=ActionType.PLAN_CREATE,
+            action_data={"plan_id": "plan-123", "status": "draft"},
+        )
+        mock_chat_agent_service.run_plan.return_value = agent_response
+
+        with patch(
+            "src.api.chat._resolve_repository",
+            new=AsyncMock(return_value=("octocat", "hello-world")),
+        ):
+            expected_db = chat_mod.get_db()
+            resp = await client.post(
+                "/api/v1/chat/messages/plan",
+                json={"content": "/plan Add persistent planning mode"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["action_type"] == "plan_create"
+        assert data["action_data"]["plan_id"] == "plan-123"
+
+        call_kwargs = mock_chat_agent_service.run_plan.call_args.kwargs
+        assert call_kwargs["message"] == "Add persistent planning mode"
+        assert call_kwargs["project_name"] == "Roadmap"
+        assert call_kwargs["project_id"] == "PVT_1"
+        assert call_kwargs["available_statuses"] == ["Backlog", "In Progress"]
+        assert call_kwargs["repo_owner"] == "octocat"
+        assert call_kwargs["repo_name"] == "hello-world"
+        assert call_kwargs["db"] is expected_db
+
+        stored = await client.get("/api/v1/chat/messages")
+        messages = stored.json()["messages"]
+        assert [message["sender_type"] for message in messages] == ["user", "assistant"]
+        assert messages[1]["action_type"] == "plan_create"
+
+    async def test_send_plan_message_requires_feature_description(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        mock_session.selected_project_id = "PVT_1"
+
+        resp = await client.post("/api/v1/chat/messages/plan", json={"content": "/plan   "})
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Please provide a feature description after /plan."
+        mock_chat_agent_service.run_plan.assert_not_called()
+
+    async def test_send_plan_message_stream_emits_thinking_and_persists_result(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import get_user_projects_cache_key
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Backlog"), MagicMock(name="Done")]
+        cached_project.status_columns[0].name = "Backlog"
+        cached_project.status_columns[1].name = "Done"
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+
+        async def stream_events():
+            yield {
+                "event": "thinking",
+                "data": json.dumps({"phase": "planning", "detail": "Drafting implementation plan"}),
+            }
+            yield {
+                "event": "done",
+                "data": ChatMessage(
+                    session_id=mock_session.session_id,
+                    sender_type=SenderType.ASSISTANT,
+                    content="Here is the updated plan.",
+                    action_type=ActionType.PLAN_CREATE,
+                    action_data={"plan_id": "plan-123", "status": "draft"},
+                ).model_dump_json(),
+            }
+
+        mock_chat_agent_service.run_plan_stream = MagicMock(return_value=stream_events())
+
+        with patch(
+            "src.api.chat._resolve_repository",
+            new=AsyncMock(return_value=("octocat", "hello-world")),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages/plan/stream",
+                json={"content": "/plan Refine the plan flow"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+
+        events = _parse_sse_events(resp.text)
+        thinking_event = next(event for event in events if event["event"] == "thinking")
+        assert json.loads(thinking_event["data"]) == {
+            "phase": "planning",
+            "detail": "Drafting implementation plan",
+        }
+
+        done_event = next(event for event in events if event["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["action_data"]["plan_id"] == "plan-123"
+
+        call_kwargs = mock_chat_agent_service.run_plan_stream.call_args.kwargs
+        assert call_kwargs["message"] == "Refine the plan flow"
+        assert call_kwargs["available_statuses"] == ["Backlog", "Done"]
+        assert call_kwargs["repo_owner"] == "octocat"
+        assert call_kwargs["repo_name"] == "hello-world"
+
+        stored = await client.get("/api/v1/chat/messages")
+        messages = stored.json()["messages"]
+        assert [message["sender_type"] for message in messages] == ["user", "assistant"]
+        assert messages[1]["content"] == "Here is the updated plan."
+
+    async def test_get_plan_endpoint_is_scoped_to_current_session(
+        self, client, mock_db, mock_session
+    ):
+        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-visible")
+
+        resp = await client.get("/api/v1/chat/plans/plan-visible")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["plan_id"] == "plan-visible"
+        assert data["project_name"] == "Roadmap"
+        assert data["repo_owner"] == "octocat"
+        assert data["steps"][0]["title"] == "Investigate planning mode"
+
+        await _save_plan(mock_db, "different-session", plan_id="plan-hidden")
+        resp = await client.get("/api/v1/chat/plans/plan-hidden")
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Plan not found."
+
+    async def test_update_plan_endpoint_rejects_non_draft_plans(
+        self, client, mock_db, mock_session
+    ):
+        from src.models.plan import PlanStatus
+
+        await _save_plan(
+            mock_db,
+            str(mock_session.session_id),
+            plan_id="plan-completed",
+            status=PlanStatus.COMPLETED,
+        )
+
+        resp = await client.patch(
+            "/api/v1/chat/plans/plan-completed",
+            json={"title": "Updated title"},
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Only draft plans can be updated."
+
+    async def test_approve_plan_returns_sanitized_partial_failure_payload(
+        self, client, mock_db, mock_session
+    ):
+        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-partial")
+
+        with patch(
+            "src.services.plan_issue_service.create_plan_issues",
+            new=AsyncMock(
+                return_value={
+                    "parent_issue_number": 101,
+                    "parent_issue_url": "https://github.com/octocat/hello-world/issues/101",
+                    "created_issues": [
+                        {
+                            "step_id": "step-1",
+                            "issue_number": 102,
+                            "issue_url": "https://github.com/octocat/hello-world/issues/102",
+                            "title": "Investigate planning mode",
+                            "error": "should not leak",
+                        }
+                    ],
+                    "failed_steps": [
+                        {
+                            "step_id": "step-2",
+                            "position": 1,
+                            "title": "Create GitHub issues",
+                            "error": "GitHub 403: secret backend details",
+                        }
+                    ],
+                }
+            ),
+        ):
+            resp = await client.post("/api/v1/chat/plans/plan-partial/approve")
+
+        assert resp.status_code == 502
+        data = resp.json()
+        assert data["error"] == "Partial issue creation failure"
+        assert data["created_issues"] == [
+            {
+                "step_id": "step-1",
+                "issue_number": 102,
+                "issue_url": "https://github.com/octocat/hello-world/issues/102",
+            }
+        ]
+        assert data["failed_steps"] == [
+            {
+                "step_id": "step-2",
+                "position": 1,
+                "title": "Create GitHub issues",
+                "error": "Issue creation failed",
+            }
+        ]
+
+    async def test_approve_plan_marks_plan_failed_when_issue_creation_raises(
+        self, client, mock_db, mock_session
+    ):
+        from src.services.chat_store import get_plan
+
+        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-error")
+
+        with patch(
+            "src.services.plan_issue_service.create_plan_issues",
+            new=AsyncMock(side_effect=RuntimeError("GitHub 500: secret details")),
+        ):
+            resp = await client.post("/api/v1/chat/plans/plan-error/approve")
+
+        assert resp.status_code == 502
+        data = resp.json()
+        assert data["error"] == "GitHub issue creation failed"
+        assert data["detail"] == "An error occurred while creating GitHub issues. Please try again."
+
+        updated = await get_plan(mock_db, "plan-error")
+        assert updated is not None
+        assert updated["status"] == "failed"
+
+    async def test_exit_plan_mode_calls_chat_agent_service(self, client, mock_db, mock_session):
+        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-exit")
+
+        resp = await client.post("/api/v1/chat/plans/plan-exit/exit")
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "message": "Plan mode deactivated",
+            "plan_id": "plan-exit",
+            "plan_status": "draft",
+        }
 
 
 # ── POST /chat/proposals/{id}/confirm ───────────────────────────────────────

@@ -79,6 +79,10 @@ import type {
   PipelineStateInfo,
   PaginatedResponse,
   ActivityEvent,
+  Plan,
+  PlanApprovalResponse,
+  PlanExitResponse,
+  ThinkingEvent,
 } from '@/types';
 import { BoardDataResponseSchema } from '@/services/schemas/board';
 import { ChatMessagesResponseSchema } from '@/services/schemas/chat';
@@ -502,6 +506,167 @@ export const chatApi = {
     }
 
     return response.json();
+  },
+
+  /**
+   * Send a plan-mode message (non-streaming).
+   */
+  sendPlanMessage(data: ChatMessageRequest): Promise<ChatMessage> {
+    return request<ChatMessage>('/chat/messages/plan', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Enter plan mode with SSE streaming and thinking events.
+   */
+  async sendPlanMessageStream(
+    data: ChatMessageRequest,
+    onToken: (content: string) => void,
+    onThinking: (event: ThinkingEvent) => void,
+    onDone: (message: ChatMessage) => void,
+    onError: (error: Error) => void,
+  ): Promise<void> {
+    const url = `${API_BASE_URL}/chat/messages/plan/stream`;
+    const csrfToken = getCsrfToken();
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok || !response.body) {
+        // Fall back to non-streaming plan endpoint
+        const fallbackResult = await chatApi.sendPlanMessage(data);
+        onDone(fallbackResult);
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentEventType = 'message';
+      let currentDataLines: string[] = [];
+
+      const tryParseJson = (value: unknown, fallback?: unknown): unknown => {
+        if (typeof value !== 'string') return value ?? fallback;
+        try { return JSON.parse(value); } catch { return fallback ?? value; }
+      };
+
+      const processFrame = (eventType: string, dataStr: string) => {
+        const trimmedData = dataStr.trim();
+        if (!trimmedData) return;
+
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(trimmedData);
+        } catch {
+          console.debug('[SSE] Failed to parse plan event data:', trimmedData);
+          return;
+        }
+
+        if (eventType === 'thinking') {
+          onThinking(parsed as unknown as ThinkingEvent);
+        } else if (eventType === 'token') {
+          let content: unknown;
+
+          // Primary schema: backend sends { "content": "..." } as the event data.
+          if (Object.prototype.hasOwnProperty.call(parsed, 'content')) {
+            content = (parsed as { content?: unknown }).content;
+          } else if (Object.prototype.hasOwnProperty.call(parsed, 'data')) {
+            // Legacy/alternative schema: backend wraps content in a "data" field.
+            const dataValue = (parsed as { data?: unknown }).data;
+            const tokenData =
+              tryParseJson(dataValue, { content: dataValue }) ?? parsed;
+            content = (tokenData as Record<string, unknown>).content;
+          }
+
+          if (typeof content === 'string' && content) {
+            onToken(content);
+          }
+        } else if (eventType === 'done') {
+          const msgData = tryParseJson(parsed.data, parsed.data) ?? parsed;
+          onDone(msgData as ChatMessage);
+        } else if (eventType === 'error') {
+          const message = (parsed.data || parsed.message || parsed.error || 'Stream error') as string;
+          onError(new Error(message));
+        } else if (parsed.content) {
+          onToken(parsed.content as string);
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+
+          if (line === '') {
+            if (currentDataLines.length > 0) {
+              processFrame(currentEventType, currentDataLines.join('\n'));
+              currentEventType = 'message';
+              currentDataLines = [];
+            }
+            continue;
+          }
+
+          if (line.startsWith('event:')) {
+            currentEventType = line.slice('event:'.length).trim();
+          } else if (line.startsWith('data:')) {
+            currentDataLines.push(line.slice('data:'.length).replace(/^ /, ''));
+          }
+        }
+      }
+
+      if (currentDataLines.length > 0) {
+        processFrame(currentEventType, currentDataLines.join('\n'));
+      }
+    } catch {
+      // Fall back to non-streaming plan endpoint on any error
+      try {
+        const fallbackResult = await chatApi.sendPlanMessage(data);
+        onDone(fallbackResult);
+      } catch (fallbackError) {
+        onError(fallbackError instanceof Error ? fallbackError : new Error('Plan stream failed'));
+      }
+    }
+  },
+
+  /**
+   * Retrieve a plan by ID.
+   */
+  getPlan(planId: string): Promise<Plan> {
+    return request<Plan>(`/chat/plans/${planId}`);
+  },
+
+  /**
+   * Approve a plan and create GitHub issues.
+   */
+  approvePlan(planId: string): Promise<PlanApprovalResponse> {
+    return request<PlanApprovalResponse>(`/chat/plans/${planId}/approve`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Exit plan mode.
+   */
+  exitPlanMode(planId: string): Promise<PlanExitResponse> {
+    return request<PlanExitResponse>(`/chat/plans/${planId}/exit`, {
+      method: 'POST',
+    });
   },
 };
 

@@ -895,9 +895,9 @@ async def check_backlog_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking backlog issues: %s", e, exc_info=True)
+        logger.error("Error checking backlog issues: %s", e)
         _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        _polling_state.last_error = str(e)
 
     return results
 
@@ -988,9 +988,9 @@ async def check_ready_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking ready issues: %s", e, exc_info=True)
+        logger.error("Error checking ready issues: %s", e)
         _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        _polling_state.last_error = str(e)
 
     return results
 
@@ -2868,9 +2868,9 @@ async def check_in_review_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking in-review issues: %s", e, exc_info=True)
+        logger.error("Error checking in-review issues: %s", e)
         _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        _polling_state.last_error = str(e)
 
     return results
 
@@ -3048,9 +3048,9 @@ async def check_in_progress_issues(
                 results.append(result)
 
     except Exception as e:
-        logger.error("Error checking in-progress issues: %s", e, exc_info=True)
+        logger.error("Error checking in-progress issues: %s", e)
         _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        _polling_state.last_error = str(e)
 
     return results
 
@@ -3282,12 +3282,11 @@ async def process_in_progress_issue(
             "Error processing issue #%d: %s",
             issue_number,
             e,
-            exc_info=True,
         )
         return {
             "status": "error",
             "issue_number": issue_number,
-            "error": "Failed to process issue",
+            "error": str(e),
         }
 
 
