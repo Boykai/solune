@@ -691,3 +691,274 @@ class TestUpdateChoreFieldsColumnWhitelist:
             pr_url="https://github.com/owner/repo/pull/42",
             tracking_issue_number=7,
         )
+
+
+# =============================================================================
+# seed_presets
+# =============================================================================
+
+
+class TestSeedPresets:
+    """Tests for ChoresService.seed_presets."""
+
+    @pytest.mark.anyio
+    async def test_idempotent_reseed_no_duplicates(self, mock_db):
+        """T051: Calling seed_presets twice does not create duplicate presets."""
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        first = await svc.seed_presets("PVT_SEED")
+        second = await svc.seed_presets("PVT_SEED")
+
+        assert len(first) == 3
+        assert len(second) == 0  # all already seeded
+
+        cursor = await mock_db.execute(
+            "SELECT COUNT(*) FROM chores WHERE project_id = ?", ("PVT_SEED",)
+        )
+        (count,) = await cursor.fetchone()
+        assert count == 3
+
+    @pytest.mark.anyio
+    async def test_file_read_failure_raises(self, mock_db):
+        """T052: If a preset template file is missing, seed_presets raises."""
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        with patch(
+            "src.services.chores.service._PRESETS_DIR",
+            Path("/nonexistent/presets"),
+        ):
+            with pytest.raises(FileNotFoundError):
+                await svc.seed_presets("PVT_FAIL")
+
+    @pytest.mark.anyio
+    async def test_fresh_seed_creates_three_unique_presets(self, mock_db):
+        """T053: Fresh seed creates all 3 presets with unique preset_ids."""
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        created = await svc.seed_presets("PVT_UNIQUE")
+
+        assert len(created) == 3
+        preset_ids = {c.preset_id for c in created}
+        assert preset_ids == {"security-review", "performance-review", "bug-basher"}
+        # All should have distinct chore IDs
+        chore_ids = {c.id for c in created}
+        assert len(chore_ids) == 3
+
+
+# =============================================================================
+# update_chore validation
+# =============================================================================
+
+
+class TestUpdateChoreValidation:
+    """Tests for ChoresService.update_chore edge cases."""
+
+    @pytest.mark.anyio
+    async def test_schedule_type_without_value_raises(self, mock_db):
+        """T054: Setting schedule_type without schedule_value raises ValueError."""
+        from src.models.chores import ChoreCreate, ChoreUpdate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="Sched Test", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/sched-test.md"
+        )
+
+        update = ChoreUpdate(schedule_type="count")
+        with pytest.raises(ValueError, match="schedule_type and schedule_value"):
+            await svc.update_chore(chore.id, update)
+
+    @pytest.mark.anyio
+    async def test_boolean_true_converted_to_int_1(self, mock_db):
+        """T055: Boolean True is stored as integer 1 in SQLite."""
+        from src.models.chores import ChoreCreate, ChoreUpdate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="Bool True", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/bool-true.md"
+        )
+
+        update = ChoreUpdate(ai_enhance_enabled=True)
+        await svc.update_chore(chore.id, update)
+
+        cursor = await mock_db.execute(
+            "SELECT ai_enhance_enabled FROM chores WHERE id = ?", (chore.id,)
+        )
+        row = await cursor.fetchone()
+        assert row["ai_enhance_enabled"] == 1
+        assert not isinstance(row["ai_enhance_enabled"], bool)
+
+    @pytest.mark.anyio
+    async def test_sql_injection_column_rejected(self, mock_db):
+        """T056: update_chore rejects payloads with unknown column names."""
+        from unittest.mock import MagicMock
+
+        from src.models.chores import ChoreCreate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="Inject Test", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/inject-test.md"
+        )
+
+        # Mock body to return a dict with an evil column
+        fake_body = MagicMock()
+        fake_body.model_dump.return_value = {"evil_col": "DROP TABLE chores"}
+
+        with pytest.raises(ValueError, match="Invalid update columns"):
+            await svc.update_chore(chore.id, fake_body)
+
+    @pytest.mark.anyio
+    async def test_boolean_false_converted_to_int_0(self, mock_db):
+        """T057: Boolean False is stored as integer 0 in SQLite."""
+        from src.models.chores import ChoreCreate, ChoreUpdate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="Bool False", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/bool-false.md"
+        )
+
+        update = ChoreUpdate(ai_enhance_enabled=False)
+        await svc.update_chore(chore.id, update)
+
+        cursor = await mock_db.execute(
+            "SELECT ai_enhance_enabled FROM chores WHERE id = ?", (chore.id,)
+        )
+        row = await cursor.fetchone()
+        assert row["ai_enhance_enabled"] == 0
+
+
+# =============================================================================
+# CAS trigger state & clear_current_issue
+# =============================================================================
+
+
+class TestTriggerStateCAS:
+    """Tests for update_chore_after_trigger CAS logic and clear_current_issue."""
+
+    @pytest.mark.anyio
+    async def test_first_cas_with_null_old_succeeds(self, mock_db):
+        """T058: CAS with NULL old_last_triggered_at succeeds on fresh chore."""
+        from src.models.chores import ChoreCreate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="CAS Null", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/cas-null.md"
+        )
+
+        result = await svc.update_chore_after_trigger(
+            chore.id,
+            current_issue_number=42,
+            current_issue_node_id="I_42",
+            last_triggered_at="2024-06-01T00:00:00Z",
+            last_triggered_count=1,
+            old_last_triggered_at=None,
+        )
+        assert result is True
+
+        updated = await svc.get_chore(chore.id)
+        assert updated.current_issue_number == 42
+        assert updated.last_triggered_at == "2024-06-01T00:00:00Z"
+        assert updated.execution_count == 1
+
+    @pytest.mark.anyio
+    async def test_matching_old_value_succeeds(self, mock_db):
+        """T059: CAS succeeds when old_last_triggered_at matches current DB value."""
+        from src.models.chores import ChoreCreate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="CAS Match", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/cas-match.md"
+        )
+
+        # First trigger sets last_triggered_at
+        await svc.update_chore_after_trigger(
+            chore.id,
+            current_issue_number=1,
+            current_issue_node_id="I_1",
+            last_triggered_at="2024-01-01T00:00:00Z",
+            last_triggered_count=1,
+            old_last_triggered_at=None,
+        )
+
+        # Second trigger with correct old value
+        result = await svc.update_chore_after_trigger(
+            chore.id,
+            current_issue_number=2,
+            current_issue_node_id="I_2",
+            last_triggered_at="2024-06-01T00:00:00Z",
+            last_triggered_count=2,
+            old_last_triggered_at="2024-01-01T00:00:00Z",
+        )
+        assert result is True
+
+        updated = await svc.get_chore(chore.id)
+        assert updated.current_issue_number == 2
+        assert updated.execution_count == 2
+
+    @pytest.mark.anyio
+    async def test_mismatched_old_value_fails(self, mock_db):
+        """T060: CAS fails when old_last_triggered_at doesn't match (double-fire prevention)."""
+        from src.models.chores import ChoreCreate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="CAS Mismatch", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/cas-mismatch.md"
+        )
+
+        # Set last_triggered_at to a known value
+        await svc.update_chore_fields(chore.id, last_triggered_at="2024-01-01T00:00:00Z")
+
+        # Try CAS with wrong old value
+        result = await svc.update_chore_after_trigger(
+            chore.id,
+            current_issue_number=99,
+            current_issue_node_id="I_99",
+            last_triggered_at="2024-06-01T00:00:00Z",
+            last_triggered_count=1,
+            old_last_triggered_at="1999-01-01T00:00:00Z",  # wrong
+        )
+        assert result is False
+
+    @pytest.mark.anyio
+    async def test_clear_current_issue_nulls_fields(self, mock_db):
+        """T061: clear_current_issue sets issue number and node_id to NULL."""
+        from src.models.chores import ChoreCreate
+        from src.services.chores.service import ChoresService
+
+        svc = ChoresService(mock_db)
+        body = ChoreCreate(name="Clear Issue", template_content="content")
+        chore = await svc.create_chore(
+            "PVT_1", body, template_path=".github/ISSUE_TEMPLATE/clear-issue.md"
+        )
+
+        # Set issue fields
+        await svc.update_chore_fields(
+            chore.id, current_issue_number=42, current_issue_node_id="I_42"
+        )
+        chore = await svc.get_chore(chore.id)
+        assert chore.current_issue_number == 42
+
+        # Clear
+        await svc.clear_current_issue(chore.id)
+        updated = await svc.get_chore(chore.id)
+        assert updated.current_issue_number is None
+        assert updated.current_issue_node_id is None
