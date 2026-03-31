@@ -9,7 +9,9 @@ helpers can retrieve it without depending on the MCP lifespan dict.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from src.logging_utils import get_logger
 from src.services.mcp_server.context import set_current_mcp_context
@@ -23,11 +25,11 @@ logger = get_logger(__name__)
 class McpAuthMiddleware:
     """ASGI middleware that verifies GitHub PAT on every MCP request."""
 
-    def __init__(self, app: Any, verifier: GitHubTokenVerifier) -> None:
+    def __init__(self, app: ASGIApp, verifier: GitHubTokenVerifier) -> None:
         self.app = app
         self.verifier = verifier
 
-    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
