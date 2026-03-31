@@ -101,7 +101,7 @@
 
 - [ ] T009 [P] Run linting and type checking on all new and modified files: `uv run ruff check src/services/label_classifier.py src/prompts/label_classification.py src/api/pipelines.py src/api/tasks.py src/services/agent_tools.py` and `uv run pyright src/services/label_classifier.py src/prompts/label_classification.py` from `solune/backend/`
 - [ ] T010 [P] Run existing test suite to confirm no regressions: `uv run pytest tests/unit/ -v --tb=short` from `solune/backend/`
-- [ ] T011 Verify quickstart.md scenarios: Confirm all three integration points work end-to-end per the verification steps in `specs/001-auto-generate-labels/quickstart.md`
+- [ ] T011 [P] Verify quickstart.md scenarios: Confirm all three integration points work end-to-end per the verification steps in `specs/001-auto-generate-labels/quickstart.md`
 
 ---
 
