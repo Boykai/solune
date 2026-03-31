@@ -17,7 +17,7 @@ from src.services.mcp_server.tools import get_mcp_context, verify_mcp_project_ac
 async def send_chat_message(ctx: Context, project_id: str, message: str) -> dict[str, Any]:
     """Send a natural language message to Solune's AI agent.
 
-    The agent can analyse issues, suggest solutions, and perform actions
+    The agent can analyze issues, suggest solutions, and perform actions
     on the project board using its internal tool set.
 
     Args:
