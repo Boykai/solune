@@ -17,6 +17,7 @@ from agent_framework import FunctionInvocationContext, tool
 
 from src.config import get_settings
 from src.logging_utils import get_logger
+from src.services.label_classifier import classify_labels
 
 logger = get_logger(__name__)
 
@@ -446,12 +447,14 @@ async def create_project_issue(
                 action_data=None,
             )
 
+        issue_labels = await classify_labels(title, body, github_token=github_token)
         issue = await service.create_issue(
             access_token=github_token,
             owner=owner,
             repo=repo,
             title=title,
             body=body,
+            labels=issue_labels,
         )
 
         return ToolResult(
