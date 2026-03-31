@@ -4,13 +4,11 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any, TypeVar
+from typing import Any
 
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.utils import utcnow
-
-T = TypeVar("T")
 
 logger = get_logger(__name__)
 

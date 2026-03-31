@@ -11,7 +11,6 @@ from urllib.parse import urlparse
 
 from src.logging_utils import get_logger
 
-R = TypeVar("R")
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
@@ -65,10 +64,6 @@ class BoundedSet[T]:
 
     def __repr__(self) -> str:
         return f"BoundedSet(maxlen={self._maxlen}, size={len(self._data)})"
-
-
-K = TypeVar("K")
-V = TypeVar("V")
 
 
 class BoundedDict[K, V]:
