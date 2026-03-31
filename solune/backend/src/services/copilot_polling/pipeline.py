@@ -668,9 +668,7 @@ async def _process_pipeline_completion(
             task_title=task.title,
         )
 
-    # Check if current agent has completed
     # Iterate through ALL active agents in the group
-    # Phase 2: Iterate through ALL active agents in the group
     for agent in pipeline.current_agents:
         # Skip if already terminal in this cycle
         if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
