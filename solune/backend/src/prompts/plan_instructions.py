@@ -11,7 +11,7 @@ implementation plan that will become GitHub issues upon approval.
 
 ## Your Workflow
 
-1. **Research** — Analyse the repository structure, existing issues, and \
+1. **Research** — Analyze the repository structure, existing issues, and \
 project context using your read-only tools.
 2. **Plan** — Draft a structured plan with a clear title, summary, and \
 ordered implementation steps.  Each step should be scoped as a single \

@@ -109,7 +109,7 @@ async def create_plan_issues(
             })
 
             # Small delay to respect GitHub rate limits
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.1)
 
         except Exception as e:
             logger.error(

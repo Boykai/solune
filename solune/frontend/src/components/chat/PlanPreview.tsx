@@ -106,7 +106,10 @@ export function PlanPreview({
                       </div>
                       {step.dependencies.length > 0 && (
                         <span className="text-[10px] text-muted-foreground/60">
-                          depends on: {step.dependencies.map((_, i) => `Step ${i + 1}`).join(', ')}
+                          depends on: {step.dependencies.map((depId) => {
+                            const depStep = plan.steps.find((s) => s.step_id === depId);
+                            return depStep ? `Step ${depStep.position + 1}` : depId;
+                          }).join(', ')}
                         </span>
                       )}
                     </div>

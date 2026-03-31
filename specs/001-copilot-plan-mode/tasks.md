@@ -23,7 +23,7 @@
 
 **Purpose**: Database migration for plan tables
 
-- [ ] T001 Create plan tables migration in backend/src/migrations/035_chat_plans.sql with chat_plans and chat_plan_steps tables, indices, and foreign keys per data-model.md schema
+- [X] T001 Create plan tables migration in backend/src/migrations/035_chat_plans.sql with chat_plans and chat_plan_steps tables, indices, and foreign keys per data-model.md schema
 
 ---
 
@@ -33,10 +33,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 Add PLAN_CREATE = "plan_create" to ActionType enum in backend/src/models/chat.py
-- [ ] T003 [P] Create Plan and PlanStep Pydantic models with PlanStatus enum (draft, approved, completed, failed), field validation (max lengths, non-negative position), and PlanResponse/PlanStepResponse/PlanApprovalResponse/PlanExitResponse/PlanUpdateRequest response models in backend/src/models/plan.py
-- [ ] T004 [P] Add plan CRUD functions to backend/src/services/chat_store.py: save_plan(db, plan) inserts/replaces plan + steps in a transaction, get_plan(db, plan_id) returns Plan with steps joined, update_plan(db, plan_id, title, summary) for metadata updates, update_plan_status(db, plan_id, status) for lifecycle transitions, update_plan_step_issue(db, step_id, issue_number, issue_url) for post-approval issue linking — all following existing aiosqlite CRUD patterns with Row factory
-- [ ] T005 [P] Add Plan, PlanStep, PlanStatus, ThinkingPhase, ThinkingEvent, and PlanCreateActionData types to frontend/src/types/index.ts; add 'plan_create' to ActionType union; add PlanCreateActionData to ActionData union type
+- [X] T002 Add PLAN_CREATE = "plan_create" to ActionType enum in backend/src/models/chat.py
+- [X] T003 [P] Create Plan and PlanStep Pydantic models with PlanStatus enum (draft, approved, completed, failed), field validation (max lengths, non-negative position), and PlanResponse/PlanStepResponse/PlanApprovalResponse/PlanExitResponse/PlanUpdateRequest response models in backend/src/models/plan.py
+- [X] T004 [P] Add plan CRUD functions to backend/src/services/chat_store.py: save_plan(db, plan) inserts/replaces plan + steps in a transaction, get_plan(db, plan_id) returns Plan with steps joined, update_plan(db, plan_id, title, summary) for metadata updates, update_plan_status(db, plan_id, status) for lifecycle transitions, update_plan_step_issue(db, step_id, issue_number, issue_url) for post-approval issue linking — all following existing aiosqlite CRUD patterns with Row factory
+- [X] T005 [P] Add Plan, PlanStep, PlanStatus, ThinkingPhase, ThinkingEvent, and PlanCreateActionData types to frontend/src/types/index.ts; add 'plan_create' to ActionType union; add PlanCreateActionData to ActionData union type
 
 **Checkpoint**: Foundation ready — data layer and types are in place for all user stories
 
@@ -50,14 +50,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [P] [US1] Create plan-mode system prompt in backend/src/prompts/plan_instructions.py with build_plan_instructions(project_name, project_id, repo_owner, repo_name, available_statuses) that returns a system prompt instructing the agent to research context, generate a structured plan with title/summary/ordered steps/dependency annotations, and call save_plan when the plan is ready
-- [ ] T007 [P] [US1] Add save_plan tool function and register_plan_tools() in backend/src/services/agent_tools.py — save_plan accepts plan title, summary, and list of steps (each with title, description, dependencies), calls chat_store.save_plan to persist; register_plan_tools() returns a restricted read-only toolset (get_project_context, get_pipeline_list) plus save_plan
-- [ ] T008 [US1] Add run_plan() and run_plan_stream() methods to ChatAgentService in backend/src/services/chat_agent.py — run_plan() creates agent with plan system prompt (from plan_instructions.py) and plan tools (from register_plan_tools()), sets is_plan_mode=True and active_plan_id in agent_session.state, processes user message, returns ChatMessage with action_type=plan_create and plan data in action_data; run_plan_stream() yields SSE events (token, tool_call, tool_result, done) during agent execution
-- [ ] T009 [US1] Add plan mode routes to backend/src/api/chat.py: POST /messages/plan (non-streaming entry point — validates selected project via _resolve_repository(session), extracts description from content, calls run_plan(), returns ChatMessage), POST /messages/plan/stream (SSE streaming entry point — same validation, calls run_plan_stream(), returns EventSourceResponse), GET /plans/{plan_id} (retrieves plan via chat_store.get_plan, returns PlanResponse)
-- [ ] T010 [P] [US1] Add sendPlanMessageStream() method to frontend/src/services/api.ts that POSTs to /api/v1/chat/messages/plan/stream, processes SSE frames for token/tool_call/tool_result/done/error events (reusing existing SSE parsing logic), and invokes onDone callback with the complete ChatMessage; add getPlan(planId) method that GETs /api/v1/chat/plans/{planId}
-- [ ] T011 [P] [US1] Create PlanPreview component in frontend/src/components/chat/PlanPreview.tsx — renders plan data from action_data: header with project badge (repo_owner/repo_name) and status badge (Draft/Completed/Failed), ordered step list with titles, descriptions, and dependency annotations; action buttons "Request Changes" (focuses chat input) and "Approve & Create Issues" (disabled until US4)
-- [ ] T012 [US1] Wire PlanPreview into MessageBubble in frontend/src/components/chat/MessageBubble.tsx — render PlanPreview when action_type === 'plan_create', passing action_data as props
-- [ ] T013 [US1] Create usePlan hook in frontend/src/hooks/usePlan.ts — manages activePlan (Plan | null), isPlanMode (boolean), thinkingPhase (ThinkingPhase | null) state; exposes setActivePlan, enterPlanMode, exitPlanMode functions; uses React Query for getPlan cache
+- [X] T006 [P] [US1] Create plan-mode system prompt in backend/src/prompts/plan_instructions.py with build_plan_instructions(project_name, project_id, repo_owner, repo_name, available_statuses) that returns a system prompt instructing the agent to research context, generate a structured plan with title/summary/ordered steps/dependency annotations, and call save_plan when the plan is ready
+- [X] T007 [P] [US1] Add save_plan tool function and register_plan_tools() in backend/src/services/agent_tools.py — save_plan accepts plan title, summary, and list of steps (each with title, description, dependencies), calls chat_store.save_plan to persist; register_plan_tools() returns a restricted read-only toolset (get_project_context, get_pipeline_list) plus save_plan
+- [X] T008 [US1] Add run_plan() and run_plan_stream() methods to ChatAgentService in backend/src/services/chat_agent.py — run_plan() creates agent with plan system prompt (from plan_instructions.py) and plan tools (from register_plan_tools()), sets is_plan_mode=True and active_plan_id in agent_session.state, processes user message, returns ChatMessage with action_type=plan_create and plan data in action_data; run_plan_stream() yields SSE events (token, tool_call, tool_result, done) during agent execution
+- [X] T009 [US1] Add plan mode routes to backend/src/api/chat.py: POST /messages/plan (non-streaming entry point — validates selected project via _resolve_repository(session), extracts description from content, calls run_plan(), returns ChatMessage), POST /messages/plan/stream (SSE streaming entry point — same validation, calls run_plan_stream(), returns EventSourceResponse), GET /plans/{plan_id} (retrieves plan via chat_store.get_plan, returns PlanResponse)
+- [X] T010 [P] [US1] Add sendPlanMessageStream() method to frontend/src/services/api.ts that POSTs to /api/v1/chat/messages/plan/stream, processes SSE frames for token/tool_call/tool_result/done/error events (reusing existing SSE parsing logic), and invokes onDone callback with the complete ChatMessage; add getPlan(planId) method that GETs /api/v1/chat/plans/{planId}
+- [X] T011 [P] [US1] Create PlanPreview component in frontend/src/components/chat/PlanPreview.tsx — renders plan data from action_data: header with project badge (repo_owner/repo_name) and status badge (Draft/Completed/Failed), ordered step list with titles, descriptions, and dependency annotations; action buttons "Request Changes" (focuses chat input) and "Approve & Create Issues" (disabled until US4)
+- [X] T012 [US1] Wire PlanPreview into MessageBubble in frontend/src/components/chat/MessageBubble.tsx — render PlanPreview when action_type === 'plan_create', passing action_data as props
+- [X] T013 [US1] Create usePlan hook in frontend/src/hooks/usePlan.ts — manages activePlan (Plan | null), isPlanMode (boolean), thinkingPhase (ThinkingPhase | null) state; exposes setActivePlan, enterPlanMode, exitPlanMode functions; uses React Query for getPlan cache
 
 **Checkpoint**: User Story 1 is fully functional — users can type `/plan <description>` and see a structured plan displayed as a rich preview card
 
@@ -71,9 +71,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T014 [US2] Add plan mode auto-delegation to existing run() and run_stream() methods in backend/src/services/chat_agent.py — check agent_session.state.get("is_plan_mode"); if True, delegate to run_plan()/run_plan_stream() instead of standard agent processing so follow-up messages are automatically routed without /plan prefix
-- [ ] T015 [US2] Add PATCH /plans/{plan_id} route to backend/src/api/chat.py — accepts PlanUpdateRequest (optional title, summary), validates plan is in draft status, calls chat_store.update_plan(), returns updated PlanResponse
-- [ ] T016 [US2] Ensure save_plan tool in backend/src/services/agent_tools.py supports update-in-place — when active_plan_id exists in session state, save_plan updates the existing plan record (via chat_store.save_plan with same plan_id) rather than creating a new one; the agent instruction prompt (plan_instructions.py) should guide the agent to refine the existing plan
+- [X] T014 [US2] Add plan mode auto-delegation to existing run() and run_stream() methods in backend/src/services/chat_agent.py — check agent_session.state.get("is_plan_mode"); if True, delegate to run_plan()/run_plan_stream() instead of standard agent processing so follow-up messages are automatically routed without /plan prefix
+- [X] T015 [US2] Add PATCH /plans/{plan_id} route to backend/src/api/chat.py — accepts PlanUpdateRequest (optional title, summary), validates plan is in draft status, calls chat_store.update_plan(), returns updated PlanResponse
+- [X] T016 [US2] Ensure save_plan tool in backend/src/services/agent_tools.py supports update-in-place — when active_plan_id exists in session state, save_plan updates the existing plan record (via chat_store.save_plan with same plan_id) rather than creating a new one; the agent instruction prompt (plan_instructions.py) should guide the agent to refine the existing plan
 
 **Checkpoint**: User Story 2 is fully functional — follow-up messages auto-route to plan agent, plan updates in-place, and conversation trail is preserved
 
@@ -87,10 +87,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Add SSE thinking event emission to run_plan_stream() in backend/src/services/chat_agent.py — yield {"event": "thinking", "data": {"phase": "researching"|"planning"|"refining", "detail": "..."}} events before/during agent execution phases: emit "researching" before context gathering, "planning" before plan generation, "refining" when processing follow-up feedback
-- [ ] T018 [US3] Extend SSE parser in frontend/src/services/api.ts — add handling for event type "thinking" in processFrame/SSE parsing logic; add onThinking callback parameter to sendPlanMessageStream() that receives ThinkingEvent objects; update sendPlanMessageStream to invoke onThinking when thinking frames arrive
-- [ ] T019 [P] [US3] Create ThinkingIndicator component in frontend/src/components/chat/ThinkingIndicator.tsx — accepts thinkingPhase (ThinkingPhase) and detail (string) props; renders phase-aware labels with icons: Search icon + "Researching project context…" for researching, ListChecks icon + "Drafting implementation plan…" for planning, Pencil icon + "Incorporating your feedback…" for refining; includes animated shimmer/pulse effect using Tailwind CSS
-- [ ] T020 [US3] Wire ThinkingIndicator into ChatInterface in frontend/src/components/chat/ChatInterface.tsx — replace generic 3-dot bounce loading animation with ThinkingIndicator when thinkingPhase (from usePlan hook) is set; pass thinkingPhase and detail as props; clear thinkingPhase when plan response arrives (done event)
+- [X] T017 [US3] Add SSE thinking event emission to run_plan_stream() in backend/src/services/chat_agent.py — yield {"event": "thinking", "data": {"phase": "researching"|"planning"|"refining", "detail": "..."}} events before/during agent execution phases: emit "researching" before context gathering, "planning" before plan generation, "refining" when processing follow-up feedback
+- [X] T018 [US3] Extend SSE parser in frontend/src/services/api.ts — add handling for event type "thinking" in processFrame/SSE parsing logic; add onThinking callback parameter to sendPlanMessageStream() that receives ThinkingEvent objects; update sendPlanMessageStream to invoke onThinking when thinking frames arrive
+- [X] T019 [P] [US3] Create ThinkingIndicator component in frontend/src/components/chat/ThinkingIndicator.tsx — accepts thinkingPhase (ThinkingPhase) and detail (string) props; renders phase-aware labels with icons: Search icon + "Researching project context…" for researching, ListChecks icon + "Drafting implementation plan…" for planning, Pencil icon + "Incorporating your feedback…" for refining; includes animated shimmer/pulse effect using Tailwind CSS
+- [X] T020 [US3] Wire ThinkingIndicator into ChatInterface in frontend/src/components/chat/ChatInterface.tsx — replace generic 3-dot bounce loading animation with ThinkingIndicator when thinkingPhase (from usePlan hook) is set; pass thinkingPhase and detail as props; clear thinkingPhase when plan response arrives (done event)
 
 **Checkpoint**: User Story 3 is fully functional — users see real-time phase-aware indicators during plan processing
 
@@ -104,11 +104,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T021 [US4] Create plan issue service in backend/src/services/plan_issue_service.py — implement create_plan_issues(access_token, plan, owner, repo) that: (1) creates parent GitHub issue via githubkit with plan title as issue title and summary + step checklist as body, (2) sequentially creates one sub-issue per PlanStep with step title as issue title, description + dependency references ("Depends on #N") as body, and "Part of #parent" linking, (3) calls chat_store.update_plan_step_issue() for each step and chat_store.update_plan_status() on completion, (4) handles partial failures by setting status to "failed" and returning created/failed step details per FR-019
-- [ ] T022 [US4] Add POST /plans/{plan_id}/approve route to backend/src/api/chat.py — validates plan is in draft status with at least one step, sets status to approved, calls plan_issue_service.create_plan_issues(), returns PlanApprovalResponse with issue numbers/URLs; on partial failure returns 502 with created_issues and failed_steps details
-- [ ] T023 [P] [US4] Add approvePlan(planId) method to frontend/src/services/api.ts — POSTs to /api/v1/chat/plans/{planId}/approve, returns PlanApprovalResponse
-- [ ] T024 [US4] Add approve mutation to usePlan hook in frontend/src/hooks/usePlan.ts — uses React Query useMutation calling approvePlan(); on success updates activePlan with completed status and issue links; on error surfaces error message
-- [ ] T025 [US4] Update PlanPreview component in frontend/src/components/chat/PlanPreview.tsx — wire "Approve & Create Issues" button to approve mutation from usePlan hook; show progress spinner during approval; on completion update card to "Completed" status badge; display issue number badges on each step linking to issue_url; show "View Parent Issue" link pointing to parent_issue_url; handle error state with retry option
+- [X] T021 [US4] Create plan issue service in backend/src/services/plan_issue_service.py — implement create_plan_issues(access_token, plan, owner, repo) that: (1) creates parent GitHub issue via githubkit with plan title as issue title and summary + step checklist as body, (2) sequentially creates one sub-issue per PlanStep with step title as issue title, description + dependency references ("Depends on #N") as body, and "Part of #parent" linking, (3) calls chat_store.update_plan_step_issue() for each step and chat_store.update_plan_status() on completion, (4) handles partial failures by setting status to "failed" and returning created/failed step details per FR-019
+- [X] T022 [US4] Add POST /plans/{plan_id}/approve route to backend/src/api/chat.py — validates plan is in draft status with at least one step, sets status to approved, calls plan_issue_service.create_plan_issues(), returns PlanApprovalResponse with issue numbers/URLs; on partial failure returns 502 with created_issues and failed_steps details
+- [X] T023 [P] [US4] Add approvePlan(planId) method to frontend/src/services/api.ts — POSTs to /api/v1/chat/plans/{planId}/approve, returns PlanApprovalResponse
+- [X] T024 [US4] Add approve mutation to usePlan hook in frontend/src/hooks/usePlan.ts — uses React Query useMutation calling approvePlan(); on success updates activePlan with completed status and issue links; on error surfaces error message
+- [X] T025 [US4] Update PlanPreview component in frontend/src/components/chat/PlanPreview.tsx — wire "Approve & Create Issues" button to approve mutation from usePlan hook; show progress spinner during approval; on completion update card to "Completed" status badge; display issue number badges on each step linking to issue_url; show "View Parent Issue" link pointing to parent_issue_url; handle error state with retry option
 
 **Checkpoint**: User Story 4 is fully functional — approved plans create linked GitHub parent issue + sub-issues with dependency references
 
@@ -122,10 +122,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T026 [US5] Add POST /plans/{plan_id}/exit route to backend/src/api/chat.py — clears is_plan_mode and active_plan_id from agent session state, returns PlanExitResponse with plan_id and current plan_status; preserves the plan record for future reference
-- [ ] T027 [P] [US5] Add exitPlanMode(planId) method to frontend/src/services/api.ts — POSTs to /api/v1/chat/plans/{planId}/exit, returns PlanExitResponse
-- [ ] T028 [US5] Add exit mutation to usePlan hook in frontend/src/hooks/usePlan.ts — uses React Query useMutation calling exitPlanMode(); on success clears activePlan and isPlanMode state
-- [ ] T029 [US5] Add "Exit Plan Mode" button to PlanPreview in frontend/src/components/chat/PlanPreview.tsx — shown after plan approval (completed status); also add exit affordance for draft plans; wires to exit mutation from usePlan hook
+- [X] T026 [US5] Add POST /plans/{plan_id}/exit route to backend/src/api/chat.py — clears is_plan_mode and active_plan_id from agent session state, returns PlanExitResponse with plan_id and current plan_status; preserves the plan record for future reference
+- [X] T027 [P] [US5] Add exitPlanMode(planId) method to frontend/src/services/api.ts — POSTs to /api/v1/chat/plans/{planId}/exit, returns PlanExitResponse
+- [X] T028 [US5] Add exit mutation to usePlan hook in frontend/src/hooks/usePlan.ts — uses React Query useMutation calling exitPlanMode(); on success clears activePlan and isPlanMode state
+- [X] T029 [US5] Add "Exit Plan Mode" button to PlanPreview in frontend/src/components/chat/PlanPreview.tsx — shown after plan approval (completed status); also add exit affordance for draft plans; wires to exit mutation from usePlan hook
 
 **Checkpoint**: User Story 5 is fully functional — users can exit plan mode and return to normal chat
 
@@ -139,8 +139,8 @@
 
 ### Implementation for User Story 6
 
-- [ ] T030 [US6] Add plan mode banner to ChatInterface in frontend/src/components/chat/ChatInterface.tsx — render a banner above the chat input area when isPlanMode (from usePlan hook) is true, displaying "Plan mode — {project_name}" with a subtle background color and dismiss/exit action
-- [ ] T031 [US6] Refine PlanPreview header in frontend/src/components/chat/PlanPreview.tsx to ensure project badge showing repo_owner/repo_name (e.g., "octocat/my-app") is prominently styled — depends on T011 (which creates the initial PlanPreview with project badge); adjust badge styling, spacing, or layout if needed for context clarity
+- [X] T030 [US6] Add plan mode banner to ChatInterface in frontend/src/components/chat/ChatInterface.tsx — render a banner above the chat input area when isPlanMode (from usePlan hook) is true, displaying "Plan mode — {project_name}" with a subtle background color and dismiss/exit action
+- [X] T031 [US6] Refine PlanPreview header in frontend/src/components/chat/PlanPreview.tsx to ensure project badge showing repo_owner/repo_name (e.g., "octocat/my-app") is prominently styled — depends on T011 (which creates the initial PlanPreview with project badge); adjust badge styling, spacing, or layout if needed for context clarity
 
 **Checkpoint**: User Story 6 is fully functional — plan mode banner and project context are clearly displayed
 
@@ -151,9 +151,9 @@
 **Purpose**: Edge case handling, error resilience, and final integration improvements
 
 - [ ] T032 Handle project switch during plan mode — add logic in backend/src/api/projects.py or chat session handling to exit plan mode and notify the user when the selected project changes while plan mode is active
-- [ ] T033 [P] Handle empty plan validation — ensure POST /plans/{plan_id}/approve returns 400 if plan has zero steps; ensure save_plan tool validates at least one step before saving
+- [X] T033 [P] Handle empty plan validation — ensure POST /plans/{plan_id}/approve returns 400 if plan has zero steps; ensure save_plan tool validates at least one step before saving
 - [ ] T034 [P] Handle GitHub rate limit during issue creation — add retry logic with exponential backoff in backend/src/services/plan_issue_service.py when GitHub API returns 429 or 403 rate limit responses; surface progress to user showing which issues were created
-- [ ] T035 [P] Add plan mode error boundary handling — ensure /plan with empty description returns helpful prompt; /plan without selected project returns clear error; agent failures return actionable error messages via SSE error events
+- [X] T035 [P] Add plan mode error boundary handling — ensure /plan with empty description returns helpful prompt; /plan without selected project returns clear error; agent failures return actionable error messages via SSE error events
 - [ ] T036 Run quickstart.md validation — follow the quickstart.md user flow end-to-end to verify all phases work together
 
 ---
