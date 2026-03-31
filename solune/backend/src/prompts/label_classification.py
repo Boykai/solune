@@ -50,7 +50,7 @@ Rules:
 1. Always include "ai-generated".
 2. Include exactly ONE type label. If unsure, default to "feature".
 3. Include all applicable scope and domain labels.
-4. Do NOT invent labels outside the predefined list: {LABELS}
+4. Do NOT invent labels outside the predefined list: {", ".join(LABELS)}
 5. Return a JSON object with a single key "labels" containing an array of strings.
 
 Example output:

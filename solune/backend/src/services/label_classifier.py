@@ -71,7 +71,7 @@ async def classify_labels(
         Validated label list.
     """
     # Fast path: if both inputs are effectively empty, skip the AI call.
-    if not title.strip() and not (description and description.strip()):
+    if not title.strip() and not description.strip():
         return list(_FALLBACK_LABELS)
 
     try:
