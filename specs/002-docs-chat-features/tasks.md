@@ -69,7 +69,7 @@
 
 **Goal**: Update the API reference to accurately document the streaming chat endpoint, file upload constraints, rate limits, and new request parameters.
 
-**Independent Test**: Review the API reference page and confirm that the streaming endpoint (POST /chat/messages with SSE), SSE event types, rate limits, file upload constraints, and new request/response parameters are all documented.
+**Independent Test**: Review the API reference page and confirm that the streaming endpoint (POST /chat/messages/stream with SSE), SSE event types, rate limits, file upload constraints, and new request/response parameters are all documented.
 
 ### Implementation for User Story 2
 

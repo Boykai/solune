@@ -47,18 +47,18 @@ This document specifies the exact changes required for each documentation file, 
 
 ### Acceptance Criteria
 
-- [ ] Chat endpoint table includes streaming behavior note
-- [ ] New subsection documents SSE event types (token, tool_call, tool_result, done, error)
+- [ ] Chat endpoint table includes a dedicated streaming endpoint row for `POST /chat/messages/stream` with brief behavior description
+- [ ] New subsection documents SSE event types (token, tool_call, tool_result, done, error) for the streaming endpoint
 - [ ] File upload constraints documented (5 files, 10 MB, allowed/blocked, .vtt/.srt)
-- [ ] POST /chat/messages description updated with `ai_enhance`, `file_urls`, `pipeline_id` params
+- [ ] POST /chat/messages description updated with `ai_enhance`, `file_urls`, `pipeline_id` params (non-streaming request/response)
 - [ ] GET /chat/messages description notes pagination (`limit`, `offset`)
-- [ ] Rate limit note added for streaming
+- [ ] Rate limit note added for `POST /chat/messages/stream` (10 streaming requests per minute)
 - [ ] Follows existing table format (`| Method | Path | Description |`)
 
 ### Change Specification
 
-1. **Update POST /chat/messages description** — Add note about streaming with `ai_enhance=true`, mention `file_urls` and `pipeline_id` params
-2. **Add streaming subsection** — New `### Streaming` subsection under Chat section with SSE event types table
+1. **Update POST /chat/messages description** — Document `ai_enhance`, `file_urls`, and `pipeline_id` request params (non-streaming behavior)
+2. **Add streaming endpoint and subsection** — Add a `POST /chat/messages/stream` row in the Chat endpoints table and a new `### Streaming` subsection under the Chat section with SSE event types table and 10/minute rate limit note
 3. **Add file upload subsection** — New `### File Upload Constraints` subsection with limits and types
 4. **Update GET /chat/messages** — Note pagination params
 

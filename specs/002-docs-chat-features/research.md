@@ -89,9 +89,9 @@ This research resolves all technical unknowns and verifies codebase facts needed
 
 ## 3. Streaming Endpoint Details
 
-**Decision**: Document the streaming endpoint as `POST /chat/messages` with `Accept: text/event-stream` header (SSE response) rather than a separate `/stream` path.
+**Decision**: Document the streaming endpoint as a dedicated `POST /chat/messages/stream` SSE endpoint, separate from the non-streaming `POST /chat/messages` JSON endpoint.
 
-**Rationale**: The codebase uses a single `POST /chat/messages` endpoint that returns either a JSON response or an SSE stream based on request context. The `ai_enhance` parameter controls whether the Agent Framework (streaming-capable) or fallback path is used.
+**Rationale**: The codebase exposes a dedicated streaming endpoint at `@router.post("/messages/stream")` in `api/chat.py` (line 1336), rate-limited at 10/minute. The non-streaming `POST /chat/messages` always returns a single JSON `ChatMessage`. The `ai_enhance` parameter on the streaming endpoint must be `true`; if `false`, the endpoint returns a 400 error directing clients to the non-streaming endpoint.
 
 **SSE Event Types** (from `chat_agent.py` → `run_stream()`):
 
@@ -103,7 +103,7 @@ This research resolves all technical unknowns and verifies codebase facts needed
 | `done` | Final `ChatMessage` JSON | Stream complete, includes full message |
 | `error` | Error message string | An error occurred during streaming |
 
-**Alternatives considered**: Documenting as a separate `/chat/messages/stream` endpoint — rejected because the codebase does not expose a separate path.
+**Alternatives considered**: Documenting streaming as a mode of `POST /chat/messages` with `Accept: text/event-stream` — rejected because the codebase exposes a separate `/messages/stream` path.
 
 ---
 
@@ -118,7 +118,7 @@ This research resolves all technical unknowns and verifies codebase facts needed
 | Max files per message | 5 | `useFileUpload.ts` |
 | Max file size | 10 MB | `useFileUpload.ts` |
 | Allowed types | Images, PDFs, text, CSV, VTT, SRT, common docs | `useFileUpload.ts` |
-| Blocked types | Executables, archives, system files | `useFileUpload.ts` |
+| Blocked types | Executables and scripts (`.exe`, `.sh`, `.bat`, `.cmd`, `.js`, `.py`, `.rb`); note: `.zip` archives are allowed | `useFileUpload.ts` |
 | Transcript auto-detection | `.vtt`, `.srt` files | `api/chat.py` |
 
 ---
