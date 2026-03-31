@@ -637,3 +637,111 @@ class TestWebSocketSubscribe:
         # The endpoint should have called get_project_items for the initial
         # force_refresh and been invoked in send_tasks
         mock_github_service.get_project_items.assert_called()
+
+
+# ── New coverage tests ──────────────────────────────────────────────────────
+
+
+class TestRetryAfterSeconds:
+    """Cover _retry_after_seconds() — lines 52-66."""
+
+    def test_timedelta_retry_after(self):
+        from datetime import timedelta
+
+        from src.api.projects import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = timedelta(seconds=30)
+        assert _retry_after_seconds(exc) == 30
+
+    def test_timedelta_zero_returns_min_1(self):
+        from datetime import timedelta
+
+        from src.api.projects import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = timedelta(seconds=0)
+        assert _retry_after_seconds(exc) == 1
+
+    def test_int_retry_after(self):
+        from src.api.projects import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = 45
+        assert _retry_after_seconds(exc) == 45
+
+    def test_int_zero_returns_min_1(self):
+        from src.api.projects import _retry_after_seconds
+
+        exc = Exception("rate limit")
+        exc.retry_after = 0
+        assert _retry_after_seconds(exc) == 1
+
+    def test_args_fallback(self):
+        from src.api.projects import _retry_after_seconds
+
+        exc = Exception("msg", 120)
+        assert _retry_after_seconds(exc) == 120
+
+    def test_no_retry_after_returns_default(self):
+        from src.api.projects import _retry_after_seconds
+
+        exc = Exception("generic error")
+        assert _retry_after_seconds(exc) == 60
+
+
+class TestRateLimitDetails:
+    """Cover _rate_limit_details() — lines 69-84."""
+
+    def test_valid_dict(self):
+        from src.api.projects import _rate_limit_details
+
+        rl = {"limit": 5000, "remaining": 100, "reset_at": "2025-01-01T00:00:00Z", "used": 4900}
+        with patch("src.api.projects.github_projects_service") as mock_gps:
+            mock_gps.get_last_rate_limit.return_value = rl
+            result = _rate_limit_details()
+        assert result == {"rate_limit": rl}
+
+    def test_non_dict_returns_empty(self):
+        from src.api.projects import _rate_limit_details
+
+        with patch("src.api.projects.github_projects_service") as mock_gps:
+            mock_gps.get_last_rate_limit.return_value = None
+            assert _rate_limit_details() == {}
+
+    def test_missing_keys_returns_empty(self):
+        from src.api.projects import _rate_limit_details
+
+        with patch("src.api.projects.github_projects_service") as mock_gps:
+            mock_gps.get_last_rate_limit.return_value = {"limit": 5000}
+            assert _rate_limit_details() == {}
+
+
+class TestListProjectsStaleCacheOnRateLimit:
+    """Cover lines 146-154: rate limit + stale cache path (non-refresh)."""
+
+    @pytest.mark.asyncio
+    async def test_stale_cache_returned_on_rate_limit(self):
+        from src.api.projects import list_projects
+
+        stale_projects = [_project()]
+        rate_exc = PrimaryRateLimitExceeded.__new__(PrimaryRateLimitExceeded)
+        rate_exc.retry_after = 60
+
+        mock_session = MagicMock()
+        mock_session.github_user_id = "U_1"
+        mock_session.github_username = "testuser"
+        mock_session.access_token = "tok"
+
+        with (
+            patch("src.api.projects.github_projects_service") as mock_gps,
+            patch("src.api.projects.cache") as mock_cache,
+        ):
+            mock_cache.get.return_value = None  # no fresh cache
+            mock_gps.list_user_projects = AsyncMock(side_effect=rate_exc)
+            mock_cache.get_stale.return_value = stale_projects
+            mock_gps.get_last_rate_limit.return_value = None
+
+            result = await list_projects(session=mock_session, refresh=False)
+
+        assert result.projects == stale_projects

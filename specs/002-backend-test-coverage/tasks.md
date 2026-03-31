@@ -56,34 +56,34 @@
 
 ### Rate Limit Detection Tests
 
-- [ ] T008 [P] [US2] Add test for 403 + `X-RateLimit-Remaining: "0"` triggering rate limit detection in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-001)
-- [ ] T009 [P] [US2] Add test for 403 with empty rate limit dict NOT triggering rate limit path in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-002)
+- [x] T008 [P] [US2] Add test for 403 + `X-RateLimit-Remaining: "0"` triggering rate limit detection in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-001)
+- [x] T009 [P] [US2] Add test for 403 with empty rate limit dict NOT triggering rate limit path in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-002)
 
 ### Task Fallback Tests
 
-- [ ] T010 [P] [US2] Add test for `get_project_tasks` exception fallback to `get_done_items()` returning cached Task models in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-003)
-- [ ] T011 [P] [US2] Add test for `get_project_tasks` exception fallback when DB cache is also empty in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-004)
+- [x] T010 [P] [US2] Add test for `get_project_tasks` exception fallback to `get_done_items()` returning cached Task models in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-003)
+- [x] T011 [P] [US2] Add test for `get_project_tasks` exception fallback when DB cache is also empty in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-004)
 
 ### Project List Cache Tests
 
-- [ ] T012 [P] [US2] Add test for `list_projects` with cache returning empty list `[]` (not cache miss) in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-005)
-- [ ] T013 [P] [US2] Add test for `list_projects` with cache returning `None` (unpopulated, triggers API call) in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-006)
-- [ ] T014 [P] [US2] Add test for `list_projects` with non-rate-limit error fallback in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-007)
+- [x] T012 [P] [US2] Add test for `list_projects` with cache returning empty list `[]` (not cache miss) in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-005)
+- [x] T013 [P] [US2] Add test for `list_projects` with cache returning `None` (unpopulated, triggers API call) in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-006)
+- [x] T014 [P] [US2] Add test for `list_projects` with non-rate-limit error fallback in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-007)
 
 ### Get Project Cache Edge Cases
 
-- [ ] T015 [P] [US2] Add test for `get_project` when project ID is not in cached list in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-008)
-- [ ] T016 [P] [US2] Add test for `get_project` with `refresh=True` but API returns error in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-009)
+- [x] T015 [P] [US2] Add test for `get_project` when project ID is not in cached list in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-008)
+- [x] T016 [P] [US2] Add test for `get_project` with `refresh=True` but API returns error in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-009)
 
 ### WebSocket Subscription Tests
 
-- [ ] T017 [US2] Add test for `websocket_subscribe` receiving data change via hash diffing in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-010)
-- [ ] T018 [US2] Add test for `websocket_subscribe` stale revalidation counter triggering refresh in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-011)
-- [ ] T019 [US2] Add test for `websocket_subscribe` client disconnect cleanup (WebSocketDisconnect handling) in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-012)
+- [x] T017 [US2] Add test for `websocket_subscribe` receiving data change via hash diffing in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-010)
+- [x] T018 [US2] Add test for `websocket_subscribe` stale revalidation counter triggering refresh in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-011)
+- [x] T019 [US2] Add test for `websocket_subscribe` client disconnect cleanup (WebSocketDisconnect handling) in solune/backend/tests/unit/test_api_projects.py (TC-PROJ-012)
 
 ### Verification
 
-- [ ] T020 [US2] Run `uv run pytest tests/unit/test_api_projects.py -v --cov=src.api.projects --cov-report=term-missing` and verify coverage ≥ 70%
+- [x] T020 [US2] Run `uv run pytest tests/unit/test_api_projects.py -v --cov=src.api.projects --cov-report=term-missing` and verify coverage ≥ 70%
 
 **Checkpoint**: Project management module at ~70% coverage — independently testable
 
@@ -97,32 +97,32 @@
 
 ### Admin Auth Edge Case Tests
 
-- [ ] T021 [P] [US3] Add test for debug auto-promote via CAS (`UPDATE WHERE admin_github_user_id IS NULL`, rowcount=1) in solune/backend/tests/unit/test_agent_creator.py (TC-AC-001)
-- [ ] T022 [P] [US3] Add test for `ADMIN_GITHUB_USER_ID` env var recognizing configured user as admin in solune/backend/tests/unit/test_agent_creator.py (TC-AC-002)
-- [ ] T023 [P] [US3] Add test for database exception during admin auth check (graceful failure, no internal details) in solune/backend/tests/unit/test_agent_creator.py (TC-AC-003)
+- [x] T021 [P] [US3] Add test for debug auto-promote via CAS (`UPDATE WHERE admin_github_user_id IS NULL`, rowcount=1) in solune/backend/tests/unit/test_agent_creator.py (TC-AC-001)
+- [x] T022 [P] [US3] Add test for `ADMIN_GITHUB_USER_ID` env var recognizing configured user as admin in solune/backend/tests/unit/test_agent_creator.py (TC-AC-002)
+- [x] T023 [P] [US3] Add test for database exception during admin auth check (graceful failure, no internal details) in solune/backend/tests/unit/test_agent_creator.py (TC-AC-003)
 
 ### Status Resolution Tests
 
-- [ ] T024 [P] [US3] Add test for fuzzy empty input status resolution (empty string handled without crash) in solune/backend/tests/unit/test_agent_creator.py (TC-AC-004)
-- [ ] T025 [P] [US3] Add test for normalized case-insensitive status matching in solune/backend/tests/unit/test_agent_creator.py (TC-AC-005)
-- [ ] T026 [P] [US3] Add test for out-of-range numeric selection (e.g., "99") rejection in solune/backend/tests/unit/test_agent_creator.py (TC-AC-006)
-- [ ] T027 [P] [US3] Add test for new column creation during status resolution via API in solune/backend/tests/unit/test_agent_creator.py (TC-AC-007)
+- [x] T024 [P] [US3] Add test for fuzzy empty input status resolution (empty string handled without crash) in solune/backend/tests/unit/test_agent_creator.py (TC-AC-004)
+- [x] T025 [P] [US3] Add test for normalized case-insensitive status matching in solune/backend/tests/unit/test_agent_creator.py (TC-AC-005)
+- [x] T026 [P] [US3] Add test for out-of-range numeric selection (e.g., "99") rejection in solune/backend/tests/unit/test_agent_creator.py (TC-AC-006)
+- [x] T027 [P] [US3] Add test for new column creation during status resolution via API in solune/backend/tests/unit/test_agent_creator.py (TC-AC-007)
 
 ### Creation Pipeline Tests (Steps 3–7)
 
-- [ ] T028 [US3] Add test for duplicate agent name detection halting pipeline in solune/backend/tests/unit/test_agent_creator.py (TC-AC-008)
-- [ ] T029 [US3] Add test for issue creation failure (Step 5) logged as warning, pipeline continues in solune/backend/tests/unit/test_agent_creator.py (TC-AC-009)
-- [ ] T030 [US3] Add test for PR creation failure (Step 7) after issue created, with cleanup attempt in solune/backend/tests/unit/test_agent_creator.py (TC-AC-010)
+- [x] T028 [US3] Add test for duplicate agent name detection halting pipeline in solune/backend/tests/unit/test_agent_creator.py (TC-AC-008)
+- [x] T029 [US3] Add test for issue creation failure (Step 5) logged as warning, pipeline continues in solune/backend/tests/unit/test_agent_creator.py (TC-AC-009)
+- [x] T030 [US3] Add test for PR creation failure (Step 7) after issue created, with cleanup attempt in solune/backend/tests/unit/test_agent_creator.py (TC-AC-010)
 
 ### AI Service Failure Tests
 
-- [ ] T031 [P] [US3] Add test for `generate_agent_config()` exception → user-facing error, session cleanup in solune/backend/tests/unit/test_agent_creator.py (TC-AC-011)
-- [ ] T032 [P] [US3] Add test for `edit_agent_config()` failure on retry → error message, preview preserved in solune/backend/tests/unit/test_agent_creator.py (TC-AC-012)
-- [ ] T033 [P] [US3] Add test for AI returning string instead of list for tools → graceful coercion/default in solune/backend/tests/unit/test_agent_creator.py (TC-AC-013)
+- [x] T031 [P] [US3] Add test for `generate_agent_config()` exception → user-facing error, session cleanup in solune/backend/tests/unit/test_agent_creator.py (TC-AC-011)
+- [x] T032 [P] [US3] Add test for `edit_agent_config()` failure on retry → error message, preview preserved in solune/backend/tests/unit/test_agent_creator.py (TC-AC-012)
+- [x] T033 [P] [US3] Add test for AI returning string instead of list for tools → graceful coercion/default in solune/backend/tests/unit/test_agent_creator.py (TC-AC-013)
 
 ### Verification
 
-- [ ] T034 [US3] Run `uv run pytest tests/unit/test_agent_creator.py -v --cov=src.services.agent_creator --cov-report=term-missing` and verify coverage ≥ 65%
+- [x] T034 [US3] Run `uv run pytest tests/unit/test_agent_creator.py -v --cov=src.services.agent_creator --cov-report=term-missing` and verify coverage ≥ 65%
 
 **Checkpoint**: Agent creator module at ~65% coverage — independently testable
 
@@ -136,37 +136,37 @@
 
 ### Cache & Stale Data Tests
 
-- [ ] T035 [P] [US4] Add test for `list_agents()` with cached agent list + user preference overlay (model_id, model_name, icon_name merged) in solune/backend/tests/unit/test_agents_service.py (TC-AS-001)
-- [ ] T036 [P] [US4] Add test for stale cache fallback when API fails (expired cache returns last known data) in solune/backend/tests/unit/test_agents_service.py (TC-AS-002)
-- [ ] T037 [P] [US4] Add test for session pruning removing stale sessions while preserving active ones in solune/backend/tests/unit/test_agents_service.py (TC-AS-003)
+- [x] T035 [P] [US4] Add test for `list_agents()` with cached agent list + user preference overlay (model_id, model_name, icon_name merged) in solune/backend/tests/unit/test_agents_service.py (TC-AS-001)
+- [x] T036 [P] [US4] Add test for stale cache fallback when API fails (expired cache returns last known data) in solune/backend/tests/unit/test_agents_service.py (TC-AS-002)
+- [x] T037 [P] [US4] Add test for session pruning removing stale sessions while preserving active ones in solune/backend/tests/unit/test_agents_service.py (TC-AS-003)
 
 ### Agent Source Mixing Tests
 
-- [ ] T038 [P] [US4] Add test for `bulk_update_models()` with both REPO and LOCAL agent sources in solune/backend/tests/unit/test_agents_service.py (TC-AS-004)
-- [ ] T039 [P] [US4] Add test for partial failure during bulk update (successful updates applied, failures reported) in solune/backend/tests/unit/test_agents_service.py (TC-AS-005)
-- [ ] T040 [P] [US4] Add test for tombstoned agents (PENDING_DELETION) excluded from `list_agents()` results in solune/backend/tests/unit/test_agents_service.py (TC-AS-006)
+- [x] T038 [P] [US4] Add test for `bulk_update_models()` with both REPO and LOCAL agent sources in solune/backend/tests/unit/test_agents_service.py (TC-AS-004)
+- [x] T039 [P] [US4] Add test for partial failure during bulk update (successful updates applied, failures reported) in solune/backend/tests/unit/test_agents_service.py (TC-AS-005)
+- [x] T040 [P] [US4] Add test for tombstoned agents (PENDING_DELETION) excluded from `list_agents()` results in solune/backend/tests/unit/test_agents_service.py (TC-AS-006)
 
 ### YAML Frontmatter Tests
 
-- [ ] T041 [P] [US4] Add test for agent file with missing YAML frontmatter fields → default values used in solune/backend/tests/unit/test_agents_service.py (TC-AS-007)
-- [ ] T042 [P] [US4] Add test for agent file with YAML parse errors → fallback to basic agent without crashing in solune/backend/tests/unit/test_agents_service.py (TC-AS-008)
-- [ ] T043 [P] [US4] Add test for agent file with no YAML frontmatter (plain markdown) → handled gracefully in solune/backend/tests/unit/test_agents_service.py (TC-AS-009)
+- [x] T041 [P] [US4] Add test for agent file with missing YAML frontmatter fields → default values used in solune/backend/tests/unit/test_agents_service.py (TC-AS-007)
+- [x] T042 [P] [US4] Add test for agent file with YAML parse errors → fallback to basic agent without crashing in solune/backend/tests/unit/test_agents_service.py (TC-AS-008)
+- [x] T043 [P] [US4] Add test for agent file with no YAML frontmatter (plain markdown) → handled gracefully in solune/backend/tests/unit/test_agents_service.py (TC-AS-009)
 
 ### Tool Resolution Tests
 
-- [ ] T044 [P] [US4] Add test for MCP server config normalization to standard GitHub agent YAML shape in solune/backend/tests/unit/test_agents_service.py (TC-AS-010)
-- [ ] T045 [P] [US4] Add test for wildcard tool pattern expansion vs explicit tool IDs with deduplication in solune/backend/tests/unit/test_agents_service.py (TC-AS-011)
-- [ ] T046 [P] [US4] Add test for invalid MCP configuration (missing required fields) skipped with warning in solune/backend/tests/unit/test_agents_service.py (TC-AS-012)
+- [x] T044 [P] [US4] Add test for MCP server config normalization to standard GitHub agent YAML shape in solune/backend/tests/unit/test_agents_service.py (TC-AS-010)
+- [x] T045 [P] [US4] Add test for wildcard tool pattern expansion vs explicit tool IDs with deduplication in solune/backend/tests/unit/test_agents_service.py (TC-AS-011)
+- [x] T046 [P] [US4] Add test for invalid MCP configuration (missing required fields) skipped with warning in solune/backend/tests/unit/test_agents_service.py (TC-AS-012)
 
 ### Create Agent Tests
 
-- [ ] T047 [P] [US4] Add test for slug generation from special characters (emojis, unicode) → valid sanitized slug in solune/backend/tests/unit/test_agents_service.py (TC-AS-013)
-- [ ] T048 [P] [US4] Add test for AI enhancement failure during creation → fallback to raw user input in solune/backend/tests/unit/test_agents_service.py (TC-AS-014)
-- [ ] T049 [P] [US4] Add test for raw mode creation (skip AI enhancement) → agent created with user input as-is in solune/backend/tests/unit/test_agents_service.py (TC-AS-015)
+- [x] T047 [P] [US4] Add test for slug generation from special characters (emojis, unicode) → valid sanitized slug in solune/backend/tests/unit/test_agents_service.py (TC-AS-013)
+- [x] T048 [P] [US4] Add test for AI enhancement failure during creation → fallback to raw user input in solune/backend/tests/unit/test_agents_service.py (TC-AS-014)
+- [x] T049 [P] [US4] Add test for raw mode creation (skip AI enhancement) → agent created with user input as-is in solune/backend/tests/unit/test_agents_service.py (TC-AS-015)
 
 ### Verification
 
-- [ ] T050 [US4] Run `uv run pytest tests/unit/test_agents_service.py -v --cov=src.services.agents.service --cov-report=term-missing` and verify coverage ≥ 70%
+- [x] T050 [US4] Run `uv run pytest tests/unit/test_agents_service.py -v --cov=src.services.agents.service --cov-report=term-missing` and verify coverage ≥ 70%
 
 **Checkpoint**: Agent service module at ~70% coverage — independently testable
 
@@ -180,27 +180,27 @@
 
 ### Preset Seeding Tests
 
-- [ ] T051 [P] [US5] Add test for idempotent re-seed (`seed_presets()` called when presets already exist → no duplicates) in solune/backend/tests/unit/test_chores_service.py (TC-CS-001)
-- [ ] T052 [P] [US5] Add test for preset file read failure (`Path.read_text` raises `FileNotFoundError` → graceful handling) in solune/backend/tests/unit/test_chores_service.py (TC-CS-002)
-- [ ] T053 [P] [US5] Add test for fresh seed of all 3 presets with unique IDs in solune/backend/tests/unit/test_chores_service.py (TC-CS-003)
+- [x] T051 [P] [US5] Add test for idempotent re-seed (`seed_presets()` called when presets already exist → no duplicates) in solune/backend/tests/unit/test_chores_service.py (TC-CS-001)
+- [x] T052 [P] [US5] Add test for preset file read failure (`Path.read_text` raises `FileNotFoundError` → graceful handling) in solune/backend/tests/unit/test_chores_service.py (TC-CS-002)
+- [x] T053 [P] [US5] Add test for fresh seed of all 3 presets with unique IDs in solune/backend/tests/unit/test_chores_service.py (TC-CS-003)
 
 ### Update Validation Tests
 
-- [ ] T054 [P] [US5] Add test for inconsistent schedule parameters (schedule_type without schedule_value → validation error) in solune/backend/tests/unit/test_chores_service.py (TC-CS-004)
-- [ ] T055 [P] [US5] Add test for boolean `True` → integer `1` conversion for `enabled` field in solune/backend/tests/unit/test_chores_service.py (TC-CS-005)
-- [ ] T056 [P] [US5] Add test for column name with SQL injection payload rejected before `db.execute` in solune/backend/tests/unit/test_chores_service.py (TC-CS-006)
-- [ ] T057 [P] [US5] Add test for boolean `False` → integer `0` conversion for `auto_merge` field in solune/backend/tests/unit/test_chores_service.py (TC-CS-007)
+- [x] T054 [P] [US5] Add test for inconsistent schedule parameters (schedule_type without schedule_value → validation error) in solune/backend/tests/unit/test_chores_service.py (TC-CS-004)
+- [x] T055 [P] [US5] Add test for boolean `True` → integer `1` conversion for `enabled` field in solune/backend/tests/unit/test_chores_service.py (TC-CS-005)
+- [x] T056 [P] [US5] Add test for column name with SQL injection payload rejected before `db.execute` in solune/backend/tests/unit/test_chores_service.py (TC-CS-006)
+- [x] T057 [P] [US5] Add test for boolean `False` → integer `0` conversion for `auto_merge` field in solune/backend/tests/unit/test_chores_service.py (TC-CS-007)
 
 ### Trigger State CAS Tests
 
-- [ ] T058 [US5] Add test for first CAS trigger with `last_triggered_at = NULL` → CAS succeeds, new timestamp recorded in solune/backend/tests/unit/test_chores_service.py (TC-CS-008)
-- [ ] T059 [US5] Add test for CAS trigger with matching old value → CAS succeeds, timestamp updated in solune/backend/tests/unit/test_chores_service.py (TC-CS-009)
-- [ ] T060 [US5] Add test for CAS trigger with mismatched old value → CAS fails (rowcount=0), double-fire prevented in solune/backend/tests/unit/test_chores_service.py (TC-CS-010)
-- [ ] T061 [US5] Add test for `clear_current_issue()` setting `current_issue_number` and `current_issue_node_id` to NULL in solune/backend/tests/unit/test_chores_service.py (TC-CS-011)
+- [x] T058 [US5] Add test for first CAS trigger with `last_triggered_at = NULL` → CAS succeeds, new timestamp recorded in solune/backend/tests/unit/test_chores_service.py (TC-CS-008)
+- [x] T059 [US5] Add test for CAS trigger with matching old value → CAS succeeds, timestamp updated in solune/backend/tests/unit/test_chores_service.py (TC-CS-009)
+- [x] T060 [US5] Add test for CAS trigger with mismatched old value → CAS fails (rowcount=0), double-fire prevented in solune/backend/tests/unit/test_chores_service.py (TC-CS-010)
+- [x] T061 [US5] Add test for `clear_current_issue()` setting `current_issue_number` and `current_issue_node_id` to NULL in solune/backend/tests/unit/test_chores_service.py (TC-CS-011)
 
 ### Verification
 
-- [ ] T062 [US5] Run `uv run pytest tests/unit/test_chores_service.py -v --cov=src.services.chores.service --cov-report=term-missing` and verify coverage ≥ 75%
+- [x] T062 [US5] Run `uv run pytest tests/unit/test_chores_service.py -v --cov=src.services.chores.service --cov-report=term-missing` and verify coverage ≥ 75%
 
 **Checkpoint**: Chores service module at ~75% coverage — independently testable
 
@@ -212,10 +212,10 @@
 
 **Independent Test**: Full backend suite + per-file coverage report
 
-- [ ] T063 Run full backend test suite `cd solune/backend && uv run pytest tests/unit/ --tb=short -q` and confirm 0 failures
-- [ ] T064 Generate targeted per-file coverage report: `uv run pytest tests/unit/ --cov=src.api.projects --cov=src.services.agent_creator --cov=src.services.agents.service --cov=src.services.chores.service --cov-report=term-missing -q`
-- [ ] T065 Compare per-file coverage deltas against baselines: projects.py (37.7% → ≥70%), agent_creator.py (39.4% → ≥65%), agents/service.py (47.4% → ≥70%), chores/service.py (51.3% → ≥75%)
-- [ ] T066 Verify overall backend coverage trending toward ~85% (baseline: 78.3%)
+- [x] T063 Run full backend test suite `cd solune/backend && uv run pytest tests/unit/ --tb=short -q` and confirm 0 failures
+- [x] T064 Generate targeted per-file coverage report: `uv run pytest tests/unit/ --cov=src.api.projects --cov=src.services.agent_creator --cov=src.services.agents.service --cov=src.services.chores.service --cov-report=term-missing -q`
+- [x] T065 Compare per-file coverage deltas against baselines: projects.py (37.7% → ≥70%), agent_creator.py (39.4% → ≥65%), agents/service.py (47.4% → ≥70%), chores/service.py (51.3% → ≥75%)
+- [x] T066 Verify overall backend coverage trending toward ~85% (baseline: 78.3%)
 
 **Checkpoint**: All coverage targets met, zero regressions — ready to merge
 
