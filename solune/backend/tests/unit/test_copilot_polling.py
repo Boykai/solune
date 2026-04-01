@@ -7591,6 +7591,113 @@ class TestProcessPipelineCompletionBatchTracking:
 # ────────────────────────────────────────────────────────────────────
 
 
+class TestProcessPipelineCompletionChecksAllParallelAgents:
+    """Regression: _process_pipeline_completion must check ALL agents in a
+    parallel group per poll cycle, not return early after the first."""
+
+    @pytest.fixture(autouse=True)
+    def clear_states(self):
+        from src.services.workflow_orchestrator import _pipeline_states
+
+        _pipeline_states.clear()
+        _pending_agent_assignments.clear()
+        yield
+        _pipeline_states.clear()
+        _pending_agent_assignments.clear()
+
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling.pipeline._advance_pipeline", new_callable=AsyncMock)
+    @patch(
+        "src.services.copilot_polling.pipeline._cp._check_agent_done_on_sub_or_parent",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "src.services.copilot_polling.pipeline._cp._get_tracking_state_from_issue",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.connection_manager")
+    async def test_checks_all_parallel_agents_per_cycle(
+        self,
+        mock_ws,
+        mock_service,
+        mock_tracking,
+        mock_check_done,
+        mock_advance,
+    ):
+        """When two parallel agents complete in the same cycle, both should
+        be detected and _advance_pipeline called for each."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo
+
+        pipeline = PipelineState(
+            issue_number=42,
+            project_id="PVT_123",
+            status="In Progress",
+            agents=["speckit.implement", "linter", "archivist", "judge"],
+            current_agent_index=0,
+            completed_agents=["speckit.implement"],
+            groups=[
+                PipelineGroupInfo(
+                    group_id="g1",
+                    execution_mode="sequential",
+                    agents=["speckit.implement"],
+                ),
+                PipelineGroupInfo(
+                    group_id="g2",
+                    execution_mode="parallel",
+                    agents=["linter", "archivist", "judge"],
+                    agent_statuses={
+                        "linter": "active",
+                        "archivist": "active",
+                        "judge": "active",
+                    },
+                ),
+            ],
+            current_group_index=1,
+            current_agent_index_in_group=0,
+        )
+
+        task = MagicMock()
+        task.issue_number = 42
+        task.github_item_id = "PVTI_123"
+        task.github_content_id = "I_123"
+        task.repository_owner = "owner"
+        task.repository_name = "repo"
+        task.title = "Test Issue"
+
+        # linter and archivist are done, judge is still active
+        async def check_done_side_effect(*, agent_name, **kwargs):
+            return agent_name in {"linter", "archivist"}
+
+        mock_check_done.side_effect = check_done_side_effect
+        mock_advance.return_value = {"status": "success", "action": "advanced"}
+        mock_ws.broadcast_to_project = AsyncMock()
+        # Return empty tracking state for the "not completed" recovery path
+        mock_tracking.return_value = ("", [])
+
+        await _process_pipeline_completion(
+            access_token="token",
+            project_id="PVT_123",
+            task=task,
+            owner="owner",
+            repo="repo",
+            pipeline=pipeline,
+            from_status="In Progress",
+            to_status="In Review",
+        )
+
+        # _check_agent_done_on_sub_or_parent should have been called for all 3 agents
+        assert mock_check_done.call_count == 3
+        checked_agents = sorted(
+            call.kwargs["agent_name"] for call in mock_check_done.call_args_list
+        )
+        assert checked_agents == ["archivist", "judge", "linter"]
+
+        # _advance_pipeline called twice (linter + archivist); the bug fixed by
+        # this PR caused early return after first completion, so only 1 call.
+        assert mock_advance.call_count == 2
+
+
 class TestPipelineAdvancesAfterCopilotReview:
     """Regression test: after copilot-review completes, judge must be
     assigned even when child PRs from prior statuses exist.

@@ -276,6 +276,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite (existing `settings.db`; pipeline states, MCP configs, session data) (001-mcp-server)
 - Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
 - In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
+- Python 3.13 (PEP 695 type parameter syntax enforced by ruff UP046/UP047) + FastAPI, Pydantic, aiosqlite, pytest + pytest-asyncio (002-fix-parallel-pipeline-bugs)
+- SQLite via aiosqlite (no schema changes needed) (002-fix-parallel-pipeline-bugs)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 
