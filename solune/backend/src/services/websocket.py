@@ -107,6 +107,15 @@ class ConnectionManager:
             len(connections),
         )
 
+    async def broadcast_build_progress(self, project_id: str, progress: dict) -> None:
+        """Broadcast a build progress event to all project connections.
+
+        Args:
+            project_id: GitHub Project ID
+            progress: Serialized BuildProgress payload
+        """
+        await self.broadcast_to_project(project_id, progress)
+
     def get_connection_count(self, project_id: str) -> int:
         """Get number of active connections for a project."""
         return len(self._connections.get(project_id, set()))
@@ -130,3 +139,78 @@ class ConnectionManager:
 
 # Global connection manager instance
 connection_manager = ConnectionManager()
+
+
+# ── Build progress helpers ──────────────────────────────────────────────
+
+
+def make_build_progress_payload(
+    app_name: str,
+    phase: str,
+    detail: str,
+    pct_complete: int,
+    agent_name: str | None = None,
+) -> dict:
+    """Create a build_progress WebSocket event payload."""
+    from datetime import UTC, datetime
+
+    return {
+        "type": "build_progress",
+        "app_name": app_name,
+        "phase": phase,
+        "agent_name": agent_name,
+        "detail": detail,
+        "pct_complete": pct_complete,
+        "updated_at": datetime.now(tz=UTC).isoformat(),
+    }
+
+
+def make_build_milestone_payload(
+    app_name: str,
+    milestone: str,
+    message: str,
+) -> dict:
+    """Create a build_milestone WebSocket event payload."""
+    from datetime import UTC, datetime
+
+    return {
+        "type": "build_milestone",
+        "app_name": app_name,
+        "milestone": milestone,
+        "message": message,
+        "updated_at": datetime.now(tz=UTC).isoformat(),
+    }
+
+
+def make_build_complete_payload(
+    app_name: str,
+    message: str,
+    links: dict[str, str | None],
+) -> dict:
+    """Create a build_complete WebSocket event payload."""
+    from datetime import UTC, datetime
+
+    return {
+        "type": "build_complete",
+        "app_name": app_name,
+        "message": message,
+        "links": links,
+        "updated_at": datetime.now(tz=UTC).isoformat(),
+    }
+
+
+def make_build_failed_payload(
+    app_name: str,
+    phase: str,
+    message: str,
+) -> dict:
+    """Create a build_failed WebSocket event payload."""
+    from datetime import UTC, datetime
+
+    return {
+        "type": "build_failed",
+        "app_name": app_name,
+        "phase": phase,
+        "message": message,
+        "updated_at": datetime.now(tz=UTC).isoformat(),
+    }
