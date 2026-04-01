@@ -2000,6 +2000,24 @@ class WorkflowOrchestrator:
             ctx.issue_number,
         )
 
+        from src.services.database import get_db
+
+        await log_event(
+            get_db(),
+            event_type="agent_execution",
+            entity_type="agent",
+            entity_id=agent_name,
+            project_id=ctx.project_id,
+            actor="system",
+            action="triggered",
+            summary=f"Agent '{agent_name}' triggered on issue #{ctx.issue_number}",
+            detail={
+                "issue_number": ctx.issue_number,
+                "status": status,
+                "agent_index": agent_index,
+            },
+        )
+
         # Determine base branch (T034)
         base_ref, current_head_sha, existing_pr = await self._determine_base_ref(
             ctx=ctx,
@@ -2396,6 +2414,20 @@ class WorkflowOrchestrator:
         success, reviewer = await self._transition_to_in_review(ctx, config)
         if not success:
             return False
+
+        from src.services.database import get_db
+
+        await log_event(
+            get_db(),
+            event_type="pipeline_run",
+            entity_type="issue",
+            entity_id=str(ctx.issue_number),
+            project_id=ctx.project_id,
+            actor="system",
+            action="completed",
+            summary=f"Workflow completed for issue #{ctx.issue_number}",
+            detail={"reviewer": reviewer or ""},
+        )
 
         if not reviewer:
             logger.warning(

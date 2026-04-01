@@ -17,6 +17,15 @@ from src.api.webhooks import (
 from src.services.cache import cache, get_repo_agents_cache_key
 
 
+@pytest.fixture(autouse=True)
+def _mock_webhook_log_event():
+    """Prevent log_event from hitting a real database in webhook tests."""
+    with patch("src.api.webhooks.log_event", new_callable=AsyncMock), patch(
+        "src.api.webhooks.get_db", return_value=MagicMock()
+    ):
+        yield
+
+
 class TestWebhookSignatureVerification:
     """Tests for webhook signature verification."""
 

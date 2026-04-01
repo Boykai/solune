@@ -98,6 +98,19 @@ def clear_processed_cache():
     _claimed_child_prs.clear()
 
 
+@pytest.fixture(autouse=True)
+def _mock_orchestrator_log_event_in_polling():
+    """Prevent log_event in orchestrator from hitting a real database."""
+    with patch(
+        "src.services.workflow_orchestrator.orchestrator.log_event",
+        new_callable=AsyncMock,
+    ), patch(
+        "src.services.database.get_db",
+        return_value=MagicMock(),
+    ):
+        yield
+
+
 class TestIsSubIssue:
     """Tests for is_sub_issue helper that filters agent sub-issues from the polling loop."""
 

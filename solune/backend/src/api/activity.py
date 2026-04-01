@@ -8,8 +8,12 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from src.api.auth import get_session_dep
 from src.dependencies import get_database, verify_project_access
+from src.models.activity import ActivityStats
 from src.models.user import UserSession
-from src.services.activity_service import query_events as _query_events
+from src.services.activity_service import (
+    get_activity_stats as _get_activity_stats,
+    query_events as _query_events,
+)
 
 router = APIRouter()
 
@@ -37,6 +41,19 @@ async def get_activity_feed(
         limit=limit,
         cursor=cursor,
     )
+
+
+@router.get("/stats", response_model=ActivityStats)
+async def get_activity_stats(
+    request: Request,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    project_id: Annotated[str, Query(description="Project ID to scope the stats")],
+    db=Depends(get_database),  # noqa: B008
+) -> ActivityStats:
+    """Summary statistics for the activity feed."""
+    await verify_project_access(request, project_id, session)
+    result = await _get_activity_stats(db, project_id=project_id)
+    return ActivityStats(**result)
 
 
 @router.get("/{entity_type}/{entity_id}")
