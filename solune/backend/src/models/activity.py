@@ -36,9 +36,9 @@ class ActivityEventCreate(BaseModel):
 
 
 class ActivityStats(BaseModel):
-    """Summary statistics for the activity feed."""
+    """Aggregated activity statistics for a project."""
 
-    total: int
-    today: int
+    total_count: int
+    today_count: int
     by_type: dict[str, int]
     last_event_at: str | None = None

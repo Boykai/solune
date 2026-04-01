@@ -1170,8 +1170,8 @@ export interface ActivityEvent {
 }
 
 export interface ActivityStats {
-  total: number;
-  today: number;
+  total_count: number;
+  today_count: number;
   by_type: Record<string, number>;
   last_event_at: string | null;
 }

@@ -1,0 +1,336 @@
+# Activity Stats Endpoint & Enhanced Logging Contract
+#
+# Documents the new GET /activity/stats endpoint and the enriched
+# log_event call patterns for new activity event types.
+# Follows the speckit contract format (OpenAPI-style YAML).
+
+openapi: "3.1.0"
+info:
+  title: Activity Stats & Enhanced Logging
+  version: "1.0.0"
+  description: >
+    New stats aggregation endpoint for activity events and enriched
+    logging patterns for pipeline launches, settings changes, project
+    lifecycle, orchestrator events, and granular webhook classification.
+
+paths:
+  /api/v1/activity/stats:
+    get:
+      summary: Get activity summary statistics
+      description: >
+        Returns aggregated activity statistics for a project: total event count,
+        last-24h count, event counts grouped by type for the last 7 days, and
+        the timestamp of the most recent event. Computed server-side via SQL
+        aggregation (FR-009).
+      operationId: getActivityStats
+      parameters:
+        - name: project_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Project ID to scope the stats
+      responses:
+        "200":
+          description: Activity statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityStats"
+              examples:
+                with_events:
+                  summary: Project with activity events
+                  value:
+                    total_count: 142
+                    today_count: 12
+                    by_type:
+                      pipeline_run: 45
+                      webhook: 23
+                      status_change: 18
+                      agent_execution: 15
+                      settings: 8
+                      project: 3
+                      cleanup: 5
+                    last_event_at: "2026-03-31T22:15:00Z"
+                empty:
+                  summary: Project with no events
+                  value:
+                    total_count: 0
+                    today_count: 0
+                    by_type: {}
+                    last_event_at: null
+        "401":
+          description: Unauthorized — invalid or missing session
+        "403":
+          description: Forbidden — no access to the specified project
+
+components:
+  schemas:
+    ActivityStats:
+      type: object
+      required:
+        - total_count
+        - today_count
+        - by_type
+        - last_event_at
+      properties:
+        total_count:
+          type: integer
+          minimum: 0
+          description: Total number of activity events for the project
+          example: 142
+        today_count:
+          type: integer
+          minimum: 0
+          description: Number of events in the last 24 hours
+          example: 12
+        by_type:
+          type: object
+          additionalProperties:
+            type: integer
+          description: >
+            Event counts grouped by event_type for the last 7 days.
+            Keys are event_type strings, values are counts.
+          example:
+            pipeline_run: 45
+            webhook: 23
+            status_change: 18
+        last_event_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            ISO 8601 timestamp of the most recent event, or null if
+            no events exist for the project.
+          example: "2026-03-31T22:15:00Z"
+
+    # Existing model — documented here for reference (no changes)
+    ActivityEvent:
+      type: object
+      required:
+        - id
+        - event_type
+        - entity_type
+        - entity_id
+        - project_id
+        - actor
+        - action
+        - summary
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          description: >
+            Event category. Existing values: pipeline_run, pipeline_stage,
+            chore_trigger, chore_crud, agent_crud, agent_execution, app_crud,
+            tool_crud, webhook, status_change, cleanup.
+            New values: settings, project.
+        entity_type:
+          type: string
+          description: >
+            Type of entity this event relates to. Existing values: pipeline,
+            chore, agent, app, tool, issue.
+            New values: settings, project.
+        entity_id:
+          type: string
+        project_id:
+          type: string
+        actor:
+          type: string
+          description: Username or "system"
+        action:
+          type: string
+          description: >
+            Action verb. Existing values: created, updated, deleted, moved,
+            triggered, received.
+            New values: launched, completed, selected, pr_merged, copilot_pr_ready.
+        summary:
+          type: string
+        detail:
+          type: object
+          nullable: true
+          description: Structured metadata (varies by event type)
+        created_at:
+          type: string
+          format: date-time
+
+  # Service interface documentation
+  x-service-interface:
+    module: src.services.activity_service
+    functions:
+      get_activity_stats:
+        description: >
+          Compute aggregated activity statistics for a project using
+          server-side SQL queries. Returns total count, last-24h count,
+          event counts by type for last 7 days, and last event timestamp.
+        signature: |
+          async def get_activity_stats(
+              db: aiosqlite.Connection,
+              *,
+              project_id: str,
+          ) -> dict
+        parameters:
+          - name: db
+            type: aiosqlite.Connection
+            required: true
+            description: Database connection
+          - name: project_id
+            type: str
+            required: true
+            description: Project ID to scope the stats
+        returns:
+          type: dict
+          description: >
+            Dictionary matching ActivityStats schema: total_count (int),
+            today_count (int), by_type (dict[str, int]), last_event_at (str | None).
+        implementation_notes: >
+          Uses three SQL queries against the activity_events table:
+          (1) SELECT COUNT(*), MAX(created_at) for total + last event,
+          (2) SELECT COUNT(*) with created_at >= now-24h for today count,
+          (3) SELECT event_type, COUNT(*) with created_at >= now-7d GROUP BY for type breakdown.
+          All queries are scoped by project_id and use the existing
+          idx_activity_project_time index.
+
+  # New log_event call patterns
+  x-logging-patterns:
+    description: >
+      Documents the new log_event() call patterns added by this feature.
+      All calls use the existing fire-and-forget log_event from activity_logger.py.
+
+    new_events:
+      - name: Settings Updated
+        trigger: "Settings PUT endpoints (user, global, project)"
+        file: src/api/settings.py
+        log_event_args:
+          event_type: settings
+          entity_type: settings
+          entity_id: "{project_id or 'global' or 'user'}"
+          action: updated
+          summary: "Settings updated: {scope} ({N} fields changed)"
+          detail:
+            scope: "user|global|project"
+            changed_fields: ["field1", "field2"]
+
+      - name: Project Created
+        trigger: "Project creation endpoint"
+        file: src/api/projects.py
+        log_event_args:
+          event_type: project
+          entity_type: project
+          entity_id: "{project_id}"
+          action: created
+          summary: "Project created: {name}"
+          detail:
+            project_name: "{name}"
+
+      - name: Project Selected
+        trigger: "Project selection endpoint"
+        file: src/api/projects.py
+        log_event_args:
+          event_type: project
+          entity_type: project
+          entity_id: "{project_id}"
+          action: selected
+          summary: "Project selected: {name}"
+          detail:
+            project_name: "{name}"
+
+      - name: Pipeline Launched
+        trigger: "execute_pipeline_launch() after issue creation"
+        file: src/api/pipelines.py
+        log_event_args:
+          event_type: pipeline_run
+          entity_type: pipeline
+          entity_id: "{pipeline_id}"
+          action: launched
+          summary: "Pipeline launched: {name} (#{issue_number}, {N} agents)"
+          detail:
+            issue_number: "{number}"
+            agent_count: "{count}"
+            pipeline_name: "{name}"
+
+      - name: Workflow Completed
+        trigger: "Orchestrator handle_completion()"
+        file: src/services/workflow_orchestrator/orchestrator.py
+        log_event_args:
+          event_type: agent_execution
+          entity_type: pipeline
+          entity_id: "{pipeline_id}"
+          action: completed
+          summary: "Workflow completed: {pipeline_name}"
+          detail:
+            workflow_id: "{id}"
+            pipeline_name: "{name}"
+
+      - name: Agent Triggered
+        trigger: "Orchestrator assign_agent_for_status()"
+        file: src/services/workflow_orchestrator/orchestrator.py
+        log_event_args:
+          event_type: agent_execution
+          entity_type: agent
+          entity_id: "{agent_name}"
+          action: triggered
+          summary: "Agent triggered: {agent_name} for status {status}"
+          detail:
+            agent_name: "{name}"
+            status: "{status}"
+
+      - name: PR Merged Webhook
+        trigger: "Webhook handler — PR closed with merged=true"
+        file: src/api/webhooks.py
+        log_event_args:
+          event_type: webhook
+          entity_type: issue
+          entity_id: "{issue_id}"
+          action: pr_merged
+          summary: "Webhook: PR #{number} merged on {repo}"
+          detail:
+            pr_number: "{number}"
+            repository: "{owner/repo}"
+
+      - name: Copilot PR Ready Webhook
+        trigger: "Webhook handler — PR from copilot/ branch"
+        file: src/api/webhooks.py
+        log_event_args:
+          event_type: webhook
+          entity_type: issue
+          entity_id: "{issue_id}"
+          action: copilot_pr_ready
+          summary: "Webhook: Copilot PR #{number} ready on {repo}"
+          detail:
+            pr_number: "{number}"
+            repository: "{owner/repo}"
+            branch: "{head_ref}"
+
+  # Behavioral contract
+  x-behavioral-contract:
+    stats_endpoint:
+      performance:
+        max_latency_seconds: 2
+        description: >
+          Stats endpoint must respond within 2 seconds (SC-002).
+          SQLite aggregation on indexed columns is expected to complete
+          in <100ms for typical event volumes.
+
+      empty_state:
+        description: >
+          When no events exist, returns total_count=0, today_count=0,
+          by_type={}, last_event_at=null. Frontend renders gracefully
+          with zeros and "No activity" (FR-015).
+
+    logging:
+      error_handling:
+        strategy: fire-and-forget
+        description: >
+          All log_event calls are wrapped in try/except by the logger.
+          Logging failures never block or affect the primary operation.
+          Exceptions are logged at WARNING level.
+
+      idempotency:
+        description: >
+          Activity events are append-only. Duplicate events for the same
+          operation are acceptable (e.g., orchestrator completion logged
+          idempotently). No deduplication is performed.

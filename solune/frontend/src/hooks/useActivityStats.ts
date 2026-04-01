@@ -8,9 +8,9 @@ import type { ActivityStats } from '@/types';
 
 export function useActivityStats(projectId: string) {
   return useQuery<ActivityStats>({
-    queryKey: ['activity-stats', projectId],
+    queryKey: ['activity', 'stats', projectId],
     queryFn: () => activityApi.stats(projectId),
-    staleTime: 60_000,
     enabled: !!projectId,
+    staleTime: 30_000,
   });
 }
