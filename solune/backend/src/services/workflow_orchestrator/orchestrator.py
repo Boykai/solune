@@ -2025,7 +2025,7 @@ class WorkflowOrchestrator:
 
         # Special agent handlers (early return)
         if agent_name == "human":
-            return await self._handle_human_agent(
+            result = await self._handle_human_agent(
                 ctx=ctx,
                 status=status,
                 agent_slugs=agent_slugs,
@@ -2034,9 +2034,8 @@ class WorkflowOrchestrator:
                 sub_issue_number=sub_issue_number,
                 config=config,
             )
-
-        if agent_name == "copilot-review":
-            return await self._handle_copilot_review(
+        elif agent_name == "copilot-review":
+            result = await self._handle_copilot_review(
                 ctx=ctx,
                 status=status,
                 agent_slugs=agent_slugs,
@@ -2045,22 +2044,47 @@ class WorkflowOrchestrator:
                 sub_issue_number=sub_issue_number,
                 config=config,
             )
+        else:
+            # Standard Copilot agent assignment
+            result = await self._execute_copilot_assignment(
+                ctx=ctx,
+                agent_name=agent_name,
+                status=status,
+                agent_slugs=agent_slugs,
+                agent_index=agent_index,
+                base_ref=base_ref,
+                current_head_sha=current_head_sha,
+                existing_pr=existing_pr,
+                sub_issue_node_id=sub_issue_node_id,
+                sub_issue_number=sub_issue_number,
+                sub_issue_info=sub_issue_info,
+                config=config,
+            )
 
-        # Standard Copilot agent assignment
-        return await self._execute_copilot_assignment(
-            ctx=ctx,
-            agent_name=agent_name,
-            status=status,
-            agent_slugs=agent_slugs,
-            agent_index=agent_index,
-            base_ref=base_ref,
-            current_head_sha=current_head_sha,
-            existing_pr=existing_pr,
-            sub_issue_node_id=sub_issue_node_id,
-            sub_issue_number=sub_issue_number,
-            sub_issue_info=sub_issue_info,
-            config=config,
-        )
+        if result:
+            try:
+                from src.services.database import get_db
+
+                await log_event(
+                    get_db(),
+                    event_type="agent_execution",
+                    entity_type="agent",
+                    entity_id=agent_name,
+                    project_id=ctx.project_id,
+                    actor="system",
+                    action="triggered",
+                    summary=f"Agent triggered: {agent_name} for status {status}",
+                    detail={
+                        "agent_name": agent_name,
+                        "status": status,
+                        "issue_number": ctx.issue_number,
+                        "pipeline_id": ctx.selected_pipeline_id or "",
+                    },
+                )
+            except Exception:
+                logger.debug("Activity logging skipped for agent trigger (non-fatal)")
+
+        return result
 
     # ──────────────────────────────────────────────────────────────────
     # STEP 4: Handle Ready Status (T038, T042)
@@ -2402,6 +2426,28 @@ class WorkflowOrchestrator:
                 "Failed to assign reviewer to issue #%d",
                 ctx.issue_number,
             )
+
+        try:
+            from src.services.database import get_db
+
+            pipeline_ref = ctx.selected_pipeline_id or f"issue-{ctx.issue_number}"
+            await log_event(
+                get_db(),
+                event_type="agent_execution",
+                entity_type="pipeline",
+                entity_id=pipeline_ref,
+                project_id=ctx.project_id,
+                actor="system",
+                action="completed",
+                summary=f"Workflow completed: {pipeline_ref}",
+                detail={
+                    "issue_number": ctx.issue_number,
+                    "pipeline_id": ctx.selected_pipeline_id or "",
+                    "reviewer": reviewer or "",
+                },
+            )
+        except Exception:
+            logger.debug("Activity logging skipped for workflow completion (non-fatal)")
 
         return True
 

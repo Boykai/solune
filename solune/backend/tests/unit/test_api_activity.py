@@ -9,6 +9,7 @@ Covers:
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -368,7 +369,7 @@ class TestGetEntityHistory:
 
     async def test_all_allowed_entity_types(self, client, mock_db):
         """All documented entity types are accepted."""
-        for et in ("pipeline", "chore", "agent", "app", "tool", "issue"):
+        for et in ("pipeline", "chore", "agent", "app", "tool", "issue", "project", "settings"):
             resp = await client.get(
                 f"{ACTIVITY_URL}/{et}/some-id",
                 params={"project_id": "PVT_123"},
@@ -481,8 +482,104 @@ class TestQueryEventsBranches:
         assert isinstance(result, dict)
 
 
+class TestGetActivityStats:
+    """Tests for GET /api/v1/activity/stats."""
+
+    async def test_returns_aggregated_stats(self, client, mock_db):
+        now = datetime.now(UTC)
+        within_24h = (now - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        within_24h_second = (now - timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        within_7d = (now - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        older = (now - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        await mock_db.executemany(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    "e1",
+                    "pipeline_run",
+                    "pipeline",
+                    "pipe-1",
+                    "PVT_123",
+                    "user",
+                    "launched",
+                    "Pipeline launched",
+                    within_24h,
+                ),
+                (
+                    "e2",
+                    "settings",
+                    "settings",
+                    "PVT_123",
+                    "PVT_123",
+                    "user",
+                    "updated",
+                    "Settings updated",
+                    within_24h_second,
+                ),
+                (
+                    "e3",
+                    "pipeline_run",
+                    "pipeline",
+                    "pipe-1",
+                    "PVT_123",
+                    "user",
+                    "started",
+                    "Pipeline run started",
+                    within_7d,
+                ),
+                (
+                    "e4",
+                    "webhook",
+                    "issue",
+                    "42",
+                    "PVT_OTHER",
+                    "user",
+                    "received",
+                    "Webhook received",
+                    older,
+                ),
+            ],
+        )
+        await mock_db.commit()
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_123"})
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "total_count": 3,
+            "today_count": 2,
+            "by_type": {
+                "pipeline_run": 2,
+                "settings": 1,
+            },
+            "last_event_at": within_24h,
+        }
+
+    async def test_returns_empty_stats_when_project_has_no_events(self, client, mock_db):
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_EMPTY"})
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "total_count": 0,
+            "today_count": 0,
+            "by_type": {},
+            "last_event_at": None,
+        }
+
+
 class TestAllowedEntityTypes:
     """Verify the ALLOWED_ENTITY_TYPES constant is correct."""
 
     def test_expected_entity_types(self):
-        assert ALLOWED_ENTITY_TYPES == {"pipeline", "chore", "agent", "app", "tool", "issue"}
+        assert ALLOWED_ENTITY_TYPES == {
+            "pipeline",
+            "chore",
+            "agent",
+            "app",
+            "tool",
+            "issue",
+            "project",
+            "settings",
+        }

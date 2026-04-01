@@ -413,6 +413,31 @@ class TestAssignAgentForStatus:
         assert call_args.kwargs["custom_agent"] == "speckit.tasks"
 
     @pytest.mark.asyncio
+    async def test_logs_agent_execution_when_assignment_succeeds(
+        self, orchestrator, workflow_context, mock_github_service
+    ):
+        mock_github_service.get_issue_with_comments.return_value = {
+            "title": "Test",
+            "body": "Body",
+            "comments": [],
+        }
+        mock_github_service.format_issue_context_as_prompt.return_value = "Prompt"
+        mock_github_service.assign_copilot_to_issue.return_value = True
+
+        with (
+            patch(
+                "src.services.workflow_orchestrator.orchestrator.log_event", new_callable=AsyncMock
+            ) as mock_log_event,
+            patch("src.services.database.get_db", return_value=object()),
+        ):
+            result = await orchestrator.assign_agent_for_status(workflow_context, "Backlog", 0)
+
+        assert result is True
+        assert mock_log_event.await_args.kwargs["event_type"] == "agent_execution"
+        assert mock_log_event.await_args.kwargs["action"] == "triggered"
+        assert mock_log_event.await_args.kwargs["detail"]["status"] == "Backlog"
+
+    @pytest.mark.asyncio
     async def test_assign_no_agents_configured(
         self, orchestrator, workflow_context, mock_github_service
     ):
@@ -2336,6 +2361,28 @@ class TestHandleCompletion:
 
         result = await orch.handle_completion(_make_ctx(config=cfg))
         assert result is True  # warn-only
+
+    @pytest.mark.asyncio
+    async def test_logs_workflow_completion_activity(self):
+        orch = _make_orch()
+        cfg = _make_config(review_assignee="my-reviewer")
+        orch.github.update_item_status_by_name = AsyncMock(return_value=True)
+        orch.github.assign_issue = AsyncMock(return_value=True)
+
+        with (
+            patch(
+                "src.services.workflow_orchestrator.orchestrator.log_event", new_callable=AsyncMock
+            ) as mock_log_event,
+            patch("src.services.database.get_db", return_value=object()),
+        ):
+            result = await orch.handle_completion(
+                _make_ctx(config=cfg, selected_pipeline_id="pipeline-123")
+            )
+
+        assert result is True
+        assert mock_log_event.await_args.kwargs["event_type"] == "agent_execution"
+        assert mock_log_event.await_args.kwargs["action"] == "completed"
+        assert mock_log_event.await_args.kwargs["entity_id"] == "pipeline-123"
 
 
 # ────────────────────────────────────────────────────────────────────

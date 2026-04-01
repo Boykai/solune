@@ -33,3 +33,12 @@ class ActivityEventCreate(BaseModel):
     action: str
     summary: str
     detail: dict[str, Any] | None = None
+
+
+class ActivityStats(BaseModel):
+    """Aggregated activity statistics for a project."""
+
+    total_count: int
+    today_count: int
+    by_type: dict[str, int]
+    last_event_at: str | None
