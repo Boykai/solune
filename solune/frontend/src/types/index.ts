@@ -1169,6 +1169,13 @@ export interface ActivityEvent {
   created_at: string;
 }
 
+export interface ActivityStats {
+  total_count: number;
+  today_count: number;
+  by_type: Record<string, number>;
+  last_event_at: string | null;
+}
+
 // ============ Pipeline Types ============
 
 export interface PipelineAgentNode {

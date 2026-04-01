@@ -9,6 +9,7 @@ Covers:
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -481,8 +482,115 @@ class TestQueryEventsBranches:
         assert isinstance(result, dict)
 
 
+class TestActivityStats:
+    """Tests for GET /api/v1/activity/stats."""
+
+    async def _seed_event(
+        self,
+        db,
+        *,
+        event_id: str,
+        event_type: str,
+        project_id: str,
+        created_at: str,
+    ):
+        await db.execute(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                event_id,
+                event_type,
+                "issue",
+                f"{event_id}-entity",
+                project_id,
+                "user",
+                "created",
+                f"{event_type} event",
+                created_at,
+            ),
+        )
+        await db.commit()
+
+    async def test_stats_empty_project(self, client):
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_123"})
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "total_count": 0,
+            "today_count": 0,
+            "by_type": {},
+            "last_event_at": None,
+        }
+
+    async def test_stats_aggregate_recent_activity(self, client, mock_db):
+        now = datetime.now(UTC).replace(microsecond=0)
+        await self._seed_event(
+            mock_db,
+            event_id="recent-1",
+            event_type="pipeline_run",
+            project_id="PVT_123",
+            created_at=(now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        await self._seed_event(
+            mock_db,
+            event_id="recent-2",
+            event_type="webhook",
+            project_id="PVT_123",
+            created_at=(now - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        await self._seed_event(
+            mock_db,
+            event_id="old-1",
+            event_type="settings",
+            project_id="PVT_123",
+            created_at=(now - timedelta(days=8)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_123"})
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total_count"] == 3
+        assert data["today_count"] == 1
+        assert data["by_type"] == {"pipeline_run": 1, "webhook": 1}
+        assert data["last_event_at"] == (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    async def test_stats_are_project_scoped(self, client, mock_db):
+        now = datetime.now(UTC).replace(microsecond=0)
+        await self._seed_event(
+            mock_db,
+            event_id="a-1",
+            event_type="pipeline_run",
+            project_id="PVT_A",
+            created_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        await self._seed_event(
+            mock_db,
+            event_id="b-1",
+            event_type="webhook",
+            project_id="PVT_B",
+            created_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_A"})
+
+        assert resp.status_code == 200
+        assert resp.json()["total_count"] == 1
+
+
 class TestAllowedEntityTypes:
     """Verify the ALLOWED_ENTITY_TYPES constant is correct."""
 
     def test_expected_entity_types(self):
-        assert ALLOWED_ENTITY_TYPES == {"pipeline", "chore", "agent", "app", "tool", "issue"}
+        assert ALLOWED_ENTITY_TYPES == {
+            "pipeline",
+            "chore",
+            "agent",
+            "app",
+            "tool",
+            "issue",
+            "project",
+            "settings",
+        }

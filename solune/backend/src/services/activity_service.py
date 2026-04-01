@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 
 from src.logging_utils import get_logger
-from src.models.activity import ActivityEvent
+from src.models.activity import ActivityEvent, ActivityStats
 
 logger = get_logger(__name__)
 
@@ -137,3 +138,52 @@ async def query_events(
         "has_more": has_more,
         "total_count": total_count,
     }
+
+
+def _utc_cutoff(hours: int = 0, days: int = 0) -> str:
+    """Return an ISO 8601 cutoff timestamp matching the activity_events format."""
+    cutoff = datetime.now(UTC) - timedelta(hours=hours, days=days)
+    return cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+async def get_activity_stats(db, *, project_id: str) -> dict:
+    """Return aggregated activity statistics for a project."""
+    total_row = await db.execute(
+        """
+        SELECT COUNT(*), MAX(created_at)
+        FROM activity_events
+        WHERE project_id = ?
+        """,
+        (project_id,),
+    )
+    total_count, last_event_at = await total_row.fetchone() or (0, None)
+
+    today_row = await db.execute(
+        """
+        SELECT COUNT(*)
+        FROM activity_events
+        WHERE project_id = ? AND created_at >= ?
+        """,
+        (project_id, _utc_cutoff(hours=24)),
+    )
+    today_result = await today_row.fetchone()
+    today_count = today_result[0] if today_result else 0
+
+    breakdown_rows = await db.execute(
+        """
+        SELECT event_type, COUNT(*)
+        FROM activity_events
+        WHERE project_id = ? AND created_at >= ?
+        GROUP BY event_type
+        ORDER BY COUNT(*) DESC, event_type ASC
+        """,
+        (project_id, _utc_cutoff(days=7)),
+    )
+    by_type = dict(await breakdown_rows.fetchall())
+
+    return ActivityStats(
+        total_count=total_count or 0,
+        today_count=today_count,
+        by_type=by_type,
+        last_event_at=last_event_at,
+    ).model_dump()

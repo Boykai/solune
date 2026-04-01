@@ -21,6 +21,7 @@ from src.models.workflow import (
 )
 from src.services.activity_logger import log_event
 from src.services.agent_tracking import append_tracking_to_body, parse_tracking_from_body
+from src.services.database import get_db
 from src.utils import BoundedDict, utcnow
 
 from .config import _transitions, get_workflow_config
@@ -1999,6 +2000,25 @@ class WorkflowOrchestrator:
             status,
             ctx.issue_number,
         )
+        try:
+            await log_event(
+                get_db(),
+                event_type="agent_execution",
+                entity_type="issue",
+                entity_id=ctx.issue_id,
+                project_id=ctx.project_id,
+                actor="system",
+                action="triggered",
+                summary=f"Agent triggered: {agent_name} for {status}",
+                detail={
+                    "agent_name": agent_name,
+                    "status": status,
+                    "issue_number": ctx.issue_number,
+                    "agent_index": agent_index,
+                },
+            )
+        except Exception:
+            logger.debug("Activity logging skipped for agent trigger (non-fatal)")
 
         # Determine base branch (T034)
         base_ref, current_head_sha, existing_pr = await self._determine_base_ref(
@@ -2402,6 +2422,25 @@ class WorkflowOrchestrator:
                 "Failed to assign reviewer to issue #%d",
                 ctx.issue_number,
             )
+
+        try:
+            await log_event(
+                get_db(),
+                event_type="agent_execution",
+                entity_type="issue",
+                entity_id=ctx.issue_id or "",
+                project_id=ctx.project_id,
+                actor="system",
+                action="completed",
+                summary=f"Workflow completed for issue #{ctx.issue_number}",
+                detail={
+                    "issue_number": ctx.issue_number,
+                    "project_item_id": ctx.project_item_id,
+                    "reviewer": reviewer,
+                },
+            )
+        except Exception:
+            logger.debug("Activity logging skipped for workflow completion (non-fatal)")
 
         return True
 

@@ -89,6 +89,35 @@ class TestListProjects:
         assert body["details"]["rate_limit"]["limit"] == 5000
 
 
+class TestCreateProject:
+    async def test_create_project_logs_activity(self, client):
+        github_service = object()
+
+        with (
+            patch("src.dependencies.get_github_service", return_value=github_service),
+            patch(
+                "src.api.projects.create_standalone_project",
+                new_callable=AsyncMock,
+                return_value={
+                    "project_id": "PVT_created",
+                    "project_number": 7,
+                    "project_url": "https://github.com/users/testuser/projects/7",
+                },
+            ),
+            patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log,
+        ):
+            resp = await client.post(
+                "/api/v1/projects/create",
+                json={"title": "New Project", "owner": "testuser"},
+            )
+
+        assert resp.status_code == 201
+        mock_log.assert_awaited_once()
+        assert mock_log.await_args.kwargs["event_type"] == "project"
+        assert mock_log.await_args.kwargs["action"] == "created"
+        assert mock_log.await_args.kwargs["detail"] == {"project_name": "New Project"}
+
+
 # ── GET /projects/{id} ─────────────────────────────────────────────────────
 
 
@@ -149,6 +178,27 @@ class TestSelectProject:
         assert resp.status_code == 200
         data = resp.json()
         assert data["selected_project_id"] == "PVT_abc"
+
+    async def test_select_project_logs_activity(
+        self, client, mock_session, mock_github_service, mock_github_auth_service
+    ):
+        p = _project()
+        mock_github_service.list_user_projects.return_value = [p]
+        mock_github_auth_service.update_session.return_value = None
+
+        with (
+            patch("src.api.projects._start_copilot_polling", new_callable=AsyncMock),
+            patch("src.api.projects.cache") as mock_cache,
+            patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log,
+        ):
+            mock_cache.get.return_value = None
+            resp = await client.post("/api/v1/projects/PVT_abc/select")
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        assert mock_log.await_args.kwargs["event_type"] == "project"
+        assert mock_log.await_args.kwargs["action"] == "selected"
+        assert mock_log.await_args.kwargs["detail"] == {"project_name": "Test Project"}
 
     async def test_select_nonexistent_project(self, client, mock_github_service):
         mock_github_service.list_user_projects.return_value = []

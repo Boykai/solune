@@ -17,6 +17,7 @@ from src.logging_utils import get_logger
 from src.models.project import GitHubProject, ProjectListResponse
 from src.models.task import TaskListResponse
 from src.models.user import UserResponse, UserSession
+from src.services.activity_logger import log_event
 from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
@@ -25,6 +26,7 @@ from src.services.cache import (
     get_project_items_cache_key,
     get_user_projects_cache_key,
 )
+from src.services.database import get_db
 from src.services.done_items_store import get_done_items
 from src.services.github_auth import github_auth_service
 from src.services.github_projects import github_projects_service
@@ -111,6 +113,17 @@ async def create_project_endpoint(
         github_service=github_service,
         repo_owner=body.get("repo_owner"),
         repo_name=body.get("repo_name"),
+    )
+    await log_event(
+        get_db(),
+        event_type="project",
+        entity_type="project",
+        entity_id=result["project_id"],
+        project_id=result["project_id"],
+        actor=session.github_username,
+        action="created",
+        summary=f"Project created: {title}",
+        detail={"project_name": title},
     )
     return result
 
@@ -244,13 +257,25 @@ async def select_project(
 ) -> UserResponse:
     """Select a project as the active project and start Copilot polling."""
     # Verify project exists and user has access
-    await get_project(project_id, session)
+    project = await get_project(project_id, session)
 
     # Update session
     session.selected_project_id = project_id
     await github_auth_service.update_session(session)
 
     logger.info("User %s selected project %s", session.github_username, project_id)
+
+    await log_event(
+        get_db(),
+        event_type="project",
+        entity_type="project",
+        entity_id=project_id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="selected",
+        summary=f"Project selected: {project.name}",
+        detail={"project_name": project.name},
+    )
 
     # Auto-start Copilot polling for this project
     await _start_copilot_polling(session, project_id)

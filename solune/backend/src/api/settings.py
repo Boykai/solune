@@ -19,6 +19,7 @@ from src.models.settings import (
     UserPreferencesUpdate,
 )
 from src.models.user import UserSession
+from src.services.activity_logger import log_event
 from src.services.database import get_db
 from src.services.model_fetcher import get_model_fetcher_service
 from src.services.settings_store import (
@@ -59,6 +60,17 @@ async def update_user_settings(
     if flat:
         await upsert_user_preferences(db, session.github_user_id, flat)
         logger.info("Updated user preferences for %s", session.github_username)
+        await log_event(
+            db,
+            event_type="settings",
+            entity_type="settings",
+            entity_id="user",
+            project_id=session.selected_project_id or "global",
+            actor=session.github_username,
+            action="updated",
+            summary=f"Settings updated: user ({len(flat)} fields changed)",
+            detail={"scope": "user", "changed_fields": sorted(flat)},
+        )
 
     return await get_effective_user_settings(db, session.github_user_id)
 
@@ -85,6 +97,17 @@ async def update_global_settings_endpoint(
     if flat:
         result = await update_global_settings(db, flat)
         logger.info("Updated global settings by %s", session.github_username)
+        await log_event(
+            db,
+            event_type="settings",
+            entity_type="settings",
+            entity_id="global",
+            project_id=session.selected_project_id or "global",
+            actor=session.github_username,
+            action="updated",
+            summary=f"Settings updated: global ({len(flat)} fields changed)",
+            detail={"scope": "global", "changed_fields": sorted(flat)},
+        )
         return result
 
     return await get_global_settings(db)
@@ -183,6 +206,18 @@ async def update_project_settings_endpoint(
             from src.services.settings_store import _auto_merge_cache
 
             _auto_merge_cache.pop(project_id, None)
+
+        await log_event(
+            db,
+            event_type="settings",
+            entity_type="settings",
+            entity_id=project_id,
+            project_id=project_id,
+            actor=session.github_username,
+            action="updated",
+            summary=f"Settings updated: project ({len(updates)} fields changed)",
+            detail={"scope": "project", "changed_fields": sorted(updates)},
+        )
 
     return await get_effective_project_settings(db, session.github_user_id, project_id)
 

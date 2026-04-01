@@ -13,6 +13,8 @@ The conftest patches ``src.api.settings.get_db`` → returns mock_db.
 The mock_db needs global_settings seeded to avoid empty-row lookups.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from src.services.database import seed_global_settings
@@ -50,6 +52,21 @@ class TestUserSettings:
         data = resp.json()
         assert data["display"]["theme"] == "dark"
 
+    async def test_update_user_settings_logs_activity(self, seeded_client):
+        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await seeded_client.put(
+                "/api/v1/settings/user",
+                json={"display": {"theme": "dark"}},
+            )
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        assert mock_log.await_args.kwargs["event_type"] == "settings"
+        assert mock_log.await_args.kwargs["detail"] == {
+            "scope": "user",
+            "changed_fields": ["theme"],
+        }
+
     async def test_update_user_settings_noop(self, seeded_client):
         """Empty update body returns current settings without changes."""
         resp = await seeded_client.put("/api/v1/settings/user", json={})
@@ -77,6 +94,21 @@ class TestGlobalSettings:
         assert resp.status_code == 200
         data = resp.json()
         assert data["ai"]["temperature"] == 0.5
+
+    async def test_update_global_settings_logs_activity(self, seeded_client):
+        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await seeded_client.put(
+                "/api/v1/settings/global",
+                json={"ai": {"temperature": 0.5}},
+            )
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        assert mock_log.await_args.kwargs["event_type"] == "settings"
+        assert mock_log.await_args.kwargs["detail"] == {
+            "scope": "global",
+            "changed_fields": ["ai_temperature"],
+        }
 
     async def test_update_global_noop(self, seeded_client):
         resp = await seeded_client.put("/api/v1/settings/global", json={})
@@ -110,6 +142,22 @@ class TestProjectSettings:
         assert resp.status_code == 200
         data = resp.json()
         assert data["project"]["board_display_config"]["show_estimates"] is True
+
+    async def test_update_project_settings_logs_activity(self, seeded_client):
+        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await seeded_client.put(
+                "/api/v1/settings/project/PVT_123",
+                json={"queue_mode": True, "auto_merge": True},
+            )
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        assert mock_log.await_args.kwargs["event_type"] == "settings"
+        assert mock_log.await_args.kwargs["entity_id"] == "PVT_123"
+        assert mock_log.await_args.kwargs["detail"] == {
+            "scope": "project",
+            "changed_fields": ["auto_merge", "queue_mode"],
+        }
 
     async def test_update_project_agent_mappings(self, seeded_client):
         resp = await seeded_client.put(

@@ -71,6 +71,17 @@ def _normalize_issue_description(issue_description: str) -> str:
     return normalized
 
 
+def _count_pipeline_agents(pipeline: PipelineConfig) -> int:
+    """Count configured agents across pipeline stages."""
+    total = 0
+    for stage in pipeline.stages:
+        if stage.groups:
+            total += sum(len(group.agents) for group in stage.groups)
+        else:
+            total += len(stage.agents)
+    return total
+
+
 def _derive_issue_title(issue_description: str) -> str:
     """Derive a concise issue title from the first heading or opening line."""
     markdown_heading = re.search(
@@ -387,6 +398,21 @@ async def execute_pipeline_launch(
         ctx.issue_id = issue["node_id"]
         ctx.issue_number = issue["number"]
         ctx.issue_url = issue["html_url"]
+        await log_event(
+            get_db(),
+            event_type="pipeline_run",
+            entity_type="pipeline",
+            entity_id=pipeline_id,
+            project_id=project_id,
+            actor=session.github_username,
+            action="launched",
+            summary=f"Pipeline launched: {_pipeline_name or pipeline.name}",
+            detail={
+                "pipeline_name": _pipeline_name or pipeline.name,
+                "issue_number": ctx.issue_number,
+                "agent_count": _count_pipeline_agents(pipeline),
+            },
+        )
 
         orchestrator = get_workflow_orchestrator()
 

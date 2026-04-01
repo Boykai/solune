@@ -28,6 +28,25 @@ from src.utils import BoundedSet
 logger = get_logger(__name__)
 router = APIRouter()
 
+
+def _classify_pull_request_activity_action(payload: dict[str, Any], webhook_action: str) -> str:
+    """Classify a pull_request webhook into a more meaningful activity action."""
+    pr_info = payload.get("pull_request", {})
+    if not isinstance(pr_info, dict):
+        return webhook_action or "received"
+
+    if webhook_action == "closed" and pr_info.get("merged") is True:
+        return "pr_merged"
+
+    head = pr_info.get("head", {})
+    head_ref = head.get("ref", "") if isinstance(head, dict) else ""
+    if webhook_action in {"ready_for_review", "opened"} and isinstance(head_ref, str):
+        if head_ref.startswith("copilot/") or head_ref.startswith("copilot-"):
+            return "copilot_pr_ready"
+
+    return webhook_action or "received"
+
+
 # In-memory storage for tracking processed events (deduplication).
 # Uses BoundedSet to maintain insertion order and automatically evict
 # the oldest entries when capacity is reached.
@@ -295,6 +314,11 @@ async def github_webhook(
         pr_info = raw_payload.get("pull_request", {}) if isinstance(raw_payload, dict) else {}
         repo_info = raw_payload.get("repository", {}) if isinstance(raw_payload, dict) else {}
         webhook_action = raw_payload.get("action", "") if isinstance(raw_payload, dict) else ""
+        activity_action = (
+            _classify_pull_request_activity_action(raw_payload, webhook_action)
+            if isinstance(raw_payload, dict)
+            else webhook_action or "received"
+        )
         repo_full = repo_info.get("full_name", "") if isinstance(repo_info, dict) else ""
         sender = (
             pr_info.get("user", {}).get("login", "system")
@@ -312,11 +336,12 @@ async def github_webhook(
                 else ""
             ),
             actor=sender,
-            action=webhook_action or "received",
-            summary=f"Webhook: pull_request {webhook_action} on {repo_full}",
+            action=activity_action,
+            summary=f"Webhook: pull_request {activity_action} on {repo_full}",
             detail={
                 "webhook_type": "pull_request",
                 "action": webhook_action,
+                "activity_action": activity_action,
                 "sender": sender,
                 "repository": repo_full,
             },
