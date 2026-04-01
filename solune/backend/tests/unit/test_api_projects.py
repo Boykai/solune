@@ -115,7 +115,10 @@ class TestCreateProject:
         mock_log.assert_awaited_once()
         assert mock_log.await_args.kwargs["event_type"] == "project"
         assert mock_log.await_args.kwargs["action"] == "created"
-        assert mock_log.await_args.kwargs["detail"] == {"project_name": "New Project"}
+        assert mock_log.await_args.kwargs["detail"] == {
+            "project_name": "New Project",
+            "owner": "testuser",
+        }
 
 
 # ── GET /projects/{id} ─────────────────────────────────────────────────────
@@ -210,35 +213,6 @@ class TestSelectProject:
             mock_cache.get.return_value = None
             resp = await client.post("/api/v1/projects/PVT_missing/select")
         assert resp.status_code == 404
-
-
-class TestCreateProject:
-    async def test_create_project_logs_activity(self, client):
-        with (
-            patch(
-                "src.api.projects.create_standalone_project",
-                new_callable=AsyncMock,
-                return_value={
-                    "project_id": "PVT_NEW",
-                    "project_number": 12,
-                    "project_url": "https://github.com/users/testuser/projects/12",
-                },
-            ),
-            patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log_event,
-        ):
-            resp = await client.post(
-                "/api/v1/projects/create",
-                json={"title": "Fresh Project", "owner": "testuser"},
-            )
-
-        assert resp.status_code == 201
-        assert resp.json()["project_id"] == "PVT_NEW"
-        mock_log_event.assert_awaited_once()
-        assert mock_log_event.await_args.kwargs["action"] == "created"
-        assert mock_log_event.await_args.kwargs["detail"] == {
-            "project_name": "Fresh Project",
-            "owner": "testuser",
-        }
 
 
 # ── Cache Hit Paths ────────────────────────────────────────────────────────

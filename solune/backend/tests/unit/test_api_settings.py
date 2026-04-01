@@ -59,21 +59,6 @@ class TestUserSettings:
             "changed_fields": ["theme"],
         }
 
-    async def test_update_user_settings_logs_activity(self, seeded_client):
-        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
-            resp = await seeded_client.put(
-                "/api/v1/settings/user",
-                json={"display": {"theme": "dark"}},
-            )
-
-        assert resp.status_code == 200
-        mock_log.assert_awaited_once()
-        assert mock_log.await_args.kwargs["event_type"] == "settings"
-        assert mock_log.await_args.kwargs["detail"] == {
-            "scope": "user",
-            "changed_fields": ["theme"],
-        }
-
     async def test_update_user_settings_noop(self, seeded_client):
         """Empty update body returns current settings without changes."""
         resp = await seeded_client.put("/api/v1/settings/user", json={})
@@ -104,21 +89,6 @@ class TestGlobalSettings:
         assert data["ai"]["temperature"] == 0.5
         mock_log_event.assert_awaited_once()
         assert mock_log_event.await_args.kwargs["detail"] == {
-            "scope": "global",
-            "changed_fields": ["ai_temperature"],
-        }
-
-    async def test_update_global_settings_logs_activity(self, seeded_client):
-        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
-            resp = await seeded_client.put(
-                "/api/v1/settings/global",
-                json={"ai": {"temperature": 0.5}},
-            )
-
-        assert resp.status_code == 200
-        mock_log.assert_awaited_once()
-        assert mock_log.await_args.kwargs["event_type"] == "settings"
-        assert mock_log.await_args.kwargs["detail"] == {
             "scope": "global",
             "changed_fields": ["ai_temperature"],
         }
@@ -163,7 +133,7 @@ class TestProjectSettings:
             "changed_fields": ["board_display_config"],
         }
 
-    async def test_update_project_settings_logs_activity(self, seeded_client):
+    async def test_update_project_settings_queue_and_auto_merge(self, seeded_client):
         with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
             resp = await seeded_client.put(
                 "/api/v1/settings/project/PVT_123",
