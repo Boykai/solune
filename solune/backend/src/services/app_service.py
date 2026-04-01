@@ -115,6 +115,13 @@ def _build_scaffold_files(
 
 def _row_to_app(row: aiosqlite.Row) -> App:
     """Convert a database row to an App model."""
+    # template_id column is added by migration 036 — may not exist in older DBs.
+    template_id = None
+    try:
+        template_id = row["template_id"]
+    except (IndexError, KeyError):
+        pass
+
     return App(
         name=row["name"],
         display_name=row["display_name"],
@@ -129,6 +136,7 @@ def _row_to_app(row: aiosqlite.Row) -> App:
         github_project_id=row["github_project_id"],
         parent_issue_number=row["parent_issue_number"],
         parent_issue_url=row["parent_issue_url"],
+        template_id=template_id,
         port=row["port"],
         error_message=row["error_message"],
         created_at=row["created_at"],
@@ -327,8 +335,9 @@ async def create_app(
             name, display_name, description, directory_path,
             associated_pipeline_id, status, repo_type, external_repo_url,
             github_repo_url, github_project_url, github_project_id,
+            template_id,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             payload.name,
@@ -342,6 +351,7 @@ async def create_app(
             github_repo_url,
             github_project_url,
             github_project_id,
+            payload.template_id,
             now,
             now,
         ),
@@ -557,8 +567,9 @@ async def create_app_with_new_repo(
             associated_pipeline_id, status, repo_type, external_repo_url,
             github_repo_url, github_project_url, github_project_id,
             parent_issue_number, parent_issue_url,
+            template_id,
             created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             payload.name,
@@ -574,6 +585,7 @@ async def create_app_with_new_repo(
             github_project_id,
             None,  # parent_issue_number — set later if pipeline is used
             None,  # parent_issue_url — set later if pipeline is used
+            payload.template_id,
             now,
             now,
         ),
