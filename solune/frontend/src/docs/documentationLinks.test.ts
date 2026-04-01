@@ -5,11 +5,15 @@ import { describe, expect, it } from 'vitest';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, '../../..');
+const gitRoot = resolve(repoRoot, '..');
 const docsRoot = resolve(repoRoot, 'docs');
 
 const changedDocs = [
+  '.change-manifest.md',
+  'OWNERS.md',
   'api-reference.md',
   'architecture.md',
+  'checklists/doc-refresh-verification.md',
   'project-structure.md',
   'roadmap.md',
   'pages/README.md',
@@ -21,6 +25,10 @@ const relativeLinkPattern = /(?<!!)\[[^\]]+\]\(([^)]+)\)/g;
 
 function readDoc(relativePath: string): string {
   return readFileSync(resolve(docsRoot, relativePath), 'utf8');
+}
+
+function readRepoFile(rootPath: string, relativePath: string): string {
+  return readFileSync(resolve(rootPath, relativePath), 'utf8');
 }
 
 function slugifyHeading(heading: string): string {
@@ -42,6 +50,81 @@ function getRelativeMarkdownLinks(markdown: string): string[] {
   return Array.from(markdown.matchAll(relativeLinkPattern), (match) => match[1].trim()).filter((link) => {
     return link.endsWith('.md') || link.includes('.md#') || link.startsWith('#');
   });
+}
+
+function collectBrokenRelativeLinks(rootPath: string, relativePaths: readonly string[]): string[] {
+  const brokenLinks: string[] = [];
+
+  for (const relativePath of relativePaths) {
+    const sourcePath = resolve(rootPath, relativePath);
+    const markdown = readFileSync(sourcePath, 'utf8');
+    const sourceDir = dirname(sourcePath);
+
+    for (const link of getRelativeMarkdownLinks(markdown)) {
+      const [rawTargetPath, rawFragment] = link.split('#', 2);
+      const targetPath = rawTargetPath ? resolve(sourceDir, rawTargetPath) : sourcePath;
+
+      if (!existsSync(targetPath)) {
+        brokenLinks.push(`${relativePath} -> ${link} (missing file)`);
+        continue;
+      }
+
+      if (!rawFragment) {
+        continue;
+      }
+
+      const targetMarkdown = readFileSync(targetPath, 'utf8');
+      const headingSlugs = extractHeadingSlugs(targetMarkdown);
+      if (!headingSlugs.has(rawFragment)) {
+        brokenLinks.push(`${relativePath} -> ${link} (missing heading #${rawFragment})`);
+      }
+    }
+  }
+
+  return brokenLinks;
+}
+
+function extractSection(markdown: string, heading: string): string {
+  const startToken = `## ${heading}\n`;
+  const startIndex = markdown.indexOf(startToken);
+
+  if (startIndex === -1) {
+    return '';
+  }
+
+  const remainingMarkdown = markdown.slice(startIndex + startToken.length).trimStart();
+  const nextHeadingIndex = remainingMarkdown.search(/\n## /);
+
+  return nextHeadingIndex === -1 ? remainingMarkdown : remainingMarkdown.slice(0, nextHeadingIndex);
+}
+
+function extractChecklistItems(markdown: string, heading: string): string[] {
+  const section = extractSection(markdown, heading);
+
+  return Array.from(section.matchAll(/^- \[[ x]\] (.+)$/gm), (match) => match[1].trim());
+}
+
+function extractPhaseChecklist(markdown: string): string[] {
+  const section = markdown.match(/### Phase Checklist\n\n([\s\S]*?)(?:\n---|$)/)?.[1] ?? '';
+
+  return Array.from(
+    section.matchAll(/^- \[ \] \*\*Phase (\d+)\*\* — ([^(]+?)(?:\s+\(|$)/gm),
+    ([, phaseNumber, phaseTitle]) => `${phaseNumber}:${phaseTitle.trim()}`,
+  );
+}
+
+function extractQuickstartPhases(markdown: string): string[] {
+  return Array.from(
+    markdown.matchAll(/^### Phase (\d+): (.+)$/gm),
+    ([, phaseNumber, phaseTitle]) => `${phaseNumber}:${phaseTitle.trim()}`,
+  );
+}
+
+function extractAffectedDocs(markdown: string): string[] {
+  return Array.from(markdown.matchAll(/Affected Docs: (.+)$/gm), (match) => match[1])
+    .flatMap((docs) => docs.split(','))
+    .map((docPath) => docPath.trim())
+    .filter(Boolean);
 }
 
 describe('chat documentation updates', () => {
@@ -115,34 +198,42 @@ describe('chat documentation updates', () => {
   });
 
   it('resolves all relative markdown links in the changed docs', () => {
-    const brokenLinks: string[] = [];
+    expect(collectBrokenRelativeLinks(docsRoot, changedDocs)).toEqual([]);
+  });
+});
 
-    for (const relativeDocPath of changedDocs) {
-      const sourcePath = resolve(docsRoot, relativeDocPath);
-      const markdown = readFileSync(sourcePath, 'utf8');
-      const sourceDir = dirname(sourcePath);
+describe('librarian documentation workflow', () => {
+  it('keeps the issue template phase checklist aligned with the quickstart phases', () => {
+    const issueTemplate = readRepoFile(gitRoot, '.github/ISSUE_TEMPLATE/chore-librarian.md');
+    const quickstart = readRepoFile(gitRoot, 'specs/003-librarian/quickstart.md');
 
-      for (const link of getRelativeMarkdownLinks(markdown)) {
-        const [rawTargetPath, rawFragment] = link.split('#', 2);
-        const targetPath = rawTargetPath ? resolve(sourceDir, rawTargetPath) : sourcePath;
+    expect(extractPhaseChecklist(issueTemplate)).toEqual(extractQuickstartPhases(quickstart));
+    expect(issueTemplate).toContain(
+      '[`doc-refresh-verification.md`](../../solune/docs/checklists/doc-refresh-verification.md)',
+    );
+  });
 
-        if (!existsSync(targetPath)) {
-          brokenLinks.push(`${relativeDocPath} -> ${link} (missing file)`);
-          continue;
-        }
+  it('keeps the verification checklist template aligned with the manifest checklist', () => {
+    const checklistTemplate = readDoc('checklists/doc-refresh-verification.md');
+    const changeManifest = readDoc('.change-manifest.md');
 
-        if (!rawFragment) {
-          continue;
-        }
+    expect(extractChecklistItems(changeManifest, 'Verification Checklist')).toEqual(
+      extractChecklistItems(checklistTemplate, 'Verification Items'),
+    );
+    expect(checklistTemplate).toContain('## Overall Status');
+    expect(changeManifest).toContain('**Overall Status**: [PASS / PARTIAL / FAIL]');
+  });
 
-        const targetMarkdown = readFileSync(targetPath, 'utf8');
-        const headingSlugs = extractHeadingSlugs(targetMarkdown);
-        if (!headingSlugs.has(rawFragment)) {
-          brokenLinks.push(`${relativeDocPath} -> ${link} (missing heading #${rawFragment})`);
-        }
-      }
-    }
+  it('references only existing documentation files in the change manifest and librarian docs', () => {
+    const changeManifest = readDoc('.change-manifest.md');
+    const affectedDocs = extractAffectedDocs(changeManifest);
+    const brokenLinks = collectBrokenRelativeLinks(gitRoot, [
+      '.github/ISSUE_TEMPLATE/chore-librarian.md',
+      'specs/003-librarian/quickstart.md',
+    ]);
 
+    expect(affectedDocs).not.toEqual([]);
+    expect(affectedDocs.filter((docPath) => !existsSync(resolve(repoRoot, docPath)))).toEqual([]);
     expect(brokenLinks).toEqual([]);
   });
 });

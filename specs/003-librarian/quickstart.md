@@ -548,7 +548,7 @@ Compare 3–5 documented endpoints against actual request/response shapes, or co
 
 ---
 
-### Phase 7: Stamp and Reset Baseline
+### Phase 7: Stamp & Reset Baseline
 
 **Step 7.1 — Commit documentation changes (FR-012):**
 
