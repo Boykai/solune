@@ -150,8 +150,10 @@ class TestLaunchPipelineIssue:
         assert resp.status_code == 200
         mock_log.assert_awaited()
         launch_call = next(
-            call.kwargs for call in mock_log.await_args_list if call.kwargs["action"] == "launched"
+            (call.kwargs for call in mock_log.await_args_list if call.kwargs["action"] == "launched"),
+            None,
         )
+        assert launch_call is not None, "Expected 'launched' event not found in log_event calls"
         assert launch_call["event_type"] == "pipeline_run"
         assert launch_call["detail"]["issue_number"] == 42
         assert launch_call["detail"]["agent_count"] == 1
