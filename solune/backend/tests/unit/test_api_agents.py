@@ -23,6 +23,9 @@ from src.models.agents import (
     AgentPendingCleanupResult,
     AgentStatus,
     BulkModelUpdateResult,
+    CatalogAgent,
+    ImportAgentResult,
+    InstallAgentResult,
 )
 
 PROJECT_ID = "PVT_test123"
@@ -469,3 +472,183 @@ class TestResolveRepositoryErrors:
             self.svc.delete_agent.side_effect = ValueError("invalid agent")
             resp = await client.delete(f"{BASE}/{AGENT_ID}")
         assert resp.status_code == 422
+
+
+# ── GET /{project_id}/catalog ─────────────────────────────────────────────
+
+
+class TestBrowseCatalog:
+    """Tests for the browse_catalog endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        svc = _mock_service()
+        self.svc = svc
+        with (
+            patch("src.api.agents._get_service", return_value=svc),
+            patch(
+                "src.api.agents.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.agents.get_db", return_value=MagicMock()),
+        ):
+            yield
+
+    async def test_browse_catalog_success(self, client):
+        """Returns catalog agents from the catalog reader."""
+        agents = [
+            CatalogAgent(
+                id="test-agent",
+                name="Test Agent",
+                description="A test agent",
+                source_url="https://example.com/agent.md",
+            ),
+        ]
+        with patch(
+            "src.services.agents.catalog.list_catalog_agents",
+            new_callable=AsyncMock,
+            return_value=agents,
+        ):
+            resp = await client.get(f"{BASE}/catalog")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["id"] == "test-agent"
+
+    async def test_browse_catalog_error_returns_500(self, client):
+        """Exceptions from the catalog reader are handled gracefully."""
+        with patch(
+            "src.services.agents.catalog.list_catalog_agents",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("fetch failed"),
+        ):
+            resp = await client.get(f"{BASE}/catalog")
+        assert resp.status_code == 500
+
+
+# ── POST /{project_id}/import ─────────────────────────────────────────────
+
+
+class TestImportAgent:
+    """Tests for the import_agent endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        svc = _mock_service()
+        self.svc = svc
+        with (
+            patch("src.api.agents._get_service", return_value=svc),
+            patch(
+                "src.api.agents.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.agents.get_db", return_value=MagicMock()),
+            patch("src.api.agents.log_event", new_callable=AsyncMock),
+        ):
+            yield
+
+    async def test_import_agent_success(self, client):
+        """Imports agent and returns 201."""
+        imported_agent = _sample_agent(status=AgentStatus.IMPORTED, agent_type="imported")
+        self.svc.import_agent.return_value = ImportAgentResult(
+            agent=imported_agent,
+            message="Agent 'my-agent' imported successfully.",
+        )
+        resp = await client.post(
+            f"{BASE}/import",
+            json={
+                "catalog_agent_id": "test-agent",
+                "name": "my-agent",
+                "description": "A test agent",
+                "source_url": "https://example.com/agent.md",
+            },
+        )
+        assert resp.status_code == 201
+        assert resp.json()["message"] == "Agent 'my-agent' imported successfully."
+
+    async def test_import_agent_duplicate_returns_409(self, client):
+        """ValueError (duplicate) from service is mapped to 409."""
+        self.svc.import_agent.side_effect = ValueError("already imported")
+        resp = await client.post(
+            f"{BASE}/import",
+            json={
+                "catalog_agent_id": "test-agent",
+                "name": "my-agent",
+                "description": "dup",
+                "source_url": "https://example.com/agent.md",
+            },
+        )
+        assert resp.status_code == 409
+
+    async def test_import_agent_fetch_error_returns_502(self, client):
+        """RuntimeError from fetching agent content is mapped to 502."""
+        self.svc.import_agent.side_effect = RuntimeError("fetch failed")
+        resp = await client.post(
+            f"{BASE}/import",
+            json={
+                "catalog_agent_id": "test-agent",
+                "name": "my-agent",
+                "description": "fail",
+                "source_url": "https://example.com/agent.md",
+            },
+        )
+        assert resp.status_code == 502
+
+
+# ── POST /{project_id}/{agent_id}/install ─────────────────────────────────
+
+
+class TestInstallAgent:
+    """Tests for the install_agent endpoint."""
+
+    @pytest.fixture(autouse=True)
+    def _patch(self):
+        svc = _mock_service()
+        self.svc = svc
+        with (
+            patch("src.api.agents._get_service", return_value=svc),
+            patch(
+                "src.api.agents.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.agents.get_db", return_value=MagicMock()),
+            patch("src.api.agents.log_event", new_callable=AsyncMock),
+        ):
+            yield
+
+    async def test_install_agent_success(self, client):
+        """Installs agent and returns install result."""
+        installed_agent = _sample_agent(status=AgentStatus.INSTALLED, agent_type="imported")
+        self.svc.install_agent.return_value = InstallAgentResult(
+            agent=installed_agent,
+            pr_url="https://github.com/owner/repo/pull/10",
+            pr_number=10,
+            issue_number=5,
+            branch_name="agent/my-agent",
+        )
+        resp = await client.post(f"{BASE}/{AGENT_ID}/install")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["pr_number"] == 10
+        assert data["issue_number"] == 5
+
+    async def test_install_agent_not_found_returns_404(self, client):
+        """LookupError from service is mapped to 404."""
+        self.svc.install_agent.side_effect = LookupError("agent not found")
+        resp = await client.post(f"{BASE}/{AGENT_ID}/install")
+        assert resp.status_code == 404
+
+    async def test_install_agent_wrong_state_returns_422(self, client):
+        """ValueError (wrong lifecycle state) is mapped to 422."""
+        self.svc.install_agent.side_effect = ValueError("not in imported state")
+        resp = await client.post(f"{BASE}/{AGENT_ID}/install")
+        assert resp.status_code == 422
+
+    async def test_install_agent_github_error_returns_502(self, client):
+        """RuntimeError from GitHub API is mapped to 502."""
+        self.svc.install_agent.side_effect = RuntimeError("GitHub API failure")
+        resp = await client.post(f"{BASE}/{AGENT_ID}/install")
+        assert resp.status_code == 502
