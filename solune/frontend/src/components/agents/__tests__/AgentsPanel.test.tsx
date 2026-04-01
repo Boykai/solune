@@ -455,4 +455,54 @@ describe('AgentsPanel', () => {
       'https://example.test/pr/99'
     );
   });
+
+  it('opens the install confirmation dialog for imported agents', async () => {
+    mockUseAgentsList.mockReturnValue({
+      data: [
+        createAgent({
+          id: 'imp-1',
+          name: 'Catalog Agent',
+          slug: 'catalog-agent',
+          status: 'imported',
+          agent_type: 'imported',
+          source: 'local',
+          github_pr_number: null,
+          branch_name: null,
+        }),
+      ],
+      isLoading: false,
+      error: null,
+    });
+    mockUseAgentsListPaginated.mockReturnValue({
+      allItems: [
+        createAgent({
+          id: 'imp-1',
+          name: 'Catalog Agent',
+          slug: 'catalog-agent',
+          status: 'imported',
+          agent_type: 'imported',
+          source: 'local',
+          github_pr_number: null,
+          branch_name: null,
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      invalidate: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" owner="octo" repo="widgets" />, {
+      wrapper: createWrapper(),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Add to repo' }));
+
+    expect(screen.getByRole('heading', { name: 'Install Agent to Repository' })).toBeInTheDocument();
+    expect(screen.getByText('octo/widgets')).toBeInTheDocument();
+    expect(screen.getByText('.github/agents/catalog-agent.agent.md')).toBeInTheDocument();
+  });
 });

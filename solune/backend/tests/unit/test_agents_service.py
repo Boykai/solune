@@ -1294,8 +1294,19 @@ class TestInstallAgent:
         # Verify commit_files_workflow was called with the raw content
         call_kwargs = mock_commit.call_args.kwargs
         files = call_kwargs["files"]
-        assert any(f["path"].endswith(".agent.md") for f in files)
-        assert any(f["path"].endswith(".prompt.md") for f in files)
+        assert files == [
+            {
+                "path": ".github/agents/test-agent.agent.md",
+                "content": "---\nname: Test\n---\nContent",
+            },
+            {
+                "path": ".github/prompts/test-agent.prompt.md",
+                "content": "```prompt\n---\nagent: test-agent\n---\n```\n",
+            },
+        ]
+        assert call_kwargs["issue_title"] == "Install agent: Test Agent"
+        assert "https://example.com/test.md" in call_kwargs["issue_body"]
+        assert "Raw agent definition (verbatim from catalog)" in call_kwargs["pr_body"]
 
         # Verify DB updated
         cursor = await mock_db.execute(
