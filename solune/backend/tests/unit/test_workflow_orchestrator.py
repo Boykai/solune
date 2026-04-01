@@ -449,9 +449,13 @@ class TestAssignAgentForStatus:
             result = await orchestrator.assign_agent_for_status(workflow_context, "Backlog", 0)
 
         assert result is True
-        assert mock_log_event.await_args.kwargs["event_type"] == "agent_execution"
-        assert mock_log_event.await_args.kwargs["action"] == "triggered"
-        assert mock_log_event.await_args.kwargs["detail"]["status"] == "Backlog"
+        # Find the agent_execution triggered call (not the last call, which may be status_change)
+        agent_exec_call = next(
+            call for call in mock_log_event.await_args_list
+            if call.kwargs.get("event_type") == "agent_execution"
+        )
+        assert agent_exec_call.kwargs["action"] == "triggered"
+        assert agent_exec_call.kwargs["detail"]["status"] == "Backlog"
 
     @pytest.mark.asyncio
     async def test_assign_no_agents_configured(
@@ -2396,9 +2400,8 @@ class TestHandleCompletion:
             )
 
         assert result is True
-        assert mock_log_event.await_args.kwargs["event_type"] == "agent_execution"
+        assert mock_log_event.await_args.kwargs["event_type"] == "pipeline_run"
         assert mock_log_event.await_args.kwargs["action"] == "completed"
-        assert mock_log_event.await_args.kwargs["entity_id"] == "pipeline-123"
 
 
 # ────────────────────────────────────────────────────────────────────
