@@ -620,6 +620,12 @@ def register_tools() -> list:
         select_pipeline_preset,
         create_project_issue,
         launch_pipeline,
+        list_app_templates,
+        get_app_template,
+        import_github_repo,
+        build_app,
+        iterate_on_app,
+        generate_app_questions,
     ]
 
 
@@ -812,6 +818,265 @@ def register_plan_tools() -> list:
         get_pipeline_list,
         save_plan,
     ]
+
+
+# ── App Builder tools ───────────────────────────────────────────────────
+
+
+@tool
+async def list_app_templates(
+    context: FunctionInvocationContext,
+    category: str = "",
+) -> ToolResult:
+    """List available app templates for building applications.
+
+    Args:
+        context: Agent function invocation context.
+        category: Optional category filter (saas, api, cli, dashboard). Empty = all.
+
+    Returns:
+        ToolResult with template summaries.
+    """
+    from src.models.app_template import AppCategory
+    from src.services.app_templates.registry import list_templates as _list
+
+    cat: AppCategory | None = None
+    if category:
+        try:
+            cat = AppCategory(category)
+        except ValueError:
+            return ToolResult(
+                content=f"Invalid category '{category}'. Valid categories: {', '.join(c.value for c in AppCategory)}",
+                action_type=None,
+                action_data=None,
+            )
+    templates = _list(category=cat)
+    summaries = [t.to_summary_dict() for t in templates]
+
+    if not summaries:
+        return ToolResult(
+            content="No templates found matching the criteria.",
+            action_type=None,
+            action_data=None,
+        )
+
+    lines = [f"**{len(summaries)} template(s) available:**\n"]
+    lines.extend(
+        f"- **{s['name']}** (`{s['id']}`) — {s['category']}, "
+        f"difficulty {s['difficulty']}, scaffold: {s['scaffold_type']}"
+        for s in summaries
+    )
+
+    return ToolResult(
+        content="\n".join(lines),
+        action_type=None,
+        action_data={"templates": summaries},
+    )
+
+
+@tool
+async def get_app_template(
+    context: FunctionInvocationContext,
+    template_id: str,
+) -> ToolResult:
+    """Get detailed information about a specific app template.
+
+    Args:
+        context: Agent function invocation context.
+        template_id: Template identifier (e.g. 'saas-react-fastapi').
+
+    Returns:
+        ToolResult with full template details.
+    """
+    from src.services.app_templates.registry import get_template as _get
+
+    template = _get(template_id)
+    if template is None:
+        return ToolResult(
+            content=f"Template '{template_id}' not found.",
+            action_type=None,
+            action_data=None,
+        )
+
+    detail = template.to_detail_dict()
+    tech_stack = detail.get("tech_stack")
+    files = detail.get("files")
+    tech_stack_text = (
+        ", ".join(str(item) for item in tech_stack) if isinstance(tech_stack, list) else ""
+    )
+    file_count = len(files) if isinstance(files, list) else 0
+    return ToolResult(
+        content=(
+            f"**{detail['name']}**\n\n"
+            f"Category: {detail['category']}, Difficulty: {detail['difficulty']}\n"
+            f"Tech stack: {tech_stack_text}\n"
+            f"Scaffold type: {detail['scaffold_type']}\n"
+            f"IaC target: {detail['iac_target']}\n"
+            f"Files: {file_count} template file(s)"
+        ),
+        action_type=None,
+        action_data={"template": detail},
+    )
+
+
+@tool
+async def import_github_repo(
+    context: FunctionInvocationContext,
+    url: str,
+    create_project: bool = True,
+) -> ToolResult:
+    """Import an existing GitHub repository into Solune.
+
+    Args:
+        context: Agent function invocation context.
+        url: GitHub repository URL (https://github.com/owner/repo).
+        create_project: Whether to create a GitHub Project V2 board.
+
+    Returns:
+        ToolResult with import status.
+    """
+    import re
+
+    pattern = re.compile(r"^https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+/?$")
+    if not pattern.match(url):
+        return ToolResult(
+            content=f"Invalid GitHub URL: {url}. Expected format: https://github.com/owner/repo",
+            action_type=None,
+            action_data=None,
+        )
+
+    return ToolResult(
+        content=(
+            f"Repository import requested for {url}.\n"
+            f"Create project board: {create_project}\n"
+            "Use the /api/apps/import endpoint to complete the import."
+        ),
+        action_type="app_import",
+        action_data={"url": url, "create_project": create_project},
+    )
+
+
+@tool
+async def build_app(
+    context: FunctionInvocationContext,
+    app_name: str,
+    template_id: str,
+    description: str = "",
+    difficulty_override: str = "",
+) -> ToolResult:
+    """Build a new application from a template.
+
+    Chains: validate template → create app → configure pipeline → launch.
+
+    Args:
+        context: Agent function invocation context.
+        app_name: Name for the new application (kebab-case).
+        template_id: Template to scaffold from.
+        description: App description.
+        difficulty_override: Optional difficulty override (S, M, L, XL).
+
+    Returns:
+        ToolResult with build status.
+    """
+    from src.services.app_templates.registry import get_template as _get
+    from src.services.pipelines.pipeline_config import configure_pipeline_preset
+
+    template = _get(template_id)
+    if template is None:
+        return ToolResult(
+            content=f"Template '{template_id}' not found. Use list_app_templates() to see available templates.",
+            action_type=None,
+            action_data=None,
+        )
+
+    override = difficulty_override or None
+    preset_id, include_architect = configure_pipeline_preset(template, override)
+
+    return ToolResult(
+        content=(
+            f"🏗️ **Building app '{app_name}'**\n\n"
+            f"Template: {template.name}\n"
+            f"Pipeline preset: {preset_id}\n"
+            f"Include architect agent: {include_architect}\n"
+            f"Description: {description or '(none)'}\n\n"
+            "App creation initiated. Use the Apps page to monitor progress."
+        ),
+        action_type="app_build",
+        action_data={
+            "app_name": app_name,
+            "template_id": template_id,
+            "description": description,
+            "preset_id": preset_id,
+            "include_architect": include_architect,
+        },
+    )
+
+
+@tool
+async def iterate_on_app(
+    context: FunctionInvocationContext,
+    app_name: str,
+    change_description: str,
+) -> ToolResult:
+    """Request a change to an existing application.
+
+    Creates an issue and launches a pipeline to implement the change.
+
+    Args:
+        context: Agent function invocation context.
+        app_name: Name of the existing application.
+        change_description: Natural language description of the desired change.
+
+    Returns:
+        ToolResult with iteration status.
+    """
+    return ToolResult(
+        content=(
+            f"📝 **Iteration requested for '{app_name}'**\n\n"
+            f"Change: {change_description}\n\n"
+            "An issue will be created in the app's project board and a pipeline "
+            "will be launched to implement the change."
+        ),
+        action_type="app_iterate",
+        action_data={
+            "app_name": app_name,
+            "change_description": change_description,
+        },
+    )
+
+
+@tool
+async def generate_app_questions(
+    context: FunctionInvocationContext,
+    description: str,
+) -> ToolResult:
+    """Generate 2-3 clarifying questions for app creation.
+
+    Args:
+        context: Agent function invocation context.
+        description: User's initial app description.
+
+    Returns:
+        ToolResult with targeted questions.
+    """
+    from src.services.app_templates.registry import list_templates as _list
+
+    templates = _list()
+    categories = sorted({t.category.value for t in templates})
+
+    questions = [
+        f"What type of application do you want? Available categories: {', '.join(categories)}.",
+        "What is the primary tech stack or deployment target you prefer?",
+    ]
+    if len(description.split()) < 10:
+        questions.append("Can you provide more details about the key features or functionality?")
+
+    return ToolResult(
+        content="Before building your app, I have a few questions:\n\n"
+        + "\n".join(f"{i + 1}. {q}" for i, q in enumerate(questions)),
+        action_type=None,
+        action_data={"questions": questions, "user_description": description},
+    )
 
 
 # ── MCP tool loading ────────────────────────────────────────────────────

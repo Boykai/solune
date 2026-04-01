@@ -1,0 +1,26 @@
+# {{app_name}}
+
+{{description}}
+
+## Getting Started
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port {{port}}
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Architecture
+
+- **Backend**: FastAPI with PostgreSQL
+- **Frontend**: React with TypeScript
