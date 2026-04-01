@@ -730,6 +730,7 @@ async def _process_pipeline_completion(
     # Loop over ALL current agents for "agent never assigned" recovery.
     # For parallel groups this reassigns every unassigned agent; for
     # sequential groups this iterates exactly once.
+    assigned_agents: list[str] = []
     for agent in pipeline.current_agents:
         if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
             continue
@@ -790,7 +791,7 @@ async def _process_pipeline_completion(
         if await _wait_if_rate_limited(
             f"first-agent assignment '{agent}' on issue #{task.issue_number}"
         ):
-            return None  # Defer to next polling cycle
+            break  # Defer any remaining assignments to the next polling cycle
 
         try:
             # Find the flat index for this specific agent
@@ -800,15 +801,18 @@ async def _process_pipeline_completion(
             )
             if assigned:
                 _pending_agent_assignments[pending_key] = utcnow()
-                return {
-                    "status": "success",
-                    "issue_number": task.issue_number,
-                    "action": "agent_assigned_after_reconstruction",
-                    "agent_name": agent,
-                    "from_status": from_status,
-                }
+                assigned_agents.append(agent)
         except ValueError:
             continue
+
+    if assigned_agents:
+        return {
+            "status": "success",
+            "issue_number": task.issue_number,
+            "action": "agent_assigned_after_reconstruction",
+            "agent_name": ", ".join(assigned_agents),
+            "from_status": from_status,
+        }
 
     return None
 

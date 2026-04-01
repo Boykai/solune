@@ -12069,6 +12069,7 @@ class TestRecoveryReassignsAllParallelAgents:
         _pipeline_states.clear()
 
     @pytest.mark.asyncio
+    @patch("src.services.copilot_polling.pipeline._wait_if_rate_limited", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.github_projects_service")
@@ -12084,6 +12085,7 @@ class TestRecoveryReassignsAllParallelAgents:
         mock_service,
         mock_config,
         mock_get_orch,
+        mock_wait_if_rate_limited,
     ):
         """When all 3 parallel agents were never assigned, recovery should
         attempt to assign all of them."""
@@ -12118,6 +12120,7 @@ class TestRecoveryReassignsAllParallelAgents:
 
         # No agents are done
         mock_check_done.return_value = False
+        mock_wait_if_rate_limited.return_value = False
         # Tracking shows all Pending (none assigned)
         tracking_body = (
             "---\n\n"
@@ -12131,7 +12134,6 @@ class TestRecoveryReassignsAllParallelAgents:
         mock_tracking.return_value = (tracking_body, [])
 
         mock_orchestrator = MagicMock()
-        # First assignment succeeds and returns result
         mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
         mock_get_orch.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
@@ -12147,13 +12149,24 @@ class TestRecoveryReassignsAllParallelAgents:
             to_status="In Review",
         )
 
-        # First unassigned agent should have been assigned
+        # All unassigned agents should be reassigned in the same recovery pass
         assert result is not None
         assert result["action"] == "agent_assigned_after_reconstruction"
-        # The assignment function should have been called at least once
-        mock_orchestrator.assign_agent_for_status.assert_called_once()
+        assert result["agent_name"] == "linter, archivist, judge"
+        assert mock_orchestrator.assign_agent_for_status.await_count == 3
+        called_indices = sorted(
+            call.kwargs["agent_index"]
+            for call in mock_orchestrator.assign_agent_for_status.await_args_list
+        )
+        assert called_indices == [0, 1, 2]
+        assert set(_pending_agent_assignments) >= {
+            "42:linter",
+            "42:archivist",
+            "42:judge",
+        }
 
     @pytest.mark.asyncio
+    @patch("src.services.copilot_polling.pipeline._wait_if_rate_limited", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.github_projects_service")
@@ -12169,6 +12182,7 @@ class TestRecoveryReassignsAllParallelAgents:
         mock_service,
         mock_config,
         mock_get_orch,
+        mock_wait_if_rate_limited,
     ):
         """Agent 1 is Active in tracking — only agents 2 and 3 should be
         considered for reassignment."""
@@ -12202,6 +12216,7 @@ class TestRecoveryReassignsAllParallelAgents:
         task.title = "Test Issue"
 
         mock_check_done.return_value = False
+        mock_wait_if_rate_limited.return_value = False
         # Tracking shows linter is Active (already assigned)
         tracking_body = (
             "---\n\n"
@@ -12233,4 +12248,10 @@ class TestRecoveryReassignsAllParallelAgents:
         # An unassigned agent should have been assigned (not linter which is Active)
         assert result is not None
         assert result["action"] == "agent_assigned_after_reconstruction"
-        assert result["agent_name"] != "linter"
+        assert result["agent_name"] == "archivist, judge"
+        assert mock_orchestrator.assign_agent_for_status.await_count == 2
+        called_indices = sorted(
+            call.kwargs["agent_index"]
+            for call in mock_orchestrator.assign_agent_for_status.await_args_list
+        )
+        assert called_indices == [1, 2]
