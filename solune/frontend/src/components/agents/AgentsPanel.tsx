@@ -391,6 +391,8 @@ export function AgentsPanel({
                   key={agent.id}
                   agent={agent}
                   projectId={projectId}
+                  owner={owner}
+                  repo={repo}
                   usageCount={agentUsageCounts[agent.slug] ?? 0}
                   pipelineConfigCount={pipelineConfigCounts[agent.slug] ?? 0}
                   pendingSubIssueCount={pendingSubIssueCounts[agent.slug.toLowerCase()] ?? 0}
@@ -468,6 +470,8 @@ export function AgentsPanel({
                     key={agent.id}
                     agent={agent}
                     projectId={projectId}
+                    owner={owner}
+                    repo={repo}
                     usageCount={agentUsageCounts[agent.slug] ?? 0}
                     pipelineConfigCount={pipelineConfigCounts[agent.slug] ?? 0}
                     pendingSubIssueCount={pendingSubIssueCounts[agent.slug.toLowerCase()] ?? 0}
@@ -554,6 +558,8 @@ export function AgentsPanel({
                       key={agent.id}
                       agent={agent}
                       projectId={projectId}
+                      owner={owner}
+                      repo={repo}
                       usageCount={agentUsageCounts[agent.slug] ?? 0}
                       pipelineConfigCount={pipelineConfigCounts[agent.slug] ?? 0}
                       pendingSubIssueCount={pendingSubIssueCounts[agent.slug.toLowerCase()] ?? 0}

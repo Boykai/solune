@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { toast } from 'sonner';
 
 vi.mock('@/services/api', () => ({
   agentsApi: {
@@ -399,6 +400,46 @@ describe('useImportAgent', () => {
       source_url: 'https://example.com/a.md',
     });
   });
+
+  it('invalidates list and catalog queries after a successful import', async () => {
+    mockAgentsApi.importAgent.mockResolvedValue({ agent: mockAgent, message: 'Imported' });
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useImportAgent('proj-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        catalog_agent_id: 'agent-1',
+        name: 'Agent A',
+        description: 'desc',
+        source_url: 'https://example.com/a.md',
+      });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.list('proj-1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.catalog('proj-1') });
+    expect(toast.success).toHaveBeenCalledWith('Agent imported');
+  });
+
+  it('surfaces import errors through a toast', async () => {
+    mockAgentsApi.importAgent.mockRejectedValue(new Error('Catalog fetch failed'));
+
+    const { result } = renderHook(() => useImportAgent('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await expect(
+      result.current.mutateAsync({
+        catalog_agent_id: 'agent-1',
+        name: 'Agent A',
+        description: 'desc',
+        source_url: 'https://example.com/a.md',
+      })
+    ).rejects.toThrow('Catalog fetch failed');
+
+    expect(toast.error).toHaveBeenCalledWith('Catalog fetch failed', { duration: Infinity });
+  });
 });
 
 describe('useInstallAgent', () => {
@@ -423,5 +464,39 @@ describe('useInstallAgent', () => {
     });
 
     expect(mockAgentsApi.installAgent).toHaveBeenCalledWith('proj-1', 'agent-1');
+  });
+
+  it('invalidates list and pending queries after install succeeds', async () => {
+    mockAgentsApi.installAgent.mockResolvedValue({
+      agent: mockAgent,
+      pr_url: 'https://github.com/owner/repo/pull/1',
+      pr_number: 1,
+      issue_number: 2,
+      branch_name: 'agent/test',
+    });
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useInstallAgent('proj-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('agent-1');
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.list('proj-1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.pending('proj-1') });
+    expect(toast.success).toHaveBeenCalledWith('Agent installed — PR created');
+  });
+
+  it('surfaces install errors through a toast', async () => {
+    mockAgentsApi.installAgent.mockRejectedValue(new Error('Install failed'));
+
+    const { result } = renderHook(() => useInstallAgent('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await expect(result.current.mutateAsync('agent-1')).rejects.toThrow('Install failed');
+
+    expect(toast.error).toHaveBeenCalledWith('Install failed', { duration: Infinity });
   });
 });

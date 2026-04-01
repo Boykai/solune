@@ -74,6 +74,31 @@ describe('BrowseAgentsModal', () => {
     expect(screen.getByText('Import')).toBeInTheDocument();
   });
 
+  it('imports the selected catalog agent with its snapshot metadata', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    mockUseImportAgent.mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    });
+
+    render(
+      <BrowseAgentsModal projectId="proj-1" isOpen={true} onClose={vi.fn()} />,
+      { wrapper: createWrapper() },
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        catalog_agent_id: 'agent-a',
+        name: 'Agent Alpha',
+        description: 'Helps with alpha tasks',
+        source_url: 'https://example.com/a.md',
+      });
+    });
+  });
+
   it('filters agents by search query', async () => {
     const user = userEvent.setup();
     render(
