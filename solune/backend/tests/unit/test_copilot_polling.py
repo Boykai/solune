@@ -98,6 +98,22 @@ def clear_processed_cache():
     _claimed_child_prs.clear()
 
 
+@pytest.fixture(autouse=True)
+def _mock_orchestrator_log_event_in_polling():
+    """Prevent log_event in orchestrator from hitting a real database."""
+    with (
+        patch(
+            "src.services.workflow_orchestrator.orchestrator.log_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.services.database.get_db",
+            return_value=MagicMock(),
+        ),
+    ):
+        yield
+
+
 class TestIsSubIssue:
     """Tests for is_sub_issue helper that filters agent sub-issues from the polling loop."""
 
@@ -11810,6 +11826,195 @@ class TestProcessPipelineCompletionUsesOriginalStatus:
         call_args = mock_orchestrator.assign_agent_for_status.call_args
         status_arg = call_args[0][1]
         assert status_arg == "Ready", f"Expected 'Ready' (original_status) but got '{status_arg}'"
+
+
+# ── Fix: _process_pipeline_completion checks ALL parallel agents per cycle ──
+
+
+class TestProcessPipelineCompletionParallelAgents:
+    """_process_pipeline_completion must check ALL agents in a parallel
+    group per poll cycle, not just the first one."""
+
+    @pytest.fixture(autouse=True)
+    def _clear(self):
+        from src.services.workflow_orchestrator import _pipeline_states
+
+        _pending_agent_assignments.clear()
+        _pipeline_states.clear()
+        yield
+        _pending_agent_assignments.clear()
+        _pipeline_states.clear()
+
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.connection_manager")
+    @patch("src.services.copilot_polling.get_issue_main_branch")
+    @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
+    @patch("src.services.copilot_polling.get_workflow_orchestrator")
+    @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.set_pipeline_state")
+    @patch(
+        "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
+        new_callable=AsyncMock,
+    )
+    async def test_checks_all_parallel_agents_per_cycle(
+        self,
+        mock_check_done,
+        mock_set_state,
+        mock_config,
+        mock_get_orchestrator,
+        mock_merge,
+        mock_get_branch,
+        mock_ws,
+        mock_service,
+        mock_update_tracking,
+    ):
+        """When two out of three parallel agents complete in the same cycle,
+        both should be advanced — not just the first one."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo
+
+        pipeline = PipelineState(
+            issue_number=42,
+            project_id="PVT_123",
+            status="In Progress",
+            agents=["linter", "archivist", "judge"],
+            current_agent_index=0,
+            completed_agents=[],
+            groups=[
+                PipelineGroupInfo(
+                    group_id="g1",
+                    execution_mode="parallel",
+                    agents=["linter", "archivist", "judge"],
+                    agent_statuses={
+                        "linter": "active",
+                        "archivist": "active",
+                        "judge": "active",
+                    },
+                ),
+            ],
+            current_group_index=0,
+            current_agent_index_in_group=0,
+            started_at=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+
+        task = MagicMock()
+        task.issue_number = 42
+        task.github_item_id = "PVTI_123"
+        task.github_content_id = "I_123"
+        task.repository_owner = "owner"
+        task.repository_name = "repo"
+        task.title = "Test Issue"
+        task.labels = []
+
+        # linter done, archivist done, judge still running
+        mock_check_done.side_effect = [True, True, False]
+
+        mock_get_branch.return_value = None
+        mock_merge.return_value = None
+        mock_ws.broadcast_to_project = AsyncMock()
+        mock_update_tracking.return_value = True
+        mock_config.return_value = MagicMock()
+
+        await _process_pipeline_completion(
+            access_token="token",
+            project_id="PVT_123",
+            task=task,
+            owner="owner",
+            repo="repo",
+            pipeline=pipeline,
+            from_status="In Progress",
+            to_status="In Review",
+        )
+
+        # _check_agent_done called for ALL three agents (linter, archivist, judge)
+        assert mock_check_done.await_count == 3
+
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch(
+        "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.copilot_polling._get_tracking_state_from_issue", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.get_current_agent_from_tracking")
+    @patch("src.services.copilot_polling.get_workflow_orchestrator")
+    @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
+    async def test_recovery_assigns_all_unassigned_parallel_agents(
+        self,
+        mock_config,
+        mock_get_orch,
+        mock_get_tracking,
+        mock_tracking_state,
+        mock_check_done,
+        mock_service,
+    ):
+        """Recovery path should attempt assignment for ALL unassigned agents
+        in a parallel group, not just the first one."""
+        from datetime import timedelta
+
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo
+        from src.utils import utcnow
+
+        pipeline = PipelineState(
+            issue_number=42,
+            project_id="PVT_123",
+            status="In Progress",
+            agents=["linter", "archivist", "judge"],
+            current_agent_index=0,
+            completed_agents=[],
+            groups=[
+                PipelineGroupInfo(
+                    group_id="g1",
+                    execution_mode="parallel",
+                    agents=["linter", "archivist", "judge"],
+                    agent_statuses={
+                        "linter": "pending",
+                        "archivist": "pending",
+                        "judge": "pending",
+                    },
+                ),
+            ],
+            current_group_index=0,
+            current_agent_index_in_group=0,
+            started_at=utcnow() - timedelta(seconds=300),  # Past grace period
+        )
+
+        task = MagicMock()
+        task.issue_number = 42
+        task.github_item_id = "PVTI_123"
+        task.github_content_id = "I_123"
+        task.repository_owner = "owner"
+        task.repository_name = "repo"
+        task.title = "Test Issue"
+
+        # No agents have completed
+        mock_check_done.return_value = False
+        # Tracking shows no agent active
+        mock_tracking_state.return_value = ("body", [])
+        mock_get_tracking.return_value = None
+
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+        mock_get_orch.return_value = mock_orchestrator
+        mock_config.return_value = MagicMock()
+
+        result = await _process_pipeline_completion(
+            access_token="token",
+            project_id="PVT_123",
+            task=task,
+            owner="owner",
+            repo="repo",
+            pipeline=pipeline,
+            from_status="In Progress",
+            to_status="In Review",
+        )
+
+        # First unassigned agent should be assigned
+        assert result is not None
+        assert result["action"] == "agent_assigned_after_reconstruction"
+        # Verify tracking table was fetched exactly ONCE (not per-agent)
+        mock_tracking_state.assert_awaited_once()
 
 
 # ── Fix: copilot-review request timestamps recorded ─────────────────────

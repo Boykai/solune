@@ -17,6 +17,7 @@ from src.logging_utils import get_logger
 from src.models.project import GitHubProject, ProjectListResponse
 from src.models.task import TaskListResponse
 from src.models.user import UserResponse, UserSession
+from src.services.activity_logger import log_event
 from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
@@ -111,6 +112,19 @@ async def create_project_endpoint(
         github_service=github_service,
         repo_owner=body.get("repo_owner"),
         repo_name=body.get("repo_name"),
+    )
+    from src.services.database import get_db as _get_db
+
+    await log_event(
+        _get_db(),
+        event_type="project",
+        entity_type="project",
+        entity_id=result.get("project_id", ""),
+        project_id=result.get("project_id", ""),
+        actor=session.github_username,
+        action="created",
+        summary=f"Project '{title}' created by {session.github_username}",
+        detail={"title": title, "owner": owner},
     )
     return result
 
@@ -251,6 +265,19 @@ async def select_project(
     await github_auth_service.update_session(session)
 
     logger.info("User %s selected project %s", session.github_username, project_id)
+
+    from src.services.database import get_db as _get_db
+
+    await log_event(
+        _get_db(),
+        event_type="project",
+        entity_type="project",
+        entity_id=project_id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="selected",
+        summary=f"Project selected by {session.github_username}",
+    )
 
     # Auto-start Copilot polling for this project
     await _start_copilot_polling(session, project_id)
