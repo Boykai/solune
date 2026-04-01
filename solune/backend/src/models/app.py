@@ -50,6 +50,7 @@ class App(BaseModel):
     github_project_id: str | None = None
     parent_issue_number: int | None = None
     parent_issue_url: str | None = None
+    template_id: str | None = None
     port: int | None = None
     error_message: str | None = None
     created_at: str = ""
@@ -79,6 +80,7 @@ class AppCreate(BaseModel):
         default="private",
         description="Repository visibility: 'public' or 'private'",
     )
+    template_id: str | None = None
     create_project: bool = True
     ai_enhance: bool = True
     azure_client_id: str | None = Field(default=None, min_length=1)

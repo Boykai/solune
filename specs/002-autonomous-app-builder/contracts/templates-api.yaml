@@ -1,0 +1,123 @@
+# Templates API Contract
+
+openapi: "3.1.0"
+info:
+  title: App Templates API
+  version: "0.5.0"
+  description: Endpoints for browsing and retrieving app templates.
+
+paths:
+  /api/templates:
+    get:
+      operationId: listAppTemplates
+      summary: List all available app templates
+      description: Returns all registered app templates with metadata for browsing.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [saas, api, cli, dashboard]
+          description: Filter templates by category
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppTemplateSummary"
+        "401":
+          description: Unauthorized
+
+  /api/templates/{template_id}:
+    get:
+      operationId: getAppTemplate
+      summary: Get detailed template information
+      description: Returns full template definition including file manifest.
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Template identifier (e.g., "saas-react-fastapi")
+      responses:
+        "200":
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppTemplate"
+        "404":
+          description: Template not found
+        "401":
+          description: Unauthorized
+
+components:
+  schemas:
+    AppTemplateSummary:
+      type: object
+      required: [id, name, description, category, difficulty, tech_stack, scaffold_type, iac_target]
+      properties:
+        id:
+          type: string
+          example: "saas-react-fastapi"
+        name:
+          type: string
+          example: "SaaS — React + FastAPI"
+        description:
+          type: string
+          example: "Full-stack SaaS application with React frontend and FastAPI backend"
+        category:
+          type: string
+          enum: [saas, api, cli, dashboard]
+        difficulty:
+          type: string
+          enum: [S, M, L, XL]
+        tech_stack:
+          type: array
+          items:
+            type: string
+          example: ["react", "fastapi", "postgresql"]
+        scaffold_type:
+          type: string
+          enum: [skeleton, starter]
+        iac_target:
+          type: string
+          enum: [none, azure, aws, docker]
+
+    AppTemplate:
+      allOf:
+        - $ref: "#/components/schemas/AppTemplateSummary"
+        - type: object
+          required: [files, recommended_preset_id]
+          properties:
+            files:
+              type: array
+              items:
+                $ref: "#/components/schemas/TemplateFile"
+            recommended_preset_id:
+              type: string
+              example: "medium"
+
+    TemplateFile:
+      type: object
+      required: [source, target, variables]
+      properties:
+        source:
+          type: string
+          description: Relative path in template directory
+          example: "files/backend/main.py.tmpl"
+        target:
+          type: string
+          description: Relative output path in scaffolded app
+          example: "backend/main.py"
+        variables:
+          type: array
+          items:
+            type: string
+          description: Variable names used in this file
+          example: ["app_name", "port"]
