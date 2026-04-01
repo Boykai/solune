@@ -1093,9 +1093,7 @@ class TestStaleRevalidationIdleBoard:
         import ast
         from pathlib import Path
 
-        projects_src = (
-            Path(__file__).resolve().parent.parent.parent / "src" / "api" / "projects.py"
-        )
+        projects_src = Path(__file__).resolve().parent.parent.parent / "src" / "api" / "projects.py"
         tree = ast.parse(projects_src.read_text())
         # Find STALE_REVALIDATION_LIMIT assignment inside websocket_subscribe
         found = False
@@ -1179,9 +1177,7 @@ class TestSubIssueWarmCacheSkipsApi:
         first_hash = entry.data_hash
 
         # Compute hash of the same data
-        expected_hash = compute_data_hash(
-            bd.model_dump(mode="json", exclude={"rate_limit"})
-        )
+        expected_hash = compute_data_hash(bd.model_dump(mode="json", exclude={"rate_limit"}))
         assert first_hash == expected_hash, (
             "Board data hash should be deterministic for the same data"
         )

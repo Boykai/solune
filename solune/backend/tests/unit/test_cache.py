@@ -529,9 +529,7 @@ class TestStaleDataFallbackRegression:
         # Hash computation includes rate_limit key — the board endpoint excludes
         # it via model_dump(exclude={"rate_limit"}). Verify that if the caller
         # properly excludes rate_limit, hashes match.
-        hash_no_rl = compute_data_hash(
-            {k: v for k, v in data_with_rl.items() if k != "rate_limit"}
-        )
+        hash_no_rl = compute_data_hash({k: v for k, v in data_with_rl.items() if k != "rate_limit"})
         assert hash1 == hash_no_rl
 
     def test_refresh_ttl_preserves_data_hash(self):
@@ -565,7 +563,5 @@ class TestStaleDataFallbackRegression:
                 retry_after=60,
             )
 
-        result = await cached_fetch(
-            c, "rl_key", fetch_fn, rate_limit_fallback=True
-        )
+        result = await cached_fetch(c, "rl_key", fetch_fn, rate_limit_fallback=True)
         assert result == "cached_value"
