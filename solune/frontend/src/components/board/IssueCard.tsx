@@ -3,7 +3,7 @@
  * Enhanced with filled priority badges, description snippets, assignee names, and label pills.
  */
 
-import { memo, useState, useMemo } from 'react';
+import { memo, useState, useMemo, useCallback } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { ChevronDown, ChevronRight, Circle, CircleCheckBig, Clock } from '@/lib/icons';
 import type { BoardItem, SubIssue, AvailableAgent } from '@/types';
@@ -146,6 +146,23 @@ export const IssueCard = memo(function IssueCard({
     [item.body],
   );
 
+  // Memoize avatar URL validation so it runs only when assignees change.
+  const validatedAvatarUrls = useMemo(
+    () => new Map(item.assignees.map((a) => [a.login, validateAvatarUrl(a.avatar_url)])),
+    [item.assignees],
+  );
+
+  // Stable keyboard handler — avoids creating a new function on every render.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onClick(item);
+      }
+    },
+    [onClick, item],
+  );
+
   return (
     <div
       ref={setNodeRef}
@@ -159,12 +176,7 @@ export const IssueCard = memo(function IssueCard({
       onClick={() => onClick(item)}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick(item);
-        }
-      }}
+      onKeyDown={handleKeyDown}
     >
       {/* Repository + Issue Number */}
       {item.repository && (
@@ -367,7 +379,7 @@ export const IssueCard = memo(function IssueCard({
                 <img
                   key={assignee.login}
                   className="h-6 w-6 rounded-full border-2 border-card"
-                  src={validateAvatarUrl(assignee.avatar_url)}
+                  src={validatedAvatarUrls.get(assignee.login) ?? validateAvatarUrl(assignee.avatar_url)}
                   alt={assignee.login}
                   title={assignee.login}
                   width={24}

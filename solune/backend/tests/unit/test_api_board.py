@@ -1181,3 +1181,95 @@ class TestSubIssueWarmCacheSkipsApi:
         assert first_hash == expected_hash, (
             "Board data hash should be deterministic for the same data"
         )
+
+
+class TestStatusUpdateSubIssueCacheInvalidation:
+    """Verify that PATCH /projects/{id}/items/{item}/status also clears
+    sub-issue caches for the updated item so stale sub-issue data is not
+    served for up to 10 minutes after a status change."""
+
+    async def test_status_update_clears_sub_issue_cache(self, client, mock_github_service):
+        """When a board item with sub-issues has its status updated, the
+        corresponding sub-issue cache entry must be deleted."""
+        proj = _make_board_project()
+        board_data = BoardDataResponse(
+            project=proj,
+            columns=[
+                BoardColumn(
+                    status=proj.status_field.options[0],
+                    items=[
+                        BoardItem(
+                            item_id="PVTI_target",
+                            content_type=ContentType.ISSUE,
+                            title="Issue with sub-issues",
+                            status="Todo",
+                            status_option_id="opt1",
+                            number=42,
+                            repository=Repository(owner="testowner", name="testrepo"),
+                        )
+                    ],
+                    item_count=1,
+                ),
+            ],
+        )
+
+        # Populate the board cache so the status-update endpoint can look up
+        # the item's repository info for sub-issue cache invalidation.
+        from src.services.cache import cache, get_cache_key, get_sub_issues_cache_key
+
+        board_key = get_cache_key("board_data", "PVT_abc")
+        cache.set(board_key, board_data, ttl_seconds=300)
+
+        si_key = get_sub_issues_cache_key("testowner", "testrepo", 42)
+        cache.set(si_key, [{"number": 1, "title": "child"}], ttl_seconds=600)
+
+        mock_github_service.update_item_status_by_name.return_value = True
+
+        resp = await client.patch(
+            "/api/v1/board/projects/PVT_abc/items/PVTI_target/status",
+            json={"status": "Done"},
+        )
+        assert resp.status_code == 200
+
+        # Both board cache and sub-issue cache should be invalidated.
+        assert cache.get(board_key) is None, "Board cache should be cleared"
+        assert cache.get(si_key) is None, "Sub-issue cache should be cleared"
+
+    async def test_status_update_without_sub_issues_still_clears_board_cache(
+        self, client, mock_github_service
+    ):
+        """Items without sub-issues (no repository/number) should still have
+        the board cache cleared, just no sub-issue key to delete."""
+        proj = _make_board_project()
+        board_data = BoardDataResponse(
+            project=proj,
+            columns=[
+                BoardColumn(
+                    status=proj.status_field.options[0],
+                    items=[
+                        BoardItem(
+                            item_id="PVTI_draft",
+                            content_type=ContentType.DRAFT_ISSUE,
+                            title="Draft item",
+                            status="Todo",
+                            status_option_id="opt1",
+                        )
+                    ],
+                    item_count=1,
+                ),
+            ],
+        )
+
+        from src.services.cache import cache, get_cache_key
+
+        board_key = get_cache_key("board_data", "PVT_abc")
+        cache.set(board_key, board_data, ttl_seconds=300)
+
+        mock_github_service.update_item_status_by_name.return_value = True
+
+        resp = await client.patch(
+            "/api/v1/board/projects/PVT_abc/items/PVTI_draft/status",
+            json={"status": "Done"},
+        )
+        assert resp.status_code == 200
+        assert cache.get(board_key) is None, "Board cache should be cleared"

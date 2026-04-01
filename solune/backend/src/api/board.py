@@ -457,13 +457,9 @@ async def get_board_data(
 
     # Apply per-column pagination when requested
     if column_limit is not None or column_cursors is not None:
-        import copy
         import json as _json
 
         from src.services.pagination import apply_pagination
-
-        # Deep copy to avoid mutating cached board_data
-        board_data = copy.deepcopy(board_data)
 
         cursors_map: dict[str, str] = {}
         if column_cursors:
@@ -478,6 +474,12 @@ async def get_board_data(
                 raise ValidationError(f"column_cursors is not valid JSON: {exc}") from exc
 
         effective_limit = column_limit or 25
+
+        # Build new column list with paginated item slices instead of deep-
+        # copying the entire board.  Individual BoardItem objects are immutable
+        # within a request so they can be shared safely between the cached
+        # board_data and the paginated response.
+        paginated_columns = []
         for col in board_data.columns:
             col_cursor = cursors_map.get(col.status.option_id)
             paginated = apply_pagination(
@@ -486,9 +488,16 @@ async def get_board_data(
                 cursor=col_cursor,
                 key_fn=lambda item: item.item_id,
             )
-            col.items = paginated.items
-            col.next_cursor = paginated.next_cursor
-            col.has_more = paginated.has_more
+            paginated_columns.append(
+                col.model_copy(
+                    update={
+                        "items": paginated.items,
+                        "next_cursor": paginated.next_cursor,
+                        "has_more": paginated.has_more,
+                    }
+                )
+            )
+        board_data = board_data.model_copy(update={"columns": paginated_columns})
 
     return board_data
 
@@ -538,8 +547,26 @@ async def update_board_item_status(
     if not success:
         raise NotFoundError("Status not found or update failed")
 
-    # Invalidate board data cache so subsequent fetches reflect the change
+    # Invalidate board data cache so subsequent fetches reflect the change.
+    # Also clear sub-issue caches for the updated item so stale sub-issue
+    # data (cached up to 600 s) is not served after a status change.
     board_cache_key = get_cache_key(CACHE_PREFIX_BOARD_DATA, project_id)
+    cached_board = cache.get(board_cache_key)
+    if isinstance(cached_board, BoardDataResponse):
+        for col in cached_board.columns:
+            for board_item in col.items:
+                if (
+                    board_item.item_id == item_id
+                    and board_item.number is not None
+                    and board_item.repository
+                ):
+                    si_key = get_sub_issues_cache_key(
+                        board_item.repository.owner,
+                        board_item.repository.name,
+                        board_item.number,
+                    )
+                    cache.delete(si_key)
+                    break
     cache.delete(board_cache_key)
 
     return StatusUpdateResponse(success=True)
