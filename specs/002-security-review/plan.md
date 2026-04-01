@@ -5,13 +5,13 @@
 
 ## Summary
 
-A comprehensive security audit identified 21 findings across OWASP Top 10 categories (3 Critical, 8 High, 9 Medium, 2 Low) covering authentication, authorization, container hardening, transport security, data protection, and supply-chain controls. Research confirms that **all 21 findings have already been remediated** in the current codebase. The remaining work is verification, documentation, and one deferred trade-off: the OAuth `repo` scope is intentionally retained because GitHub's API returns misleading 404 errors for project write operations with narrower scopes. This plan documents each remediation, the technical approach taken, and the verification strategy.
+A comprehensive security audit identified 21 findings across OWASP Top 10 categories (3 Critical, 8 High, 9 Medium, 2 Low) covering authentication, authorization, container hardening, transport security, data protection, and supply-chain controls. Research confirms that **all 21 findings have already been remediated** in the current codebase (see individual research entries in [research.md](./research.md) for file/line references). The remaining work is verification, documentation, and one deferred trade-off: the OAuth `repo` scope is intentionally retained because GitHub's API returns misleading 404 errors for project write operations with narrower scopes. This plan documents each remediation, the technical approach taken, and the verification strategy.
 
 ## Technical Context
 
-**Language/Version**: Python 3.13+ (backend), TypeScript/React (frontend)
+**Language/Version**: Python >=3.12 (target 3.13) (backend), TypeScript/React (frontend)
 **Primary Dependencies**: FastAPI, Pydantic, slowapi (rate limiting), cryptography (Fernet encryption), nginx 1.29.x (reverse proxy)
-**Storage**: SQLite via aiosqlite (encrypted at rest with Fernet when ENCRYPTION_KEY configured)
+**Storage**: SQLite via aiosqlite (sensitive fields encrypted at rest with Fernet when ENCRYPTION_KEY configured)
 **Testing**: pytest + pytest-asyncio (backend), Vitest (frontend)
 **Target Platform**: Linux server (Docker — Alpine-based images)
 **Project Type**: Web application (backend + frontend monorepo under `solune/`)

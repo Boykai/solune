@@ -6,7 +6,7 @@
 
 ## Overview
 
-This feature addresses 21 security findings from a comprehensive OWASP Top 10 audit. All remediations are implemented across the existing codebase — no new modules or dependencies are required. This quickstart documents the verification procedures for each finding and the deployment considerations for operators.
+This feature addresses 21 security findings from a comprehensive OWASP Top 10 audit. All remediations are implemented across the existing codebase (see [research.md](./research.md) for per-finding file/line references) — no new modules or dependencies are required. This quickstart documents the verification procedures for each finding and the deployment considerations for operators.
 
 ## Remediated Files
 

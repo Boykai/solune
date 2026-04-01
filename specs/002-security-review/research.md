@@ -6,6 +6,8 @@
 
 ## Research Tasks
 
+> **Note**: Each entry below marks its "Current status" with file/line references to the existing codebase where the remediation is implemented. These references point to code on the `copilot/speckit-specify-security-review` branch. If the referenced code is not yet merged to the default branch, consult the implementing PR for the latest state.
+
 ### RT-001: Session Token Transport (Finding #1 — Critical)
 
 **Context**: The audit found session tokens passed in URL query parameters during OAuth callback. Tokens in URLs are recorded in browser history, server/proxy/CDN access logs, and HTTP Referer headers.
@@ -141,13 +143,13 @@
 
 **Context**: SESSION_SECRET_KEY was accepted at any length with no validation.
 
-**Decision**: Production startup validation in `config.py` rejects SESSION_SECRET_KEY shorter than 64 characters with a clear error message including generation instructions (`openssl rand -hex 32`). This check applies in all modes (not just production).
+**Decision**: Production startup validation in `config.py` rejects SESSION_SECRET_KEY shorter than 64 characters with a clear error message including generation instructions (`openssl rand -hex 32`). This check is enforced in non-debug (production) mode; in debug mode a warning is logged but startup is not blocked.
 
-**Rationale**: 64 characters of hex output from `openssl rand -hex 32` provides 256 bits of entropy, exceeding the minimum recommended for HMAC-SHA256 session signing. The check runs unconditionally to prevent weak keys in any environment.
+**Rationale**: 64 characters of hex output from `openssl rand -hex 32` provides 256 bits of entropy, exceeding the minimum recommended for HMAC-SHA256 session signing. Enforcing this check in non-debug mode prevents weak keys in production deployments. Debug-mode warning behavior reflects the current implementation and can be tightened in a future change if desired.
 
 **Alternatives considered**:
 - **Entropy analysis**: More precise but complex to implement; length is a sufficient proxy for keys generated with cryptographic random generators.
-- **Production-only check**: Weaker — developers should also use strong keys to prevent habit-forming with weak test keys.
+- **All-modes strict check (including debug)**: Stronger — developers would also use strong keys in local/test environments. Not currently implemented; would require a follow-up code change.
 
 **Current status**: ✅ Remediated — `config.py` lines 184–189.
 
@@ -256,7 +258,7 @@
 
 **Decision**: The `cors_origins_list` property in `config.py` validates each comma-separated origin using `urlparse`. Each origin must have a scheme (`http` or `https`) and a hostname. Malformed origins raise `ValueError` with a descriptive message identifying the invalid origin.
 
-**Rationale**: Startup validation catches configuration errors early, before the application serves traffic. Validating scheme and hostname is sufficient — port and path are optional and vary by deployment.
+**Rationale**: Startup validation catches configuration errors early, before the application serves traffic. Valid CORS origins consist of scheme and hostname, with an optional port; any path component is not part of the origin and should be rejected or stripped during configuration validation.
 
 **Alternatives considered**:
 - **Regex validation**: More fragile and harder to maintain than URL parsing.
