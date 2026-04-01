@@ -384,7 +384,7 @@ async def websocket_subscribe(
     await connection_manager.connect(websocket, project_id)
 
     stale_revalidation_count = 0  # tracks consecutive stale returns
-    STALE_REVALIDATION_LIMIT = 10  # revalidate after this many stale returns
+    STALE_REVALIDATION_LIMIT = 20  # revalidate after this many stale returns
 
     async def send_tasks(*, force_refresh: bool = False):
         """Fetch and send current tasks, using cache when possible.

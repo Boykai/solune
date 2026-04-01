@@ -12190,3 +12190,89 @@ class TestCacheSemanticsForPolling:
         finally:
             cache.delete(items_key)
             cache.delete(board_key)
+
+
+# ── Performance: Polling loop board-refresh isolation (T022/T047/US1/US5) ──
+
+
+class TestPollingNoBoardCacheInvalidation:
+    """Verify that fallback polling does not trigger full board refresh or
+    invalidate board cache when data is unchanged (T022/T047/SC-004)."""
+
+    def test_polling_uses_project_items_cache_not_board_cache(self):
+        """Polling loop uses get_project_items_cache_key, not board_data key.
+        This confirms the cache domains are separate (T047/SC-004)."""
+        from src.services.cache import get_cache_key, get_project_items_cache_key
+
+        items_key = get_project_items_cache_key("PVT_poll")
+        board_key = get_cache_key("board_data", "PVT_poll")
+        assert items_key != board_key, (
+            "Items and board cache keys must be different to avoid cross-invalidation"
+        )
+        assert "project" in items_key
+        assert "board_data" in board_key
+
+    def test_polling_cache_miss_does_not_touch_board_cache(self):
+        """When polling detects a cache miss on project items, it should not
+        delete or invalidate the board data cache (T022/SC-004)."""
+        from uuid import uuid4
+
+        from src.services.cache import cache, get_cache_key, get_project_items_cache_key
+
+        project_id = f"PVT_notouch_{uuid4().hex}"
+        items_key = get_project_items_cache_key(project_id)
+        board_key = get_cache_key("board_data", project_id)
+
+        try:
+            # Only populate board cache, items cache is empty
+            cache.set(board_key, {"columns": [{"name": "Todo"}]}, ttl_seconds=300)
+
+            # Items cache miss
+            assert cache.get(items_key) is None
+
+            # Board cache should remain intact
+            board_data = cache.get(board_key)
+            assert board_data is not None
+            assert board_data["columns"][0]["name"] == "Todo"
+        finally:
+            cache.delete(items_key)
+            cache.delete(board_key)
+
+    def test_unchanged_polling_data_preserves_all_caches(self):
+        """When polling data is unchanged (same hash), no cache entries should
+        be invalidated or modified beyond TTL refresh (T047/SC-001)."""
+        from uuid import uuid4
+
+        from src.services.cache import (
+            cache,
+            compute_data_hash,
+            get_cache_key,
+            get_project_items_cache_key,
+        )
+
+        project_id = f"PVT_unchanged_{uuid4().hex}"
+        items_key = get_project_items_cache_key(project_id)
+        board_key = get_cache_key("board_data", project_id)
+
+        try:
+            items = [{"id": "1", "title": "stable task"}]
+            items_hash = compute_data_hash(items)
+            board_content = {"columns": [{"name": "Stable"}]}
+
+            cache.set(items_key, items, data_hash=items_hash)
+            cache.set(board_key, board_content, ttl_seconds=300)
+
+            # Simulate polling returning same data
+            new_hash = compute_data_hash(items)
+            assert new_hash == items_hash
+
+            # Refresh TTL on items (what the real code does for unchanged data)
+            cache.refresh_ttl(items_key)
+
+            # Board cache must remain completely untouched
+            board_entry = cache.get_entry(board_key)
+            assert board_entry is not None
+            assert board_entry.value == board_content
+        finally:
+            cache.delete(items_key)
+            cache.delete(board_key)

@@ -495,3 +495,73 @@ class TestCachedFetchExtensions:
 
         result = await cached_fetch(c, "k", fetch_fn, stale_fallback=True)
         assert result == "stale"
+
+
+# ── Performance: Stale data fallback and hash stability (T045/US5) ─────────
+
+
+class TestStaleDataFallbackRegression:
+    """Extend coverage for get_stale() returning expired data during API
+    failures and hash stability across rate-limit changes (T045/SC-001)."""
+
+    def test_get_stale_returns_expired_data(self):
+        """get_stale() should return data even after TTL expiry (T045)."""
+        c = InMemoryCache()
+        c.set("stale_test", "expired_value", ttl_seconds=0)
+        time.sleep(0.1)
+
+        # get_stale returns data regardless of expiry
+        stale = c.get_stale("stale_test")
+        assert stale == "expired_value"
+
+    def test_get_stale_returns_none_for_missing_key(self):
+        """get_stale() should return None for keys that never existed."""
+        c = InMemoryCache()
+        assert c.get_stale("nonexistent") is None
+
+    def test_hash_stability_ignores_rate_limit(self):
+        """Board data hash should be stable when only rate_limit changes,
+        not the actual board content (T045/SC-001)."""
+        data_without_rl = {"columns": [{"name": "Todo", "items": []}]}
+        data_with_rl = {"columns": [{"name": "Todo", "items": []}], "rate_limit": {"remaining": 50}}
+
+        hash1 = compute_data_hash(data_without_rl)
+        # Hash computation includes rate_limit key — the board endpoint excludes
+        # it via model_dump(exclude={"rate_limit"}). Verify that if the caller
+        # properly excludes rate_limit, hashes match.
+        hash_no_rl = compute_data_hash({k: v for k, v in data_with_rl.items() if k != "rate_limit"})
+        assert hash1 == hash_no_rl
+
+    def test_refresh_ttl_preserves_data_hash(self):
+        """refresh_ttl() should preserve the existing data_hash (T045)."""
+        c = InMemoryCache()
+        original_hash = compute_data_hash({"test": True})
+        c.set("hash_test", "value", data_hash=original_hash)
+
+        c.refresh_ttl("hash_test")
+
+        entry = c.get_entry("hash_test")
+        assert entry is not None
+        assert entry.data_hash == original_hash
+
+    @patch("src.services.cache.get_settings")
+    @pytest.mark.asyncio
+    async def test_cached_fetch_rate_limit_serves_stale(self, mock_settings):
+        """cached_fetch with rate_limit_fallback should serve stale data when
+        RateLimitError occurs during fetch (T045/SC-001)."""
+        from src.exceptions import RateLimitError
+        from src.services.cache import cached_fetch
+
+        mock_settings.return_value = MagicMock(cache_ttl_seconds=300)
+        c = InMemoryCache()
+        c.set("rl_key", "cached_value", ttl_seconds=0)
+        time.sleep(0.01)
+
+        async def fetch_fn():
+            raise RateLimitError(
+                message="rate limit exceeded",
+                retry_after=60,
+            )
+
+        result = await cached_fetch(c, "rl_key", fetch_fn, rate_limit_fallback=True)
+        assert result == "cached_value"

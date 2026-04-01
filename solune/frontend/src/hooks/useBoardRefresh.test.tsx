@@ -931,4 +931,86 @@ describe('useBoardRefresh', () => {
       expect(invalidateSpy).toHaveBeenCalledTimes(invalidateCountAfterManual);
     });
   });
+
+  describe('auto-refresh timer management (T049/US5)', () => {
+    it('auto-refresh timer resets after manual refresh', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+
+      const { result } = renderHook(
+        () => useBoardRefresh({ projectId: 'PVT_TIMER_RESET' }),
+        { wrapper: createWrapper(queryClient) },
+      );
+
+      // Manual refresh
+      await act(async () => {
+        result.current.refresh();
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // After manual refresh, timer should reset. Advance by less than
+      // AUTO_REFRESH_INTERVAL_MS (1000ms in tests) — no auto-refresh yet.
+      invalidateSpy.mockClear();
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+      });
+      // No auto-refresh triggered yet
+      expect(invalidateSpy).not.toHaveBeenCalled();
+
+      // Advance past the auto-refresh interval — should trigger auto-refresh
+      await act(async () => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(invalidateSpy).toHaveBeenCalled();
+    });
+
+    it('visibility change resumes timer after being hidden', async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue();
+
+      renderHook(
+        () => useBoardRefresh({ projectId: 'PVT_VIS' }),
+        { wrapper: createWrapper(queryClient) },
+      );
+
+      // Let the initial timer start and record state
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // Simulate tab becoming hidden
+      Object.defineProperty(document, 'hidden', { value: true, writable: true });
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      // Advance time — no auto-refresh should fire while hidden
+      invalidateSpy.mockClear();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(invalidateSpy).not.toHaveBeenCalled();
+
+      // Make visible again — should trigger a stale data refresh (data is > 1s old)
+      // because lastRefreshedAt is null and now - 0 >= AUTO_REFRESH_INTERVAL_MS
+      Object.defineProperty(document, 'hidden', { value: false, writable: true });
+      await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // The visibility handler should have triggered a refresh or restarted timer
+      // Advance past auto-refresh to confirm timer resumed
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1200);
+      });
+
+      // At this point either the immediate stale check or the timer should have fired
+      expect(invalidateSpy).toHaveBeenCalled();
+    });
+  });
 });

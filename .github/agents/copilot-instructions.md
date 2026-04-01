@@ -278,6 +278,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
 - Python 3.13 (PEP 695 type parameter syntax enforced by ruff UP046/UP047) + FastAPI, Pydantic, aiosqlite, pytest + pytest-asyncio (002-fix-parallel-pipeline-bugs)
 - SQLite via aiosqlite (no schema changes needed) (002-fix-parallel-pipeline-bugs)
+- Python ≥3.12 (target 3.13) for backend; TypeScript with React 19 for frontend + FastAPI ≥0.135.0, httpx ≥0.28.0, githubkit (backend); React 19.2.0, @tanstack/react-query 5.96.0, @dnd-kit/core 6.3.1 (frontend) (002-performance-review)
+- In-memory cache (`src/services/cache.py`) with TTL-based entries; no external database for board data (002-performance-review)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

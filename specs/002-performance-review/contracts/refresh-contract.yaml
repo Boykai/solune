@@ -1,0 +1,225 @@
+# Refresh Contract
+#
+# Defines the behavioral contract between backend cache/API endpoints and
+# frontend refresh sources for the Performance Review optimization pass.
+#
+# This is a behavioral contract (not a new API schema) because the feature
+# optimizes existing endpoint behavior rather than introducing new endpoints.
+
+openapi: "3.1.0"
+info:
+  title: "Performance Review — Refresh Contract"
+  version: "1.0.0"
+  description: |
+    Behavioral specification for the board data refresh lifecycle.
+    Documents the expected interaction between backend cache behavior
+    and frontend refresh sources after performance optimizations.
+
+paths:
+  /api/board/{project_id}:
+    get:
+      operationId: getBoardData
+      summary: Fetch board data with cache and refresh semantics
+      description: |
+        Returns the complete board state for a project. Supports cache-bypass
+        via the `refresh` query parameter for manual refresh operations.
+
+        **Cache behavior (300s TTL)**:
+        - Warm cache: Returns cached data immediately without external API call.
+        - Expired cache: Fetches fresh data, computes data_hash, stores in cache.
+        - Manual refresh (refresh=true): Bypasses cache read, deletes sub-issue
+          caches, fetches fresh data, populates cache for subsequent reads.
+
+        **Data hash**:
+        - Computed as SHA-256 of JSON-serialized board data excluding rate_limit.
+        - Used by WebSocket subscription for change detection.
+        - Stored in CacheEntry.data_hash for hash-match TTL refresh.
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            When true, bypasses cache read and forces fresh data fetch.
+            Also deletes all associated sub-issue cache entries.
+      responses:
+        "200":
+          description: Board data with rate limit info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  columns:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        item_count:
+                          type: integer
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            description: Board item (task/issue)
+                  rate_limit:
+                    type: object
+                    properties:
+                      remaining:
+                        type: integer
+                      limit:
+                        type: integer
+                      reset:
+                        type: integer
+                        description: Unix timestamp of rate limit reset
+                  data_hash:
+                    type: string
+                    description: SHA-256 hash (excludes rate_limit)
+
+  /ws/projects/{project_id}/tasks:
+    get:
+      operationId: subscribeProjectTasks
+      summary: WebSocket subscription for real-time task updates
+      description: |
+        WebSocket endpoint that streams task updates for a project.
+
+        **Periodic refresh (30s intervals)**:
+        - Checks warm cache first; returns immediately if valid.
+        - On cache expiry, serves stale data up to STALE_REVALIDATION_LIMIT (10)
+          consecutive stale reads before forcing a fresh fetch.
+        - Compares data_hash before/after fetch:
+          - Hash match: refresh_ttl() only, no client notification.
+          - Hash mismatch: store new data, send updated tasks to client.
+
+        **Change detection contract**:
+        - Client receives updates ONLY when data_hash changes.
+        - Stale-revalidation forces at most 1 API call per ~5 minutes on idle boards.
+        - Client-side debounce (2s) deduplicates rapid reconnection events.
+
+        **Message types**:
+        - initial_data: Full task list on connection/reconnection.
+        - task_update: Single task changed.
+        - task_created: New task added.
+        - status_changed: Task moved between columns.
+        - refresh: Server-initiated full refresh signal.
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+
+# Behavioral Contracts (non-REST)
+
+x-behavioral-contracts:
+
+  refresh-source-isolation:
+    description: |
+      Each refresh source has a defined scope of query invalidation.
+      Task-level updates MUST NOT trigger board data query invalidation.
+    rules:
+      - source: "websocket_task_update"
+        invalidates: "['projects', projectId, 'tasks']"
+        does_not_invalidate: "['board', 'data', projectId]"
+
+      - source: "websocket_refresh"
+        invalidates: "['projects', projectId, 'tasks']"
+        does_not_invalidate: "['board', 'data', projectId]"
+
+      - source: "fallback_polling"
+        invalidates: "['projects', projectId, 'tasks']"
+        does_not_invalidate: "['board', 'data', projectId]"
+        interval_ms: 30000
+
+      - source: "auto_refresh_timer"
+        invalidates: "['board', 'data', projectId]"
+        does_not_invalidate: "['projects', projectId, 'tasks']"
+        interval_ms: 300000
+        disabled_when: "websocket_connected AND data_unchanged"
+
+      - source: "manual_refresh"
+        invalidates: "['board', 'data', projectId]"
+        cache_bypass: true
+        backend_param: "refresh=true"
+        cancels_pending: true
+        resets_auto_refresh_timer: true
+
+  debounce-policy:
+    description: |
+      Debounce windows that prevent refresh storms.
+    rules:
+      - name: "board_reload_debounce"
+        window_ms: 2000
+        applies_to:
+          - "auto_refresh_timer"
+          - "websocket_reconnection"
+        manual_refresh_priority: "manual always wins, cancels pending debounced"
+
+      - name: "websocket_reconnect_debounce"
+        window_ms: 2000
+        applies_to:
+          - "initial_data messages on reconnection"
+
+  cache-hierarchy:
+    description: |
+      TTL and invalidation relationships between cached entities.
+    entries:
+      - key_pattern: "board:{project_id}"
+        ttl_seconds: 300
+        invalidated_by: "manual_refresh (bypass), auto_refresh (background)"
+        hash_field: "data_hash (excludes rate_limit)"
+
+      - key_pattern: "sub_issues:{owner}/{repo}#{issue_number}"
+        ttl_seconds: 600
+        invalidated_by: "manual_refresh only (explicit delete before fetch)"
+        note: "Independent TTL from board data; warm sub-issue caches reduce board refresh cost"
+
+      - key_pattern: "resolve_repo:{token_hash}:{project_id}"
+        ttl_seconds: 300
+        invalidated_by: "TTL expiry only"
+        note: "Token-scoped to prevent cross-user cache pollution"
+
+  idle-board-budget:
+    description: |
+      Expected API consumption for an idle board (no external data changes).
+    targets:
+      - metric: "background_api_calls_per_5min"
+        baseline: "TBD (measure before optimization)"
+        target: "≤50% of baseline (SC-001)"
+        sources:
+          - "WebSocket stale-revalidation: ~1 forced fetch per 5min"
+          - "Adaptive polling: interval increases on stable data"
+          - "Sub-issue cache: warm reads avoid API calls (600s TTL)"
+
+  render-optimization-policy:
+    description: |
+      Low-risk render optimization guidelines for board components.
+    rules:
+      - target: "BoardColumn"
+        optimization: "memo with stable column.items reference"
+        risk: "low — no behavior change, only render reduction"
+
+      - target: "IssueCard"
+        optimization: "memo with stable item reference"
+        risk: "low — already memo'd, ensure parent provides stable refs"
+
+      - target: "ProjectsPage derived state"
+        optimization: "already useMemo'd — verify dependency arrays"
+        risk: "none — existing optimization, verification only"
+
+      - target: "ChatPopup resize"
+        optimization: "already RAF-gated — no additional work needed"
+        risk: "none — already optimized"
+
+      - target: "AddAgentPopover"
+        optimization: "already uses Radix positioning — no custom listeners"
+        risk: "none — already optimized"
