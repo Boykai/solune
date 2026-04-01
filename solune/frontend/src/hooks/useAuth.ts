@@ -25,19 +25,17 @@ const LOGOUT_SESSION_STORAGE_KEYS = ['solune-redirect-after-login', 'solune-chun
 
 function removeMatchingStorageKeys(
   storage: Storage,
-  exactKeys: readonly string[],
+  staticKeys: readonly string[],
   keyPrefixes: readonly string[] = []
 ): void {
-  const dynamicKeys: string[] = [];
+  const storageKeys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+    (key): key is string => key !== null
+  );
 
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (key && keyPrefixes.some((prefix) => key.startsWith(prefix))) {
-      dynamicKeys.push(key);
-    }
-  }
-
-  for (const key of [...exactKeys, ...dynamicKeys]) {
+  for (const key of [
+    ...staticKeys,
+    ...storageKeys.filter((key) => keyPrefixes.some((prefix) => key.startsWith(prefix))),
+  ]) {
     storage.removeItem(key);
   }
 }
