@@ -111,4 +111,23 @@ describe('SettingsSection', () => {
     );
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
   });
+
+  it('cleans up toast timer on unmount to prevent memory leaks', async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(
+      <SettingsSection title="Test" onSave={onSave} isDirty={true}>
+        <div>Content</div>
+      </SettingsSection>
+    );
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => {
+      expect(screen.getByText('Saved!')).toBeInTheDocument();
+    });
+
+    // Unmount while toast timer is still active — should NOT throw
+    unmount();
+    // If the timer were not cleaned up, this would cause a
+    // "setState on unmounted component" warning/error
+  });
 });

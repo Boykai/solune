@@ -215,6 +215,7 @@ async def _run_migrations(db: aiosqlite.Connection) -> None:
             logger.info("Applied migration %s (schema version: %d)", path.stem, version)
         except Exception as e:
             logger.exception("Failed to apply migration %s: %s", path.stem, e)
+            await db.rollback()
             raise
 
     await _reconcile_known_schema_drifts(db)

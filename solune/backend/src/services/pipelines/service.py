@@ -377,7 +377,11 @@ class PipelineService:
     @staticmethod
     def _row_to_config(row_dict: dict) -> PipelineConfig:
         """Convert a database row dict to a PipelineConfig model."""
-        stages_raw = json.loads(row_dict.get("stages", "[]"))
+        try:
+            stages_raw = json.loads(row_dict.get("stages", "[]"))
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("Malformed stages JSON in pipeline config %s", row_dict.get("id"))
+            stages_raw = []
         stages = [PipelineStage(**s) for s in stages_raw]
         return PipelineConfig(
             id=row_dict["id"],
@@ -414,7 +418,13 @@ class PipelineService:
         summaries: list[PipelineConfigSummary] = []
         for row in rows:
             row_dict = dict(row)
-            stages = json.loads(row_dict.get("stages", "[]"))
+            try:
+                stages = json.loads(row_dict.get("stages", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(
+                    "Malformed stages JSON in pipeline config %s, skipping", row_dict.get("id")
+                )
+                stages = []
             parsed_stages = [PipelineStage(**s) for s in stages]
             # Count agents from groups (preferred) or fallback to legacy agents field
             agent_count = sum(
