@@ -91,7 +91,7 @@ class TestCookieBasedTokenDelivery:
         app.dependency_overrides.clear()
 
     async def test_cookie_attributes(self):
-        """Set-Cookie must include HttpOnly, SameSite=Lax, Path=/."""
+        """Set-Cookie must include HttpOnly, SameSite=Strict, Path=/."""
         from src.api.auth import get_session_dep
         from src.main import create_app
 

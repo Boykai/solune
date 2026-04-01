@@ -227,10 +227,42 @@ class TestInitDatabase:
 
                 dbmod._connection = None
 
+    async def test_sets_directory_permissions_0700(self, tmp_path, mock_settings):
+        """Database directory must be created with 0700 permissions (FR-026)."""
+        db_dir = tmp_path / "subdir"
+        db_path = str(db_dir / "test.db")
+        mock_settings.database_path = db_path
+        with patch("src.services.database.get_settings", return_value=mock_settings):
+            db = await init_database()
+            try:
+                actual_mode = db_dir.stat().st_mode & 0o777
+                assert actual_mode == 0o700, (
+                    f"Expected directory permissions 0700, got {oct(actual_mode)}"
+                )
+            finally:
+                await db.close()
+                import src.services.database as dbmod
 
-# =============================================================================
-# _column_exists — SQL injection guard regression tests
-# =============================================================================
+                dbmod._connection = None
+
+    async def test_sets_file_permissions_0600(self, tmp_path, mock_settings):
+        """Database file must have 0600 permissions (FR-026)."""
+        from pathlib import Path
+
+        db_path = str(tmp_path / "test.db")
+        mock_settings.database_path = db_path
+        with patch("src.services.database.get_settings", return_value=mock_settings):
+            db = await init_database()
+            try:
+                actual_mode = Path(db_path).stat().st_mode & 0o777
+                assert actual_mode == 0o600, (
+                    f"Expected file permissions 0600, got {oct(actual_mode)}"
+                )
+            finally:
+                await db.close()
+                import src.services.database as dbmod
+
+                dbmod._connection = None
 
 
 class TestColumnExistsSQLInjectionGuard:

@@ -150,6 +150,12 @@ class TestCorsOriginsValidation:
         with pytest.raises(ValueError, match="Malformed CORS origin"):
             _ = s.cors_origins_list
 
+    def test_malformed_origin_non_http_scheme_raises(self):
+        """ftp:// and other non-HTTP schemes must be rejected (FR-008)."""
+        s = _make_debug(cors_origins="ftp://files.example.com")
+        with pytest.raises(ValueError, match="Malformed CORS origin"):
+            _ = s.cors_origins_list
+
     def test_empty_origin_ignored(self):
         s = _make_debug(cors_origins="http://localhost:5173,,")
         assert s.cors_origins_list == ["http://localhost:5173"]
