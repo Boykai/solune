@@ -668,9 +668,8 @@ async def _process_pipeline_completion(
             task_title=task.title,
         )
 
-    # Check if current agent has completed
-    # Iterate through ALL active agents in the group
-    # Phase 2: Iterate through ALL active agents in the group
+    # Phase 2: Iterate through ALL active agents in the current group.
+    # For parallel groups, this checks every agent per poll cycle.
     for agent in pipeline.current_agents:
         # Skip if already terminal in this cycle
         if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
@@ -688,23 +687,11 @@ async def _process_pipeline_completion(
 
         if completed:
             # Advance specifically for THIS agent.
-            # _advance_pipeline handles marking the agent done.
+            # _advance_pipeline handles marking the agent done and advances
+            # the group index only when ALL parallel agents are terminal.
+            # Do NOT return early — the loop must continue so that remaining
+            # parallel agents are checked within the same poll cycle.
             await _advance_pipeline(
-                access_token=access_token,
-                project_id=project_id,
-                item_id=task.github_item_id,
-                owner=task_owner,
-                repo=task_repo,
-                issue_number=task.issue_number,
-                issue_node_id=task.github_content_id,
-                pipeline=pipeline,
-                from_status=from_status,
-                to_status=to_status,
-                task_title=task.title,
-            )
-
-        if completed:
-            return await _advance_pipeline(
                 access_token=access_token,
                 project_id=project_id,
                 item_id=task.github_item_id,
