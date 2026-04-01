@@ -429,6 +429,40 @@ class TestDeleteApp:
         resp = await client.delete("/api/v1/apps/running-app")
         assert resp.status_code == 409
 
+    async def test_delete_non_force_returns_no_body(self, client):
+        """Regression: non-force delete (204 No Content) must not return a response body.
+
+        Bug: The endpoint previously returned a DeleteAppResult object even when
+        setting status_code=204, violating the HTTP spec that 204 responses must
+        not include a message body.
+        """
+        from src.models.app import DeleteAppResult
+
+        self.mock_delete.return_value = DeleteAppResult(app_name="my-app", db_deleted=True)
+        resp = await client.delete("/api/v1/apps/my-app")
+        assert resp.status_code == 204
+        # 204 No Content — response body must be empty
+        assert resp.content == b"" or resp.text == "null"
+
+    async def test_force_delete_returns_result(self, client):
+        """force=true delete returns 200 with DeleteAppResult body."""
+        from src.models.app import DeleteAppResult
+
+        result = DeleteAppResult(
+            app_name="my-app",
+            issues_closed=2,
+            branches_deleted=3,
+            project_deleted=True,
+            repo_deleted=True,
+            db_deleted=True,
+        )
+        self.mock_delete.return_value = result
+        resp = await client.delete("/api/v1/apps/my-app?force=true")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["app_name"] == "my-app"
+        assert body["issues_closed"] == 2
+
 
 # ── POST /apps/{name}/start ───────────────────────────────────────────────
 

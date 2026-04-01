@@ -211,10 +211,13 @@ async def _discover_and_register_active_projects() -> int:
             "ORDER BY updated_at DESC LIMIT 1",
         )
         row = await cursor.fetchone()
-        if row:
-            session_token = row["access_token"]
-    except Exception:
-        pass
+        if row and row["access_token"]:
+            from src.services.encryption import EncryptionService
+
+            enc = EncryptionService(settings.encryption_key, debug=settings.debug)
+            session_token = enc.decrypt(row["access_token"])
+    except Exception as e:
+        logger.warning("Failed to retrieve session token for project discovery: %s", e)
 
     token = session_token or fallback_token
     if not token:

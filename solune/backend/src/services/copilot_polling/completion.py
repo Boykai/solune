@@ -284,6 +284,14 @@ async def _merge_child_pr_if_applicable(
                 # Verify GitHub actually reflects the merged state before we allow
                 # the pipeline to continue. This avoids Done! markers being posted
                 # while the child PR is still open.
+                # TODO(bug-bash): post_merge_state defaults to "" (falsy). If the
+                # verification API call fails or returns no state on both attempts,
+                # the check at line `if post_merge_state and ...` is skipped
+                # (empty string is falsy), so an unverifiable merge is treated as
+                # success. Consider using None as sentinel and failing verification
+                # when the state cannot be confirmed. Trade-off: false negatives
+                # (treating a successful merge as failed) may be worse than false
+                # positives in practice since the merge API already returned success.
                 post_merge_state = ""
                 for attempt in range(2):
                     post_merge_details = await _cp.github_projects_service.get_pull_request(

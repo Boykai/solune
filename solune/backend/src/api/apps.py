@@ -265,6 +265,7 @@ async def delete_app_endpoint(
     )
     if not force:
         response.status_code = 204
+        return None
     return result
 
 

@@ -1981,6 +1981,14 @@ class WorkflowOrchestrator:
             )
 
         if agent_index >= len(agents):
+            # TODO(bug-bash): Returning True here signals "handled successfully"
+            # to the caller, but no agent was actually assigned. If this branch
+            # is reached because all agents completed normally, True is correct.
+            # If it's reached due to an index calculation bug, True masks the
+            # error. Consider returning False and letting the caller decide
+            # whether the pipeline is complete based on state, or adding an
+            # explicit "pipeline_complete" return type. Needs human review of
+            # all call-sites before changing.
             logger.info(
                 "Agent index %d out of range for status '%s' (has %d agents)",
                 agent_index,

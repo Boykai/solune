@@ -13,7 +13,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import ASGITransport, AsyncClient
 
-from src.main import _auto_start_copilot_polling, _session_cleanup_loop, create_app
+from src.main import (
+    _auto_start_copilot_polling,
+    _discover_and_register_active_projects,
+    _session_cleanup_loop,
+    create_app,
+)
 
 # ── create_app ──────────────────────────────────────────────────────────────
 
@@ -686,4 +691,132 @@ class TestAutoStartWebhookFallback:
                 owner="Boykai",
                 repo="github-workflows",
                 caller="webhook_token_fallback",
+            )
+
+
+# ── _discover_and_register_active_projects — token decryption ───────────────
+
+
+class TestDiscoverProjectsTokenDecryption:
+    """Regression: _discover_and_register_active_projects must decrypt
+    the access_token from the database before using it.
+
+    Bug: The function previously read ``row["access_token"]`` directly from
+    the ``user_sessions`` table without passing it through the EncryptionService.
+    Since tokens are stored encrypted, this passed garbled ciphertext as an
+    OAuth token, causing all GitHub API calls to fail silently.
+    """
+
+    async def test_session_token_is_decrypted_before_use(self):
+        """The token read from user_sessions must be decrypted."""
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        encrypted_token = "gAAAAABf_encrypted_token_value"
+        decrypted_token = "ghp_realtoken123"
+
+        # Mock a pipeline state with a project_id
+        mock_state = MagicMock(spec=PipelineState)
+        mock_state.project_id = "PVT_abc"
+
+        # DB returns an encrypted token
+        async def _execute(sql, *args, **kwargs):
+            cursor = AsyncMock()
+            if "user_sessions" in sql:
+                cursor.fetchone = AsyncMock(return_value={"access_token": encrypted_token})
+            elif "project_settings" in sql:
+                wf = json.dumps({"repository_owner": "testowner", "repository_name": "testrepo"})
+                cursor.fetchall = AsyncMock(
+                    return_value=[{"project_id": "PVT_abc", "workflow_config": wf}]
+                )
+            else:
+                cursor.fetchone = AsyncMock(return_value=None)
+                cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        mock_settings = MagicMock(
+            github_webhook_token="",
+            default_repo_owner="testowner",
+            default_repo_name="testrepo",
+            encryption_key="test-key",
+            debug=True,
+        )
+
+        mock_enc = MagicMock()
+        mock_enc.decrypt.return_value = decrypted_token
+
+        with (
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={"issue-1": mock_state},
+            ),
+            patch("src.config.get_settings", return_value=mock_settings),
+            patch(
+                "src.services.encryption.EncryptionService",
+                return_value=mock_enc,
+            ),
+            patch(
+                "src.services.copilot_polling.register_project",
+                return_value=True,
+            ) as mock_register,
+        ):
+            count = await _discover_and_register_active_projects()
+
+            # The decrypted token must be passed to register_project
+            mock_enc.decrypt.assert_called_once_with(encrypted_token)
+            mock_register.assert_called_once_with(
+                "PVT_abc", "testowner", "testrepo", decrypted_token
+            )
+            assert count == 1
+
+    async def test_missing_session_token_falls_back_to_webhook_token(self):
+        """When no session token is available, fallback_token should be used."""
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        mock_state = MagicMock(spec=PipelineState)
+        mock_state.project_id = "PVT_abc"
+
+        async def _execute(sql, *args, **kwargs):
+            cursor = AsyncMock()
+            if "user_sessions" in sql:
+                cursor.fetchone = AsyncMock(return_value=None)
+            elif "project_settings" in sql:
+                wf = json.dumps({"repository_owner": "testowner", "repository_name": "testrepo"})
+                cursor.fetchall = AsyncMock(
+                    return_value=[{"project_id": "PVT_abc", "workflow_config": wf}]
+                )
+            else:
+                cursor.fetchone = AsyncMock(return_value=None)
+                cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        mock_settings = MagicMock(
+            github_webhook_token="ghp_webhook_token",
+            default_repo_owner="testowner",
+            default_repo_name="testrepo",
+            encryption_key="test-key",
+            debug=True,
+        )
+
+        with (
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={"issue-1": mock_state},
+            ),
+            patch("src.config.get_settings", return_value=mock_settings),
+            patch(
+                "src.services.copilot_polling.register_project",
+                return_value=True,
+            ) as mock_register,
+        ):
+            await _discover_and_register_active_projects()
+            mock_register.assert_called_once_with(
+                "PVT_abc", "testowner", "testrepo", "ghp_webhook_token"
             )
