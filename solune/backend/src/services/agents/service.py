@@ -30,6 +30,9 @@ from src.models.agents import (
     AgentUpdate,
     BulkModelUpdateRequest,
     BulkModelUpdateResult,
+    ImportAgentRequest,
+    ImportAgentResult,
+    InstallAgentResult,
 )
 from src.services.agent_creator import generate_config_files, generate_issue_body
 from src.services.cache import cache, get_repo_agents_cache_key
@@ -306,6 +309,10 @@ class AgentsService:
                     branch_name=r.get("branch_name"),
                     source=AgentSource.LOCAL,
                     created_at=r.get("created_at"),
+                    agent_type=r.get("agent_type", "custom") or "custom",
+                    catalog_source_url=r.get("catalog_source_url"),
+                    catalog_agent_id=r.get("catalog_agent_id"),
+                    imported_at=r.get("imported_at"),
                 )
             )
         return agents
@@ -741,6 +748,222 @@ class AgentsService:
             pr_number=result.pr_number or 0,
             issue_number=result.issue_number,
             branch_name=branch_name,
+        )
+
+    # ── Import (catalog → project DB snapshot) ───────────────────────────
+
+    async def import_agent(
+        self,
+        *,
+        project_id: str,
+        owner: str,
+        repo: str,
+        body: ImportAgentRequest,
+        github_user_id: str,
+    ) -> ImportAgentResult:
+        """Import a catalog agent into the project as a DB-only snapshot.
+
+        No GitHub writes occur.  The raw agent markdown is fetched from the
+        catalog ``source_url`` and stored verbatim in ``raw_source_content``.
+        """
+        from src.services.agents.catalog import fetch_agent_raw_content
+
+        # Check for duplicate
+        cursor = await self._db.execute(
+            "SELECT id FROM agent_configs WHERE catalog_agent_id = ? AND project_id = ?",
+            (body.catalog_agent_id, project_id),
+        )
+        if await cursor.fetchone():
+            raise ValueError(
+                f"Agent '{body.catalog_agent_id}' is already imported in this project."
+            )
+
+        # Fetch raw content
+        try:
+            raw_content = await fetch_agent_raw_content(body.source_url)
+        except Exception as exc:
+            raise RuntimeError(f"Could not fetch agent content: {exc}") from exc
+
+        agent_id = str(uuid.uuid4())
+        slug = re.sub(r"[^a-z0-9]+", "-", body.name.lower()).strip("-") or body.catalog_agent_id
+        now = utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        await self._db.execute(
+            """INSERT INTO agent_configs
+               (id, name, slug, description, system_prompt, status_column,
+                tools, project_id, owner, repo, created_by,
+                created_at, lifecycle_status,
+                agent_type, catalog_source_url, catalog_agent_id,
+                raw_source_content, imported_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                agent_id,
+                body.name,
+                slug,
+                body.description,
+                "",  # system_prompt empty until install
+                "",  # status_column
+                "[]",  # tools
+                project_id,
+                owner,
+                repo,
+                github_user_id,
+                now,
+                AgentStatus.IMPORTED.value,
+                "imported",
+                body.source_url,
+                body.catalog_agent_id,
+                raw_content,
+                now,
+            ),
+        )
+        await self._db.commit()
+
+        agent = Agent(
+            id=agent_id,
+            name=body.name,
+            slug=slug,
+            description=body.description,
+            status=AgentStatus.IMPORTED,
+            source=AgentSource.LOCAL,
+            created_at=now,
+            agent_type="imported",
+            catalog_source_url=body.source_url,
+            catalog_agent_id=body.catalog_agent_id,
+            imported_at=now,
+        )
+        return ImportAgentResult(
+            agent=agent,
+            message=f"Agent '{body.name}' imported successfully.",
+        )
+
+    # ── Install (imported agent → GitHub issue + PR) ─────────────────────
+
+    async def install_agent(
+        self,
+        *,
+        project_id: str,
+        owner: str,
+        repo: str,
+        agent_id: str,
+        access_token: str,
+    ) -> InstallAgentResult:
+        """Install a previously imported agent to the repository.
+
+        Creates a parent GitHub issue and a PR that commits the raw
+        ``.agent.md`` file and a generated ``.prompt.md`` routing file.
+        """
+        # Load the imported agent
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_configs WHERE id = ? AND project_id = ?",
+            (agent_id, project_id),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise LookupError(f"Agent '{agent_id}' not found.")
+
+        r = (
+            dict(row)
+            if isinstance(row, dict)
+            else dict(zip([d[0] for d in cursor.description], row, strict=False))
+        )
+
+        if r.get("lifecycle_status") != AgentStatus.IMPORTED.value:
+            raise ValueError("Agent is not in imported state.")
+
+        slug = r["slug"]
+        raw_content = r.get("raw_source_content", "")
+
+        # Build files: raw .agent.md (verbatim) + generated .prompt.md
+        agent_file_path = f".github/agents/{slug}.agent.md"
+        prompt_file_path = f".github/prompts/{slug}.prompt.md"
+        prompt_content = f"```prompt\n---\nagent: {slug}\n---\n```\n"
+
+        files = [
+            {"path": agent_file_path, "content": raw_content},
+            {"path": prompt_file_path, "content": prompt_content},
+        ]
+
+        branch_name = f"agent/{slug}"
+        issue_title = f"Install agent: {r['name']}"
+        issue_body = (
+            f"## Agent Installation\n\n"
+            f"Installing imported agent **{r['name']}** from the Awesome Copilot catalog.\n\n"
+            f"**Catalog source**: {r.get('catalog_source_url', 'N/A')}\n\n"
+            f"### Files\n"
+            f"- `{agent_file_path}` — raw agent definition (preserved verbatim)\n"
+            f"- `{prompt_file_path}` — prompt routing file\n"
+        )
+        pr_title = f"Add agent: {r['name']}"
+        pr_body = (
+            f"Adds the **{r['name']}** agent imported from the Awesome Copilot catalog.\n\n"
+            f"Closes the tracking issue.\n\n"
+            f"### Files\n"
+            f"| File | Description |\n"
+            f"|------|-------------|\n"
+            f"| `{agent_file_path}` | Raw agent definition (verbatim from catalog) |\n"
+            f"| `{prompt_file_path}` | Prompt routing file |\n"
+        )
+
+        result = await commit_files_workflow(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            branch_name=branch_name,
+            files=files,
+            commit_message=f"Add agent: {r['name']}",
+            pr_title=pr_title,
+            pr_body=pr_body,
+            issue_title=issue_title,
+            issue_body=issue_body,
+            issue_labels=["agent"],
+        )
+
+        if not result.success:
+            raise RuntimeError(f"Install failed: {', '.join(result.errors)}")
+
+        # Update DB
+        await self._db.execute(
+            """UPDATE agent_configs
+               SET lifecycle_status = ?, github_issue_number = ?,
+                   github_pr_number = ?, branch_name = ?
+               WHERE id = ?""",
+            (
+                AgentStatus.INSTALLED.value,
+                result.issue_number,
+                result.pr_number,
+                result.branch_name,
+                agent_id,
+            ),
+        )
+        await self._db.commit()
+
+        # Invalidate repo agent cache
+        cache_key = get_repo_agents_cache_key(owner, repo)
+        cache.delete(cache_key)
+
+        agent = Agent(
+            id=agent_id,
+            name=r["name"],
+            slug=slug,
+            description=r["description"],
+            status=AgentStatus.INSTALLED,
+            source=AgentSource.LOCAL,
+            created_at=r.get("created_at"),
+            agent_type="imported",
+            catalog_source_url=r.get("catalog_source_url"),
+            catalog_agent_id=r.get("catalog_agent_id"),
+            imported_at=r.get("imported_at"),
+            github_issue_number=result.issue_number,
+            github_pr_number=result.pr_number,
+            branch_name=result.branch_name,
+        )
+        return InstallAgentResult(
+            agent=agent,
+            pr_url=result.pr_url or "",
+            pr_number=result.pr_number or 0,
+            issue_number=result.issue_number,
+            branch_name=result.branch_name or branch_name,
         )
 
     # ── Delete ────────────────────────────────────────────────────────────

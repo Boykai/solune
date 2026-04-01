@@ -22,6 +22,10 @@ from src.models.agents import (
     AgentUpdate,
     BulkModelUpdateRequest,
     BulkModelUpdateResult,
+    CatalogAgent,
+    ImportAgentRequest,
+    ImportAgentResult,
+    InstallAgentResult,
 )
 from src.models.tools import AgentToolsResponse, AgentToolsUpdate
 from src.models.user import UserSession
@@ -158,6 +162,134 @@ async def bulk_update_models(
         body=body,
         access_token=session.access_token,
     )
+
+
+# ── Catalog Browse ──
+
+
+@router.get(
+    "/{project_id}/catalog",
+    response_model=list[CatalogAgent],
+    dependencies=[Depends(verify_project_access)],
+)
+async def browse_catalog(
+    project_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> list[CatalogAgent]:
+    """Browse available agents from the Awesome Copilot catalog."""
+    from src.services.agents.catalog import list_catalog_agents
+
+    try:
+        return await list_catalog_agents(project_id, get_db())
+    except Exception as exc:
+        handle_service_error(exc, "browse catalog", AppException)
+
+
+# ── Import ──
+
+
+@router.post(
+    "/{project_id}/import",
+    response_model=ImportAgentResult,
+    status_code=201,
+    dependencies=[Depends(verify_project_access)],
+)
+async def import_agent(
+    project_id: str,
+    body: ImportAgentRequest,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> ImportAgentResult:
+    """Import a catalog agent into the current project (no GitHub writes)."""
+    service = _get_service()
+
+    try:
+        owner, repo = await resolve_repository(session.access_token, project_id)
+    except AppException:
+        raise
+    except Exception as exc:
+        handle_service_error(exc, "resolve repository", ValidationError)
+
+    try:
+        result = await service.import_agent(
+            project_id=project_id,
+            owner=owner,
+            repo=repo,
+            body=body,
+            github_user_id=session.github_user_id,
+        )
+    except ValueError as exc:
+        from src.exceptions import ConflictError
+
+        raise ConflictError(str(exc)) from exc
+    except RuntimeError as exc:
+        handle_service_error(exc, "import agent", GitHubAPIError)
+
+    await log_event(
+        get_db(),
+        event_type="agent_crud",
+        entity_type="agent",
+        entity_id=result.agent.id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="imported",
+        summary=f"Agent '{body.name}' imported from catalog",
+        detail={"entity_name": body.name, "catalog_agent_id": body.catalog_agent_id},
+    )
+
+    return result
+
+
+# ── Install ──
+
+
+@router.post(
+    "/{project_id}/{agent_id}/install",
+    response_model=InstallAgentResult,
+    dependencies=[Depends(verify_project_access)],
+)
+async def install_agent(
+    project_id: str,
+    agent_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> InstallAgentResult:
+    """Install an imported agent to the repository (creates GitHub issue + PR)."""
+    service = _get_service()
+
+    try:
+        owner, repo = await resolve_repository(session.access_token, project_id)
+    except AppException:
+        raise
+    except Exception as exc:
+        handle_service_error(exc, "resolve repository", ValidationError)
+
+    try:
+        result = await service.install_agent(
+            project_id=project_id,
+            owner=owner,
+            repo=repo,
+            agent_id=agent_id,
+            access_token=session.access_token,
+        )
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+    except LookupError as exc:
+        raise NotFoundError(str(exc)) from exc
+    except RuntimeError as exc:
+        handle_service_error(exc, "install agent", GitHubAPIError)
+
+    await log_event(
+        get_db(),
+        event_type="agent_crud",
+        entity_type="agent",
+        entity_id=agent_id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="installed",
+        summary=f"Agent '{result.agent.name}' installed to {owner}/{repo}",
+        detail={"entity_name": result.agent.name, "pr_number": result.pr_number},
+    )
+
+    return result
 
 
 # ── Create ──
