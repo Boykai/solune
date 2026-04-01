@@ -13,6 +13,8 @@ The conftest patches ``src.api.settings.get_db`` → returns mock_db.
 The mock_db needs global_settings seeded to avoid empty-row lookups.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from src.services.database import seed_global_settings
@@ -124,3 +126,54 @@ class TestProjectSettings:
         data = resp.json()
         mappings = data["project"]["agent_pipeline_mappings"]
         assert "Backlog" in mappings
+
+
+# ── Activity logging ───────────────────────────────────────────────────────
+
+
+class TestSettingsActivityLogging:
+    async def test_user_update_logs_activity_event(self, client, mock_db):
+        from src.services.database import seed_global_settings as _seed
+
+        await _seed(mock_db)
+
+        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await client.put(
+                "/api/v1/settings/user",
+                json={"display": {"theme": "dark"}},
+            )
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        call_kwargs = mock_log.await_args.kwargs
+        assert call_kwargs["event_type"] == "settings"
+        assert call_kwargs["action"] == "user_updated"
+        assert "changed_fields" in call_kwargs["detail"]
+
+    async def test_global_update_logs_activity_event(self, client, mock_db):
+        from src.services.database import seed_global_settings as _seed
+
+        await _seed(mock_db)
+
+        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await client.put(
+                "/api/v1/settings/global",
+                json={"ai": {"temperature": 0.5}},
+            )
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        call_kwargs = mock_log.await_args.kwargs
+        assert call_kwargs["event_type"] == "settings"
+        assert call_kwargs["action"] == "global_updated"
+
+    async def test_noop_update_does_not_log(self, client, mock_db):
+        from src.services.database import seed_global_settings as _seed
+
+        await _seed(mock_db)
+
+        with patch("src.api.settings.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await client.put("/api/v1/settings/user", json={})
+
+        assert resp.status_code == 200
+        mock_log.assert_not_awaited()

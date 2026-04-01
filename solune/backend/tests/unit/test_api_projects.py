@@ -89,6 +89,53 @@ class TestListProjects:
         assert body["details"]["rate_limit"]["limit"] == 5000
 
 
+# ── POST /projects/create — activity logging ──────────────────────────────
+
+
+class TestCreateProjectLogging:
+    async def test_create_project_logs_activity(self, client):
+        github_service = object()
+
+        with (
+            patch("src.dependencies.get_github_service", return_value=github_service),
+            patch(
+                "src.api.projects.create_standalone_project",
+                new_callable=AsyncMock,
+                return_value={"project_id": "PVT_new", "project_number": 1, "project_url": "u"},
+            ),
+            patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log,
+        ):
+            resp = await client.post(
+                "/api/v1/projects/create",
+                json={"title": "My Project", "owner": "testuser"},
+            )
+
+        assert resp.status_code == 201
+        mock_log.assert_awaited_once()
+        call_kwargs = mock_log.await_args.kwargs
+        assert call_kwargs["event_type"] == "project"
+        assert call_kwargs["action"] == "created"
+        assert call_kwargs["detail"]["title"] == "My Project"
+
+
+# ── POST /projects/{id}/select — activity logging ─────────────────────────
+
+
+class TestSelectProjectLogging:
+    async def test_select_project_logs_activity(self, client, mock_github_service):
+        p = _project()
+        mock_github_service.list_user_projects.return_value = [p]
+
+        with patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log:
+            resp = await client.post("/api/v1/projects/PVT_abc/select")
+
+        assert resp.status_code == 200
+        mock_log.assert_awaited_once()
+        call_kwargs = mock_log.await_args.kwargs
+        assert call_kwargs["event_type"] == "project"
+        assert call_kwargs["action"] == "selected"
+
+
 # ── GET /projects/{id} ─────────────────────────────────────────────────────
 
 
