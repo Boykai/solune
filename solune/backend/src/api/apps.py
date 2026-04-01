@@ -380,8 +380,8 @@ async def import_app_endpoint(
 
     # Check if already imported (using normalized URL for consistent dedup)
     cursor = await db.execute(
-        "SELECT name FROM apps WHERE LOWER(REPLACE(external_repo_url, '/', '')) LIKE ?",
-        (f"%{normalized_url.replace('/', '')}%",),
+        "SELECT name FROM apps WHERE LOWER(RTRIM(external_repo_url, '/')) = ?",
+        (normalized_url,),
     )
     if await cursor.fetchone():
         raise HTTPException(status_code=400, detail="Repository already imported")
