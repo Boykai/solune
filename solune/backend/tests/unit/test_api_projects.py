@@ -625,6 +625,50 @@ class TestWebSocketSubscribe:
         sent_message_types = [call.args[0]["type"] for call in mock_ws.send_json.await_args_list]
         assert sent_message_types == ["initial_data", "refresh"]
 
+    async def test_stale_revalidation_waits_for_twentieth_idle_cycle(
+        self, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        """An idle board should reuse stale cache for 19 periodic checks and
+        only force a fresh fetch on the 20th cycle."""
+        from fastapi import WebSocketDisconnect
+
+        from src.api.projects import websocket_subscribe
+        from src.constants import SESSION_COOKIE_NAME
+
+        p = _project()
+        t = _task()
+
+        mock_ws = AsyncMock()
+        mock_ws.cookies = {SESSION_COOKIE_NAME: "test-session-id"}
+        mock_ws.send_json = AsyncMock()
+
+        timeout_sequence = [TimeoutError() for _ in range(20)] + [WebSocketDisconnect()]
+        mock_ws.receive_json = AsyncMock(side_effect=timeout_sequence)
+
+        mock_loop = MagicMock()
+        mock_loop.time.side_effect = [0.0, *[30.0 * cycle for cycle in range(1, 21)]]
+
+        with (
+            patch(
+                "src.api.projects.get_current_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
+            patch("src.api.projects.asyncio.get_running_loop", return_value=mock_loop),
+            patch("src.api.projects.cache") as mock_cache,
+            patch("src.api.projects.github_projects_service", mock_github_service),
+            patch("src.api.projects.connection_manager", mock_websocket_manager),
+        ):
+            mock_cache.get.side_effect = [[p], *[None] * 20]
+            mock_cache.get_stale.side_effect = [[t]] * 20
+            mock_cache.get_entry.return_value = None
+            mock_github_service.get_project_items = AsyncMock(return_value=[t])
+
+            await websocket_subscribe(mock_ws, "PVT_abc")
+
+        assert mock_cache.get_stale.call_count == 20
+        assert mock_github_service.get_project_items.call_count == 2
+
 
 # ── New coverage tests ──────────────────────────────────────────────────────
 
