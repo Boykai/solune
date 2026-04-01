@@ -137,3 +137,49 @@ async def query_events(
         "has_more": has_more,
         "total_count": total_count,
     }
+
+
+async def get_activity_stats(db, *, project_id: str) -> dict:
+    """Compute summary stats for the activity feed.
+
+    Returns total count, today's count, breakdown by event_type, and
+    the timestamp of the most recent event.
+    """
+    # Total count
+    row = await db.execute(
+        "SELECT COUNT(*) FROM activity_events WHERE project_id = ?",
+        (project_id,),
+    )
+    result = await row.fetchone()
+    total = result[0] if result else 0
+
+    # Today's count (last 24h)
+    row = await db.execute(
+        "SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-1 day')",
+        (project_id,),
+    )
+    result = await row.fetchone()
+    today = result[0] if result else 0
+
+    # Breakdown by event_type
+    rows = await db.execute(
+        "SELECT event_type, COUNT(*) as cnt FROM activity_events WHERE project_id = ? GROUP BY event_type ORDER BY cnt DESC",
+        (project_id,),
+    )
+    by_type_rows = await rows.fetchall()
+    by_type = {r[0]: r[1] for r in by_type_rows}
+
+    # Most recent event timestamp
+    row = await db.execute(
+        "SELECT created_at FROM activity_events WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+        (project_id,),
+    )
+    result = await row.fetchone()
+    last_event_at = result[0] if result else None
+
+    return {
+        "total": total,
+        "today": today,
+        "by_type": by_type,
+        "last_event_at": last_event_at,
+    }

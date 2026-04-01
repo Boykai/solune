@@ -37,6 +37,22 @@ from src.services.workflow_orchestrator import (
 from src.utils import utcnow
 
 
+@pytest.fixture(autouse=True)
+def _mock_orchestrator_log_event():
+    """Prevent log_event from hitting a real database in orchestrator tests."""
+    with (
+        patch(
+            "src.services.workflow_orchestrator.orchestrator.log_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.services.database.get_db",
+            return_value=Mock(),
+        ),
+    ):
+        yield
+
+
 class TestHandleReadyStatusWithAgentMappings:
     """Tests for handle_ready_status with agent_mappings configuration."""
 
