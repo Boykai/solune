@@ -1,7 +1,8 @@
 # Tasks: Librarian — Automated Documentation Refresh Process
 
 **Input**: Design documents from `/specs/003-librarian/`
-**Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/refresh-workflow.yaml, quickstart.md
+**Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/refresh-workflow.yaml
+**Existing file extended by tasks**: quickstart.md (partially populated — incrementally built out by US1–US6 tasks)
 
 **Tests**: Not included — the feature specification and constitution check explicitly state that no unit tests are required. This is a documentation workflow, not code logic. Validation is via the verification checklist (FR-014) and automated link checking (FR-011, FR-016).
 
@@ -27,7 +28,7 @@
 
 **Purpose**: Establish the shared templates and structural files that multiple user stories depend on. No new backend or frontend code — all changes extend existing `solune/docs/` infrastructure.
 
-- [ ] T001 Create the doc-refresh verification checklist template at `solune/docs/checklists/doc-refresh-verification.md` with 9 verification items (manifest completeness, link resolution, feature-doc alignment, config-doc alignment, getting-started validity, no removed-feature references, README accuracy, baseline reset, changelog update) each with pass/fail checkboxes and notes fields (FR-014)
+- [ ] T001 Create the doc-refresh verification checklist template at `solune/docs/checklists/doc-refresh-verification.md` with the 9 verification items defined in data-model.md Verification Checklist entity, each with pass/fail checkboxes and notes fields (FR-014)
 - [ ] T002 [P] Update `solune/docs/.change-manifest.md` to use the structured 6-category template format from data-model.md: add section headers for refresh window, SHA range, sources analyzed, and the six categories (new capabilities, changed behavior, removed functionality, architectural changes, UX changes, config/ops changes) plus a renames section and a verification checklist appendix section (FR-004)
 - [ ] T003 [P] Verify the existing `.github/ISSUE_TEMPLATE/chore-librarian.md` issue template includes all 7 phases as checklist items, references the verification checklist template from T001, and links to `specs/003-librarian/quickstart.md` for execution guidance — update if any items are missing
 
@@ -58,7 +59,7 @@
 - [ ] T007 [US1] Document Phase 1.2 (Harvest from structured sources) execution steps in `specs/003-librarian/quickstart.md` — parse `CHANGELOG.md` for Added/Changed/Removed/Fixed entries since baseline using `git diff <baseline>..HEAD -- CHANGELOG.md`, scan `specs/` and `solune/docs/decisions/` for new or modified files using `git diff --name-status <baseline>..HEAD -- specs/ solune/docs/decisions/` (FR-002)
 - [ ] T008 [US1] Document Phase 1.3 (Harvest from code diffs) execution steps in `specs/003-librarian/quickstart.md` — run `git diff --stat <baseline>..HEAD` and `git log --oneline <baseline>..HEAD`, flag high-signal changes using the file patterns from contracts/refresh-workflow.yaml (entry points, public modules, config schemas, dependency manifests, data models, build/deploy scripts) (FR-003)
 - [ ] T009 [US1] Document Phase 1.4 (Compile the manifest) execution steps in `specs/003-librarian/quickstart.md` — categorize all harvested items into the 6 manifest categories, deduplicate cross-source entries, assign domain labels, identify affected docs for each item, and write the result to `solune/docs/.change-manifest.md` using the template from T002 (FR-004)
-- [ ] T010 [US1] Document the edge case handling for Phase 1 in `specs/003-librarian/quickstart.md` — no baseline exists (use fallback chain per FR-001), changelog missing or non-standard (skip changelog parsing, proceed with code diffs per Edge Case 2), zero changes detected (report "no changes", skip all subsequent phases, preserve existing baseline per FR-017)
+- [ ] T010 [US1] Document the edge case handling for Phase 1 in `specs/003-librarian/quickstart.md` — no baseline exists (use fallback chain per FR-001), changelog missing or non-standard (skip changelog parsing and proceed with code diffs only, noting the skip in the manifest summary), zero changes detected (report "no changes", skip all subsequent phases, preserve existing baseline per FR-017)
 
 **Checkpoint**: Phase 1 process is fully documented and executable. A team member can build a complete change manifest from any Git repository.
 
@@ -91,7 +92,7 @@
 
 - [ ] T015 [US3] Document Phase 3.1 (Revalidate project description) execution steps in `specs/003-librarian/quickstart.md` — compare the current README elevator pitch against the focus-shift analysis, rewrite the description if a P0 narrative shift was detected, ensure the one-liner accurately describes what the product does today (FR-008)
 - [ ] T016 [US3] Document Phase 3.2 (Audit feature list) execution steps in `specs/003-librarian/quickstart.md` — cross-reference the README feature list against manifest categories: add newly shipped capabilities from "new capabilities", remove items from "removed functionality", update items from "changed behavior", and reorder by current importance based on change density (FR-008)
-- [ ] T017 [US3] Document Phase 3.3 (Verify getting-started instructions) execution steps in `specs/003-librarian/quickstart.md` — run the quickstart from `solune/docs/setup.md` in a clean environment, check prerequisite versions against `pyproject.toml` and `package.json`, validate that all commands produce expected output, flag failures for manual intervention per Edge Case 6 (FR-008)
+- [ ] T017 [US3] Document Phase 3.3 (Verify getting-started instructions) execution steps in `specs/003-librarian/quickstart.md` — run the quickstart from `solune/docs/setup.md` in a clean environment, check prerequisite versions against `pyproject.toml` and `package.json`, validate that all commands produce expected output, flag failures for manual intervention — if getting-started instructions fail in a clean environment, log specific error details and flag the section as requiring manual fix (FR-008)
 - [ ] T018 [US3] Document Phase 3.4 (Update visual/structural references) execution steps in `specs/003-librarian/quickstart.md` — replace outdated screenshots or diagrams if UX changes were detected, update architecture-at-a-glance diagrams if topology changed, verify all badge URLs and status links resolve using `lychee README.md` (FR-008)
 
 **Checkpoint**: Phase 3 README update process is fully documented. The README accurately reflects the current product after each refresh cycle.
@@ -109,7 +110,7 @@
 - [ ] T019 [US4] Document Phase 4.1 (Map each doc to source of truth) execution steps in `specs/003-librarian/quickstart.md` — reference the doc-to-source mapping table added to `solune/docs/OWNERS.md` in T004, explain how to use source paths and diff methods for each doc type (routes, config_schema, module_structure, dependency_manifest, feature_code, cli_definition, schema_definition, bug_fixes) (FR-009)
 - [ ] T020 [US4] Document Phase 4.2 (Update affected docs) execution steps in `specs/003-librarian/quickstart.md` — for each doc in priority order: read current doc, diff against its source of truth using the method from OWNERS.md, categorize gaps as missing/stale/dead, rewrite affected sections naturally (not patched with "UPDATE:" notes), adjust framing if a narrative shift was detected (FR-010)
 - [ ] T021 [US4] Document Phase 4.3 (Update structural docs) execution steps in `specs/003-librarian/quickstart.md` — regenerate `solune/docs/project-structure.md` module/directory map from filesystem using `tree -I 'node_modules|.git|dist|__pycache__|.venv'`, regenerate architecture diagrams using `./solune/scripts/generate-diagrams.sh`, verify all code examples in rewritten sections compile/run (FR-015)
-- [ ] T022 [US4] Document the edge case handling for Phase 4 in `specs/003-librarian/quickstart.md` — doc has no identifiable source of truth (flag for manual review, exclude from automated diffing, include in link validation and terminology audit per Edge Case 3)
+- [ ] T022 [US4] Document the edge case handling for Phase 4 in `specs/003-librarian/quickstart.md` — doc has no identifiable source of truth (flag the file for manual review, exclude from automated diffing, but still include it in link validation and terminology audit during Phase 5) (FR-009)
 
 **Checkpoint**: Phase 4 documentation update process is fully documented. All docs in `solune/docs/` can be systematically refreshed against their source of truth.
 
@@ -203,21 +204,18 @@
 ## Parallel Example: User Story 5 (Validate Consistency)
 
 ```text
-# Launch all independent validation checks together:
-Task: T024 "Document Phase 5.2 (Terminology audit) in quickstart.md"
-Task: T025 "Document Phase 5.3 (Diagram freshness) in quickstart.md"
-Task: T026 "Document Phase 5.4 (Code sample validation) in quickstart.md"
-
-# T023 (Link validation) should run first as it establishes the validation context,
-# but the above three can run in parallel after it.
+# Launch all independent validation checks together (after T023 completes):
+Task: T024 — Document Phase 5.2 (Terminology audit) in specs/003-librarian/quickstart.md
+Task: T025 — Document Phase 5.3 (Diagram freshness) in specs/003-librarian/quickstart.md
+Task: T026 — Document Phase 5.4 (Code sample validation) in specs/003-librarian/quickstart.md
 ```
 
 ## Parallel Example: Setup Phase
 
 ```text
 # Launch independent setup tasks together:
-Task: T002 "Update .change-manifest.md template"
-Task: T003 "Verify chore-librarian.md issue template"
+Task: T002 — Update solune/docs/.change-manifest.md to structured 6-category template
+Task: T003 — Verify .github/ISSUE_TEMPLATE/chore-librarian.md includes all 7 phases
 ```
 
 ---
