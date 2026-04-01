@@ -46,7 +46,7 @@ class TestGraphQLErrorSanitization:
         service._client_factory = Mock()
         service._client_factory.get_client = AsyncMock(return_value=mock_client)
 
-        with pytest.raises(ValueError, match="^GitHub API request failed$"):
+        with pytest.raises(ValueError, match=r"^GitHub API request failed$"):
             await service._graphql(
                 "fake-token",
                 "query { viewer { login } }",
@@ -76,7 +76,7 @@ class TestGraphQLErrorSanitization:
         service._client_factory = Mock()
         service._client_factory.get_client = AsyncMock(return_value=mock_client)
 
-        with pytest.raises(ValueError, match="^GitHub API request failed$"):
+        with pytest.raises(ValueError, match=r"^GitHub API request failed$"):
             await service._graphql(
                 "fake-token",
                 "query { viewer { login } }",
