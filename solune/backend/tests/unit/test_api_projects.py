@@ -362,6 +362,12 @@ class TestRateLimitDetection:
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is False
 
+    def test_request_failed_without_response_uses_cached_rate_limit_fallback(self):
+        exc = RequestFailed.__new__(RequestFailed)
+        with patch("src.api.projects.github_projects_service") as svc:
+            svc.get_last_rate_limit.return_value = {"remaining": 0}
+            assert _is_github_rate_limit_error(exc) is True
+
     def test_generic_error_with_rate_limit_remaining_zero_in_dict(self):
         """Falls back to get_last_rate_limit() → remaining == 0 → True."""
         exc = RuntimeError("network")

@@ -51,14 +51,15 @@ def _is_github_auth_error(exc: Exception) -> bool:
     NOT an auth error — those are handled separately by the retry logic.
     """
     if isinstance(exc, RequestFailed):
-        response = exc.response
-        code = response.status_code
+        response = getattr(exc, "response", None)
+        code = getattr(response, "status_code", None)
         if code == 401:
             return True
         if code == 403:
             # GitHub uses 403 for both auth/permission errors AND primary rate
             # limiting.  When rate-limited, X-RateLimit-Remaining is "0".
-            remaining = response.headers.get("X-RateLimit-Remaining")
+            headers = getattr(response, "headers", {})
+            remaining = headers.get("X-RateLimit-Remaining")
             if remaining is not None and remaining.strip() == "0":
                 return False
             return True
@@ -87,7 +88,10 @@ def _classify_github_error(exc: Exception) -> str:
     """
     msg = str(exc).lower()
     if isinstance(exc, RequestFailed):
-        code = exc.response.status_code
+        response = getattr(exc, "response", None)
+        code = getattr(response, "status_code", None)
+        if code is None:
+            return "Unexpected error communicating with GitHub"
         if code == 429:
             return "GitHub API rate limit exceeded"
         if code >= 500:
@@ -107,11 +111,13 @@ def _is_github_rate_limit_error(exc: Exception) -> bool:
     if isinstance(exc, PrimaryRateLimitExceeded):
         return True
     if isinstance(exc, RequestFailed):
-        response = exc.response
-        if response.status_code == 429:
+        response = getattr(exc, "response", None)
+        status_code = getattr(response, "status_code", None)
+        if status_code == 429:
             return True
-        if response.status_code == 403:
-            remaining = response.headers.get("X-RateLimit-Remaining")
+        if status_code == 403:
+            headers = getattr(response, "headers", {})
+            remaining = headers.get("X-RateLimit-Remaining")
             return remaining is not None and remaining.strip() == "0"
     rate_limit = _get_rate_limit_info()
     return rate_limit is not None and rate_limit.remaining == 0

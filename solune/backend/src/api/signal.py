@@ -104,8 +104,10 @@ async def initiate_signal_link(
 
         detail = str(e)
         if isinstance(e, _httpx.HTTPStatusError):
-            body_text = e.response.text[:300] if e.response.text else ""
-            detail = f"Signal service returned HTTP {e.response.status_code}"
+            response = getattr(e, "response", None)
+            body_text = response.text[:300] if response is not None and response.text else ""
+            status_code = getattr(response, "status_code", "unknown")
+            detail = f"Signal service returned HTTP {status_code}"
             if body_text:
                 detail += f": {body_text}"
         elif isinstance(e, (_httpx.ConnectError, _httpx.TimeoutException)):

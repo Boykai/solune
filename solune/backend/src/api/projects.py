@@ -40,10 +40,13 @@ def _is_github_rate_limit_error(exc: Exception) -> bool:
     if isinstance(exc, PrimaryRateLimitExceeded):
         return True
     if isinstance(exc, RequestFailed):
-        if exc.response.status_code == 429:
+        response = getattr(exc, "response", None)
+        status_code = getattr(response, "status_code", None)
+        if status_code == 429:
             return True
-        if exc.response.status_code == 403:
-            remaining = exc.response.headers.get("X-RateLimit-Remaining")
+        if status_code == 403:
+            headers = getattr(response, "headers", {})
+            remaining = headers.get("X-RateLimit-Remaining")
             return remaining is not None and remaining.strip() == "0"
     rl = github_projects_service.get_last_rate_limit()
     return isinstance(rl, dict) and rl.get("remaining") == 0

@@ -1016,6 +1016,14 @@ class TestClassifyGithubError:
         result = _classify_github_error(Exception("something completely unexpected"))
         assert result == "Unexpected error communicating with GitHub"
 
+    def test_request_failed_without_response_returns_generic_error(self):
+        from githubkit.exception import RequestFailed
+
+        from src.api.board import _classify_github_error
+
+        exc = RequestFailed.__new__(RequestFailed)
+        assert _classify_github_error(exc) == "Unexpected error communicating with GitHub"
+
 
 class TestNormalizeStatusColor:
     def test_valid_color(self):

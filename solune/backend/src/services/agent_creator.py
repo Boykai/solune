@@ -568,12 +568,13 @@ async def _apply_edit(
     """Apply a user's edit request to the current preview."""
     if not state.preview:
         return "No preview to edit. Type `#agent <description>` to start over."
+    preview = state.preview
 
     ai_service = get_ai_agent_service()
     current_config = {
-        "name": state.preview.name,
-        "description": state.preview.description,
-        "system_prompt": state.preview.system_prompt,
+        "name": preview.name,
+        "description": preview.description,
+        "system_prompt": preview.system_prompt,
     }
 
     try:
@@ -590,18 +591,19 @@ async def _apply_edit(
         )
 
     slug = AgentPreview.name_to_slug(updated["name"])
-    state.preview = AgentPreview(
+    preview = AgentPreview(
         name=updated["name"],
         slug=slug,
         description=updated["description"],
         system_prompt=updated["system_prompt"],
-        status_column=state.preview.status_column,
-        tools=state.preview.tools,
+        status_column=preview.status_column,
+        tools=preview.tools,
     )
+    state.preview = preview
     state.step = CreationStep.EDIT_LOOP
     _agent_sessions[session_key] = state
 
-    return _format_preview(state.preview, state.is_new_column)
+    return _format_preview(preview, state.is_new_column)
 
 
 # ── Pipeline execution ─────────────────────────────────────────────────
