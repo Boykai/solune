@@ -590,7 +590,6 @@ class TestAllowedEntityTypes:
         }
 
 
-
 # ── Direct service tests for get_activity_stats ─────────────────────────
 
 
