@@ -517,8 +517,7 @@ async def execute_pipeline_launch(
             actor=session.github_username,
             action="launched",
             summary=(
-                f"Pipeline launched: {pipeline.name} "
-                f"(#{ctx.issue_number}, {agent_count} agents)"
+                f"Pipeline launched: {pipeline.name} (#{ctx.issue_number}, {agent_count} agents)"
             ),
             detail={
                 "issue_number": ctx.issue_number,
