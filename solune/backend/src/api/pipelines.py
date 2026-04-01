@@ -63,6 +63,11 @@ def _get_service() -> PipelineService:
     return PipelineService(get_db())
 
 
+def _count_configured_agents(config: WorkflowConfiguration) -> int:
+    """Return the total number of configured agents across workflow statuses."""
+    return sum(len(get_agent_slugs(config, status)) for status in get_status_order(config))
+
+
 def _normalize_issue_description(issue_description: str) -> str:
     """Trim and validate uploaded issue text."""
     normalized = issue_description.strip()
@@ -387,22 +392,7 @@ async def execute_pipeline_launch(
         ctx.issue_id = issue["node_id"]
         ctx.issue_number = issue["number"]
         ctx.issue_url = issue["html_url"]
-        await log_event(
-            get_db(),
-            event_type="pipeline_run",
-            entity_type="pipeline",
-            entity_id=pipeline_id,
-            project_id=project_id,
-            actor=session.github_username,
-            action="launched",
-            summary=f"Pipeline launched on issue #{issue['number']}",
-            detail={
-                "issue_number": issue["number"],
-                "issue_title": issue_title,
-                "pipeline_name": pipeline.name,
-                "agent_count": len(get_agent_slugs(config, config.status_backlog)),
-            },
-        )
+
         orchestrator = get_workflow_orchestrator()
 
         await orchestrator.add_to_project_with_backlog(ctx)
@@ -516,6 +506,25 @@ async def execute_pipeline_launch(
         from src.services.copilot_polling import register_project
 
         register_project(project_id, owner, repo, session.access_token)
+
+        await log_event(
+            get_db(),
+            event_type="pipeline_run",
+            entity_type="pipeline",
+            entity_id=pipeline_id,
+            project_id=project_id,
+            actor=session.github_username,
+            action="launched",
+            summary=(
+                f"Pipeline launched: {pipeline.name} "
+                f"(#{ctx.issue_number}, {_count_configured_agents(config)} agents)"
+            ),
+            detail={
+                "issue_number": ctx.issue_number,
+                "agent_count": _count_configured_agents(config),
+                "pipeline_name": pipeline.name,
+            },
+        )
 
         pipeline_state = (
             get_pipeline_state(ctx.issue_number) if ctx.issue_number is not None else None

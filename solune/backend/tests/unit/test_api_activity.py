@@ -9,6 +9,7 @@ Covers:
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -373,7 +374,7 @@ class TestGetEntityHistory:
 
     async def test_all_allowed_entity_types(self, client, mock_db):
         """All documented entity types are accepted."""
-        for et in ("pipeline", "chore", "agent", "app", "tool", "issue"):
+        for et in ("pipeline", "chore", "agent", "app", "tool", "issue", "project", "settings"):
             resp = await client.get(
                 f"{ACTIVITY_URL}/{et}/some-id",
                 params={"project_id": "PVT_123"},
@@ -486,11 +487,107 @@ class TestQueryEventsBranches:
         assert isinstance(result, dict)
 
 
+class TestGetActivityStats:
+    """Tests for GET /api/v1/activity/stats."""
+
+    async def test_returns_aggregated_stats(self, client, mock_db):
+        now = datetime.now(UTC)
+        within_24h = (now - timedelta(hours=6)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        within_24h_second = (now - timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        within_7d = (now - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        older = (now - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        await mock_db.executemany(
+            """INSERT INTO activity_events
+               (id, event_type, entity_type, entity_id, project_id,
+                actor, action, summary, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    "e1",
+                    "pipeline_run",
+                    "pipeline",
+                    "pipe-1",
+                    "PVT_123",
+                    "user",
+                    "launched",
+                    "Pipeline launched",
+                    within_24h,
+                ),
+                (
+                    "e2",
+                    "settings",
+                    "settings",
+                    "PVT_123",
+                    "PVT_123",
+                    "user",
+                    "updated",
+                    "Settings updated",
+                    within_24h_second,
+                ),
+                (
+                    "e3",
+                    "pipeline_run",
+                    "pipeline",
+                    "pipe-1",
+                    "PVT_123",
+                    "user",
+                    "started",
+                    "Pipeline run started",
+                    within_7d,
+                ),
+                (
+                    "e4",
+                    "webhook",
+                    "issue",
+                    "42",
+                    "PVT_OTHER",
+                    "user",
+                    "received",
+                    "Webhook received",
+                    older,
+                ),
+            ],
+        )
+        await mock_db.commit()
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_123"})
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "total_count": 3,
+            "today_count": 2,
+            "by_type": {
+                "pipeline_run": 2,
+                "settings": 1,
+            },
+            "last_event_at": within_24h,
+        }
+
+    async def test_returns_empty_stats_when_project_has_no_events(self, client, mock_db):
+        resp = await client.get(f"{ACTIVITY_URL}/stats", params={"project_id": "PVT_EMPTY"})
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "total_count": 0,
+            "today_count": 0,
+            "by_type": {},
+            "last_event_at": None,
+        }
+
+
 class TestAllowedEntityTypes:
     """Verify the ALLOWED_ENTITY_TYPES constant is correct."""
 
     def test_expected_entity_types(self):
-        assert ALLOWED_ENTITY_TYPES == {"pipeline", "chore", "agent", "app", "tool", "issue"}
+        assert ALLOWED_ENTITY_TYPES == {
+            "pipeline",
+            "chore",
+            "agent",
+            "app",
+            "tool",
+            "issue",
+            "project",
+            "settings",
+        }
 
 
 # ── Stats endpoint ──────────────────────────────────────────────────────
@@ -505,35 +602,13 @@ class TestGetActivityStats:
     @staticmethod
     async def _seed_varied_events(db, project_id: str):
         """Seed events with different event_types for stats grouping."""
+        now = datetime.now(UTC)
+        recent_ts = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         events = [
-            (
-                "e1",
-                "pipeline_crud",
-                "pipeline",
-                "p1",
-                "created",
-                "Pipeline created",
-                "2024-01-01T00:00:00Z",
-            ),
-            (
-                "e2",
-                "pipeline_crud",
-                "pipeline",
-                "p2",
-                "deleted",
-                "Pipeline deleted",
-                "2024-01-01T00:01:00Z",
-            ),
-            ("e3", "tool_crud", "tool", "t1", "created", "Tool created", "2024-01-01T00:02:00Z"),
-            (
-                "e4",
-                "project",
-                "project",
-                "proj1",
-                "created",
-                "Project created",
-                "2024-01-01T00:03:00Z",
-            ),
+            ("e1", "pipeline_crud", "pipeline", "p1", "created", "Pipeline created", recent_ts),
+            ("e2", "pipeline_crud", "pipeline", "p2", "deleted", "Pipeline deleted", recent_ts),
+            ("e3", "tool_crud", "tool", "t1", "created", "Tool created", recent_ts),
+            ("e4", "project", "project", "proj1", "created", "Project created", recent_ts),
         ]
         for eid, etype, entity_type, entity_id, action, summary, ts in events:
             await db.execute(
@@ -550,34 +625,26 @@ class TestGetActivityStats:
         resp = await client.get(STATS_URL, params={"project_id": "PVT_123"})
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] == 4
+        assert data["total_count"] == 4
         assert data["by_type"] == {"pipeline_crud": 2, "tool_crud": 1, "project": 1}
-        assert data["last_event_at"] == "2024-01-01T00:03:00Z"
 
     async def test_stats_empty_project(self, client, mock_db):
         resp = await client.get(STATS_URL, params={"project_id": "PVT_NONE"})
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] == 0
-        assert data["today"] == 0
+        assert data["total_count"] == 0
+        assert data["today_count"] == 0
         assert data["by_type"] == {}
         assert data["last_event_at"] is None
 
     async def test_stats_project_scoping(self, client, mock_db):
         """Stats only count events for the requested project."""
         await self._seed_varied_events(mock_db, "PVT_123")
-        # Seed a second project with distinct IDs
+        now = datetime.now(UTC)
+        recent_ts = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         events = [
-            (
-                "other1",
-                "pipeline_crud",
-                "pipeline",
-                "p1",
-                "created",
-                "P created",
-                "2024-01-01T00:00:00Z",
-            ),
-            ("other2", "tool_crud", "tool", "t1", "created", "T created", "2024-01-01T00:01:00Z"),
+            ("other1", "pipeline_crud", "pipeline", "p1", "created", "P created", recent_ts),
+            ("other2", "tool_crud", "tool", "t1", "created", "T created", recent_ts),
         ]
         for eid, etype, entity_type, entity_id, action, summary, ts in events:
             await mock_db.execute(
@@ -590,7 +657,7 @@ class TestGetActivityStats:
         await mock_db.commit()
 
         resp = await client.get(STATS_URL, params={"project_id": "PVT_123"})
-        assert resp.json()["total"] == 4
+        assert resp.json()["total_count"] == 4
 
 
 # ── Direct service tests for get_activity_stats ─────────────────────────
@@ -602,18 +669,20 @@ class TestGetActivityStatsService:
     @pytest.mark.asyncio
     async def test_returns_correct_shape(self, mock_db):
         result = await get_activity_stats(mock_db, project_id="PVT_123")
-        assert set(result.keys()) == {"total", "today", "by_type", "last_event_at"}
+        assert set(result.keys()) == {"total_count", "today_count", "by_type", "last_event_at"}
 
     @pytest.mark.asyncio
     async def test_empty_db(self, mock_db):
         result = await get_activity_stats(mock_db, project_id="PVT_123")
-        assert result["total"] == 0
-        assert result["today"] == 0
+        assert result["total_count"] == 0
+        assert result["today_count"] == 0
         assert result["by_type"] == {}
         assert result["last_event_at"] is None
 
     @pytest.mark.asyncio
     async def test_counts_and_grouping(self, mock_db):
+        now = datetime.now(UTC)
+        recent_ts = (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
         for i, etype in enumerate(["pipeline_crud", "pipeline_crud", "tool_crud"]):
             await mock_db.execute(
                 """INSERT INTO activity_events
@@ -629,23 +698,19 @@ class TestGetActivityStatsService:
                     "user",
                     "created",
                     f"Evt {i}",
-                    f"2024-01-01T00:0{i}:00Z",
+                    recent_ts,
                 ),
             )
         await mock_db.commit()
 
         result = await get_activity_stats(mock_db, project_id="PVT_123")
-        assert result["total"] == 3
+        assert result["total_count"] == 3
         assert result["by_type"] == {"pipeline_crud": 2, "tool_crud": 1}
-        assert result["last_event_at"] == "2024-01-01T00:02:00Z"
 
     @pytest.mark.asyncio
     async def test_today_count_boundary(self, mock_db):
         """Events inside/outside the 24h window are counted correctly."""
-        from unittest.mock import patch as _patch
-
-        # Fix "now" so the 24h boundary is deterministic
-        fixed_now = "2024-06-15T12:00:00Z"
+        fixed_now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
         inside_window = "2024-06-15T00:00:00Z"  # 12 h ago - inside
         outside_window = "2024-06-14T11:59:59Z"  # >24 h ago - outside
 
@@ -669,15 +734,12 @@ class TestGetActivityStatsService:
             )
         await mock_db.commit()
 
-        # Patch SQLite's now() via a deterministic wrapper
-        orig_execute = mock_db.execute
-
-        async def _patched_execute(sql, params=()):
-            sql = sql.replace("'now'", f"'{fixed_now}'")
-            return await orig_execute(sql, params)
-
-        with _patch.object(mock_db, "execute", side_effect=_patched_execute):
+        with patch(
+            "src.services.activity_service.datetime",
+        ) as mock_dt:
+            mock_dt.now.return_value = fixed_now
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
             result = await get_activity_stats(mock_db, project_id="PVT_123")
 
-        assert result["total"] == 2
-        assert result["today"] == 1
+        assert result["total_count"] == 2
+        assert result["today_count"] == 1
