@@ -11931,7 +11931,12 @@ class TestPollingNoBoardCacheInvalidation:
         be invalidated or modified beyond TTL refresh (T047/SC-001)."""
         from uuid import uuid4
 
-        from src.services.cache import cache, compute_data_hash, get_cache_key, get_project_items_cache_key
+        from src.services.cache import (
+            cache,
+            compute_data_hash,
+            get_cache_key,
+            get_project_items_cache_key,
+        )
 
         project_id = f"PVT_unchanged_{uuid4().hex}"
         items_key = get_project_items_cache_key(project_id)
