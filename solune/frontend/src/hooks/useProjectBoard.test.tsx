@@ -6,6 +6,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useProjectBoard } from './useProjectBoard';
 import * as api from '@/services/api';
+import * as adaptivePolling from './useAdaptivePolling';
 import type { ReactNode } from 'react';
 
 // Mock the API module
@@ -14,6 +15,10 @@ vi.mock('@/services/api', () => ({
     listProjects: vi.fn(),
     getBoardData: vi.fn(),
   },
+}));
+
+vi.mock('./useAdaptivePolling', () => ({
+  useAdaptivePolling: vi.fn(),
 }));
 
 // Mock constants so queries fire immediately
@@ -28,23 +33,46 @@ const mockBoardApi = api.boardApi as unknown as {
   getBoardData: ReturnType<typeof vi.fn>;
 };
 
-// Create wrapper with QueryClientProvider
-function createWrapper() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
+const mockUseAdaptivePolling = adaptivePolling.useAdaptivePolling as unknown as ReturnType<
+  typeof vi.fn
+>;
+
+function createAdaptivePollingMock() {
+  return {
+    getRefetchInterval: vi.fn(() => false),
+    reportPollResult: vi.fn(),
+    reportPollFailure: vi.fn(),
+    reportPollSuccess: vi.fn(),
+    state: {
+      tier: 'idle',
+      intervalMs: 60_000,
+      unchangedPolls: 0,
+      consecutiveErrors: 0,
+      isPaused: false,
     },
-  });
+  };
+}
+
+// Create wrapper with QueryClientProvider
+function createWrapper(queryClient?: QueryClient) {
+  const client =
+    queryClient ??
+    new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   };
 }
 
 describe('useProjectBoard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAdaptivePolling.mockReturnValue(createAdaptivePollingMock());
   });
 
   afterEach(() => {
@@ -139,6 +167,87 @@ describe('useProjectBoard', () => {
     expect(mockBoardApi.getBoardData).toHaveBeenCalledWith('PVT_1');
   });
 
+  it('reports unchanged then changed board polls to adaptive polling', async () => {
+    const adaptivePollingState = createAdaptivePollingMock();
+    mockUseAdaptivePolling.mockReturnValue(adaptivePollingState);
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+    const mockProjects = {
+      projects: [
+        {
+          project_id: 'PVT_1',
+          name: 'Board Alpha',
+          url: 'https://github.com',
+          owner_login: 'user',
+          status_field: { field_id: 'sf1', options: [] },
+        },
+        {
+          project_id: 'PVT_2',
+          name: 'Board Beta',
+          url: 'https://github.com',
+          owner_login: 'user',
+          status_field: { field_id: 'sf2', options: [] },
+        },
+      ],
+    };
+
+    const initialBoardData = {
+      project: mockProjects.projects[0],
+      columns: [
+        {
+          status: { option_id: 'opt1', name: 'Todo', color: 'GRAY' },
+          items: [],
+          item_count: 1,
+          estimate_total: 0,
+        },
+      ],
+    };
+    const updatedBoardData = {
+      project: mockProjects.projects[0],
+      columns: [
+        {
+          status: { option_id: 'opt1', name: 'Todo', color: 'GRAY' },
+          items: [],
+          item_count: 2,
+          estimate_total: 0,
+        },
+      ],
+    };
+
+    mockBoardApi.listProjects.mockResolvedValue(mockProjects);
+    mockBoardApi.getBoardData
+      .mockResolvedValueOnce(initialBoardData)
+      .mockResolvedValueOnce(updatedBoardData);
+
+    const { result } = renderHook(() => useProjectBoard({ selectedProjectId: 'PVT_1' }), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.boardData?.columns[0].item_count).toBe(1);
+    });
+
+    expect(adaptivePollingState.reportPollResult).toHaveBeenNthCalledWith(1, false);
+    expect(adaptivePollingState.reportPollSuccess).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['board', 'data', 'PVT_1'] });
+    });
+
+    await waitFor(() => {
+      expect(result.current.boardData?.columns[0].item_count).toBe(2);
+    });
+
+    expect(adaptivePollingState.reportPollResult).toHaveBeenNthCalledWith(2, true);
+    expect(adaptivePollingState.reportPollSuccess).toHaveBeenCalledTimes(2);
+  });
+
   it('selectProject should call onProjectSelect callback', async () => {
     mockBoardApi.listProjects.mockResolvedValue({ projects: [] });
     const onProjectSelect = vi.fn();
@@ -156,6 +265,36 @@ describe('useProjectBoard', () => {
     });
 
     expect(onProjectSelect).toHaveBeenCalledWith('PVT_99');
+  });
+
+  it('reports board polling failures to adaptive polling', async () => {
+    const adaptivePollingState = createAdaptivePollingMock();
+    mockUseAdaptivePolling.mockReturnValue(adaptivePollingState);
+
+    mockBoardApi.listProjects.mockResolvedValue({
+      projects: [
+        {
+          project_id: 'PVT_1',
+          name: 'Board Alpha',
+          url: 'https://github.com',
+          owner_login: 'user',
+          status_field: { field_id: 'sf1', options: [] },
+        },
+      ],
+    });
+    mockBoardApi.getBoardData.mockRejectedValue(new Error('Board fetch failed'));
+
+    const { result } = renderHook(() => useProjectBoard({ selectedProjectId: 'PVT_1' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.boardError?.message).toBe('Board fetch failed');
+    });
+
+    expect(adaptivePollingState.reportPollFailure).toHaveBeenCalledTimes(1);
+    expect(adaptivePollingState.reportPollSuccess).not.toHaveBeenCalled();
+    expect(adaptivePollingState.reportPollResult).not.toHaveBeenCalled();
   });
 
   it('should handle error when fetching projects fails', async () => {
