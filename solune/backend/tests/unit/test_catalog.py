@@ -10,14 +10,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.models.agents import CatalogAgent
 from src.services.agents.catalog import (
     _parse_catalog_index,
     fetch_agent_raw_content,
     list_catalog_agents,
 )
 from src.services.cache import InMemoryCache
-
 
 # ── _parse_catalog_index ─────────────────────────────────────────────────
 
