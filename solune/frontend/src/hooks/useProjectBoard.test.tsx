@@ -36,6 +36,7 @@ const mockBoardApi = api.boardApi as unknown as {
 const mockUseAdaptivePolling = adaptivePolling.useAdaptivePolling as unknown as ReturnType<
   typeof vi.fn
 >;
+const DEFAULT_POLLING_INTERVAL_MS = 60_000;
 
 function createAdaptivePollingMock() {
   return {
@@ -45,7 +46,7 @@ function createAdaptivePollingMock() {
     reportPollSuccess: vi.fn(),
     state: {
       tier: 'idle',
-      intervalMs: 60_000,
+      intervalMs: DEFAULT_POLLING_INTERVAL_MS,
       unchangedPolls: 0,
       consecutiveErrors: 0,
       isPaused: false,
