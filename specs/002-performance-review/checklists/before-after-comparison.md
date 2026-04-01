@@ -19,7 +19,7 @@
 
 | Change | Before | After | Impact |
 |--------|--------|-------|--------|
-| STALE_REVALIDATION_LIMIT | TBD (measure pre-change value) | 20 (1 forced fetch/~10 min) | ~50% idle API reduction |
+| STALE_REVALIDATION_LIMIT | 10 (1 forced fetch/~5 min) | 20 (1 forced fetch/~10 min) | ~50% idle API reduction |
 | WebSocket change detection | Hash comparison active | Hash comparison active | No change needed |
 | Sub-issue cache reuse | 600s TTL active | 600s TTL active | No change needed |
 | Polling safety | Tasks-only invalidation | Tasks-only invalidation | No change needed |
