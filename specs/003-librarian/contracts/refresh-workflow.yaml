@@ -15,6 +15,10 @@ description: >
   and rewrites documentation to match reality. Language-agnostic and
   structure-agnostic.
 
+# Working directory convention: All relative paths in this contract assume
+# the working directory is `solune/` (the project root). Paths to repo-root
+# files (e.g., .github/, specs/) must use `../` prefix.
+
 trigger:
   methods:
     - type: manual
@@ -124,10 +128,10 @@ phases:
 
       - id: "1.2"
         name: Harvest from structured sources
-        action: Parse CHANGELOG.md and scan specs/, docs/decisions/
+        action: Parse CHANGELOG.md and scan ../specs/, docs/decisions/
         commands:
           - "git diff --name-status <baseline>..HEAD -- CHANGELOG.md"
-          - "git diff --name-status <baseline>..HEAD -- specs/ docs/decisions/"
+          - "git diff --name-status <baseline>..HEAD -- ../specs/ docs/decisions/"
         output: structured_changes
         edge_cases:
           - condition: changelog_missing_or_nonstandard

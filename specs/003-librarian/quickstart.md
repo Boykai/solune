@@ -54,7 +54,7 @@ Markdown file capturing all changes since the last baseline. Overwritten each cy
 
 ---
 
-## New Features
+## New Capabilities
 1. **Feature name** — Description
    - Source: CHANGELOG | spec | git-diff
    - Source Detail: specific location
@@ -63,7 +63,7 @@ Markdown file capturing all changes since the last baseline. Overwritten each cy
 ...
 ```
 
-### 3. `solune/.github/ISSUE_TEMPLATE/chore-librarian.md` — Issue Template
+### 3. `.github/ISSUE_TEMPLATE/chore-librarian.md` — Issue Template (repo root)
 
 GitHub Issue template for triggering a Librarian refresh cycle. Already exists and contains the full 7-phase process as a checklist.
 
@@ -181,8 +181,8 @@ Parse the changelog for entries added since the baseline, and scan spec/ADR dire
 # Parse changelog entries since baseline — look for Added/Changed/Removed/Fixed sections
 git diff "$BASELINE_SHA"..HEAD -- CHANGELOG.md
 
-# Scan specs and ADRs for new or changed files
-git diff --name-status "$BASELINE_SHA"..HEAD -- specs/ docs/decisions/
+# Scan specs and ADRs for new or changed files (specs/ is at repo root)
+git diff --name-status "$BASELINE_SHA"..HEAD -- ../specs/ docs/decisions/
 ```
 
 From the changelog diff, extract entries under these headings:
@@ -214,11 +214,12 @@ git diff --name-status "$BASELINE_SHA"..HEAD -- \
   'backend/src/config.py' \
   'backend/src/models/' \
   'backend/src/migrations/' \
-  'Dockerfile' \
+  'backend/Dockerfile' \
+  'frontend/Dockerfile' \
   'docker-compose.yml' \
-  'pyproject.toml' \
+  'backend/pyproject.toml' \
   'frontend/package.json' \
-  '.github/workflows/'
+  '../.github/workflows/'
 ```
 
 Flag changes by signal type:
@@ -228,9 +229,9 @@ Flag changes by signal type:
 | Entry points | `backend/src/api/`, CLI commands, event handlers | New capabilities / Changed behavior |
 | Public modules | `frontend/src/pages/`, `frontend/src/components/` | UX changes / New capabilities |
 | Config schemas | `backend/src/config.py`, `.env*`, feature flags | Config / ops changes |
-| Dependency manifests | `pyproject.toml`, `package.json`, `Cargo.toml` | Config / ops changes |
+| Dependency manifests | `backend/pyproject.toml`, `frontend/package.json`, `Cargo.toml` | Config / ops changes |
 | Data models / migrations | `backend/src/migrations/`, `backend/src/models/` | Architectural changes |
-| Build / deploy scripts | `Dockerfile`, `docker-compose.yml`, `.github/workflows/` | Architectural changes / Config / ops changes |
+| Build / deploy scripts | `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml`, `../.github/workflows/` | Architectural changes / Config / ops changes |
 
 **Step 1.4 — Compile the manifest (FR-004):**
 
@@ -331,7 +332,7 @@ Compare the current README elevator pitch against the focus-shift analysis from 
 
 ```bash
 # Review current README description
-head -20 ../README.md
+head -20 README.md
 ```
 
 - If a **P0 narrative shift** was detected (primary value proposition or workflow changed), rewrite the project description to match reality

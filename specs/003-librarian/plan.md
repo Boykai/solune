@@ -69,11 +69,11 @@ solune/docs/
 │   └── doc-refresh-verification.md  # NEW: Verification checklist template (FR-014)
 └── architectures/                 # EXISTING: Mermaid diagrams verified in Phase 5.3
 
-solune/.github/ISSUE_TEMPLATE/
+.github/ISSUE_TEMPLATE/               # Repository root (not under solune/)
 └── chore-librarian.md             # EXISTING: Issue template for triggering Librarian refresh cycles
 
-README.md                          # EXISTING: Target for Phase 3 README updates
-CHANGELOG.md                       # EXISTING: Parsed in Phase 1.2; updated in Phase 7.2
+solune/README.md                   # EXISTING: Target for Phase 3 README updates
+solune/CHANGELOG.md                # EXISTING: Parsed in Phase 1.2; updated in Phase 7.2
 ```
 
 **Structure Decision**: Process/workflow structure. This feature is primarily a documentation process, not a code application. All changes extend existing files within `solune/docs/` and the repository root. The only new file is a verification checklist template (`doc-refresh-verification.md`). The existing `.last-refresh` JSON file and `.change-manifest.md` are the primary data artifacts. No new backend or frontend code is required — the Librarian process is executed by AI agents (archivist) guided by the issue template and this plan.
