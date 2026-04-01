@@ -75,14 +75,18 @@ export function useAuth(): UseAuthReturn {
           localStorage.removeItem(key);
         }
 
-        for (let i = localStorage.length - 1; i >= 0; i--) {
+        const prefixedKeysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (
             key &&
             (key.startsWith('pipeline-config:') || key.startsWith('board-controls-'))
           ) {
-            localStorage.removeItem(key);
+            prefixedKeysToRemove.push(key);
           }
+        }
+        for (const key of prefixedKeysToRemove) {
+          localStorage.removeItem(key);
         }
 
         sessionStorage.removeItem('__redirect__');
