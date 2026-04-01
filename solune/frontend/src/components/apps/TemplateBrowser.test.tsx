@@ -70,10 +70,8 @@ describe('TemplateBrowser', () => {
   it('filters by category when filter button clicked', () => {
     render(<TemplateBrowser templates={MOCK_TEMPLATES} onSelectTemplate={vi.fn()} />);
 
-    // Click the API filter button (find the button specifically)
-    const apiButtons = screen.getAllByText('API');
-    // The first one is the filter button
-    fireEvent.click(apiButtons[0]);
+    // Click the API filter button using its data-testid
+    fireEvent.click(screen.getByTestId('filter-api'));
 
     // Only API template should be visible
     expect(screen.getByTestId('template-card-api-fastapi')).toBeInTheDocument();
@@ -85,8 +83,7 @@ describe('TemplateBrowser', () => {
     render(<TemplateBrowser templates={MOCK_TEMPLATES} onSelectTemplate={vi.fn()} />);
 
     // First filter to API
-    const apiButtons = screen.getAllByText('API');
-    fireEvent.click(apiButtons[0]);
+    fireEvent.click(screen.getByTestId('filter-api'));
     expect(screen.queryByTestId('template-card-cli-python')).not.toBeInTheDocument();
 
     // Then click All

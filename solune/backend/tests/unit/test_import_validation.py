@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-import re
-
-# The URL regex used in the apps API for import validation
-_GITHUB_URL_RE = re.compile(
-    r"^https://github\.com/(?P<owner>[a-zA-Z0-9_.-]+)/(?P<repo>[a-zA-Z0-9_.-]+)/?$"
-)
+from src.api.apps import GITHUB_URL_RE as _GITHUB_URL_RE
 
 
 class TestImportUrlValidation:

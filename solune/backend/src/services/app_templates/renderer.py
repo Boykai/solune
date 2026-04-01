@@ -50,6 +50,11 @@ def render_template_from(
     target_dir: Path,
 ) -> list[Path]:
     """Render files from a loaded *template* instance into *target_dir*."""
+    # Auto-derive python_package_name from app_name when not provided.
+    # Kebab-case app names (e.g. "my-app") become valid Python identifiers ("my_app").
+    if "python_package_name" not in context and "app_name" in context:
+        context = {**context, "python_package_name": context["app_name"].replace("-", "_")}
+
     base_dir = Path(template._base_dir)
     if not base_dir.is_dir():
         msg = f"Template base directory does not exist: {base_dir}"

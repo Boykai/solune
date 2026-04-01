@@ -79,7 +79,7 @@ components:
   schemas:
     BuildAppRequest:
       type: object
-      required: [template_id, description]
+      required: [template_id]
       properties:
         template_id:
           type: string
@@ -87,6 +87,7 @@ components:
           example: "dashboard-react"
         description:
           type: string
+          default: ""
           description: App description for issue creation
           example: "Stock tracking dashboard with real-time charts"
         difficulty_override:
@@ -109,7 +110,7 @@ components:
 
     BuildAppResponse:
       type: object
-      required: [app_name, pipeline_run_id, issue_url, message]
+      required: [app_name, message]
       properties:
         app_name:
           type: string
@@ -139,13 +140,15 @@ components:
 
     IterateResponse:
       type: object
-      required: [issue_url, pipeline_run_id, message]
+      required: [message]
       properties:
         issue_url:
           type: string
+          nullable: true
           description: URL of the created issue
         pipeline_run_id:
           type: integer
+          nullable: true
           description: Pipeline run ID for tracking
         message:
           type: string

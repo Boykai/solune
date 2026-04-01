@@ -80,6 +80,7 @@ export function TemplateBrowser({
             key={cat}
             type="button"
             onClick={() => setCategoryFilter(cat)}
+            data-testid={`filter-${cat}`}
             className={cn(
               'rounded-full px-3 py-1 text-sm font-medium transition-colors',
               categoryFilter === cat

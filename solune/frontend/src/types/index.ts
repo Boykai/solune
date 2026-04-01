@@ -9,7 +9,7 @@ export type ProjectType = 'organization' | 'user' | 'repository';
 
 export type SenderType = 'user' | 'assistant' | 'system';
 
-export type ActionType = 'task_create' | 'status_update' | 'project_select' | 'issue_create' | 'pipeline_launch' | 'plan_create';
+export type ActionType = 'task_create' | 'status_update' | 'project_select' | 'issue_create' | 'pipeline_launch' | 'plan_create' | 'app_import' | 'app_build' | 'app_iterate';
 
 export type ProposalStatus = 'pending' | 'confirmed' | 'edited' | 'cancelled';
 

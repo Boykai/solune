@@ -11,13 +11,13 @@
   "files": [
     {
       "source": "files/cli.py.tmpl",
-      "target": "{{app_name}}/cli.py",
-      "variables": ["app_name", "description"]
+      "target": "{{python_package_name}}/cli.py",
+      "variables": ["app_name", "python_package_name", "description"]
     },
     {
       "source": "files/pyproject.toml.tmpl",
       "target": "pyproject.toml",
-      "variables": ["app_name", "description"]
+      "variables": ["app_name", "python_package_name", "description"]
     },
     {
       "source": "files/README.md.tmpl",

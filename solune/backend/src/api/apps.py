@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from src.api.auth import get_session_dep
 from src.dependencies import get_github_service
+from src.exceptions import NotFoundError
 from src.logging_utils import get_logger
 from src.middleware.rate_limit import limiter
 from src.models.app import (
@@ -306,7 +307,7 @@ async def get_app_status_endpoint(
 
 # ── Import, Build, Iterate endpoints ────────────────────────────────────
 
-_GITHUB_URL_RE = re.compile(
+GITHUB_URL_RE = re.compile(
     r"^https://github\.com/(?P<owner>[a-zA-Z0-9_.-]+)/(?P<repo>[a-zA-Z0-9_.-]+)/?$"
 )
 
@@ -357,26 +358,42 @@ async def import_app_endpoint(
     session: _SessionDep,
 ) -> ImportAppResponse:
     """Import a GitHub repository as a Solune app."""
-    m = _GITHUB_URL_RE.match(payload.url)
+    # Normalize URL: strip trailing slash and lowercase for consistent dedup.
+    normalized_url = payload.url.rstrip("/").lower()
+
+    m = GITHUB_URL_RE.match(payload.url)
     if not m:
         raise HTTPException(status_code=400, detail="Invalid GitHub URL format")
 
     owner, repo = m.group("owner"), m.group("repo")
+
+    # Sanitize repo name to valid kebab-case app name:
+    # replace underscores/dots with hyphens, strip leading/trailing hyphens.
+    app_name = re.sub(r"[_.]", "-", repo.lower()).strip("-")
+    if not app_name or len(app_name) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Repository name '{repo}' cannot be converted to a valid app name",
+        )
+
     db = get_db()
 
-    # Check if already imported
-    cursor = await db.execute("SELECT name FROM apps WHERE external_repo_url = ?", (payload.url,))
+    # Check if already imported (using normalized URL for consistent dedup)
+    cursor = await db.execute(
+        "SELECT name FROM apps WHERE LOWER(REPLACE(external_repo_url, '/', '')) LIKE ?",
+        (f"%{normalized_url.replace('/', '')}%",),
+    )
     if await cursor.fetchone():
         raise HTTPException(status_code=400, detail="Repository already imported")
 
     github_service = get_github_service(request)
 
     app_create = AppCreate(
-        name=repo.lower(),
+        name=app_name,
         display_name=repo,
         description=f"Imported from {payload.url}",
         repo_type=RepoType.EXTERNAL_REPO,
-        external_repo_url=payload.url,
+        external_repo_url=normalized_url,
         repo_owner=owner,
         pipeline_id=payload.pipeline_id,
         create_project=payload.create_project,
@@ -461,7 +478,7 @@ async def iterate_app_endpoint(
     db = get_db()
     try:
         app = await get_app(db, app_name)
-    except Exception:
+    except NotFoundError:
         raise HTTPException(status_code=404, detail="App not found") from None
 
     if not app.github_project_id:

@@ -36,6 +36,17 @@ class TemplateFile(BaseModel):
         description="Variable names used in this file",
     )
 
+    @field_validator("source")
+    @classmethod
+    def validate_source_path(cls, v: str) -> str:
+        if ".." in v:
+            msg = f"Template source path must not contain '..': {v}"
+            raise ValueError(msg)
+        if v.startswith("/"):
+            msg = f"Template source path must not be absolute: {v}"
+            raise ValueError(msg)
+        return v
+
     @field_validator("target")
     @classmethod
     def validate_target_path(cls, v: str) -> str:
