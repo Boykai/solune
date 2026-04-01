@@ -33,3 +33,21 @@ Each doc file has a designated owner responsible for keeping it accurate. Owners
 | Bi-weekly (~3–4 hours) | Full documentation refresh cycle (detect changes, prioritize, rewrite) | Rotating dev |
 | Monthly (~2–3 hours) | All `docs/` files | Tech lead sign-off |
 | Quarterly (~half day) | `architecture.md`, `docs/decisions/` | Tech lead |
+
+## Doc-to-Source Mapping
+
+> Used during the Librarian refresh process (Phase 4) to verify each documentation file against its source of truth. See [`specs/003-librarian/quickstart.md`](../../specs/003-librarian/quickstart.md) for execution guidance.
+
+| Doc File | Source Type | Source Paths | Diff Method |
+|----------|-------------|--------------|-------------|
+| `docs/api-reference.md` | Routes | `backend/src/api/*.py` | List `@router.*` decorators → compare to documented endpoints |
+| `docs/configuration.md` | Config schema | `backend/src/config.py`, `.env.example` | Extract config keys (`os.getenv`, `Settings.*`) → compare to doc |
+| `docs/architecture.md` | Module structure | `backend/src/`, `docker-compose.yml` | List top-level modules + deployment topology → compare to doc |
+| `docs/setup.md` | Dependency manifest | `pyproject.toml`, `package.json`, `Dockerfile` | Run setup steps from scratch → note any failures or drift |
+| `docs/pages/*.md` | Feature code | `frontend/src/pages/*.tsx` | Walk each page in running app → compare to doc |
+| `docs/agent-pipeline.md` | Feature code | `backend/src/services/workflow_orchestrator/` | Trace pipeline execution flow → compare to doc |
+| `docs/signal-integration.md` | Feature code | `backend/src/services/signal_bridge.py` | Review Signal integration implementation → compare to doc |
+| `docs/testing.md` | Module structure | `tests/`, `.github/workflows/ci.yml` | List test commands + coverage targets → compare to doc |
+| `docs/troubleshooting.md` | Bug fixes | Recent closed issues, `git log` | Review recent fixes → update entries, prune resolved |
+| `docs/project-structure.md` | Module structure | Repository filesystem | `tree` output → compare to doc directory map |
+| `README.md` | All types | All sources | Holistic review against running application |
