@@ -283,6 +283,41 @@ jobs:
       - name: Build frontend image
         run: docker build -t solune-frontend ./solune/frontend
 
+      - name: Verify frontend container security headers and user
+        run: |
+          docker run -d --rm --name solune-frontend-test --add-host backend:127.0.0.1 -p 127.0.0.1:8080:8080 solune-frontend
+          trap 'docker rm -f solune-frontend-test >/dev/null 2>&1 || true' EXIT
+
+          for attempt in $(seq 1 20); do
+            if curl -fsI http://127.0.0.1:8080/ >/tmp/frontend-headers.txt; then
+              break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "Frontend container did not become ready"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          test "$(docker exec solune-frontend-test id -u)" != "0"
+
+          curl -fsI http://127.0.0.1:8080/health >/tmp/frontend-health-headers.txt
+          curl -fs http://127.0.0.1:8080/ >/tmp/frontend-index.html
+          asset_path="$(grep -oE '/assets/[^"]+' /tmp/frontend-index.html | head -n 1)"
+          test -n "$asset_path"
+          curl -fsI "http://127.0.0.1:8080${asset_path}" >/tmp/frontend-asset-headers.txt
+
+          for headers_file in /tmp/frontend-headers.txt /tmp/frontend-health-headers.txt /tmp/frontend-asset-headers.txt; do
+            grep -qi '^x-frame-options: deny' "$headers_file"
+            grep -qi '^content-security-policy:' "$headers_file"
+            grep -qi '^strict-transport-security:' "$headers_file"
+            grep -qi '^referrer-policy:' "$headers_file"
+            grep -qi '^permissions-policy:' "$headers_file"
+            grep -qi '^x-content-type-options:' "$headers_file"
+            ! grep -qi '^x-xss-protection:' "$headers_file"
+            ! grep -qi '^server:.*nginx/' "$headers_file"
+          done
+
       - name: Verify images
         run: |
           docker images | grep solune

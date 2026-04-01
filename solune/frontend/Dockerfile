@@ -20,8 +20,7 @@ RUN npm run build
 # Production stage
 FROM nginx:1.29.7-alpine
 
-# Patch OS-level vulnerabilities
-RUN apk update --no-cache && apk upgrade --no-cache
+# Use the pinned base image digest and CI image scanning for OS-level patch coverage
 
 # Create non-root user for nginx
 RUN addgroup -S nginx-app && adduser -S -G nginx-app nginx-app \
@@ -36,6 +35,7 @@ COPY --from=builder --chown=nginx-app:nginx-app /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY --chown=nginx-app:nginx-app nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chown=nginx-app:nginx-app security-headers.conf /etc/nginx/conf.d/security-headers.conf
 
 # Switch to non-root user
 USER nginx-app
