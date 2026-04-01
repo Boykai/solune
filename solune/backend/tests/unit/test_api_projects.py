@@ -566,8 +566,9 @@ class TestWebSocketSubscribe:
     async def test_stale_revalidation_counter_reaches_limit(
         self, mock_session, mock_github_service, mock_websocket_manager
     ):
-        """T018: WebSocket subscribe handles a timeout cycle followed by
-        disconnection, calling get_project_items for the initial fetch."""
+        """T018/SC-001: after 19 stale cycles, the 20th periodic check should
+        fetch fresh tasks exactly once without sending duplicate unchanged
+        refresh payloads."""
         from fastapi import WebSocketDisconnect
 
         from src.api.projects import websocket_subscribe
@@ -575,23 +576,28 @@ class TestWebSocketSubscribe:
 
         p = _project()
         t = _task()
+        periodic_cycles = 20
+        refresh_tick_seconds = 31.0  # Just over the 30s periodic refresh threshold.
 
         mock_ws = AsyncMock()
         mock_ws.cookies = {SESSION_COOKIE_NAME: "test-session-id"}
         mock_ws.send_json = AsyncMock()
 
-        # First receive_json call triggers TimeoutError (simulating timeout),
-        # then on next iteration we disconnect.
         receive_calls = 0
 
         async def mock_receive(*_a, **_kw):
             nonlocal receive_calls
             receive_calls += 1
-            if receive_calls <= 1:
+            if receive_calls <= periodic_cycles:
                 raise TimeoutError()
             raise WebSocketDisconnect()
 
         mock_ws.receive_json = mock_receive
+        mock_loop = MagicMock()
+        mock_loop.time.side_effect = [
+            0.0,
+            *[refresh_tick_seconds * cycle for cycle in range(1, periodic_cycles + 1)],
+        ]
 
         with (
             patch(
@@ -602,21 +608,22 @@ class TestWebSocketSubscribe:
             patch("src.api.projects.cache") as mock_cache,
             patch("src.api.projects.github_projects_service", mock_github_service),
             patch("src.api.projects.connection_manager", mock_websocket_manager),
+            patch("src.api.projects.asyncio.get_running_loop", return_value=mock_loop),
         ):
             mock_cache.get.side_effect = [
                 [p],  # project access check (list of projects)
-                None,  # send_tasks initial force_refresh → cache miss
-                None,  # periodic send_tasks → cache miss
+                *([None] * periodic_cycles),
             ]
-            mock_cache.get_stale.return_value = None
+            mock_cache.get_stale.side_effect = [[t]] * periodic_cycles
             mock_cache.get_entry.return_value = None
             mock_github_service.get_project_items = AsyncMock(return_value=[t])
 
             await websocket_subscribe(mock_ws, "PVT_abc")
 
-        # The endpoint should have called get_project_items for the initial
-        # force_refresh and been invoked in send_tasks
-        mock_github_service.get_project_items.assert_called()
+        assert mock_github_service.get_project_items.await_count == 2
+        assert mock_cache.get_stale.call_count == periodic_cycles
+        sent_message_types = [call.args[0]["type"] for call in mock_ws.send_json.await_args_list]
+        assert sent_message_types == ["initial_data", "refresh"]
 
 
 # ── New coverage tests ──────────────────────────────────────────────────────
