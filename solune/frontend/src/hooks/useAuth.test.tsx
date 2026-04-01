@@ -154,6 +154,63 @@ describe('useAuth', () => {
     expect(mockAuthApi.logout).toHaveBeenCalled();
   });
 
+  it('should clear all user-specific storage on logout (SC-018)', async () => {
+    const mockUser = {
+      github_user_id: '12345',
+      github_username: 'testuser',
+      selected_project_id: null,
+    };
+
+    mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
+    mockAuthApi.logout.mockResolvedValue({ message: 'Logged out' });
+
+    // Seed localStorage with user-specific data
+    localStorage.setItem('chat-message-history', '["msg1"]');
+    localStorage.setItem('solune-read-notifications', '["n1"]');
+    localStorage.setItem('solune-onboarding-completed', 'true');
+    localStorage.setItem('solune-experimental-features', 'true');
+    localStorage.setItem('chat-ai-enhance', 'true');
+    localStorage.setItem('chat-popup-size', '{"width":400}');
+    localStorage.setItem('sidebar-collapsed', 'true');
+    localStorage.setItem('parentIssueIntake_expanded', 'true');
+    // Project-scoped keys
+    localStorage.setItem('pipeline-config:PVT_abc', 'preset-a');
+    localStorage.setItem('board-controls-PVT_abc', '{}');
+    // Session storage
+    sessionStorage.setItem('__redirect__', '/board');
+    sessionStorage.setItem('__reload__', '1');
+    // Non-app key that must survive logout
+    localStorage.setItem('vite-ui-theme', 'dark');
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    // All user-specific keys should be removed
+    expect(localStorage.getItem('chat-message-history')).toBeNull();
+    expect(localStorage.getItem('solune-read-notifications')).toBeNull();
+    expect(localStorage.getItem('solune-onboarding-completed')).toBeNull();
+    expect(localStorage.getItem('solune-experimental-features')).toBeNull();
+    expect(localStorage.getItem('chat-ai-enhance')).toBeNull();
+    expect(localStorage.getItem('chat-popup-size')).toBeNull();
+    expect(localStorage.getItem('sidebar-collapsed')).toBeNull();
+    expect(localStorage.getItem('parentIssueIntake_expanded')).toBeNull();
+    expect(localStorage.getItem('pipeline-config:PVT_abc')).toBeNull();
+    expect(localStorage.getItem('board-controls-PVT_abc')).toBeNull();
+    expect(sessionStorage.getItem('__redirect__')).toBeNull();
+    expect(sessionStorage.getItem('__reload__')).toBeNull();
+    // Theme preference should survive logout
+    expect(localStorage.getItem('vite-ui-theme')).toBe('dark');
+  });
+
   it('should return selected_project_id when user has one', async () => {
     const mockUser = {
       github_user_id: '12345',

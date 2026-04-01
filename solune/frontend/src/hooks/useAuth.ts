@@ -59,10 +59,31 @@ export function useAuth(): UseAuthReturn {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['chat'] });
 
-      // Clear all local storage data on logout (security: prevent data
-      // surviving logout — FR-027)
+      // Clear all user-specific local/session storage on logout (security:
+      // prevent data surviving logout — FR-027, SC-018)
       try {
+        // Known user-specific keys
         localStorage.removeItem('chat-message-history');
+        localStorage.removeItem('solune-read-notifications');
+        localStorage.removeItem('solune-onboarding-completed');
+        localStorage.removeItem('solune-experimental-features');
+        localStorage.removeItem('chat-ai-enhance');
+        localStorage.removeItem('chat-popup-size');
+        localStorage.removeItem('sidebar-collapsed');
+        localStorage.removeItem('parentIssueIntake_expanded');
+
+        // Project-scoped keys use dynamic prefixes; remove all matches.
+        const prefixes = ['pipeline-config:', 'board-controls-'];
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && prefixes.some((p) => key.startsWith(p))) {
+            localStorage.removeItem(key);
+          }
+        }
+
+        // Session storage
+        sessionStorage.removeItem('__redirect__');
+        sessionStorage.removeItem('__reload__');
       } catch {
         // Ignore storage errors
       }
