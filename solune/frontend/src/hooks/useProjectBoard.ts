@@ -6,7 +6,7 @@
  * and tab-visibility awareness.
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { boardApi } from '@/services/api';
 import { STALE_TIME_PROJECTS, STALE_TIME_SHORT } from '@/constants';
@@ -124,9 +124,21 @@ export function useProjectBoard(options: UseProjectBoardOptions = {}): UseProjec
     [onProjectSelect]
   );
 
+  // Stabilize derived values so downstream components receiving these as
+  // props (via React.memo) don't rerender when unrelated query metadata
+  // changes but the actual data hasn't.
+  const projects = useMemo(
+    () => projectsData?.projects ?? EMPTY_PROJECTS,
+    [projectsData?.projects],
+  );
+  const projectsRateLimitInfo = useMemo(
+    () => projectsData?.rate_limit ?? null,
+    [projectsData?.rate_limit],
+  );
+
   return {
-    projects: projectsData?.projects ?? EMPTY_PROJECTS,
-    projectsRateLimitInfo: projectsData?.rate_limit ?? null,
+    projects,
+    projectsRateLimitInfo,
     projectsLoading,
     projectsError: projectsError as Error | null,
     selectedProjectId,
