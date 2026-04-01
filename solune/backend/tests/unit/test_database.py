@@ -8,6 +8,7 @@ Covers:
 - get_db() / close_database()
 """
 
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import aiosqlite
@@ -247,8 +248,6 @@ class TestInitDatabase:
 
     async def test_sets_file_permissions_0600(self, tmp_path, mock_settings):
         """Database file must have 0600 permissions (FR-026)."""
-        from pathlib import Path
-
         db_path = str(tmp_path / "test.db")
         mock_settings.database_path = db_path
         with patch("src.services.database.get_settings", return_value=mock_settings):
