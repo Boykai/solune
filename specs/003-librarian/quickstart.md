@@ -364,16 +364,19 @@ git add docs/ README.md CHANGELOG.md
 git commit -m "docs: refresh documentation for $(date -I)"
 
 # Update the baseline marker
-cat > docs/.last-refresh << 'EOF'
+REFRESH_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+REFRESH_SHA=$(git rev-parse HEAD)
+cat > docs/.last-refresh << EOF
 {
-  "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "sha": "$(git rev-parse HEAD)",
-  "documents_updated": [...],
-  "documents_skipped": [...],
+  "date": "$REFRESH_DATE",
+  "sha": "$REFRESH_SHA",
+  "documents_updated": [],
+  "documents_skipped": [],
   "broken_links_found": 0,
   "manual_followups": []
 }
 EOF
+# Edit documents_updated and documents_skipped arrays to list actual paths
 
 # Create the git tag
 git tag "docs-refresh-$(date -I)"
