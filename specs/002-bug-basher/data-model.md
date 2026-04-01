@@ -67,9 +67,9 @@ A source code comment marking an ambiguous issue for human review.
 | `file` | string | Yes | Path to the file containing the comment |
 | `line` | integer | Yes | Line number where the comment is placed |
 | `finding_id` | integer | Yes | Reference to the Bug Finding this flag represents |
-| `comment` | string | Yes | Full text of the `# TODO(bug-bash):` comment |
+| `comment` | string | Yes | Full text of the `TODO(bug-bash):` comment with the file's native comment syntax |
 
-**Format**: `# TODO(bug-bash): [description of issue, options, and why it needs human decision]`
+**Format**: `TODO(bug-bash): [description of issue, options, and why it needs human decision]` with the file's native comment syntax
 
 **Validation rules**:
 - Comment must start with `# TODO(bug-bash):` (Python) or `// TODO(bug-bash):` (TypeScript)

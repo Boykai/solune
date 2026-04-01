@@ -97,7 +97,7 @@ As a project maintainer, I want ambiguous or trade-off situations flagged with T
 
 **Acceptance Scenarios**:
 
-1. **Given** a bug is identified but the fix involves a trade-off or architectural decision, **When** the reviewer encounters this situation, **Then** a `# TODO(bug-bash):` comment is added at the relevant location describing the issue, options, and why it needs a human decision.
+1. **Given** a bug is identified but the fix involves a trade-off or architectural decision, **When** the reviewer encounters this situation, **Then** a `TODO(bug-bash):` comment is added at the relevant location using the file's native comment syntax and describing the issue, options, and why it needs a human decision.
 2. **Given** all fixes and flags have been applied, **When** the review is complete, **Then** a single summary is produced as a table listing each finding with file, line(s), category, description, and status (Fixed or Flagged).
 3. **Given** the summary report is produced, **When** a maintainer reviews it, **Then** every entry marked "Fixed" has a corresponding regression test that passes, and every entry marked "Flagged" has a corresponding TODO comment in the source code.
 
@@ -120,7 +120,7 @@ As a project maintainer, I want ambiguous or trade-off situations flagged with T
 - **FR-002**: For each clearly identified bug, the reviewer MUST fix the bug directly in the source code and update any existing tests affected by the fix.
 - **FR-003**: For each fixed bug, at least one new regression test MUST be added to ensure the bug does not reoccur.
 - **FR-004**: Each fix MUST include a clear commit message explaining what the bug was, why it is a bug, and how the fix resolves it.
-- **FR-005**: For ambiguous or trade-off situations, the reviewer MUST NOT make the change but instead MUST add a `# TODO(bug-bash):` comment at the relevant location describing the issue, the options, and why it needs a human decision.
+- **FR-005**: For ambiguous or trade-off situations, the reviewer MUST NOT make the change but instead MUST add a `TODO(bug-bash):` comment at the relevant location using the file's native comment syntax and describing the issue, the options, and why it needs a human decision.
 - **FR-006**: After all fixes are applied, the full test suite MUST pass, including all newly added regression tests.
 - **FR-007**: After all fixes are applied, all existing linting and formatting checks MUST pass.
 - **FR-008**: The reviewer MUST NOT commit changes if any tests fail — fixes MUST be iterated on until the test suite is green.
@@ -135,7 +135,7 @@ As a project maintainer, I want ambiguous or trade-off situations flagged with T
 
 - **Bug Finding**: Represents a single identified issue in the codebase. Key attributes: file path, line number(s), category (security / runtime / logic / test quality / code quality), description, and status (Fixed or Flagged).
 - **Regression Test**: A test added specifically to validate that a fixed bug does not reoccur. Associated with exactly one Bug Finding. Must be independently runnable and produce a clear pass/fail result.
-- **TODO Flag**: A source code comment marking an ambiguous issue for human review. Contains the issue description, available options, and rationale for requiring human judgment. Format: `# TODO(bug-bash): [description]`.
+- **TODO Flag**: A source code comment marking an ambiguous issue for human review. Contains the issue description, available options, and rationale for requiring human judgment. Format: `TODO(bug-bash): [description]` with the file's native comment syntax.
 - **Summary Report**: A consolidated table of all Bug Findings produced at the end of the review. Includes all Fixed and Flagged entries. Excludes files with no findings.
 
 ## Assumptions
@@ -154,7 +154,7 @@ As a project maintainer, I want ambiguous or trade-off situations flagged with T
 - **SC-002**: Every bug categorized as "Fixed" has at least one associated regression test that passes in the final test run.
 - **SC-003**: The full test suite passes with zero failures after all fixes are applied.
 - **SC-004**: All existing linting and formatting checks pass after all fixes are applied.
-- **SC-005**: Every ambiguous issue is flagged with a `# TODO(bug-bash):` comment and appears in the summary report with status "Flagged".
+- **SC-005**: Every ambiguous issue is flagged with a `TODO(bug-bash):` comment using the file's native comment syntax and appears in the summary report with status "Flagged".
 - **SC-006**: The summary report contains no missing entries — every fix and every flag is represented.
 - **SC-007**: No new external dependencies are introduced as a result of the review.
 - **SC-008**: No changes to the project's architecture or public-facing interface are made.

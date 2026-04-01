@@ -61,7 +61,7 @@ uv run pip-audit
 
 For each finding:
 - **Clear bug**: Fix → update affected tests → add regression test → commit
-- **Ambiguous**: Add `# TODO(bug-bash):` comment → commit
+- **Ambiguous**: Add `TODO(bug-bash):` comment using the file's native comment syntax → commit
 
 Validate after each batch:
 ```bash

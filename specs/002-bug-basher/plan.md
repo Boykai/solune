@@ -5,7 +5,7 @@
 
 ## Summary
 
-Perform a comprehensive bug-bash code review of the entire Solune codebase (170 Python backend files, 446 TypeScript/TSX frontend files). Identify and fix bugs across five priority categories — security vulnerabilities, runtime errors, logic bugs, test gaps, and code quality issues. Each fix includes a regression test; ambiguous issues are flagged with `# TODO(bug-bash):` comments. The outcome is a fully green test suite, passing lint/format checks, and a single summary table of all findings.
+Perform a comprehensive bug-bash code review of the entire Solune codebase (170 Python backend files, 446 TypeScript/TSX frontend files). Identify and fix bugs across five priority categories — security vulnerabilities, runtime errors, logic bugs, test gaps, and code quality issues. Each fix includes a regression test; ambiguous issues are flagged with `TODO(bug-bash):` comments using the file's native comment syntax. The outcome is a fully green test suite, passing lint/format checks, and a single summary table of all findings.
 
 ## Technical Context
 
@@ -155,7 +155,7 @@ uv run pytest --cov=src \
 
 # Frontend validation (in solune/frontend/)
 npm run lint                           # ESLint
-npm run typecheck                      # TypeScript
+npm run type-check                     # TypeScript
 npm run test                           # Vitest unit tests
 npm run build                          # Production build
 
