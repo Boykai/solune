@@ -154,6 +154,40 @@ describe('useAuth', () => {
     expect(mockAuthApi.logout).toHaveBeenCalled();
   });
 
+  it('should clear chat history from localStorage on logout (FR-027)', async () => {
+    const mockUser = {
+      github_user_id: '12345',
+      github_username: 'testuser',
+      selected_project_id: null,
+    };
+
+    mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
+    mockAuthApi.logout.mockResolvedValue({ message: 'Logged out' });
+
+    // Seed localStorage with legacy chat data
+    localStorage.setItem('chat-message-history', JSON.stringify(['msg1', 'msg2']));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+    });
+
+    // Perform logout
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    await waitFor(() => {
+      expect(result.current.user).toBeNull();
+    });
+
+    // localStorage must be cleared on logout (FR-027: clear all local data)
+    expect(localStorage.getItem('chat-message-history')).toBeNull();
+  });
+
   it('should return selected_project_id when user has one', async () => {
     const mockUser = {
       github_user_id: '12345',
