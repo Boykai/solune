@@ -1,6 +1,6 @@
 # Solune — Development Guidelines
 
-Last updated: 2026-03-18
+Last updated: 2026-04-01
 
 > Prefer official documentation sources and repo-discovery tools when working with frameworks, libraries, or external APIs. Treat tool availability as situational rather than mandatory.
 
@@ -23,8 +23,8 @@ Last updated: 2026-03-18
 
 - **Node / build:** Node 25 for Docker; CI currently uses Node 20. Vite 8 config lives in `solune/frontend/vite.config.ts`.
 - **Framework:** React 19.2, react-router-dom v7
-- **Language:** TypeScript ~5.9 (strict mode, `@/` alias → `frontend/src`)
-- **State / data fetching:** `@tanstack/react-query` 5.91
+- **Language:** TypeScript ~6.0 (strict mode, `@/` alias → `frontend/src`)
+- **State / data fetching:** `@tanstack/react-query` 5.96
 - **Styling:** Tailwind CSS 4.2 via `@tailwindcss/vite` (CSS-first v4 model; config lives in `frontend/src/index.css`)
 - **UI primitives:** `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react 0.577`, `@tailwindcss/typography`
 - **Drag-and-drop:** `@dnd-kit/core` 6.3, `@dnd-kit/modifiers` 9.0, `@dnd-kit/sortable` 10.0, `@dnd-kit/utilities` 3.2
@@ -54,7 +54,7 @@ Last updated: 2026-03-18
 
 - **Auth:** GitHub OAuth with secure HTTP-only session cookies. No JWT / `python-jose` layer.
 - **Real-time:** Native WebSocket (`ConnectionManager` in `solune/backend/src/services/websocket.py`) with SSE fallback in the projects API.
-- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations (`001`–`030`, with the consolidated schema at `023`) run automatically on startup from `solune/backend/src/migrations/`.
+- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations (`001`–`035`, with the consolidated schema at `023`) run automatically on startup from `solune/backend/src/migrations/`.
 - **Tailwind v4:** CSS-first config lives in `solune/frontend/src/index.css`. Do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - **Repository resolution:** Use the shared `resolve_repository()` helper in `solune/backend/src/utils.py`. Avoid ad-hoc owner/repo fallback logic.
 - **AI providers:** `completion_providers.py` abstracts GitHub Copilot SDK (default, user OAuth token) and Azure OpenAI (static keys, optional). Selected via `AI_PROVIDER` env var.
@@ -75,11 +75,12 @@ solune/
   backend/
     src/
     api/              FastAPI route handlers
-                      (agents, apps, auth, board, chat, chores, cleanup, health,
-                       mcp, metadata, onboarding, pipelines, projects, settings,
-                       signal, tasks, tools, webhook_models, webhooks, workflow)
+                      (activity, agents, apps, auth, board, chat, chores, cleanup,
+                       health, mcp, metadata, onboarding, pipelines, projects,
+                       settings, signal, tasks, tools, webhook_models, webhooks,
+                       workflow)
     middleware/       Request middleware (request_id context var)
-    migrations/       SQL schema migrations (001–030, run on startup)
+    migrations/       SQL schema migrations (001–035, run on startup)
     models/           Pydantic request/response models
     prompts/          AI prompt templates (issue_generation, task_generation, transcript_analysis)
     services/         Business logic
@@ -88,7 +89,7 @@ solune/
       copilot_polling/ Copilot PR polling loop and agent output parsing
       tools/          MCP tool service (presets catalog, per-project CRUD, repo sync)
       github_projects/ GitHub Projects v2 GraphQL + REST
-      housekeeping/   Session/DB cleanup
+      mcp_server/     MCP server implementation
       pipelines/      Pipeline config service
       workflow_orchestrator/ Issue workflow state machine
     tests/
@@ -98,7 +99,11 @@ solune/
 
   frontend/
     src/
+      assets/         Static assets
       components/     UI components by domain
+      constants/      Shared constants
+      context/        React context providers
+      data/           Static data files
       hooks/          React hooks
       layout/         Shell components
       lib/            Shared utilities
@@ -137,7 +142,7 @@ npx playwright test             # E2E
 - Prefer focused, minimal fixes over broad refactors unless the task explicitly calls for architectural work.
 - Tailwind v4 uses the CSS-first setup in `solune/frontend/src/index.css`; do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - Agent `.agent.md` files live in `.github/agents/`; corresponding `.prompt.md` shortcuts live in `.github/prompts/`.
-- `.github/agents/mcp.json` declares MCP servers for remote GitHub Custom Agents (currently Context7). Do not confuse with `.vscode/mcp.json` (local IDE MCP servers).
+- `.github/agents/mcp.json` declares MCP servers for remote GitHub Custom Agents (currently Context7, Azure MCP, and Bicep MCP). Do not confuse with `.vscode/mcp.json` (local IDE MCP servers).
 
 ## CHANGELOG
 
@@ -212,7 +217,7 @@ All agents live in `.github/agents/`. The repository includes both **Spec Kit pi
 | `tester` | Adds tests for changed behavior and improves testability |
 
 ### MCP Configuration
-- `.github/agents/mcp.json` — Declares MCP servers available to remote GitHub Custom Agents (Context7 for documentation lookup and Azure MCP for resource schema lookups, Bicep best practices, and Well-Architected Framework guidance).
+- `.github/agents/mcp.json` — Declares MCP servers available to remote GitHub Custom Agents (Context7 for documentation lookup, Azure MCP for resource schema lookups and Well-Architected Framework guidance, and Bicep MCP for Bicep best practices, resource type schemas, and Azure Verified Modules metadata).
 
 ### Agent Degradation Rules
 
@@ -258,14 +263,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
 ## Active Technologies
-- Python 3.13 (backend runtime target, 3.12 CI, 3.14 Docker), TypeScript ~5.9 (frontend) + FastAPI >=0.135, React 19.2, Vite 8, TanStack Query 5.91, Tailwind CSS 4.2, @dnd-kit (drag-and-drop), Pydantic 2.12, aiosqlite, cryptography 46, githubkit >=0.14.6, Radix UI
-- SQLite via aiosqlite (persistent module-level connection, `init_database()` / `get_db()`), SQL-based migrations (001–030) in `backend/src/migrations/`
-- ESLint 10, eslint-plugin-react-hooks 7, eslint-plugin-security 4, Vitest 4.0, Playwright 1.58
-- Docker images: python:3.14-slim (backend), node:25-alpine + nginx:1.29-alpine (frontend)
-- TypeScript ~5.9.0, React 19.2.0 + TanStack React Query ^5.91.0, React Router DOM ^7.13.1, React Hook Form ^7.71.2, Radix UI (primitives), Tailwind CSS ^4.2.0, Zod ^4.3.6, Vite ^8.0.0 (052-ui-audit)
-- N/A (frontend-only; backend uses SQLite via aiosqlite — not modified by this feature) (052-ui-audit)
-- Python 3.12, TypeScript (ES2022) + FastAPI 0.135+, Pydantic 2.12+, aiosqlite, githubkit, React 18, TanStack Query, Vite (049-fix-repo-type-routing)
-- SQLite (WAL mode, aiosqlite) — `apps` table with `repo_type`, `external_repo_url`, `github_project_id`, `github_project_url` columns (049-fix-repo-type-routing)
+
+Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 
 ## Recent Changes
 - Dependabot upgrades: ESLint 9→10, Vite 7→8, react-hooks 5→7, security 3→4, @vitejs/plugin-react 5→6, Docker images (python 3.14, node 25, nginx 1.29), GitHub Actions (checkout v6, setup-python v6, upload-artifact v7, setup-node v6)

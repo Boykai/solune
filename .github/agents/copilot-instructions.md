@@ -1,6 +1,6 @@
 # Solune — Development Guidelines
 
-Last updated: 2026-03-18
+Last updated: 2026-04-01
 
 > Prefer official documentation sources and repo-discovery tools when working with frameworks, libraries, or external APIs. Treat tool availability as situational rather than mandatory.
 
@@ -23,8 +23,8 @@ Last updated: 2026-03-18
 
 - **Node / build:** Node 25 for Docker; CI currently uses Node 20. Vite 8 config lives in `solune/frontend/vite.config.ts`.
 - **Framework:** React 19.2, react-router-dom v7
-- **Language:** TypeScript ~5.9 (strict mode, `@/` alias → `frontend/src`)
-- **State / data fetching:** `@tanstack/react-query` 5.91
+- **Language:** TypeScript ~6.0 (strict mode, `@/` alias → `frontend/src`)
+- **State / data fetching:** `@tanstack/react-query` 5.96
 - **Styling:** Tailwind CSS 4.2 via `@tailwindcss/vite` (CSS-first v4 model; config lives in `frontend/src/index.css`)
 - **UI primitives:** `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react 0.577`, `@tailwindcss/typography`
 - **Drag-and-drop:** `@dnd-kit/core` 6.3, `@dnd-kit/modifiers` 9.0, `@dnd-kit/sortable` 10.0, `@dnd-kit/utilities` 3.2
@@ -54,7 +54,7 @@ Last updated: 2026-03-18
 
 - **Auth:** GitHub OAuth with secure HTTP-only session cookies. No JWT / `python-jose` layer.
 - **Real-time:** Native WebSocket (`ConnectionManager` in `solune/backend/src/services/websocket.py`) with SSE fallback in the projects API.
-- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations (`001`–`032`, with the consolidated schema at `023`) run automatically on startup from `solune/backend/src/migrations/`.
+- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations (`001`–`035`, with the consolidated schema at `023`) run automatically on startup from `solune/backend/src/migrations/`.
 - **Tailwind v4:** CSS-first config lives in `solune/frontend/src/index.css`. Do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - **Repository resolution:** Use the shared `resolve_repository()` helper in `solune/backend/src/utils.py`. Avoid ad-hoc owner/repo fallback logic.
 - **AI providers:** `completion_providers.py` abstracts GitHub Copilot SDK (default, user OAuth token) and Azure OpenAI (static keys, optional). Selected via `AI_PROVIDER` env var.
@@ -75,11 +75,12 @@ solune/
   backend/
     src/
     api/              FastAPI route handlers
-                      (agents, apps, auth, board, chat, chores, cleanup, health,
-                       mcp, metadata, onboarding, pipelines, projects, settings,
-                       signal, tasks, tools, webhook_models, webhooks, workflow)
+                      (activity, agents, apps, auth, board, chat, chores, cleanup,
+                       health, mcp, metadata, onboarding, pipelines, projects,
+                       settings, signal, tasks, tools, webhook_models, webhooks,
+                       workflow)
     middleware/       Request middleware (request_id context var)
-    migrations/       SQL schema migrations (001–032, run on startup)
+    migrations/       SQL schema migrations (001–035, run on startup)
     models/           Pydantic request/response models
     prompts/          AI prompt templates (issue_generation, task_generation, transcript_analysis)
     services/         Business logic
@@ -88,7 +89,7 @@ solune/
       copilot_polling/ Copilot PR polling loop and agent output parsing
       tools/          MCP tool service (presets catalog, per-project CRUD, repo sync)
       github_projects/ GitHub Projects v2 GraphQL + REST
-      housekeeping/   Session/DB cleanup
+      mcp_server/     MCP server implementation
       pipelines/      Pipeline config service
       workflow_orchestrator/ Issue workflow state machine
     tests/
@@ -98,7 +99,11 @@ solune/
 
   frontend/
     src/
+      assets/         Static assets
       components/     UI components by domain
+      constants/      Shared constants
+      context/        React context providers
+      data/           Static data files
       hooks/          React hooks
       layout/         Shell components
       lib/            Shared utilities
@@ -258,35 +263,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
 ## Active Technologies
-- Python ≥3.12 (target 3.13, backend), TypeScript ~5.9 (frontend) + FastAPI + Pydantic v2 (backend), React 19.2 + Vite 8 (frontend), Lucide icons (001-help-tour-refresh)
-- SQLite (aiosqlite) with sequential SQL migration files (001-help-tour-refresh)
-- TypeScript ~5.9 (frontend), Python >=3.12 (backend) + React 19, Vite 8, TanStack Query 5, FastAPI, Pydantic 2, github-copilot-sdk (001-copilot-slash-commands)
-- SQLite (aiosqlite) for backend persistence, browser localStorage for client-side settings (001-copilot-slash-commands)
-- Python ≥3.12 (backend), TypeScript/React 19 (frontend) + FastAPI ≥0.135, TanStack React Query 5.91, dnd-kit, Radix UI, websockets ≥16.0 (001-performance-review)
-- SQLite via aiosqlite (sessions, settings, done-items fallback) (001-performance-review)
-- TypeScript 5.x / React 18.x + React, TanStack React Query, Vitest, React Testing Library (002-celestial-progress-ring)
-- N/A (client-side only; progress derived from hook states) (002-celestial-progress-ring)
-- Python >=3.12 + FastAPI >=0.135.0, Pydantic >=2.12.0, agent-framework-core >=1.0.0b1, agent-framework-azure-ai (preview), agent-framework-github-copilot >=1.0.0b1, aiosqlite >=0.22.0, githubkit >=0.14.6, sse-starlette >=3.0.0 (001-intelligent-chat-agent)
-- SQLite via aiosqlite (settings.db — sessions, pipeline configs, MCP tool configs, conversation history) (001-intelligent-chat-agent)
-- Python >=3.12 (pyright target: py313) + FastAPI >=0.135.0, pytest >=9.0.0, pytest-asyncio >=1.3.0, aiosqlite >=0.22.0, githubkit >=0.14.6, pydantic >=2.12.0 (002-backend-test-coverage)
-- SQLite via aiosqlite (settings.db — projects, agent configs, chores, MCP tool configs) (002-backend-test-coverage)
-- Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
-- In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
-- Python ≥3.12 (targets 3.13 for ruff/pyright, 3.14-slim in Docker) + FastAPI ≥0.135.0, mcp ≥1.26.0 (new), httpx ≥0.28.0, pydantic ≥2.12.0, aiosqlite ≥0.22.0 (001-mcp-server)
-- SQLite via aiosqlite (existing `settings.db`; pipeline states, MCP configs, session data) (001-mcp-server)
-- Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
-- In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
-- Python 3.12+ (backend), TypeScript 6.0+ / React 19 (frontend) + FastAPI ≥0.135, Microsoft Agent Framework ≥1.0.0b1, githubkit ≥0.14.6, Pydantic ≥2.12, React 19.2, TanStack React Query 5.96, Radix UI, Tailwind CSS 4.2, Vite 8.0 (002-autonomous-app-builder)
-- SQLite via aiosqlite ≥0.22 (existing); file-system for template definitions (002-autonomous-app-builder)
-- Python 3.13 (PEP 695 type parameter syntax enforced by ruff UP046/UP047) + FastAPI, Pydantic, aiosqlite, pytest + pytest-asyncio (002-fix-parallel-pipeline-bugs)
-- SQLite via aiosqlite (no schema changes needed) (002-fix-parallel-pipeline-bugs)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
-
-- **Backend:** Python ≥3.12 (target 3.13, Docker 3.14) · FastAPI · Pydantic v2 · aiosqlite (SQLite WAL) · githubkit · httpx · cryptography (Fernet) · slowapi · OpenTelemetry · sentry-sdk
-- **Frontend:** TypeScript ~5.9 · React 19.2 · Vite 8 · TanStack Query 5.91 · Tailwind CSS 4.2 · @dnd-kit · Radix UI · react-hook-form + zod · sonner · lucide-react · react-markdown
-- **Storage:** SQLite via aiosqlite (persistent module-level connection, `init_database()` / `get_db()`); SQL migrations in `backend/src/migrations/`; in-memory `BoundedDict` / `InMemoryCache` L1 caches
-- **Dev / CI:** ruff · pyright · pytest · ESLint 10 · Vitest 4 · Playwright 1.58 · Docker (python:3.14-slim, node:25-alpine, nginx:1.29-alpine)
 
 ## Recent Changes
 - Dependabot upgrades: ESLint 9→10, Vite 7→8, react-hooks 5→7, security 3→4, @vitejs/plugin-react 5→6, Docker images (python 3.14, node 25, nginx 1.29), GitHub Actions (checkout v6, setup-python v6, upload-artifact v7, setup-node v6)
