@@ -98,6 +98,10 @@ export function useCreateAgent(projectId: string | null | undefined) {
         branch_name: null,
         source: 'local' as const,
         created_at: now,
+        agent_type: 'custom' as const,
+        catalog_source_url: null,
+        catalog_agent_id: null,
+        imported_at: null,
         _optimistic: true,
       } satisfies AgentConfig & { _optimistic: boolean };
 

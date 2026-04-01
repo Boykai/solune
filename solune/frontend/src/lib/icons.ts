@@ -40,6 +40,7 @@ export {
   Cpu,
   Crown,
   DollarSign,
+  Download,
   ExternalLink,
   FilePenLine,
   FileText,

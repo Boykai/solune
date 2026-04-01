@@ -1124,3 +1124,241 @@ class TestSessionPruning:
         _prune_expired_sessions()
 
         assert "a" in _chat_sessions
+
+
+# ── Import (catalog → project DB snapshot) ───────────────────────────────
+
+
+class TestImportAgent:
+    """Tests for AgentsService.import_agent — DB-only catalog import."""
+
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_import_stores_agent_in_db(self, mock_db):
+        """Import creates a new agent row with imported status and raw content."""
+        from src.models.agents import ImportAgentRequest
+
+        service = AgentsService(mock_db)
+
+        with patch(
+            "src.services.agents.catalog.fetch_agent_raw_content",
+            AsyncMock(return_value="---\nname: Test\n---\nContent"),
+        ):
+            result = await service.import_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=ImportAgentRequest(
+                    catalog_agent_id="test-agent",
+                    name="Test Agent",
+                    description="A test agent",
+                    source_url="https://example.com/test.md",
+                ),
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        assert result.agent.status == AgentStatus.IMPORTED
+        assert result.agent.agent_type == "imported"
+        assert result.agent.catalog_agent_id == "test-agent"
+        assert result.message == "Agent 'Test Agent' imported successfully."
+
+        # Verify persisted in DB
+        cursor = await mock_db.execute(
+            "SELECT raw_source_content, lifecycle_status FROM agent_configs WHERE id = ?",
+            (result.agent.id,),
+        )
+        row = await cursor.fetchone()
+        assert row is not None
+        assert row[0] == "---\nname: Test\n---\nContent"
+        assert row[1] == "imported"
+
+    async def test_import_rejects_duplicate(self, mock_db):
+        """Import raises ValueError if the catalog agent is already imported."""
+        from src.models.agents import ImportAgentRequest
+
+        # Pre-insert an agent with the same catalog_agent_id
+        await mock_db.execute(
+            """INSERT INTO agent_configs
+               (id, name, slug, description, system_prompt, status_column,
+                tools, project_id, owner, repo, created_by,
+                created_at, lifecycle_status, catalog_agent_id, agent_type)
+               VALUES ('a1', 'Test', 'test', 'desc', '', '', '[]',
+                       ?, ?, ?, ?, datetime('now'), 'imported', 'test-agent', 'imported')""",
+            (PROJECT_ID, OWNER, REPO, GITHUB_USER_ID),
+        )
+        await mock_db.commit()
+
+        service = AgentsService(mock_db)
+        with pytest.raises(ValueError, match="already imported"):
+            await service.import_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=ImportAgentRequest(
+                    catalog_agent_id="test-agent",
+                    name="Test Agent",
+                    description="dup",
+                    source_url="https://example.com/test.md",
+                ),
+                github_user_id=GITHUB_USER_ID,
+            )
+
+    async def test_import_raises_on_fetch_failure(self, mock_db):
+        """Import raises RuntimeError when raw content fetch fails."""
+        from src.models.agents import ImportAgentRequest
+
+        service = AgentsService(mock_db)
+
+        with (
+            patch(
+                "src.services.agents.catalog.fetch_agent_raw_content",
+                AsyncMock(side_effect=Exception("network error")),
+            ),
+            pytest.raises(RuntimeError, match="Could not fetch agent content"),
+        ):
+            await service.import_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=ImportAgentRequest(
+                    catalog_agent_id="fetch-fail",
+                    name="Fail Agent",
+                    description="will fail",
+                    source_url="https://example.com/fail.md",
+                ),
+                github_user_id=GITHUB_USER_ID,
+            )
+
+
+# ── Install (imported agent → GitHub issue + PR) ─────────────────────────
+
+
+class TestInstallAgent:
+    """Tests for AgentsService.install_agent — creates GitHub issue + PR."""
+
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def _insert_imported_agent(self, db, agent_id: str = "imp-1") -> None:
+        await db.execute(
+            """INSERT INTO agent_configs
+               (id, name, slug, description, system_prompt, status_column,
+                tools, project_id, owner, repo, created_by,
+                created_at, lifecycle_status, agent_type,
+                catalog_agent_id, catalog_source_url, raw_source_content, imported_at)
+               VALUES (?, 'Test Agent', 'test-agent', 'A test agent', '', '', '[]',
+                       ?, ?, ?, ?, datetime('now'), 'imported', 'imported',
+                       'test-agent', 'https://example.com/test.md',
+                       '---\nname: Test\n---\nContent', datetime('now'))""",
+            (agent_id, PROJECT_ID, OWNER, REPO, GITHUB_USER_ID),
+        )
+        await db.commit()
+
+    async def test_install_creates_pr_and_updates_status(self, mock_db):
+        """Install creates a GitHub PR and transitions agent to installed."""
+        await self._insert_imported_agent(mock_db)
+        service = AgentsService(mock_db)
+
+        wf_result = SimpleNamespace(
+            success=True,
+            pr_url=f"https://github.com/{OWNER}/{REPO}/pull/10",
+            pr_number=10,
+            issue_number=5,
+            branch_name="agent/test-agent",
+            errors=[],
+        )
+
+        with patch(
+            "src.services.agents.service.commit_files_workflow",
+            AsyncMock(return_value=wf_result),
+        ) as mock_commit:
+            result = await service.install_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="imp-1",
+                access_token=ACCESS_TOKEN,
+            )
+
+        assert result.agent.status == AgentStatus.INSTALLED
+        assert result.pr_number == 10
+        assert result.issue_number == 5
+
+        # Verify commit_files_workflow was called with the raw content
+        call_kwargs = mock_commit.call_args.kwargs
+        files = call_kwargs["files"]
+        assert any(f["path"].endswith(".agent.md") for f in files)
+        assert any(f["path"].endswith(".prompt.md") for f in files)
+
+        # Verify DB updated
+        cursor = await mock_db.execute(
+            "SELECT lifecycle_status, github_pr_number FROM agent_configs WHERE id = 'imp-1'",
+        )
+        row = await cursor.fetchone()
+        assert row[0] == "installed"
+        assert row[1] == 10
+
+    async def test_install_raises_for_non_imported_agent(self, mock_db):
+        """Install raises ValueError if agent is not in imported state."""
+        await _insert_agent_row(
+            mock_db, agent_id="active-1", slug="active-agent", lifecycle_status="pending_pr"
+        )
+        service = AgentsService(mock_db)
+
+        with pytest.raises(ValueError, match="not in imported state"):
+            await service.install_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="active-1",
+                access_token=ACCESS_TOKEN,
+            )
+
+    async def test_install_raises_for_missing_agent(self, mock_db):
+        """Install raises LookupError if agent doesn't exist."""
+        service = AgentsService(mock_db)
+
+        with pytest.raises(LookupError, match="not found"):
+            await service.install_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="nonexistent",
+                access_token=ACCESS_TOKEN,
+            )
+
+    async def test_install_raises_on_workflow_failure(self, mock_db):
+        """Install raises RuntimeError when the GitHub workflow fails."""
+        await self._insert_imported_agent(mock_db)
+        service = AgentsService(mock_db)
+
+        wf_result = SimpleNamespace(
+            success=False,
+            pr_url=None,
+            pr_number=None,
+            issue_number=None,
+            branch_name=None,
+            errors=["branch conflict"],
+        )
+
+        with (
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=wf_result),
+            ),
+            pytest.raises(RuntimeError, match="Install failed"),
+        ):
+            await service.install_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="imp-1",
+                access_token=ACCESS_TOKEN,
+            )
