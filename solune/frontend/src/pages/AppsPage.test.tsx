@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   startMutate: vi.fn(),
   stopMutate: vi.fn(),
   deleteMutate: vi.fn(),
+  undoableDeleteApp: vi.fn(),
   confirm: vi.fn(),
   setLabel: vi.fn(),
   removeLabel: vi.fn(),
@@ -57,6 +58,7 @@ vi.mock('@/hooks/useApps', () => ({
   useStartApp: () => ({ mutate: mocks.startMutate, isPending: false }),
   useStopApp: () => ({ mutate: mocks.stopMutate, isPending: false }),
   useDeleteApp: () => ({ mutate: mocks.deleteMutate, isPending: false }),
+  useUndoableDeleteApp: () => ({ deleteApp: mocks.undoableDeleteApp, pendingIds: [] }),
   getErrorMessage: (_err: unknown, fallback: string) => fallback,
 }));
 
@@ -423,5 +425,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
     render(<AppsPage />);
 
     expect(mocks.setLabel).toHaveBeenCalledWith('/apps/my-cool-app', 'my-cool-app');
+    expect(screen.getByText(/could not load app details/i)).toBeInTheDocument();
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
   });
 });
