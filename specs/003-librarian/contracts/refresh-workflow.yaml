@@ -311,7 +311,7 @@ phases:
         action: Hit 3-5 documented endpoints; confirm request/response shapes
 
   phase_7:
-    name: Stamp and Reset Baseline
+    name: Stamp & Reset Baseline
     goal: Record the refresh so the next cycle starts clean
     inputs: [all_phase_outputs]
     outputs: [updated_baseline, git_tag, changelog_entry]
