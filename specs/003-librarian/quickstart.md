@@ -150,8 +150,8 @@ cd solune
 # Priority 1: Read the existing baseline from .last-refresh JSON
 BASELINE_SHA=$(cat docs/.last-refresh | python3 -c "import sys, json; print(json.load(sys.stdin)['sha'])" 2>/dev/null)
 
-# Validate the SHA exists in git history
-if [ -n "$BASELINE_SHA" ]; then
+# Validate the SHA exists in git history (skip empty or whitespace-only values)
+if [ -n "${BASELINE_SHA// /}" ]; then
   git cat-file -t "$BASELINE_SHA" >/dev/null 2>&1 || BASELINE_SHA=""
 fi
 
@@ -186,6 +186,7 @@ git diff --name-status "$BASELINE_SHA"..HEAD -- specs/ docs/decisions/
 ```
 
 From the changelog diff, extract entries under these headings:
+
 - **### Added** → candidate "New capabilities" items
 - **### Changed** → candidate "Changed behavior" items
 - **### Removed** or **### Deprecated** → candidate "Removed functionality" items
@@ -245,6 +246,7 @@ Categorize all harvested items into the 6 manifest categories and write to `docs
 | **Config / ops changes** | New env vars, changed deployment steps, new dependencies |
 
 For each item, record:
+
 - **Description**: Human-readable summary of the change
 - **Source**: Where detected (`changelog`, `spec`, `adr`, `git-diff`)
 - **Source Detail**: Specific location (e.g., "## [Unreleased] > ### Added")
@@ -314,6 +316,7 @@ Based on the narrative shift answers, assign P0–P4 priorities to documentation
 Produce a prioritized update list mapping each affected doc to its priority level, trigger reason, and source of truth (from the [doc-to-source mapping in OWNERS.md](../../solune/docs/OWNERS.md#doc-to-source-mapping)). This list drives Phases 3–4.
 
 Write the focus-shift analysis output to `docs/.change-manifest.md` after the Summary section, including:
+
 - **Domain Classification** table with change counts and focus levels
 - **Narrative Shift Analysis** with answers to all 5 diagnostic questions
 - **Priority Assignments** table mapping each document to its priority, trigger, and source of truth
@@ -494,9 +497,9 @@ Extract embedded code snippets from Markdown files and verify syntax validity fo
 # Extract Python code blocks and check syntax
 grep -A 50 '```python' solune/docs/*.md | python3 -c "
 import sys, ast
-for block in sys.stdin.read().split('\`\`\`python'):
-    code = block.split('\`\`\`')[0].strip()
-    if code:
+for block in sys.stdin.read().split('python'):
+    code = block.split('---')[0].strip()
+    if code and not code.startswith('#'):
         try:
             ast.parse(code)
         except SyntaxError as e:
@@ -557,8 +560,8 @@ cd solune
 # Stage all doc changes
 git add docs/ README.md CHANGELOG.md
 
-# Commit with conventional message including the refresh date range
-git commit -m "docs: refresh documentation for <start_date> to <end_date>"
+# Commit with conventional message including the refresh date range (YYYY-MM-DD format)
+git commit -m "docs: refresh documentation for 2026-03-14 to 2026-04-01"
 ```
 
 **Step 7.2 — Update the changelog (FR-012):**
