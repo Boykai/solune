@@ -143,12 +143,16 @@ class TestSelectProject:
         with (
             patch("src.api.projects._start_copilot_polling", new_callable=AsyncMock),
             patch("src.api.projects.cache") as mock_cache,
+            patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log_event,
         ):
             mock_cache.get.return_value = None
             resp = await client.post("/api/v1/projects/PVT_abc/select")
         assert resp.status_code == 200
         data = resp.json()
         assert data["selected_project_id"] == "PVT_abc"
+        mock_log_event.assert_awaited_once()
+        assert mock_log_event.await_args.kwargs["action"] == "selected"
+        assert mock_log_event.await_args.kwargs["detail"] == {"project_name": "Test Project"}
 
     async def test_select_nonexistent_project(self, client, mock_github_service):
         mock_github_service.list_user_projects.return_value = []
@@ -156,6 +160,35 @@ class TestSelectProject:
             mock_cache.get.return_value = None
             resp = await client.post("/api/v1/projects/PVT_missing/select")
         assert resp.status_code == 404
+
+
+class TestCreateProject:
+    async def test_create_project_logs_activity(self, client):
+        with (
+            patch(
+                "src.api.projects.create_standalone_project",
+                new_callable=AsyncMock,
+                return_value={
+                    "project_id": "PVT_NEW",
+                    "project_number": 12,
+                    "project_url": "https://github.com/users/testuser/projects/12",
+                },
+            ),
+            patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log_event,
+        ):
+            resp = await client.post(
+                "/api/v1/projects/create",
+                json={"title": "Fresh Project", "owner": "testuser"},
+            )
+
+        assert resp.status_code == 201
+        assert resp.json()["project_id"] == "PVT_NEW"
+        mock_log_event.assert_awaited_once()
+        assert mock_log_event.await_args.kwargs["action"] == "created"
+        assert mock_log_event.await_args.kwargs["detail"] == {
+            "project_name": "Fresh Project",
+            "owner": "testuser",
+        }
 
 
 # ── Cache Hit Paths ────────────────────────────────────────────────────────

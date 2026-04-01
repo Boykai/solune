@@ -16,6 +16,7 @@ import {
   choresApi,
   agentsApi,
   pipelinesApi,
+  activityApi,
   modelsApi,
   toolsApi,
   agentToolsApi,
@@ -77,6 +78,7 @@ describe('api module exports', () => {
     ['choresApi', choresApi],
     ['agentsApi', agentsApi],
     ['pipelinesApi', pipelinesApi],
+    ['activityApi', activityApi],
     ['modelsApi', modelsApi],
     ['toolsApi', toolsApi],
     ['agentToolsApi', agentToolsApi],
@@ -137,6 +139,17 @@ describe('request URL and header construction', () => {
 
     const [url, opts] = mockFetch.mock.calls[0];
     expect(url).toContain('/apps?status=active');
+    expect(opts.method ?? 'GET').toBe('GET');
+  });
+
+  it('activityApi.stats sends GET /activity/stats with project scope', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ total_count: 0, today_count: 0, by_type: {}, last_event_at: null })
+    );
+    await activityApi.stats('PVT_1');
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/activity/stats?project_id=PVT_1');
     expect(opts.method ?? 'GET').toBe('GET');
   });
 

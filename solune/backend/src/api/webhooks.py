@@ -34,6 +34,42 @@ router = APIRouter()
 _processed_delivery_ids: BoundedSet[str] = BoundedSet(maxlen=1000)
 
 
+def classify_pull_request_activity(
+    raw_payload: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]]:
+    """Map a pull_request webhook payload to an activity action, summary, and detail."""
+    pr_info = raw_payload.get("pull_request", {})
+    repo_info = raw_payload.get("repository", {})
+    webhook_action = raw_payload.get("action", "")
+    repo_full = repo_info.get("full_name", "") if isinstance(repo_info, dict) else ""
+    pr_number = pr_info.get("number", "") if isinstance(pr_info, dict) else ""
+    head_ref = pr_info.get("head", {}).get("ref", "") if isinstance(pr_info, dict) else ""
+
+    activity_action = webhook_action or "received"
+    summary = f"Webhook: pull_request {activity_action} on {repo_full}".strip()
+
+    if webhook_action == "closed" and isinstance(pr_info, dict) and pr_info.get("merged") is True:
+        activity_action = "pr_merged"
+        summary = f"Webhook: PR #{pr_number} merged on {repo_full}"
+    elif isinstance(head_ref, str) and head_ref.startswith("copilot/"):
+        activity_action = "copilot_pr_ready"
+        summary = f"Webhook: Copilot PR #{pr_number} ready on {repo_full}"
+
+    detail = {
+        "webhook_type": "pull_request",
+        "action": activity_action,
+        "sender": (
+            pr_info.get("user", {}).get("login", "system")
+            if isinstance(pr_info, dict)
+            else "system"
+        ),
+        "repository": repo_full,
+        "branch": head_ref,
+        "pr_number": pr_number,
+    }
+    return activity_action, summary, detail
+
+
 def verify_webhook_signature(payload: bytes, signature: str | None, secret: str) -> bool:
     """
     Verify GitHub webhook signature.
@@ -293,13 +329,15 @@ async def github_webhook(
     if x_github_event == "pull_request":
         result = await handle_pull_request_event(cast(PullRequestEvent | dict[str, Any], payload))
         pr_info = raw_payload.get("pull_request", {}) if isinstance(raw_payload, dict) else {}
-        repo_info = raw_payload.get("repository", {}) if isinstance(raw_payload, dict) else {}
-        webhook_action = raw_payload.get("action", "") if isinstance(raw_payload, dict) else ""
-        repo_full = repo_info.get("full_name", "") if isinstance(repo_info, dict) else ""
         sender = (
             pr_info.get("user", {}).get("login", "system")
             if isinstance(pr_info, dict)
             else "system"
+        )
+        activity_action, summary, detail = (
+            classify_pull_request_activity(raw_payload)
+            if isinstance(raw_payload, dict)
+            else ("received", "Webhook: pull_request received", {"webhook_type": "pull_request"})
         )
         await log_event(
             get_db(),
@@ -312,14 +350,9 @@ async def github_webhook(
                 else ""
             ),
             actor=sender,
-            action=webhook_action or "received",
-            summary=f"Webhook: pull_request {webhook_action} on {repo_full}",
-            detail={
-                "webhook_type": "pull_request",
-                "action": webhook_action,
-                "sender": sender,
-                "repository": repo_full,
-            },
+            action=activity_action,
+            summary=summary,
+            detail=detail,
         )
         return result
 
