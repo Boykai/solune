@@ -146,7 +146,7 @@ async def get_activity_stats(
     project_id: str,
 ) -> dict:
     """Return aggregated activity statistics for a single project."""
-    today_cutoff = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    last_24h_cutoff = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
     week_cutoff = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     total_cursor = await db.execute(
@@ -165,7 +165,7 @@ async def get_activity_stats(
         FROM activity_events
         WHERE project_id = ? AND created_at >= ?
         """,
-        (project_id, today_cutoff),
+        (project_id, last_24h_cutoff),
     )
     today_row = await today_cursor.fetchone()
 

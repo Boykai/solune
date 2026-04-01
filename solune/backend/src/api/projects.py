@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
@@ -42,7 +42,7 @@ def _is_github_rate_limit_error(exc: Exception) -> bool:
     if isinstance(exc, PrimaryRateLimitExceeded):
         return True
     if isinstance(exc, RequestFailed):
-        response = getattr(exc, "response", None)
+        response = cast(Any, exc).response
         status_code = getattr(response, "status_code", None)
         if status_code == 429:
             return True
