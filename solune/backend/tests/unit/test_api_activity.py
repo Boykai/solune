@@ -64,8 +64,20 @@ class TestDecodeCursor:
 
     def test_empty_array_raises(self):
         empty = base64.urlsafe_b64encode(json.dumps([]).encode()).decode()
-        with pytest.raises(IndexError):
+        with pytest.raises(ValueError, match="Invalid activity cursor payload"):
             decode_cursor(empty)
+
+    def test_non_list_payload_raises(self):
+        not_a_list = base64.urlsafe_b64encode(json.dumps(None).encode()).decode()
+        with pytest.raises(ValueError, match="Invalid activity cursor payload"):
+            decode_cursor(not_a_list)
+
+    def test_non_string_cursor_parts_raise(self):
+        wrong_types = base64.urlsafe_b64encode(
+            json.dumps(["2024-06-15T12:00:00Z", 42]).encode()
+        ).decode()
+        with pytest.raises(ValueError, match="Invalid activity cursor payload"):
+            decode_cursor(wrong_types)
 
 
 # ── Activity Feed endpoint ───────────────────────────────────────────────
@@ -473,6 +485,14 @@ class TestQueryEventsBranches:
         bad_cursor = base64.urlsafe_b64encode(b"not-json-data").decode()
         result = await query_events(mock_db, cursor=bad_cursor)
         assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_structurally_invalid_cursor_is_logged_and_ignored(self, mock_db):
+        """Structurally invalid cursor payloads are ignored instead of raising 500s."""
+        bad_cursor = base64.urlsafe_b64encode(json.dumps(None).encode()).decode()
+        result = await query_events(mock_db, cursor=bad_cursor)
+        assert isinstance(result, dict)
+        assert result["items"] == []
 
     @pytest.mark.asyncio
     async def test_empty_string_event_type_filter(self, mock_db):

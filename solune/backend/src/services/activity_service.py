@@ -25,6 +25,12 @@ def decode_cursor(cursor: str) -> tuple[str, str]:
     """Decode a base64 compound cursor into ``(created_at, id)``."""
     raw = base64.urlsafe_b64decode(cursor.encode()).decode()
     parts = json.loads(raw)
+    if (
+        not isinstance(parts, list)
+        or len(parts) != 2
+        or not all(isinstance(part, str) for part in parts)
+    ):
+        raise ValueError("Invalid activity cursor payload")
     return parts[0], parts[1]
 
 
@@ -70,7 +76,14 @@ async def query_events(
             cursor_ts, cursor_id = decode_cursor(cursor)
             conditions.append("(created_at < ? OR (created_at = ? AND id < ?))")
             params.extend([cursor_ts, cursor_ts, cursor_id])
-        except (json.JSONDecodeError, UnicodeDecodeError, IndexError, KeyError):
+        except (
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            ValueError,
+            TypeError,
+            IndexError,
+            KeyError,
+        ):
             logger.warning("Invalid cursor value: %s", cursor)
 
     where = " AND ".join(conditions) if conditions else "1=1"
