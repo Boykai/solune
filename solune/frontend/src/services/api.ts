@@ -79,6 +79,7 @@ import type {
   PipelineStateInfo,
   PaginatedResponse,
   ActivityEvent,
+  ActivityStats,
   Plan,
   PlanApprovalResponse,
   PlanExitResponse,
@@ -1648,6 +1649,11 @@ export const activityApi = {
     if (params?.cursor) qs.set('cursor', params.cursor);
     if (params?.event_type) qs.set('event_type', params.event_type);
     return request<PaginatedResponse<ActivityEvent>>(`/activity?${qs}`);
+  },
+
+  stats(projectId: string): Promise<ActivityStats> {
+    const qs = new URLSearchParams({ project_id: projectId });
+    return request<ActivityStats>(`/activity/stats?${qs}`);
   },
 
   entityHistory(

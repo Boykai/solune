@@ -1,0 +1,197 @@
+# Review Process Contract: Bug Basher
+
+# This contract defines the structured review process for the bug bash.
+# Since the bug bash does not introduce new API endpoints, this contract
+# describes the review workflow as a machine-readable process definition.
+
+openapi: "3.1.0"
+info:
+  title: Bug Basher Review Process
+  version: "1.0.0"
+  description: >
+    Process contract for the Bug Basher code review. Defines the review
+    categories, finding schema, and validation requirements. This is not
+    a runtime API — it documents the review workflow as a structured schema.
+
+components:
+  schemas:
+    BugCategory:
+      type: string
+      enum:
+        - Security
+        - Runtime
+        - Logic
+        - Test Quality
+        - Code Quality
+      description: >
+        Bug categories in priority order. Review proceeds from Security (P1)
+        through Code Quality (P5).
+
+    FindingStatus:
+      type: string
+      enum:
+        - Fixed
+        - Flagged
+      description: >
+        Fixed: bug was corrected, regression test added, all tests passing.
+        Flagged: ambiguous issue left as TODO(bug-bash) comment for human review.
+
+    BugFinding:
+      type: object
+      required:
+        - id
+        - file
+        - lines
+        - category
+        - description
+        - status
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Sequential finding number
+        file:
+          type: string
+          description: Relative file path from repository root
+          pattern: "^[a-zA-Z0-9_./-]+$"
+        lines:
+          type: string
+          description: Line number or range (e.g., "42" or "42-45")
+          pattern: "^[0-9]+(-[0-9]+)?$"
+        category:
+          $ref: "#/components/schemas/BugCategory"
+        description:
+          type: string
+          maxLength: 200
+          description: Brief description of the bug or issue
+        status:
+          $ref: "#/components/schemas/FindingStatus"
+
+    RegressionTest:
+      type: object
+      required:
+        - test_file
+        - test_name
+        - finding_id
+        - assertion_type
+      properties:
+        test_file:
+          type: string
+          description: Path to the test file
+        test_name:
+          type: string
+          description: Fully qualified test function name
+        finding_id:
+          type: integer
+          minimum: 1
+          description: Reference to the Bug Finding
+        assertion_type:
+          type: string
+          description: What the test asserts
+
+    TodoFlag:
+      type: object
+      required:
+        - file
+        - line
+        - finding_id
+        - comment
+      properties:
+        file:
+          type: string
+          description: Path to the file containing the comment
+        line:
+          type: integer
+          minimum: 1
+          description: Line number where the comment is placed
+        finding_id:
+          type: integer
+          minimum: 1
+          description: Reference to the Bug Finding
+        comment:
+          type: string
+          pattern: "^(#|//) TODO\\(bug-bash\\):"
+          description: Full text of the TODO comment
+
+    SummaryReport:
+      type: object
+      required:
+        - findings
+        - total_fixed
+        - total_flagged
+        - total_files_audited
+        - test_suite_status
+        - lint_status
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BugFinding"
+        total_fixed:
+          type: integer
+          minimum: 0
+        total_flagged:
+          type: integer
+          minimum: 0
+        total_files_audited:
+          type: integer
+          minimum: 0
+        test_suite_status:
+          type: string
+          enum: [PASS, FAIL]
+        lint_status:
+          type: string
+          enum: [PASS, FAIL]
+
+    ReviewPhase:
+      type: object
+      required:
+        - phase_number
+        - category
+        - priority
+        - scope_description
+      properties:
+        phase_number:
+          type: integer
+          minimum: 1
+          maximum: 5
+        category:
+          $ref: "#/components/schemas/BugCategory"
+        priority:
+          type: string
+          enum: [P1, P2, P3, P4, P5]
+        scope_description:
+          type: string
+        validation_commands:
+          type: array
+          items:
+            type: string
+          description: Shell commands to run after fixes in this phase
+
+  # Validation requirements as a machine-readable checklist
+  x-validation-requirements:
+    pre-review:
+      - description: "Existing test suite passes"
+        command: "cd solune/backend && uv run pytest tests/unit/"
+      - description: "Existing lint checks pass"
+        command: "cd solune/backend && uv run ruff check src tests"
+      - description: "Existing format checks pass"
+        command: "cd solune/backend && uv run ruff format --check src tests"
+
+    per-fix:
+      - description: "Regression test added for each fix"
+        check: "New test file or function exists targeting the fixed code path"
+      - description: "Commit message follows format"
+        check: "Message contains What/Why/How/Test sections"
+
+    post-review:
+      - description: "Full test suite passes"
+        command: "cd solune/backend && uv run pytest --cov=src --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency"
+      - description: "All lint checks pass"
+        command: "cd solune/backend && uv run ruff check src tests && uv run ruff format --check src tests"
+      - description: "Type checks pass"
+        command: "cd solune/backend && uv run pyright src"
+      - description: "Security scan passes"
+        command: "cd solune/backend && uv run bandit -r src"
+      - description: "Summary table is complete"
+        check: "Every fixed/flagged item appears in the summary"
