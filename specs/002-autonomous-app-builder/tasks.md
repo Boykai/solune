@@ -29,7 +29,7 @@
 
 - [x] T001 Create `backend/src/services/app_templates/` package with `__init__.py` in `solune/backend/src/services/app_templates/__init__.py`
 - [x] T002 [P] Create app template directories structure under `solune/backend/templates/app-templates/` with subdirectories: `saas-react-fastapi/files/`, `api-fastapi/files/`, `cli-python/files/`, `dashboard-react/files/`
-- [x] T003 [P] Create DB migration `solune/backend/src/migrations/027_app_template_fields.sql` adding nullable `template_id TEXT` column to the `apps` table
+- [x] T003 [P] Create DB migration `solune/backend/src/migrations/036_app_template_fields.sql` adding nullable `template_id TEXT` column to the `apps` table
 - [x] T004 [P] Create TypeScript types for templates and build progress in `solune/frontend/src/types/app-template.ts` (AppTemplateSummary, AppTemplate, TemplateFile, BuildProgressPayload, BuildMilestonePayload, BuildCompletePayload, BuildFailedPayload, ImportAppRequest, ImportAppResponse, BuildAppRequest, BuildAppResponse, IterateRequest, IterateResponse — per contracts/)
 
 ---

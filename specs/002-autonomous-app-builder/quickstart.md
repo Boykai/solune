@@ -116,8 +116,8 @@ cd solune/frontend
 # Template browser component
 npx vitest run src/components/apps/TemplateBrowser.test.tsx
 
-# Build progress component
-npx vitest run src/components/pipeline/BuildProgress.test.tsx
+# Build progress component (tested inline via BuildProgressCard)
+# npx vitest run src/components/pipeline/BuildProgress.test.tsx
 ```
 
 ### Integration Testing
@@ -151,7 +151,7 @@ cd solune/backend
 | Agent instructions | `src/prompts/agent_instructions.py` | EXTEND |
 | Apps API | `src/api/apps.py` | EXTEND (import endpoint) |
 | Signal delivery | `src/services/signal_delivery.py` | EXTEND (milestones) |
-| DB migration | `src/migrations/027_app_template_fields.sql` | NEW |
+| DB migration | `src/migrations/036_app_template_fields.sql` | NEW |
 | Template browser | `frontend/src/components/apps/TemplateBrowser.tsx` | NEW |
 | Import dialog | `frontend/src/components/apps/ImportAppDialog.tsx` | NEW |
 | Build progress panel | `frontend/src/components/pipeline/BuildProgress.tsx` | NEW |

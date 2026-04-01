@@ -22,7 +22,15 @@ async def list_templates_endpoint(
     category: Annotated[str | None, Query(description="Filter by category")] = None,
 ) -> list[dict]:
     """List all available app templates."""
-    cat = AppCategory(category) if category else None
+    cat: AppCategory | None = None
+    if category:
+        try:
+            cat = AppCategory(category)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid category: {category}. Valid categories: {', '.join(c.value for c in AppCategory)}",
+            ) from None
     templates = list_templates(category=cat)
     return [t.to_summary_dict() for t in templates]
 

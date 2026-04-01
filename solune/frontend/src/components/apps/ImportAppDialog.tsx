@@ -3,7 +3,7 @@
  * Validates URL, shows repo info, and handles import submission.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ImportAppRequest } from '@/types/app-template';
 
 const GITHUB_URL_RE = /^https:\/\/github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/?$/;
@@ -20,6 +20,17 @@ export function ImportAppDialog({ onImport, onClose, isPending = false }: Import
   const [error, setError] = useState('');
 
   const isValidUrl = GITHUB_URL_RE.test(url);
+
+  // Close on Escape key — matches CreateAppDialog accessibility pattern.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

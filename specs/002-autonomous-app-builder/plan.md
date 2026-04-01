@@ -78,7 +78,7 @@ solune/backend/
 │   ├── prompts/
 │   │   └── agent_instructions.py           # EXTEND: app-builder intent recognition + clarification flow
 │   └── migrations/
-│       └── 027_app_template_fields.sql     # NEW: Add template_id column to apps table
+│       └── 036_app_template_fields.sql     # NEW: Add template_id column to apps table
 ├── templates/
 │   └── app-templates/                      # NEW: Template definitions
 │       ├── saas-react-fastapi/

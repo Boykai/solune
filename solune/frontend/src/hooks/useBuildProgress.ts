@@ -36,6 +36,17 @@ export function useBuildProgress(
   const [completion, setCompletion] = useState<BuildCompletePayload | null>(null);
   const [failure, setFailure] = useState<BuildFailedPayload | null>(null);
 
+  // Reset state when appName changes so stale progress from a previous app is not shown.
+  // Uses the state-based "adjusting state during rendering" pattern per React docs.
+  const [prevAppName, setPrevAppName] = useState(appName);
+  if (prevAppName !== appName) {
+    setPrevAppName(appName);
+    setProgress(null);
+    setMilestones([]);
+    setCompletion(null);
+    setFailure(null);
+  }
+
   const handleMessage = useCallback(
     (event: MessageEvent) => {
       try {

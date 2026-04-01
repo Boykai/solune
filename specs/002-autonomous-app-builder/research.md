@@ -115,7 +115,7 @@
 
 ## R10: Database Schema Changes
 
-**Decision**: Single migration `027_app_template_fields.sql` adding `template_id TEXT` column to the `apps` table (nullable, for backward compatibility with existing apps). No new tables — build progress is in-memory, templates are filesystem-based.
+**Decision**: Single migration `036_app_template_fields.sql` adding `template_id TEXT` column to the `apps` table (nullable, for backward compatibility with existing apps). No new tables — build progress is in-memory, templates are filesystem-based.
 
 **Rationale**: Minimal schema change. The `template_id` column links an app to its originating template for display and potential re-scaffolding. Existing apps have `NULL` template_id. The `repo_type` enum already includes `EXTERNAL_REPO` for imported repos — no schema change needed for import.
 

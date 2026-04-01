@@ -33,7 +33,7 @@ def load_template(template_dir: Path) -> AppTemplate:
         msg = f"template.json not found in {template_dir}"
         raise FileNotFoundError(msg)
 
-    with meta_path.open() as fh:
+    with meta_path.open(encoding="utf-8") as fh:
         raw: dict = json.load(fh)
 
     files = [TemplateFile(**f) for f in raw.get("files", [])]
