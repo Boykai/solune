@@ -1090,29 +1090,15 @@ class TestStaleRevalidationIdleBoard:
     def test_stale_revalidation_limit_is_20(self):
         """STALE_REVALIDATION_LIMIT in the WebSocket subscription should be 20
         to halve idle API calls from the prior value of 10 (SC-001)."""
-        import ast
-        from pathlib import Path
+        from src.api.projects import STALE_REVALIDATION_LIMIT
 
-        projects_src = (
-            Path(__file__).resolve().parent.parent.parent / "src" / "api" / "projects.py"
+        assert STALE_REVALIDATION_LIMIT == 20, (
+            f"STALE_REVALIDATION_LIMIT should be 20, got {STALE_REVALIDATION_LIMIT!r}"
         )
-        tree = ast.parse(projects_src.read_text())
-        # Find STALE_REVALIDATION_LIMIT assignment inside websocket_subscribe
-        found = False
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == "STALE_REVALIDATION_LIMIT":
-                        assert isinstance(node.value, ast.Constant)
-                        assert node.value.value == 20, (
-                            f"STALE_REVALIDATION_LIMIT should be 20, got {node.value.value}"
-                        )
-                        found = True
-        assert found, "STALE_REVALIDATION_LIMIT assignment not found in projects.py"
 
-    def test_stale_cache_path_increments_counter(self):
-        """Stale cache returns should be counted toward the revalidation limit
-        rather than immediately triggering a fresh fetch (SC-001)."""
+    def test_stale_cache_returns_data_after_expiry(self):
+        """Stale cache reads should return expired data so the revalidation
+        counter can defer forced fetches (SC-001)."""
         import time
 
         c = InMemoryCache()

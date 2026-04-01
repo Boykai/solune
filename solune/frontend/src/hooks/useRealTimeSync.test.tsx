@@ -7,6 +7,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRealTimeSync } from './useRealTimeSync';
 import type { ReactNode } from 'react';
 
+// Mock sonner to prevent toast calls from failing in test environment
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 // Store mock WebSocket instances
 let mockWebSocketInstances: MockWebSocket[] = [];
 
@@ -1327,7 +1336,7 @@ describe('useRealTimeSync', () => {
   });
 
   describe('fallback polling lifecycle (T048/US5)', () => {
-    it('fallback polling activates on WebSocket error and deactivates on reconnect', async () => {
+    it('fallback polling activates on WebSocket error', async () => {
       vi.useFakeTimers();
 
       const { result } = renderHook(() => useRealTimeSync('PVT_fallback_lc'), {
