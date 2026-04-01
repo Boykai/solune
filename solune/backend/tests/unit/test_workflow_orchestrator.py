@@ -2106,6 +2106,7 @@ def _make_orch() -> WorkflowOrchestrator:
         "link_pull_request_to_issue",
         "get_pull_request",
         "create_issue",
+        "update_issue_body",
         "update_project_item_field",
         "set_issue_metadata",
     ):
@@ -2620,6 +2621,83 @@ class TestExecuteFullWorkflow:
         ps = get_pipeline_state(ctx.issue_number)
         assert ps is not None
         assert ps.agent_sub_issues == sub_issues
+
+    @pytest.mark.asyncio
+    @patch("asyncio.sleep", new_callable=AsyncMock)
+    async def test_first_parallel_group_assigns_concurrently(self, mock_sleep):
+        import asyncio
+
+        from src.models.workflow import ExecutionGroupMapping
+
+        orch = _make_orch()
+        cfg = _make_config(
+            agent_mappings={
+                "Backlog": [
+                    AgentAssignment(slug="tester"),
+                    AgentAssignment(slug="judge"),
+                ],
+                "In Progress": [AgentAssignment(slug="speckit.implement")],
+            },
+            group_mappings={
+                "Backlog": [
+                    ExecutionGroupMapping(
+                        group_id="g1",
+                        order=0,
+                        execution_mode="parallel",
+                        agents=[
+                            AgentAssignment(slug="tester"),
+                            AgentAssignment(slug="judge"),
+                        ],
+                    )
+                ]
+            },
+        )
+        await set_workflow_config("P1", cfg)
+        ctx = _make_ctx(config=cfg)
+        rec = self._make_rec()
+
+        orch.create_issue_from_recommendation = AsyncMock()
+        orch.add_to_project_with_backlog = AsyncMock()
+        orch.create_all_sub_issues = AsyncMock(
+            return_value={
+                "tester": {"number": 20, "node_id": "N20", "url": "u20"},
+                "judge": {"number": 21, "node_id": "N21", "url": "u21"},
+            }
+        )
+        orch._update_agent_tracking_state = AsyncMock(return_value=True)
+
+        in_flight = 0
+        max_in_flight = 0
+
+        async def _assign_side_effect(_ctx, _status, agent_index=0):
+            nonlocal in_flight, max_in_flight
+
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+
+            loop = asyncio.get_running_loop()
+            future = loop.create_future()
+            loop.call_soon(future.set_result, None)
+            await future
+
+            in_flight -= 1
+            return True
+
+        orch.assign_agent_for_status = AsyncMock(side_effect=_assign_side_effect)
+
+        result = await orch.execute_full_workflow(ctx, rec)
+
+        assert result.success is True
+        assert orch.assign_agent_for_status.await_count == 2
+        assert orch._update_agent_tracking_state.await_count == 2
+        assert max_in_flight == 2
+        pipeline = get_pipeline_state(ctx.issue_number)
+        assert pipeline is not None
+        assert pipeline.groups[0].agent_statuses == {
+            "tester": "active",
+            "judge": "active",
+        }
+        mock_sleep.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_exception_returns_failure(self):

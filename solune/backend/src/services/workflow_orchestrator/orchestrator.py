@@ -2597,7 +2597,7 @@ class WorkflowOrchestrator:
                         )
                     status_name = next_status
 
-            # For parallel groups, assign ALL agents in the first group with stagger
+            # For parallel groups, assign ALL agents in the first group concurrently.
             first_parallel_group = (
                 agent_sub_issues
                 and ctx.issue_number is not None
@@ -2610,18 +2610,58 @@ class WorkflowOrchestrator:
                 import asyncio
 
                 group = initial_groups[0]
+                agent_indices: list[tuple[str, int]] = []
                 for i, agent_slug in enumerate(group.agents):
                     flat_idx = (
                         initial_agents.index(agent_slug) if agent_slug in initial_agents else i
                     )
-                    if i > 0:
-                        await asyncio.sleep(2)
+                    agent_indices.append((agent_slug, flat_idx))
+
+                async def _assign_initial_parallel_agent(
+                    agent_slug: str, flat_idx: int
+                ) -> tuple[str, bool]:
+                    try:
+                        assigned = await self.assign_agent_for_status(
+                            ctx, status_name, agent_index=flat_idx
+                        )
+                        return agent_slug, bool(assigned)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        logger.exception(
+                            "Initial parallel assignment failed for agent '%s' on issue #%s",
+                            agent_slug,
+                            ctx.issue_number,
+                        )
+                        return agent_slug, False
+
+                results = await asyncio.gather(
+                    *(
+                        _assign_initial_parallel_agent(agent_slug, flat_idx)
+                        for agent_slug, flat_idx in agent_indices
+                    ),
+                )
+
+                active_agents = [agent_slug for agent_slug, assigned in results if assigned]
+                for agent_slug in active_agents:
                     group.agent_statuses[agent_slug] = "active"
-                    await self.assign_agent_for_status(ctx, status_name, agent_index=flat_idx)
+
+                for agent_slug in active_agents:
+                    try:
+                        await self._update_agent_tracking_state(ctx, agent_slug, "active")
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to reconcile tracking for initial parallel agent '%s' on issue #%s: %s",
+                            agent_slug,
+                            ctx.issue_number,
+                            e,
+                        )
+
                 # Update stored state with active statuses
                 if ctx.issue_number is not None:
                     pipeline = get_pipeline_state(ctx.issue_number)
                     if pipeline:
+                        pipeline.started_at = utcnow()
                         set_pipeline_state(ctx.issue_number, pipeline)
             else:
                 await self.assign_agent_for_status(ctx, status_name, agent_index=0)
