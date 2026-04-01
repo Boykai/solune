@@ -17,8 +17,8 @@ from src.logging_utils import get_logger
 from src.models.project import GitHubProject, ProjectListResponse
 from src.models.task import TaskListResponse
 from src.models.user import UserResponse, UserSession
-from src.services.app_service import create_standalone_project
 from src.services.activity_logger import log_event
+from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
     cached_fetch,

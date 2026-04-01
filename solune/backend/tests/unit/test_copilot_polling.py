@@ -101,12 +101,15 @@ def clear_processed_cache():
 @pytest.fixture(autouse=True)
 def _mock_orchestrator_log_event_in_polling():
     """Prevent log_event in orchestrator from hitting a real database."""
-    with patch(
-        "src.services.workflow_orchestrator.orchestrator.log_event",
-        new_callable=AsyncMock,
-    ), patch(
-        "src.services.database.get_db",
-        return_value=MagicMock(),
+    with (
+        patch(
+            "src.services.workflow_orchestrator.orchestrator.log_event",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "src.services.database.get_db",
+            return_value=MagicMock(),
+        ),
     ):
         yield
 
@@ -11913,7 +11916,7 @@ class TestProcessPipelineCompletionParallelAgents:
         mock_update_tracking.return_value = True
         mock_config.return_value = MagicMock()
 
-        result = await _process_pipeline_completion(
+        await _process_pipeline_completion(
             access_token="token",
             project_id="PVT_123",
             task=task,

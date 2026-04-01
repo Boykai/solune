@@ -12,6 +12,8 @@ from src.models.activity import ActivityStats
 from src.models.user import UserSession
 from src.services.activity_service import (
     get_activity_stats as _get_activity_stats,
+)
+from src.services.activity_service import (
     query_events as _query_events,
 )
 

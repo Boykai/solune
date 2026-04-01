@@ -14,7 +14,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.api.activity import ALLOWED_ENTITY_TYPES
-from src.services.activity_service import decode_cursor, encode_cursor, get_activity_stats, query_events
+from src.services.activity_service import (
+    decode_cursor,
+    encode_cursor,
+    get_activity_stats,
+    query_events,
+)
 
 ACTIVITY_URL = "/api/v1/activity"
 
@@ -501,10 +506,34 @@ class TestGetActivityStats:
     async def _seed_varied_events(db, project_id: str):
         """Seed events with different event_types for stats grouping."""
         events = [
-            ("e1", "pipeline_crud", "pipeline", "p1", "created", "Pipeline created", "2024-01-01T00:00:00Z"),
-            ("e2", "pipeline_crud", "pipeline", "p2", "deleted", "Pipeline deleted", "2024-01-01T00:01:00Z"),
+            (
+                "e1",
+                "pipeline_crud",
+                "pipeline",
+                "p1",
+                "created",
+                "Pipeline created",
+                "2024-01-01T00:00:00Z",
+            ),
+            (
+                "e2",
+                "pipeline_crud",
+                "pipeline",
+                "p2",
+                "deleted",
+                "Pipeline deleted",
+                "2024-01-01T00:01:00Z",
+            ),
             ("e3", "tool_crud", "tool", "t1", "created", "Tool created", "2024-01-01T00:02:00Z"),
-            ("e4", "project", "project", "proj1", "created", "Project created", "2024-01-01T00:03:00Z"),
+            (
+                "e4",
+                "project",
+                "project",
+                "proj1",
+                "created",
+                "Project created",
+                "2024-01-01T00:03:00Z",
+            ),
         ]
         for eid, etype, entity_type, entity_id, action, summary, ts in events:
             await db.execute(
@@ -539,7 +568,15 @@ class TestGetActivityStats:
         await self._seed_varied_events(mock_db, "PVT_123")
         # Seed a second project with distinct IDs
         events = [
-            ("other1", "pipeline_crud", "pipeline", "p1", "created", "P created", "2024-01-01T00:00:00Z"),
+            (
+                "other1",
+                "pipeline_crud",
+                "pipeline",
+                "p1",
+                "created",
+                "P created",
+                "2024-01-01T00:00:00Z",
+            ),
             ("other2", "tool_crud", "tool", "t1", "created", "T created", "2024-01-01T00:01:00Z"),
         ]
         for eid, etype, entity_type, entity_id, action, summary, ts in events:
@@ -583,7 +620,17 @@ class TestGetActivityStatsService:
                    (id, event_type, entity_type, entity_id, project_id,
                     actor, action, summary, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (f"e{i}", etype, "pipeline", f"p{i}", "PVT_123", "user", "created", f"Evt {i}", f"2024-01-01T00:0{i}:00Z"),
+                (
+                    f"e{i}",
+                    etype,
+                    "pipeline",
+                    f"p{i}",
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Evt {i}",
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
             )
         await mock_db.commit()
 
@@ -599,8 +646,8 @@ class TestGetActivityStatsService:
 
         # Fix "now" so the 24h boundary is deterministic
         fixed_now = "2024-06-15T12:00:00Z"
-        inside_window = "2024-06-15T00:00:00Z"   # 12 h ago – inside
-        outside_window = "2024-06-14T11:59:59Z"  # >24 h ago – outside
+        inside_window = "2024-06-15T00:00:00Z"  # 12 h ago - inside
+        outside_window = "2024-06-14T11:59:59Z"  # >24 h ago - outside
 
         for eid, ts in [("in1", inside_window), ("out1", outside_window)]:
             await mock_db.execute(
@@ -608,8 +655,17 @@ class TestGetActivityStatsService:
                    (id, event_type, entity_type, entity_id, project_id,
                     actor, action, summary, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (eid, "pipeline_crud", "pipeline", "p1", "PVT_123",
-                 "user", "created", f"Evt {eid}", ts),
+                (
+                    eid,
+                    "pipeline_crud",
+                    "pipeline",
+                    "p1",
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Evt {eid}",
+                    ts,
+                ),
             )
         await mock_db.commit()
 
