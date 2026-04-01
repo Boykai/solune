@@ -379,7 +379,7 @@ export const IssueCard = memo(function IssueCard({
                 <img
                   key={assignee.login}
                   className="h-6 w-6 rounded-full border-2 border-card"
-                  src={validatedAvatarUrls.get(assignee.login) ?? validateAvatarUrl(assignee.avatar_url)}
+                  src={validatedAvatarUrls.get(assignee.login)!}
                   alt={assignee.login}
                   title={assignee.login}
                   width={24}

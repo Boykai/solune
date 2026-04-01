@@ -567,6 +567,9 @@ async def update_board_item_status(
                     )
                     cache.delete(si_key)
                     break
+            else:
+                continue
+            break
     cache.delete(board_cache_key)
 
     return StatusUpdateResponse(success=True)
