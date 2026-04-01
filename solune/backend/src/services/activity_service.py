@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 
 from src.logging_utils import get_logger
-from src.models.activity import ActivityEvent
+from src.models.activity import ActivityEvent, ActivityStats
 
 logger = get_logger(__name__)
 
@@ -139,47 +140,51 @@ async def query_events(
     }
 
 
-async def get_activity_stats(db, *, project_id: str) -> dict:
-    """Compute summary stats for the activity feed.
+async def get_activity_stats(
+    db,
+    *,
+    project_id: str,
+) -> dict:
+    """Return aggregated activity statistics for a single project."""
+    now = datetime.now(UTC)
+    last_24h_cutoff = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    week_cutoff = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    Returns total count, today's count, breakdown by event_type, and
-    the timestamp of the most recent event.
-    """
-    # Total count
-    row = await db.execute(
-        "SELECT COUNT(*) FROM activity_events WHERE project_id = ?",
+    total_cursor = await db.execute(
+        """
+        SELECT COUNT(*) AS total_count, MAX(created_at) AS last_event_at
+        FROM activity_events
+        WHERE project_id = ?
+        """,
         (project_id,),
     )
-    result = await row.fetchone()
-    total = result[0] if result else 0
+    total_row = await total_cursor.fetchone()
 
-    # Today's count (last 24h)
-    row = await db.execute(
-        "SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-1 day')",
-        (project_id,),
+    today_cursor = await db.execute(
+        """
+        SELECT COUNT(*) AS today_count
+        FROM activity_events
+        WHERE project_id = ? AND created_at >= ?
+        """,
+        (project_id, last_24h_cutoff),
     )
-    result = await row.fetchone()
-    today = result[0] if result else 0
+    today_row = await today_cursor.fetchone()
 
-    # Breakdown by event_type
-    rows = await db.execute(
-        "SELECT event_type, COUNT(*) as cnt FROM activity_events WHERE project_id = ? GROUP BY event_type ORDER BY cnt DESC",
-        (project_id,),
+    by_type_cursor = await db.execute(
+        """
+        SELECT event_type, COUNT(*) AS event_count
+        FROM activity_events
+        WHERE project_id = ? AND created_at >= ?
+        GROUP BY event_type
+        ORDER BY event_count DESC, event_type ASC
+        """,
+        (project_id, week_cutoff),
     )
-    by_type_rows = await rows.fetchall()
-    by_type = {r[0]: r[1] for r in by_type_rows}
+    by_type_rows = await by_type_cursor.fetchall()
 
-    # Most recent event timestamp
-    row = await db.execute(
-        "SELECT created_at FROM activity_events WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
-        (project_id,),
-    )
-    result = await row.fetchone()
-    last_event_at = result[0] if result else None
-
-    return {
-        "total": total,
-        "today": today,
-        "by_type": by_type,
-        "last_event_at": last_event_at,
-    }
+    return ActivityStats(
+        total_count=total_row[0] if total_row and total_row[0] is not None else 0,
+        today_count=today_row[0] if today_row and today_row[0] is not None else 0,
+        by_type={row[0]: row[1] for row in by_type_rows},
+        last_event_at=total_row[1] if total_row else None,
+    ).model_dump()
