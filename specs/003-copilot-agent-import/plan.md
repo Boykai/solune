@@ -11,7 +11,7 @@ This feature adds one-click import of Awesome Copilot agents into Solune project
 
 **Language/Version**: Python 3.12+ (backend), TypeScript/React (frontend)
 **Primary Dependencies**: FastAPI, Pydantic, aiosqlite, PyYAML (backend); React, Vite, TailwindCSS, React Query (frontend)
-**Storage**: SQLite via aiosqlite (schema migration to add columns to `agent_configs` + new `agent_catalog_cache` table)
+**Storage**: SQLite via aiosqlite (schema migration to add import columns to `agent_configs`); in-memory cache for catalog index via existing `InMemoryCache`
 **Testing**: pytest + pytest-asyncio (backend), Vitest (frontend)
 **Target Platform**: Linux server (Docker)
 **Project Type**: Web application (backend + frontend monorepo under `solune/`)
