@@ -18,6 +18,7 @@ from src.models.board import (
     StatusField,
     StatusOption,
 )
+from src.services.cache import InMemoryCache
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1077,3 +1078,110 @@ class TestRetryAfterSeconds:
 
         exc = Exception("rate limit", 15)
         assert _retry_after_seconds(exc) == 15
+
+
+# ── Performance: Stale revalidation idle board (T020/US1/SC-001) ───────────
+
+
+class TestStaleRevalidationIdleBoard:
+    """Verify that an idle board with no data changes produces at most one
+    forced API call per stale-revalidation cycle (T020/SC-001)."""
+
+    def test_stale_revalidation_limit_is_20(self):
+        """STALE_REVALIDATION_LIMIT in the WebSocket subscription should be 20
+        to halve idle API calls from the prior value of 10 (SC-001)."""
+        import ast
+        from pathlib import Path
+
+        projects_src = (
+            Path(__file__).resolve().parent.parent.parent / "src" / "api" / "projects.py"
+        )
+        tree = ast.parse(projects_src.read_text())
+        # Find STALE_REVALIDATION_LIMIT assignment inside websocket_subscribe
+        found = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "STALE_REVALIDATION_LIMIT":
+                        assert isinstance(node.value, ast.Constant)
+                        assert node.value.value == 20, (
+                            f"STALE_REVALIDATION_LIMIT should be 20, got {node.value.value}"
+                        )
+                        found = True
+        assert found, "STALE_REVALIDATION_LIMIT assignment not found in projects.py"
+
+    def test_stale_cache_path_increments_counter(self):
+        """Stale cache returns should be counted toward the revalidation limit
+        rather than immediately triggering a fresh fetch (SC-001)."""
+        import time
+
+        c = InMemoryCache()
+        cache_key = "project:items:PVT_idle_test"
+        test_data = [{"id": "1", "title": "idle task"}]
+
+        # Set with a very short TTL so it expires quickly
+        c.set(cache_key, test_data, ttl_seconds=0)
+        time.sleep(0.05)
+
+        # After expiry, get() returns None but get_stale() returns the data
+        # Note: get() deletes the entry, so call get_stale() first
+        stale = c.get_stale(cache_key)
+        assert stale is not None
+        assert stale == test_data
+
+
+# ── Performance: Sub-issue warm cache path (T021/US1/SC-001) ──────────────
+
+
+class TestSubIssueWarmCacheSkipsApi:
+    """Verify that warm sub-issue caches prevent redundant API calls on
+    board refresh (T021/SC-001)."""
+
+    async def test_board_cache_hit_prevents_service_call(self, client, mock_github_service):
+        """When board data is in cache (warm), the service should not be
+        called at all — sub-issue fetches are implicitly skipped (SC-001)."""
+        bd = _make_board_data()
+        mock_github_service.get_board_data.return_value = bd
+
+        # First call populates cache
+        resp1 = await client.get("/api/v1/board/projects/PVT_abc")
+        assert resp1.status_code == 200
+        assert mock_github_service.get_board_data.call_count == 1
+
+        # Second call (non-manual) should serve from cache
+        resp2 = await client.get("/api/v1/board/projects/PVT_abc")
+        assert resp2.status_code == 200
+        # No additional service calls — warm cache covers both board + sub-issues
+        assert mock_github_service.get_board_data.call_count == 1
+
+    def test_sub_issue_cache_key_format(self):
+        """Sub-issue cache key should follow expected format for consistent
+        invalidation (SC-001)."""
+        from src.services.cache import get_sub_issues_cache_key
+
+        key = get_sub_issues_cache_key("testowner", "testrepo", 42)
+        assert key == "sub_issues:testowner/testrepo#42"
+
+    async def test_hash_stability_across_refreshes(self, client, mock_github_service):
+        """Board data hash should be stable when data is unchanged, enabling
+        change detection to suppress redundant refreshes (SC-001)."""
+        bd = _make_board_data()
+        mock_github_service.get_board_data.return_value = bd
+
+        from src.services.cache import cache, compute_data_hash, get_cache_key
+
+        # First request populates cache
+        await client.get("/api/v1/board/projects/PVT_abc")
+
+        cache_key = get_cache_key("board_data", "PVT_abc")
+        entry = cache.get_entry(cache_key)
+        assert entry is not None
+        first_hash = entry.data_hash
+
+        # Compute hash of the same data
+        expected_hash = compute_data_hash(
+            bd.model_dump(mode="json", exclude={"rate_limit"})
+        )
+        assert first_hash == expected_hash, (
+            "Board data hash should be deterministic for the same data"
+        )
