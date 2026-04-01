@@ -418,6 +418,7 @@ class TestScheduleAutoMergeRetry:
         with patch(
             "src.services.copilot_polling.auto_merge.asyncio.create_task"
         ) as mock_create_task:
+
             def _close_task(coro, *, name=None):
                 coro.close()
                 return AsyncMock(name=name)

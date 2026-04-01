@@ -219,6 +219,7 @@ class TestCheckSignalLinkStatus:
             patch(f"{_BRIDGE}.restart_signal_ws_listener", new_callable=AsyncMock),
             patch("src.services.task_registry.task_registry") as mock_registry,
         ):
+
             def _close_task(coro, *, name=None):
                 coro.close()
                 return MagicMock(name=name)
