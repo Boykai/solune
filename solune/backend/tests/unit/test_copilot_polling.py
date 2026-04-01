@@ -7680,8 +7680,8 @@ class TestProcessPipelineCompletionChecksAllParallelAgents:
         )
         assert checked_agents == ["archivist", "judge", "linter"]
 
-        # _advance_pipeline should have been called twice (linter + archivist),
-        # NOT just once (which was the old bug where it returned after the first)
+        # _advance_pipeline called twice (linter + archivist); the bug fixed by
+        # this PR caused early return after first completion, so only 1 call.
         assert mock_advance.call_count == 2
 
 

@@ -686,11 +686,9 @@ async def _process_pipeline_completion(
         )
 
         if completed:
-            # Advance specifically for THIS agent.
-            # _advance_pipeline handles marking the agent done and advances
-            # the group index only when ALL parallel agents are terminal.
-            # Do NOT return early — the loop must continue so that remaining
-            # parallel agents are checked within the same poll cycle.
+            # _advance_pipeline marks this agent done and advances the group
+            # index only when ALL parallel agents are terminal.  Do NOT return
+            # early — the loop must check remaining agents in the same cycle.
             await _advance_pipeline(
                 access_token=access_token,
                 project_id=project_id,
