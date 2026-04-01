@@ -63,24 +63,24 @@ export function InstallConfirmDialog({
         {/* Body */}
         <div className="space-y-4 p-6">
           <div>
-            <label className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+            <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Agent
-            </label>
+            </span>
             <p className="mt-1 font-medium text-[var(--color-text)]">{agent.name}</p>
             <p className="text-sm text-[var(--color-text-muted)]">{agent.description}</p>
           </div>
 
           <div>
-            <label className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+            <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Target Repository
-            </label>
+            </span>
             <p className="mt-1 font-mono text-sm text-[var(--color-text)]">{targetRepo}</p>
           </div>
 
           <div>
-            <label className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+            <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
               Files to commit
-            </label>
+            </span>
             <div className="mt-1 space-y-1">
               <p className="font-mono text-xs text-[var(--color-text-muted)]">{agentPath}</p>
               <p className="font-mono text-xs text-[var(--color-text-muted)]">{promptPath}</p>
