@@ -7,6 +7,7 @@ import { useState } from 'react';
 import type { AgentConfig, AgentStatus } from '@/services/api';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
 import { AgentIconPickerModal } from '@/components/agents/AgentIconPickerModal';
+import { InstallConfirmDialog } from '@/components/agents/InstallConfirmDialog';
 import { useUndoableDeleteAgent, useUpdateAgent } from '@/hooks/useAgents';
 import { useConfirmation } from '@/hooks/useConfirmation';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,8 @@ import { formatAgentCreatedLabel } from '@/utils/agentCardMeta';
 interface AgentCardProps {
   agent: AgentConfig;
   projectId: string;
+  owner?: string;
+  repo?: string;
   usageCount?: number;
   pipelineConfigCount?: number;
   pendingSubIssueCount?: number;
@@ -40,11 +43,21 @@ const STATUS_BADGE: Record<AgentStatus, { label: string; className: string }> = 
     label: 'Pending Deletion',
     className: 'solar-chip-danger',
   },
+  imported: {
+    label: 'Imported',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  },
+  installed: {
+    label: 'Installed',
+    className: 'solar-chip-success',
+  },
 };
 
 export function AgentCard({
   agent,
   projectId,
+  owner,
+  repo,
   usageCount: _usageCount = 0,
   pipelineConfigCount = 0,
   pendingSubIssueCount = 0,
@@ -52,15 +65,18 @@ export function AgentCard({
   variant = 'default',
 }: AgentCardProps) {
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
+  const [isInstallDialogOpen, setIsInstallDialogOpen] = useState(false);
   const { deleteAgent } = useUndoableDeleteAgent(projectId);
   const updateMutation = useUpdateAgent(projectId);
   const { confirm } = useConfirmation();
   const badge = STATUS_BADGE[agent.status] ?? STATUS_BADGE.active;
 
+  const isImported = agent.agent_type === 'imported';
+  const isImportedState = agent.status === 'imported';
   const isRepoOnly = agent.source === 'repo';
   const isPendingDeletion = agent.status === 'pending_deletion';
   const isPendingCreation = agent.status === 'pending_pr' && agent.source === 'local';
-  const canDelete = !isPendingDeletion && !isPendingCreation;
+  const canDelete = !isPendingDeletion && !isPendingCreation && !isImported;
   const displayName = formatAgentName(agent.slug, agent.name, { specKitStyle: 'suffix' });
 
   const handleDelete = async () => {
@@ -76,8 +92,13 @@ export function AgentCard({
   };
 
   const isSpotlight = variant === 'spotlight';
-  const sourceLabel =
-    agent.source === 'both' ? 'Shared' : agent.source === 'repo' ? 'Repository' : 'Local';
+  const sourceLabel = isImported
+    ? 'Catalog'
+    : agent.source === 'both'
+      ? 'Shared'
+      : agent.source === 'repo'
+        ? 'Repository'
+        : 'Local';
   const createdLabel = formatAgentCreatedLabel(agent.created_at);
   const pipelineConfigLabel = `${pipelineConfigCount} config${pipelineConfigCount === 1 ? '' : 's'}`;
 
@@ -221,12 +242,17 @@ export function AgentCard({
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
-          {onEdit && !isPendingDeletion && (
+          {onEdit && !isPendingDeletion && !isImported && (
             <Tooltip contentKey="agents.card.editButton">
               <Button variant="outline" size="sm" onClick={() => onEdit(agent)}>
                 Edit
               </Button>
             </Tooltip>
+          )}
+          {isImportedState && (
+            <Button variant="outline" size="sm" onClick={() => setIsInstallDialogOpen(true)}>
+              Add to repo
+            </Button>
           )}
           {canDelete && (
             <Tooltip contentKey="agents.card.deleteButton">
@@ -249,6 +275,11 @@ export function AgentCard({
           {isRepoOnly && !isPendingDeletion && (
             <span className="text-xs text-muted-foreground">Repository-managed</span>
           )}
+          {agent.status === 'installed' && agent.github_pr_number && (
+            <span className="text-xs text-muted-foreground">
+              PR #{agent.github_pr_number}
+            </span>
+          )}
         </div>
 
         {updateMutation.isError && (
@@ -267,6 +298,17 @@ export function AgentCard({
         onClose={() => setIsIconPickerOpen(false)}
         onSave={handleIconSave}
       />
+
+      {isImported && (
+        <InstallConfirmDialog
+          agent={agent}
+          projectId={projectId}
+          owner={owner}
+          repo={repo}
+          isOpen={isInstallDialogOpen}
+          onClose={() => setIsInstallDialogOpen(false)}
+        />
+      )}
     </Card>
   );
 }
