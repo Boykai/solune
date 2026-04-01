@@ -620,6 +620,12 @@ def register_tools() -> list:
         select_pipeline_preset,
         create_project_issue,
         launch_pipeline,
+        list_app_templates,
+        get_app_template,
+        import_github_repo,
+        build_app,
+        iterate_on_app,
+        generate_app_questions,
     ]
 
 
@@ -884,14 +890,20 @@ async def get_app_template(
         )
 
     detail = template.to_detail_dict()
+    tech_stack = detail.get("tech_stack")
+    files = detail.get("files")
+    tech_stack_text = (
+        ", ".join(str(item) for item in tech_stack) if isinstance(tech_stack, list) else ""
+    )
+    file_count = len(files) if isinstance(files, list) else 0
     return ToolResult(
         content=(
             f"**{detail['name']}**\n\n"
             f"Category: {detail['category']}, Difficulty: {detail['difficulty']}\n"
-            f"Tech stack: {', '.join(detail['tech_stack'])}\n"
+            f"Tech stack: {tech_stack_text}\n"
             f"Scaffold type: {detail['scaffold_type']}\n"
             f"IaC target: {detail['iac_target']}\n"
-            f"Files: {len(detail['files'])} template file(s)"
+            f"Files: {file_count} template file(s)"
         ),
         action_type=None,
         action_data={"template": detail},
