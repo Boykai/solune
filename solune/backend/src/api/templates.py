@@ -27,7 +27,10 @@ async def list_templates_endpoint(
         try:
             cat = AppCategory(category)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid category: {category}") from None
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid category: {category}. Valid categories: {', '.join(c.value for c in AppCategory)}",
+            ) from None
     templates = list_templates(category=cat)
     return [t.to_summary_dict() for t in templates]
 
