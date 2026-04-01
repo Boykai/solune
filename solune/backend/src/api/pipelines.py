@@ -392,7 +392,22 @@ async def execute_pipeline_launch(
         ctx.issue_id = issue["node_id"]
         ctx.issue_number = issue["number"]
         ctx.issue_url = issue["html_url"]
-
+        await log_event(
+            get_db(),
+            event_type="pipeline_run",
+            entity_type="pipeline",
+            entity_id=pipeline_id,
+            project_id=project_id,
+            actor=session.github_username,
+            action="launched",
+            summary=f"Pipeline launched on issue #{issue['number']}",
+            detail={
+                "issue_number": issue["number"],
+                "issue_title": issue_title,
+                "pipeline_name": pipeline.name,
+                "agent_count": len(get_agent_slugs(config, config.status_backlog)),
+            },
+        )
         orchestrator = get_workflow_orchestrator()
 
         await orchestrator.add_to_project_with_backlog(ctx)

@@ -41,4 +41,4 @@ class ActivityStats(BaseModel):
     total_count: int
     today_count: int
     by_type: dict[str, int]
-    last_event_at: str | None
+    last_event_at: str | None = None

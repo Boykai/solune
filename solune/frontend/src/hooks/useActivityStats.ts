@@ -1,3 +1,7 @@
+/**
+ * useActivityStats — fetches activity summary stats for the stats dashboard header.
+ */
+
 import { useQuery } from '@tanstack/react-query';
 import { activityApi } from '@/services/api';
 import type { ActivityStats } from '@/types';

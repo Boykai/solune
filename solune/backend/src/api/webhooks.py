@@ -416,6 +416,21 @@ async def handle_pull_request_event(payload: PullRequestEvent | dict[str, Any]) 
             repo_name,
             pr_number,
         )
+        await log_event(
+            get_db(),
+            event_type="webhook",
+            entity_type="issue",
+            entity_id=str(pr_number),
+            project_id="",
+            actor=pr_author,
+            action="pr_merged",
+            summary=f"PR #{pr_number} merged in {repo_owner}/{repo_name}",
+            detail={
+                "webhook_type": "pull_request",
+                "repository": f"{repo_owner}/{repo_name}",
+                "pr_author": pr_author,
+            },
+        )
         return {
             "status": "processed",
             "event": "pull_request",
@@ -437,6 +452,21 @@ async def handle_pull_request_event(payload: PullRequestEvent | dict[str, Any]) 
             repo_owner,
             repo_name,
         )
+        await log_event(
+            get_db(),
+            event_type="webhook",
+            entity_type="issue",
+            entity_id=str(pr_number),
+            project_id="",
+            actor=pr_author,
+            action="copilot_pr_ready",
+            summary=f"Copilot PR #{pr_number} ready for review in {repo_owner}/{repo_name}",
+            detail={
+                "webhook_type": "pull_request",
+                "repository": f"{repo_owner}/{repo_name}",
+                "pr_author": pr_author,
+            },
+        )
 
         return await update_issue_status_for_copilot_pr(
             pr_data=pr_data,
@@ -453,6 +483,21 @@ async def handle_pull_request_event(payload: PullRequestEvent | dict[str, Any]) 
             pr_number,
             repo_owner,
             repo_name,
+        )
+        await log_event(
+            get_db(),
+            event_type="webhook",
+            entity_type="issue",
+            entity_id=str(pr_number),
+            project_id="",
+            actor=pr_author,
+            action="copilot_pr_ready",
+            summary=f"Copilot opened PR #{pr_number} in {repo_owner}/{repo_name}",
+            detail={
+                "webhook_type": "pull_request",
+                "repository": f"{repo_owner}/{repo_name}",
+                "pr_author": pr_author,
+            },
         )
 
         return await update_issue_status_for_copilot_pr(

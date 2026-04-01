@@ -111,6 +111,7 @@ class TestLaunchPipelineIssue:
         )
         assert launch_call.kwargs["detail"] == {
             "issue_number": 42,
+            "issue_title": "Import this issue",
             "agent_count": 1,
             "pipeline_name": "Imported Issue Pipeline",
         }

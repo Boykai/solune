@@ -1651,6 +1651,11 @@ export const activityApi = {
     return request<PaginatedResponse<ActivityEvent>>(`/activity?${qs}`);
   },
 
+  stats(projectId: string): Promise<ActivityStats> {
+    const qs = new URLSearchParams({ project_id: projectId });
+    return request<ActivityStats>(`/activity/stats?${qs}`);
+  },
+
   entityHistory(
     projectId: string,
     entityType: string,
@@ -1664,10 +1669,5 @@ export const activityApi = {
     return request<PaginatedResponse<ActivityEvent>>(
       `/activity/${entityType}/${entityId}${qsStr ? `?${qsStr}` : ''}`,
     );
-  },
-
-  stats(projectId: string): Promise<ActivityStats> {
-    const qs = new URLSearchParams({ project_id: projectId });
-    return request<ActivityStats>(`/activity/stats?${qs}`);
   },
 };

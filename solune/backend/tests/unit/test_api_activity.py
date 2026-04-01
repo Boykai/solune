@@ -15,7 +15,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.api.activity import ALLOWED_ENTITY_TYPES
-from src.services.activity_service import decode_cursor, encode_cursor, query_events
+from src.services.activity_service import (
+    decode_cursor,
+    encode_cursor,
+    get_activity_stats,
+    query_events,
+)
 
 ACTIVITY_URL = "/api/v1/activity"
 
@@ -583,3 +588,95 @@ class TestAllowedEntityTypes:
             "project",
             "settings",
         }
+
+
+
+# ── Direct service tests for get_activity_stats ─────────────────────────
+
+
+class TestGetActivityStatsService:
+    """Direct tests for the get_activity_stats service function."""
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_shape(self, mock_db):
+        result = await get_activity_stats(mock_db, project_id="PVT_123")
+        assert set(result.keys()) == {"total_count", "today_count", "by_type", "last_event_at"}
+
+    @pytest.mark.asyncio
+    async def test_empty_db(self, mock_db):
+        result = await get_activity_stats(mock_db, project_id="PVT_123")
+        assert result["total_count"] == 0
+        assert result["today_count"] == 0
+        assert result["by_type"] == {}
+        assert result["last_event_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_counts_and_grouping(self, mock_db):
+        for i, etype in enumerate(["pipeline_crud", "pipeline_crud", "tool_crud"]):
+            await mock_db.execute(
+                """INSERT INTO activity_events
+                   (id, event_type, entity_type, entity_id, project_id,
+                    actor, action, summary, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    f"e{i}",
+                    etype,
+                    "pipeline",
+                    f"p{i}",
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Evt {i}",
+                    f"2024-01-01T00:0{i}:00Z",
+                ),
+            )
+        await mock_db.commit()
+
+        # Freeze time so seeded events fall within the 7-day by_type window
+        with patch(
+            "src.services.activity_service.datetime",
+            wraps=datetime,
+        ) as mock_dt:
+            mock_dt.now.return_value = datetime(2024, 1, 2, 0, 0, 0, tzinfo=UTC)
+            result = await get_activity_stats(mock_db, project_id="PVT_123")
+        assert result["total_count"] == 3
+        assert result["by_type"] == {"pipeline_crud": 2, "tool_crud": 1}
+        assert result["last_event_at"] == "2024-01-01T00:02:00Z"
+
+    @pytest.mark.asyncio
+    async def test_today_count_boundary(self, mock_db):
+        """Events inside/outside the 24h window are counted correctly."""
+        fixed_now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=UTC)
+        inside_window = "2024-06-15T00:00:00Z"  # 12 h ago - inside
+        outside_window = "2024-06-14T11:59:59Z"  # >24 h ago - outside
+
+        for eid, ts in [("in1", inside_window), ("out1", outside_window)]:
+            await mock_db.execute(
+                """INSERT INTO activity_events
+                   (id, event_type, entity_type, entity_id, project_id,
+                    actor, action, summary, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    eid,
+                    "pipeline_crud",
+                    "pipeline",
+                    "p1",
+                    "PVT_123",
+                    "user",
+                    "created",
+                    f"Evt {eid}",
+                    ts,
+                ),
+            )
+        await mock_db.commit()
+
+        # Patch datetime.now in the service module to return a fixed time
+        with patch(
+            "src.services.activity_service.datetime",
+            wraps=datetime,
+        ) as mock_dt:
+            mock_dt.now.return_value = fixed_now
+            result = await get_activity_stats(mock_db, project_id="PVT_123")
+
+        assert result["total_count"] == 2
+        assert result["today_count"] == 1
