@@ -3,14 +3,15 @@
 **Input**: Design documents from `/specs/002-fix-parallel-pipeline-bugs/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Included — explicitly requested in the feature specification (spec.md Phase 3, Constitution Check IV).
+**Tests**: Included — explicitly requested in the feature specification (see testing requirements in spec.md).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
-## Format: `[ID] [P?] [Story] Description`
+## Format: `T<ID> [P?] [US?] Description`
 
+- **`T<ID>`**: Zero-padded numeric task identifier (e.g., `T001`, `T002`)
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- **[US?]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 
 ## Path Conventions

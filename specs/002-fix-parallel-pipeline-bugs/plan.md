@@ -28,7 +28,7 @@ Parallel pipeline groups execute agents one-at-a-time instead of simultaneously 
 | I. Specification-First | ✅ PASS | `spec.md` exists with 3 prioritized user stories (P1-P2), Given-When-Then scenarios, edge cases, and clear scope boundaries |
 | II. Template-Driven | ✅ PASS | All artifacts follow canonical templates from `.specify/templates/` |
 | III. Agent-Orchestrated | ✅ PASS | Single-responsibility: this plan phase produces design artifacts; implementation deferred to `/speckit.tasks` + `/speckit.implement` |
-| IV. Test Optionality | ✅ PASS | Tests explicitly called for in the spec (Phase 3); property tests for model invariants; regression suite required |
+| IV. Test Optionality | ✅ PASS | Tests explicitly called for in `spec.md`; property tests for model invariants; regression suite required |
 | V. Simplicity and DRY | ✅ PASS | Adds a new `current_agents` property rather than changing `current_agent` return type (used in 20+ places). Minimal surgical changes — no new abstractions, no new files, no new dependencies |
 
 **Gate Result**: ALL PASS — proceeding to Phase 0.

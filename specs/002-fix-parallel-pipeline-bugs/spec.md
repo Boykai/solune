@@ -2,7 +2,7 @@
 
 **Feature Branch**: `002-fix-parallel-pipeline-bugs`
 **Created**: 2026-03-31
-**Status**: Draft
+**Status**: Ready
 **Input**: User description: "Plan: Fix Parallel Pipeline Execution Bugs"
 
 ## User Scenarios & Testing *(mandatory)*
@@ -94,7 +94,7 @@ As a user whose pipeline was interrupted (e.g., by a service restart), I expect 
 - **SC-003**: Sequential group completion is correctly detected 100% of the time — no false "incomplete" signals after all agents in a sequential group have been processed.
 - **SC-004**: After a service restart during a parallel stage, 100% of unassigned parallel agents are recovered and reassigned within a single recovery cycle.
 - **SC-005**: All existing pipeline tests continue to pass with zero regressions — sequential pipeline behavior is unchanged.
-- **SC-006**: The fix resolves the symptoms described in issues #158 and #144 (G2 parallel group showing 1 Active + 2 Pending instead of all 3 Active).
+- **SC-006**: The fix resolves the previously reported symptoms where the G2 parallel group showed 1 Active + 2 Pending instead of all 3 Active.
 
 ## Assumptions
 
