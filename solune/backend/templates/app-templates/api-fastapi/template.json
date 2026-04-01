@@ -1,0 +1,28 @@
+{
+  "id": "api-fastapi",
+  "name": "API \u2014 FastAPI",
+  "description": "RESTful API service with FastAPI, automatic OpenAPI docs, and PostgreSQL integration.",
+  "category": "api",
+  "difficulty": "M",
+  "tech_stack": ["fastapi", "postgresql"],
+  "scaffold_type": "skeleton",
+  "recommended_preset_id": "medium",
+  "iac_target": "docker",
+  "files": [
+    {
+      "source": "files/main.py.tmpl",
+      "target": "main.py",
+      "variables": ["app_name", "description", "port"]
+    },
+    {
+      "source": "files/requirements.txt.tmpl",
+      "target": "requirements.txt",
+      "variables": []
+    },
+    {
+      "source": "files/README.md.tmpl",
+      "target": "README.md",
+      "variables": ["app_name", "description"]
+    }
+  ]
+}

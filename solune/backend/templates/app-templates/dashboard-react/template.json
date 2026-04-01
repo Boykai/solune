@@ -1,0 +1,33 @@
+{
+  "id": "dashboard-react",
+  "name": "Dashboard \u2014 React",
+  "description": "Interactive data dashboard with React, Vite, and Tailwind CSS for data visualization.",
+  "category": "dashboard",
+  "difficulty": "M",
+  "tech_stack": ["react", "vite", "tailwind"],
+  "scaffold_type": "starter",
+  "recommended_preset_id": "medium",
+  "iac_target": "docker",
+  "files": [
+    {
+      "source": "files/src/App.tsx.tmpl",
+      "target": "src/App.tsx",
+      "variables": ["app_name", "description"]
+    },
+    {
+      "source": "files/vite.config.ts.tmpl",
+      "target": "vite.config.ts",
+      "variables": ["app_name"]
+    },
+    {
+      "source": "files/package.json.tmpl",
+      "target": "package.json",
+      "variables": ["app_name", "description"]
+    },
+    {
+      "source": "files/README.md.tmpl",
+      "target": "README.md",
+      "variables": ["app_name", "description"]
+    }
+  ]
+}
