@@ -596,8 +596,8 @@ class TestAllowedEntityTypes:
 STATS_URL = f"{ACTIVITY_URL}/stats"
 
 
-class TestGetActivityStats:
-    """Tests for GET /api/v1/activity/stats."""
+class TestGetActivityStatsExtended:
+    """Extended tests for GET /api/v1/activity/stats."""
 
     @staticmethod
     async def _seed_varied_events(db, project_id: str):

@@ -451,7 +451,8 @@ class TestAssignAgentForStatus:
         assert result is True
         # Find the agent_execution triggered call (not the last call, which may be status_change)
         agent_exec_call = next(
-            call for call in mock_log_event.await_args_list
+            call
+            for call in mock_log_event.await_args_list
             if call.kwargs.get("event_type") == "agent_execution"
         )
         assert agent_exec_call.kwargs["action"] == "triggered"
