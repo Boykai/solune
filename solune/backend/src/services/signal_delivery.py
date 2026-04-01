@@ -281,3 +281,34 @@ async def deliver_chat_message_via_signal(
         _delivery_task(phone, text, audit.id),
         name=f"signal-delivery-{audit.id}",
     )
+
+
+# ── Build Milestone Notifications ───────────────────────────────────────
+
+_MILESTONE_EMOJI: dict[str, str] = {
+    "scaffolded": "🏗️",
+    "working": "⚙️",
+    "review": "👀",
+    "complete": "✅",
+}
+
+
+def format_build_milestone(app_name: str, milestone: str) -> str:
+    """Format a build milestone notification for Signal delivery.
+
+    Args:
+        app_name: Name of the application being built.
+        milestone: One of scaffolded, working, review, complete.
+
+    Returns:
+        Formatted message string.
+    """
+    emoji = _MILESTONE_EMOJI.get(milestone, "📦")
+    labels = {
+        "scaffolded": "App scaffolded — template files created",
+        "working": "Pipeline running — agents at work",
+        "review": "In review — awaiting human review",
+        "complete": "Build complete!",
+    }
+    label = labels.get(milestone, milestone)
+    return f"{emoji} *{app_name}*: {label}"

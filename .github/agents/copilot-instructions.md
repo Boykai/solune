@@ -278,6 +278,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
 - Python 3.13 (PEP 695 type parameter syntax enforced by ruff UP046/UP047) + FastAPI, Pydantic, aiosqlite, pytest + pytest-asyncio (002-fix-parallel-pipeline-bugs)
 - SQLite via aiosqlite (no schema changes needed) (002-fix-parallel-pipeline-bugs)
+- Python 3.12+ (backend), TypeScript 6.0+ / React 19 (frontend) + FastAPI ≥0.135, Microsoft Agent Framework ≥1.0.0b1, githubkit ≥0.14.6, Pydantic ≥2.12, React 19.2, TanStack React Query 5.96, Radix UI, Tailwind CSS 4.2, Vite 8.0 (002-autonomous-app-builder)
+- SQLite via aiosqlite ≥0.22 (existing); file-system for template definitions (002-autonomous-app-builder)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

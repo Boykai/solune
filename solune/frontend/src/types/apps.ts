@@ -17,6 +17,7 @@ export interface App {
   github_project_id: string | null;
   parent_issue_number: number | null;
   parent_issue_url: string | null;
+  template_id: string | null;
   port: number | null;
   error_message: string | null;
   created_at: string;
@@ -38,6 +39,7 @@ export interface AppCreate {
   repo_visibility?: 'public' | 'private';
   create_project?: boolean;
   ai_enhance?: boolean;
+  template_id?: string;
   azure_client_id?: string;
   azure_client_secret?: string;
 }

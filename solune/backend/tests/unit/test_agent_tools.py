@@ -14,12 +14,18 @@ from src.services.agent_tools import (
     analyze_transcript,
     ask_clarifying_question,
     assess_difficulty,
+    build_app,
     create_issue_recommendation,
     create_project_issue,
     create_task_proposal,
+    generate_app_questions,
+    get_app_template,
     get_pipeline_list,
     get_project_context,
+    import_github_repo,
+    iterate_on_app,
     launch_pipeline,
+    list_app_templates,
     load_mcp_tools,
     register_tools,
     select_pipeline_preset,
@@ -237,7 +243,7 @@ class TestIdentifyTargetTask:
 class TestRegisterTools:
     def test_returns_all_tools(self):
         tools = register_tools()
-        assert len(tools) == 11
+        assert len(tools) == 17
         # Verify all expected tools are present (FunctionTool objects)
         tool_names = [t.name for t in tools]
         assert "create_task_proposal" in tool_names
@@ -251,6 +257,78 @@ class TestRegisterTools:
         assert "select_pipeline_preset" in tool_names
         assert "create_project_issue" in tool_names
         assert "launch_pipeline" in tool_names
+        assert "list_app_templates" in tool_names
+        assert "get_app_template" in tool_names
+        assert "import_github_repo" in tool_names
+        assert "build_app" in tool_names
+        assert "iterate_on_app" in tool_names
+        assert "generate_app_questions" in tool_names
+
+
+# ── app builder tools ─────────────────────────────────────────────────────
+
+
+class TestAppBuilderTools:
+    async def test_list_app_templates_returns_real_template_summaries(self):
+        result = await list_app_templates(_make_context(), category="api")
+
+        assert result["action_type"] is None
+        assert result["action_data"] is not None
+        assert [template["id"] for template in result["action_data"]["templates"]] == [
+            "api-fastapi"
+        ]
+        assert "API — FastAPI" in result["content"]
+
+    async def test_get_app_template_formats_detail_content(self):
+        result = await get_app_template(_make_context(), template_id="dashboard-react")
+
+        assert result["action_type"] is None
+        assert result["action_data"]["template"]["id"] == "dashboard-react"
+        assert "Tech stack: react, vite, tailwind" in result["content"]
+        assert "Files: 4 template file(s)" in result["content"]
+
+    async def test_import_github_repo_rejects_invalid_url(self):
+        result = await import_github_repo(_make_context(), url="https://example.com/not-github")
+
+        assert result["action_type"] is None
+        assert result["action_data"] is None
+        assert "Invalid GitHub URL" in result["content"]
+
+    async def test_build_app_returns_pipeline_configuration_action(self):
+        result = await build_app(
+            _make_context(),
+            app_name="stock-dashboard",
+            template_id="dashboard-react",
+            description="Track market performance",
+        )
+
+        assert result["action_type"] == "app_build"
+        assert result["action_data"]["template_id"] == "dashboard-react"
+        assert result["action_data"]["preset_id"] == "medium"
+        assert result["action_data"]["include_architect"] is True
+        assert "Pipeline preset: medium" in result["content"]
+
+    async def test_iterate_on_app_returns_iteration_action(self):
+        result = await iterate_on_app(
+            _make_context(),
+            app_name="stock-dashboard",
+            change_description="Add a watchlist view",
+        )
+
+        assert result["action_type"] == "app_iterate"
+        assert result["action_data"] == {
+            "app_name": "stock-dashboard",
+            "change_description": "Add a watchlist view",
+        }
+        assert "watchlist view" in result["content"]
+
+    async def test_generate_app_questions_adds_detail_prompt_for_short_descriptions(self):
+        result = await generate_app_questions(_make_context(), description="Build an app")
+
+        assert result["action_type"] is None
+        assert result["action_data"]["user_description"] == "Build an app"
+        assert len(result["action_data"]["questions"]) == 3
+        assert "Available categories: api, cli, dashboard, saas." in result["content"]
 
 
 # ── assess_difficulty ───────────────────────────────────────────────────

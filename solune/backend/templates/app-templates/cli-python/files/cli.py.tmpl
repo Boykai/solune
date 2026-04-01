@@ -1,0 +1,19 @@
+"""{{app_name}} — {{description}}"""
+
+import click
+
+
+@click.group()
+@click.version_option()
+def cli() -> None:
+    """{{description}}"""
+
+
+@cli.command()
+def hello() -> None:
+    """Say hello."""
+    click.echo("Hello from {{app_name}}!")
+
+
+if __name__ == "__main__":
+    cli()

@@ -109,6 +109,7 @@ export function useCreateApp() {
         github_project_id: null,
         parent_issue_number: null,
         parent_issue_url: null,
+        template_id: null,
         port: null,
         error_message: null,
         created_at: now,
