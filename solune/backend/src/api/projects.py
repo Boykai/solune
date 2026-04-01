@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
@@ -17,6 +17,7 @@ from src.logging_utils import get_logger
 from src.models.project import GitHubProject, ProjectListResponse
 from src.models.task import TaskListResponse
 from src.models.user import UserResponse, UserSession
+from src.services.activity_logger import log_event
 from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
@@ -25,6 +26,7 @@ from src.services.cache import (
     get_project_items_cache_key,
     get_user_projects_cache_key,
 )
+from src.services.database import get_db
 from src.services.done_items_store import get_done_items
 from src.services.github_auth import github_auth_service
 from src.services.github_projects import github_projects_service
@@ -40,10 +42,13 @@ def _is_github_rate_limit_error(exc: Exception) -> bool:
     if isinstance(exc, PrimaryRateLimitExceeded):
         return True
     if isinstance(exc, RequestFailed):
-        if exc.response.status_code == 429:
+        response = cast(Any, exc).response
+        status_code = getattr(response, "status_code", None)
+        if status_code == 429:
             return True
-        if exc.response.status_code == 403:
-            remaining = exc.response.headers.get("X-RateLimit-Remaining")
+        if status_code == 403:
+            headers = getattr(response, "headers", {})
+            remaining = headers.get("X-RateLimit-Remaining")
             return remaining is not None and remaining.strip() == "0"
     rl = github_projects_service.get_last_rate_limit()
     return isinstance(rl, dict) and rl.get("remaining") == 0
@@ -111,6 +116,17 @@ async def create_project_endpoint(
         github_service=github_service,
         repo_owner=body.get("repo_owner"),
         repo_name=body.get("repo_name"),
+    )
+    await log_event(
+        get_db(),
+        event_type="project",
+        entity_type="project",
+        entity_id=result.get("project_id", ""),
+        project_id=result.get("project_id", ""),
+        actor=session.github_username,
+        action="created",
+        summary=f"Project created: {title}",
+        detail={"project_name": title, "owner": owner},
     )
     return result
 
@@ -244,13 +260,25 @@ async def select_project(
 ) -> UserResponse:
     """Select a project as the active project and start Copilot polling."""
     # Verify project exists and user has access
-    await get_project(project_id, session)
+    project = await get_project(project_id, session)
 
     # Update session
     session.selected_project_id = project_id
     await github_auth_service.update_session(session)
 
     logger.info("User %s selected project %s", session.github_username, project_id)
+
+    await log_event(
+        get_db(),
+        event_type="project",
+        entity_type="project",
+        entity_id=project_id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="selected",
+        summary=f"Project selected: {project.name}",
+        detail={"project_name": project.name},
+    )
 
     # Auto-start Copilot polling for this project
     await _start_copilot_polling(session, project_id)

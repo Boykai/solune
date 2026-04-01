@@ -617,6 +617,58 @@ class TestGithubWebhookEndpoint:
         assert resp.status_code == 200
         assert resp.json()["event"] == "pull_request"
 
+    async def test_webhook_logs_pr_merge_activity(self, client, webhook_secret):
+        with (
+            patch("src.api.webhooks.get_settings") as mock_s,
+            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.log_event", new_callable=AsyncMock) as mock_log_event,
+        ):
+            mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
+            resp = await client.post(
+                "/api/v1/webhooks/github",
+                json={
+                    "action": "closed",
+                    "pull_request": {
+                        "number": 99,
+                        "merged": True,
+                        "head": {"ref": "feature/merged"},
+                        "user": {"login": "someone"},
+                    },
+                    "repository": {"owner": {"login": "o"}, "name": "r", "full_name": "o/r"},
+                },
+                headers={"X-GitHub-Event": "pull_request"},
+            )
+
+        assert resp.status_code == 200
+        assert mock_log_event.await_args.kwargs["action"] == "pr_merged"
+        assert mock_log_event.await_args.kwargs["summary"] == "Webhook: PR #99 merged on o/r"
+
+    async def test_webhook_logs_copilot_ready_activity(self, client, webhook_secret):
+        with (
+            patch("src.api.webhooks.get_settings") as mock_s,
+            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.log_event", new_callable=AsyncMock) as mock_log_event,
+        ):
+            mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
+            resp = await client.post(
+                "/api/v1/webhooks/github",
+                json={
+                    "action": "opened",
+                    "pull_request": {
+                        "number": 101,
+                        "merged": False,
+                        "head": {"ref": "copilot/fix-issue"},
+                        "user": {"login": "copilot-swe-agent"},
+                    },
+                    "repository": {"owner": {"login": "o"}, "name": "r", "full_name": "o/r"},
+                },
+                headers={"X-GitHub-Event": "pull_request"},
+            )
+
+        assert resp.status_code == 200
+        assert mock_log_event.await_args.kwargs["action"] == "copilot_pr_ready"
+        assert mock_log_event.await_args.kwargs["detail"]["branch"] == "copilot/fix-issue"
+
     async def test_webhook_valid_signature(self, client, webhook_secret):
         """Valid signature passes verification."""
         import json as json_mod

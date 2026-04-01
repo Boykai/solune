@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import base64
 import json
+from datetime import UTC, datetime, timedelta
 
 from src.logging_utils import get_logger
-from src.models.activity import ActivityEvent
+from src.models.activity import ActivityEvent, ActivityStats
 
 logger = get_logger(__name__)
 
@@ -137,3 +138,52 @@ async def query_events(
         "has_more": has_more,
         "total_count": total_count,
     }
+
+
+async def get_activity_stats(
+    db,
+    *,
+    project_id: str,
+) -> dict:
+    """Return aggregated activity statistics for a single project."""
+    last_24h_cutoff = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    week_cutoff = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    total_cursor = await db.execute(
+        """
+        SELECT COUNT(*) AS total_count, MAX(created_at) AS last_event_at
+        FROM activity_events
+        WHERE project_id = ?
+        """,
+        (project_id,),
+    )
+    total_row = await total_cursor.fetchone()
+
+    today_cursor = await db.execute(
+        """
+        SELECT COUNT(*) AS today_count
+        FROM activity_events
+        WHERE project_id = ? AND created_at >= ?
+        """,
+        (project_id, last_24h_cutoff),
+    )
+    today_row = await today_cursor.fetchone()
+
+    by_type_cursor = await db.execute(
+        """
+        SELECT event_type, COUNT(*) AS event_count
+        FROM activity_events
+        WHERE project_id = ? AND created_at >= ?
+        GROUP BY event_type
+        ORDER BY event_count DESC, event_type ASC
+        """,
+        (project_id, week_cutoff),
+    )
+    by_type_rows = await by_type_cursor.fetchall()
+
+    return ActivityStats(
+        total_count=total_row[0] if total_row and total_row[0] is not None else 0,
+        today_count=today_row[0] if today_row and today_row[0] is not None else 0,
+        by_type={row[0]: row[1] for row in by_type_rows},
+        last_event_at=total_row[1] if total_row else None,
+    ).model_dump()
