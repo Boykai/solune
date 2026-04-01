@@ -54,7 +54,7 @@ async def get_activity_stats(
 
     # Query 2: Last 24h count
     row = await db.execute(
-        "SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND created_at >= datetime('now', '-1 day')",
+        "SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-1 day')",
         (project_id,),
     )
     result = await row.fetchone()
@@ -62,7 +62,7 @@ async def get_activity_stats(
 
     # Query 3: Last 7 days grouped by event_type
     rows = await db.execute(
-        "SELECT event_type, COUNT(*) FROM activity_events WHERE project_id = ? AND created_at >= datetime('now', '-7 days') GROUP BY event_type",
+        "SELECT event_type, COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-7 days') GROUP BY event_type",
         (project_id,),
     )
     results = await rows.fetchall()

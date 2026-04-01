@@ -36,7 +36,7 @@
 
 **⚠️ CRITICAL**: The stats endpoint and API client must be complete before US2 frontend work can begin.
 
-- [ ] T003 Add `get_activity_stats()` async function to `solune/backend/src/services/activity_service.py` — three SQL queries: (1) `SELECT COUNT(*), MAX(created_at)` for total + last event, (2) `SELECT COUNT(*) WHERE created_at >= datetime('now', '-1 day')` for today count, (3) `SELECT event_type, COUNT(*) WHERE created_at >= now-7d GROUP BY event_type` for type breakdown. All scoped by `project_id`.
+- [ ] T003 Add `get_activity_stats()` async function to `solune/backend/src/services/activity_service.py` — three SQL queries: (1) `SELECT COUNT(*), MAX(created_at)` for total + last event, (2) `SELECT COUNT(*) WHERE datetime(created_at) >= datetime('now', '-1 day')` for today count, (3) `SELECT event_type, COUNT(*) WHERE datetime(created_at) >= datetime('now', '-7 days') GROUP BY event_type` for type breakdown. All scoped by `project_id`.
 - [ ] T004 Add `GET /activity/stats` route to `solune/backend/src/api/activity.py` — place **before** the `/{entity_type}/{entity_id}` route to avoid path conflict. Accept `project_id` query parameter, call `get_activity_stats()`, return `ActivityStats` response model.
 - [ ] T005 [P] Add `activityApi.stats(projectId)` method to `solune/frontend/src/services/api.ts` — GET request to `/activity/stats` with `project_id` query parameter, returns `ActivityStats` type.
 - [ ] T006 [P] Create `useActivityStats` hook in `solune/frontend/src/hooks/useActivityStats.ts` — fetch stats via `activityApi.stats()`, return `{ stats, isLoading, error }` following the existing hook patterns (e.g., `useActivityFeed`).

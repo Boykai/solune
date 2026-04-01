@@ -17,10 +17,10 @@ As a project administrator, I want the Activity page to capture pipeline launch 
 
 **Acceptance Scenarios**:
 
-1. **Given** a user triggers a pipeline launch, **When** the pipeline creates its issue and begins execution, **Then** an activity event with type "pipeline" and action "launched" is recorded, including the issue number and agent count in the event detail.
-2. **Given** a pipeline workflow completes all its agents, **When** the orchestrator marks the workflow done, **Then** an activity event with type "orchestrator" and action "completed" is recorded.
-3. **Given** the orchestrator triggers an individual agent execution, **When** the agent begins work, **Then** an activity event with type "orchestrator" and action "triggered" is recorded with the agent identifier in the detail.
-4. **Given** the Activity page is open, **When** a user filters by the "Execution" category, **Then** only pipeline launch and orchestrator events are shown.
+1. **Given** a user triggers a pipeline launch, **When** the pipeline creates its issue and begins execution, **Then** an activity event with `event_type` `"pipeline_run"`, `entity_type` `"pipeline"`, and action `"launched"` is recorded, including the issue number and agent count in the event detail.
+2. **Given** a pipeline workflow completes all its agents, **When** the orchestrator marks the workflow done, **Then** an activity event with `event_type` `"agent_execution"`, `entity_type` `"pipeline"`, and action `"completed"` is recorded.
+3. **Given** the orchestrator triggers an individual agent execution, **When** the agent begins work, **Then** an activity event with `event_type` `"agent_execution"`, `entity_type` `"agent"`, and action `"triggered"` is recorded with the agent identifier in the detail.
+4. **Given** the Activity page is open, **When** a user filters by the "Execution" category, **Then** only execution events (i.e., events with `event_type` `"pipeline_run"` or `"agent_execution"`) are shown.
 
 ---
 
@@ -102,7 +102,7 @@ As a project administrator, I want color-coded action badges (created, deleted, 
 1. **Given** an event with action "created" is displayed, **When** the Activity page renders, **Then** a green badge with the text "created" appears next to the event summary.
 2. **Given** an event with action "deleted" is displayed, **When** the Activity page renders, **Then** a red badge with the text "deleted" appears.
 3. **Given** an event with action "updated" is displayed, **When** the Activity page renders, **Then** a blue badge with the text "updated" appears.
-4. **Given** an event with action "launched" or "triggered" is displayed, **When** the Activity page renders, **Then** a purple badge with the text "started" appears.
+4. **Given** an event with action "launched" or "triggered" is displayed, **When** the Activity page renders, **Then** a purple badge with text matching the action (e.g., "launched" or "triggered") appears.
 5. **Given** an event related to a specific entity type (e.g., pipeline, agent, settings), **When** the Activity page renders, **Then** an entity-type pill displaying the entity type name appears next to the event summary.
 
 ---
@@ -120,9 +120,9 @@ As a project administrator, I want color-coded action badges (created, deleted, 
 
 ### Functional Requirements
 
-- **FR-001**: System MUST log an activity event with type "pipeline" and action "launched" whenever a pipeline launch creates its issue, including the issue number and agent count in the event detail.
-- **FR-002**: System MUST log an activity event with type "orchestrator" and action "completed" when a workflow finishes all its agents.
-- **FR-003**: System MUST log an activity event with type "orchestrator" and action "triggered" when the orchestrator starts an individual agent execution, including the agent identifier in the event detail.
+- **FR-001**: System MUST log an activity event with `event_type` `"pipeline_run"`, `entity_type` `"pipeline"`, and action `"launched"` whenever a pipeline launch creates its issue, including the issue number and agent count in the event detail.
+- **FR-002**: System MUST log an activity event with `event_type` `"agent_execution"`, `entity_type` `"pipeline"`, and action `"completed"` when a workflow finishes all its agents.
+- **FR-003**: System MUST log an activity event with `event_type` `"agent_execution"`, `entity_type` `"agent"`, and action `"triggered"` when the orchestrator starts an individual agent execution, including the agent identifier in the event detail.
 - **FR-004**: System MUST log an activity event with type "settings" whenever user, global, or project settings are updated, including the list of changed field names in the event detail.
 - **FR-005**: System MUST log an activity event with type "project" and action "created" when a new project is created.
 - **FR-006**: System MUST log an activity event with type "project" and action "selected" when a user switches the active project.
@@ -130,7 +130,7 @@ As a project administrator, I want color-coded action badges (created, deleted, 
 - **FR-008**: System MUST provide a summary stats endpoint that returns the total event count, event count in the last 24 hours, event counts grouped by event type for the last 7 days, and the timestamp of the most recent event.
 - **FR-009**: The stats endpoint MUST be computed server-side using database aggregation for efficiency, not client-side aggregation.
 - **FR-010**: The Activity page MUST display four stat cards ("Total Events", "Today", "Most Common", "Last Activity") above the filter chips, sourced from the stats endpoint.
-- **FR-011**: The Activity page MUST support "Project" (covering project and settings events) and "Execution" (covering orchestrator events) filter categories in addition to existing categories.
+- **FR-011**: The Activity page MUST support "Project" (covering `project` and `settings` events) and "Execution" (covering `pipeline_run` and `agent_execution` events) filter categories in addition to existing categories.
 - **FR-012**: The Activity page MUST group events into time buckets ("Today", "Yesterday", "This Week", "Earlier") with sticky section headers, computed client-side from event timestamps.
 - **FR-013**: The Activity page MUST display color-coded action badges (green for created, red for deleted, blue for updated, purple for started/launched/triggered) next to each event summary.
 - **FR-014**: The Activity page MUST display entity-type pills next to event summaries indicating the entity type (e.g., pipeline, agent, settings, project).

@@ -27,8 +27,8 @@
 
 **Decision**: Use three SQL queries within a single `get_activity_stats()` function in `activity_service.py`:
 1. `SELECT COUNT(*), MAX(created_at) FROM activity_events WHERE project_id = ?` — total count + last event timestamp
-2. `SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND created_at >= ?` — last-24h count (using `datetime('now', '-1 day')`)
-3. `SELECT event_type, COUNT(*) FROM activity_events WHERE project_id = ? AND created_at >= ? GROUP BY event_type` — last-7d breakdown (using `datetime('now', '-7 days')`)
+2. `SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-1 day')` — last-24h count (wrapping `created_at` with `datetime()` to normalize the ISO 8601 `T...Z` storage format for correct comparison)
+3. `SELECT event_type, COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-7 days') GROUP BY event_type` — last-7d breakdown (same `datetime()` normalization)
 
 **Rationale**: SQLite handles these queries efficiently with the existing `idx_activity_project_time` index on `(project_id, created_at DESC)`. Three simple queries are clearer and more maintainable than a single complex CTE or UNION query. At the expected event volume (hundreds to low thousands per project), query time will be well under 2 seconds (SC-002).
 
