@@ -9,6 +9,55 @@ import { STALE_TIME_LONG } from '@/constants';
 import { fetchCopilotModels, modelKeys } from '@/hooks/useModels';
 import type { User } from '@/types';
 
+const LOGOUT_LOCAL_STORAGE_KEYS = [
+  'chat-message-history',
+  'solune-read-notifications',
+  'solune-onboarding-completed',
+  'solune-experimental-features',
+  'chat-ai-enhance',
+  'chat-popup-size',
+  'sidebar-collapsed',
+  'parentIssueIntake_expanded',
+] as const;
+
+const LOGOUT_LOCAL_STORAGE_PREFIXES = ['pipeline-config:', 'board-controls-'] as const;
+const LOGOUT_SESSION_STORAGE_KEYS = ['solune-redirect-after-login', 'solune-chunk-reload'] as const;
+
+function removeMatchingStorageKeys(
+  storage: Storage,
+  staticKeys: readonly string[],
+  keyPrefixes: readonly string[] = []
+): void {
+  const storageKeys = Array.from({ length: storage.length }, (_, index) => storage.key(index)).filter(
+    (key): key is string => key !== null
+  );
+
+  for (const key of [
+    ...staticKeys,
+    ...storageKeys.filter((key) => keyPrefixes.some((prefix) => key.startsWith(prefix))),
+  ]) {
+    storage.removeItem(key);
+  }
+}
+
+function clearUserStorage(): void {
+  try {
+    removeMatchingStorageKeys(
+      localStorage,
+      LOGOUT_LOCAL_STORAGE_KEYS,
+      LOGOUT_LOCAL_STORAGE_PREFIXES
+    );
+  } catch {
+    // Ignore storage errors
+  }
+
+  try {
+    removeMatchingStorageKeys(sessionStorage, LOGOUT_SESSION_STORAGE_KEYS);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 interface UseAuthReturn {
   user: User | null;
   isLoading: boolean;
@@ -58,14 +107,7 @@ export function useAuth(): UseAuthReturn {
       queryClient.removeQueries({ queryKey: modelKeys.all });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['chat'] });
-
-      // Clear all local storage data on logout (security: prevent data
-      // surviving logout — FR-027)
-      try {
-        localStorage.removeItem('chat-message-history');
-      } catch {
-        // Ignore storage errors
-      }
+      clearUserStorage();
     },
     onError: (err) => {
       setError(err as Error);

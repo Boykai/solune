@@ -50,6 +50,8 @@ function createWrapper() {
 describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
     // Reset window.location.search
     Object.defineProperty(window, 'location', {
       value: {
@@ -152,6 +154,95 @@ describe('useAuth', () => {
     });
 
     expect(mockAuthApi.logout).toHaveBeenCalled();
+  });
+
+  it('should clear chat history from localStorage on logout (FR-027)', async () => {
+    const mockUser = {
+      github_user_id: '12345',
+      github_username: 'testuser',
+      selected_project_id: null,
+    };
+
+    mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
+    mockAuthApi.logout.mockResolvedValue({ message: 'Logged out' });
+
+    // Seed localStorage with legacy chat data
+    localStorage.setItem('chat-message-history', JSON.stringify(['msg1', 'msg2']));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+    });
+
+    // Perform logout
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    await waitFor(() => {
+      expect(result.current.user).toBeNull();
+    });
+
+    // localStorage must be cleared on logout (FR-027: clear all local data)
+    expect(localStorage.getItem('chat-message-history')).toBeNull();
+  });
+
+  it('should clear user-scoped browser storage on logout while preserving theme preferences', async () => {
+    const mockUser = {
+      github_user_id: '12345',
+      github_username: 'testuser',
+      selected_project_id: 'PVT_abc123',
+    };
+
+    mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
+    mockAuthApi.logout.mockResolvedValue({ message: 'Logged out' });
+
+    localStorage.setItem('chat-message-history', 'legacy-chat');
+    localStorage.setItem('solune-read-notifications', '["notif-1"]');
+    localStorage.setItem('solune-onboarding-completed', 'true');
+    localStorage.setItem('solune-experimental-features', 'true');
+    localStorage.setItem('chat-ai-enhance', 'false');
+    localStorage.setItem('chat-popup-size', '{"width":400,"height":500}');
+    localStorage.setItem('sidebar-collapsed', 'true');
+    localStorage.setItem('parentIssueIntake_expanded', 'true');
+    localStorage.setItem('pipeline-config:PVT_abc123', 'builtin:test');
+    localStorage.setItem('board-controls-PVT_abc123', '{"filters":{}}');
+    localStorage.setItem('vite-ui-theme', 'dark');
+    sessionStorage.setItem('solune-redirect-after-login', '/board');
+    sessionStorage.setItem('solune-chunk-reload', '1');
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isAuthenticated).toBe(true);
+    });
+
+    await act(async () => {
+      await result.current.logout();
+    });
+
+    await waitFor(() => {
+      expect(result.current.user).toBeNull();
+    });
+
+    expect(localStorage.getItem('chat-message-history')).toBeNull();
+    expect(localStorage.getItem('solune-read-notifications')).toBeNull();
+    expect(localStorage.getItem('solune-onboarding-completed')).toBeNull();
+    expect(localStorage.getItem('solune-experimental-features')).toBeNull();
+    expect(localStorage.getItem('chat-ai-enhance')).toBeNull();
+    expect(localStorage.getItem('chat-popup-size')).toBeNull();
+    expect(localStorage.getItem('sidebar-collapsed')).toBeNull();
+    expect(localStorage.getItem('parentIssueIntake_expanded')).toBeNull();
+    expect(localStorage.getItem('pipeline-config:PVT_abc123')).toBeNull();
+    expect(localStorage.getItem('board-controls-PVT_abc123')).toBeNull();
+    expect(localStorage.getItem('vite-ui-theme')).toBe('dark');
+    expect(sessionStorage.getItem('solune-redirect-after-login')).toBeNull();
+    expect(sessionStorage.getItem('solune-chunk-reload')).toBeNull();
   });
 
   it('should return selected_project_id when user has one', async () => {
