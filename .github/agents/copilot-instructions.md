@@ -263,6 +263,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
 ## Active Technologies
+- Python 3.12+ (backend), TypeScript/React (frontend) + FastAPI, Pydantic, aiosqlite, PyYAML (backend); React, Vite, TailwindCSS, React Query (frontend) (003-copilot-agent-import)
+- SQLite via aiosqlite (schema migration to add columns to `agent_configs` + new `agent_catalog_cache` table) (003-copilot-agent-import)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 
