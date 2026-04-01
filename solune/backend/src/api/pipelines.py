@@ -507,6 +507,7 @@ async def execute_pipeline_launch(
 
         register_project(project_id, owner, repo, session.access_token)
 
+        agent_count = _count_configured_agents(config)
         await log_event(
             get_db(),
             event_type="pipeline_run",
@@ -517,11 +518,11 @@ async def execute_pipeline_launch(
             action="launched",
             summary=(
                 f"Pipeline launched: {pipeline.name} "
-                f"(#{ctx.issue_number}, {_count_configured_agents(config)} agents)"
+                f"(#{ctx.issue_number}, {agent_count} agents)"
             ),
             detail={
                 "issue_number": ctx.issue_number,
-                "agent_count": _count_configured_agents(config),
+                "agent_count": agent_count,
                 "pipeline_name": pipeline.name,
             },
         )

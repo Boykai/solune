@@ -46,7 +46,7 @@ def classify_pull_request_activity(
     head_ref = pr_info.get("head", {}).get("ref", "") if isinstance(pr_info, dict) else ""
 
     activity_action = webhook_action or "received"
-    summary = f"Webhook: pull_request {webhook_action} on {repo_full}".strip()
+    summary = f"Webhook: pull_request {activity_action} on {repo_full}".strip()
 
     if webhook_action == "closed" and isinstance(pr_info, dict) and pr_info.get("merged") is True:
         activity_action = "pr_merged"

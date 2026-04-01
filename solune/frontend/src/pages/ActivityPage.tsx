@@ -44,7 +44,7 @@ const BUCKET_ORDER: ActivityGroup['label'][] = ['Today', 'Yesterday', 'This Week
 export const EVENT_CATEGORIES: EventCategory[] = [
   { label: 'Pipeline', types: ['pipeline_run', 'pipeline_stage'], icon: GitBranch },
   { label: 'Chore', types: ['chore_trigger', 'chore_crud'], icon: ListChecks },
-  { label: 'Agent', types: ['agent_crud'], icon: Bot },
+  { label: 'Agent', types: ['agent_crud', 'agent_execution'], icon: Bot },
   { label: 'Execution', types: ['agent_execution'], icon: Sparkles },
   { label: 'Project', types: ['project', 'settings'], icon: Layers },
   { label: 'App', types: ['app_crud'], icon: Boxes },
@@ -197,7 +197,7 @@ export function ActivityPage() {
     isLoading,
     isError,
   } = useActivityFeed(projectId, eventTypes);
-  const { data: stats } = useActivityStats(projectId);
+  const { data: stats, isLoading: statsLoading } = useActivityStats(projectId);
 
   const groupedEvents = useMemo(() => bucketActivityEvents(events), [events]);
   const statCards = useMemo(
@@ -249,9 +249,13 @@ export function ActivityPage() {
             <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80">
               {stat.label}
             </p>
-            <p className="mt-2 break-words text-xl font-semibold leading-tight text-foreground">
-              {stat.value}
-            </p>
+            {statsLoading ? (
+              <div className="mt-2 h-7 w-16 animate-pulse rounded bg-muted/60" />
+            ) : (
+              <p className="mt-2 break-words text-xl font-semibold leading-tight text-foreground">
+                {stat.value}
+              </p>
+            )}
           </div>
         ))}
       </div>

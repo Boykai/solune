@@ -17,9 +17,9 @@ As a project administrator, I want the Activity page to capture pipeline launch 
 
 **Acceptance Scenarios**:
 
-1. **Given** a user triggers a pipeline launch, **When** the pipeline creates its issue and begins execution, **Then** an activity event with type "pipeline" and action "launched" is recorded, including the issue number and agent count in the event detail.
-2. **Given** a pipeline workflow completes all its agents, **When** the orchestrator marks the workflow done, **Then** an activity event with type "orchestrator" and action "completed" is recorded.
-3. **Given** the orchestrator triggers an individual agent execution, **When** the agent begins work, **Then** an activity event with type "orchestrator" and action "triggered" is recorded with the agent identifier in the detail.
+1. **Given** a user triggers a pipeline launch, **When** the pipeline creates its issue and begins execution, **Then** an activity event with type "pipeline_run" and action "launched" is recorded, including the issue number and agent count in the event detail.
+2. **Given** a pipeline workflow completes all its agents, **When** the orchestrator marks the workflow done, **Then** an activity event with type "agent_execution" and action "completed" is recorded.
+3. **Given** the orchestrator triggers an individual agent execution, **When** the agent begins work, **Then** an activity event with type "agent_execution" and action "triggered" is recorded with the agent identifier in the detail.
 4. **Given** the Activity page is open, **When** a user filters by the "Execution" category, **Then** only pipeline launch and orchestrator events are shown.
 
 ---
@@ -120,9 +120,9 @@ As a project administrator, I want color-coded action badges (created, deleted, 
 
 ### Functional Requirements
 
-- **FR-001**: System MUST log an activity event with type "pipeline" and action "launched" whenever a pipeline launch creates its issue, including the issue number and agent count in the event detail.
-- **FR-002**: System MUST log an activity event with type "orchestrator" and action "completed" when a workflow finishes all its agents.
-- **FR-003**: System MUST log an activity event with type "orchestrator" and action "triggered" when the orchestrator starts an individual agent execution, including the agent identifier in the event detail.
+- **FR-001**: System MUST log an activity event with type "pipeline_run" and action "launched" whenever a pipeline launch creates its issue, including the issue number and agent count in the event detail.
+- **FR-002**: System MUST log an activity event with type "agent_execution" and action "completed" when a workflow finishes all its agents.
+- **FR-003**: System MUST log an activity event with type "agent_execution" and action "triggered" when the orchestrator starts an individual agent execution, including the agent identifier in the event detail.
 - **FR-004**: System MUST log an activity event with type "settings" whenever user, global, or project settings are updated, including the list of changed field names in the event detail.
 - **FR-005**: System MUST log an activity event with type "project" and action "created" when a new project is created.
 - **FR-006**: System MUST log an activity event with type "project" and action "selected" when a user switches the active project.

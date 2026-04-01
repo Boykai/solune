@@ -146,8 +146,9 @@ async def get_activity_stats(
     project_id: str,
 ) -> dict:
     """Return aggregated activity statistics for a single project."""
-    last_24h_cutoff = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    week_cutoff = (datetime.now(UTC) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(UTC)
+    last_24h_cutoff = (now - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    week_cutoff = (now - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     total_cursor = await db.execute(
         """

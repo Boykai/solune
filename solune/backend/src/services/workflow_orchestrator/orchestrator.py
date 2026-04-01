@@ -2023,7 +2023,7 @@ class WorkflowOrchestrator:
             sub_issue_number=sub_issue_number,
         )
 
-        # Special agent handlers (early return)
+        # Special agent handlers
         if agent_name == "human":
             result = await self._handle_human_agent(
                 ctx=ctx,
