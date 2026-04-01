@@ -9,26 +9,26 @@ repos:
     hooks:
       - id: ruff-format
         name: Format Python (ruff)
-        files: ^backend/
+        files: ^solune/backend/
       - id: ruff
         name: Lint Python (ruff)
-        files: ^backend/
+        files: ^solune/backend/
         args: [--fix]
 
   - repo: local
     hooks:
       - id: backend-pyright
         name: Type Check Backend (pyright)
-        entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null || true && pyright src'
+        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && pyright src'
         language: system
-        files: ^backend/.*\.py$
+        files: ^solune/backend/.*\.py$
         pass_filenames: false
 
       - id: backend-bandit
         name: Security Scan Backend (bandit)
-        entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null || true && bandit -r src/ -ll -ii --skip B104,B608'
+        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && bandit -r src/ -ll -ii --skip B104,B608'
         language: system
-        files: ^backend/.*\.py$
+        files: ^solune/backend/.*\.py$
         pass_filenames: false
 
   # Frontend hooks
@@ -36,47 +36,47 @@ repos:
     hooks:
       - id: frontend-lint
         name: Lint Frontend (ESLint)
-        entry: bash -c 'cd frontend && npm run lint'
+        entry: bash -c 'cd solune/frontend && npm run lint'
         language: system
-        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        files: ^solune/frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
 
       - id: frontend-typecheck
         name: Type Check Frontend (TypeScript)
-        entry: bash -c 'cd frontend && npm run type-check'
+        entry: bash -c 'cd solune/frontend && npm run type-check'
         language: system
-        files: ^frontend/.*\.(ts|tsx)$
+        files: ^solune/frontend/.*\.(ts|tsx)$
         pass_filenames: false
 
       - id: frontend-test
         name: Test Frontend (Vitest)
-        entry: bash -c 'cd frontend && npm test'
+        entry: bash -c 'cd solune/frontend && npm test'
         language: system
-        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        files: ^solune/frontend/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
         stages: [pre-push]  # Run tests only on push, not every commit
 
       - id: backend-test
         name: Test Backend (pytest)
-        entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null || true && python -m pytest tests/ -q --tb=short'
+        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && python -m pytest tests/ -q --tb=short'
         language: system
-        files: ^backend/.*\.py$
+        files: ^solune/backend/.*\.py$
         pass_filenames: false
         stages: [pre-push]  # Run tests only on push, not every commit
 
       - id: frontend-build
         name: Build Frontend
-        entry: bash -c 'cd frontend && npm run build'
+        entry: bash -c 'cd solune/frontend && npm run build'
         language: system
-        files: ^frontend/
+        files: ^solune/frontend/
         pass_filenames: false
         stages: [pre-push]  # Build verification only on push
 
       - id: contract-validation
         name: Validate API Contracts
-        entry: bash scripts/validate-contracts.sh
+        entry: bash solune/scripts/validate-contracts.sh
         language: system
-        files: (^backend/openapi\.json$|^frontend/src/api/|^scripts/validate-contracts\.sh$)
+        files: (^solune/backend/openapi\.json$|^solune/frontend/src/api/|^solune/scripts/validate-contracts\.sh$)
         pass_filenames: false
         stages: [pre-push]  # Requires both backend and frontend deps
 
@@ -86,8 +86,9 @@ repos:
     hooks:
       - id: markdownlint
         name: Lint Markdown (markdownlint)
-        args: [--config, .markdownlint.json]
-        files: (^docs/.*\.md$|^[^/]*\.md$)
+        args: [--config, solune/.markdownlint.json]
+        files: (^solune/docs/.*\.md$|^solune/[^/]*\.md$|^[^/]*\.md$)
+        exclude: ^solune/docs/\.
 
   # Architecture diagram generation
   - repo: local
@@ -96,5 +97,5 @@ repos:
         name: Regenerate Architecture Diagrams
         entry: bash -c 'cd solune && ./scripts/generate-diagrams.sh && git add docs/architectures/'
         language: system
-        files: (^backend/src/|^frontend/src/|^docker-compose\.yml$|^scripts/generate-diagrams\.sh$)
+        files: (^solune/backend/src/|^solune/frontend/src/|^solune/docker-compose\.yml$|^solune/scripts/generate-diagrams\.sh$)
         pass_filenames: false
