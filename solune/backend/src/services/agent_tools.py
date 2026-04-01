@@ -834,7 +834,16 @@ async def list_app_templates(
     from src.models.app_template import AppCategory
     from src.services.app_templates.registry import list_templates as _list
 
-    cat = AppCategory(category) if category else None
+    cat: AppCategory | None = None
+    if category:
+        try:
+            cat = AppCategory(category)
+        except ValueError:
+            return ToolResult(
+                content=f"Invalid category '{category}'. Valid categories: {', '.join(c.value for c in AppCategory)}",
+                action_type=None,
+                action_data=None,
+            )
     templates = _list(category=cat)
     summaries = [t.to_summary_dict() for t in templates]
 

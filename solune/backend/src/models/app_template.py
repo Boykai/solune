@@ -49,6 +49,7 @@ class TemplateFile(BaseModel):
 
 
 _KEBAB_CASE_RE = re.compile(r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
+_VALID_DIFFICULTIES = frozenset({"S", "M", "L", "XL"})
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,11 @@ class AppTemplate:
             raise ValueError(msg)
         if not self.files:
             msg = "files must have at least one entry"
+            raise ValueError(msg)
+        if self.difficulty not in _VALID_DIFFICULTIES:
+            msg = (
+                f"difficulty must be one of {sorted(_VALID_DIFFICULTIES)} (got '{self.difficulty}')"
+            )
             raise ValueError(msg)
 
     def to_summary_dict(self) -> dict[str, object]:

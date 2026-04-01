@@ -45,8 +45,13 @@ export function BuildProgress({ progress, className }: BuildProgressProps) {
     return null;
   }
 
-  const currentPhaseIndex = PHASES.indexOf(progress.phase);
   const isFailed = progress.phase === 'failed';
+
+  // When phase is 'failed', use pct_complete to determine which phase was active.
+  // 'failed' is not in PHASES so indexOf returns -1; approximate from progress %.
+  const currentPhaseIndex = isFailed
+    ? Math.min(Math.floor((progress.pct_complete / 100) * PHASES.length), PHASES.length - 1)
+    : PHASES.indexOf(progress.phase);
 
   return (
     <div className={cn('rounded-xl border border-border/80 bg-card/88 p-5', className)}>
@@ -59,7 +64,7 @@ export function BuildProgress({ progress, className }: BuildProgressProps) {
       <div className="space-y-3">
         {PHASES.map((phase, idx) => {
           const isCompleted = idx < currentPhaseIndex;
-          const isCurrent = phase === progress.phase;
+          const isCurrent = isFailed ? idx === currentPhaseIndex : phase === progress.phase;
           const isPending = idx > currentPhaseIndex;
 
           return (

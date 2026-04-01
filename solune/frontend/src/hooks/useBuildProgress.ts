@@ -3,7 +3,7 @@
  * Filters events by app_name and exposes current progress state.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type {
   BuildCompletePayload,
   BuildFailedPayload,
@@ -35,6 +35,17 @@ export function useBuildProgress(
   const [milestones, setMilestones] = useState<BuildMilestonePayload[]>([]);
   const [completion, setCompletion] = useState<BuildCompletePayload | null>(null);
   const [failure, setFailure] = useState<BuildFailedPayload | null>(null);
+
+  // Reset state when appName changes so stale progress from a previous app is not shown.
+  // Uses the state-based "adjusting state during rendering" pattern per React docs.
+  const [prevAppName, setPrevAppName] = useState(appName);
+  if (prevAppName !== appName) {
+    setPrevAppName(appName);
+    setProgress(null);
+    setMilestones([]);
+    setCompletion(null);
+    setFailure(null);
+  }
 
   const handleMessage = useCallback(
     (event: MessageEvent) => {
