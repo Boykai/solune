@@ -219,7 +219,11 @@ class TestCheckSignalLinkStatus:
             patch(f"{_BRIDGE}.restart_signal_ws_listener", new_callable=AsyncMock),
             patch("src.services.task_registry.task_registry") as mock_registry,
         ):
-            mock_registry.create_task = MagicMock()
+            def _close_task(coro, *, name=None):
+                coro.close()
+                return MagicMock(name=name)
+
+            mock_registry.create_task.side_effect = _close_task
             resp = await client.get("/api/v1/signal/connection/link/status")
         assert resp.status_code == 200
         assert resp.json()["status"] == "connected"
