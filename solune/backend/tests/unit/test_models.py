@@ -451,6 +451,111 @@ class TestPipelineStateGroupProperties:
         )
         assert ps.current_agent is None
 
+    def test_current_agents_parallel_returns_all(self):
+        """current_agents returns ALL agents for a parallel group."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1", execution_mode="parallel", agents=["a1", "a2", "a3"]
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2", "a3"],
+            groups=groups,
+        )
+        assert ps.current_agents == ["a1", "a2", "a3"]
+
+    def test_current_agents_sequential_returns_single(self):
+        """current_agents returns only the current agent for a sequential group."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1", execution_mode="sequential", agents=["a1", "a2"]
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2"],
+            groups=groups,
+            current_agent_index_in_group=0,
+        )
+        assert ps.current_agents == ["a1"]
+
+    def test_current_agents_empty_when_all_done(self):
+        """current_agents returns [] when all groups are exhausted."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(group_id="g1", execution_mode="sequential", agents=["a1"]),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1"],
+            groups=groups,
+            current_group_index=1,
+        )
+        assert ps.current_agents == []
+
+    def test_current_agents_flat_fallback(self):
+        """current_agents falls back to [current_agent] when no groups are set."""
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2"],
+            current_agent_index=0,
+        )
+        assert ps.current_agents == ["a1"]
+
+    def test_is_complete_sequential_group_after_advancement(self):
+        """Sequential group is_complete returns True when index reaches end."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1", execution_mode="sequential", agents=["a1", "a2"]
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2"],
+            groups=groups,
+            current_agent_index_in_group=2,  # past end of group
+        )
+        assert ps.is_complete is True
+
+    def test_is_complete_sequential_group_mid_progress(self):
+        """Sequential group is_complete returns False mid-progress."""
+        from src.services.workflow_orchestrator.models import PipelineGroupInfo, PipelineState
+
+        groups = [
+            PipelineGroupInfo(
+                group_id="g1", execution_mode="sequential", agents=["a1", "a2"]
+            ),
+        ]
+        ps = PipelineState(
+            issue_number=1,
+            project_id="p1",
+            status="Ready",
+            agents=["a1", "a2"],
+            groups=groups,
+            current_agent_index_in_group=1,
+        )
+        assert ps.is_complete is False
+
 
 class TestPipelineGroupInfo:
     """Tests for PipelineGroupInfo dataclass."""
