@@ -12,6 +12,7 @@ import { useModels } from '@/hooks/useModels';
 import { useConfirmation } from '@/hooks/useConfirmation';
 import { AgentCard } from './AgentCard';
 import { AddAgentModal } from './AddAgentModal';
+import { BrowseAgentsModal } from './BrowseAgentsModal';
 import { BulkModelUpdateDialog } from './BulkModelUpdateDialog';
 import { AgentInlineEditor, type AgentInlineEditorHandle } from './AgentInlineEditor';
 import type { AgentConfig } from '@/services/api';
@@ -62,6 +63,7 @@ export function AgentsPanel({
   const clearPendingMutation = useClearPendingAgents(projectId);
   const { confirm } = useConfirmation();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showBrowseModal, setShowBrowseModal] = useState(false);
   const [editAgent, setEditAgent] = useState<AgentConfig | null>(null);
   const [isEditorDirty, setIsEditorDirty] = useState(false);
   const [unsavedDialog, setUnsavedDialog] = useState<{
@@ -245,6 +247,13 @@ export function AgentsPanel({
             disabled={isRefreshingModels}
           >
             {isRefreshingModels ? 'Refreshing models…' : 'Refresh models'}
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => setShowBrowseModal(true)}
+          >
+            Browse Catalog
           </Button>
           <Button
             onClick={handleOpenAddModal}
@@ -563,6 +572,13 @@ export function AgentsPanel({
         projectId={projectId}
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
+      />
+
+      {/* Browse Catalog Modal */}
+      <BrowseAgentsModal
+        projectId={projectId}
+        isOpen={showBrowseModal}
+        onClose={() => setShowBrowseModal(false)}
       />
 
       {/* Bulk Model Update Dialog */}

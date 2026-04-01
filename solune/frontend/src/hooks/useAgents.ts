@@ -11,6 +11,10 @@ import {
   type AgentChatMessage,
   type AgentChatResponse,
   type BulkModelUpdateResult,
+  type CatalogAgent,
+  type ImportAgentRequest,
+  type ImportAgentResult,
+  type InstallAgentResult,
   type ApiError,
 } from '@/services/api';
 import { STALE_TIME_PROJECTS } from '@/constants';
@@ -22,6 +26,7 @@ export const agentKeys = {
   all: ['agents'] as const,
   list: (projectId: string) => [...agentKeys.all, 'list', projectId] as const,
   pending: (projectId: string) => [...agentKeys.all, 'pending', projectId] as const,
+  catalog: (projectId: string) => [...agentKeys.all, 'catalog', projectId] as const,
 };
 
 export function useAgentsList(projectId: string | null | undefined) {
@@ -269,6 +274,49 @@ export function useBulkUpdateModels(projectId: string | null | undefined) {
     },
     onError: (error) => {
       toast.error(error.message || 'Failed to update models', { duration: Infinity });
+    },
+  });
+}
+
+export function useCatalogAgents(projectId: string | null | undefined) {
+  return useQuery<CatalogAgent[]>({
+    queryKey: agentKeys.catalog(projectId ?? ''),
+    queryFn: () => agentsApi.browseCatalog(projectId!),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!projectId,
+  });
+}
+
+export function useImportAgent(projectId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation<ImportAgentResult, ApiError, ImportAgentRequest>({
+    mutationFn: (data) => agentsApi.importAgent(projectId!, data),
+    onSuccess: () => {
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: agentKeys.list(projectId) });
+        queryClient.invalidateQueries({ queryKey: agentKeys.catalog(projectId) });
+      }
+      toast.success('Agent imported');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to import agent', { duration: Infinity });
+    },
+  });
+}
+
+export function useInstallAgent(projectId: string | null | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation<InstallAgentResult, ApiError, string>({
+    mutationFn: (agentId) => agentsApi.installAgent(projectId!, agentId),
+    onSuccess: () => {
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: agentKeys.list(projectId) });
+        queryClient.invalidateQueries({ queryKey: agentKeys.pending(projectId) });
+      }
+      toast.success('Agent installed — PR created');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to install agent', { duration: Infinity });
     },
   });
 }
