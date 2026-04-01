@@ -2,7 +2,7 @@
 
 **Input**: Design documents from `/specs/003-librarian/`
 **Prerequisites**: plan.md (required), spec.md (required), research.md, data-model.md, contracts/refresh-workflow.yaml
-**Existing file extended by tasks**: quickstart.md (partially populated — incrementally built out by US1–US6 tasks)
+**Output file created and maintained by tasks**: quickstart.md (incrementally built out by US1–US6 tasks)
 
 **Tests**: Not included — the feature specification and constitution check explicitly state that no unit tests are required. This is a documentation workflow, not code logic. Validation is via the verification checklist (FR-014) and automated link checking (FR-011, FR-016).
 
@@ -19,8 +19,8 @@
 - **Docs**: `solune/docs/` (documentation files, checklists, architectures)
 - **Issue templates**: `.github/ISSUE_TEMPLATE/` (repository root)
 - **Repo metadata**: `solune/docs/.last-refresh`, `solune/docs/.change-manifest.md`
-- **Changelog**: `CHANGELOG.md` (repository root)
-- **README**: `README.md` (repository root)
+- **Changelog**: `solune/CHANGELOG.md` (solune package root)
+- **README**: `solune/README.md` (solune package root)
 
 ---
 

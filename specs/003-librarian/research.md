@@ -23,7 +23,7 @@
 }
 ```
 
-Fallback order: (1) `.last-refresh` JSON `sha` field, (2) most recent `docs-refresh-*` git tag, (3) most recent release tag (`v*`), (4) `HEAD~14` (2-week equivalent as commit count).
+Fallback order: (1) `.last-refresh` JSON `sha` field, (2) most recent `docs-refresh-*` git tag, (3) most recent release tag (`v*`), (4) most recent commit at or before the default time window (`git log --after="14 days ago" --format="%H" | tail -1`), with the 14-day window configurable.
 
 Additionally, after each refresh, create a Git tag `docs-refresh-YYYY-MM-DD` for discoverability and as a secondary baseline source. This gives redundancy: the JSON file provides rich metadata while the tag is a simple Git-native pointer.
 
