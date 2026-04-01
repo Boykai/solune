@@ -88,10 +88,10 @@ npm run build
 
 1. Start the backend server locally
 2. Open a project board in the browser
-3. Leave the board idle for 5 minutes
-4. Count outgoing requests to the GitHub API during the idle period
+3. Leave the board idle for 10 minutes
+4. Count outgoing requests to the GitHub API during the 10-minute idle period
 5. Record: total requests, requests per minute, request types (GraphQL vs REST)
-6. Note the stale-revalidation cycle count (expected: ~1 forced fetch per 5 minutes)
+6. Note the stale-revalidation cycle count (expected: ~1 forced fetch per 10 minutes with 30s refresh and `STALE_REVALIDATION_LIMIT = 20`)
 
 ### Frontend Baseline (FR-002)
 

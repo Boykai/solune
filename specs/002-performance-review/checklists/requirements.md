@@ -6,9 +6,9 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [ ] No implementation details (languages, frameworks, APIs) — spec references WebSockets, cache TTL, GraphQL, polling internals
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
+- [ ] Written for non-technical stakeholders — spec contains technical implementation details
 - [x] All mandatory sections completed
 
 ## Requirement Completeness

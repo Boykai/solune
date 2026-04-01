@@ -37,8 +37,8 @@
 
 ## Verification Checklist
 
-- [ ] All existing backend tests pass (417 tests)
-- [ ] All existing frontend tests pass (76 tests)
+- [ ] All existing backend tests pass
+- [ ] All existing frontend tests pass
 - [ ] New backend tests pass
 - [ ] New frontend tests pass
 - [ ] Backend lint clean (ruff check + format)

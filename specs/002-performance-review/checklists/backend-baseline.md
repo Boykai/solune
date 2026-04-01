@@ -35,7 +35,7 @@
 - `board.py` line 456: Board cache with 300s TTL and data hash
 
 ### Baseline Observations
-- STALE_REVALIDATION_LIMIT = 10 → at 30s refresh interval, forces 1 API call per ~5 minutes
+- STALE_REVALIDATION_LIMIT = 20 → at 30s refresh interval, forces 1 API call per ~10 minutes
 - Board cache TTL = 300s aligns with frontend 5-minute auto-refresh
 - Sub-issue cache TTL = 600s (10 minutes) covers 2 board refresh cycles
 - WebSocket change detection via `compute_data_hash()` suppresses unchanged refreshes

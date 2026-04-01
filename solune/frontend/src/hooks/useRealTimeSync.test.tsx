@@ -7,6 +7,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRealTimeSync } from './useRealTimeSync';
 import type { ReactNode } from 'react';
 
+// Mock sonner toast to prevent errors from auto_merge_completed and similar paths
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 // Store mock WebSocket instances
 let mockWebSocketInstances: MockWebSocket[] = [];
 
@@ -1341,6 +1350,14 @@ describe('useRealTimeSync', () => {
 
       // Should fall back to polling
       expect(result.current.status).toBe('polling');
+
+      // Simulate WebSocket reconnect
+      await act(async () => {
+        mockWebSocketInstances[0]?.simulateOpen();
+      });
+
+      // Should deactivate polling and return to connected state
+      expect(result.current.status).toBe('connected');
 
       vi.useRealTimers();
     });
