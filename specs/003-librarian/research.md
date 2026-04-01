@@ -30,6 +30,7 @@ Additionally, after each refresh, create a Git tag `docs-refresh-YYYY-MM-DD` for
 **Rationale**: The JSON file is already in use in the Solune project, providing a proven format with rich metadata (documents updated, skipped, broken links). Git tags provide a lightweight, version-control-native complement. The multi-level fallback ensures the process works on any repository regardless of whether previous Librarian cycles have run.
 
 **Alternatives considered**:
+
 - **Git tag only**: Loses the rich metadata (which docs were updated, which were skipped). Would require parsing tag messages for anything beyond the commit SHA.
 - **Dedicated metadata database (SQLite, TOML)**: Over-engineered for a single metadata record. A JSON file is simpler, version-controlled, and human-readable.
 - **Branch-based marker** (dedicated `docs-baseline` branch): Adds branching complexity for no clear benefit. The JSON file in the main branch is sufficient.
@@ -63,6 +64,7 @@ Consolidate findings by deduplicating entries that appear in multiple sources (e
 **Rationale**: The three-source approach ensures comprehensive coverage: changelog captures intentional feature-level changes, spec/ADR scanning captures planned work, and code diffs catch changes that may not have been documented. The sequential execution allows earlier sources to provide context for categorizing code diff findings. The existing `.change-manifest.md` format is proven and provides a good structure.
 
 **Alternatives considered**:
+
 - **Code-diff only**: Misses context — a diff can show what changed but not why. The changelog provides the "why" and human-readable descriptions.
 - **Changelog only**: Misses undocumented changes — developers don't always update the changelog for every change. Code diffs catch these gaps.
 - **AI-powered commit message analysis**: Adds an LLM dependency for categorization. For the initial manual process, human review of structured output is more reliable and auditable. Can be added as an automation opportunity in future cycles.
@@ -98,6 +100,7 @@ Consolidate findings by deduplicating entries that appear in multiple sources (e
 **Rationale**: File-path-based grouping is deterministic, automatable, and requires no external tooling. The functional area mapping is project-specific but the pattern (group by directory/module) is universal. The 5-question narrative check provides a structured way to elevate raw change data into strategic documentation priorities.
 
 **Alternatives considered**:
+
 - **LLM-based categorization**: Could provide more nuanced analysis but adds cost, latency, and non-determinism. Better suited for Phase 2 automation after manual cycles validate the process.
 - **Commit message semantic analysis**: Unreliable — commit messages vary widely in quality. File paths are a more consistent signal.
 - **Manual-only focus analysis**: The structured question approach provides a repeatable framework while still requiring human judgment for the answers.
@@ -129,6 +132,7 @@ The mapping is stored as a YAML front-matter comment in each doc file or as a ce
 **Rationale**: Explicit mappings make the diffing process repeatable and auditable. Each mapping type has a clear, mechanical diff method that can eventually be automated. Storing mappings in `OWNERS.md` centralizes the reference and avoids modifying every doc file.
 
 **Alternatives considered**:
+
 - **Inline front-matter in each doc**: Distributes mappings across files; harder to get an overview. `OWNERS.md` already serves this role centrally.
 - **Automated inference from filenames**: Brittle — not all docs have a 1:1 filename match to their source of truth. Explicit mapping is more reliable.
 - **Git blame-based mapping**: Shows who last edited a doc but not what code it should reflect. Insufficient for source-of-truth alignment.
@@ -140,6 +144,7 @@ The mapping is stored as a YAML front-matter comment in each doc file or as a ce
 **Context**: The spec requires checking all internal cross-references and external URLs (FR-011, FR-016) with retry logic for transient errors. Need to select a tool that works in CI and locally.
 
 **Decision**: Use `lychee` as the primary link validator. It is:
+
 - Fast (Rust-based, async)
 - Supports Markdown, HTML, and text files
 - Has built-in retry logic with configurable backoff
@@ -163,6 +168,7 @@ For the transient error retry requirement (FR-016), lychee's built-in retry with
 **Rationale**: `lychee` is the most capable and performant option available. It handles both internal and external links, supports the retry logic required by FR-016, and can be integrated into CI as a GitHub Action. The Solune project's `.last-refresh` already tracks `broken_links_found`, indicating link checking was anticipated.
 
 **Alternatives considered**:
+
 - **`markdown-link-check`**: JavaScript-based; slower than lychee; less configurable retry logic. Suitable but not preferred.
 - **`linkinator`**: Google-maintained; good for external links but slower for large doc sets. No built-in retry configuration.
 - **Custom script with `curl`**: Reinventing the wheel. Link validation is a solved problem with mature tooling.
@@ -194,6 +200,7 @@ The completed checklist is appended to the `.change-manifest.md` as the final se
 **Rationale**: A Markdown checklist is simple, version-controlled, and human-readable. Embedding it in `.change-manifest.md` keeps all refresh cycle data in one file. The template in `docs/checklists/` provides a reusable starting point that ensures no verification item is forgotten.
 
 **Alternatives considered**:
+
 - **Separate verification report file**: Creates file proliferation. One manifest + checklist file per cycle is cleaner.
 - **GitHub Issue checklist**: Good for tracking but not version-controlled with the docs. The `.change-manifest.md` approach keeps the audit trail in the repository.
 - **Automated CI gate**: Premature for the initial manual process. Can be added after 2–3 cycles validate which checks can be reliably automated.
@@ -222,6 +229,7 @@ For terminology consistency (not renames), maintain a `docs/.terminology.md` fil
 **Rationale**: Simple grep-based detection is reliable, deterministic, and requires no tooling beyond standard Unix utilities. The rename table in the manifest creates a clear, auditable record of what was changed and why. This approach works for any codebase regardless of language.
 
 **Alternatives considered**:
+
 - **Custom linter rule**: More sophisticated but harder to maintain. For the initial manual process, grep is sufficient.
 - **LLM-based semantic matching**: Could catch synonyms and near-misses but adds non-determinism. Better suited for future automation.
 - **IDE find-and-replace**: Not scriptable or auditable. The grep approach can be automated and logged.
@@ -233,6 +241,7 @@ For terminology consistency (not renames), maintain a `docs/.terminology.md` fil
 **Context**: The spec requires checking diagram freshness (FR-011, Acceptance Scenario 5.4) — regenerating auto-generated diagrams and flagging stale non-generated ones. The Solune project already has a diagram generation script (`solune/scripts/generate-diagrams.sh`).
 
 **Decision**: Leverage the existing `generate-diagrams.sh --check` script for Mermaid diagram validation. This script already:
+
 - Regenerates `.mmd` files from source
 - Compares generated output against committed files
 - Exits non-zero if any diagram is stale (used in CI)
@@ -242,6 +251,7 @@ For non-auto-generated diagrams (e.g., manually drawn architecture diagrams), fl
 **Rationale**: The existing `generate-diagrams.sh` script is already integrated into CI and validated as working. Reusing it avoids duplication and ensures consistency between CI checks and the Librarian process. The `--check` flag provides exactly the freshness validation needed.
 
 **Alternatives considered**:
+
 - **Custom diagram diff tool**: Unnecessary — `generate-diagrams.sh` already handles this.
 - **Screenshot comparison**: Brittle and requires rendering infrastructure. Text-based Mermaid comparison is more reliable.
 - **Skip non-generated diagrams**: Risks stale diagrams going undetected. Flagging for manual review is a reasonable middle ground.
@@ -265,6 +275,7 @@ For the initial manual process, code sample validation is a visual review during
 **Rationale**: Syntax parsing (not execution) provides a good balance between thoroughness and safety. Full execution of code samples could have side effects and requires a complete environment. Syntax validation catches the most common issues (outdated imports, renamed functions, changed APIs) without execution risk.
 
 **Alternatives considered**:
+
 - **Full execution in sandboxed environment**: Most thorough but complex to set up and maintain. Premature for initial cycles.
 - **`doctest`-style frameworks**: Python-specific; the Librarian process is language-agnostic. Can be used for Python-specific docs as an enhancement.
 - **Skip code validation**: Risks documenting broken examples. Even syntax checking catches obvious errors.
