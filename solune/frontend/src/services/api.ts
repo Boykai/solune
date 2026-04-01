@@ -1670,4 +1670,9 @@ export const activityApi = {
       `/activity/${entityType}/${entityId}${qsStr ? `?${qsStr}` : ''}`,
     );
   },
+
+  stats(projectId: string): Promise<ActivityStats> {
+    const qs = new URLSearchParams({ project_id: projectId });
+    return request<ActivityStats>(`/activity/stats?${qs}`);
+  },
 };

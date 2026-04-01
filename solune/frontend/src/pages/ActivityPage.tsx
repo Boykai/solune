@@ -1,118 +1,94 @@
 /**
- * ActivityPage — unified activity timeline with stats header, filter chips,
- * time-bucketed grouping, status badges, entity pills, and infinite scroll.
+ * ActivityPage — unified activity timeline with filter chips and infinite scroll.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useCallback, useMemo, useState, type ComponentType } from 'react';
 import {
-  GitBranch,
-  ListChecks,
+  Activity,
+  ArrowRightLeft,
   Bot,
   Boxes,
-  Wrench,
-  Webhook,
-  Trash2,
-  ArrowRightLeft,
-  Clock,
   ChevronDown,
   ChevronRight,
-  Activity,
-  Kanban,
+  Clock,
+  GitBranch,
+  Layers,
+  ListChecks,
   Settings,
-  Zap,
-  BarChart3,
-  TrendingUp,
+  Sparkles,
+  Trash2,
+  Webhook,
+  Wrench,
 } from '@/lib/icons';
-import { useActivityFeed } from '@/hooks/useActivityFeed';
-import { useActivityStats } from '@/hooks/useActivityStats';
 import { InfiniteScrollContainer } from '@/components/common/InfiniteScrollContainer';
 import { useAuth } from '@/hooks/useAuth';
+import { useActivityFeed } from '@/hooks/useActivityFeed';
+import { useActivityStats } from '@/hooks/useActivityStats';
 import { cn } from '@/lib/utils';
 import type { ActivityEvent } from '@/types';
 
-// ── Event type → category mapping ──
+interface EventCategory {
+  label: string;
+  types: string[];
+  icon: ComponentType<{ className?: string }>;
+}
 
-const EVENT_CATEGORIES = [
+interface ActivityGroup {
+  label: 'Today' | 'Yesterday' | 'This Week' | 'Earlier';
+  items: ActivityEvent[];
+}
+
+const DAY_IN_MS = 86_400_000;
+const BUCKET_ORDER: ActivityGroup['label'][] = ['Today', 'Yesterday', 'This Week', 'Earlier'];
+
+export const EVENT_CATEGORIES: EventCategory[] = [
   { label: 'Pipeline', types: ['pipeline_run', 'pipeline_stage'], icon: GitBranch },
   { label: 'Chore', types: ['chore_trigger', 'chore_crud'], icon: ListChecks },
-  { label: 'Agent', types: ['agent_crud', 'agent_execution'], icon: Bot },
+  { label: 'Agent', types: ['agent_crud'], icon: Bot },
+  { label: 'Execution', types: ['agent_execution'], icon: Sparkles },
+  { label: 'Project', types: ['project', 'settings'], icon: Layers },
   { label: 'App', types: ['app_crud'], icon: Boxes },
   { label: 'Tool', types: ['tool_crud'], icon: Wrench },
   { label: 'Webhook', types: ['webhook'], icon: Webhook },
-  { label: 'Project', types: ['project', 'settings'], icon: Kanban },
-  { label: 'Status', types: ['status_change'], icon: ArrowRightLeft },
   { label: 'Cleanup', types: ['cleanup'], icon: Trash2 },
-] as const;
+  { label: 'Status', types: ['status_change'], icon: ArrowRightLeft },
+];
 
-const EVENT_TYPE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+const EVENT_TYPE_ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   pipeline_run: GitBranch,
   pipeline_stage: GitBranch,
   chore_trigger: ListChecks,
   chore_crud: ListChecks,
   agent_crud: Bot,
-  agent_execution: Zap,
+  agent_execution: Sparkles,
+  project: Layers,
+  settings: Settings,
   cleanup: Trash2,
   app_crud: Boxes,
   tool_crud: Wrench,
   status_change: ArrowRightLeft,
   webhook: Webhook,
-  project: Kanban,
-  settings: Settings,
 };
 
-// ── Action → badge color mapping ──
+function toEventDate(isoDate: string): Date {
+  return new Date(isoDate.endsWith('Z') ? isoDate : `${isoDate}Z`);
+}
 
-const ACTION_BADGE_COLORS: Record<string, string> = {
-  created: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  deleted: 'bg-red-500/10 text-red-600 border-red-500/20',
-  updated: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  started: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
-  launched: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
-  triggered: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
-  completed: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-  cancelled: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  failed: 'bg-red-500/10 text-red-600 border-red-500/20',
-  pr_merged: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
-  copilot_pr_ready: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  selected: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  user_updated: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  global_updated: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  project_updated: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-};
+function getUtcDayStart(date: Date): number {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
 
-// ── Entity type → pill color mapping ──
-
-const ENTITY_PILL_COLORS: Record<string, string> = {
-  pipeline: 'bg-indigo-500/10 text-indigo-600',
-  agent: 'bg-violet-500/10 text-violet-600',
-  tool: 'bg-amber-500/10 text-amber-600',
-  app: 'bg-cyan-500/10 text-cyan-600',
-  chore: 'bg-teal-500/10 text-teal-600',
-  issue: 'bg-gray-500/10 text-gray-600',
-  project: 'bg-blue-500/10 text-blue-600',
-  user: 'bg-pink-500/10 text-pink-600',
-  global: 'bg-amber-500/10 text-amber-600',
-};
-
-// ── Time bucketing ──
-
-function getTimeBucket(isoDate: string): string {
-  const now = new Date();
-  const then = new Date(isoDate + (isoDate.endsWith('Z') ? '' : 'Z'));
-
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
-  const weekStart = new Date(todayStart.getTime() - 6 * 86_400_000);
-
-  if (then >= todayStart) return 'Today';
-  if (then >= yesterdayStart) return 'Yesterday';
-  if (then >= weekStart) return 'This Week';
-  return 'Earlier';
+function humanizeToken(value: string): string {
+  return value
+    .split(/[_\-.]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function formatRelativeTime(isoDate: string): string {
   const now = Date.now();
-  const then = new Date(isoDate + (isoDate.endsWith('Z') ? '' : 'Z')).getTime();
+  const then = toEventDate(isoDate).getTime();
   const diff = now - then;
 
   if (diff < 60_000) return 'just now';
@@ -120,65 +96,68 @@ function formatRelativeTime(isoDate: string): string {
     const mins = Math.floor(diff / 60_000);
     return `${mins}m ago`;
   }
-  if (diff < 86_400_000) {
+  if (diff < DAY_IN_MS) {
     const hrs = Math.floor(diff / 3_600_000);
     return `${hrs}h ago`;
   }
-  const days = Math.floor(diff / 86_400_000);
+  const days = Math.floor(diff / DAY_IN_MS);
   if (days < 30) return `${days}d ago`;
-  return new Date(then).toLocaleDateString();
+  return toEventDate(isoDate).toLocaleDateString();
 }
 
-// ── Sub-components ──
+function getBucketLabel(isoDate: string, now: Date): ActivityGroup['label'] {
+  const dayDiff = Math.floor((getUtcDayStart(now) - getUtcDayStart(toEventDate(isoDate))) / DAY_IN_MS);
 
-function ActionBadge({ action }: { action: string }) {
-  const colors = ACTION_BADGE_COLORS[action] ?? 'bg-muted text-muted-foreground border-border';
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none',
-        colors,
-      )}
-    >
-      {action.replace(/_/g, ' ')}
-    </span>
-  );
+  if (dayDiff <= 0) return 'Today';
+  if (dayDiff === 1) return 'Yesterday';
+  if (dayDiff < 7) return 'This Week';
+  return 'Earlier';
 }
 
-function EntityPill({ entityType, entityId }: { entityType: string; entityId: string }) {
-  if (!entityId) return null;
-  const colors = ENTITY_PILL_COLORS[entityType] ?? 'bg-muted text-muted-foreground';
-  return (
-    <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none', colors)}>
-      {entityType}:{entityId.length > 20 ? entityId.slice(0, 20) + '…' : entityId}
-    </span>
-  );
+export function bucketActivityEvents(events: ActivityEvent[], now = new Date(Date.now())): ActivityGroup[] {
+  const grouped = new Map<ActivityGroup['label'], ActivityEvent[]>();
+
+  for (const event of events) {
+    const label = getBucketLabel(event.created_at, now);
+    const items = grouped.get(label) ?? [];
+    items.push(event);
+    grouped.set(label, items);
+  }
+
+  return BUCKET_ORDER.filter((label) => grouped.has(label)).map((label) => ({
+    label,
+    items: grouped.get(label) ?? [],
+  }));
 }
 
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  loading,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ComponentType<{ className?: string }>;
-  loading?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-card px-4 py-3">
-      <Icon className="h-5 w-5 shrink-0 text-primary/60" />
-      <div className="min-w-0">
-        {loading ? (
-          <div className="h-5 w-12 animate-pulse rounded bg-muted" />
-        ) : (
-          <p className="text-lg font-semibold tabular-nums text-foreground">{value}</p>
-        )}
-        <p className="text-[11px] text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
+function getActionBadgeClasses(action: string): string {
+  switch (action) {
+    case 'created':
+      return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
+    case 'deleted':
+      return 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300';
+    case 'updated':
+      return 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300';
+    case 'started':
+    case 'launched':
+    case 'triggered':
+    case 'completed':
+      return 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300';
+    default:
+      return 'border-border/60 bg-muted/60 text-muted-foreground';
+  }
+}
+
+function formatMostCommonEvent(byType: Record<string, number>): string {
+  const [eventType, count] =
+    Object.entries(byType).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))[0] ??
+    [];
+
+  if (!eventType || typeof count !== 'number') {
+    return 'No activity yet';
+  }
+
+  return `${humanizeToken(eventType)} (${count})`;
 }
 
 function DetailView({ detail }: { detail: Record<string, unknown> }) {
@@ -196,20 +175,6 @@ function DetailView({ detail }: { detail: Record<string, unknown> }) {
   );
 }
 
-function TimeBucketHeader({ label }: { label: string }) {
-  return (
-    <div className="sticky top-0 z-10 flex items-center gap-2 bg-background/95 px-1 py-2 backdrop-blur-sm">
-      <div className="h-px flex-1 bg-border/50" />
-      <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
-        {label}
-      </span>
-      <div className="h-px flex-1 bg-border/50" />
-    </div>
-  );
-}
-
-// ── Main component ──
-
 export function ActivityPage() {
   const { user } = useAuth();
   const projectId = user?.selected_project_id ?? '';
@@ -219,8 +184,8 @@ export function ActivityPage() {
 
   const eventTypes = useMemo(() => {
     if (selectedCategories.length === 0) return undefined;
-    return EVENT_CATEGORIES.filter((c) => selectedCategories.includes(c.label)).flatMap(
-      (c) => c.types,
+    return EVENT_CATEGORIES.filter((category) => selectedCategories.includes(category.label)).flatMap(
+      (category) => category.types,
     );
   }, [selectedCategories]);
 
@@ -232,95 +197,74 @@ export function ActivityPage() {
     isLoading,
     isError,
   } = useActivityFeed(projectId, eventTypes);
+  const { data: stats } = useActivityStats(projectId);
 
-  const { data: stats, isLoading: statsLoading } = useActivityStats(projectId);
-
-  // Group events by time bucket
-  const groupedEvents = useMemo(() => {
-    const groups: { bucket: string; events: ActivityEvent[] }[] = [];
-    let currentBucket = '';
-    for (const event of events) {
-      const bucket = getTimeBucket(event.created_at);
-      if (bucket !== currentBucket) {
-        currentBucket = bucket;
-        groups.push({ bucket, events: [] });
-      }
-      groups[groups.length - 1].events.push(event);
-    }
-    return groups;
-  }, [events]);
-
-  const mostCommonType = useMemo(() => {
-    if (!stats?.by_type) return '—';
-    const entries = Object.entries(stats.by_type);
-    if (entries.length === 0) return '—';
-    entries.sort(([, a], [, b]) => b - a);
-    return entries[0][0].replace(/_/g, ' ');
-  }, [stats]);
+  const groupedEvents = useMemo(() => bucketActivityEvents(events), [events]);
+  const statCards = useMemo(
+    () => [
+      { label: 'Total Events', value: String(stats?.total_count ?? 0) },
+      { label: 'Today', value: String(stats?.today_count ?? 0) },
+      { label: 'Most Common', value: formatMostCommonEvent(stats?.by_type ?? {}) },
+      {
+        label: 'Last Activity',
+        value: stats?.last_event_at ? formatRelativeTime(stats.last_event_at) : 'No activity yet',
+      },
+    ],
+    [stats],
+  );
 
   const toggleCategory = useCallback((label: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(label) ? prev.filter((c) => c !== label) : [...prev, label],
+    setSelectedCategories((previous) =>
+      previous.includes(label) ? previous.filter((category) => category !== label) : [...previous, label],
     );
   }, []);
 
   const clearFilters = useCallback(() => setSelectedCategories([]), []);
 
   const toggleExpanded = useCallback((id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+    setExpandedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }, []);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      {/* Header */}
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-6 flex items-center gap-3">
         <Activity className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-display font-semibold tracking-tight">Activity</h1>
       </div>
 
-      {/* Stats dashboard */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard
-          label="Total Events"
-          value={stats?.total ?? 0}
-          icon={BarChart3}
-          loading={statsLoading}
-        />
-        <StatCard
-          label="Today"
-          value={stats?.today ?? 0}
-          icon={TrendingUp}
-          loading={statsLoading}
-        />
-        <StatCard
-          label="Most Common"
-          value={mostCommonType}
-          icon={Activity}
-          loading={statsLoading}
-        />
-        <StatCard
-          label="Last Activity"
-          value={stats?.last_event_at ? formatRelativeTime(stats.last_event_at) : '—'}
-          icon={Clock}
-          loading={statsLoading}
-        />
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {statCards.map((stat) => (
+          <div
+            key={stat.label}
+            className="moonwell inline-flex min-h-[6.5rem] flex-col rounded-[1.2rem] px-4 py-3 sm:rounded-[1.3rem]"
+          >
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80">
+              {stat.label}
+            </p>
+            <p className="mt-2 break-words text-xl font-semibold leading-tight text-foreground">
+              {stat.value}
+            </p>
+          </div>
+        ))}
       </div>
 
-      {/* Filter chips */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {EVENT_CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
-          const active = selectedCategories.includes(cat.label);
+        {EVENT_CATEGORIES.map((category) => {
+          const Icon = category.icon;
+          const active = selectedCategories.includes(category.label);
           return (
             <button
-              key={cat.label}
+              key={category.label}
               type="button"
-              onClick={() => toggleCategory(cat.label)}
+              onClick={() => toggleCategory(category.label)}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
                 active
@@ -329,7 +273,7 @@ export function ActivityPage() {
               )}
             >
               <Icon className="h-3.5 w-3.5" />
-              {cat.label}
+              {category.label}
             </button>
           );
         })}
@@ -344,7 +288,6 @@ export function ActivityPage() {
         )}
       </div>
 
-      {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
@@ -352,7 +295,6 @@ export function ActivityPage() {
         </div>
       )}
 
-      {/* Empty state */}
       {!isLoading && events.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 py-20">
           <Clock className="mb-3 h-10 w-10 text-muted-foreground/40" />
@@ -367,7 +309,6 @@ export function ActivityPage() {
         </div>
       )}
 
-      {/* Event timeline with time-bucketed grouping */}
       {!isLoading && events.length > 0 && (
         <InfiniteScrollContainer
           hasNextPage={hasNextPage}
@@ -375,54 +316,69 @@ export function ActivityPage() {
           fetchNextPage={fetchNextPage}
           isError={isError}
         >
-          {groupedEvents.map((group) => (
-            <div key={group.bucket}>
-              <TimeBucketHeader label={group.bucket} />
-              <div className="space-y-1">
-                {group.events.map((event) => {
-                  const Icon = EVENT_TYPE_ICON_MAP[event.event_type] ?? Clock;
-                  const expanded = expandedIds.has(event.id);
-                  const hasDetail = event.detail && Object.keys(event.detail).length > 0;
+          <div className="space-y-6">
+            {groupedEvents.map((group) => (
+              <section key={group.label} aria-label={group.label}>
+                <div className="sticky top-0 z-10 mb-2 bg-background/95 py-2 backdrop-blur">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+                    {group.label}
+                  </p>
+                </div>
 
-                  return (
-                    <div key={event.id} className="group">
-                      <button
-                        type="button"
-                        onClick={() => hasDetail && toggleExpanded(event.id)}
-                        className={cn(
-                          'flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
-                          hasDetail ? 'hover:bg-muted/50 cursor-pointer' : 'cursor-default',
-                        )}
-                      >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <p className="text-sm text-foreground">{event.summary}</p>
-                            <ActionBadge action={event.action} />
-                            <EntityPill entityType={event.entity_type} entityId={event.entity_id} />
-                          </div>
-                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{formatRelativeTime(event.created_at)}</span>
-                            <span>·</span>
-                            <span>{event.actor}</span>
-                          </div>
-                        </div>
-                        {hasDetail &&
-                          (expanded ? (
-                            <ChevronDown className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          ))}
-                      </button>
-                      {expanded && event.detail && <DetailView detail={event.detail} />}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+                <div className="space-y-1">
+                  {group.items.map((event) => {
+                    const Icon = EVENT_TYPE_ICON_MAP[event.event_type] ?? Clock;
+                    const expanded = expandedIds.has(event.id);
+                    const hasDetail = !!event.detail && Object.keys(event.detail).length > 0;
 
-          {/* End of activity indicator */}
+                    return (
+                      <div key={event.id} className="group">
+                        <button
+                          type="button"
+                          onClick={() => hasDetail && toggleExpanded(event.id)}
+                          className={cn(
+                            'flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+                            hasDetail ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default',
+                          )}
+                        >
+                          <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm text-foreground">{event.summary}</p>
+                              <span
+                                className={cn(
+                                  'rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]',
+                                  getActionBadgeClasses(event.action),
+                                )}
+                              >
+                                {humanizeToken(event.action)}
+                              </span>
+                              <span className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                                {humanizeToken(event.entity_type)}
+                              </span>
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span>{formatRelativeTime(event.created_at)}</span>
+                              <span>·</span>
+                              <span>{event.actor}</span>
+                            </div>
+                          </div>
+                          {hasDetail &&
+                            (expanded ? (
+                              <ChevronDown className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                            ))}
+                        </button>
+                        {expanded && event.detail && <DetailView detail={event.detail} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+
           {!hasNextPage && events.length > 0 && (
             <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
               <div className="h-px flex-1 bg-border/50" />

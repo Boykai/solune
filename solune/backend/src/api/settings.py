@@ -37,6 +37,32 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+async def _log_settings_update(
+    *,
+    db,
+    session: UserSession,
+    project_id: str,
+    scope: str,
+    entity_id: str,
+    changed_fields: list[str],
+) -> None:
+    """Record a scoped settings update in the activity log."""
+    await log_event(
+        db,
+        event_type="settings",
+        entity_type="settings",
+        entity_id=entity_id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="updated",
+        summary=f"Settings updated: {scope} ({len(changed_fields)} fields changed)",
+        detail={
+            "scope": scope,
+            "changed_fields": changed_fields,
+        },
+    )
+
+
 @router.get("/user", response_model=EffectiveUserSettings)
 async def get_user_settings(
     session: Annotated[UserSession, Depends(get_session_dep)],
@@ -59,6 +85,14 @@ async def update_user_settings(
 
     if flat:
         await upsert_user_preferences(db, session.github_user_id, flat)
+        await _log_settings_update(
+            db=db,
+            session=session,
+            project_id=session.selected_project_id or "",
+            scope="user",
+            entity_id=session.github_user_id,
+            changed_fields=sorted(flat),
+        )
         logger.info("Updated user preferences for %s", session.github_username)
         await log_event(
             db,
@@ -96,6 +130,14 @@ async def update_global_settings_endpoint(
 
     if flat:
         result = await update_global_settings(db, flat)
+        await _log_settings_update(
+            db=db,
+            session=session,
+            project_id=session.selected_project_id or "",
+            scope="global",
+            entity_id="global",
+            changed_fields=sorted(flat),
+        )
         logger.info("Updated global settings by %s", session.github_username)
         await log_event(
             db,
@@ -161,6 +203,14 @@ async def update_project_settings_endpoint(
 
     if updates:
         await upsert_project_settings(db, session.github_user_id, project_id, updates)
+        await _log_settings_update(
+            db=db,
+            session=session,
+            project_id=project_id,
+            scope="project",
+            entity_id=project_id,
+            changed_fields=sorted(update_data),
+        )
         logger.info(
             "Updated project settings for user=%s project=%s",
             session.github_username,
