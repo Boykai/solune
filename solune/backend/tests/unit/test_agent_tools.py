@@ -585,7 +585,7 @@ class TestLoadMcpTools:
         assert result == {}
 
     async def test_returns_empty_dict_on_database_error(self):
-        mock_db = AsyncMock()
+        mock_db = MagicMock()
         mock_db.execute.side_effect = RuntimeError("DB connection lost")
 
         result = await load_mcp_tools("PVT_123", mock_db)
