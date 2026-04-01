@@ -1,0 +1,28 @@
+{
+  "id": "cli-python",
+  "name": "CLI \u2014 Python",
+  "description": "Command-line application built with Python and Click for argument parsing.",
+  "category": "cli",
+  "difficulty": "S",
+  "tech_stack": ["python", "click"],
+  "scaffold_type": "skeleton",
+  "recommended_preset_id": "easy",
+  "iac_target": "none",
+  "files": [
+    {
+      "source": "files/cli.py.tmpl",
+      "target": "{{python_package_name}}/cli.py",
+      "variables": ["app_name", "python_package_name", "description"]
+    },
+    {
+      "source": "files/pyproject.toml.tmpl",
+      "target": "pyproject.toml",
+      "variables": ["app_name", "python_package_name", "description"]
+    },
+    {
+      "source": "files/README.md.tmpl",
+      "target": "README.md",
+      "variables": ["app_name", "description"]
+    }
+  ]
+}

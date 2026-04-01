@@ -19,6 +19,7 @@ from src.api.projects import router as projects_router
 from src.api.settings import router as settings_router
 from src.api.signal import router as signal_router
 from src.api.tasks import router as tasks_router
+from src.api.templates import router as templates_router
 from src.api.tools import router as tools_router
 from src.api.webhooks import router as webhooks_router
 from src.api.workflow import router as workflow_router
@@ -44,4 +45,5 @@ router.include_router(metadata_router, prefix="/metadata", tags=["metadata"])
 router.include_router(health_router, tags=["health"])
 router.include_router(onboarding_router, tags=["onboarding"])
 router.include_router(apps_router, prefix="/apps", tags=["apps"])
+router.include_router(templates_router, prefix="/templates", tags=["templates"])
 router.include_router(activity_router, prefix="/activity", tags=["activity"])
