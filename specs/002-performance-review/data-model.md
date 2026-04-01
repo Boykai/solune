@@ -107,15 +107,15 @@ This feature does not introduce new persistent entities or data models. It optim
 | Field | Type | Description |
 |-------|------|-------------|
 | stale_revalidation_count | int | Consecutive stale cache reads without fresh fetch |
-| STALE_REVALIDATION_LIMIT | int (10) | Threshold to force fresh fetch |
+| STALE_REVALIDATION_LIMIT | int (20) | Threshold to force fresh fetch |
 
 **State Transitions**:
 ```text
-[0] → stale read → [1] → stale read → [2] → ... → [10] → force fresh fetch → [0]
+[0] → stale read → [1] → stale read → [2] → ... → [20] → force fresh fetch → [0]
 [N] → fresh fetch with changes → [0]  (reset on detected change)
 ```
 
-**Performance Impact**: At 30-second refresh intervals, the counter reaches 10 after ~5 minutes, producing one forced API call per 5 minutes on a truly idle board.
+**Performance Impact**: At 30-second refresh intervals, the counter reaches 20 after ~10 minutes, producing one forced API call per 10 minutes on a truly idle board.
 
 ## Relationships
 

@@ -14,7 +14,7 @@
 
 1. **Board cache TTL (300s)** — `board.py` line 456 sets a 300-second TTL on board data entries via `cache.set(cache_key, board_data, ttl_seconds=300, data_hash=data_hash)`. This aligns with the frontend's 5-minute auto-refresh interval. Test coverage in `test_api_board.py` validates cache reuse and refresh bypass.
 
-2. **WebSocket change detection** — `projects.py` (lines 412–427) computes `data_hash` on each periodic refresh and compares against the stored hash. On unchanged data, it calls `cache.refresh_ttl()` instead of re-storing, and does NOT emit a refresh event to the client. On changed data, it stores with the new hash and sends updated tasks. The stale-revalidation counter (`STALE_REVALIDATION_LIMIT = 10`) forces a fresh fetch after 10 consecutive stale cycles.
+2. **WebSocket change detection** — `projects.py` (lines 412–427) computes `data_hash` on each periodic refresh and compares against the stored hash. On unchanged data, it calls `cache.refresh_ttl()` instead of re-storing, and does NOT emit a refresh event to the client. On changed data, it stores with the new hash and sends updated tasks. The stale-revalidation counter (`STALE_REVALIDATION_LIMIT = 20`, promoted to module-level constant) forces a fresh fetch after 20 consecutive stale cycles (~10 minutes at a 30-second interval).
 
 3. **Sub-issue cache invalidation on manual refresh** — `board.py` (lines 388–399) iterates cached board items, constructs `sub_issues:{owner}/{repo}#{issue_number}` keys, and calls `cache.delete()` for each before fetching fresh data. Test coverage in `test_api_board.py` (`test_manual_refresh_clears_sub_issue_caches`) verifies this path.
 

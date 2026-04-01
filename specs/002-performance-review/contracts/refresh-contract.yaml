@@ -94,7 +94,7 @@ paths:
 
         **Periodic refresh (30s intervals)**:
         - Checks warm cache first; returns immediately if valid.
-        - On cache expiry, serves stale data up to STALE_REVALIDATION_LIMIT (10)
+        - On cache expiry, serves stale data up to STALE_REVALIDATION_LIMIT (20)
           consecutive stale reads before forcing a fresh fetch.
         - Compares data_hash before/after fetch:
           - Hash match: refresh_ttl() only, no client notification.
@@ -102,7 +102,7 @@ paths:
 
         **Change detection contract**:
         - Client receives updates ONLY when data_hash changes.
-        - Stale-revalidation forces at most 1 API call per ~5 minutes on idle boards.
+        - Stale-revalidation forces at most 1 API call per ~10 minutes on idle boards.
         - Client-side debounce (2s) deduplicates rapid reconnection events.
 
         **Message types**:

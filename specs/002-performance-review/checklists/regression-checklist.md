@@ -37,8 +37,8 @@
 
 ## Verification Checklist
 
-- [ ] All existing backend tests pass (417 tests)
-- [ ] All existing frontend tests pass (76 tests)
+- [ ] All existing backend tests pass (`pytest tests/unit/ -q`)
+- [ ] All existing frontend tests pass (`npm run test`)
 - [ ] New backend tests pass
 - [ ] New frontend tests pass
 - [ ] Backend lint clean (ruff check + format)

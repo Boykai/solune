@@ -29,7 +29,7 @@
 - [ ] T003 [P] Run existing backend tests to confirm green baseline: `uv run pytest tests/unit/test_cache.py tests/unit/test_api_board.py tests/unit/test_copilot_polling.py -v` in solune/backend/
 - [ ] T004 [P] Run existing frontend tests to confirm green baseline: `npx vitest run src/hooks/useRealTimeSync.test.tsx src/hooks/useBoardRefresh.test.tsx` in solune/frontend/
 - [ ] T005 [P] Run backend linting and type checks to confirm clean state: `ruff check src tests && ruff format --check src tests && uv run pyright src` in solune/backend/
-- [ ] T006 [P] Run frontend linting, type checks, and build to confirm clean state: `npx eslint src/ && npx tsc --noEmit && npm run build` in solune/frontend/
+- [ ] T006 [P] Run frontend linting, type checks, and build to confirm clean state: `npm run lint && npm run type-check && npm run build` in solune/frontend/
 
 ---
 
@@ -80,7 +80,7 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T020 [P] [US1] Add test for stale-revalidation behavior: verify that an idle board with no data changes produces at most 1 forced API call per 5-minute equivalent cycle in solune/backend/tests/unit/test_api_board.py
+- [ ] T020 [P] [US1] Add test for stale-revalidation behavior: verify that an idle board with no data changes produces at most 1 forced API call per 10-minute equivalent cycle (20 refresh intervals at 30s) in solune/backend/tests/unit/test_api_board.py
 - [ ] T021 [P] [US1] Add test for sub-issue cache warm-read path: verify that warm sub-issue caches skip API calls during board refresh in solune/backend/tests/unit/test_api_board.py
 - [ ] T022 [P] [US1] Add test for polling loop safety: verify that fallback polling does not trigger full board refresh when data is unchanged in solune/backend/tests/unit/test_copilot_polling.py
 

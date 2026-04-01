@@ -35,6 +35,11 @@ from src.utils import resolve_repository
 logger = get_logger(__name__)
 router = APIRouter()
 
+# Number of consecutive stale cache reads before forcing a fresh API fetch.
+# At a 30-second WebSocket refresh interval this produces at most one forced
+# call every ~10 minutes on an idle board (SC-001).
+STALE_REVALIDATION_LIMIT = 20
+
 
 def _is_github_rate_limit_error(exc: Exception) -> bool:
     """Return True when GitHub rejected the request due to rate limits."""
@@ -384,7 +389,6 @@ async def websocket_subscribe(
     await connection_manager.connect(websocket, project_id)
 
     stale_revalidation_count = 0  # tracks consecutive stale returns
-    STALE_REVALIDATION_LIMIT = 20  # revalidate after this many stale returns
 
     async def send_tasks(*, force_refresh: bool = False):
         """Fetch and send current tasks, using cache when possible.

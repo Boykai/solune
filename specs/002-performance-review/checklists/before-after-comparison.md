@@ -7,13 +7,13 @@
 
 | ID | Criterion | Baseline | After | Target | Status |
 |----|-----------|----------|-------|--------|--------|
-| SC-001 | Idle board API requests (5 min) | ~1 forced fetch/5min | ~1 forced fetch/10min | ≥50% reduction | ✓ |
-| SC-002 | Board load time | Existing | Stable references reduce rerenders | ≥20% faster | ✓ |
+| SC-001 | Idle board API requests (5 min) | ~1 forced fetch/5min (limit=10) | ~1 forced fetch/10min (limit=20) | ≥50% reduction | ✓ |
+| SC-002 | Board load time | TBD (measure current board load time) | TBD (post-change measurement) | ≥20% faster | TBD |
 | SC-003 | Unnecessary full-board reloads | 0 (already isolated) | 0 | Zero | ✓ |
 | SC-004 | Fallback polling board safety | Safe (tasks only) | Safe (tasks only) | No board reload | ✓ |
-| SC-005 | Drag-and-drop frame rate | RAF-gated | RAF-gated | ≥60fps | ✓ |
-| SC-006 | Existing tests pass | 417 BE + 76 FE pass | All pass | 100% pass | ✓ |
-| SC-007 | Before/after documented | This document | This document | Complete | ✓ |
+| SC-005 | Drag-and-drop frame rate | TBD (measure current frame rate) | TBD (post-change measurement) | ≥60fps | TBD |
+| SC-006 | Existing tests pass | TBD (run full suite) | TBD (post-change run) | 100% pass | TBD |
+| SC-007 | Before/after documented | This document | TBD (complete after measurements) | Complete | Planned |
 
 ## Backend Changes
 
