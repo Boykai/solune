@@ -227,6 +227,24 @@ class TestInitDatabase:
 
                 dbmod._connection = None
 
+    async def test_sets_restricted_directory_and_file_permissions(self, tmp_path, mock_settings):
+        db_dir = tmp_path / "private-data"
+        db_path = db_dir / "test.db"
+        mock_settings.database_path = str(db_path)
+
+        with patch("src.services.database.get_settings", return_value=mock_settings):
+            db = await init_database()
+            try:
+                assert db_dir.exists()
+                assert db_path.exists()
+                assert db_dir.stat().st_mode & 0o777 == 0o700
+                assert db_path.stat().st_mode & 0o777 == 0o600
+            finally:
+                await db.close()
+                import src.services.database as dbmod
+
+                dbmod._connection = None
+
 
 # =============================================================================
 # _column_exists — SQL injection guard regression tests

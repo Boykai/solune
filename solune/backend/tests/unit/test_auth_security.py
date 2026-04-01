@@ -120,6 +120,34 @@ class TestCookieBasedTokenDelivery:
         assert "path=/" in cookie_header, "Cookie must have Path=/"
         app.dependency_overrides.clear()
 
+    async def test_cookie_uses_secure_flag_in_production(self):
+        """Production OAuth callback must emit a Secure session cookie."""
+        from src.api.auth import get_session_dep
+        from src.main import create_app
+
+        mock_auth = AsyncMock(name="GitHubAuthService")
+        session = _make_session()
+        mock_auth.validate_state = MagicMock(return_value=True)
+        mock_auth.create_session.return_value = session
+
+        app = create_app()
+        app.dependency_overrides[get_session_dep] = lambda: session
+        with (
+            patch("src.api.auth.github_auth_service", mock_auth),
+            patch("src.config.get_settings", return_value=_prod_like_settings(debug=False)),
+        ):
+            transport = ASGITransport(app=app)
+            async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+                resp = await ac.get(
+                    "/api/v1/auth/github/callback",
+                    params={"code": "valid-code", "state": "valid-state"},
+                    follow_redirects=False,
+                )
+
+        cookie_header = resp.headers.get("set-cookie", "").lower()
+        assert "secure" in cookie_header, "Cookie must have Secure in production"
+        app.dependency_overrides.clear()
+
 
 # ── SC-002: Dev-login gated behind debug mode ──────────────────────────────
 

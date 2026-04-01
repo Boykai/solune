@@ -214,6 +214,40 @@ describe('useAuth', () => {
       expect(dispatchEventSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'popstate' }));
     });
 
+    it('should strip any leaked callback query parameters when cleaning the URL', async () => {
+      const mockUser = {
+        github_user_id: '12345',
+        github_username: 'testuser',
+        selected_project_id: null,
+      };
+
+      Object.defineProperty(window, 'location', {
+        value: {
+          protocol: 'http:',
+          host: 'localhost:5173',
+          href: 'http://localhost:5173/auth/callback?session_token=secret&next=%2Fboard',
+          pathname: '/auth/callback',
+          search: '?session_token=secret&next=%2Fboard',
+          hash: '',
+        },
+        writable: true,
+      });
+
+      const replaceStateSpy = vi.spyOn(window.history, 'replaceState');
+
+      mockAuthApi.getCurrentUser.mockResolvedValue(mockUser);
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.isAuthenticated).toBe(true);
+      });
+
+      expect(replaceStateSpy).toHaveBeenCalledWith({}, '', '/');
+    });
+
     it('should not modify URL when not on /auth/callback', async () => {
       mockAuthApi.getCurrentUser.mockRejectedValue(
         new api.ApiError(401, { error: 'Not authenticated' })
