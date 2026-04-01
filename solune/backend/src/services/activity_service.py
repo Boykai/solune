@@ -155,7 +155,7 @@ async def get_activity_stats(db, *, project_id: str) -> dict:
 
     # Today's count (last 24h)
     row = await db.execute(
-        "SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND created_at >= datetime('now', '-1 day')",
+        "SELECT COUNT(*) FROM activity_events WHERE project_id = ? AND datetime(created_at) >= datetime('now', '-1 day')",
         (project_id,),
     )
     result = await row.fetchone()

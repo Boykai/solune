@@ -591,3 +591,37 @@ class TestGetActivityStatsService:
         assert result["total"] == 3
         assert result["by_type"] == {"pipeline_crud": 2, "tool_crud": 1}
         assert result["last_event_at"] == "2024-01-01T00:02:00Z"
+
+    @pytest.mark.asyncio
+    async def test_today_count_boundary(self, mock_db):
+        """Events inside/outside the 24h window are counted correctly."""
+        from unittest.mock import patch as _patch
+
+        # Fix "now" so the 24h boundary is deterministic
+        fixed_now = "2024-06-15T12:00:00Z"
+        inside_window = "2024-06-15T00:00:00Z"   # 12 h ago – inside
+        outside_window = "2024-06-14T11:59:59Z"  # >24 h ago – outside
+
+        for eid, ts in [("in1", inside_window), ("out1", outside_window)]:
+            await mock_db.execute(
+                """INSERT INTO activity_events
+                   (id, event_type, entity_type, entity_id, project_id,
+                    actor, action, summary, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (eid, "pipeline_crud", "pipeline", "p1", "PVT_123",
+                 "user", "created", f"Evt {eid}", ts),
+            )
+        await mock_db.commit()
+
+        # Patch SQLite's now() via a deterministic wrapper
+        orig_execute = mock_db.execute
+
+        async def _patched_execute(sql, params=()):
+            sql = sql.replace("'now'", f"'{fixed_now}'")
+            return await orig_execute(sql, params)
+
+        with _patch.object(mock_db, "execute", side_effect=_patched_execute):
+            result = await get_activity_stats(mock_db, project_id="PVT_123")
+
+        assert result["total"] == 2
+        assert result["today"] == 1
