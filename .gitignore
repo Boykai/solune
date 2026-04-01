@@ -99,4 +99,3 @@ openapi-generated.d.ts
 # Misc
 *.tmp
 *.bak
-node_modules/
