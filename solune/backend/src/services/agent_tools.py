@@ -1068,7 +1068,8 @@ async def generate_app_questions(
         f"What type of application do you want? Available categories: {', '.join(categories)}.",
         "What is the primary tech stack or deployment target you prefer?",
     ]
-    if len(description.split()) < 10:
+    _MIN_DESCRIPTION_WORDS = 10
+    if len(description.split()) < _MIN_DESCRIPTION_WORDS:
         questions.append("Can you provide more details about the key features or functionality?")
 
     return ToolResult(

@@ -109,6 +109,7 @@ def _substitute(text: str, context: dict[str, str]) -> str:
 def _validate_path_boundary(resolved: Path, boundary: str, original: str) -> None:
     """Ensure *resolved* stays within *boundary*."""
     real = os.path.realpath(resolved)
-    if not real.startswith(boundary + os.sep) and real != boundary:
+    norm_boundary = os.path.realpath(boundary)
+    if real != norm_boundary and not real.startswith(norm_boundary + os.sep):
         msg = f"Path traversal blocked: '{original}' resolves outside target directory"
         raise ValueError(msg)

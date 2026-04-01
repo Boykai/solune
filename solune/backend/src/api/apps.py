@@ -310,6 +310,14 @@ _GITHUB_URL_RE = re.compile(
     r"^https://github\.com/(?P<owner>[a-zA-Z0-9_.-]+)/(?P<repo>[a-zA-Z0-9_.-]+)/?$"
 )
 
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _sanitize_app_name(repo: str) -> str:
+    """Convert a GitHub repo name into a valid app name (lowercase alphanumeric with hyphens)."""
+    name = _NON_ALNUM_RE.sub("-", repo.lower()).strip("-")
+    return name or "imported-app"
+
 
 class ImportAppRequest(BaseModel):
     url: str = Field(..., description="GitHub repository URL")
@@ -372,7 +380,7 @@ async def import_app_endpoint(
     github_service = get_github_service(request)
 
     app_create = AppCreate(
-        name=repo.lower(),
+        name=_sanitize_app_name(repo),
         display_name=repo,
         description=f"Imported from {payload.url}",
         repo_type=RepoType.EXTERNAL_REPO,
