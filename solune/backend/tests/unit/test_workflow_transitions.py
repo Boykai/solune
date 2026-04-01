@@ -12,6 +12,7 @@ from src.services.workflow_orchestrator.transitions import (
     clear_all_agent_trigger_buffers,
     clear_issue_main_branch,
     clear_issue_sub_issues,
+    generate_branch_name,
     get_all_pipeline_states,
     get_issue_main_branch,
     get_issue_sub_issues,
@@ -222,3 +223,22 @@ class TestSchedulePersistSafety:
         assert unawaited == [], (
             f"Unawaited coroutine warnings: {[str(w.message) for w in unawaited]}"
         )
+
+
+class TestGenerateBranchName:
+    """Tests for deterministic branch name generation."""
+
+    def test_basic_agent(self):
+        assert generate_branch_name(42, "speckit.specify") == "copilot/issue-42-speckit-specify"
+
+    def test_dots_replaced(self):
+        assert generate_branch_name(10, "speckit.plan") == "copilot/issue-10-speckit-plan"
+
+    def test_hyphenated_agent(self):
+        assert generate_branch_name(7, "quality-assurance") == "copilot/issue-7-quality-assurance"
+
+    def test_copilot_review(self):
+        assert generate_branch_name(99, "copilot-review") == "copilot/issue-99-copilot-review"
+
+    def test_large_issue_number(self):
+        assert generate_branch_name(9999, "linter") == "copilot/issue-9999-linter"

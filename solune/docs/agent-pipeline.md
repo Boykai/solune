@@ -96,14 +96,16 @@ Label lifecycle: created with `ai-generated` + `sub-issue` → `in-progress` add
 
 ```text
 main (repo default)
-  └── feature/issue-42-my-feature        ← first agent creates this (= main branch)
-       ├── copilot/issue-42-<agent-b>      ← second agent branches from main branch
+  └── copilot/issue-42-speckit-specify     ← first agent creates this (= main branch)
+       ├── copilot/issue-42-speckit-plan     ← second agent branches from main branch
        │     └── (squash-merged back, branch deleted)
-       ├── copilot/issue-42-<agent-c>      ← third agent branches from main branch
+       ├── copilot/issue-42-speckit-tasks    ← third agent branches from main branch
        │     └── (squash-merged back, branch deleted)
-       └── copilot/issue-42-<agent-d>      ← fourth agent branches from main branch
+       └── copilot/issue-42-speckit-implement ← fourth agent branches from main branch
              └── (squash-merged back, branch deleted)
 ```
+
+Branch names follow the deterministic pattern `copilot/issue-{N}-{agent-slug}` where `{N}` is the parent issue number and `{agent-slug}` is the agent name with dots replaced by dashes. This convention is enforced via the custom instructions passed to the Copilot coding agent at assignment time.
 
 - The **first PR** created for an issue establishes the "main branch" for that issue
 - All subsequent agents branch FROM and merge INTO this main branch

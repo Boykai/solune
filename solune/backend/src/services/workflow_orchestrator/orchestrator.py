@@ -35,6 +35,7 @@ from .models import (
     get_status_order,
 )
 from .transitions import (
+    generate_branch_name,
     get_issue_main_branch,
     get_issue_sub_issues,
     get_pipeline_state,
@@ -1584,6 +1585,7 @@ class WorkflowOrchestrator:
 
         # Fetch issue context for the agent's custom instructions
         custom_instructions = ""
+        desired_branch = generate_branch_name(ctx.issue_number, agent_name)
         instruction_issue_number = sub_issue_number if sub_issue_info else ctx.issue_number
         if instruction_issue_number:
             try:
@@ -1597,14 +1599,16 @@ class WorkflowOrchestrator:
                     issue_data,
                     agent_name=agent_name,
                     existing_pr=existing_pr,
+                    desired_branch_name=desired_branch,
                 )
                 logger.info(
                     "Prepared custom instructions for agent '%s' from issue #%d "
-                    "(length: %d chars, existing_pr: %s)",
+                    "(length: %d chars, existing_pr: %s, desired_branch: %s)",
                     agent_name,
                     instruction_issue_number,
                     len(custom_instructions),
                     f"#{existing_pr['number']}" if existing_pr else "None",
+                    desired_branch,
                 )
             except Exception as e:
                 logger.warning("Failed to fetch issue context for agent '%s': %s", agent_name, e)

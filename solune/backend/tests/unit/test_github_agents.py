@@ -238,6 +238,35 @@ class TestFormatIssueContextAsPrompt:
         assert "`fix/branch`" in result
         assert "`plan.md`" in result
 
+    def test_desired_branch_name_included(self, service):
+        """Should include branch naming directive when desired_branch_name is set."""
+        issue_data = {"title": "Test", "body": "Test body"}
+        result = service.format_issue_context_as_prompt(
+            issue_data, desired_branch_name="copilot/issue-42-speckit-specify"
+        )
+
+        assert "## Branch Naming Requirement" in result
+        assert "`copilot/issue-42-speckit-specify`" in result
+        assert "Do NOT choose a different branch name" in result
+
+    def test_desired_branch_name_appears_before_issue_title(self, service):
+        """Branch naming directive should precede issue context."""
+        issue_data = {"title": "My Feature", "body": "Details"}
+        result = service.format_issue_context_as_prompt(
+            issue_data, desired_branch_name="copilot/issue-10-speckit-plan"
+        )
+
+        branch_pos = result.index("Branch Naming Requirement")
+        title_pos = result.index("Issue Title")
+        assert branch_pos < title_pos
+
+    def test_no_desired_branch_name_omits_section(self, service):
+        """Without desired_branch_name, the branch naming section is absent."""
+        issue_data = {"title": "Test", "body": "Body"}
+        result = service.format_issue_context_as_prompt(issue_data)
+
+        assert "Branch Naming Requirement" not in result
+
 
 # =====================================================================
 # tailor_body_for_agent

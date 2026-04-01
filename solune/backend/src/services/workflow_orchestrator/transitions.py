@@ -231,6 +231,22 @@ def set_issue_main_branch(
     )
 
 
+def generate_branch_name(issue_number: int, agent_slug: str) -> str:
+    """Generate a deterministic branch name for a Copilot agent assignment.
+
+    Branch names follow the pattern ``copilot/issue-{N}-{slug}`` where
+    *slug* is the agent name with dots replaced by dashes.
+
+    Examples:
+        >>> generate_branch_name(42, "speckit.specify")
+        'copilot/issue-42-speckit-specify'
+        >>> generate_branch_name(314, "quality-assurance")
+        'copilot/issue-314-quality-assurance'
+    """
+    slug = agent_slug.replace(".", "-")
+    return f"copilot/issue-{issue_number}-{slug}"
+
+
 def clear_issue_main_branch(issue_number: int) -> None:
     """Clear the main branch tracking for an issue (e.g., when issue is closed)."""
     _issue_main_branches.pop(issue_number, None)

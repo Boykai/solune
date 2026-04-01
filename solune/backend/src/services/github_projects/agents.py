@@ -95,6 +95,7 @@ class AgentsMixin:
         issue_data: dict,
         agent_name: str = "",
         existing_pr: dict | None = None,
+        desired_branch_name: str = "",
     ) -> str:
         """
         Format issue details (title, body, comments) as a prompt for the custom agent.
@@ -109,11 +110,24 @@ class AgentsMixin:
             agent_name: Name of the custom agent (e.g., 'speckit.specify')
             existing_pr: Optional dict with ``number``, ``head_ref``, ``url``
                          of an existing PR to reuse
+            desired_branch_name: Deterministic branch name the agent should use
+                                (e.g., 'copilot/issue-42-speckit-specify')
 
         Returns:
             Formatted string suitable as custom instructions for the agent
         """
         parts = []
+
+        # ── Branch naming directive (highest priority) ───────────────────
+        if desired_branch_name:
+            parts.append(
+                "## Branch Naming Requirement\n\n"
+                "IMPORTANT: You MUST name your working branch exactly:\n"
+                f"  `{desired_branch_name}`\n\n"
+                "Do NOT choose a different branch name. Do NOT add suffixes "
+                "like \"-again\", \"-yet-again\", or UUIDs. If a branch with "
+                "this name already exists, push your commits to it."
+            )
 
         # ── Existing PR context (for agents working on an existing branch) ───
         if existing_pr:
