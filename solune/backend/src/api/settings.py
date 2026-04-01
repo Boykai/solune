@@ -19,6 +19,7 @@ from src.models.settings import (
     UserPreferencesUpdate,
 )
 from src.models.user import UserSession
+from src.services.activity_logger import log_event
 from src.services.database import get_db
 from src.services.model_fetcher import get_model_fetcher_service
 from src.services.settings_store import (
@@ -59,6 +60,17 @@ async def update_user_settings(
     if flat:
         await upsert_user_preferences(db, session.github_user_id, flat)
         logger.info("Updated user preferences for %s", session.github_username)
+        await log_event(
+            db,
+            event_type="settings",
+            entity_type="user",
+            entity_id=session.github_user_id,
+            project_id="",
+            actor=session.github_username,
+            action="user_updated",
+            summary=f"User preferences updated by {session.github_username}",
+            detail={"changed_fields": list(flat.keys())},
+        )
 
     return await get_effective_user_settings(db, session.github_user_id)
 
@@ -85,6 +97,17 @@ async def update_global_settings_endpoint(
     if flat:
         result = await update_global_settings(db, flat)
         logger.info("Updated global settings by %s", session.github_username)
+        await log_event(
+            db,
+            event_type="settings",
+            entity_type="global",
+            entity_id="global",
+            project_id="",
+            actor=session.github_username,
+            action="global_updated",
+            summary=f"Global settings updated by {session.github_username}",
+            detail={"changed_fields": list(flat.keys())},
+        )
         return result
 
     return await get_global_settings(db)
@@ -142,6 +165,17 @@ async def update_project_settings_endpoint(
             "Updated project settings for user=%s project=%s",
             session.github_username,
             project_id,
+        )
+        await log_event(
+            db,
+            event_type="settings",
+            entity_type="project",
+            entity_id=project_id,
+            project_id=project_id,
+            actor=session.github_username,
+            action="project_updated",
+            summary=f"Project settings updated by {session.github_username}",
+            detail={"changed_fields": list(updates.keys())},
         )
 
         # Sync agent_pipeline_mappings to the canonical __workflow__ row so the
