@@ -441,8 +441,10 @@ class TestDeleteApp:
         self.mock_delete.return_value = DeleteAppResult(app_name="my-app", db_deleted=True)
         resp = await client.delete("/api/v1/apps/my-app")
         assert resp.status_code == 204
-        # 204 No Content — response body must be empty
-        assert resp.content == b"" or resp.text == "null"
+        # 204 No Content — the response body should be empty or the JSON null literal.
+        # FastAPI serialises None → "null" when the return type is Optional, but the
+        # key invariant is that a DeleteAppResult body is no longer returned.
+        assert resp.content in (b"", b"null")
 
     async def test_force_delete_returns_result(self, client):
         """force=true delete returns 200 with DeleteAppResult body."""

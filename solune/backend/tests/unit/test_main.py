@@ -711,7 +711,10 @@ class TestDiscoverProjectsTokenDecryption:
         """The token read from user_sessions must be decrypted."""
         from src.services.workflow_orchestrator.models import PipelineState
 
-        encrypted_token = "gAAAAABf_encrypted_token_value"
+        # Simulated encrypted value — the mock intercepts decrypt() so format
+        # doesn't matter, but we use an opaque ciphertext-like string to make the
+        # test intent clear: what enters from the DB is NOT a usable GitHub token.
+        encrypted_token = "ENCRYPTED:gAAAAABf_ciphertext_blob"
         decrypted_token = "ghp_realtoken123"
 
         # Mock a pipeline state with a project_id
