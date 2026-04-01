@@ -9,17 +9,18 @@
 
 ### User Story 1 — Secure Authentication Flow (Priority: P1)
 
-As a user logging in via GitHub OAuth, I want my session credentials to never appear in the browser URL bar, browser history, server access logs, or HTTP Referer headers, so that my session cannot be hijacked by anyone with access to those locations.
+As a user logging in via GitHub OAuth, I want my session credentials (session tokens and other long-lived secrets) to never appear in the browser URL bar, browser history, server access logs, or HTTP Referer headers, so that my session cannot be hijacked by anyone with access to those locations.
 
 **Why this priority**: Session tokens in URLs are the highest-severity credential leak vector. Every login is affected, and exploitation requires zero privilege — anyone with log access or browser history can impersonate the user.
 
-**Independent Test**: Complete a full OAuth login flow end-to-end and verify that no credentials appear in the browser address bar, navigation history, or network request URLs at any point.
+**Independent Test**: Complete a full OAuth login flow end-to-end and verify that no session tokens or other long-lived credentials appear in the browser address bar, navigation history, or network request URLs at any point, and that the short-lived OAuth authorization code is only present in the GitHub → backend callback URL and is never logged or forwarded to the frontend.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user initiates GitHub OAuth login, **When** the OAuth callback completes, **Then** the backend sets an HttpOnly, SameSite=Strict, Secure cookie and redirects the browser with no credentials in the URL.
-2. **Given** a user has completed login, **When** the browser history is inspected, **Then** no entry contains a session token or OAuth code as a URL parameter.
+1. **Given** a user initiates GitHub OAuth login, **When** the OAuth callback completes, **Then** the backend sets an HttpOnly, SameSite=Strict, Secure cookie and redirects the browser with no session token or other long-lived credential in the URL.
+2. **Given** a user has completed login, **When** the browser history is inspected, **Then** no entry contains a session token or other long-lived credential as a URL parameter.
 3. **Given** the dev login endpoint is used in development mode, **When** a developer authenticates with a GitHub PAT, **Then** the PAT is accepted only from the POST request body (JSON), never from a URL query parameter.
+4. **Given** the GitHub OAuth callback endpoint receives an authorization code, **When** the backend handles this callback, **Then** the OAuth authorization code is used only within the backend callback handler and is not logged, stored, or propagated to the frontend or to any subsequent URL.
 
 ---
 
@@ -35,7 +36,7 @@ As a deployment operator, I want the application to refuse to start in productio
 
 1. **Given** the application starts in non-debug mode, **When** ENCRYPTION_KEY is not set, **Then** the application refuses to start and logs a clear error message.
 2. **Given** the application starts in non-debug mode, **When** GITHUB_WEBHOOK_SECRET is not set, **Then** the application refuses to start and logs a clear error message.
-3. **Given** the application starts in any mode, **When** SESSION_SECRET_KEY is shorter than 64 characters, **Then** the application refuses to start and logs a clear error message.
+3. **Given** the application starts in non-debug (production) mode, **When** SESSION_SECRET_KEY is shorter than 64 characters, **Then** the application refuses to start and logs a clear error message.
 4. **Given** an existing deployment has plaintext OAuth tokens in the database, **When** the operator enables ENCRYPTION_KEY for the first time, **Then** a migration path encrypts existing plaintext rows.
 
 ---
@@ -107,15 +108,15 @@ As a system receiving webhook callbacks, I want all secret/token comparisons to 
 
 As a user authorizing the application via GitHub OAuth, I want the application to request only the minimum scopes necessary, so that my private repository data is not unnecessarily exposed.
 
-**Why this priority**: The `repo` scope grants full read/write to all private repos — far broader than needed for project management. Reducing scope minimizes blast radius if tokens are compromised.
+**Why this priority**: The `repo` scope grants full read/write to all private repos — far broader than needed for most project-management operations. Reducing scope minimizes blast radius if tokens are compromised. However, some GitHub APIs currently require `repo` (or an equivalently broad scope) for private-repository workflows, so the product may need to request `repo` while clearly documenting this and avoiding any additional unnecessary scopes.
 
-**Independent Test**: Initiate an OAuth flow and verify the requested scopes do not include `repo`. Verify all application write operations still function with the narrower scopes.
+**Independent Test**: Initiate an OAuth flow and verify that the requested scopes exactly match the documented minimum required scopes for this application. If `repo` is requested, verify that (a) it is explicitly documented as required due to GitHub API limitations, and (b) no broader or additional scopes beyond this documented set are requested. Verify all application write operations still function with this documented minimum scope set.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user initiates GitHub OAuth, **When** the authorization URL is generated, **Then** the requested scopes do not include the broad `repo` scope.
-2. **Given** narrower scopes are requested, **When** the application performs its required GitHub operations, **Then** all operations succeed without errors.
-3. **Given** existing users authorized with the `repo` scope, **When** the scope is narrowed, **Then** affected users are prompted to re-authorize.
+1. **Given** a user initiates GitHub OAuth, **When** the authorization URL is generated, **Then** the requested scopes are limited to the documented minimum set required for the application's features; any broad scopes (such as `repo`) are included only if explicitly documented as required due to GitHub API limitations.
+2. **Given** the documented minimum scopes are requested, **When** the application performs its required GitHub operations, **Then** all operations succeed without errors.
+3. **Given** existing users authorized with a broader scope set than the current documented minimum (for example, previously including `repo` when it is no longer required), **When** the scope set is narrowed, **Then** affected users are prompted to re-authorize.
 
 ---
 
@@ -249,8 +250,8 @@ As a user, I want my chat history to not persist full message content in localSt
 **Acceptance Scenarios**:
 
 1. **Given** a user has an active chat session, **When** they log out, **Then** all chat-related data is cleared from localStorage.
-2. **Given** chat history is needed for display, **When** the user opens a previous chat, **Then** only lightweight references (message IDs) are stored locally, and full content is loaded from the backend on demand.
-3. **Given** local chat references, **When** a configured TTL expires, **Then** the references are automatically removed from localStorage.
+2. **Given** chat history is needed for display, **When** the user opens a previous chat, **Then** chat messages are fetched from the backend and are not read from or stored in localStorage.
+3. **Given** a future implementation that stores lightweight chat references (for example, message IDs) in localStorage, **When** a configured TTL expires, **Then** those references are automatically removed from localStorage.
 
 ---
 
@@ -301,7 +302,7 @@ As a user viewing issue cards, I want avatar images to only load from validated 
 ### Edge Cases
 
 - What happens when an existing deployment upgrades and has plaintext OAuth tokens that need to be encrypted? A migration path must encrypt existing rows on first startup with ENCRYPTION_KEY set.
-- What happens when a user's GitHub OAuth token was authorized with the old broad `repo` scope? Affected users must re-authorize with the new narrower scopes.
+- For the current release, GitHub OAuth continues to require the broad `repo` scope, and existing tokens authorized with this scope remain valid without re-authorization. In a future iteration where scopes can be narrowed, we must design a migration path (e.g., prompting re-authorization) for users whose tokens were granted the older, broader scope.
 - What happens when DEBUG is accidentally set to true in a production deployment? Webhook verification must still be enforced, and API docs must not be exposed unless ENABLE_DOCS is separately set.
 - What happens when a WebSocket connection is attempted to an unowned project? The connection must be rejected before any data is transmitted.
 - What happens when the CORS origins environment variable contains a mix of valid and invalid URLs? The application must refuse to start and report all malformed origins.
@@ -329,8 +330,8 @@ As a user viewing issue cards, I want avatar images to only load from validated 
 - **FR-011**: The frontend reverse proxy MUST include Content-Security-Policy, Strict-Transport-Security, Referrer-Policy, and Permissions-Policy HTTP security headers on all responses.
 - **FR-012**: The frontend reverse proxy MUST NOT disclose the server software version (server_tokens off) and MUST remove the deprecated X-XSS-Protection header.
 - **FR-013**: The dev login endpoint MUST accept credentials only from the POST request body (JSON), not from URL query parameters.
-- **FR-014**: The OAuth authorization flow MUST request only the minimum necessary GitHub scopes, not the broad `repo` scope.
-- **FR-015**: System MUST refuse to start if SESSION_SECRET_KEY is shorter than 64 characters.
+- **FR-014**: The OAuth authorization flow MUST request only the minimum necessary GitHub scopes. The broad `repo` scope is temporarily retained due to a current GitHub limitation and MUST be revisited and narrowed or removed once a viable alternative exists.
+- **FR-015**: System MUST refuse to start in non-debug mode if SESSION_SECRET_KEY is shorter than 64 characters.
 - **FR-016**: In the development configuration, Docker services MUST bind to 127.0.0.1 only. In production, services MUST be accessible only via a reverse proxy.
 
 **Phase 3 — Medium**

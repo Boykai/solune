@@ -276,8 +276,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite (existing `settings.db`; pipeline states, MCP configs, session data) (001-mcp-server)
 - Python ≥3.12 (targets 3.13, runs 3.14-slim in Docker) + FastAPI, Pydantic, dataclasses (stdlib) (001-fix-parallel-pipeline)
 - In-memory `PipelineState` dataclass (pipeline_state_store.py), no DB migration needed (001-fix-parallel-pipeline)
-- Python 3.13+ (backend), TypeScript/React (frontend) + FastAPI, Pydantic, slowapi (rate limiting), cryptography (Fernet encryption), nginx 1.29.x (reverse proxy) (002-security-review)
-- SQLite via aiosqlite (encrypted at rest with Fernet when ENCRYPTION_KEY configured) (002-security-review)
+- Python ≥3.12 (backend; target 3.13, Docker 3.14-slim), TypeScript/React (frontend) + FastAPI, Pydantic, slowapi (rate limiting), cryptography (Fernet encryption), nginx 1.29.x (reverse proxy) (002-security-review)
+- SQLite via aiosqlite (sensitive fields/tokens encrypted at rest with Fernet when ENCRYPTION_KEY configured) (002-security-review)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

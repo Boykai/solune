@@ -141,15 +141,15 @@
 
 **Context**: SESSION_SECRET_KEY was accepted at any length with no validation.
 
-**Decision**: Production startup validation in `config.py` rejects SESSION_SECRET_KEY shorter than 64 characters with a clear error message including generation instructions (`openssl rand -hex 32`). This check applies in all modes (not just production).
+**Decision**: Startup validation in `config.py` enforces a minimum length of 64 characters for SESSION_SECRET_KEY when `debug` is `False` (production-like mode), rejecting shorter keys with a clear error message including generation instructions (`openssl rand -hex 32`). When `debug` is `True`, the same condition triggers a warning log but does not block startup.
 
-**Rationale**: 64 characters of hex output from `openssl rand -hex 32` provides 256 bits of entropy, exceeding the minimum recommended for HMAC-SHA256 session signing. The check runs unconditionally to prevent weak keys in any environment.
+**Rationale**: 64 characters of hex output from `openssl rand -hex 32` provides 256 bits of entropy, exceeding the minimum recommended for HMAC-SHA256 session signing. Enforcing this check when `debug` is `False` prevents weak keys in production deployments, while debug-mode warning behavior reflects the current implementation.
 
 **Alternatives considered**:
 - **Entropy analysis**: More precise but complex to implement; length is a sufficient proxy for keys generated with cryptographic random generators.
-- **Production-only check**: Weaker — developers should also use strong keys to prevent habit-forming with weak test keys.
+- **All-modes strict check (including debug)**: Stronger — developers would also use strong keys in local/test environments, reducing the risk of habit-forming with weak keys. Not currently implemented; would require a follow-up code change.
 
-**Current status**: ✅ Remediated — `config.py` lines 184–189.
+**Current status**: ✅ Remediated — `config.py` lines 184–189 (strict enforcement when `debug` is `False`, warning-only when `debug` is `True`).
 
 ---
 
@@ -256,7 +256,7 @@
 
 **Decision**: The `cors_origins_list` property in `config.py` validates each comma-separated origin using `urlparse`. Each origin must have a scheme (`http` or `https`) and a hostname. Malformed origins raise `ValueError` with a descriptive message identifying the invalid origin.
 
-**Rationale**: Startup validation catches configuration errors early, before the application serves traffic. Validating scheme and hostname is sufficient — port and path are optional and vary by deployment.
+**Rationale**: Startup validation catches configuration errors early, before the application serves traffic. Valid CORS origins consist of scheme and hostname, with an optional port; any path component is not part of the origin and should be rejected or stripped during configuration validation.
 
 **Alternatives considered**:
 - **Regex validation**: More fragile and harder to maintain than URL parsing.

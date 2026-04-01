@@ -9,12 +9,12 @@ A comprehensive security audit identified 21 findings across OWASP Top 10 catego
 
 ## Technical Context
 
-**Language/Version**: Python 3.13+ (backend), TypeScript/React (frontend)
+**Language/Version**: Python >=3.12 (target 3.13) (backend), TypeScript/React (frontend)
 **Primary Dependencies**: FastAPI, Pydantic, slowapi (rate limiting), cryptography (Fernet encryption), nginx 1.29.x (reverse proxy)
-**Storage**: SQLite via aiosqlite (encrypted at rest with Fernet when ENCRYPTION_KEY configured)
+**Storage**: SQLite via aiosqlite (sensitive fields encrypted at rest with Fernet when ENCRYPTION_KEY configured)
 **Testing**: pytest + pytest-asyncio (backend), Vitest (frontend)
 **Target Platform**: Linux server (Docker — Alpine-based images)
-**Project Type**: Web application (backend + frontend monorepo under `solune/`)
+**Project Type**: Web application (backend + frontend monorepo under `solune/`; Python >=3.12)
 **Performance Goals**: Rate limits enforce per-user budgets on expensive endpoints (chat, agents, workflow); OAuth callback limited to 20/minute per IP
 **Constraints**: All containers non-root; all secrets mandatory in production; cookies HttpOnly+SameSite=Strict+Secure
 **Scale/Scope**: 21 security findings across ~15 backend files, ~3 frontend files, 2 Dockerfiles, 1 nginx config, 1 docker-compose, 1 GitHub Actions workflow
