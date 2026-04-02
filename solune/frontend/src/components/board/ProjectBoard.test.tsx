@@ -48,6 +48,13 @@ function createBoardData(overrides: Partial<BoardDataResponse> = {}): BoardDataR
       name: 'Test Project',
       url: 'https://github.com',
       owner_login: 'owner',
+      status_field: {
+        field_id: 'status-field',
+        options: [
+          { option_id: 'col-1', name: 'To Do', color: 'GRAY' },
+          { option_id: 'col-2', name: 'In Progress', color: 'YELLOW' },
+        ],
+      },
     },
     columns: [
       {

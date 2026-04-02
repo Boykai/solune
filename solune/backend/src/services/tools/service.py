@@ -10,7 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
@@ -707,7 +707,8 @@ class ToolsService:
         next_servers = self._extract_single_server_config(
             data.config_content, server_name=next_name
         )
-        next_config: dict[str, object] = dict(next(iter(next_servers.values())))  # type: ignore[arg-type]
+        server_value: Any = next(iter(next_servers.values()))
+        next_config: dict[str, object] = dict(server_value)
 
         svc = self._get_github_service()
 

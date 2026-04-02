@@ -639,7 +639,7 @@ class TestRateLimitRecovery:
         from src.api.board import _retry_after_seconds
 
         exc = Exception("rate limited")
-        exc.retry_after = timedelta(seconds=42)  # type: ignore[attr-defined]
+        exc.retry_after = timedelta(seconds=42)  # type: ignore[attr-defined]  # simulating GitHub exception attribute
         assert _retry_after_seconds(exc) == 42
 
     def test_retry_after_seconds_from_int(self):
@@ -647,7 +647,7 @@ class TestRateLimitRecovery:
         from src.api.board import _retry_after_seconds
 
         exc = Exception("rate limited")
-        exc.retry_after = 30  # type: ignore[attr-defined]
+        exc.retry_after = 30  # type: ignore[attr-defined]  # simulating GitHub exception attribute
         assert _retry_after_seconds(exc) == 30
 
     def test_retry_after_seconds_defaults_to_60(self):

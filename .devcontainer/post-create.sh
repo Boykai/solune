@@ -19,7 +19,15 @@ fi
 # Setup Python environment with uv
 echo "🐍 Setting up Python environment..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "⚠️  uv was not available after installation; retrying via pip..."
+    python3 -m pip install --user uv
+fi
+command -v uv >/dev/null 2>&1 || {
+    echo "❌ uv installation failed" >&2
+    exit 1
+}
 cd /workspace/solune/backend
 uv sync --extra dev
 

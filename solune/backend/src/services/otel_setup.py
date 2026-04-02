@@ -7,7 +7,7 @@ return no-op instances so instrumented code can call them unconditionally.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.logging_utils import get_logger
 
@@ -24,14 +24,14 @@ _meter: Meter | None = None
 class _RequestIDSpanProcessor:
     """SpanProcessor that injects the current X-Request-ID into every span."""
 
-    def on_start(self, span, parent_context=None) -> None:  # type: ignore[no-untyped-def]
+    def on_start(self, span: Any, parent_context: Any = None) -> None:
         from src.middleware.request_id import request_id_var
 
         rid = request_id_var.get("")
         if rid:
             span.set_attribute("request.id", rid)
 
-    def on_end(self, span) -> None:  # type: ignore[no-untyped-def]
+    def on_end(self, span: Any) -> None:
         pass
 
     def shutdown(self) -> None:
@@ -66,7 +66,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
     tracer_provider = TracerProvider(resource=resource)
     span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
     tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
-    tracer_provider.add_span_processor(_RequestIDSpanProcessor())  # type: ignore[arg-type]
+    tracer_provider.add_span_processor(_RequestIDSpanProcessor())  # type: ignore[arg-type]  # implements SpanProcessor protocol
     trace.set_tracer_provider(tracer_provider)
 
     # ── Metrics ──
@@ -97,7 +97,7 @@ class _NoOpSpan:
     def set_attribute(self, key: str, value: object) -> None:
         pass
 
-    def __enter__(self):  # type: ignore[no-untyped-def]
+    def __enter__(self) -> _NoOpSpan:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -107,7 +107,7 @@ class _NoOpSpan:
 class _NoOpTracer:
     """Lightweight no-op tracer — avoids importing ``opentelemetry``."""
 
-    def start_as_current_span(self, name: str, **kwargs: object):  # type: ignore[no-untyped-def]
+    def start_as_current_span(self, name: str, **kwargs: object) -> _NoOpSpan:
         return _NoOpSpan()
 
 
@@ -135,11 +135,11 @@ def get_tracer() -> Tracer:
     """Return the active tracer, or a local no-op tracer (zero OTel imports)."""
     if _tracer is not None:
         return _tracer
-    return _NoOpTracer()  # type: ignore[return-value]
+    return _NoOpTracer()  # type: ignore[return-value]  # implements Tracer protocol
 
 
 def get_meter() -> Meter:
     """Return the active meter, or a local no-op meter (zero OTel imports)."""
     if _meter is not None:
         return _meter
-    return _NoOpMeter()  # type: ignore[return-value]
+    return _NoOpMeter()  # type: ignore[return-value]  # implements Meter protocol

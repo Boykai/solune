@@ -130,8 +130,8 @@ describe('useRecentParentIssues', () => {
         items: [makeItem({ item_id: 'item-1', number: 1 })],
       },
     ]);
-    // Override the color to null to test default
-    (boardData.columns[0].status as Record<string, unknown>).color = null;
+    // Delete the color property to test default fallback
+    Reflect.deleteProperty(boardData.columns[0].status, 'color');
 
     const { result } = renderHook(() => useRecentParentIssues(boardData));
     expect(result.current[0].statusColor).toBe('GRAY');

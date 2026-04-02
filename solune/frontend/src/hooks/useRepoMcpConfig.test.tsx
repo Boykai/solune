@@ -88,12 +88,13 @@ describe('useRepoMcpConfig', () => {
     await act(async () => {
       await result.current.updateRepoServer({
         serverName: 'github-mcp',
-        data: { enabled: false },
+        data: { name: 'github-mcp', config_content: '{}' },
       });
     });
 
     expect(mockToolsApi.updateRepoServer).toHaveBeenCalledWith('proj-1', 'github-mcp', {
-      enabled: false,
+      name: 'github-mcp',
+      config_content: '{}',
     });
     // updatingServerName should be cleared after settle
     expect(result.current.updatingServerName).toBeNull();

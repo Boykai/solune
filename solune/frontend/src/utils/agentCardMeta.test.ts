@@ -38,9 +38,13 @@ describe('countPendingAssignedSubIssues', () => {
     return {
       project: {
         project_id: 'PVT_1',
+        name: 'Test Project',
         owner_login: 'octocat',
-        title: 'Test Project',
         url: 'https://github.com/users/octocat/projects/1',
+        status_field: {
+          field_id: 'status-field',
+          options: [{ option_id: 'todo', name: 'Todo', color: 'GRAY' }],
+        },
       },
       columns: [
         {

@@ -1011,16 +1011,18 @@ async def send_message(
             handle_service_error(exc, "validate pipeline")
 
     # Try to get AI service (optional) — used for ai_enhance=False fallback
+    ai_service = None
     try:
         ai_service = get_ai_agent_service()
     except ValueError:
-        ai_service = None  # type: ignore[assignment]
+        pass
 
     # Try to get the new ChatAgentService
+    chat_agent_service = None
     try:
         chat_agent_service = get_chat_agent_service()
     except Exception:
-        chat_agent_service = None  # type: ignore[assignment]
+        pass
 
     if ai_service is None and chat_agent_service is None:
         # Neither service available — return error

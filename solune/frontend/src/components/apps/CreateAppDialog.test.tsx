@@ -1,21 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, userEvent } from '@/test/test-utils';
+import type { ComponentProps } from 'react';
 import { CreateAppDialog } from './CreateAppDialog';
 import type { AppCreate } from '@/types/apps';
 
-const defaultProps = {
+const defaultProps: ComponentProps<typeof CreateAppDialog> = {
   onClose: vi.fn(),
   onSubmit: vi.fn(),
   isPending: false,
-  owners: [{ login: 'test-owner', type: 'User' as const }],
+  owners: [{ login: 'test-owner', avatar_url: 'https://example.test/avatar.png', type: 'User' }],
   getErrorMessage: (_err: unknown, fallback: string) => fallback,
-  pipelines: [{ id: 'pipe-1', name: 'Default Pipeline', project_id: 'PVT_proj' }],
+  pipelines: [{
+    id: 'pipe-1',
+    name: 'Default Pipeline',
+    description: '',
+    stage_count: 0,
+    agent_count: 0,
+    total_tool_count: 0,
+    is_preset: false,
+    preset_id: '',
+    stages: [],
+    updated_at: '2026-01-01T00:00:00Z',
+  }],
   isLoadingPipelines: false,
   defaultPipelineId: 'pipe-1',
   projectId: 'PVT_proj123',
 };
 
-function renderDialog(overrides: Partial<typeof defaultProps> = {}) {
+function renderDialog(overrides: Partial<ComponentProps<typeof CreateAppDialog>> = {}) {
   return render(<CreateAppDialog {...defaultProps} {...overrides} />);
 }
 

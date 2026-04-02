@@ -19,7 +19,7 @@ afterEach(() => {
   consoleErrorSpy.mockRestore();
 });
 
-function ThrowingComponent({ error }: { error: Error }) {
+function ThrowingComponent({ error }: { error: Error }): never {
   throw error;
 }
 

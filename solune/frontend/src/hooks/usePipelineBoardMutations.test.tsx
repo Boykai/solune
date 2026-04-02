@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import type { Dispatch, SetStateAction } from 'react';
 import { usePipelineBoardMutations } from './usePipelineBoardMutations';
 import type { PipelineConfig, PipelineStage, PipelineModelOverride, AvailableAgent } from '@/types';
 
@@ -46,19 +47,23 @@ const specificOverride: PipelineModelOverride = { mode: 'specific', modelId: 'gp
 
 describe('usePipelineBoardMutations', () => {
   let pipeline: PipelineConfig | null;
-  let setPipeline: ReturnType<typeof vi.fn>;
-  let clearValidationError: ReturnType<typeof vi.fn>;
+  let setPipeline: Dispatch<SetStateAction<PipelineConfig | null>>;
+  let clearValidationErrors: string[];
+  let clearValidationError: (field: string) => void;
 
   beforeEach(() => {
     pipeline = makePipeline();
-    setPipeline = vi.fn((updater) => {
+    setPipeline = (updater) => {
       if (typeof updater === 'function') {
         pipeline = updater(pipeline);
       } else {
         pipeline = updater;
       }
-    });
-    clearValidationError = vi.fn();
+    };
+    clearValidationErrors = [];
+    clearValidationError = (field) => {
+      clearValidationErrors.push(field);
+    };
     vi.clearAllMocks();
   });
 
@@ -72,7 +77,7 @@ describe('usePipelineBoardMutations', () => {
     });
 
     expect(pipeline?.name).toBe('New Name');
-    expect(clearValidationError).toHaveBeenCalledWith('name');
+    expect(clearValidationErrors).toContain('name');
   });
 
   it('setPipelineDescription updates description', () => {

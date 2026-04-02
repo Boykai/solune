@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { render, screen } from '@/test/test-utils';
 import { AgentsPipelinePage } from './AgentsPipelinePage';
+import type { PipelineConfigSummary } from '@/types';
 
 const mockInvalidateQueries = vi.fn();
 const mockNewPipeline = vi.fn();
@@ -37,7 +38,7 @@ const mockPipelineConfig = {
     project_id: 'project-1',
   },
   pipelines: {
-    pipelines: [],
+    pipelines: [] as PipelineConfigSummary[],
     total: 0,
   },
   editingPipelineId: 'pipeline-1',
@@ -299,7 +300,7 @@ describe('AgentsPipelinePage', () => {
   });
 
   it('shows analytics empty state when no pipelines exist', () => {
-    const pipelines: unknown[] = [];
+    const pipelines: PipelineConfigSummary[] = [];
 
     mockPipelineConfig.pipelines = { pipelines, total: 0 };
 

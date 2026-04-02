@@ -49,8 +49,8 @@ describe('ChatPopup — resize listener scoping', () => {
   it('does not register mousemove/mouseup on window at mount', () => {
     render(<ChatPopup {...defaultProps} />);
 
-    const mousemoveCalls = addSpy.mock.calls.filter(([type]) => type === 'mousemove');
-    const mouseupCalls = addSpy.mock.calls.filter(([type]) => type === 'mouseup');
+    const mousemoveCalls = addSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mousemove');
+    const mouseupCalls = addSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mouseup');
     expect(mousemoveCalls).toHaveLength(0);
     expect(mouseupCalls).toHaveLength(0);
   });
@@ -69,8 +69,8 @@ describe('ChatPopup — resize listener scoping', () => {
     addSpy.mockClear();
     fireEvent.mouseDown(resizeHandle, { clientX: 100, clientY: 100 });
 
-    const mousemoveCalls = addSpy.mock.calls.filter(([type]) => type === 'mousemove');
-    const mouseupCalls = addSpy.mock.calls.filter(([type]) => type === 'mouseup');
+    const mousemoveCalls = addSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mousemove');
+    const mouseupCalls = addSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mouseup');
     expect(mousemoveCalls).toHaveLength(1);
     expect(mouseupCalls).toHaveLength(1);
 
@@ -78,8 +78,8 @@ describe('ChatPopup — resize listener scoping', () => {
     removeSpy.mockClear();
     fireEvent.mouseUp(window);
 
-    const removeMousemoveCalls = removeSpy.mock.calls.filter(([type]) => type === 'mousemove');
-    const removeMouseupCalls = removeSpy.mock.calls.filter(([type]) => type === 'mouseup');
+    const removeMousemoveCalls = removeSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mousemove');
+    const removeMouseupCalls = removeSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mouseup');
     expect(removeMousemoveCalls).toHaveLength(1);
     expect(removeMouseupCalls).toHaveLength(1);
   });
@@ -97,8 +97,8 @@ describe('ChatPopup — resize listener scoping', () => {
     removeSpy.mockClear();
     unmount();
 
-    const removeMousemoveCalls = removeSpy.mock.calls.filter(([type]) => type === 'mousemove');
-    const removeMouseupCalls = removeSpy.mock.calls.filter(([type]) => type === 'mouseup');
+    const removeMousemoveCalls = removeSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mousemove');
+    const removeMouseupCalls = removeSpy.mock.calls.filter(([type]: [string, ...unknown[]]) => type === 'mouseup');
     expect(removeMousemoveCalls).toHaveLength(1);
     expect(removeMouseupCalls).toHaveLength(1);
   });

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import type { ChoresFilterParams } from './useChores';
 
 vi.mock('@/services/api', () => ({
   choresApi: {
@@ -213,7 +214,12 @@ describe('useChoresListPaginated', () => {
   it('includes filter params in API call', async () => {
     mockChoresApi.listPaginated.mockResolvedValue(mockPaginatedResponse);
 
-    const filters = { status: 'active', search: 'deploy', sort: 'name', order: 'asc' };
+    const filters: ChoresFilterParams = {
+      status: 'active',
+      search: 'deploy',
+      sort: 'name',
+      order: 'asc',
+    };
     const { result } = renderHook(
       () => useChoresListPaginated('proj-1', filters),
       { wrapper: createWrapper() },
@@ -248,7 +254,7 @@ describe('useChoresListPaginated', () => {
   it('changing filter triggers fresh fetch', async () => {
     mockChoresApi.listPaginated.mockResolvedValue(mockPaginatedResponse);
 
-    let filters = { status: 'active' };
+    let filters: ChoresFilterParams = { status: 'active' };
     const { result, rerender } = renderHook(
       () => useChoresListPaginated('proj-1', filters),
       { wrapper: createWrapper() },
