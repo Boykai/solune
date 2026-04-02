@@ -6,7 +6,7 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [ ] No implementation details (languages, frameworks, APIs)
 - [x] Focused on user value and business needs
 - [x] Written for non-technical stakeholders
 - [x] All mandatory sections completed
@@ -16,7 +16,7 @@
 - [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
+- [ ] Success criteria are technology-agnostic (no implementation details)
 - [x] All acceptance scenarios are defined
 - [x] Edge cases are identified
 - [x] Scope is clearly bounded
@@ -27,11 +27,10 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [ ] No implementation details leak into specification
 
 ## Notes
 
-- All checklist items pass validation.
-- Spec references specific files by name (e.g., `pyproject.toml`, `test-utils.tsx`) as domain artifacts, not implementation choices; this is appropriate for a mutation-testing infrastructure feature.
+- All checklist items pass validation except "No implementation details": the spec necessarily references specific tools (mutmut, Stryker), config files (`pyproject.toml`, `mutation-testing.yml`), and CLI commands because this is an infrastructure spec whose domain IS those tools. This is intentional, not a quality gap.
 - No [NEEDS CLARIFICATION] markers were needed; reasonable defaults and assumptions are documented in the Assumptions section.
 - Ready for `/speckit.clarify` or `/speckit.plan`.
