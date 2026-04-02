@@ -590,6 +590,7 @@ export interface AIPreferencesUpdate {
   model?: string | null;
   temperature?: number | null;
   agent_model?: string | null;
+  reasoning_effort?: string | null;
 }
 
 export interface DisplayPreferencesUpdate {

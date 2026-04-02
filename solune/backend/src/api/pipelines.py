@@ -150,6 +150,19 @@ async def _load_user_agent_model(session: UserSession) -> str:
         return ""
 
 
+async def _load_user_reasoning_effort(session: UserSession) -> str:
+    """Load the user's effective reasoning effort for pipeline execution."""
+    if not session.github_user_id:
+        return ""
+
+    try:
+        effective_settings = await get_effective_user_settings(get_db(), session.github_user_id)
+        return effective_settings.ai.reasoning_effort or ""
+    except Exception as e:
+        logger.debug("Failed to load user reasoning effort for pipeline launch: %s", e)
+        return ""
+
+
 # ── List Pipelines ──
 
 
@@ -388,6 +401,7 @@ async def execute_pipeline_launch(
             selected_pipeline_id=pipeline_id,
             config=config,
             user_agent_model=await _load_user_agent_model(session),
+            user_reasoning_effort=await _load_user_reasoning_effort(session),
         )
         ctx.issue_id = issue["node_id"]
         ctx.issue_number = issue["number"]

@@ -1510,6 +1510,8 @@ export const modelsApi = {
       id: model.id,
       name: model.name,
       provider: model.provider,
+      supported_reasoning_efforts: model.supported_reasoning_efforts,
+      default_reasoning_effort: model.default_reasoning_effort,
     }));
   },
 };

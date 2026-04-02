@@ -139,11 +139,15 @@ class GitHubCopilotModelFetcher(ModelFetchProvider):
             model_id = getattr(info, "id", "") or ""
             model_name = getattr(info, "name", "") or model_id
             if model_id:
+                supported = getattr(info, "supported_reasoning_efforts", None)
+                default = getattr(info, "default_reasoning_effort", None)
                 models.append(
                     ModelOption(
                         id=model_id,
                         name=model_name,
                         provider="copilot",
+                        supported_reasoning_efforts=supported if supported else None,
+                        default_reasoning_effort=default if default else None,
                     )
                 )
 
