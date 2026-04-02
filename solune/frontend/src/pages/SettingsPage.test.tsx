@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 import { SettingsPage } from './SettingsPage';
 
@@ -14,9 +14,14 @@ vi.mock('@/hooks/useSettings', () => ({
 }));
 
 describe('SettingsPage', () => {
-  it('renders without crashing', () => {
+  it('renders the settings heading', () => {
     render(<SettingsPage />);
-    expect(document.body).toBeDefined();
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('does not render AdvancedSettings', () => {
+    render(<SettingsPage />);
+    expect(screen.queryByText('Advanced Settings')).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
