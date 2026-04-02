@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 interface AgentNodeProps {
   agentNode: PipelineAgentNode;
-  onModelSelect: (modelId: string, modelName: string) => void;
+  onModelSelect: (modelId: string, modelName: string, reasoningEffort?: string) => void;
   onRemove: () => void;
   onToolsClick?: () => void;
   onClone?: () => void;

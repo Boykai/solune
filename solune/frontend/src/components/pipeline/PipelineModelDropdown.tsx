@@ -94,10 +94,15 @@ export function PipelineModelDropdown({
                 </div>
                 {providerModels.map((model) => (
                   <button
-                    key={model.id}
+                    key={model.id + (model.reasoning_effort ? `::${model.reasoning_effort}` : '')}
                     type="button"
                     onClick={() => {
-                      onModelChange({ mode: 'specific', modelId: model.id, modelName: model.name });
+                      onModelChange({
+                        mode: 'specific',
+                        modelId: model.id,
+                        modelName: model.name,
+                        reasoningEffort: model.reasoning_effort,
+                      });
                       setIsOpen(false);
                     }}
                     className={cn('flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-primary/10', currentOverride.mode === 'specific' && currentOverride.modelId === model.id

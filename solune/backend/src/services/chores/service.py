@@ -623,6 +623,7 @@ class ChoresService:
 
                 # Build workflow context
                 user_agent_model = ""
+                user_reasoning_effort = ""
                 if github_user_id:
                     try:
                         from src.services.settings_store import get_effective_user_settings
@@ -631,6 +632,7 @@ class ChoresService:
                             self._db, github_user_id
                         )
                         user_agent_model = effective_user_settings.ai.agent_model or ""
+                        user_reasoning_effort = effective_user_settings.ai.reasoning_effort or ""
                     except Exception as e:
                         logger.debug(
                             "Failed to load user agent model for chore %s: %s", chore.name, e
@@ -644,6 +646,7 @@ class ChoresService:
                     repository_name=repo,
                     config=config,
                     user_agent_model=user_agent_model,
+                    user_reasoning_effort=user_reasoning_effort,
                 )
                 ctx.issue_id = issue_node_id
                 ctx.issue_number = issue_number

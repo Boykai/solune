@@ -52,6 +52,7 @@ export function PrimarySettings({ settings, onSave }: PrimarySettingsProps) {
         model: localState.model,
         agent_model: localState.agent_model,
         temperature: localState.temperature,
+        reasoning_effort: localState.reasoning_effort,
       },
     });
   };
@@ -96,6 +97,8 @@ export function PrimarySettings({ settings, onSave }: PrimarySettingsProps) {
           modelsResponse={modelsResponse}
           isLoading={modelsLoading}
           onRetry={() => refetchModels()}
+          onReasoningEffortChange={(effort) => setField('reasoning_effort', effort)}
+          reasoningEffort={localState.reasoning_effort}
         />
 
         {/* Agent Model (Auto) — fallback for GitHub Copilot Agents */}

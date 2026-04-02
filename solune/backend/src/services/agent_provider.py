@@ -24,6 +24,7 @@ async def create_agent(
     tools: list | None = None,
     github_token: str | None = None,
     mcp_servers: dict[str, Any] | None = None,
+    reasoning_effort: str = "",
 ) -> Any:
     """Create an Agent instance for the configured AI provider.
 
@@ -32,6 +33,7 @@ async def create_agent(
         tools: List of ``@tool``-decorated functions to register.
         github_token: GitHub OAuth token (required for ``copilot`` provider).
         mcp_servers: Optional MCP server configs loaded from the project.
+        reasoning_effort: Optional reasoning effort level (e.g. "low", "medium", "high", "xhigh").
 
     Returns:
         A configured ``Agent`` instance.
@@ -48,6 +50,7 @@ async def create_agent(
             tools=tools,
             github_token=github_token,
             mcp_servers=mcp_servers,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "azure_openai":
         return _create_azure_agent(
@@ -64,6 +67,7 @@ async def _create_copilot_agent(
     tools: list | None = None,
     github_token: str | None = None,
     mcp_servers: dict[str, Any] | None = None,
+    reasoning_effort: str = "",
 ) -> Any:
     """Create an Agent using the GitHub Copilot provider.
 
@@ -92,6 +96,9 @@ async def _create_copilot_agent(
 
     if mcp_servers:
         options["mcp_servers"] = mcp_servers
+
+    if reasoning_effort:
+        options["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

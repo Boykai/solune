@@ -35,6 +35,8 @@ class ModelOption(BaseModel):
     id: str
     name: str
     provider: str
+    supported_reasoning_efforts: list[str] | None = None
+    default_reasoning_effort: str | None = None
 
 
 class ModelsResponse(BaseModel):
@@ -73,6 +75,7 @@ class AIPreferences(BaseModel):
     model: str
     temperature: float = Field(ge=0.0, le=2.0)
     agent_model: str = ""
+    reasoning_effort: str = ""
 
 
 class DisplayPreferences(BaseModel):
@@ -167,6 +170,7 @@ class AIPreferencesUpdate(BaseModel):
     model: str | None = None
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     agent_model: str | None = None
+    reasoning_effort: str | None = None
 
 
 class DisplayPreferencesUpdate(BaseModel):
