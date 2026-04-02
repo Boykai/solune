@@ -45,10 +45,7 @@ class TestParseCatalogIndex:
     """Unit tests for the llms.txt parser."""
 
     def test_parses_single_agent(self):
-        raw = (
-            "# My Agent\n> Helpful assistant\n"
-            "https://example.com/agents/my-agent.agent.md\n"
-        )
+        raw = "# My Agent\n> Helpful assistant\nhttps://example.com/agents/my-agent.agent.md\n"
         result = _parse_catalog_index(raw)
         assert len(result) == 1
         assert result[0].name == "My Agent"

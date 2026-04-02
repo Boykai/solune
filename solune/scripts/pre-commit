@@ -52,6 +52,8 @@ run_markdown_link_check() {
 
 # Check if we have staged Python files
 STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+# Run backend CI-parity checks for any staged backend change, not only Python sources.
+STAGED_BACKEND_CHANGES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^solune/backend/' || true)
 # Run frontend CI-parity checks for any staged frontend change, not only TS/JS sources.
 STAGED_FRONTEND_CHANGES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^solune/frontend/' || true)
 # Check if we have staged frontend files
@@ -62,7 +64,7 @@ STAGED_ARCH_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '(
 # ============================================
 # Backend Checks (with auto-fix)
 # ============================================
-if [ -n "$STAGED_PY_FILES" ]; then
+if [ -n "$STAGED_BACKEND_CHANGES" ]; then
     echo ""
     echo "📦 Backend checks..."
 
@@ -166,12 +168,29 @@ if [ -n "$STAGED_PY_FILES" ]; then
         PYTEST="pytest"
     fi
 
-    if $PYTEST "$BACKEND_DIR" --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency -q --no-header --tb=no > /dev/null 2>&1; then
+    BACKEND_PYTEST_ARGS=(
+        tests
+        --ignore=tests/property
+        --ignore=tests/fuzz
+        --ignore=tests/chaos
+        --ignore=tests/concurrency
+        -q
+        --no-header
+        --tb=no
+    )
+
+    if (
+        cd "$BACKEND_DIR"
+        $PYTEST "${BACKEND_PYTEST_ARGS[@]}"
+    ) > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Test failures must be fixed manually${NC}"
-        $PYTEST "$BACKEND_DIR" --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency -q --no-header --tb=line 2>&1 | tail -15
+        (
+            cd "$BACKEND_DIR"
+            $PYTEST tests --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency -q --no-header --tb=line
+        ) 2>&1 | tail -15
         FAILED=1
     fi
 fi
