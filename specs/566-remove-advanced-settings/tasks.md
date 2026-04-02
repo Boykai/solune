@@ -33,16 +33,16 @@
 
 **⚠️ CRITICAL**: No file deletions (US2) can begin until this phase is complete — the project must compile after these edits.
 
-- [ ] T001 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the import of `AdvancedSettings` component
-- [ ] T002 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove `useGlobalSettings` from the `useSettings` hook import (keep only `useUserSettings`)
-- [ ] T003 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the `GlobalSettingsUpdate` type import
-- [ ] T004 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the entire `useGlobalSettings()` hook call and its destructured variables (`globalSettings`, `globalLoading`, `updateGlobalSettings`, `isGlobalUpdating`)
-- [ ] T005 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove `isGlobalUpdating` from the `useUnsavedChangesWarning(isUserUpdating || isGlobalUpdating)` call → `useUnsavedChangesWarning(isUserUpdating)`
-- [ ] T006 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the `handleGlobalSave` function definition
-- [ ] T007 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove `globalLoading` from the loading condition → `if (userLoading)`
-- [ ] T008 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the global settings loading phase from `CelestialLoadingProgress`
-- [ ] T009 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the entire `<AdvancedSettings ... />` JSX block
-- [ ] T010 Edit `solune/frontend/src/pages/SettingsPage.test.tsx` — remove the `useGlobalSettings` mock from the `vi.mock` block
+- [x] T001 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the import of `AdvancedSettings` component
+- [x] T002 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove `useGlobalSettings` from the `useSettings` hook import (keep only `useUserSettings`)
+- [x] T003 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the `GlobalSettingsUpdate` type import
+- [x] T004 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the entire `useGlobalSettings()` hook call and its destructured variables (`globalSettings`, `globalLoading`, `updateGlobalSettings`, `isGlobalUpdating`)
+- [x] T005 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove `isGlobalUpdating` from the `useUnsavedChangesWarning(isUserUpdating || isGlobalUpdating)` call → `useUnsavedChangesWarning(isUserUpdating)`
+- [x] T006 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the `handleGlobalSave` function definition
+- [x] T007 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove `globalLoading` from the loading condition → `if (userLoading)`
+- [x] T008 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the global settings loading phase from `CelestialLoadingProgress`
+- [x] T009 Edit `solune/frontend/src/pages/SettingsPage.tsx` — remove the entire `<AdvancedSettings ... />` JSX block
+- [x] T010 Edit `solune/frontend/src/pages/SettingsPage.test.tsx` — remove the `useGlobalSettings` mock from the `vi.mock` block
 
 **Checkpoint**: SettingsPage compiles cleanly (`npx tsc --noEmit`) and existing tests pass (`npm test`) with no references to AdvancedSettings or global settings.
 
@@ -72,17 +72,17 @@
 
 ### Implementation for User Story 2
 
-- [ ] T011 [P] [US2] Delete `solune/frontend/src/components/settings/AdvancedSettings.tsx`
-- [ ] T012 [P] [US2] Delete `solune/frontend/src/components/settings/DisplayPreferences.tsx`
-- [ ] T013 [P] [US2] Delete `solune/frontend/src/components/settings/WorkflowDefaults.tsx`
-- [ ] T014 [P] [US2] Delete `solune/frontend/src/components/settings/NotificationPreferences.tsx`
-- [ ] T015 [P] [US2] Delete `solune/frontend/src/components/settings/GlobalSettings.tsx`
-- [ ] T016 [P] [US2] Delete `solune/frontend/src/components/settings/AISettingsSection.tsx`
-- [ ] T017 [P] [US2] Delete `solune/frontend/src/components/settings/DisplaySettings.tsx`
-- [ ] T018 [P] [US2] Delete `solune/frontend/src/components/settings/WorkflowSettings.tsx`
-- [ ] T019 [P] [US2] Delete `solune/frontend/src/components/settings/WorkflowSettings.test.tsx`
-- [ ] T020 [P] [US2] Delete `solune/frontend/src/components/settings/NotificationSettings.tsx`
-- [ ] T021 [P] [US2] Delete `solune/frontend/src/components/settings/globalSettingsSchema.ts`
+- [x] T011 [P] [US2] Delete `solune/frontend/src/components/settings/AdvancedSettings.tsx`
+- [x] T012 [P] [US2] Delete `solune/frontend/src/components/settings/DisplayPreferences.tsx`
+- [x] T013 [P] [US2] Delete `solune/frontend/src/components/settings/WorkflowDefaults.tsx`
+- [x] T014 [P] [US2] Delete `solune/frontend/src/components/settings/NotificationPreferences.tsx`
+- [x] T015 [P] [US2] Delete `solune/frontend/src/components/settings/GlobalSettings.tsx`
+- [x] T016 [P] [US2] Delete `solune/frontend/src/components/settings/AISettingsSection.tsx`
+- [x] T017 [P] [US2] Delete `solune/frontend/src/components/settings/DisplaySettings.tsx`
+- [x] T018 [P] [US2] Delete `solune/frontend/src/components/settings/WorkflowSettings.tsx`
+- [x] T019 [P] [US2] Delete `solune/frontend/src/components/settings/WorkflowSettings.test.tsx`
+- [x] T020 [P] [US2] Delete `solune/frontend/src/components/settings/NotificationSettings.tsx`
+- [x] T021 [P] [US2] Delete `solune/frontend/src/components/settings/globalSettingsSchema.ts`
 
 **Checkpoint**: All 11 files deleted. `npx tsc --noEmit` passes with zero type errors. `npm test` passes. User Stories 1 AND 2 both work independently.
 
@@ -92,7 +92,7 @@
 
 **Purpose**: Documentation updates to reflect the simplified Settings page.
 
-- [ ] T022 Edit `solune/docs/pages/settings.md` — remove the "Advanced Settings" subsection and any references to display, workflow, notification, and global settings specific to the deleted components
+- [x] T022 Edit `solune/docs/pages/settings.md` — remove the "Advanced Settings" subsection and any references to display, workflow, notification, and global settings specific to the deleted components
 
 ---
 
