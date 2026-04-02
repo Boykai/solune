@@ -26,7 +26,7 @@ repos:
 
       - id: backend-pyright-tests
         name: Type Check Backend Tests (pyright)
-        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && pyright tests'
+        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && pyright -p pyrightconfig.tests.json'
         language: system
         files: ^solune/backend/.*\.py$
         pass_filenames: false

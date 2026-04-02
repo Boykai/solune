@@ -358,7 +358,7 @@ ruff format src/ tests/
 
 # Type checking
 pyright src/
-pyright tests/
+pyright -p pyrightconfig.tests.json
 ```
 
 ### Frontend

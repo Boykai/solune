@@ -1,0 +1,13 @@
+{
+  "include": ["tests"],
+  "exclude": ["**/__pycache__", "htmlcov"],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "off",
+  "reportInvalidTypeForm": "none",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["src"]
+    }
+  ]
+}
