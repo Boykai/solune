@@ -519,6 +519,7 @@ export interface AIPreferences {
   model: string;
   temperature: number;
   agent_model: string;
+  reasoning_effort?: string;
 }
 
 export interface DisplayPreferences {
@@ -638,6 +639,8 @@ export interface ModelOption {
   id: string;
   name: string;
   provider: string;
+  supported_reasoning_efforts?: string[];
+  default_reasoning_effort?: string | null;
 }
 
 export interface ModelsResponse {
@@ -1256,6 +1259,9 @@ export interface AIModel {
   context_window_size?: number;
   cost_tier?: 'economy' | 'standard' | 'premium';
   capability_category?: string;
+  supported_reasoning_efforts?: string[];
+  default_reasoning_effort?: string | null;
+  reasoning_effort?: string;
 }
 
 export interface ModelGroup {
@@ -1269,6 +1275,7 @@ export interface PipelineModelOverride {
   mode: 'auto' | 'specific' | 'mixed';
   modelId: string;
   modelName: string;
+  reasoningEffort?: string;
 }
 
 export interface PipelineValidationErrors {
