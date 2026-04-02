@@ -82,7 +82,7 @@
 
 - [ ] T018 [P] [US2] Add return type annotations (`-> None`, `-> T`), proper base class inheritance, and parameter types to `_RequestIDSpanProcessor`, `_NoOpTracer`, `_NoOpMeter` in solune/backend/src/services/otel_setup.py (7 suppressions)
 
-### Group 4: Optional/Vendor Import Suppressions (6 suppressions)
+### Group 4: Optional/Vendor Import Suppressions (7 suppressions)
 
 - [ ] T019 [US2] Fix optional imports with `TYPE_CHECKING` guards, remove inline pyright directive, and fix return type annotation in solune/backend/src/services/completion_providers.py (6 suppressions — 4 optional import + 1 pyright directive + 1 return type)
 - [ ] T020 [P] [US2] Fix optional import with `TYPE_CHECKING` guard in solune/backend/src/services/agent_provider.py (1 suppression)
@@ -231,14 +231,14 @@
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies — can start immediately
-- **Foundational (Phase 2)**: Skipped — US1 (Phase 3) serves as the blocking prerequisite
-- **US1 (Phase 3)**: Depends on Setup — BLOCKS all cleanup phases (US2–US5)
-- **US2 (Phase 4)**: Depends on US1 — needs gate to verify source cleanup
-- **US3 (Phase 5)**: Depends on US2 — reuses typed helpers (RequestIdLogRecord protocol, cache patterns) created in source cleanup; depends on US1 for test gate
-- **US4 (Phase 6)**: Depends on US1 — needs gate infrastructure pattern; independent of US2/US3
-- **US5 (Phase 7)**: Depends on US4 — reuses typed patterns from frontend source cleanup; depends on US1 for test gate
-- **Polish (Phase 8)**: Depends on all user stories being complete
+- **Phase 1 (Setup)**: No dependencies — can start immediately
+- **Phase 2 (Foundational)**: No separate tasks — US1 in Phase 3 serves as the blocking prerequisite for all subsequent phases
+- **Phase 3 (US1)**: Depends on Phase 1 completion — **BLOCKS all cleanup phases** (Phases 4–7)
+- **Phase 4 (US2)**: Depends on Phase 3 — needs test gate to verify source cleanup
+- **Phase 5 (US3)**: Depends on Phase 4 — reuses typed helpers (RequestIdLogRecord protocol, cache patterns) created in source cleanup; also depends on Phase 3 for test gate
+- **Phase 6 (US4)**: Depends on Phase 3 — needs gate infrastructure pattern; **independent of Phases 4–5** (backend track)
+- **Phase 7 (US5)**: Depends on Phase 6 — reuses typed patterns from frontend source cleanup; also depends on Phase 3 for test gate
+- **Phase 8 (Polish)**: Depends on all user story phases (3–7) being complete
 
 ### User Story Dependencies
 
