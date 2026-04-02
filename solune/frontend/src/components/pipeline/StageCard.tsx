@@ -153,7 +153,7 @@ export function StageCard({
   };
 
   return (
-    <div className="celestial-panel celestial-fade-in pipeline-column-surface pipeline-stage-card flex h-full min-w-0 flex-col gap-2 rounded-xl border border-border/70 p-3 shadow-sm backdrop-blur-sm dark:border-border/90 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.97)_0%,hsl(var(--panel)/0.93)_100%)] dark:shadow-[0_24px_48px_hsl(var(--night)/0.52)]">
+    <div className="celestial-panel celestial-fade-in pipeline-column-surface pipeline-stage-card pipeline-builder-card flex h-full min-w-0 flex-col gap-2.5 rounded-xl border border-border/70 p-3 shadow-sm backdrop-blur-sm dark:border-border/90 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.97)_0%,hsl(var(--panel)/0.93)_100%)] dark:shadow-[0_24px_48px_hsl(var(--night)/0.52)]">
       {/* Header: lock icon + name + remove */}
       <div className="flex items-start gap-2">
         <Tooltip contentKey="pipeline.stage.lockIcon">
@@ -171,7 +171,7 @@ export function StageCard({
               onChange={(e) => setEditName(e.target.value)}
               onBlur={handleRenameConfirm}
               onKeyDown={handleKeyDown}
-              className="celestial-focus w-full rounded-md border border-primary/30 bg-background/72 px-2 py-0.5 text-sm font-medium focus-visible:outline-none dark:border-primary/45 dark:bg-background/88"
+              className="celestial-focus w-full rounded-md border border-primary/20 bg-background/86 px-2 py-1 text-sm font-medium focus-visible:outline-none dark:border-primary/30 dark:bg-background/92"
               maxLength={100}
             />
           ) : (
@@ -258,7 +258,7 @@ export function StageCard({
             ref={addButtonRef}
             type="button"
             onClick={() => openAgentPicker()}
-            className="pipeline-stage-add flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border/50 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary dark:border-border/75 dark:text-muted-foreground/85"
+            className="pipeline-stage-add pipeline-builder-action flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border/50 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary dark:border-border/75 dark:text-muted-foreground/85"
           >
             <Plus className="h-3 w-3" />
             Add Agent
@@ -280,7 +280,7 @@ export function StageCard({
                 aria-label="Close agent picker"
               />
               <div
-                className="fixed z-50 rounded-lg border border-border/80 bg-popover/95 shadow-lg backdrop-blur-sm"
+                className="pipeline-builder-popover fixed z-50 rounded-lg border border-border/80 bg-popover/95 shadow-lg backdrop-blur-sm"
                 style={{
                   top: pickerPosition.top,
                   left: pickerPosition.left,
@@ -353,7 +353,7 @@ export function StageCard({
           <button
             type="button"
             onClick={onAddGroup}
-            className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border/50 py-1 text-[10px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+            className="pipeline-builder-aux-action flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border/50 py-1 text-[10px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
           >
             <Layers className="h-3 w-3" />
             Add Execution Group

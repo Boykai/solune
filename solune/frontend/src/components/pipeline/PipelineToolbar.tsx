@@ -71,7 +71,7 @@ export function PipelineToolbar({
   }, [showCopyDialog]);
 
   return (
-    <div className="flex items-center gap-2 rounded-[1rem] border border-border/65 bg-background/35 p-1.5 dark:border-border/80 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.94)_0%,hsl(var(--panel)/0.86)_100%)]">
+    <div className="pipeline-builder-toolbar moonwell flex items-center gap-2 rounded-[1rem] border border-border/65 bg-background/35 p-1.5 dark:border-border/80 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.94)_0%,hsl(var(--panel)/0.86)_100%)]">
       <div className="flex items-center gap-2">
         {isPreset && boardState === 'editing' ? (
           <>
@@ -99,7 +99,7 @@ export function PipelineToolbar({
                 }}
               >
                 <div
-                  className="celestial-fade-in w-80 rounded-lg border border-border bg-card p-4 shadow-lg dark:border-border/80 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.97)_0%,hsl(var(--panel)/0.92)_100%)]"
+                  className="pipeline-builder-popover celestial-fade-in w-80 rounded-lg border border-border bg-card p-4 shadow-lg dark:border-border/80 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.97)_0%,hsl(var(--panel)/0.92)_100%)]"
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="copy-dialog-title"

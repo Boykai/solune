@@ -101,14 +101,22 @@ export function PipelineAnalytics({ pipelines }: PipelineAnalyticsProps) {
 
   if (!analytics) {
     return (
-      <div>
-        <h3 className="text-lg font-semibold mb-3">Pipeline Analytics</h3>
-        <div className="celestial-panel rounded-[1.2rem] border border-border/75 p-4">
+      <section
+        className="celestial-panel rounded-[1.35rem] border border-border/75 p-4 sm:rounded-[1.5rem] sm:p-5"
+        aria-labelledby="pipeline-analytics-title"
+      >
+        <div className="mb-4">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">Signal reading</p>
+          <h3 id="pipeline-analytics-title" className="mt-2 text-xl font-display font-medium">
+            Pipeline Analytics
+          </h3>
+        </div>
+        <div className="moonwell rounded-[1.2rem] border border-border/60 p-4">
           <p className="text-sm text-muted-foreground text-center py-4">
             Analytics will appear once pipelines are created
           </p>
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -124,15 +132,26 @@ export function PipelineAnalytics({ pipelines }: PipelineAnalyticsProps) {
   const totalExecGroups = analytics.parallelGroups + analytics.sequentialGroups;
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-3">Pipeline Analytics</h3>
-      <div className="celestial-panel rounded-[1.2rem] border border-border/75 p-5 space-y-6">
+    <section
+      className="celestial-panel rounded-[1.35rem] border border-border/75 p-4 sm:rounded-[1.5rem] sm:p-5"
+      aria-labelledby="pipeline-analytics-title"
+    >
+      <div className="mb-4">
+        <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">Signal reading</p>
+        <h3 id="pipeline-analytics-title" className="mt-2 text-xl font-display font-medium">
+          Pipeline Analytics
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Measure complexity, model spread, and execution patterns without leaving the pipeline workspace.
+        </p>
+      </div>
+      <div className="space-y-6">
         {/* Summary Stats Grid */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {statCards.map((stat) => (
             <div
               key={stat.label}
-              className="flex flex-col items-center gap-1.5 rounded-[1rem] border border-border/40 bg-background/20 p-3 text-center"
+              className="moonwell flex flex-col items-center gap-1.5 rounded-[1rem] border border-border/60 p-3 text-center shadow-none"
             >
               <stat.icon className="h-4 w-4 text-primary/70" />
               <span className="text-lg font-bold text-foreground">{stat.value}</span>
@@ -260,7 +279,7 @@ export function PipelineAnalytics({ pipelines }: PipelineAnalyticsProps) {
               Complexity Spotlight
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-[0.75rem] border border-border/40 bg-background/20 px-3 py-2">
+              <div className="moonwell rounded-[0.9rem] border border-border/60 px-3 py-2 shadow-none">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                   Most complex
                 </p>
@@ -273,7 +292,7 @@ export function PipelineAnalytics({ pipelines }: PipelineAnalyticsProps) {
                   {analytics.mostComplex.agent_count} agents
                 </p>
               </div>
-              <div className="rounded-[0.75rem] border border-border/40 bg-background/20 px-3 py-2">
+              <div className="moonwell rounded-[0.9rem] border border-border/60 px-3 py-2 shadow-none">
                 <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                   Most minimal
                 </p>
@@ -290,6 +309,6 @@ export function PipelineAnalytics({ pipelines }: PipelineAnalyticsProps) {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

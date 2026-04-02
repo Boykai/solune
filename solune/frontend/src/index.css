@@ -909,6 +909,201 @@
     opacity: 0.82;
   }
 
+  .pipeline-builder-shell {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 18% 0%, hsl(var(--glow) / 0.035), transparent 30%),
+      radial-gradient(circle at 82% 10%, hsl(var(--gold) / 0.025), transparent 24%),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, hsl(var(--panel)) 99%, hsl(var(--gold)) 1%) 0%,
+        hsl(var(--panel)) 56%,
+        color-mix(in srgb, hsl(var(--panel)) 98%, hsl(var(--night)) 2%) 100%
+      );
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.34),
+      0 10px 24px hsl(var(--night) / 0.04);
+    backdrop-filter: blur(18px);
+  }
+
+  .pipeline-builder-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--gold) / 0.16) 22%,
+      hsl(var(--border) / 0.34) 50%,
+      transparent 100%
+    );
+  }
+
+  .pipeline-builder-toolbar {
+    background:
+      radial-gradient(circle at 18% 0%, hsl(var(--glow) / 0.03), transparent 30%),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, hsl(var(--panel)) 99%, hsl(var(--gold)) 1%) 0%,
+        hsl(var(--panel)) 100%
+      );
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.26),
+      0 8px 18px hsl(var(--night) / 0.03);
+  }
+
+  .pipeline-column-surface.pipeline-builder-card {
+    background:
+      radial-gradient(circle at 14% 12%, hsl(var(--glow) / 0.026), transparent 20%),
+      linear-gradient(
+        180deg,
+        hsl(var(--card) / 0.99) 0%,
+        color-mix(in srgb, hsl(var(--panel)) 98%, hsl(var(--gold)) 2%) 100%
+      );
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.48),
+      0 8px 18px hsl(var(--night) / 0.04);
+  }
+
+  .pipeline-stage-card.pipeline-builder-card::before,
+  .pipeline-stage-card.pipeline-builder-card::after,
+  .pipeline-agent-node.pipeline-builder-node::before,
+  .pipeline-stage-add.pipeline-builder-action::before {
+    content: none;
+    background: none;
+  }
+
+  .pipeline-builder-group {
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.22);
+  }
+
+  .pipeline-builder-group-sequential {
+    background:
+      radial-gradient(circle at 14% 8%, hsl(var(--glow) / 0.02), transparent 18%),
+      linear-gradient(180deg, hsl(var(--background) / 0.94) 0%, hsl(var(--background) / 0.82) 100%);
+  }
+
+  .pipeline-builder-group-parallel {
+    background:
+      radial-gradient(circle at 82% 12%, hsl(var(--gold) / 0.04), transparent 18%),
+      linear-gradient(180deg, hsl(var(--primary) / 0.07) 0%, hsl(var(--background) / 0.84) 100%);
+  }
+
+  .pipeline-agent-node.pipeline-builder-node {
+    background: linear-gradient(180deg, hsl(var(--background) / 0.99) 0%, hsl(var(--panel) / 0.96) 100%);
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.4),
+      0 6px 14px hsl(var(--night) / 0.04);
+  }
+
+  .pipeline-agent-node.pipeline-builder-node:hover {
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.42),
+      0 10px 18px hsl(var(--night) / 0.07);
+  }
+
+  .pipeline-builder-node-action {
+    background: hsl(var(--panel) / 0.82);
+  }
+
+  .pipeline-stage-add.pipeline-builder-action,
+  .pipeline-builder-aux-action,
+  .pipeline-builder-dropzone {
+    background: linear-gradient(180deg, hsl(var(--panel) / 0.94) 0%, hsl(var(--background) / 0.86) 100%);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.22);
+  }
+
+  .pipeline-builder-popover {
+    background:
+      radial-gradient(circle at 18% 0%, hsl(var(--glow) / 0.025), transparent 28%),
+      linear-gradient(180deg, hsl(var(--popover) / 0.99) 0%, hsl(var(--panel) / 0.98) 100%);
+    box-shadow: 0 18px 36px hsl(var(--night) / 0.12);
+  }
+
+  .dark .pipeline-builder-shell {
+    background: linear-gradient(180deg, hsl(var(--panel) / 0.94) 0%, hsl(var(--night) / 0.9) 100%);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.08),
+      inset 0 0 0 1px hsl(var(--border) / 0.22),
+      0 24px 48px hsl(var(--night) / 0.34);
+  }
+
+  .dark .pipeline-builder-shell::before {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(var(--gold) / 0.14) 24%,
+      hsl(var(--border) / 0.26) 50%,
+      transparent 100%
+    );
+  }
+
+  .dark .pipeline-builder-toolbar {
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.06),
+      0 18px 34px hsl(var(--night) / 0.28);
+  }
+
+  .dark .pipeline-column-surface.pipeline-builder-card {
+    background: linear-gradient(180deg, hsl(var(--panel) / 0.96) 0%, hsl(var(--night) / 0.92) 100%);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.08),
+      inset 0 0 0 1px hsl(var(--border) / 0.22),
+      0 18px 34px hsl(var(--night) / 0.3);
+  }
+
+  .dark .pipeline-stage-card.pipeline-builder-card::before,
+  .dark .pipeline-stage-card.pipeline-builder-card::after,
+  .dark .pipeline-agent-node.pipeline-builder-node::before,
+  .dark .pipeline-stage-add.pipeline-builder-action::before {
+    content: none;
+    background: none;
+  }
+
+  .dark .pipeline-builder-group-sequential {
+    background: linear-gradient(180deg, hsl(var(--night) / 0.78) 0%, hsl(var(--panel) / 0.72) 100%);
+  }
+
+  .dark .pipeline-builder-group-parallel {
+    background: linear-gradient(180deg, hsl(var(--primary) / 0.12) 0%, hsl(var(--night) / 0.72) 100%);
+  }
+
+  .dark .pipeline-agent-node.pipeline-builder-node {
+    background: linear-gradient(180deg, hsl(var(--panel) / 0.94) 0%, hsl(var(--night) / 0.9) 100%);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.06),
+      inset 0 0 0 1px hsl(var(--border) / 0.2),
+      0 10px 18px hsl(var(--night) / 0.28);
+  }
+
+  .dark .pipeline-agent-node.pipeline-builder-node:hover {
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.08),
+      inset 0 0 0 1px hsl(var(--primary) / 0.22),
+      0 14px 24px hsl(var(--night) / 0.34);
+  }
+
+  .dark .pipeline-builder-node-action {
+    background: hsl(var(--night) / 0.36);
+  }
+
+  .dark .pipeline-stage-add.pipeline-builder-action,
+  .dark .pipeline-builder-aux-action,
+  .dark .pipeline-builder-dropzone {
+    background: linear-gradient(180deg, hsl(var(--night) / 0.72) 0%, hsl(var(--panel) / 0.66) 100%);
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.05),
+      inset 0 0 0 1px hsl(var(--border) / 0.16);
+  }
+
+  .dark .pipeline-builder-popover {
+    background: linear-gradient(180deg, hsl(var(--panel) / 0.98) 0%, hsl(var(--night) / 0.94) 100%);
+    box-shadow: 0 24px 42px hsl(var(--night) / 0.4);
+  }
+
   .constellation-grid {
     position: relative;
   }
