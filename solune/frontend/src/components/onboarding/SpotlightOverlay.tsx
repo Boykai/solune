@@ -17,7 +17,7 @@ export function SpotlightOverlay({ targetRect, isVisible }: SpotlightOverlayProp
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-background/70 dark:bg-[hsl(var(--night,230_25%_10%)/0.6)] motion-safe:transition-[clip-path] motion-safe:duration-500 motion-safe:ease-in-out"
+      className="fixed inset-0 z-[var(--z-tour-overlay)] bg-background/70 dark:bg-[hsl(var(--night,230_25%_10%)/0.6)] motion-safe:transition-[clip-path] motion-safe:duration-500 motion-safe:ease-in-out"
       style={{ clipPath }}
       aria-hidden="true"
     />

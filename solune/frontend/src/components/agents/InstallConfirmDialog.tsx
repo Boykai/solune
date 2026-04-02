@@ -77,7 +77,7 @@ export function InstallConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10010] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-install-confirm)] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
       role="presentation"
       onClick={handleBackdropClick}
     >

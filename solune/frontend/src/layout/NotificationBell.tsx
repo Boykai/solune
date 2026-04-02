@@ -98,7 +98,7 @@ export function NotificationBell({
     isOpen && position
       ? createPortal(
           <div
-            className="celestial-panel fixed z-[10000] w-80 overflow-hidden rounded-[1.25rem] border border-border/80 shadow-lg backdrop-blur-md"
+            className="celestial-panel fixed z-[var(--z-notification)] w-80 overflow-hidden rounded-[1.25rem] border border-border/80 shadow-lg backdrop-blur-md"
             style={{ top: position.top, left: position.left }}
           >
             <div className="flex items-center justify-between border-b border-border/70 bg-background/25 px-4 py-3">

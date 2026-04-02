@@ -160,7 +160,7 @@ export function ChatPopup({
   return (
     <>
       <button
-        className="fixed bottom-6 right-6 z-[1001] flex h-14 w-14 items-center justify-center rounded-full border-none bg-primary text-white shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-black"
+        className="fixed bottom-6 right-6 z-[var(--z-chat-toggle)] flex h-14 w-14 items-center justify-center rounded-full border-none bg-primary text-white shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 dark:text-black"
         onClick={() => setIsOpen((prev) => !prev)}
         data-tour-step="chat-toggle"
         aria-label={isOpen ? 'Close chat' : 'Open chat'}
@@ -187,8 +187,8 @@ export function ChatPopup({
         style={isMobile ? undefined : { width: size.width, height: size.height }}
         className={cn(
           isMobile
-            ? 'fixed inset-0 z-[1000] flex flex-col bg-background'
-            : 'fixed bottom-24 right-6 bg-background border border-border rounded-xl shadow-2xl z-[1000] flex flex-col overflow-hidden transition-[transform,opacity] duration-200',
+            ? 'fixed inset-0 z-[var(--z-chat)] flex flex-col bg-background'
+            : 'fixed bottom-24 right-6 bg-background border border-border rounded-xl shadow-2xl z-[var(--z-chat)] flex flex-col overflow-hidden transition-[transform,opacity] duration-200',
           isOpen
             ? 'scale-100 translate-y-0 opacity-100 pointer-events-auto'
             : isMobile

@@ -51,7 +51,7 @@ export function AgentIconPickerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[140] bg-black/55"
+      className="fixed inset-0 z-[var(--z-agent-picker)] bg-black/55"
       role="presentation"
       onClick={onClose}
     >

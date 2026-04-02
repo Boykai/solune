@@ -379,7 +379,7 @@ export function ChoreCard({
                     top: pipelineMenuPos.top,
                     left: pipelineMenuPos.left,
                   }}
-                  className="z-[9999] w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-[1rem] border border-border/80 bg-background/95 shadow-[0_18px_40px_hsl(var(--night)/0.24)] backdrop-blur-md"
+                  className="z-[var(--z-command)] w-[min(18rem,calc(100vw-1rem))] overflow-hidden rounded-[1rem] border border-border/80 bg-background/95 shadow-[0_18px_40px_hsl(var(--night)/0.24)] backdrop-blur-md"
                 >
                   <div className="border-b border-border/65 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     Select Agent Pipeline

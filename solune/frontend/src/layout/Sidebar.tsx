@@ -47,12 +47,12 @@ export function Sidebar({
       <>
         {/* Backdrop */}
         <div
-          className="fixed inset-0 z-40 bg-black/50"
+          className="fixed inset-0 z-[var(--z-sidebar-backdrop)] bg-black/50"
           onClick={onToggle}
           role="presentation"
         />
         <aside
-          className="fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-border/70 bg-background shadow-xl"
+          className="fixed inset-y-0 left-0 z-[var(--z-sidebar)] flex w-60 flex-col border-r border-border/70 bg-background shadow-xl"
         >
           {renderSidebarContent()}
         </aside>
