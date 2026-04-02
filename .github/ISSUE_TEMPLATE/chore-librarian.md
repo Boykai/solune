@@ -10,6 +10,20 @@ assignees: ''
 
 A repeatable process for keeping project documentation accurate as software evolves. Language-agnostic, structure-agnostic, applicable to any codebase. Detects what changed, infers how the product's focus shifted, and rewrites docs to match reality.
 
+> **📖 Execution Guide**: [`specs/003-librarian/quickstart.md`](../../specs/003-librarian/quickstart.md)
+> **✅ Verification Template**: [`docs/checklists/doc-refresh-verification.md`](../../solune/docs/checklists/doc-refresh-verification.md)
+
+### Phase Checklist
+
+- [ ] **Phase 1** — Build the Change Manifest (establish baseline, harvest changes, compile 6-category manifest)
+- [ ] **Phase 2** — Infer Focus Shifts (measure change density, detect narrative shifts, assign P0–P4 priorities)
+- [ ] **Phase 3** — Update the README (revalidate description, audit features, verify quickstart, update visuals)
+- [ ] **Phase 4** — Update Documentation Files (map docs to source of truth, diff and rewrite, update structural docs)
+- [ ] **Phase 5** — Validate Consistency (link validation, terminology audit, diagram freshness, code sample checks)
+- [ ] **Phase 6** — Verify Against the Running Application (smoke-test workflows, verify config, verify API docs)
+- [ ] **Phase 7** — Stamp & Reset Baseline (commit changes, update changelog, set new `.last-refresh` and git tag)
+- [ ] **Verification Checklist** — Complete [`doc-refresh-verification.md`](../../solune/docs/checklists/doc-refresh-verification.md) and append to `.change-manifest.md`
+
 ---
 
 ### Principles
@@ -25,15 +39,18 @@ A repeatable process for keeping project documentation accurate as software evol
 
 > Goal: Catalog everything that changed since the last refresh.
 
-**1.1 — Establish the baseline**
+#### 1.1 — Establish the baseline
+
 - Retrieve the last refresh marker (git tag, metadata file, or last known good commit SHA)
 - If no baseline exists, use the last release tag or a reasonable time window (e.g., 2 weeks)
 
-**1.2 — Harvest from structured sources**
+#### 1.2 — Harvest from structured sources
+
 - Parse the changelog (e.g., `CHANGELOG.md`, GitHub Releases, or equivalent) for Added/Changed/Removed/Fixed entries since baseline
 - Scan any feature spec, RFC, or ADR directories for new or updated proposals
 
-**1.3 — Harvest from code diffs**
+#### 1.3 — Harvest from code diffs
+
 - Run `git diff --stat <baseline>..HEAD` to identify files with significant churn
 - Run `git log --oneline --since=<baseline>` for a commit-level view
 - Flag high-signal changes:
@@ -44,7 +61,8 @@ A repeatable process for keeping project documentation accurate as software evol
   - Changes to **data models / schemas / migrations**
   - Changes to **build or deployment scripts**
 
-**1.4 — Compile the manifest**
+#### 1.4 — Compile the manifest
+
 Categorize all findings into:
 
 | Category | What to look for |
@@ -62,19 +80,22 @@ Categorize all findings into:
 
 > Goal: Understand *how the product has evolved*, not just what lines changed.
 
-**2.1 — Measure change density by domain**
+#### 2.1 — Measure change density by domain
+
 - Group manifest items by functional area (e.g., auth, data pipeline, editor, API, admin, analytics)
 - Domains with the most entries represent the current development focus
 
-**2.2 — Detect narrative-level shifts**
+#### 2.2 — Detect narrative-level shifts
+
 Answer these questions from the manifest:
+
 - Has a **new top-level capability** been added that deserves prominent mention?
 - Has a previously prominent feature been **reduced, removed, or folded into another**?
 - Has the product's **primary value proposition** shifted? (e.g., from "data viewer" to "data editor")
 - Has the **primary user workflow** changed? (different starting point, different happy path)
 - Have **new user personas** been introduced? (e.g., admin panel added → admin persona)
 
-**2.3 — Prioritize updates**
+#### 2.3 — Prioritize updates
 
 | Priority | Trigger | What to update |
 |----------|---------|----------------|
@@ -90,21 +111,25 @@ Answer these questions from the manifest:
 
 > Goal: The README is the storefront. It must reflect the current product accurately.
 
-**3.1 — Revalidate the project description**
+#### 3.1 — Revalidate the project description
+
 - Does the one-liner / elevator pitch still describe what the product does today?
 - If a narrative shift was detected in Phase 2, rewrite the description
 
-**3.2 — Audit the feature list**
+#### 3.2 — Audit the feature list
+
 - Add newly shipped capabilities
 - Remove or mark deprecated features
 - Reorder by current importance (most-used or most-differentiated first)
 
-**3.3 — Verify getting-started instructions**
+#### 3.3 — Verify getting-started instructions
+
 - Run the quickstart from scratch in a clean environment (container, fresh clone, or CI)
 - Check prerequisite versions against current dependency manifests
 - Validate that all commands produce the expected output
 
-**3.4 — Update visual / structural references**
+#### 3.4 — Update visual / structural references
+
 - Replace outdated screenshots, diagrams, or GIFs if the UI changed
 - Update architecture-at-a-glance diagrams if topology changed
 - Verify all badge URLs and status links still resolve
@@ -115,7 +140,7 @@ Answer these questions from the manifest:
 
 > Goal: Each doc page is accurate to the current codebase and UX.
 
-**4.1 — Map each doc to its source of truth**
+#### 4.1 — Map each doc to its source of truth
 
 Every documentation page should have an explicit source-of-truth mapping. Common patterns:
 
@@ -130,14 +155,16 @@ Every documentation page should have an explicit source-of-truth mapping. Common
 | Data model reference | Schema definitions / migrations | Export current schema → compare to doc |
 | Troubleshooting | Recent bug fixes + support tickets | Review closed bugs → add new entries, prune resolved ones |
 
-**4.2 — For each affected doc (based on Phase 2 priorities):**
+#### 4.2 — For each affected doc (based on Phase 2 priorities)
+
 1. Read the current doc
 2. Diff against its source of truth
 3. Identify gaps: **missing** (new things not documented), **stale** (documented things that changed), **dead** (documented things that no longer exist)
 4. Rewrite affected sections — don't patch; rewrite the section to read naturally
 5. If a narrative shift occurred, adjust the doc's framing and emphasis accordingly
 
-**4.3 — Structural docs**
+#### 4.3 — Structural docs
+
 - Regenerate module/directory maps from the actual filesystem
 - Update dependency graphs or architecture diagrams from current code
 - Verify all code examples compile/run against current codebase
@@ -148,20 +175,24 @@ Every documentation page should have an explicit source-of-truth mapping. Common
 
 > Goal: Docs are internally consistent and all references resolve.
 
-**5.1 — Link validation**
+#### 5.1 — Link validation
+
 - Check all internal cross-references between doc files (automated: `markdown-link-check`, `lychee`, or equivalent)
 - Check all external URLs still resolve (automated with same tools)
 - Verify all anchor links point to existing headings
 
-**5.2 — Terminology audit**
+#### 5.2 — Terminology audit
+
 - Grep docs for renamed concepts (from the change manifest) — replace old names with new
 - Ensure consistent naming across README and all doc files (e.g., don't call it "Pipeline" in one doc and "Workflow" in another unless intentional)
 
-**5.3 — Diagram freshness**
+#### 5.3 — Diagram freshness
+
 - Regenerate any auto-generated diagrams (Mermaid, PlantUML, D2, etc.)
 - Manually verify non-generated diagrams still match reality
 
-**5.4 — Code sample validation**
+#### 5.4 — Code sample validation
+
 - Extract embedded code snippets and verify they compile/run
 - Or: run doc-test frameworks if available (`doctest`, `mdx-js`, `rustdoc`, etc.)
 
@@ -171,16 +202,19 @@ Every documentation page should have an explicit source-of-truth mapping. Common
 
 > Goal: Docs match the actual user experience, not just the code.
 
-**6.1 — Smoke-test documented workflows**
+#### 6.1 — Smoke-test documented workflows
+
 - Pick 3–5 key user flows described in docs
 - Walk each flow in the running application
 - Verify: screen names, navigation paths, button labels, terminology, expected outcomes all match docs
 
-**6.2 — Verify config and setup docs**
+#### 6.2 — Verify config and setup docs
+
 - Confirm all documented env vars / config keys are recognized by the application
 - Confirm default values in docs match actual defaults
 
-**6.3 — Verify API docs (if applicable)**
+#### 6.3 — Verify API docs (if applicable)
+
 - Hit 3–5 documented endpoints and confirm request/response shapes match docs
 - Or: compare against auto-generated OpenAPI/Swagger spec
 
@@ -190,14 +224,17 @@ Every documentation page should have an explicit source-of-truth mapping. Common
 
 > Goal: Record the refresh so the next cycle starts clean.
 
-**7.1 — Commit documentation changes**
+#### 7.1 — Commit documentation changes
+
 - Commit all doc updates in a single, well-described commit (or PR)
 - Use a conventional commit message: `docs: refresh documentation for <period>`
 
-**7.2 — Update the changelog**
+#### 7.2 — Update the changelog
+
 - Add a Documentation section noting which docs were updated and key changes
 
-**7.3 — Set the new baseline**
+#### 7.3 — Set the new baseline
+
 - Tag the commit: `docs-refresh-YYYY-MM-DD` or update a metadata file with the SHA + date
 - This becomes the starting point for the next cycle's Phase 1
 
