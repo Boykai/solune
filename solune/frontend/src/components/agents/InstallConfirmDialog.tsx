@@ -76,6 +76,7 @@ export function InstallConfirmDialog({
       role="presentation"
       onClick={handleBackdropClick}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="celestial-panel celestial-fade-in w-full max-w-lg overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-xl"
         role="dialog"

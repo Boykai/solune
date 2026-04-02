@@ -75,6 +75,7 @@ export function BrowseAgentsModal({ projectId, isOpen, onClose }: BrowseAgentsMo
       onClick={handleBackdropClick}
     >
       <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
         <div
           className="celestial-panel celestial-fade-in relative flex max-h-[min(88vh,56rem)] w-full max-w-2xl flex-col overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-xl"
           role="dialog"

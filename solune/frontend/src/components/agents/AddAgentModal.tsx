@@ -254,6 +254,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
         className="fixed inset-0 z-[120] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
         role="presentation"
       >
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
         <div
           className="celestial-panel celestial-fade-in w-full max-w-sm rounded-[1.5rem] border border-border/80 bg-card p-6 shadow-xl"
           role="dialog"
@@ -303,6 +304,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
         role="presentation"
         onClick={resetAndClose}
       >
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
         <div
           className="celestial-panel celestial-fade-in w-full max-w-md rounded-[1.6rem] border border-border/80 bg-card p-6 shadow-xl"
           role="dialog"
@@ -346,6 +348,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
       role="presentation"
       onClick={handleRequestClose}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="celestial-panel celestial-fade-in relative flex max-h-[min(92vh,58rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.7rem] border border-border/80 bg-card shadow-xl"
         role="dialog"
