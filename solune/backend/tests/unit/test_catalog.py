@@ -6,6 +6,7 @@ Covers:
 - fetch_agent_raw_content() — raw markdown fetch (mocked HTTP)
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -14,6 +15,7 @@ import pytest
 from src.exceptions import CatalogUnavailableError
 from src.services.agents.catalog import (
     CATALOG_CACHE_KEY,
+    _fetch_catalog_index,
     _parse_catalog_index,
     fetch_agent_raw_content,
     list_catalog_agents,
@@ -43,18 +45,21 @@ class TestParseCatalogIndex:
     """Unit tests for the llms.txt parser."""
 
     def test_parses_single_agent(self):
-        raw = "# My Agent\n> Helpful assistant\nhttps://example.com/agent.md\n"
+        raw = (
+            "# My Agent\n> Helpful assistant\n"
+            "https://example.com/agents/my-agent.agent.md\n"
+        )
         result = _parse_catalog_index(raw)
         assert len(result) == 1
         assert result[0].name == "My Agent"
         assert result[0].description == "Helpful assistant"
-        assert result[0].source_url == "https://example.com/agent.md"
+        assert result[0].source_url == "https://example.com/agents/my-agent.agent.md"
         assert result[0].id == "my-agent"
 
     def test_parses_multiple_agents(self):
         raw = (
-            "# Alpha\n> First agent\nhttps://example.com/alpha.md\n\n"
-            "# Beta\n> Second agent\nhttps://example.com/beta.md\n"
+            "# Alpha\n> First agent\nhttps://example.com/agents/alpha.agent.md\n\n"
+            "# Beta\n> Second agent\nhttps://example.com/agents/beta.agent.md\n"
         )
         result = _parse_catalog_index(raw)
         assert len(result) == 2
@@ -86,13 +91,13 @@ class TestParseCatalogIndex:
         assert _parse_catalog_index("   \n  \n  ") == []
 
     def test_description_defaults_to_name(self):
-        raw = "# Solo Agent\nhttps://example.com/solo.md\n"
+        raw = "# Solo Agent\nhttps://example.com/agents/solo-agent.agent.md\n"
         result = _parse_catalog_index(raw)
         assert len(result) == 1
         assert result[0].description == "Solo Agent"
 
     def test_slug_strips_special_chars(self):
-        raw = "# My Agent (v2.0)!\nhttps://example.com/agent.md\n"
+        raw = "# My Agent (v2.0)!\nhttps://example.com/agents/my-agent-v2-0.agent.md\n"
         result = _parse_catalog_index(raw)
         assert result[0].id == "my-agent-v2-0"
 
@@ -102,6 +107,15 @@ class TestParseCatalogIndex:
         result = _parse_catalog_index(raw)
         assert len(result) == 1
         assert result[0].name == "First"
+
+    def test_prefers_source_url_for_stable_id(self):
+        raw = (
+            "# Agent Alpha Renamed\n> Same agent, new title\n"
+            "https://example.com/agents/agent-alpha.agent.md\n"
+        )
+        result = _parse_catalog_index(raw)
+        assert len(result) == 1
+        assert result[0].id == "agent-alpha"
 
 
 # ── list_catalog_agents ──────────────────────────────────────────────────
@@ -200,9 +214,36 @@ class TestListCatalogAgents:
 
 
 class TestFetchAgentRawContent:
+    async def test_fetch_catalog_index_follows_redirects(self):
+        """Catalog index fetches should follow redirects from upstream hosts."""
+        settings = SimpleNamespace(
+            catalog_fetch_timeout_seconds=7,
+            catalog_index_url="https://awesome-copilot.github.com/llms.txt",
+        )
+        mock_response = httpx.Response(
+            200,
+            text=ROOT_INDEX_SAMPLE,
+            request=httpx.Request("GET", settings.catalog_index_url),
+        )
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_response
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("src.services.agents.catalog.get_settings", return_value=settings),
+            patch("httpx.AsyncClient", return_value=mock_client) as async_client,
+        ):
+            content = await _fetch_catalog_index()
+
+        async_client.assert_called_once_with(timeout=7, follow_redirects=True)
+        mock_client.get.assert_awaited_once_with(settings.catalog_index_url)
+        assert content == ROOT_INDEX_SAMPLE
+
     async def test_returns_raw_text(self):
         """fetch_agent_raw_content returns HTTP response text."""
-        import httpx
+        settings = SimpleNamespace(catalog_fetch_timeout_seconds=9)
 
         mock_response = httpx.Response(
             200,
@@ -218,8 +259,13 @@ class TestFetchAgentRawContent:
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("src.services.agents.catalog.get_settings", return_value=settings),
+            patch("httpx.AsyncClient", return_value=mock_client) as async_client,
+        ):
             content = await fetch_agent_raw_content(
                 "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/test.agent.md"
             )
             assert content == "---\nname: Test\n---\nAgent content"
+
+        async_client.assert_called_once_with(timeout=9, follow_redirects=True)

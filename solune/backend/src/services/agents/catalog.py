@@ -58,9 +58,28 @@ def validate_source_url(url: str) -> None:
         raise ValueError(f"Source URL host '{parsed.hostname}' is not in the allowed list.")
 
 
+def _slugify_catalog_value(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def _derive_catalog_agent_id(name: str, source_url: str) -> str | None:
+    parsed = urlparse(source_url)
+    filename = parsed.path.rsplit("/", 1)[-1]
+
+    if filename:
+        stem = re.sub(r"\.(agent|prompt|instructions)\.md$", "", filename, flags=re.IGNORECASE)
+        stem = re.sub(r"\.md$", "", stem, flags=re.IGNORECASE)
+        slug = _slugify_catalog_value(stem)
+        if slug:
+            return slug
+
+    slug = _slugify_catalog_value(name)
+    return slug or None
+
+
 def _build_catalog_agent(name: str, description: str, source_url: str) -> CatalogAgent | None:
     """Create a catalog agent with a normalized slug, or return None when invalid."""
-    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    slug = _derive_catalog_agent_id(name, source_url)
     if not slug:
         return None
 
@@ -204,7 +223,10 @@ async def _fetch_catalog_index() -> str:
     """Fetch the raw llms.txt content from the Awesome Copilot site."""
     settings = get_settings()
 
-    async with httpx.AsyncClient(timeout=settings.catalog_fetch_timeout_seconds) as client:
+    async with httpx.AsyncClient(
+        timeout=settings.catalog_fetch_timeout_seconds,
+        follow_redirects=True,
+    ) as client:
         resp = await client.get(settings.catalog_index_url)
         resp.raise_for_status()
         return resp.text
@@ -220,7 +242,10 @@ async def fetch_agent_raw_content(source_url: str) -> str:
 
     settings = get_settings()
 
-    async with httpx.AsyncClient(timeout=settings.catalog_fetch_timeout_seconds) as client:
+    async with httpx.AsyncClient(
+        timeout=settings.catalog_fetch_timeout_seconds,
+        follow_redirects=True,
+    ) as client:
         resp = await client.get(source_url)
         resp.raise_for_status()
         return resp.text
