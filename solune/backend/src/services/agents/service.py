@@ -822,10 +822,10 @@ class AgentsService:
                 ),
             )
             await self._db.commit()
-        except Exception as exc:
+        except aiosqlite.IntegrityError as exc:
             if "UNIQUE constraint failed" in str(exc):
                 raise ValueError(
-                    f"Agent name '{body.name}' already exists in this project."
+                    "An agent with this catalog ID or name already exists in this project."
                 ) from exc
             raise
 
