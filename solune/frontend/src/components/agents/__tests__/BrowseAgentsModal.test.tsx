@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@/test/test-utils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { ApiError } from '@/services/api';
 import { BrowseAgentsModal } from '../BrowseAgentsModal';
 
 const mockUseCatalogAgents = vi.fn();
@@ -32,6 +33,7 @@ describe('BrowseAgentsModal', () => {
     vi.clearAllMocks();
     mockUseCatalogAgents.mockReturnValue({
       data: catalogAgents,
+      error: null,
       isLoading: false,
       isError: false,
       refetch: vi.fn(),
@@ -57,6 +59,19 @@ describe('BrowseAgentsModal', () => {
     );
     expect(screen.getByText('Agent Alpha')).toBeInTheDocument();
     expect(screen.getByText('Agent Beta')).toBeInTheDocument();
+  });
+
+  it('uses the shared opaque dialog shell styling', () => {
+    render(
+      <BrowseAgentsModal projectId="proj-1" isOpen={true} onClose={vi.fn()} />,
+      { wrapper: createWrapper() },
+    );
+
+    const dialog = screen.getByRole('dialog');
+    const overlay = dialog.parentElement?.parentElement;
+
+    expect(dialog).toHaveClass('celestial-panel', 'bg-card', 'border-border/80', 'overflow-hidden');
+    expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm');
   });
 
   it('shows imported badge for already-imported agents', () => {
@@ -119,6 +134,7 @@ describe('BrowseAgentsModal', () => {
   it('shows loading state', () => {
     mockUseCatalogAgents.mockReturnValue({
       data: undefined,
+      error: null,
       isLoading: true,
       isError: false,
       refetch: vi.fn(),
@@ -130,9 +146,13 @@ describe('BrowseAgentsModal', () => {
     expect(screen.getByText('Loading catalog…')).toBeInTheDocument();
   });
 
-  it('shows error state', () => {
+  it('shows warning-style empty state when the catalog is unavailable', () => {
     mockUseCatalogAgents.mockReturnValue({
       data: undefined,
+      error: new ApiError(503, {
+        error: 'Browser Agents catalog is temporarily unavailable.',
+        details: { reason: 'The Awesome Copilot catalog timed out. Retry in a moment.' },
+      }),
       isLoading: false,
       isError: true,
       refetch: vi.fn(),
@@ -141,8 +161,39 @@ describe('BrowseAgentsModal', () => {
       <BrowseAgentsModal projectId="proj-1" isOpen={true} onClose={vi.fn()} />,
       { wrapper: createWrapper() },
     );
-    expect(screen.getByText('Failed to load catalog.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Browser Agents catalog is temporarily unavailable.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Browser Agents is showing an empty catalog until the upstream source responds again.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('The Awesome Copilot catalog timed out. Retry in a moment.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
+  it('retries catalog loading from the warning state', async () => {
+    const user = userEvent.setup();
+    const refetch = vi.fn();
+    mockUseCatalogAgents.mockReturnValue({
+      data: undefined,
+      error: new ApiError(503, {
+        error: 'Browser Agents catalog is temporarily unavailable.',
+      }),
+      isLoading: false,
+      isError: true,
+      refetch,
+    });
+
+    render(
+      <BrowseAgentsModal projectId="proj-1" isOpen={true} onClose={vi.fn()} />,
+      { wrapper: createWrapper() },
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it('calls onClose when Done button is clicked', async () => {

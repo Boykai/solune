@@ -181,6 +181,8 @@ async def browse_catalog(
 
     try:
         return await list_catalog_agents(project_id, get_db())
+    except AppException:
+        raise
     except Exception as exc:
         handle_service_error(exc, "browse catalog", AppException)
 

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Browser Agents catalog now lets unexpected internal fetch failures surface as generic server errors instead of reporting them as upstream outages.
+- Browser Agents catalog now derives stable imported IDs from source filenames and follows redirects when fetching catalog indexes and raw agent definitions.
+- Browser Agents install confirmations now clear stale error banners when the dialog is closed and reopened.
+
 ## [0.1.0] — 2026-03-17
 
 ### Added
