@@ -24,6 +24,7 @@ export {
   Bell,
   Bot,
   Boxes,
+  Brain,
   Check,
   CheckCircle,
   CheckCircle2,
