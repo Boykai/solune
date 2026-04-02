@@ -40,23 +40,7 @@ As a user configuring my AI preferences, I want to choose a default reasoning le
 
 ---
 
-### User Story 3 - Configure Reasoning Level per Pipeline Agent (Priority: P2)
-
-As a pipeline editor, I want to assign a specific reasoning level to each agent node in my pipeline, so that different stages of my pipeline can use different reasoning intensities optimized for their task.
-
-**Why this priority**: Pipeline customization is an advanced use case that enables power users to fine-tune reasoning per task. It depends on the core infrastructure from P1 stories.
-
-**Independent Test**: Can be tested by opening the pipeline editor, selecting a reasoning model variant for an agent node, saving the pipeline, and executing it to confirm the correct reasoning level is used for that agent.
-
-**Acceptance Scenarios**:
-
-1. **Given** I am editing a pipeline agent node, **When** I open the model selector, **Then** I see the same reasoning-expanded variants as in Settings (e.g., "o3 (High)", "o3 (Medium)").
-2. **Given** I configure Agent A with "o3 (High)" and Agent B with "o3 (Low)", **When** the pipeline executes, **Then** Agent A uses high reasoning and Agent B uses low reasoning.
-3. **Given** a pipeline agent has a reasoning level configured, **When** the user also has a default reasoning level in settings, **Then** the pipeline agent's configured level takes precedence over the user's default.
-
----
-
-### User Story 4 - Reasoning Effort Applied to AI Responses (Priority: P1)
+### User Story 3 - Reasoning Effort Applied to AI Responses (Priority: P1)
 
 As a user who has selected a reasoning level, I want my AI interactions to actually use the chosen reasoning intensity, so that I get responses appropriate to the complexity of my task.
 
@@ -69,6 +53,22 @@ As a user who has selected a reasoning level, I want my AI interactions to actua
 1. **Given** I have selected "High" reasoning effort for my model, **When** I send a chat message, **Then** the system communicates "high" reasoning effort to the AI provider session.
 2. **Given** no reasoning effort is configured (empty/unset), **When** I send a chat message, **Then** the system omits reasoning effort from the request, allowing the AI provider to use its own default.
 3. **Given** a reasoning effort is configured at multiple levels (pipeline config, user settings, model default), **When** a request is processed, **Then** the system resolves the effort using this precedence: pipeline config → user settings → model default → provider default.
+
+---
+
+### User Story 4 - Configure Reasoning Level per Pipeline Agent (Priority: P2)
+
+As a pipeline editor, I want to assign a specific reasoning level to each agent node in my pipeline, so that different stages of my pipeline can use different reasoning intensities optimized for their task.
+
+**Why this priority**: Pipeline customization is an advanced use case that enables power users to fine-tune reasoning per task. It depends on the core infrastructure from P1 stories.
+
+**Independent Test**: Can be tested by opening the pipeline editor, selecting a reasoning model variant for an agent node, saving the pipeline, and executing it to confirm the correct reasoning level is used for that agent.
+
+**Acceptance Scenarios**:
+
+1. **Given** I am editing a pipeline agent node, **When** I open the model selector, **Then** I see the same reasoning-expanded variants as in Settings (e.g., "o3 (High)", "o3 (Medium)").
+2. **Given** I configure Agent A with "o3 (High)" and Agent B with "o3 (Low)", **When** the pipeline executes, **Then** Agent A uses high reasoning and Agent B uses low reasoning.
+3. **Given** a pipeline agent has a reasoning level configured, **When** the user also has a default reasoning level in settings, **Then** the pipeline agent's configured level takes precedence over the user's default.
 
 ---
 
