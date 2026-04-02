@@ -176,20 +176,20 @@
 
 ---
 
-## Phase 10: User Story 2D — Other Pages Verification (Priority: P2)
+## Phase 10: Other Pages Verification (Priority: P2)
 
-**Goal**: Verify remaining pages (agents, chores, templates, tool selector, activity, help) render correctly on mobile.
+**Goal**: Verify remaining pages (agents, chores, templates, tool selector, activity, help) render correctly on mobile. These are verify-and-fix tasks from the plan's Phase 2D that map to functional requirements FR-021 through FR-025.
 
 **Independent Test**: Load each page on a 375px viewport and verify no overflow, proper reflow, and readable content.
 
 ### Implementation for Other Pages Verification
 
-- [ ] T049 [P] [US5] Verify agent card reflow in `solune/frontend/src/components/agents/AgentsPanel.tsx` — confirm cards reflow to single-column on mobile (FR-021)
-- [ ] T050 [P] [US5] Verify chores grid scaling in `solune/frontend/src/components/chores/ChoresGrid.tsx` — confirm `gap-3 md:gap-5` or equivalent responsive gap styling works (FR-022)
-- [ ] T051 [P] [US5] Verify template tiles stacking in template browser component — confirm tiles stack vertically on mobile (FR-023)
-- [ ] T052 [P] [US5] Verify activity timeline readability in `solune/frontend/src/pages/ActivityPage.tsx` — confirm readable on narrow screens without clipping (FR-024)
-- [ ] T053 [P] [US5] Verify help FAQ accordion in `solune/frontend/src/pages/HelpPage.tsx` — confirm expansion without horizontal overflow (FR-025)
-- [ ] T054 [P] [US5] Verify ToolSelectorModal in `solune/frontend/src/components/` — confirm no overflow on mobile (already responsive, verify only)
+- [ ] T049 [P] Verify agent card reflow in `solune/frontend/src/components/agents/AgentsPanel.tsx` — confirm cards reflow to single-column on mobile (FR-021)
+- [ ] T050 [P] Verify chores grid scaling in `solune/frontend/src/components/chores/ChoresGrid.tsx` — confirm `gap-3 md:gap-5` or equivalent responsive gap styling works (FR-022)
+- [ ] T051 [P] Verify template tiles stacking in template browser component — confirm tiles stack vertically on mobile (FR-023)
+- [ ] T052 [P] Verify activity timeline readability in `solune/frontend/src/pages/ActivityPage.tsx` — confirm readable on narrow screens without clipping (FR-024)
+- [ ] T053 [P] Verify help FAQ accordion in `solune/frontend/src/pages/HelpPage.tsx` — confirm expansion without horizontal overflow (FR-025)
+- [ ] T054 [P] Verify ToolSelectorModal in `solune/frontend/src/components/` — confirm no overflow on mobile (already responsive, verify only)
 
 **Checkpoint**: All secondary pages verified on mobile — no overflow or layout issues.
 
@@ -218,11 +218,11 @@
 - **User Story 1 — Chat (Phase 3)**: Depends on Foundational (Phase 2) completion — can start as soon as z-index tokens are in place
 - **User Story 2 — Navigation (Phase 4)**: Depends on Foundational (Phase 2) — **can run in parallel with Phase 3**
 - **User Story 3 — Board (Phase 5)**: Depends on Foundational (Phase 2) — **can run in parallel with Phases 3 & 4**
-- **User Story 4 — Pipeline (Phase 6)**: Depends on Phase 5 (Board) for board grid patterns applied to pipeline — should run after Phase 5
+- **User Story 4 — Pipeline (Phase 6)**: Depends on User Story 3 / Phase 5 (Board) for board grid patterns applied to pipeline — should run after Phase 5
 - **User Story 5 — Modals (Phase 7)**: Depends on Foundational (Phase 2) — **can run in parallel with Phases 3–5**
 - **User Story 6 — Polish (Phase 8)**: Depends on all implementation phases (3–7) being complete
 - **User Story 7 — Tests (Phase 9)**: Depends on all implementation phases (3–8) being complete plus T002 (viewport definitions)
-- **Other Pages (Phase 10)**: Depends on Foundational (Phase 2) — **can run in parallel with Phases 3–7**
+- **Other Pages (Phase 10)**: Depends on Foundational (Phase 2) — **can run in parallel with Phases 3–7**; no story label (cross-cutting verification)
 - **Polish & Cross-Cutting (Phase 11)**: Depends on all previous phases being complete
 
 ### User Story Dependencies
