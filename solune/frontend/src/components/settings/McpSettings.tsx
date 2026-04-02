@@ -167,8 +167,7 @@ function AddMcpForm({
       if (detailFromErrorField) return detailFromErrorField;
 
       // Also support FastAPI HTTPException shape: { detail: string }
-      const detailFromDetailField = (serverError.error as unknown as Record<string, unknown>)
-        ?.detail;
+      const detailFromDetailField = serverError.error?.details?.detail;
       if (typeof detailFromDetailField === 'string' && detailFromDetailField.trim()) {
         return detailFromDetailField;
       }
@@ -321,7 +320,9 @@ export function McpSettings() {
     if (deleteError instanceof ApiError) {
       return (
         deleteError.error?.error ||
-        ((deleteError.error as unknown as Record<string, unknown>)?.detail as string) ||
+        (typeof deleteError.error?.details?.detail === 'string'
+          ? deleteError.error.details.detail
+          : null) ||
         (deleteError.message !== 'undefined' ? deleteError.message : null) ||
         'Failed to delete MCP configuration.'
       );

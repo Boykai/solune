@@ -22,14 +22,16 @@ function getAssignmentModelName(agent: AgentAssignment): string {
   return typeof modelName === 'string' ? modelName : '';
 }
 
+import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+
 interface AgentTileProps {
   agent: AgentAssignment;
   onRemove?: (agentInstanceId: string) => void;
   onClone?: (agentInstanceId: string) => void;
   /** Sorted item props from useSortable (injected by AgentColumnCell) */
   sortableProps?: {
-    attributes: Record<string, unknown>;
-    listeners: Record<string, unknown>;
+    attributes: DraggableAttributes;
+    listeners: DraggableSyntheticListeners;
     setNodeRef: (node: HTMLElement | null) => void;
     style: React.CSSProperties;
     isDragging: boolean;
