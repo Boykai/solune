@@ -11,13 +11,6 @@ vi.mock('@/hooks/useSettings', () => ({
     updateSettings: vi.fn(),
     isUpdating: false,
   }),
-  useGlobalSettings: () => ({
-    settings: undefined,
-    isLoading: false,
-    error: null,
-    updateSettings: vi.fn(),
-    isUpdating: false,
-  }),
 }));
 
 describe('SettingsPage', () => {
