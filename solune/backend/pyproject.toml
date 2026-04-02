@@ -122,7 +122,7 @@ markers = [
 pythonVersion = "3.13"
 typeCheckingMode = "standard"
 include = ["src"]
-exclude = ["**/__pycache__", "tests", "htmlcov"]
+exclude = ["**/__pycache__", "htmlcov"]
 reportMissingTypeStubs = false
 reportMissingImports = "warning"
 

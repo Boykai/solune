@@ -79,22 +79,27 @@ if [ -n "$STAGED_PY_FILES" ]; then
         PYRIGHT="pyright"
     fi
 
-    if $PYRIGHT "$REPO_ROOT/solune/backend/src" --pythonpath "$REPO_ROOT/solune/backend/.venv/bin/python" > /dev/null 2>&1; then
+    PYRIGHT_PYTHON_ARGS=""
+    if [ -d "$REPO_ROOT/solune/backend/.venv" ]; then
+        PYRIGHT_PYTHON_ARGS="--pythonpath $REPO_ROOT/solune/backend/.venv/bin/python"
+    fi
+
+    if $PYRIGHT "$REPO_ROOT/solune/backend/src" $PYRIGHT_PYTHON_ARGS > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Type errors must be fixed manually${NC}"
-        $PYRIGHT "$REPO_ROOT/solune/backend/src" --pythonpath "$REPO_ROOT/solune/backend/.venv/bin/python" 2>&1 | tail -10
+        $PYRIGHT "$REPO_ROOT/solune/backend/src" $PYRIGHT_PYTHON_ARGS 2>&1 | tail -10
         FAILED=1
     fi
 
     echo -n "  🧪 Pyright tests... "
-    if $PYRIGHT "$REPO_ROOT/solune/backend/tests" --pythonpath "$REPO_ROOT/solune/backend/.venv/bin/python" > /dev/null 2>&1; then
+    if $PYRIGHT "$REPO_ROOT/solune/backend/tests" $PYRIGHT_PYTHON_ARGS > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Test type errors must be fixed manually${NC}"
-        $PYRIGHT "$REPO_ROOT/solune/backend/tests" --pythonpath "$REPO_ROOT/solune/backend/.venv/bin/python" 2>&1 | tail -10
+        $PYRIGHT "$REPO_ROOT/solune/backend/tests" $PYRIGHT_PYTHON_ARGS 2>&1 | tail -10
         FAILED=1
     fi
 
