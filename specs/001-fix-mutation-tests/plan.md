@@ -11,8 +11,8 @@ Fix the mutation testing infrastructure for both backend and frontend. Backend m
 
 ## Technical Context
 
-**Language/Version**: Python 3.11 (backend), TypeScript 5.x (frontend)
-**Primary Dependencies**: FastAPI, mutmut (backend mutation); React 18, Stryker v9.6.0, Vitest (frontend mutation)
+**Language/Version**: Python >=3.12 (backend, targeting 3.13 per `pyproject.toml`), TypeScript ~6.0.2 (frontend, per frontend package config)
+**Primary Dependencies**: FastAPI, mutmut (backend mutation); React 19.x, Stryker v9.6.0, Vitest (frontend mutation)
 **Storage**: N/A (infrastructure/CI changes only)
 **Testing**: pytest (backend), Vitest + Stryker (frontend mutation), Playwright (frontend e2e)
 **Target Platform**: GitHub Actions CI (Ubuntu runners)

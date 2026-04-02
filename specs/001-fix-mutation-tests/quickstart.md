@@ -5,7 +5,7 @@
 
 ## Prerequisites
 
-- Python 3.11+ with `uv` package manager
+- Python 3.12+ (developed and tested with Python 3.13) with `uv` package manager
 - Node.js 22+ with npm
 - Git
 

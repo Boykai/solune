@@ -238,13 +238,13 @@ Use `renderHook` from `@testing-library/react`, mock `IntersectionObserver` with
 3. **Focused mutation commands**: Document per-shard npm scripts and the single-file command with examples:
    ```bash
    # Run mutations for a specific frontend shard
-   cd frontend && npm run test:mutate:hooks-board
+   cd solune/frontend && npm run test:mutate:hooks-board
    
    # Run mutations for a single file
-   cd frontend && npm run test:mutate:file -- 'src/hooks/useAdaptivePolling.ts'
+   cd solune/frontend && npm run test:mutate:file -- 'src/hooks/useAdaptivePolling.ts'
    
    # Run a specific backend shard locally
-   cd backend && python scripts/run_mutmut_shard.py --shard api-and-middleware
+   cd solune/backend && python scripts/run_mutmut_shard.py --shard api-and-middleware
    ```
 
 4. **Quick Commands table**: Update the mutation entries to reference shard commands.
