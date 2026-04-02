@@ -8,14 +8,33 @@ Covers:
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
+from src.exceptions import CatalogUnavailableError
 from src.services.agents.catalog import (
+    CATALOG_CACHE_KEY,
     _parse_catalog_index,
     fetch_agent_raw_content,
     list_catalog_agents,
 )
 from src.services.cache import InMemoryCache
+
+ROOT_INDEX_SAMPLE = """# Awesome GitHub Copilot
+
+## Overview
+
+- **Agents**: Specialized GitHub Copilot agents
+
+## Agents
+
+- [Agent Alpha](https://raw.githubusercontent.com/github/awesome-copilot/main/agents/agent-alpha.agent.md): First catalog agent.
+- [Agent Beta](https://raw.githubusercontent.com/github/awesome-copilot/main/agents/agent-beta.agent.md): Second catalog agent.
+
+## Instructions
+
+- [Rules](https://raw.githubusercontent.com/github/awesome-copilot/main/instructions/rules.instructions.md): Shared instructions.
+"""
 
 # ── _parse_catalog_index ─────────────────────────────────────────────────
 
@@ -41,6 +60,14 @@ class TestParseCatalogIndex:
         assert len(result) == 2
         assert result[0].name == "Alpha"
         assert result[1].name == "Beta"
+
+    def test_parses_agents_section_from_root_index(self):
+        result = _parse_catalog_index(ROOT_INDEX_SAMPLE)
+        assert len(result) == 2
+        assert result[0].name == "Agent Alpha"
+        assert result[0].description == "First catalog agent."
+        assert result[1].name == "Agent Beta"
+        assert result[1].source_url.endswith("agent-beta.agent.md")
 
     def test_skips_blocks_without_name(self):
         raw = "> Just a description\nhttps://example.com/agent.md\n"
@@ -89,13 +116,9 @@ class TestListCatalogAgents:
 
     async def test_marks_already_imported(self, mock_db, test_cache):
         """Agents already in the project DB have already_imported=True."""
-        test_cache.set(
-            "catalog:awesome-copilot:agents",
-            "# Alpha\n> First agent\nhttps://example.com/alpha.md\n\n"
-            "# Beta\n> Second agent\nhttps://example.com/beta.md\n",
-        )
+        test_cache.set(CATALOG_CACHE_KEY, ROOT_INDEX_SAMPLE)
 
-        # Insert an imported agent matching "alpha"
+        # Insert an imported agent matching "agent-alpha"
         await mock_db.execute(
             """INSERT INTO agent_configs
                (id, name, slug, description, system_prompt, status_column,
@@ -103,21 +126,64 @@ class TestListCatalogAgents:
                 created_at, lifecycle_status, catalog_agent_id, agent_type)
                VALUES ('a1', 'Alpha', 'alpha', 'First agent', '', '', '[]',
                        'proj-1', 'owner', 'repo', 'user1',
-                       datetime('now'), 'imported', 'alpha', 'imported')""",
+                       datetime('now'), 'imported', 'agent-alpha', 'imported')""",
         )
         await mock_db.commit()
 
         result = await list_catalog_agents("proj-1", mock_db, cache_instance=test_cache)
-        alpha = next(a for a in result if a.id == "alpha")
-        beta = next(a for a in result if a.id == "beta")
+        alpha = next(a for a in result if a.id == "agent-alpha")
+        beta = next(a for a in result if a.id == "agent-beta")
         assert alpha.already_imported is True
         assert beta.already_imported is False
 
     async def test_returns_empty_when_no_catalog(self, mock_db, test_cache):
         """Returns empty list when cache has empty content."""
-        test_cache.set("catalog:awesome-copilot:agents", "")
+        test_cache.set(CATALOG_CACHE_KEY, "")
         result = await list_catalog_agents("proj-1", mock_db, cache_instance=test_cache)
         assert result == []
+
+    async def test_uses_stale_cache_when_upstream_fetch_fails(self, mock_db, test_cache):
+        """Expired catalog data is still returned when the upstream request fails."""
+        test_cache.set(CATALOG_CACHE_KEY, ROOT_INDEX_SAMPLE, ttl_seconds=-1)
+
+        with patch(
+            "src.services.agents.catalog._fetch_catalog_index",
+            new_callable=AsyncMock,
+            side_effect=httpx.TimeoutException("timed out"),
+        ):
+            result = await list_catalog_agents("proj-1", mock_db, cache_instance=test_cache)
+
+        assert [agent.id for agent in result] == ["agent-alpha", "agent-beta"]
+
+    async def test_raises_bad_gateway_when_upstream_returns_http_error(self, mock_db, test_cache):
+        """HTTP errors from the upstream catalog become catalog availability errors."""
+        request = httpx.Request("GET", "https://awesome-copilot.github.com/llms.txt")
+        response = httpx.Response(status_code=404, request=request)
+
+        with patch(
+            "src.services.agents.catalog._fetch_catalog_index",
+            new_callable=AsyncMock,
+            side_effect=httpx.HTTPStatusError("not found", request=request, response=response),
+        ):
+            with pytest.raises(CatalogUnavailableError) as excinfo:
+                await list_catalog_agents("proj-1", mock_db, cache_instance=test_cache)
+
+        assert excinfo.value.status_code == 502
+        assert excinfo.value.details["upstream_status"] == 404
+        assert "could not be found upstream" in excinfo.value.details["reason"]
+
+    async def test_raises_service_unavailable_when_upstream_times_out(self, mock_db, test_cache):
+        """Timeouts without stale data become service-unavailable catalog errors."""
+        with patch(
+            "src.services.agents.catalog._fetch_catalog_index",
+            new_callable=AsyncMock,
+            side_effect=httpx.TimeoutException("timed out"),
+        ):
+            with pytest.raises(CatalogUnavailableError) as excinfo:
+                await list_catalog_agents("proj-1", mock_db, cache_instance=test_cache)
+
+        assert excinfo.value.status_code == 503
+        assert "timed out" in excinfo.value.details["reason"].lower()
 
 
 # ── fetch_agent_raw_content ──────────────────────────────────────────────

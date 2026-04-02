@@ -11,7 +11,11 @@ import re
 from urllib.parse import urlparse
 
 import aiosqlite
+import httpx
+from fastapi import status
 
+from src.config import get_settings
+from src.exceptions import CatalogUnavailableError
 from src.logging_utils import get_logger
 from src.models.agents import CatalogAgent
 from src.services.cache import InMemoryCache, cache, cached_fetch
@@ -20,9 +24,13 @@ logger = get_logger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────────
 
-CATALOG_INDEX_URL = "https://awesome-copilot.github.com/agents/llms.txt"
 CATALOG_CACHE_KEY = "catalog:awesome-copilot:agents"
 CATALOG_CACHE_TTL = 3600  # 1 hour
+_AGENTS_SECTION_HEADER = "## Agents"
+_SECTION_HEADER_PREFIX = "## "
+_AGENT_LIST_ITEM_RE = re.compile(
+    r"^- \[(?P<name>[^\]]+)\]\((?P<url>https://[^)]+)\):\s*(?P<description>.+)$"
+)
 
 # Allowlisted hosts for fetching raw agent content (SSRF mitigation)
 _ALLOWED_SOURCE_HOSTS = frozenset(
@@ -50,25 +58,64 @@ def validate_source_url(url: str) -> None:
         raise ValueError(f"Source URL host '{parsed.hostname}' is not in the allowed list.")
 
 
+def _build_catalog_agent(name: str, description: str, source_url: str) -> CatalogAgent | None:
+    """Create a catalog agent with a normalized slug, or return None when invalid."""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if not slug:
+        return None
+
+    return CatalogAgent(
+        id=slug,
+        name=name,
+        description=description or name,
+        source_url=source_url,
+    )
+
+
 # ── Parsing ──────────────────────────────────────────────────────────────
 
 
-def _parse_catalog_index(raw_text: str) -> list[CatalogAgent]:
-    """Parse the llms.txt index into ``CatalogAgent`` objects.
-
-    The llms.txt format consists of blocks separated by blank lines.
-    Each block has:
-    - Line 1: ``# Agent Name``
-    - Line 2 (optional): ``> Description text``
-    - A line containing the URL to the raw agent file
-
-    We use a lenient parser that extracts as many valid entries as
-    possible and skips malformed blocks.
-    """
-    if not raw_text or not raw_text.strip():
-        return []
-
+def _parse_agents_section_index(raw_text: str) -> list[CatalogAgent]:
+    """Parse the current root llms.txt format using the ``## Agents`` section."""
     agents: list[CatalogAgent] = []
+    in_agents_section = False
+
+    for raw_line in raw_text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if line == _AGENTS_SECTION_HEADER:
+            in_agents_section = True
+            continue
+
+        if line.startswith(_SECTION_HEADER_PREFIX):
+            if in_agents_section:
+                break
+            continue
+
+        if not in_agents_section:
+            continue
+
+        match = _AGENT_LIST_ITEM_RE.match(line)
+        if not match:
+            continue
+
+        agent = _build_catalog_agent(
+            match.group("name").strip(),
+            match.group("description").strip(),
+            match.group("url").strip(),
+        )
+        if agent is not None:
+            agents.append(agent)
+
+    return agents
+
+
+def _parse_legacy_block_index(raw_text: str) -> list[CatalogAgent]:
+    """Parse the legacy llms.txt block format used by older catalog indexes."""
+    agents: list[CatalogAgent] = []
+
     # Split on double-newlines (or more) to get blocks
     blocks = re.split(r"\n{2,}", raw_text.strip())
 
@@ -92,24 +139,62 @@ def _parse_catalog_index(raw_text: str) -> list[CatalogAgent]:
         if not name or not source_url:
             continue
 
-        # Derive slug from name
-        slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
-        if not slug:
-            continue
-
-        if not description:
-            description = name
-
-        agents.append(
-            CatalogAgent(
-                id=slug,
-                name=name,
-                description=description,
-                source_url=source_url,
-            )
-        )
+        agent = _build_catalog_agent(name, description, source_url)
+        if agent is not None:
+            agents.append(agent)
 
     return agents
+
+
+def _map_catalog_fetch_error(exc: Exception) -> CatalogUnavailableError:
+    """Translate upstream fetch failures into safe, user-facing catalog errors."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        upstream_status = exc.response.status_code
+        reason = f"The Awesome Copilot catalog returned HTTP {upstream_status}."
+        if upstream_status == status.HTTP_404_NOT_FOUND:
+            reason = "The Awesome Copilot catalog index could not be found upstream."
+        return CatalogUnavailableError(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            details={
+                "reason": reason,
+                "upstream_status": upstream_status,
+            },
+        )
+
+    if isinstance(exc, httpx.TimeoutException):
+        reason = "The Awesome Copilot catalog timed out. Retry in a moment."
+    elif isinstance(exc, httpx.ConnectError):
+        reason = "The Awesome Copilot catalog could not be reached. Retry in a moment."
+    elif isinstance(exc, httpx.RequestError):
+        reason = "The Awesome Copilot catalog request failed before a response was received."
+    else:
+        reason = "The Awesome Copilot catalog could not be loaded right now."
+
+    return CatalogUnavailableError(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        details={"reason": reason},
+    )
+
+
+def _parse_catalog_index(raw_text: str) -> list[CatalogAgent]:
+    """Parse the llms.txt index into ``CatalogAgent`` objects.
+
+    The current upstream root index stores agents in the ``## Agents``
+    section as markdown list items. Older indexes used blank-line-separated
+    blocks with a ``# Agent Name`` header, optional ``> Description`` line,
+    and a raw URL line.
+
+    We accept both formats so cached legacy data remains readable while the
+    live upstream root index continues to work.
+    """
+    if not raw_text or not raw_text.strip():
+        return []
+
+    agents = _parse_agents_section_index(raw_text)
+    if agents:
+        return agents
+
+    return _parse_legacy_block_index(raw_text)
 
 
 # ── Fetching ─────────────────────────────────────────────────────────────
@@ -117,10 +202,10 @@ def _parse_catalog_index(raw_text: str) -> list[CatalogAgent]:
 
 async def _fetch_catalog_index() -> str:
     """Fetch the raw llms.txt content from the Awesome Copilot site."""
-    import httpx
+    settings = get_settings()
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(CATALOG_INDEX_URL)
+    async with httpx.AsyncClient(timeout=settings.catalog_fetch_timeout_seconds) as client:
+        resp = await client.get(settings.catalog_index_url)
         resp.raise_for_status()
         return resp.text
 
@@ -133,9 +218,9 @@ async def fetch_agent_raw_content(source_url: str) -> str:
     """
     validate_source_url(source_url)
 
-    import httpx
+    settings = get_settings()
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(timeout=settings.catalog_fetch_timeout_seconds) as client:
         resp = await client.get(source_url)
         resp.raise_for_status()
         return resp.text
@@ -157,13 +242,17 @@ async def list_catalog_agents(
     """
     _cache = cache_instance or cache
 
-    raw_text: str = await cached_fetch(
-        _cache,
-        CATALOG_CACHE_KEY,
-        _fetch_catalog_index,
-        ttl_seconds=CATALOG_CACHE_TTL,
-        stale_fallback=True,
-    )
+    try:
+        raw_text: str = await cached_fetch(
+            _cache,
+            CATALOG_CACHE_KEY,
+            _fetch_catalog_index,
+            ttl_seconds=CATALOG_CACHE_TTL,
+            stale_fallback=True,
+        )
+    except Exception as exc:
+        logger.warning("Catalog index fetch failed", exc_info=True)
+        raise _map_catalog_fetch_error(exc) from exc
 
     agents = _parse_catalog_index(raw_text)
 

@@ -55,6 +55,19 @@ class GitHubAPIError(AppException):
         super().__init__(message, status_code=status.HTTP_502_BAD_GATEWAY, details=details)
 
 
+class CatalogUnavailableError(AppException):
+    """Awesome Copilot catalog is unavailable or unreachable."""
+
+    def __init__(
+        self,
+        message: str = "Browser Agents catalog is temporarily unavailable.",
+        *,
+        status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE,
+        details: dict | None = None,
+    ):
+        super().__init__(message, status_code=status_code, details=details)
+
+
 class RateLimitError(AppException):
     """Rate limit exceeded."""
 

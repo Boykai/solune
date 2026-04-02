@@ -64,6 +64,16 @@ describe('AddAgentModal', () => {
     mockUseToolsList.mockReturnValue({ tools: [] });
   });
 
+  it('uses the shared opaque dialog shell styling when open', () => {
+    render(<AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole('dialog', { name: /add agent/i });
+    const overlay = dialog.parentElement;
+
+    expect(dialog).toHaveClass('celestial-panel', 'bg-card', 'border-border/80', 'overflow-hidden');
+    expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm');
+  });
+
   it('saves from the unsaved-changes dialog without relying on the unmounted form element', async () => {
     const user = userEvent.setup();
     const mutateAsync = vi.fn().mockResolvedValue({
