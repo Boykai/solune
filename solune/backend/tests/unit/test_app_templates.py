@@ -187,6 +187,60 @@ class TestRegistry:
         assert "files" in d
         assert d["recommended_preset_id"] == "medium"
 
+    def test_discover_templates_empty_for_missing_dir(self, tmp_path: Path) -> None:
+        """discover_templates returns empty dict when base_dir does not exist."""
+        result = discover_templates(tmp_path / "nonexistent")
+        assert result == {}
+
+    def test_discover_templates_skips_files_without_template_json(self, tmp_path: Path) -> None:
+        """Directories without template.json are silently skipped."""
+        (tmp_path / "no-meta").mkdir()
+        (tmp_path / "no-meta" / "README.md").write_text("Not a template")
+        result = discover_templates(tmp_path)
+        assert len(result) == 0
+
+    def test_discover_templates_skips_plain_files(self, tmp_path: Path) -> None:
+        """Non-directory entries in the base dir are ignored."""
+        (tmp_path / "stray-file.txt").write_text("not a dir")
+        result = discover_templates(tmp_path)
+        assert len(result) == 0
+
+    def test_discover_templates_handles_malformed_json(self, tmp_path: Path) -> None:
+        """A directory with invalid template.json is skipped without crashing."""
+        bad_dir = tmp_path / "bad-template"
+        bad_dir.mkdir()
+        (bad_dir / "template.json").write_text("{invalid json}")
+        result = discover_templates(tmp_path)
+        assert len(result) == 0
+
+    def test_templates_dir_resolves_to_real_directory(self) -> None:
+        """_TEMPLATES_DIR should point to the actual templates/app-templates/ directory."""
+        assert _TEMPLATES_DIR.is_dir(), f"Expected {_TEMPLATES_DIR} to exist"
+        subdirs = [p.name for p in _TEMPLATES_DIR.iterdir() if p.is_dir()]
+        assert len(subdirs) >= 4, f"Expected at least 4 template dirs, found {subdirs}"
+
+    def test_reload_templates_clears_cache(self) -> None:
+        """Calling reload_templates clears the cache so next access re-scans disk."""
+        t1 = get_template("api-fastapi")
+        assert t1 is not None
+        reload_templates()
+        t2 = get_template("api-fastapi")
+        assert t2 is not None
+        # Both are valid, but t2 comes from a fresh scan
+        assert t1.id == t2.id
+
+    def test_list_templates_returns_list_not_dict_values(self) -> None:
+        """list_templates returns a proper list, not a dict_values view."""
+        result = list_templates()
+        assert isinstance(result, list)
+        assert all(isinstance(t, AppTemplate) for t in result)
+
+    def test_discovered_templates_sorted_deterministically(self) -> None:
+        """Templates should be discovered in sorted order by directory name."""
+        templates = discover_templates(_TEMPLATES_DIR)
+        ids = list(templates.keys())
+        assert ids == sorted(ids), f"Template IDs should be sorted, got {ids}"
+
 
 # ── Renderer Tests ──────────────────────────────────────────────────────
 
