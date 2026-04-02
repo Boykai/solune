@@ -105,6 +105,8 @@ Update the artifact upload step to use `stryker-report-${{ matrix.shard }}` as t
 
 **Checkpoint**: The frontend mutation section of the workflow now defines 4 shard jobs. Each shard's glob excludes test files. The `general-hooks` shard explicitly excludes files covered by `board-polling-hooks` and `data-query-hooks` to prevent overlap.
 
+**⚠️ Sync Coupling**: The `general-hooks` shard's exclusion list mirrors the inclusion globs of `board-polling-hooks` and `data-query-hooks`. If any shard's globs change, the `general-hooks` exclusions must be updated to match. T011 (Polish) validates this alignment.
+
 ---
 
 ## Phase 6: User Story 4 — Developer-Facing Focused Mutation Commands (Priority: P3)
@@ -128,6 +130,8 @@ Update the artifact upload step to use `stryker-report-${{ matrix.shard }}` as t
 ```
 
 The `test:mutate:file` command accepts a file path argument via `--` (e.g., `npm run test:mutate:file -- 'src/hooks/useAdaptivePolling.ts'`). Backend focused runs already use `python scripts/run_mutmut_shard.py --shard <name>` — no new backend tooling needed, only documentation (covered in US7).
+
+**⚠️ Sync Coupling**: The shard globs in these npm scripts must exactly match the corresponding CI workflow matrix globs from T003. If the CI shard definitions change, these scripts must be updated in lockstep. T011 (Polish) does not currently validate this — consider adding a comment in `package.json` referencing the CI workflow as the source of truth.
 
 **Checkpoint**: `npm run` in the frontend directory shows all new mutation scripts. Each shard script uses the same base `stryker.config.mjs`.
 
@@ -317,19 +321,19 @@ T002 (US2) and T003 (US3) both modify `.github/workflows/mutation-testing.yml`. 
 ## Parallel Example: Maximum Concurrency
 
 ```text
-# Wave 1 — Start immediately (3 parallel tracks):
+# Wave 1 — Start immediately (2 parallel tracks):
 Track A: T001 [US1] Backend pyproject.toml fix
-Track B: T003 [US3] Frontend sharding in mutation-testing.yml
-Track C: T005 [US5] Provider nesting fix in test-utils.tsx
+Track B: T005 [US5] Provider nesting fix in test-utils.tsx
 
-# Wave 2 — After Wave 1 completes:
-Track A: T002 [US2] Add api-and-middleware shard to mutation-testing.yml
+# Wave 2 — After Wave 1 (serialized workflow edits, parallel with other files):
+Track A: T002 [US2] Add api-and-middleware to mutation-testing.yml  ← MUST be before T003
 Track B: T004 [US4] Add focused mutation scripts to package.json
 Track C: T006 [US5] Add provider test in test-utils.test.tsx
 
-# Wave 3 — After Wave 2 completes:
-Track A: T007 [US6] useAdaptivePolling tests  } parallel
-Track B: T008 [US6] useBoardProjection tests  } parallel
+# Wave 3 — After T002 completes (same file as T002, serialized):
+Track A: T003 [US3] Frontend sharding in mutation-testing.yml  ← after T002 (same file)
+Track B: T007 [US6] useAdaptivePolling tests  } parallel
+Track C: T008 [US6] useBoardProjection tests  } parallel
 
 # Wave 4 — After Wave 3 completes:
 Track A: T009 [US7] Update testing.md  } parallel
