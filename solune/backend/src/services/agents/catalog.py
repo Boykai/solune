@@ -25,11 +25,13 @@ CATALOG_CACHE_KEY = "catalog:awesome-copilot:agents"
 CATALOG_CACHE_TTL = 3600  # 1 hour
 
 # Allowlisted hosts for fetching raw agent content (SSRF mitigation)
-_ALLOWED_SOURCE_HOSTS = frozenset({
-    "raw.githubusercontent.com",
-    "awesome-copilot.github.com",
-    "github.com",
-})
+_ALLOWED_SOURCE_HOSTS = frozenset(
+    {
+        "raw.githubusercontent.com",
+        "awesome-copilot.github.com",
+        "github.com",
+    }
+)
 
 
 def validate_source_url(url: str) -> None:
@@ -45,9 +47,8 @@ def validate_source_url(url: str) -> None:
     if parsed.scheme != "https":
         raise ValueError("Only HTTPS source URLs are allowed.")
     if parsed.hostname not in _ALLOWED_SOURCE_HOSTS:
-        raise ValueError(
-            f"Source URL host '{parsed.hostname}' is not in the allowed list."
-        )
+        raise ValueError(f"Source URL host '{parsed.hostname}' is not in the allowed list.")
+
 
 # ── Parsing ──────────────────────────────────────────────────────────────
 

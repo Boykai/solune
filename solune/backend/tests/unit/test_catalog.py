@@ -131,7 +131,10 @@ class TestFetchAgentRawContent:
         mock_response = httpx.Response(
             200,
             text="---\nname: Test\n---\nAgent content",
-            request=httpx.Request("GET", "https://example.com/agent.md"),
+            request=httpx.Request(
+                "GET",
+                "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/test.agent.md",
+            ),
         )
 
         mock_client = AsyncMock()
@@ -140,5 +143,7 @@ class TestFetchAgentRawContent:
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
         with patch("httpx.AsyncClient", return_value=mock_client):
-            content = await fetch_agent_raw_content("https://example.com/agent.md")
+            content = await fetch_agent_raw_content(
+                "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/test.agent.md"
+            )
             assert content == "---\nname: Test\n---\nAgent content"
