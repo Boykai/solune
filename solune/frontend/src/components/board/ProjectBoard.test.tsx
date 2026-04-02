@@ -113,4 +113,52 @@ describe('ProjectBoard', () => {
 
     expect(screen.getByRole('region', { name: 'Project board' })).toBeInTheDocument();
   });
+
+  it('applies scroll-snap classes for mobile swiping UX', () => {
+    render(
+      <ProjectBoard
+        boardData={createBoardData()}
+        onCardClick={vi.fn()}
+      />
+    );
+
+    const scrollContainer = screen.getByRole('region', { name: 'Project board' });
+    expect(scrollContainer.className).toContain('snap-x');
+    expect(scrollContainer.className).toContain('snap-mandatory');
+    // Desktop should disable snap via md: breakpoint
+    expect(scrollContainer.className).toContain('md:snap-none');
+  });
+
+  it('sets grid column width with reduced minmax for mobile (14rem)', () => {
+    render(
+      <ProjectBoard
+        boardData={createBoardData()}
+        onCardClick={vi.fn()}
+      />
+    );
+
+    const grid = screen.getByRole('region', { name: 'Project board' })
+      .querySelector('.grid') as HTMLElement;
+    expect(grid).toBeTruthy();
+    // 2 columns → repeat(2, minmax(min(14rem, 85vw), 1fr))
+    expect(grid.style.gridTemplateColumns).toBe(
+      'repeat(2, minmax(min(14rem, 85vw), 1fr))'
+    );
+  });
+
+  it('uses column count of 1 when board has no columns', () => {
+    render(
+      <ProjectBoard
+        boardData={createBoardData({ columns: [] })}
+        onCardClick={vi.fn()}
+      />
+    );
+
+    const grid = screen.getByRole('region', { name: 'Project board' })
+      .querySelector('.grid') as HTMLElement;
+    expect(grid).toBeTruthy();
+    expect(grid.style.gridTemplateColumns).toBe(
+      'repeat(1, minmax(min(14rem, 85vw), 1fr))'
+    );
+  });
 });
