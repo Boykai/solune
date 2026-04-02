@@ -1,0 +1,358 @@
+# Librarian Documentation Refresh Workflow Contract
+#
+# Defines the structured inputs, outputs, and phase transitions for the
+# Librarian documentation refresh process. This is a process contract
+# (not an API contract) since the Librarian operates as a workflow, not
+# a service endpoint.
+#
+# Follows the speckit contract format (YAML-based structured definition).
+
+workflow: librarian-refresh
+version: "1.0.0"
+description: >
+  Repeatable documentation refresh process that detects what changed in a
+  codebase since the last baseline, infers how the product's focus shifted,
+  and rewrites documentation to match reality. Language-agnostic and
+  structure-agnostic.
+
+# Working directory convention: All relative paths in this contract assume
+# the working directory is `solune/` (the project root). Paths to repo-root
+# files (e.g., .github/, specs/) must use `../` prefix.
+
+trigger:
+  methods:
+    - type: manual
+      description: Team member initiates via GitHub Issue (chore-librarian template)
+    - type: scheduled
+      description: Bi-weekly cadence (configurable)
+      default_interval: "14 days"
+    - type: release
+      description: Per-release README audit by release manager
+
+inputs:
+  baseline:
+    description: Starting point for the refresh cycle
+    sources:
+      - path: "docs/.last-refresh"
+        format: json
+        fields: [date, sha, documents_updated, documents_skipped]
+      - type: git_tag
+        pattern: "docs-refresh-*"
+        fallback_pattern: "v*"
+      - type: time_window
+        default: "14 days"
+    resolution_order: [json_file, git_tag, release_tag, time_window]
+
+  repository:
+    description: Git repository with commit history
+    required: true
+    minimum_requirements:
+      - git history accessible
+      - text-based documentation files present
+
+  documentation:
+    description: Existing documentation files to refresh
+    paths:
+      - "docs/**/*.md"
+      - "README.md"
+      - "CHANGELOG.md"
+
+outputs:
+  change_manifest:
+    path: "docs/.change-manifest.md"
+    format: markdown
+    sections:
+      - refresh_window
+      - sha_range
+      - sources_analyzed
+      - new_capabilities
+      - changed_behavior
+      - removed_functionality
+      - architectural_changes
+      - ux_changes
+      - config_ops_changes
+      - renames
+      - verification_checklist
+
+  updated_baseline:
+    path: "docs/.last-refresh"
+    format: json
+    fields:
+      date:
+        type: string
+        format: ISO 8601
+        description: Timestamp of refresh completion
+      sha:
+        type: string
+        description: Git commit SHA at refresh point
+      documents_updated:
+        type: array
+        items: string
+        description: Doc file paths updated during refresh
+      documents_skipped:
+        type: array
+        items: string
+        description: Doc file paths reviewed but not requiring updates
+      broken_links_found:
+        type: integer
+        description: Count of broken links detected
+      manual_followups:
+        type: array
+        items: string
+        description: Items flagged for manual follow-up
+
+  git_tag:
+    pattern: "docs-refresh-YYYY-MM-DD"
+    description: Git tag marking the refresh point
+
+  changelog_entry:
+    path: "CHANGELOG.md"
+    section: "Documentation"
+    description: Entry noting which docs were updated and key changes
+
+phases:
+  phase_1:
+    name: Build the Change Manifest
+    goal: Catalog everything that changed since the last refresh
+    inputs: [baseline]
+    outputs: [change_manifest]
+    steps:
+      - id: "1.1"
+        name: Establish the baseline
+        action: Read .last-refresh or use fallback chain
+        output: baseline_sha
+        edge_cases:
+          - condition: no_baseline_exists
+            behavior: Use last release tag or 2-week time window
+            spec_ref: FR-001
+
+      - id: "1.2"
+        name: Harvest from structured sources
+        action: Parse CHANGELOG.md and scan ../specs/, docs/decisions/
+        commands:
+          - "git diff --name-status <baseline>..HEAD -- CHANGELOG.md"
+          - "git diff --name-status <baseline>..HEAD -- ../specs/ docs/decisions/"
+        output: structured_changes
+        edge_cases:
+          - condition: changelog_missing_or_nonstandard
+            behavior: Skip changelog parsing; proceed with code diffs only
+            spec_ref: Edge Case 2
+
+      - id: "1.3"
+        name: Harvest from code diffs
+        action: Analyze git diff and git log for high-signal changes
+        commands:
+          - "git diff --stat <baseline>..HEAD"
+          - "git log --oneline <baseline>..HEAD"
+        high_signal_patterns:
+          entry_points: ["**/api/**", "**/routes/**", "**/cli/**"]
+          public_modules: ["**/pages/**", "**/components/**", "**/exports/**"]
+          config_schemas: ["**/.env*", "**/config*", "**/*config*"]
+          dependency_manifests: ["**/package.json", "**/pyproject.toml", "**/Cargo.toml", "**/go.mod"]
+          data_models: ["**/migrations/**", "**/models/**", "**/schemas/**"]
+          build_deploy: ["**/Dockerfile", "**/docker-compose*", "**/.github/workflows/**"]
+        output: code_diff_changes
+
+      - id: "1.4"
+        name: Compile the manifest
+        action: Categorize all findings into 6 categories, deduplicate cross-source entries
+        categories:
+          - new_capabilities
+          - changed_behavior
+          - removed_functionality
+          - architectural_changes
+          - ux_changes
+          - config_ops_changes
+        output: change_manifest
+        edge_cases:
+          - condition: zero_changes_detected
+            behavior: Report "no changes"; skip all subsequent phases; preserve existing baseline
+            spec_ref: FR-017
+
+  phase_2:
+    name: Infer Focus Shifts
+    goal: Understand how the product has evolved
+    inputs: [change_manifest]
+    outputs: [focus_analysis]
+    steps:
+      - id: "2.1"
+        name: Measure change density by domain
+        action: Group manifest items by functional area; count per area
+        output: change_density_map
+
+      - id: "2.2"
+        name: Detect narrative-level shifts
+        action: Answer 5 diagnostic questions from the manifest
+        questions:
+          - "Has a new top-level capability been added?"
+          - "Has a prominent feature been reduced, removed, or folded?"
+          - "Has the primary value proposition shifted?"
+          - "Has the primary user workflow changed?"
+          - "Have new user personas been introduced?"
+        output: narrative_shifts
+
+      - id: "2.3"
+        name: Prioritize updates
+        action: Assign P0-P4 priorities based on detected shifts
+        priority_table:
+          P0: "Product pitch or primary workflow changed → README, docs landing page"
+          P1: "Feature added/changed/removed → Feature docs, API reference, guides"
+          P2: "Architecture or structure changed → Architecture docs, module maps"
+          P3: "Config, setup, or ops changed → Setup guides, config reference"
+          P4: "Bugs fixed or edge cases → Troubleshooting, FAQ, known issues"
+        output: priority_assignments
+
+  phase_3:
+    name: Update the README
+    goal: The README reflects the current product accurately
+    inputs: [priority_assignments, change_manifest]
+    outputs: [updated_readme]
+    steps:
+      - id: "3.1"
+        name: Revalidate project description
+        action: Compare README elevator pitch to current product; rewrite if narrative shift detected
+
+      - id: "3.2"
+        name: Audit feature list
+        action: Add new, remove deprecated, reorder by current importance
+
+      - id: "3.3"
+        name: Verify getting-started instructions
+        action: Run quickstart from scratch; update prerequisites and commands
+        edge_cases:
+          - condition: getting_started_fails
+            behavior: Log failure; flag section for manual intervention
+            spec_ref: Edge Case 6
+
+      - id: "3.4"
+        name: Update visual/structural references
+        action: Replace outdated screenshots/diagrams; verify badges and links
+
+  phase_4:
+    name: Update Documentation Files
+    goal: Each doc page is accurate to the current codebase
+    inputs: [priority_assignments, doc_to_source_mappings]
+    outputs: [updated_docs]
+    steps:
+      - id: "4.1"
+        name: Map each doc to its source of truth
+        action: Use OWNERS.md or explicit mappings to identify source for each doc
+        edge_cases:
+          - condition: doc_has_no_source_of_truth
+            behavior: Flag for manual review; include in link/term validation only
+            spec_ref: Edge Case 3
+
+      - id: "4.2"
+        name: Update affected docs
+        action: >
+          For each doc in priority order: read current doc, diff against source,
+          identify gaps (missing/stale/dead), rewrite affected sections naturally
+        rules:
+          - "Rewrite sections — don't patch with UPDATE notes"
+          - "If narrative shift occurred, adjust framing and emphasis"
+          - "Verify all code examples in rewritten sections"
+
+      - id: "4.3"
+        name: Update structural docs
+        action: Regenerate module maps, dependency graphs, architecture diagrams
+        commands:
+          - "tree -I 'node_modules|.git|dist|__pycache__' > /tmp/dir-tree.txt"
+          - "./scripts/generate-diagrams.sh"
+
+  phase_5:
+    name: Validate Consistency
+    goal: Docs are internally consistent and all references resolve
+    inputs: [updated_docs]
+    outputs: [validation_results]
+    steps:
+      - id: "5.1"
+        name: Link validation
+        action: Check internal cross-references and external URLs
+        tool: lychee
+        config:
+          max_retries: 3
+          retry_wait_time: 2
+          timeout: 30
+        edge_cases:
+          - condition: transient_url_error
+            behavior: Retry up to 3 times with backoff; flag only persistent failures
+            spec_ref: FR-016
+
+      - id: "5.2"
+        name: Terminology audit
+        action: Grep docs for renamed concepts from manifest; replace old names
+        edge_cases:
+          - condition: renamed_concept_in_non_flagged_doc
+            behavior: Terminology audit catches it regardless of priority list
+            spec_ref: Edge Case 5
+
+      - id: "5.3"
+        name: Diagram freshness
+        action: Regenerate auto-generated diagrams; verify non-generated ones
+        commands:
+          - "./scripts/generate-diagrams.sh --check"
+
+      - id: "5.4"
+        name: Code sample validation
+        action: Extract code snippets; verify syntax validity
+
+  phase_6:
+    name: Verify Against the Running Application
+    goal: Docs match the actual user experience
+    inputs: [updated_docs]
+    outputs: [verification_results]
+    steps:
+      - id: "6.1"
+        name: Smoke-test documented workflows
+        action: Walk 3-5 key user flows; verify terminology, navigation, outcomes
+
+      - id: "6.2"
+        name: Verify config and setup docs
+        action: Confirm all documented config keys exist; confirm defaults match
+
+      - id: "6.3"
+        name: Verify API docs
+        action: Hit 3-5 documented endpoints; confirm request/response shapes
+
+  phase_7:
+    name: Stamp & Reset Baseline
+    goal: Record the refresh so the next cycle starts clean
+    inputs: [all_phase_outputs]
+    outputs: [updated_baseline, git_tag, changelog_entry]
+    steps:
+      - id: "7.1"
+        name: Commit documentation changes
+        action: Single commit with conventional message
+        commit_message_template: "docs: refresh documentation for <period>"
+
+      - id: "7.2"
+        name: Update the changelog
+        action: Add Documentation section to CHANGELOG.md
+
+      - id: "7.3"
+        name: Set the new baseline
+        action: Update .last-refresh JSON and create git tag
+        tag_pattern: "docs-refresh-YYYY-MM-DD"
+
+cadence:
+  per_pr:
+    activity: PR author updates docs affected by their change
+    owner: PR author
+  bi_weekly:
+    activity: Full refresh (this workflow)
+    owner: Rotating team member
+  per_release:
+    activity: Changelog entry + README audit for pitch accuracy
+    owner: Release manager
+
+anti_patterns:
+  - name: Patching instead of rewriting
+    description: "Don't append UPDATE notes. Rewrite sections to read naturally."
+  - name: Documenting aspirations
+    description: "Don't document planned features. Docs describe the current release."
+  - name: Orphan docs
+    description: "Every doc must be reachable from README or docs index."
+  - name: Screenshot graveyards
+    description: "Screenshots go stale fast. Prefer text descriptions; regenerate images."
+  - name: Copy-paste config tables
+    description: "Generate config references from code or diff against code each cycle."
