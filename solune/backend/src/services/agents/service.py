@@ -768,6 +768,9 @@ class AgentsService:
         """
         from src.services.agents.catalog import fetch_agent_raw_content
 
+        if not body.catalog_agent_id:
+            raise ValueError("catalog_agent_id is required to import a catalog agent.")
+
         # Check for duplicate
         cursor = await self._db.execute(
             "SELECT id FROM agent_configs WHERE catalog_agent_id = ? AND project_id = ?",
@@ -785,39 +788,46 @@ class AgentsService:
             raise RuntimeError(f"Could not fetch agent content: {exc}") from exc
 
         agent_id = str(uuid.uuid4())
-        slug = re.sub(r"[^a-z0-9]+", "-", body.name.lower()).strip("-") or body.catalog_agent_id
+        slug = body.catalog_agent_id
         now = utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        await self._db.execute(
-            """INSERT INTO agent_configs
-               (id, name, slug, description, system_prompt, status_column,
-                tools, project_id, owner, repo, created_by,
-                created_at, lifecycle_status,
-                agent_type, catalog_source_url, catalog_agent_id,
-                raw_source_content, imported_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                agent_id,
-                body.name,
-                slug,
-                body.description,
-                "",  # system_prompt empty until install
-                "",  # status_column
-                "[]",  # tools
-                project_id,
-                owner,
-                repo,
-                github_user_id,
-                now,
-                AgentStatus.IMPORTED.value,
-                "imported",
-                body.source_url,
-                body.catalog_agent_id,
-                raw_content,
-                now,
-            ),
-        )
-        await self._db.commit()
+        try:
+            await self._db.execute(
+                """INSERT INTO agent_configs
+                   (id, name, slug, description, system_prompt, status_column,
+                    tools, project_id, owner, repo, created_by,
+                    created_at, lifecycle_status,
+                    agent_type, catalog_source_url, catalog_agent_id,
+                    raw_source_content, imported_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    agent_id,
+                    body.name,
+                    slug,
+                    body.description,
+                    "",  # system_prompt empty until install
+                    "",  # status_column
+                    "[]",  # tools
+                    project_id,
+                    owner,
+                    repo,
+                    github_user_id,
+                    now,
+                    AgentStatus.IMPORTED.value,
+                    "imported",
+                    body.source_url,
+                    body.catalog_agent_id,
+                    raw_content,
+                    now,
+                ),
+            )
+            await self._db.commit()
+        except Exception as exc:
+            if "UNIQUE constraint failed" in str(exc):
+                raise ValueError(
+                    f"Agent name '{body.name}' already exists in this project."
+                ) from exc
+            raise
 
         agent = Agent(
             id=agent_id,
@@ -871,8 +881,13 @@ class AgentsService:
         if r.get("lifecycle_status") != AgentStatus.IMPORTED.value:
             raise ValueError("Agent is not in imported state.")
 
+        if r.get("agent_type") != "imported":
+            raise ValueError("Only imported agents can be installed.")
+
         slug = r["slug"]
-        raw_content = r.get("raw_source_content", "")
+        raw_content = r.get("raw_source_content")
+        if not raw_content or not isinstance(raw_content, str):
+            raise ValueError("Agent has no raw source content to install.")
 
         # Build files: raw .agent.md (verbatim) + generated .prompt.md
         agent_file_path = f".github/agents/{slug}.agent.md"
@@ -884,7 +899,7 @@ class AgentsService:
             {"path": prompt_file_path, "content": prompt_content},
         ]
 
-        branch_name = f"agent/{slug}"
+        branch_name = f"agent/install-{slug}"
         issue_title = f"Install agent: {r['name']}"
         issue_body = (
             f"## Agent Installation\n\n"
@@ -917,6 +932,8 @@ class AgentsService:
             issue_title=issue_title,
             issue_body=issue_body,
             issue_labels=["agent"],
+            project_id=project_id,
+            target_status="In Review",
         )
 
         if not result.success:

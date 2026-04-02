@@ -48,11 +48,11 @@ export function InstallConfirmDialog({
   const promptPath = `.github/prompts/${agent.slug}.prompt.md`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="install-confirm-title">
       <div className="w-full max-w-lg rounded-2xl bg-[var(--color-bg-card)] shadow-2xl">
         {/* Header */}
         <div className="border-b border-[var(--color-border)] p-6">
-          <h2 className="text-lg font-semibold text-[var(--color-text)]">
+          <h2 id="install-confirm-title" className="text-lg font-semibold text-[var(--color-text)]">
             Install Agent to Repository
           </h2>
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">

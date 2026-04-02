@@ -1181,10 +1181,10 @@ export interface AgentConfig {
   branch_name: string | null;
   source: AgentSource;
   created_at: string | null;
-  agent_type: 'custom' | 'imported';
-  catalog_source_url: string | null;
-  catalog_agent_id: string | null;
-  imported_at: string | null;
+  agent_type?: 'custom' | 'imported';
+  catalog_source_url?: string | null;
+  catalog_agent_id?: string | null;
+  imported_at?: string | null;
 }
 
 export interface AgentCreate {

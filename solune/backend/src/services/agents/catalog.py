@@ -8,6 +8,7 @@ user imports a specific agent.
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 
 import aiosqlite
 
@@ -22,6 +23,31 @@ logger = get_logger(__name__)
 CATALOG_INDEX_URL = "https://awesome-copilot.github.com/agents/llms.txt"
 CATALOG_CACHE_KEY = "catalog:awesome-copilot:agents"
 CATALOG_CACHE_TTL = 3600  # 1 hour
+
+# Allowlisted hosts for fetching raw agent content (SSRF mitigation)
+_ALLOWED_SOURCE_HOSTS = frozenset({
+    "raw.githubusercontent.com",
+    "awesome-copilot.github.com",
+    "github.com",
+})
+
+
+def validate_source_url(url: str) -> None:
+    """Validate that *url* points to an allowed host with HTTPS scheme.
+
+    Raises :class:`ValueError` when the URL is invalid or not allowlisted.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:
+        raise ValueError(f"Invalid source URL: {exc}") from exc
+
+    if parsed.scheme != "https":
+        raise ValueError("Only HTTPS source URLs are allowed.")
+    if parsed.hostname not in _ALLOWED_SOURCE_HOSTS:
+        raise ValueError(
+            f"Source URL host '{parsed.hostname}' is not in the allowed list."
+        )
 
 # ── Parsing ──────────────────────────────────────────────────────────────
 
@@ -102,7 +128,10 @@ async def fetch_agent_raw_content(source_url: str) -> str:
     """Fetch the raw markdown content for a specific agent.
 
     This is called at import time to snapshot the agent definition.
+    The *source_url* is validated against an allowlist before the request.
     """
+    validate_source_url(source_url)
+
     import httpx
 
     async with httpx.AsyncClient(timeout=15.0) as client:

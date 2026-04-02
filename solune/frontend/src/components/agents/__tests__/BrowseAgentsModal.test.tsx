@@ -34,6 +34,7 @@ describe('BrowseAgentsModal', () => {
       data: catalogAgents,
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     });
     mockUseImportAgent.mockReturnValue({
       mutateAsync: vi.fn().mockResolvedValue(undefined),
@@ -120,6 +121,7 @@ describe('BrowseAgentsModal', () => {
       data: undefined,
       isLoading: true,
       isError: false,
+      refetch: vi.fn(),
     });
     render(
       <BrowseAgentsModal projectId="proj-1" isOpen={true} onClose={vi.fn()} />,
@@ -133,12 +135,14 @@ describe('BrowseAgentsModal', () => {
       data: undefined,
       isLoading: false,
       isError: true,
+      refetch: vi.fn(),
     });
     render(
       <BrowseAgentsModal projectId="proj-1" isOpen={true} onClose={vi.fn()} />,
       { wrapper: createWrapper() },
     );
-    expect(screen.getByText('Failed to load catalog. Please try again.')).toBeInTheDocument();
+    expect(screen.getByText('Failed to load catalog.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 
   it('calls onClose when Done button is clicked', async () => {
