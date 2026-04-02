@@ -77,7 +77,7 @@ export function ChatToolbar({
           <button
             type="button"
             onClick={handleFileClick}
-            className="celestial-focus relative flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground focus-visible:outline-none"
+            className="celestial-focus relative flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground focus-visible:outline-none md:h-8 md:w-8"
             aria-label="Attach file"
           >
             <Paperclip className="w-4 h-4" />

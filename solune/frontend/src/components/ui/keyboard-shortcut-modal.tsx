@@ -88,13 +88,13 @@ export function KeyboardShortcutModal({ isOpen, onClose }: KeyboardShortcutModal
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm celestial-fade-in"
+        className="fixed inset-0 z-[var(--z-command-backdrop)] bg-black/50 backdrop-blur-sm celestial-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Modal */}
       <div
-        className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+        className="fixed inset-0 z-[var(--z-command)] flex items-center justify-center p-4"
         role="dialog"
         aria-modal="true"
         aria-labelledby="shortcut-modal-title"

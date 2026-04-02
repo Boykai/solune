@@ -175,7 +175,7 @@ export function SpotlightTooltip({
         aria-modal="true"
         aria-label={`Tour step ${currentStep + 1}: ${step.title}`}
         tabIndex={-1}
-        className="celestial-panel golden-ring celestial-fade-in fixed bottom-0 left-0 right-0 z-[101] rounded-t-2xl border-t border-border/70 p-6"
+        className="celestial-panel golden-ring celestial-fade-in fixed bottom-0 left-0 right-0 z-[var(--z-tour-tooltip)] rounded-t-2xl border-t border-border/70 p-6"
       >
         {/* Drag handle indicator */}
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted-foreground/30" />
@@ -221,7 +221,7 @@ export function SpotlightTooltip({
       aria-label={`Tour step ${currentStep + 1}: ${step.title}`}
       tabIndex={-1}
       className={cn(
-        'celestial-panel golden-ring celestial-fade-in fixed z-[101] w-[340px] rounded-2xl border border-border/70 p-5',
+        'celestial-panel golden-ring celestial-fade-in fixed z-[var(--z-tour-tooltip)] w-[340px] rounded-2xl border border-border/70 p-5',
       )}
       style={{
         top: position.top,

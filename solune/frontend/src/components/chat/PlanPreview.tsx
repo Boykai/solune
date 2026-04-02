@@ -48,7 +48,7 @@ export function PlanPreview({
   }
 
   return (
-    <div className="ml-11 max-w-[600px] self-start overflow-hidden rounded-lg border border-border bg-background/56">
+    <div className="ml-11 max-w-[90vw] self-start overflow-hidden rounded-lg border border-border bg-background/56 md:max-w-[600px]">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 bg-primary/5 px-4 py-2.5 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">

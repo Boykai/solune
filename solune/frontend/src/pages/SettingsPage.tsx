@@ -67,7 +67,7 @@ export function SettingsPage({ projects = [], selectedProjectId }: SettingsPageP
 
   if (userLoading || globalLoading) {
     return (
-      <div className="flex h-full w-full max-w-4xl flex-col overflow-y-auto p-8 mx-auto">
+      <div className="flex h-full w-full max-w-4xl flex-col overflow-y-auto p-4 mx-auto md:p-8">
         <div className="flex flex-col items-center justify-center flex-1 gap-4">
           <CelestialLoadingProgress
             phases={[
@@ -81,7 +81,7 @@ export function SettingsPage({ projects = [], selectedProjectId }: SettingsPageP
   }
 
   return (
-    <div className="celestial-fade-in flex h-full w-full max-w-4xl flex-col overflow-y-auto rounded-[1.75rem] border border-border/70 bg-background/42 p-8 backdrop-blur-sm mx-auto">
+    <div className="celestial-fade-in flex h-full w-full max-w-4xl flex-col overflow-y-auto rounded-[1.75rem] border border-border/70 bg-background/42 p-4 backdrop-blur-sm mx-auto md:p-8">
       <div className="mb-8">
         <p className="mb-1 text-xs uppercase tracking-[0.24em] text-primary/80">
           Orbital Configuration
