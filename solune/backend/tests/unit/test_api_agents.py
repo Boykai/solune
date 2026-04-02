@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.exceptions import CatalogUnavailableError
 from src.models.agents import (
     Agent,
     AgentChatResponse,
@@ -515,6 +516,23 @@ class TestBrowseCatalog:
         data = resp.json()
         assert len(data) == 1
         assert data[0]["id"] == "test-agent"
+
+    async def test_browse_catalog_catalog_unavailable_preserves_status(self, client):
+        """Catalog availability errors are returned with their upstream-aware status."""
+        with patch(
+            "src.services.agents.catalog.list_catalog_agents",
+            new_callable=AsyncMock,
+            side_effect=CatalogUnavailableError(
+                details={"reason": "The Awesome Copilot catalog timed out. Retry in a moment."}
+            ),
+        ):
+            resp = await client.get(f"{BASE}/catalog")
+
+        assert resp.status_code == 503
+        assert resp.json() == {
+            "error": "Browser Agents catalog is temporarily unavailable.",
+            "details": {"reason": "The Awesome Copilot catalog timed out. Retry in a moment."},
+        }
 
     async def test_browse_catalog_error_returns_500(self, client):
         """Exceptions from the catalog reader are handled gracefully."""

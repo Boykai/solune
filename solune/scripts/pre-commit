@@ -20,9 +20,42 @@ FAILED=0
 
 # Get the repo root
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+BACKEND_DIR="$REPO_ROOT/solune/backend"
+
+run_markdownlint() {
+    if command -v markdownlint > /dev/null 2>&1; then
+        markdownlint "$@"
+        return
+    fi
+
+    if command -v npx > /dev/null 2>&1; then
+        npx --yes markdownlint-cli@0.48.0 "$@"
+        return
+    fi
+
+    return 127
+}
+
+run_markdown_link_check() {
+    if command -v markdown-link-check > /dev/null 2>&1; then
+        markdown-link-check "$@"
+        return
+    fi
+
+    if command -v npx > /dev/null 2>&1; then
+        npx --yes markdown-link-check@3.14.2 "$@"
+        return
+    fi
+
+    return 127
+}
 
 # Check if we have staged Python files
 STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+# Run backend CI-parity checks for any staged backend change, not only Python sources.
+STAGED_BACKEND_CHANGES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^solune/backend/' || true)
+# Run frontend CI-parity checks for any staged frontend change, not only TS/JS sources.
+STAGED_FRONTEND_CHANGES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^solune/frontend/' || true)
 # Check if we have staged frontend files
 STAGED_FRONTEND_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^solune/frontend/.*\.(ts|tsx|js|jsx)$' || true)
 # Check if we have staged files that affect architecture diagrams
@@ -31,21 +64,21 @@ STAGED_ARCH_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '(
 # ============================================
 # Backend Checks (with auto-fix)
 # ============================================
-if [ -n "$STAGED_PY_FILES" ]; then
+if [ -n "$STAGED_BACKEND_CHANGES" ]; then
     echo ""
     echo "📦 Backend checks..."
 
     # Check if we're in a virtual environment or if backend venv exists
-    if [ -d "$REPO_ROOT/solune/backend/.venv" ]; then
-        RUFF="$REPO_ROOT/solune/backend/.venv/bin/ruff"
+    if [ -d "$BACKEND_DIR/.venv" ]; then
+        RUFF="$BACKEND_DIR/.venv/bin/ruff"
     else
         RUFF="ruff"
     fi
 
     # Auto-format with ruff format, then verify
     echo -n "  🎨 Ruff formatting... "
-    $RUFF format "$REPO_ROOT/solune/backend/src" "$REPO_ROOT/solune/backend/tests" --quiet 2>/dev/null || true
-    if $RUFF format --check "$REPO_ROOT/solune/backend/src" "$REPO_ROOT/solune/backend/tests" --quiet 2>/dev/null; then
+    $RUFF format "$BACKEND_DIR/src" "$BACKEND_DIR/tests" --quiet 2>/dev/null || true
+    if $RUFF format --check "$BACKEND_DIR/src" "$BACKEND_DIR/tests" --quiet 2>/dev/null; then
         echo -e "${GREEN}✓ (auto-formatted)${NC}"
     else
         echo -e "${RED}✗ (auto-fix failed)${NC}"
@@ -54,13 +87,13 @@ if [ -n "$STAGED_PY_FILES" ]; then
 
     # Auto-fix with ruff, then verify
     echo -n "  🔧 Ruff linting... "
-    $RUFF check "$REPO_ROOT/solune/backend/src" "$REPO_ROOT/solune/backend/tests" --fix --quiet 2>/dev/null || true
-    if $RUFF check "$REPO_ROOT/solune/backend/src" "$REPO_ROOT/solune/backend/tests" --quiet 2>/dev/null; then
+    $RUFF check "$BACKEND_DIR/src" "$BACKEND_DIR/tests" --fix --quiet 2>/dev/null || true
+    if $RUFF check "$BACKEND_DIR/src" "$BACKEND_DIR/tests" --quiet 2>/dev/null; then
         echo -e "${GREEN}✓ (auto-fixed)${NC}"
     else
         echo -e "${RED}✗ (issues remain after auto-fix)${NC}"
         echo -e "${YELLOW}    Remaining issues:${NC}"
-        $RUFF check "$REPO_ROOT/solune/backend/src" "$REPO_ROOT/solune/backend/tests" 2>&1 | head -10
+        $RUFF check "$BACKEND_DIR/src" "$BACKEND_DIR/tests" 2>&1 | head -10
         FAILED=1
     fi
 
@@ -73,50 +106,91 @@ if [ -n "$STAGED_PY_FILES" ]; then
 
     # Type check with pyright (no auto-fix available for type errors)
     echo -n "  🐍 Pyright type check... "
-    if [ -d "$REPO_ROOT/solune/backend/.venv" ]; then
-        PYRIGHT="$REPO_ROOT/solune/backend/.venv/bin/pyright"
+    if [ -d "$BACKEND_DIR/.venv" ]; then
+        PYRIGHT="$BACKEND_DIR/.venv/bin/pyright"
     else
         PYRIGHT="pyright"
     fi
 
     PYRIGHT_PYTHON_ARGS=()
-    if [ -d "$REPO_ROOT/solune/backend/.venv" ]; then
-        PYRIGHT_PYTHON_ARGS=(--pythonpath "$REPO_ROOT/solune/backend/.venv/bin/python")
+    if [ -d "$BACKEND_DIR/.venv" ]; then
+        PYRIGHT_PYTHON_ARGS=(--pythonpath "$BACKEND_DIR/.venv/bin/python")
     fi
 
-    if $PYRIGHT "$REPO_ROOT/solune/backend/src" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
+    if $PYRIGHT "$BACKEND_DIR/src" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Type errors must be fixed manually${NC}"
-        $PYRIGHT "$REPO_ROOT/solune/backend/src" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
+        $PYRIGHT "$BACKEND_DIR/src" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
         FAILED=1
     fi
 
     echo -n "  🧪 Pyright tests... "
-    if $PYRIGHT -p "$REPO_ROOT/solune/backend/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
+    if $PYRIGHT -p "$BACKEND_DIR/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Test type errors must be fixed manually${NC}"
-        $PYRIGHT -p "$REPO_ROOT/solune/backend/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
+        $PYRIGHT -p "$BACKEND_DIR/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
+        FAILED=1
+    fi
+
+    echo -n "  🔒 Bandit security scan... "
+    if [ -x "$BACKEND_DIR/.venv/bin/bandit" ]; then
+        BANDIT_CMD=("$BACKEND_DIR/.venv/bin/bandit")
+    elif command -v uv > /dev/null 2>&1; then
+        BANDIT_CMD=(uv run --directory "$BACKEND_DIR" bandit)
+    elif command -v bandit > /dev/null 2>&1; then
+        BANDIT_CMD=(bandit)
+    else
+        BANDIT_CMD=()
+    fi
+
+    if [ ${#BANDIT_CMD[@]} -eq 0 ]; then
+        echo -e "${RED}✗${NC}"
+        echo -e "${YELLOW}    Bandit is required to mirror the CI backend lint gates. Install backend dev dependencies first.${NC}"
+        FAILED=1
+    elif "${BANDIT_CMD[@]}" -r "$BACKEND_DIR/src" -ll -ii --skip B104,B608 > /dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+        echo -e "${YELLOW}    Security issues must be fixed manually${NC}"
+        "${BANDIT_CMD[@]}" -r "$BACKEND_DIR/src" -ll -ii --skip B104,B608 2>&1 | tail -10
         FAILED=1
     fi
 
     # Run backend tests (mirrors CI: pytest with coverage)
     echo -n "  🧪 Pytest... "
-    if [ -d "$REPO_ROOT/solune/backend/.venv" ]; then
-        PYTEST="$REPO_ROOT/solune/backend/.venv/bin/pytest"
+    if [ -d "$BACKEND_DIR/.venv" ]; then
+        PYTEST="$BACKEND_DIR/.venv/bin/pytest"
     else
         PYTEST="pytest"
     fi
 
-    if $PYTEST "$REPO_ROOT/solune/backend" --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency -q --no-header --tb=no > /dev/null 2>&1; then
+    BACKEND_PYTEST_ARGS=(
+        tests
+        --ignore=tests/property
+        --ignore=tests/fuzz
+        --ignore=tests/chaos
+        --ignore=tests/concurrency
+        -q
+        --no-header
+        --tb=no
+    )
+
+    if (
+        cd "$BACKEND_DIR"
+        $PYTEST "${BACKEND_PYTEST_ARGS[@]}"
+    ) > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Test failures must be fixed manually${NC}"
-        $PYTEST "$REPO_ROOT/solune/backend" --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency -q --no-header --tb=line 2>&1 | tail -15
+        (
+            cd "$BACKEND_DIR"
+            $PYTEST tests --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency -q --no-header --tb=line
+        ) 2>&1 | tail -15
         FAILED=1
     fi
 fi
@@ -124,7 +198,7 @@ fi
 # ============================================
 # Frontend Checks (with auto-fix)
 # ============================================
-if [ -n "$STAGED_FRONTEND_FILES" ]; then
+if [ -n "$STAGED_FRONTEND_CHANGES" ]; then
     echo ""
     echo "🌐 Frontend checks..."
 
@@ -207,18 +281,51 @@ if [ -n "$STAGED_DOC_FILES" ]; then
     echo ""
     echo "📄 Documentation checks..."
 
-    if command -v markdownlint > /dev/null 2>&1; then
-        echo -n "  📝 Markdownlint... "
-        if markdownlint "solune/docs/**/*.md" "*.md" --config solune/.markdownlint.json > /dev/null 2>&1; then
+    echo -n "  📝 Markdownlint... "
+    if run_markdownlint "solune/docs/**/*.md" "*.md" --config solune/.markdownlint.json > /dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        markdownlint_status=$?
+        echo -e "${RED}✗${NC}"
+        if [ $markdownlint_status -eq 127 ]; then
+            echo -e "${YELLOW}    markdownlint is required to mirror the CI docs lint gate. Install Node.js/npm first.${NC}"
+        else
+            echo -e "${YELLOW}    Markdown lint errors:${NC}"
+            run_markdownlint "solune/docs/**/*.md" "*.md" --config solune/.markdownlint.json 2>&1 | head -10
+        fi
+        FAILED=1
+    fi
+
+    echo -n "  🔗 Markdown links... "
+    if ! command -v npx > /dev/null 2>&1 && ! command -v markdown-link-check > /dev/null 2>&1; then
+        echo -e "${RED}✗${NC}"
+        echo -e "${YELLOW}    markdown-link-check is required to mirror the CI docs link gate. Install Node.js/npm first.${NC}"
+        FAILED=1
+    else
+        doc_link_failed=0
+        while IFS= read -r -d '' doc_file; do
+            if ! run_markdown_link_check "$doc_file" --config solune/.markdown-link-check.json --quiet > /dev/null 2>&1; then
+                doc_link_failed=1
+                break
+            fi
+        done < <(find solune/docs -name "*.md" -print0)
+
+        if [ $doc_link_failed -eq 0 ] && ! run_markdown_link_check README.md --config solune/.markdown-link-check.json --quiet > /dev/null 2>&1; then
+            doc_link_failed=1
+        fi
+
+        if [ $doc_link_failed -eq 0 ]; then
             echo -e "${GREEN}✓${NC}"
         else
             echo -e "${RED}✗${NC}"
-            echo -e "${YELLOW}    Markdown lint errors:${NC}"
-            markdownlint "solune/docs/**/*.md" "*.md" --config solune/.markdownlint.json 2>&1 | head -10
+            echo -e "${YELLOW}    Documentation link errors:${NC}"
+            find solune/docs -name "*.md" -print0 | while IFS= read -r -d '' doc_file; do
+                run_markdown_link_check "$doc_file" --config solune/.markdown-link-check.json --quiet && continue
+                break
+            done
+            run_markdown_link_check README.md --config solune/.markdown-link-check.json --quiet 2>&1 | head -10 || true
             FAILED=1
         fi
-    else
-        echo -e "  📝 Markdownlint... ${YELLOW}⊘ skipped (not installed)${NC}"
     fi
 fi
 

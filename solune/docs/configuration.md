@@ -100,6 +100,15 @@ Connect Solune to Signal for bidirectional phone notifications. See the [Signal 
 | `SIGNAL_PHONE_NUMBER` | — | Dedicated Signal phone number (E.164 format) |
 | `SIGNAL_WEBHOOK_SECRET` | — | Secret for verifying inbound Signal webhook payloads |
 
+### Browser Agents Catalog
+
+Controls the upstream Awesome Copilot index used by the Browser Agents modal.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CATALOG_INDEX_URL` | `https://awesome-copilot.github.com/llms.txt` | Root Awesome Copilot `llms.txt` index used to populate Browser Agents. |
+| `CATALOG_FETCH_TIMEOUT_SECONDS` | `15.0` | Timeout in seconds for fetching the Browser Agents catalog or raw agent definitions. |
+
 ### Security
 
 Production hardening settings for authentication, encryption, and cookie security.

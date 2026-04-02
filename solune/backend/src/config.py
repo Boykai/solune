@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     signal_phone_number: str | None = None
     signal_webhook_secret: str | None = Field(default=None, repr=False)
 
+    # Browser Agents catalog
+    catalog_index_url: str = "https://awesome-copilot.github.com/llms.txt"
+    catalog_fetch_timeout_seconds: float = 15.0
+
     # Cookie
     cookie_secure: bool = False  # Set True in production (HTTPS)
     cookie_max_age: int = 8 * 60 * 60  # 8 hours in seconds

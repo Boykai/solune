@@ -251,14 +251,15 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   if (showCloseConfirm) {
     return (
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Unsaved changes confirmation"
+        className="fixed inset-0 z-[120] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+        role="presentation"
       >
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
         <div
-          className="celestial-panel celestial-fade-in w-full max-w-sm rounded-[1.5rem] border border-border/80 p-6 shadow-xl"
-          role="presentation"
+          className="celestial-panel celestial-fade-in w-full max-w-sm rounded-[1.5rem] border border-border/80 bg-card p-6 shadow-xl"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Unsaved changes confirmation"
           onClick={(event) => event.stopPropagation()}
         >
           <h3 className="text-lg font-semibold">Unsaved Changes</h3>
@@ -299,13 +300,16 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   if (successPrUrl) {
     return (
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 px-4"
+        className="fixed inset-0 z-[120] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
         role="presentation"
         onClick={resetAndClose}
       >
+        {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
         <div
-          className="celestial-panel celestial-fade-in w-full max-w-md rounded-[1.6rem] border border-border/80 p-6 shadow-xl"
-          role="presentation"
+          className="celestial-panel celestial-fade-in w-full max-w-md rounded-[1.6rem] border border-border/80 bg-card p-6 shadow-xl"
+          role="dialog"
+          aria-modal="true"
+          aria-label={isEditMode ? 'Agent updated' : 'Agent created'}
           onClick={(event) => event.stopPropagation()}
         >
           <div className="flex flex-col items-center gap-3 text-center">
@@ -340,13 +344,16 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 px-4 py-6"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm"
       role="presentation"
       onClick={handleRequestClose}
     >
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
-        className="celestial-panel celestial-fade-in relative flex max-h-[min(92vh,58rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.7rem] border border-border/80 shadow-xl"
-        role="presentation"
+        className="celestial-panel celestial-fade-in relative flex max-h-[min(92vh,58rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.7rem] border border-border/80 bg-card shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-agent-title"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="border-b border-border/70 px-6 py-5">
@@ -355,7 +362,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
           </p>
           <div className="mt-2 flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-display text-2xl font-medium">
+              <h2 id="add-agent-title" className="font-display text-2xl font-medium">
                 {isEditMode ? 'Edit Agent' : 'Add Agent'}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">

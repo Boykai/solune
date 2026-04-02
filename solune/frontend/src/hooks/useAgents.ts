@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, type InfiniteData } from '@tanst
 import { toast } from 'sonner';
 import {
   agentsApi,
+  ApiError,
   type AgentConfig,
   type AgentCreate,
   type AgentCreateResult,
@@ -15,7 +16,6 @@ import {
   type ImportAgentRequest,
   type ImportAgentResult,
   type InstallAgentResult,
-  type ApiError,
 } from '@/services/api';
 import { STALE_TIME_PROJECTS } from '@/constants';
 import { useInfiniteList } from '@/hooks/useInfiniteList';
@@ -283,7 +283,7 @@ export function useBulkUpdateModels(projectId: string | null | undefined) {
 }
 
 export function useCatalogAgents(projectId: string | null | undefined) {
-  return useQuery<CatalogAgent[]>({
+  return useQuery<CatalogAgent[], ApiError>({
     queryKey: agentKeys.catalog(projectId ?? ''),
     queryFn: () => agentsApi.browseCatalog(projectId!),
     staleTime: 5 * 60 * 1000, // 5 minutes
