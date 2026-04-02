@@ -738,9 +738,7 @@ async def _process_pipeline_completion(
             )
             tracking_steps = _cp.parse_tracking_from_body(body) if body else None
             active_tracking_agents = {
-                step.agent_name
-                for step in (tracking_steps or [])
-                if _cp.STATE_ACTIVE in step.state
+                step.agent_name for step in (tracking_steps or []) if _cp.STATE_ACTIVE in step.state
             }
 
             # Collect every unassigned agent in the current group so parallel
@@ -823,10 +821,17 @@ async def _process_pipeline_completion(
             ):
                 return None  # Defer to next polling cycle
 
-            async def _assign_missing_agent(agent_name: str, flat_idx: int) -> tuple[str, bool]:
+            async def _assign_missing_agent(
+                agent_name: str,
+                flat_idx: int,
+                workflow_orchestrator=orchestrator,
+                workflow_context=ctx,
+                assign_status=effective_assign_status,
+                issue_number: int = task.issue_number,
+            ) -> tuple[str, bool]:
                 try:
-                    assigned = await orchestrator.assign_agent_for_status(
-                        ctx, effective_assign_status, agent_index=flat_idx
+                    assigned = await workflow_orchestrator.assign_agent_for_status(
+                        workflow_context, assign_status, agent_index=flat_idx
                     )
                     return agent_name, bool(assigned)
                 except asyncio.CancelledError:
@@ -835,7 +840,7 @@ async def _process_pipeline_completion(
                     logger.exception(
                         "Recovery assignment failed for agent '%s' on issue #%d",
                         agent_name,
-                        task.issue_number,
+                        issue_number,
                     )
                     return agent_name, False
 
