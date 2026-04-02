@@ -1,12 +1,12 @@
 /**
- * E2E test for responsive home layout at mobile/tablet/desktop viewports.
- * Verifies sidebar collapse, touch targets, and overflow.
+ * E2E test for responsive agents page layout at mobile/tablet/desktop viewports.
+ * Verifies card reflow, touch targets, and overflow behavior.
  */
 
 import { test, expect } from './fixtures';
 import { VIEWPORTS } from './viewports';
 
-test.describe('Responsive Home Layout', () => {
+test.describe('Responsive Agents Layout', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`should render without overflow at ${name} (${viewport.width}x${viewport.height})`, async ({ page }) => {
       await page.setViewportSize(viewport);
@@ -18,19 +18,20 @@ test.describe('Responsive Home Layout', () => {
       expect(overflows).toBe(false);
     });
 
-    test(`should display visible heading at ${name}`, async ({ page }) => {
+    test(`should have readable text at ${name} viewport`, async ({ page }) => {
       await page.setViewportSize(viewport);
       await page.goto('/');
-      await expect(page.locator('h1')).toBeVisible();
+      const h1 = page.locator('h1');
+      await expect(h1).toBeVisible();
     });
   }
 
-  test('should meet minimum touch target sizes at mobile', async ({ page }) => {
+  test('should meet minimum touch target size for interactive elements at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto('/');
     await expect(page.locator('body')).toBeVisible();
 
-    // All visible buttons should have at least one dimension ≥ 44px
+    // All visible buttons should meet the 44×44px minimum touch target
     const buttons = page.locator('button:visible');
     const count = await buttons.count();
     for (let i = 0; i < count; i++) {
@@ -44,12 +45,12 @@ test.describe('Responsive Home Layout', () => {
     }
   });
 
-  // Visual regression: capture home at mobile viewport
-  test('visual regression — home at mobile', async ({ page }) => {
+  // Visual regression: capture agents layout at mobile viewport
+  test('visual regression — agents at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto('/');
     await expect(page.locator('body')).toBeVisible();
-    await expect(page).toHaveScreenshot('responsive-home-mobile.png', {
+    await expect(page).toHaveScreenshot('responsive-agents-mobile.png', {
       maxDiffPixels: 100,
     });
   });
