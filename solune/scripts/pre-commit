@@ -94,12 +94,12 @@ if [ -n "$STAGED_PY_FILES" ]; then
     fi
 
     echo -n "  🧪 Pyright tests... "
-    if $PYRIGHT "$REPO_ROOT/solune/backend/tests" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
+    if $PYRIGHT -p "$REPO_ROOT/solune/backend/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Test type errors must be fixed manually${NC}"
-        $PYRIGHT "$REPO_ROOT/solune/backend/tests" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
+        $PYRIGHT -p "$REPO_ROOT/solune/backend/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
         FAILED=1
     fi
 
