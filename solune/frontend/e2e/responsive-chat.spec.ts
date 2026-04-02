@@ -1,12 +1,12 @@
 /**
- * E2E test for responsive board layout at mobile/tablet/desktop viewports.
- * Verifies scroll-snap, scroll affordance, grid layout, and overflow.
+ * E2E test for responsive chat layout at mobile/tablet/desktop viewports.
+ * Verifies mobile full-screen behaviour, touch targets, and overflow.
  */
 
 import { test, expect } from './fixtures';
 import { VIEWPORTS } from './viewports';
 
-test.describe('Responsive Board Layout', () => {
+test.describe('Responsive Chat Layout', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`should render without overflow at ${name} (${viewport.width}x${viewport.height})`, async ({ page }) => {
       await page.setViewportSize(viewport);
@@ -14,9 +14,8 @@ test.describe('Responsive Board Layout', () => {
       await expect(page.locator('body')).toBeVisible();
 
       // Verify no horizontal overflow
-      const bodyScrollWidth = await page.evaluate(() => document.body.scrollWidth);
-      const windowWidth = await page.evaluate(() => window.innerWidth);
-      expect(bodyScrollWidth).toBeLessThanOrEqual(windowWidth + 1);
+      const overflows = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
+      expect(overflows).toBe(false);
     });
 
     test(`should have readable text at ${name} viewport`, async ({ page }) => {
@@ -27,7 +26,26 @@ test.describe('Responsive Board Layout', () => {
     });
   }
 
-  test('should not clip text at mobile viewport', async ({ page }) => {
+  test('should meet minimum touch target size for buttons at mobile', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+
+    // Verify all visible buttons have at least one dimension ≥ 44px (WCAG touch target)
+    const buttons = page.locator('button:visible');
+    const count = await buttons.count();
+    for (let i = 0; i < count; i++) {
+      const box = await buttons.nth(i).boundingBox();
+      if (box) {
+        expect(
+          box.width >= 44 || box.height >= 44,
+          `Button ${i} (${box.width}×${box.height}) should have at least one dimension ≥ 44px`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  test('should not clip any text at mobile viewport', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto('/');
     await expect(page.locator('body')).toBeVisible();
@@ -45,12 +63,12 @@ test.describe('Responsive Board Layout', () => {
     expect(textClipping.clipped).toBe(false);
   });
 
-  // Visual regression: capture board at mobile viewport
-  test('visual regression — board at mobile', async ({ page }) => {
+  // Visual regression: capture chat layout at mobile viewport
+  test('visual regression — chat at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto('/');
     await expect(page.locator('body')).toBeVisible();
-    await expect(page).toHaveScreenshot('responsive-board-mobile.png', {
+    await expect(page).toHaveScreenshot('responsive-chat-mobile.png', {
       maxDiffPixels: 100,
     });
   });
