@@ -24,6 +24,7 @@ jobs:
           - orchestration
           - app-and-data
           - agents-and-integrations
+          - api-and-middleware
     defaults:
       run:
         working-directory: solune/backend
@@ -62,6 +63,14 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - hooks-board
+          - hooks-data
+          - hooks-general
+          - lib
     defaults:
       run:
         working-directory: solune/frontend
@@ -79,15 +88,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run mutation testing
+      - name: Run mutation testing (${{ matrix.shard }})
         continue-on-error: true
-        run: npm run test:mutate
+        run: npx stryker run -c stryker-${{ matrix.shard }}.config.mjs
 
       - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: frontend-mutation-report
-          path: solune/frontend/reports/mutation/
+          name: frontend-mutation-report-${{ matrix.shard }}
+          path: solune/frontend/reports/mutation/${{ matrix.shard }}/
           retention-days: 30
           if-no-files-found: warn
