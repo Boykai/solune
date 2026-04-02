@@ -5,6 +5,16 @@ import { AgentTile } from './AgentTile';
 import { AgentDragOverlay } from './AgentDragOverlay';
 import type { AgentAssignment, AvailableAgent } from '@/types';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
+import type { DraggableAttributes } from '@dnd-kit/core';
+
+const mockAttributes: DraggableAttributes = {
+  role: 'button',
+  tabIndex: 0,
+  'aria-disabled': false,
+  'aria-pressed': undefined,
+  'aria-roledescription': 'sortable',
+  'aria-describedby': '',
+};
 
 function createAgentAssignment(overrides: Partial<AgentAssignment> = {}): AgentAssignment {
   return {
@@ -63,7 +73,7 @@ describe('AgentTile', () => {
         agent={createAgentAssignment()}
         onRemove={vi.fn()}
         sortableProps={{
-          attributes: {},
+          attributes: mockAttributes,
           listeners: { onPointerDown },
           setNodeRef: vi.fn(),
           style: {},
@@ -86,7 +96,7 @@ describe('AgentTile', () => {
         onRemove={vi.fn()}
         variant="compact"
         sortableProps={{
-          attributes: {},
+          attributes: mockAttributes,
           listeners: { onPointerDown },
           setNodeRef: vi.fn(),
           style: {},

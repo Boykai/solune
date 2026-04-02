@@ -8,7 +8,7 @@ import { vi, type Mock } from 'vitest';
 // ─── crypto.randomUUID stub ──────────────────────────────────────────────
 // happy-dom may not implement crypto.randomUUID; stub once globally.
 if (typeof globalThis.crypto === 'undefined') {
-  // @ts-expect-error - partial crypto shim
+  // @ts-expect-error - partial crypto shim for test environments
   globalThis.crypto = {};
 }
 if (typeof globalThis.crypto.randomUUID !== 'function') {
@@ -49,7 +49,7 @@ class MockWebSocket {
   }
 }
 
-// @ts-expect-error - Override global WebSocket
+// @ts-expect-error - Override global WebSocket with mock implementation
 global.WebSocket = MockWebSocket;
 
 // ─── Mock window.location / window.history ───────────────────────────────
@@ -120,6 +120,105 @@ export interface MockApiShape {
     createMcp: Mock;
     deleteMcp: Mock;
   };
+  workflowApi: {
+    confirmRecommendation: Mock;
+    rejectRecommendation: Mock;
+    getConfig: Mock;
+    updateConfig: Mock;
+    listAgents: Mock;
+    getPipelineState: Mock;
+  };
+  metadataApi: {
+    getMetadata: Mock;
+    refreshMetadata: Mock;
+  };
+  cleanupApi: {
+    preflight: Mock;
+    execute: Mock;
+    history: Mock;
+  };
+  choresApi: {
+    seedPresets: Mock;
+    list: Mock;
+    listPaginated: Mock;
+    listTemplates: Mock;
+    listChoreNames: Mock;
+    create: Mock;
+    update: Mock;
+    delete: Mock;
+    trigger: Mock;
+    chat: Mock;
+    inlineUpdate: Mock;
+    createWithAutoMerge: Mock;
+    evaluateTriggers: Mock;
+  };
+  agentsApi: {
+    list: Mock;
+    listPaginated: Mock;
+    pending: Mock;
+    clearPending: Mock;
+    create: Mock;
+    update: Mock;
+    delete: Mock;
+    chat: Mock;
+    bulkUpdateModels: Mock;
+    syncMcps: Mock;
+    browseCatalog: Mock;
+    importAgent: Mock;
+    installAgent: Mock;
+  };
+  pipelinesApi: {
+    list: Mock;
+    listPaginated: Mock;
+    get: Mock;
+    create: Mock;
+    update: Mock;
+    delete: Mock;
+    seedPresets: Mock;
+    getAssignment: Mock;
+    setAssignment: Mock;
+    launch: Mock;
+    listRuns: Mock;
+    getRun: Mock;
+  };
+  modelsApi: {
+    list: Mock;
+  };
+  toolsApi: {
+    getRepoConfig: Mock;
+    updateRepoServer: Mock;
+    deleteRepoServer: Mock;
+    listPresets: Mock;
+    list: Mock;
+    listPaginated: Mock;
+    get: Mock;
+    create: Mock;
+    update: Mock;
+    sync: Mock;
+    delete: Mock;
+  };
+  agentToolsApi: {
+    getTools: Mock;
+    updateTools: Mock;
+  };
+  appsApi: {
+    list: Mock;
+    listPaginated: Mock;
+    create: Mock;
+    get: Mock;
+    update: Mock;
+    delete: Mock;
+    assets: Mock;
+    start: Mock;
+    stop: Mock;
+    status: Mock;
+    owners: Mock;
+  };
+  activityApi: {
+    feed: Mock;
+    stats: Mock;
+    entityHistory: Mock;
+  };
 }
 
 /**
@@ -127,8 +226,11 @@ export interface MockApiShape {
  *
  * Usage in a test file:
  * ```ts
- * import { createMockApi } from '@/test/setup';
+ * import { createMockApi, type MockApiShape } from '@/test/setup';
  * vi.mock('@/services/api', () => createMockApi());
+ * // ... then import the module to get the mock reference:
+ * import * as api from '@/services/api';
+ * const mockApi = api as unknown as MockApiShape;
  * ```
  */
 export function createMockApi(): MockApiShape {
@@ -181,6 +283,105 @@ export function createMockApi(): MockApiShape {
       listMcps: vi.fn(),
       createMcp: vi.fn(),
       deleteMcp: vi.fn(),
+    },
+    workflowApi: {
+      confirmRecommendation: vi.fn(),
+      rejectRecommendation: vi.fn(),
+      getConfig: vi.fn(),
+      updateConfig: vi.fn(),
+      listAgents: vi.fn(),
+      getPipelineState: vi.fn(),
+    },
+    metadataApi: {
+      getMetadata: vi.fn(),
+      refreshMetadata: vi.fn(),
+    },
+    cleanupApi: {
+      preflight: vi.fn(),
+      execute: vi.fn(),
+      history: vi.fn(),
+    },
+    choresApi: {
+      seedPresets: vi.fn(),
+      list: vi.fn(),
+      listPaginated: vi.fn(),
+      listTemplates: vi.fn(),
+      listChoreNames: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      trigger: vi.fn(),
+      chat: vi.fn(),
+      inlineUpdate: vi.fn(),
+      createWithAutoMerge: vi.fn(),
+      evaluateTriggers: vi.fn(),
+    },
+    agentsApi: {
+      list: vi.fn(),
+      listPaginated: vi.fn(),
+      pending: vi.fn(),
+      clearPending: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      chat: vi.fn(),
+      bulkUpdateModels: vi.fn(),
+      syncMcps: vi.fn(),
+      browseCatalog: vi.fn(),
+      importAgent: vi.fn(),
+      installAgent: vi.fn(),
+    },
+    pipelinesApi: {
+      list: vi.fn(),
+      listPaginated: vi.fn(),
+      get: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      seedPresets: vi.fn(),
+      getAssignment: vi.fn(),
+      setAssignment: vi.fn(),
+      launch: vi.fn(),
+      listRuns: vi.fn(),
+      getRun: vi.fn(),
+    },
+    modelsApi: {
+      list: vi.fn(),
+    },
+    toolsApi: {
+      getRepoConfig: vi.fn(),
+      updateRepoServer: vi.fn(),
+      deleteRepoServer: vi.fn(),
+      listPresets: vi.fn(),
+      list: vi.fn(),
+      listPaginated: vi.fn(),
+      get: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      sync: vi.fn(),
+      delete: vi.fn(),
+    },
+    agentToolsApi: {
+      getTools: vi.fn(),
+      updateTools: vi.fn(),
+    },
+    appsApi: {
+      list: vi.fn(),
+      listPaginated: vi.fn(),
+      create: vi.fn(),
+      get: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      assets: vi.fn(),
+      start: vi.fn(),
+      stop: vi.fn(),
+      status: vi.fn(),
+      owners: vi.fn(),
+    },
+    activityApi: {
+      feed: vi.fn(),
+      stats: vi.fn(),
+      entityHistory: vi.fn(),
     },
   };
 }
