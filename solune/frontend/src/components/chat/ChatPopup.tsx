@@ -100,8 +100,9 @@ export function ChatPopup({
   const [keyboardOffset, setKeyboardOffset] = useState(0);
   useEffect(() => {
     if (!isMobile || !isOpen) {
-      setKeyboardOffset(0);
-      return;
+      // Defer reset to avoid synchronous setState in effect body
+      const id = requestAnimationFrame(() => setKeyboardOffset(0));
+      return () => cancelAnimationFrame(id);
     }
     const vv = window.visualViewport;
     if (!vv) return;
