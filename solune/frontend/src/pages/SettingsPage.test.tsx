@@ -67,8 +67,9 @@ describe('SettingsPage', () => {
     mockUseUserSettings.mockReturnValue(userSettingsHook({ isLoading: true }));
     render(<SettingsPage />);
     expect(screen.getByText('Loading user settings…')).toBeInTheDocument();
-    // Should not render the main heading while loading
+    // Should not render the main heading or settings content while loading
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI Configuration')).not.toBeInTheDocument();
   });
 
   // ── Loaded State with Data ──
