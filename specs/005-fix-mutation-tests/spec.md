@@ -126,3 +126,25 @@ Developers have focused mutation commands in `package.json` and documentation in
 - Tuning property-test breadth (deferred until shard reports available)
 - Lowering thresholds or permanently shrinking scope
 - Survivor-specific test authoring (blocked until shards produce actionable data)
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: All backend mutation shards (5 of 5) complete without "not checked" failures caused by missing app-template assets.
+- **SC-002**: Backend CI mutation workflow publishes one artifact per shard, matching the shard count defined in `run_mutmut_shard.py`.
+- **SC-003**: Each frontend mutation shard completes within 90 minutes, well under the 3-hour CI timeout.
+- **SC-004**: Frontend mutation CI produces one report artifact per shard (3–4 shards), each containing real kill/survivor data.
+- **SC-005**: `renderWithProviders()` renders the passed component exactly once in the DOM, verified by existing and new test assertions.
+- **SC-006**: Developers can run focused mutation testing on a single shard area locally in under 30 minutes using documented `package.json` commands.
+- **SC-007**: `testing.md` accurately reflects the complete shard layout, focused commands, and mutation-infrastructure behavior.
+- **SC-008**: No mutation testing thresholds are lowered and no risky scope is permanently removed as part of this work.
+
+## Assumptions
+
+- The `templates/` directory path in `pyproject.toml`'s `also_copy` is relative to the `backend/` project root, consistent with how mutmut resolves copy targets.
+- The `api-and-middleware` shard was unintentionally omitted from `mutation-testing.yml` rather than deliberately excluded; adding it is the correct fix.
+- Frontend sharding by functional area (board/polling hooks, data/query hooks, general hooks, lib/utils) produces roughly balanced shard sizes suitable for parallel CI execution.
+- The `test-utils.tsx` double-render is a confirmed bug (children rendered in two sibling provider branches instead of nested), not an intentional design choice.
+- Current survivor and timeout counts from incomplete frontend runs are not reliable baselines; only post-shard reports will be used for prioritization.
+- Standard web application performance expectations apply (page loads under 3 seconds, interactions under 1 second) unless otherwise specified.
