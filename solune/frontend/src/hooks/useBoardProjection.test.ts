@@ -19,7 +19,7 @@ function makeStatus(name: string): BoardStatusOption {
 function makeItem(id: string): BoardItem {
   return {
     item_id: id,
-    content_type: 'Issue',
+    content_type: 'issue',
     title: `Item ${id}`,
     status: 'Todo',
     status_option_id: 'opt-todo',

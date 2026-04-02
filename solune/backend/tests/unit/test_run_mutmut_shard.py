@@ -6,13 +6,11 @@ with the CI workflow so backend mutation shards don't silently drift.
 
 from __future__ import annotations
 
+import importlib.util
 import textwrap
 from pathlib import Path
 
 import pytest
-
-# Import from the script — it lives outside src/ so we use importlib
-import importlib.util
 
 _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "run_mutmut_shard.py"
 _spec = importlib.util.spec_from_file_location("run_mutmut_shard", _SCRIPT)
