@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { McpSettings } from './McpSettings';
+import { ApiError } from '@/services/api';
 import type { McpConfiguration } from '@/types';
 
 // ── Mocks ──
@@ -16,8 +17,8 @@ vi.mock('@/services/api', () => ({
   ApiError: class ApiError extends Error {
     status: number;
     error: unknown;
-    constructor(message: string, status: number, error?: unknown) {
-      super(message);
+    constructor(status: number, error: { error: string; details?: Record<string, unknown> }) {
+      super(error.error);
       this.status = status;
       this.error = error;
     }
@@ -126,5 +127,39 @@ describe('McpSettings', () => {
     render(<McpSettings />);
 
     expect(screen.getByText(/no mcps configured yet/i)).toBeInTheDocument();
+  });
+
+  it('prefers nested API create error details when present', () => {
+    mockUseMcpSettings.mockReturnValue(
+      defaultHookReturn({
+        createError: new ApiError(422, {
+          error: '',
+          details: { detail: 'MCP endpoint must be HTTPS' },
+        }),
+      })
+    );
+
+    render(<McpSettings />);
+
+    expect(screen.getByText('MCP endpoint must be HTTPS')).toBeInTheDocument();
+    expect(screen.queryByText('Request failed')).not.toBeInTheDocument();
+  });
+
+  it('prefers nested API delete error details when present', () => {
+    mockUseMcpSettings.mockReturnValue(
+      defaultHookReturn({
+        mcps: [createMcp()],
+        count: 1,
+        deleteError: new ApiError(422, {
+          error: '',
+          details: { detail: 'Cannot remove an active MCP configuration' },
+        }),
+      })
+    );
+
+    render(<McpSettings />);
+
+    expect(screen.getByText('Cannot remove an active MCP configuration')).toBeInTheDocument();
+    expect(screen.queryByText('Delete failed')).not.toBeInTheDocument();
   });
 });
