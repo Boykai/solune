@@ -10,7 +10,7 @@ assignees: ''
 
 A repeatable process for keeping project documentation accurate as software evolves. Language-agnostic, structure-agnostic, applicable to any codebase. Detects what changed, infers how the product's focus shifted, and rewrites docs to match reality.
 
-> **📖 Execution Guide**: [`specs/003-librarian/quickstart.md`](../../specs/003-librarian/quickstart.md)
+> **📖 Execution Guide**: Follow the phase sections in this issue template from top to bottom.
 > **✅ Verification Template**: [`docs/checklists/doc-refresh-verification.md`](../../solune/docs/checklists/doc-refresh-verification.md)
 
 ### Phase Checklist

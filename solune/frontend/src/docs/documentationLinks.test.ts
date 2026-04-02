@@ -113,9 +113,9 @@ function extractPhaseChecklist(markdown: string): string[] {
   );
 }
 
-function extractQuickstartPhases(markdown: string): string[] {
+function extractPhaseHeadings(markdown: string): string[] {
   return Array.from(
-    markdown.matchAll(/^### Phase (\d+): (.+)$/gm),
+    markdown.matchAll(/^### Phase (\d+)\s*(?::|—|-)\s+(.+)$/gm),
     ([, phaseNumber, phaseTitle]) => `${phaseNumber}:${phaseTitle.trim()}`,
   );
 }
@@ -203,11 +203,10 @@ describe('chat documentation updates', () => {
 });
 
 describe('librarian documentation workflow', () => {
-  it('keeps the issue template phase checklist aligned with the quickstart phases', () => {
+  it('keeps the issue template phase checklist aligned with the detailed phase sections', () => {
     const issueTemplate = readRepoFile(gitRoot, '.github/ISSUE_TEMPLATE/chore-librarian.md');
-    const quickstart = readRepoFile(gitRoot, 'specs/003-librarian/quickstart.md');
 
-    expect(extractPhaseChecklist(issueTemplate)).toEqual(extractQuickstartPhases(quickstart));
+    expect(extractPhaseChecklist(issueTemplate)).toEqual(extractPhaseHeadings(issueTemplate));
     expect(issueTemplate).toContain(
       '[`doc-refresh-verification.md`](../../solune/docs/checklists/doc-refresh-verification.md)',
     );
@@ -227,10 +226,7 @@ describe('librarian documentation workflow', () => {
   it('references only existing documentation files in the change manifest and librarian docs', () => {
     const changeManifest = readDoc('.change-manifest.md');
     const affectedDocs = extractAffectedDocs(changeManifest);
-    const brokenLinks = collectBrokenRelativeLinks(gitRoot, [
-      '.github/ISSUE_TEMPLATE/chore-librarian.md',
-      'specs/003-librarian/quickstart.md',
-    ]);
+    const brokenLinks = collectBrokenRelativeLinks(gitRoot, ['.github/ISSUE_TEMPLATE/chore-librarian.md']);
 
     expect(affectedDocs).not.toEqual([]);
     expect(affectedDocs.filter((docPath) => !existsSync(resolve(repoRoot, docPath)))).toEqual([]);
