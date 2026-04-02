@@ -27,12 +27,13 @@ const testConfig: AdaptivePollingConfig = {
 
 describe('useAdaptivePolling', () => {
   beforeEach(() => {
-    vi.stubGlobal('document', {
-      ...document,
-      visibilityState: 'visible',
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
+    Object.defineProperty(document, 'visibilityState', {
+      value: 'visible',
+      writable: true,
+      configurable: true,
     });
+    vi.spyOn(document, 'addEventListener');
+    vi.spyOn(document, 'removeEventListener');
   });
 
   afterEach(() => {
@@ -217,19 +218,18 @@ describe('useAdaptivePolling', () => {
     });
 
     it('returns false when tab is hidden (paused)', () => {
-      const addListenerSpy = vi.fn();
-      vi.stubGlobal('document', {
-        ...document,
-        visibilityState: 'hidden',
-        addEventListener: addListenerSpy,
-        removeEventListener: vi.fn(),
+      Object.defineProperty(document, 'visibilityState', {
+        value: 'hidden',
+        writable: true,
+        configurable: true,
       });
 
       const { result } = renderHook(() => useAdaptivePolling(testConfig));
 
       // Simulate visibility change
+      const addListenerSpy = vi.mocked(document.addEventListener);
       const handler = addListenerSpy.mock.calls.find(
-        (c: unknown[]) => c[0] === 'visibilitychange',
+        (c) => c[0] === 'visibilitychange',
       )?.[1] as (() => void) | undefined;
       if (handler) {
         act(() => handler());
