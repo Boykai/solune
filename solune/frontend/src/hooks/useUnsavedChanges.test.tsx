@@ -54,7 +54,7 @@ describe('useUnsavedChanges', () => {
     renderHook(() => useUnsavedChanges({ isDirty: false }));
 
     const beforeUnloadCalls = addEventSpy.mock.calls.filter(
-      ([event]) => event === 'beforeunload'
+      ([event]: [string, ...unknown[]]) => event === 'beforeunload'
     );
     expect(beforeUnloadCalls).toHaveLength(0);
   });
@@ -86,7 +86,7 @@ describe('useUnsavedChanges', () => {
     renderHook(() => useUnsavedChanges({ isDirty: true }));
 
     const handler = addEventSpy.mock.calls.find(
-      ([event]) => event === 'beforeunload'
+      ([event]: [string, ...unknown[]]) => event === 'beforeunload'
     )?.[1] as EventListener;
 
     const event = new Event('beforeunload') as BeforeUnloadEvent;

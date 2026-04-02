@@ -23,9 +23,9 @@
 
 **Purpose**: Verify current suppression inventory and confirm existing CI gates pass before any changes.
 
-- [ ] T001 Audit backend source suppressions — confirm ~46 `# type: ignore` and ~9 `# pyright:` directives in solune/backend/src/ using grep
-- [ ] T002 [P] Audit backend test suppressions — confirm ~28 `# type: ignore` comments in solune/backend/tests/ using grep
-- [ ] T003 [P] Audit frontend source and test suppressions — confirm ~18 production and ~51 test suppression matches in solune/frontend/src/ using grep
+- [X] T001 Audit backend source suppressions — confirm ~46 `# type: ignore` and ~9 `# pyright:` directives in solune/backend/src/ using grep
+- [X] T002 [P] Audit backend test suppressions — confirm ~28 `# type: ignore` comments in solune/backend/tests/ using grep
+- [X] T003 [P] Audit frontend source and test suppressions — confirm ~18 production and ~51 test suppression matches in solune/frontend/src/ using grep
 - [ ] T004 Verify existing CI gates pass on the current branch before making changes
 
 ---
@@ -48,14 +48,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Create frontend test type-check configuration in solune/frontend/tsconfig.test.json — extend tsconfig.json, include all src files (remove test exclusions), add vitest/globals types
-- [ ] T006 [US1] Add `type-check:test` npm script to solune/frontend/package.json — command: `tsc --noEmit -p tsconfig.test.json`
-- [ ] T007 [US1] Add backend and frontend test type-check CI steps to .github/workflows/ci.yml — backend: `uv run pyright tests` (working-directory: solune/backend), frontend: `npm run type-check:test` (working-directory: solune/frontend); both as distinct steps with independent failure reporting
-- [ ] T008 [US1] Add backend-pyright-tests and frontend-typecheck-tests hooks to solune/.pre-commit-config.yaml — backend: `bash -c 'cd solune/backend && pyright tests'` on `^solune/backend/.*\.py$`, frontend: `bash -c 'cd solune/frontend && npx tsc --noEmit -p tsconfig.test.json'` on `^solune/frontend/.*\.(ts|tsx)$`
-- [ ] T009 [US1] Add test type-check steps to solune/scripts/pre-commit — add backend pyright tests and frontend tsc test steps after existing type-check steps
-- [ ] T010 [US1] Update testing documentation with new type-check commands in solune/docs/testing.md — document `uv run pyright tests` and `npm run type-check:test`
-- [ ] T011 [US1] Verify backend test type-check runs and reports current errors — run `uv run pyright tests` in solune/backend/ and confirm diagnostic output
-- [ ] T012 [US1] Verify frontend test type-check runs and reports current errors — run `npm run type-check:test` in solune/frontend/ and confirm diagnostic output
+- [X] T005 [US1] Create frontend test type-check configuration in solune/frontend/tsconfig.test.json — extend tsconfig.json, include all src files (remove test exclusions), add vitest/globals types
+- [X] T006 [US1] Add `type-check:test` npm script to solune/frontend/package.json — command: `tsc --noEmit -p tsconfig.test.json`
+- [X] T007 [US1] Add backend and frontend test type-check CI steps to .github/workflows/ci.yml — backend: `uv run pyright tests` (working-directory: solune/backend), frontend: `npm run type-check:test` (working-directory: solune/frontend); both as distinct steps with independent failure reporting
+- [X] T008 [US1] Add backend-pyright-tests and frontend-typecheck-tests hooks to solune/.pre-commit-config.yaml — backend: `bash -c 'cd solune/backend && pyright tests'` on `^solune/backend/.*\.py$`, frontend: `bash -c 'cd solune/frontend && npx tsc --noEmit -p tsconfig.test.json'` on `^solune/frontend/.*\.(ts|tsx)$`
+- [X] T009 [US1] Add test type-check steps to solune/scripts/pre-commit — add backend pyright tests and frontend tsc test steps after existing type-check steps
+- [X] T010 [US1] Update testing documentation with new type-check commands in solune/docs/testing.md — document `uv run pyright tests` and `npm run type-check:test`
+- [X] T011 [US1] Verify backend test type-check runs and reports current errors — run `uv run pyright tests` in solune/backend/ and confirm diagnostic output
+- [X] T012 [US1] Verify frontend test type-check runs and reports current errors — run `npm run type-check:test` in solune/frontend/ and confirm diagnostic output
 
 **Checkpoint**: At this point, test type errors are visible in CI and pre-commit. All subsequent cleanup phases can be verified against these gates.
 

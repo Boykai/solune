@@ -89,6 +89,7 @@ describe('PipelineBoard', () => {
         onRemoveAgent={vi.fn()}
         onUpdateAgent={vi.fn()}
         onUpdateStage={vi.fn()}
+        onReorderAgents={vi.fn()}
       />
     );
 
@@ -120,6 +121,7 @@ describe('PipelineBoard', () => {
         onRemoveAgent={vi.fn()}
         onUpdateAgent={vi.fn()}
         onUpdateStage={vi.fn()}
+        onReorderAgents={vi.fn()}
       />
     );
 

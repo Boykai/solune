@@ -2,21 +2,28 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, userEvent, waitFor, within } from '@/test/test-utils';
 import { ProjectSelectionEmptyState } from './ProjectSelectionEmptyState';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
+import type { Project } from '@/types';
 
-const projects = [
+const projects: Project[] = [
   {
     project_id: 'PVT_alpha',
+    owner_id: 'owner-1',
     name: 'Alpha',
     owner_login: 'solune',
     type: 'user' as const,
     url: 'https://github.com/solune/alpha',
+    status_columns: [],
+    cached_at: '2026-01-01T00:00:00Z',
   },
   {
     project_id: 'PVT_beta',
+    owner_id: 'owner-1',
     name: 'Beta',
     owner_login: 'solune',
     type: 'user' as const,
     url: 'https://github.com/solune/beta',
+    status_columns: [],
+    cached_at: '2026-01-01T00:00:00Z',
   },
 ];
 

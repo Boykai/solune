@@ -24,6 +24,7 @@ function createAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
     name: 'Reviewer',
     slug: 'reviewer',
     description: 'Reviews pull requests',
+    icon_name: null,
     system_prompt: 'Review carefully',
     default_model_id: '',
     default_model_name: '',
@@ -35,6 +36,10 @@ function createAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
     branch_name: 'agent/reviewer',
     source: 'local',
     created_at: '2026-03-01T00:00:00Z',
+    agent_type: 'custom',
+    catalog_source_url: null,
+    catalog_agent_id: null,
+    imported_at: null,
     ...overrides,
   };
 }
