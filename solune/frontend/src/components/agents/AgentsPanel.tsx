@@ -253,7 +253,7 @@ export function AgentsPanel({
             size="lg"
             onClick={() => setShowBrowseModal(true)}
           >
-            Browse Catalog
+            Browse Agents
           </Button>
           <Button
             onClick={handleOpenAddModal}

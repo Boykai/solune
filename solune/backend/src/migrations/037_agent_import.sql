@@ -9,5 +9,6 @@ ALTER TABLE agent_configs ADD COLUMN raw_source_content TEXT;
 ALTER TABLE agent_configs ADD COLUMN imported_at TEXT;
 
 -- Index for duplicate detection (FR-008): one import per catalog agent per project
-CREATE INDEX IF NOT EXISTS idx_agent_configs_catalog
-    ON agent_configs(catalog_agent_id, project_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_configs_catalog
+    ON agent_configs(catalog_agent_id, project_id)
+    WHERE catalog_agent_id IS NOT NULL;

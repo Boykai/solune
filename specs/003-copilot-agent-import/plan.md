@@ -65,7 +65,7 @@ solune/backend/
 │   │   ├── agent_creator.py       # EXISTING: Reuse .prompt.md generation pattern (no changes)
 │   │   └── github_commit_workflow.py  # EXISTING: Reuse for install workflow (no changes)
 │   └── migrations/
-│       └── 030_agent_import.sql   # NEW: Add import columns to agent_configs + catalog cache table
+│       └── 037_agent_import.sql   # NEW: Add import columns to agent_configs
 └── tests/
     └── unit/
         ├── test_agents_service.py # MODIFY: Add import/install service tests

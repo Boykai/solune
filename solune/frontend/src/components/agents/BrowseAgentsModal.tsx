@@ -20,7 +20,7 @@ interface BrowseAgentsModalProps {
 
 export function BrowseAgentsModal({ projectId, isOpen, onClose }: BrowseAgentsModalProps) {
   const [search, setSearch] = useState('');
-  const { data: catalogAgents, isLoading, isError } = useCatalogAgents(isOpen ? projectId : null);
+  const { data: catalogAgents, isLoading, isError, refetch } = useCatalogAgents(isOpen ? projectId : null);
   const importMutation = useImportAgent(projectId);
   const [importingId, setImportingId] = useState<string | null>(null);
 
@@ -51,12 +51,12 @@ export function BrowseAgentsModal({ projectId, isOpen, onClose }: BrowseAgentsMo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="browse-agents-title">
       <div className="relative flex max-h-[80vh] w-full max-w-2xl flex-col rounded-2xl bg-[var(--color-bg-card)] shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border)] p-6">
           <div>
-            <h2 className="text-lg font-semibold text-[var(--color-text)]">
+            <h2 id="browse-agents-title" className="text-lg font-semibold text-[var(--color-text)]">
               Browse Awesome Copilot Agents
             </h2>
             <p className="text-sm text-[var(--color-text-muted)]">
@@ -95,9 +95,14 @@ export function BrowseAgentsModal({ projectId, isOpen, onClose }: BrowseAgentsMo
           )}
 
           {isError && (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-[var(--color-text-muted)]">
-              <AlertCircle className="h-5 w-5" />
-              <span>Failed to load catalog. Please try again.</span>
+            <div className="flex flex-col items-center justify-center gap-3 py-12">
+              <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)]">
+                <AlertCircle className="h-5 w-5" />
+                <span>Failed to load catalog.</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                Retry
+              </Button>
             </div>
           )}
 

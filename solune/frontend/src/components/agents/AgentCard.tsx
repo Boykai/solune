@@ -249,7 +249,7 @@ export function AgentCard({
               </Button>
             </Tooltip>
           )}
-          {isImportedState && (
+          {isImported && isImportedState && (
             <Button variant="outline" size="sm" onClick={() => setIsInstallDialogOpen(true)}>
               Add to repo
             </Button>

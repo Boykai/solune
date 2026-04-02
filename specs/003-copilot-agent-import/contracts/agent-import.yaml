@@ -38,43 +38,26 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - agents
-                  - cached_at
-                properties:
-                  agents:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/CatalogAgent"
-                  cached_at:
-                    type: string
-                    format: date-time
-                    nullable: true
-                    description: >
-                      Timestamp when the catalog was last fetched. Null if
-                      serving stale fallback data.
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogAgent"
               examples:
                 with_agents:
                   summary: Catalog with available agents
                   value:
-                    agents:
-                      - id: "security-reviewer"
-                        name: "Security Reviewer"
-                        description: "Reviews code changes for security vulnerabilities and suggests fixes."
-                        source_url: "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/security-reviewer.agent.md"
-                        already_imported: false
-                      - id: "code-documenter"
-                        name: "Code Documenter"
-                        description: "Automatically generates documentation for code changes."
-                        source_url: "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/code-documenter.agent.md"
-                        already_imported: true
-                    cached_at: "2026-04-01T20:00:00Z"
+                    - id: "security-reviewer"
+                      name: "Security Reviewer"
+                      description: "Reviews code changes for security vulnerabilities and suggests fixes."
+                      source_url: "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/security-reviewer.agent.md"
+                      already_imported: false
+                    - id: "code-documenter"
+                      name: "Code Documenter"
+                      description: "Automatically generates documentation for code changes."
+                      source_url: "https://raw.githubusercontent.com/github/awesome-copilot/main/agents/code-documenter.agent.md"
+                      already_imported: true
                 empty:
                   summary: Empty catalog or fetch failure with no stale data
-                  value:
-                    agents: []
-                    cached_at: null
+                  value: []
         "401":
           description: Unauthorized — invalid or missing session
         "403":
