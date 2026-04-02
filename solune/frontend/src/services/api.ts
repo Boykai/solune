@@ -1161,7 +1161,7 @@ export const choresApi = {
 
 // ── Agents API ─────────────────────────────────────────────────────────
 
-export type AgentStatus = 'active' | 'pending_pr' | 'pending_deletion';
+export type AgentStatus = 'active' | 'pending_pr' | 'pending_deletion' | 'imported' | 'installed';
 export type AgentSource = 'local' | 'repo' | 'both';
 
 export interface AgentConfig {
@@ -1181,6 +1181,10 @@ export interface AgentConfig {
   branch_name: string | null;
   source: AgentSource;
   created_at: string | null;
+  agent_type?: 'custom' | 'imported';
+  catalog_source_url?: string | null;
+  catalog_agent_id?: string | null;
+  imported_at?: string | null;
 }
 
 export interface AgentCreate {
@@ -1266,6 +1270,34 @@ export interface AgentMcpSyncResult {
   synced_mcps: string[];
 }
 
+export interface CatalogAgent {
+  id: string;
+  name: string;
+  description: string;
+  source_url: string;
+  already_imported: boolean;
+}
+
+export interface ImportAgentRequest {
+  catalog_agent_id: string;
+  name: string;
+  description: string;
+  source_url: string;
+}
+
+export interface ImportAgentResult {
+  agent: AgentConfig;
+  message: string;
+}
+
+export interface InstallAgentResult {
+  agent: AgentConfig;
+  pr_url: string;
+  pr_number: number;
+  issue_number: number | null;
+  branch_name: string;
+}
+
 export const agentsApi = {
   list(projectId: string): Promise<AgentConfig[]> {
     return request<AgentConfig[]>(`/agents/${projectId}`);
@@ -1330,6 +1362,23 @@ export const agentsApi = {
 
   syncMcps(projectId: string): Promise<AgentMcpSyncResult> {
     return request<AgentMcpSyncResult>(`/agents/${projectId}/sync-mcps`, {
+      method: 'POST',
+    });
+  },
+
+  browseCatalog(projectId: string): Promise<CatalogAgent[]> {
+    return request<CatalogAgent[]>(`/agents/${projectId}/catalog`);
+  },
+
+  importAgent(projectId: string, data: ImportAgentRequest): Promise<ImportAgentResult> {
+    return request<ImportAgentResult>(`/agents/${projectId}/import`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  installAgent(projectId: string, agentId: string): Promise<InstallAgentResult> {
+    return request<InstallAgentResult>(`/agents/${projectId}/${agentId}/install`, {
       method: 'POST',
     });
   },

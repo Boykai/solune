@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { toast } from 'sonner';
 
 vi.mock('@/services/api', () => ({
   agentsApi: {
@@ -13,6 +14,9 @@ vi.mock('@/services/api', () => ({
     delete: vi.fn(),
     chat: vi.fn(),
     bulkUpdateModels: vi.fn(),
+    browseCatalog: vi.fn(),
+    importAgent: vi.fn(),
+    installAgent: vi.fn(),
   },
   ApiError: class ApiError extends Error {
     constructor(
@@ -47,6 +51,9 @@ import {
   useClearPendingAgents,
   useAgentChat,
   useBulkUpdateModels,
+  useCatalogAgents,
+  useImportAgent,
+  useInstallAgent,
   agentKeys,
 } from './useAgents';
 
@@ -59,6 +66,9 @@ const mockAgentsApi = api.agentsApi as unknown as {
   delete: ReturnType<typeof vi.fn>;
   chat: ReturnType<typeof vi.fn>;
   bulkUpdateModels: ReturnType<typeof vi.fn>;
+  browseCatalog: ReturnType<typeof vi.fn>;
+  importAgent: ReturnType<typeof vi.fn>;
+  installAgent: ReturnType<typeof vi.fn>;
 };
 
 function createWrapper() {
@@ -336,5 +346,157 @@ describe('useBulkUpdateModels', () => {
     });
 
     expect(mockAgentsApi.bulkUpdateModels).toHaveBeenCalledWith('proj-1', 'model-1', 'GPT-4o');
+  });
+});
+
+describe('useCatalogAgents', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns catalog agents on success', async () => {
+    const catalogAgents = [
+      { id: 'agent-1', name: 'Agent A', description: 'First', source_url: 'https://example.com/a.md', already_imported: false },
+    ];
+    mockAgentsApi.browseCatalog.mockResolvedValue(catalogAgents);
+
+    const { result } = renderHook(() => useCatalogAgents('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual(catalogAgents);
+    expect(mockAgentsApi.browseCatalog).toHaveBeenCalledWith('proj-1');
+  });
+
+  it('does not fetch when projectId is null', () => {
+    renderHook(() => useCatalogAgents(null), { wrapper: createWrapper().wrapper });
+    expect(mockAgentsApi.browseCatalog).not.toHaveBeenCalled();
+  });
+});
+
+describe('useImportAgent', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('calls importAgent API and returns result', async () => {
+    const importResult = { agent: mockAgent, message: 'Imported' };
+    mockAgentsApi.importAgent.mockResolvedValue(importResult);
+
+    const { result } = renderHook(() => useImportAgent('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        catalog_agent_id: 'agent-1',
+        name: 'Agent A',
+        description: 'desc',
+        source_url: 'https://example.com/a.md',
+      });
+    });
+
+    expect(mockAgentsApi.importAgent).toHaveBeenCalledWith('proj-1', {
+      catalog_agent_id: 'agent-1',
+      name: 'Agent A',
+      description: 'desc',
+      source_url: 'https://example.com/a.md',
+    });
+  });
+
+  it('invalidates list and catalog queries after a successful import', async () => {
+    mockAgentsApi.importAgent.mockResolvedValue({ agent: mockAgent, message: 'Imported' });
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useImportAgent('proj-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        catalog_agent_id: 'agent-1',
+        name: 'Agent A',
+        description: 'desc',
+        source_url: 'https://example.com/a.md',
+      });
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.list('proj-1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.catalog('proj-1') });
+    expect(toast.success).toHaveBeenCalledWith('Agent imported');
+  });
+
+  it('surfaces import errors through a toast', async () => {
+    mockAgentsApi.importAgent.mockRejectedValue(new Error('Catalog fetch failed'));
+
+    const { result } = renderHook(() => useImportAgent('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await expect(
+      result.current.mutateAsync({
+        catalog_agent_id: 'agent-1',
+        name: 'Agent A',
+        description: 'desc',
+        source_url: 'https://example.com/a.md',
+      })
+    ).rejects.toThrow('Catalog fetch failed');
+
+    expect(toast.error).toHaveBeenCalledWith('Catalog fetch failed', { duration: Infinity });
+  });
+});
+
+describe('useInstallAgent', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('calls installAgent API and returns result', async () => {
+    const installResult = {
+      agent: mockAgent,
+      pr_url: 'https://github.com/owner/repo/pull/1',
+      pr_number: 1,
+      issue_number: null,
+      branch_name: 'agent/test',
+    };
+    mockAgentsApi.installAgent.mockResolvedValue(installResult);
+
+    const { result } = renderHook(() => useInstallAgent('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync('agent-1');
+    });
+
+    expect(mockAgentsApi.installAgent).toHaveBeenCalledWith('proj-1', 'agent-1');
+  });
+
+  it('invalidates list and pending queries after install succeeds', async () => {
+    mockAgentsApi.installAgent.mockResolvedValue({
+      agent: mockAgent,
+      pr_url: 'https://github.com/owner/repo/pull/1',
+      pr_number: 1,
+      issue_number: 2,
+      branch_name: 'agent/test',
+    });
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const { result } = renderHook(() => useInstallAgent('proj-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync('agent-1');
+    });
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.list('proj-1') });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentKeys.pending('proj-1') });
+    expect(toast.success).toHaveBeenCalledWith('Agent installed — PR created');
+  });
+
+  it('surfaces install errors through a toast', async () => {
+    mockAgentsApi.installAgent.mockRejectedValue(new Error('Install failed'));
+
+    const { result } = renderHook(() => useInstallAgent('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await expect(result.current.mutateAsync('agent-1')).rejects.toThrow('Install failed');
+
+    expect(toast.error).toHaveBeenCalledWith('Install failed', { duration: Infinity });
   });
 });
