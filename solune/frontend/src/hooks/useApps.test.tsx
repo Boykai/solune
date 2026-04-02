@@ -2,44 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { createMockApi, type MockApiShape } from '@/test/setup';
 
-vi.mock('@/services/api', () => {
-  class ApiError extends Error {
-    status: number;
-    error: { error: string };
-    constructor(status: number, error: { error: string }) {
-      super(error.error);
-      this.status = status;
-      this.error = error;
-      this.name = 'ApiError';
-    }
-  }
-  return {
-    appsApi: {
-      list: vi.fn(),
-      get: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      start: vi.fn(),
-      stop: vi.fn(),
-    },
-    ApiError,
-  };
-});
+vi.mock('@/services/api', () => createMockApi());
 
 import * as api from '@/services/api';
 import { useApps, useCreateApp, useDeleteApp, isApiError, getErrorMessage } from './useApps';
 
-const mockAppsApi = api.appsApi as unknown as {
-  list: ReturnType<typeof vi.fn>;
-  get: ReturnType<typeof vi.fn>;
-  create: ReturnType<typeof vi.fn>;
-  update: ReturnType<typeof vi.fn>;
-  delete: ReturnType<typeof vi.fn>;
-  start: ReturnType<typeof vi.fn>;
-  stop: ReturnType<typeof vi.fn>;
-};
+const mockApi = api as unknown as MockApiShape;
+const mockAppsApi = mockApi.appsApi;
 
 function createWrapper() {
   const queryClient = new QueryClient({

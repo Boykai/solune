@@ -38,7 +38,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar, cast
 
 if TYPE_CHECKING:
     from src.exceptions import AppException
@@ -195,9 +195,9 @@ class RequestIDFilter(logging.Filter):
         try:
             from src.middleware.request_id import request_id_var
 
-            record.request_id = request_id_var.get("")  # type: ignore[attr-defined]
+            record.__dict__["request_id"] = request_id_var.get("")
         except Exception:
-            record.request_id = ""  # type: ignore[attr-defined]
+            record.__dict__["request_id"] = ""
         return True
 
 
@@ -304,6 +304,6 @@ def handle_github_errors(
                     raise
                 handle_service_error(exc, operation, error_cls)
 
-        return wrapper  # type: ignore[return-value]
+        return cast(_F, wrapper)
 
     return decorator

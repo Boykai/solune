@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
 from src.config import get_settings
 from src.logging_utils import get_logger
@@ -237,12 +237,12 @@ async def cached_fetch[T](
             entry = cache_instance.get_entry(key)
             if entry is not None and not entry.is_expired:
                 logger.debug("cached_fetch hit: %s", key)
-                return entry.value  # type: ignore[return-value]
+                return cast(T, entry.value)
         else:
             cached = cache_instance.get(key)
             if cached is not None:
                 logger.debug("cached_fetch hit: %s", key)
-                return cached  # type: ignore[return-value]
+                return cast(T, cached)
 
     try:
         result = await fetch_fn()
@@ -253,14 +253,14 @@ async def cached_fetch[T](
             stale = cache_instance.get_stale(key)
             if stale is not None:
                 logger.warning("cached_fetch rate-limit fallback (stale): %s", key)
-                return stale  # type: ignore[return-value]
+                return cast(T, stale)
             raise
 
         if stale_fallback:
             stale = cache_instance.get_stale(key)
             if stale is not None:
                 logger.warning("cached_fetch stale fallback: %s", key)
-                return stale  # type: ignore[return-value]
+                return cast(T, stale)
         raise
 
     if data_hash_fn is not None:
@@ -269,12 +269,12 @@ async def cached_fetch[T](
         if existing is not None and existing.data_hash == new_hash:
             cache_instance.refresh_ttl(key, ttl_seconds=ttl_seconds)
             logger.debug("cached_fetch hash unchanged, TTL refreshed: %s", key)
-            return result  # type: ignore[return-value]
+            return result
         cache_instance.set(key, result, ttl_seconds=ttl_seconds, data_hash=new_hash)
     else:
         cache_instance.set(key, result, ttl_seconds=ttl_seconds)
     logger.debug("cached_fetch set: %s (TTL: %ss)", key, ttl_seconds or "default")
-    return result  # type: ignore[return-value]
+    return result
 
 
 # Convenience functions for project caching

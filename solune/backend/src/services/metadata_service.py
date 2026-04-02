@@ -368,9 +368,9 @@ class MetadataService:
         fetched_at = ""
 
         for row in rows:
-            field_type = row[0]  # type: ignore[index]
-            value_json = row[1]  # type: ignore[index]
-            row_fetched = row[2]  # type: ignore[index]
+            field_type: str = row[0]
+            value_json: str = row[1]
+            row_fetched: str = row[2]
             if not fetched_at or row_fetched > fetched_at:
                 fetched_at = row_fetched
 

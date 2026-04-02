@@ -69,8 +69,8 @@ function SortableAgentTile({
       compactIndex={compactIndex}
       compactCount={compactCount}
       sortableProps={{
-        attributes: attributes as unknown as Record<string, unknown>,
-        listeners: listeners as unknown as Record<string, unknown>,
+        attributes,
+        listeners,
         setNodeRef,
         style,
         isDragging,

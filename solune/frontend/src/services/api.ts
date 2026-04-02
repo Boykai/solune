@@ -574,6 +574,7 @@ export const chatApi = {
         }
 
         if (eventType === 'thinking') {
+          // parsed is validated by eventType; cast from generic JSON to typed event
           onThinking(parsed as unknown as ThinkingEvent);
         } else if (eventType === 'token') {
           let content: unknown;

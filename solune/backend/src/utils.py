@@ -6,7 +6,7 @@ import hashlib
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, ItemsView, Iterator, KeysView, ValuesView
 from datetime import UTC, datetime
-from typing import TypeVar, overload
+from typing import Any, TypeVar, cast, overload
 from urllib.parse import urlparse
 
 from src.logging_utils import get_logger
@@ -64,6 +64,9 @@ class BoundedSet[T]:
 
     def __repr__(self) -> str:
         return f"BoundedSet(maxlen={self._maxlen}, size={len(self._data)})"
+
+
+_SENTINEL = object()
 
 
 class BoundedDict[K, V]:
@@ -137,8 +140,10 @@ class BoundedDict[K, V]:
     def pop(self, key: K, default: V) -> V: ...
     @overload
     def pop(self, key: K, default: None) -> V | None: ...
-    def pop(self, key: K, *args: object) -> V | None:  # type: ignore[misc]
-        return self._data.pop(key, *args)  # type: ignore[arg-type]
+    def pop(self, key: K, default: Any = _SENTINEL) -> Any:
+        if default is _SENTINEL:
+            return self._data.pop(key)
+        return self._data.pop(key, default)
 
     def keys(self) -> KeysView[K]:
         return self._data.keys()
@@ -365,7 +370,7 @@ async def cached_fetch[R](
         cached = cache.get(cache_key)
         if cached is not None:
             logger.debug("Cache hit for %s", cache_key)
-            return cached  # type: ignore[return-value]
+            return cast(R, cached)
 
     result = await fetch_fn(*args)
     cache.set(cache_key, result)
