@@ -3,120 +3,127 @@
 **Feature Branch**: `545-model-reasoning-selection`  
 **Created**: 2026-04-02  
 **Status**: Draft  
-**Input**: Parent Issue #545 — Model Reasoning Level Selection
+**Input**: User description: "Model Reasoning Level Selection — Thread reasoning effort data from the AI provider end-to-end through backend and frontend so users can select and apply model reasoning levels."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Backend exposes reasoning data in model list (Priority: P1)
+### User Story 1 - View Available Reasoning Levels for Models (Priority: P1)
 
-As a developer consuming the model list API, I want each model to include its supported reasoning efforts and default reasoning effort, so that the frontend can present reasoning level choices.
+As a user browsing available AI models, I want to see which reasoning levels each model supports (e.g., Low, Medium, High, Extra-High), so that I can make an informed decision about which model and reasoning level to use for my tasks.
 
-**Why this priority**: Without backend data exposure, no downstream features can function. This is the foundational data layer.
+**Why this priority**: Users need visibility into reasoning capabilities before they can select them. This is the foundational data that enables all downstream feature interactions.
 
-**Independent Test**: Can be fully tested by calling `GET /api/v1/settings/models/copilot` and verifying that reasoning-capable models return `supported_reasoning_efforts` and `default_reasoning_effort` fields.
+**Independent Test**: Can be fully tested by viewing the model list and verifying that reasoning-capable models display their supported reasoning levels and default level, while non-reasoning models appear unchanged.
 
 **Acceptance Scenarios**:
 
-1. **Given** a model with reasoning support (e.g., o3), **When** `GET /api/v1/settings/models/copilot` is called, **Then** the response includes `supported_reasoning_efforts: ["low", "medium", "high"]` and `default_reasoning_effort: "medium"`.
-2. **Given** a model without reasoning support (e.g., gpt-4.1), **When** `GET /api/v1/settings/models/copilot` is called, **Then** `supported_reasoning_efforts` is `null` and `default_reasoning_effort` is `null`.
-3. **Given** the OpenAPI schema, **When** contract validation runs, **Then** `ModelOption` schema includes the new optional fields.
+1. **Given** a reasoning-capable model (e.g., o3), **When** I view the model list, **Then** I can see the supported reasoning levels (e.g., Low, Medium, High) and which level is the default.
+2. **Given** a model without reasoning support (e.g., gpt-4.1), **When** I view the model list, **Then** the model appears as it does today with no reasoning information shown.
+3. **Given** the AI provider adds new reasoning levels to a model, **When** I refresh the model list, **Then** the updated reasoning levels appear automatically without any manual configuration.
 
 ---
 
-### User Story 2 - Backend accepts and passes reasoning effort to sessions (Priority: P1)
+### User Story 2 - Select a Reasoning Level in Chat Settings (Priority: P1)
 
-As a user selecting a reasoning level, I want the backend to accept my reasoning_effort preference and pass it through to the Copilot SDK session, so that the AI model actually uses the specified reasoning level.
+As a user configuring my AI preferences, I want to choose a default reasoning level for my selected model, so that all my chat interactions use my preferred reasoning intensity without needing to set it each time.
 
-**Why this priority**: This is the core plumbing that makes reasoning selection functional end-to-end. Without it, UI changes are cosmetic only.
+**Why this priority**: This is the core user-facing functionality. Selecting a reasoning level in settings makes the feature usable end-to-end and delivers immediate value.
 
-**Independent Test**: Can be tested by sending a chat request with `reasoning_effort: "high"` and verifying the SessionConfig passed to the SDK includes `reasoning_effort: "high"`.
+**Independent Test**: Can be tested by navigating to Settings, selecting a reasoning model variant from the dropdown, saving, then starting a chat and confirming the selected reasoning level is applied.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user with `reasoning_effort: "high"` in AIPreferences, **When** a completion request is made, **Then** `SessionConfig` includes `reasoning_effort: "high"`.
-2. **Given** a pipeline agent node with `reasoning_effort: "medium"` in config, **When** the orchestrator resolves the model, **Then** reasoning_effort is resolved with precedence: pipeline config → user settings → model default → empty.
-3. **Given** `reasoning_effort` is empty/unset, **When** a completion request is made, **Then** `reasoning_effort` is omitted from SessionConfig (API default behavior).
-4. **Given** the MAF agent path, **When** a Copilot agent is created, **Then** reasoning_effort is injected into the session config.
+1. **Given** I am on the Settings page, **When** I open the model dropdown, **Then** reasoning-capable models are shown as expanded variants (e.g., "o3 (Low)", "o3 (Medium)", "o3 (High)") and models without reasoning support appear unchanged.
+2. **Given** I select "o3 (High)" from the model dropdown and save my preferences, **When** I start a new chat, **Then** the system uses o3 with high reasoning effort.
+3. **Given** I have a reasoning level saved in my preferences, **When** I switch to a model that does not support reasoning, **Then** my reasoning preference is gracefully ignored and the model operates normally.
+4. **Given** a model's default reasoning level is Medium, **When** I view the model variants in the dropdown, **Then** the Medium variant is visually highlighted as the recommended default.
 
 ---
 
-### User Story 3 - Frontend displays reasoning level variants in model selectors (Priority: P2)
+### User Story 3 - Configure Reasoning Level per Pipeline Agent (Priority: P2)
 
-As a user choosing a model in Settings or Pipeline editor, I want reasoning-capable models expanded into variants (e.g., "o3 (High)", "o3 (Medium)"), so that I can visually select the reasoning level alongside the model.
+As a pipeline editor, I want to assign a specific reasoning level to each agent node in my pipeline, so that different stages of my pipeline can use different reasoning intensities optimized for their task.
 
-**Why this priority**: This is the user-facing experience that makes the feature discoverable and usable. Depends on P1 stories.
+**Why this priority**: Pipeline customization is an advanced use case that enables power users to fine-tune reasoning per task. It depends on the core infrastructure from P1 stories.
 
-**Independent Test**: Can be tested by loading the Settings page with mocked model data containing reasoning efforts and verifying the dropdown shows expanded variants with reasoning badges.
+**Independent Test**: Can be tested by opening the pipeline editor, selecting a reasoning model variant for an agent node, saving the pipeline, and executing it to confirm the correct reasoning level is used for that agent.
 
 **Acceptance Scenarios**:
 
-1. **Given** a model with `supported_reasoning_efforts: ["low", "medium", "high"]`, **When** the model selector renders, **Then** it shows 3 variants: "o3 (Low)", "o3 (Medium)", "o3 (High)".
-2. **Given** a model without reasoning support, **When** the model selector renders, **Then** it shows the model name unchanged with no reasoning badge.
-3. **Given** the model's `default_reasoning_effort` is "medium", **When** variants are displayed, **Then** the "medium" variant is visually marked as default.
-4. **Given** a user selects "o3 (High)", **When** the selection is saved, **Then** `model: "o3"` and `reasoning_effort: "high"` are stored as separate fields.
+1. **Given** I am editing a pipeline agent node, **When** I open the model selector, **Then** I see the same reasoning-expanded variants as in Settings (e.g., "o3 (High)", "o3 (Medium)").
+2. **Given** I configure Agent A with "o3 (High)" and Agent B with "o3 (Low)", **When** the pipeline executes, **Then** Agent A uses high reasoning and Agent B uses low reasoning.
+3. **Given** a pipeline agent has a reasoning level configured, **When** the user also has a default reasoning level in settings, **Then** the pipeline agent's configured level takes precedence over the user's default.
 
 ---
 
-### User Story 4 - Pipeline agent nodes support reasoning effort (Priority: P2)
+### User Story 4 - Reasoning Effort Applied to AI Responses (Priority: P1)
 
-As a pipeline editor, I want to configure reasoning effort per agent node, so that different agents in a pipeline can use different reasoning levels.
+As a user who has selected a reasoning level, I want my AI interactions to actually use the chosen reasoning intensity, so that I get responses appropriate to the complexity of my task.
 
-**Why this priority**: Pipeline customization is an advanced use case that builds on the core infrastructure.
+**Why this priority**: Without the system actually passing reasoning effort to the AI provider, the UI selections are cosmetic. This story ensures the selection has real effect.
 
-**Independent Test**: Can be tested by configuring a pipeline agent with a reasoning model variant and verifying `reasoning_effort` is stored in the agent node config and passed through orchestration.
+**Independent Test**: Can be tested by selecting a high reasoning level, sending a complex prompt, and verifying through system behavior that the reasoning effort was communicated to the AI provider.
 
 **Acceptance Scenarios**:
 
-1. **Given** a pipeline agent node, **When** I select "o3 (High)" from the model dropdown, **Then** `model_id: "o3"` and `reasoning_effort: "high"` are stored in the node config.
-2. **Given** a pipeline with a reasoning-configured agent, **When** the pipeline executes, **Then** the orchestrator passes the correct reasoning_effort to the session.
+1. **Given** I have selected "High" reasoning effort for my model, **When** I send a chat message, **Then** the system communicates "high" reasoning effort to the AI provider session.
+2. **Given** no reasoning effort is configured (empty/unset), **When** I send a chat message, **Then** the system omits reasoning effort from the request, allowing the AI provider to use its own default.
+3. **Given** a reasoning effort is configured at multiple levels (pipeline config, user settings, model default), **When** a request is processed, **Then** the system resolves the effort using this precedence: pipeline config → user settings → model default → provider default.
 
 ---
 
 ### Edge Cases
 
-- What happens when the SDK returns a model with empty `supported_reasoning_efforts`? → Treat as non-reasoning model (no expansion, no badge).
-- What happens when a user has a saved `reasoning_effort` but the model no longer supports it? → The backend should pass it anyway; the SDK will handle validation.
-- What happens when `reasoning_effort` is "auto" or an empty string? → Treat as unset; omit from SessionConfig.
-- How does this interact with Azure OpenAI provider? → Scoped to Copilot provider only. Azure OpenAI models remain unchanged.
+- What happens when a model reports empty or null reasoning levels? → Treat as a non-reasoning model: no expansion, no badge, no reasoning variant shown.
+- What happens when a user has a saved reasoning level but the model no longer supports it? → The system passes the saved value to the provider; the provider handles validation and fallback.
+- What happens when reasoning effort is set to an empty string? → Treat as unset; omit from the provider request so the provider uses its default behavior.
+- How does this interact with non-Copilot providers (e.g., Azure OpenAI)? → Reasoning level selection is scoped to the Copilot provider only. Other providers remain unchanged.
+- What happens when a model's supported reasoning levels change between sessions? → On next model list refresh, the updated levels are displayed. Previously saved preferences that reference removed levels are passed through and handled by the provider.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: `ModelOption` MUST include optional `supported_reasoning_efforts: list[str] | None` and `default_reasoning_effort: str | None` fields.
-- **FR-002**: `GitHubCopilotModelFetcher.fetch_models()` MUST extract reasoning data from the SDK's Model dataclass.
-- **FR-003**: OpenAPI schema MUST be regenerated to reflect new `ModelOption` fields.
-- **FR-004**: `AIPreferences` MUST include optional `reasoning_effort: str` field (default empty).
-- **FR-005**: `PipelineAgentNode` MUST support `reasoning_effort` in its config dict.
-- **FR-006**: `CopilotCompletionProvider.complete()` MUST accept and pass `reasoning_effort` to `SessionConfig`.
-- **FR-007**: Agent provider MUST inject `reasoning_effort` into Copilot agent session config.
-- **FR-008**: Orchestrator MUST resolve `reasoning_effort` with precedence: pipeline config → user settings → model default → empty.
-- **FR-009**: Frontend `AIModel` type MUST include `supported_reasoning_efforts` and `default_reasoning_effort`.
-- **FR-010**: `modelsApi.list()` MUST pass through reasoning fields from backend.
-- **FR-011**: `useModels()` hook MUST expand reasoning-capable models into per-level variants.
-- **FR-012**: `ModelSelector.ModelRow` MUST display a `ReasoningBadge` for reasoning variants.
-- **FR-013**: Settings form MUST store `model` and `reasoning_effort` as separate fields.
-- **FR-014**: Pipeline model dropdown and agent node MUST support reasoning_effort selection.
-- **FR-015**: Models without reasoning support MUST display unchanged (no badge, no suffix).
+- **FR-001**: The system MUST expose each model's supported reasoning levels and default reasoning level in the model listing.
+- **FR-002**: The system MUST populate reasoning level data automatically from the AI provider without manual configuration.
+- **FR-003**: The system MUST allow users to select a default reasoning level as part of their AI preferences.
+- **FR-004**: The system MUST store the selected model and reasoning level as separate, independent values (not as a composite identifier).
+- **FR-005**: The system MUST pass the user's selected reasoning effort through to the AI provider when creating a session.
+- **FR-006**: The system MUST resolve reasoning effort using this precedence: pipeline agent config → user settings → model default → empty (provider default).
+- **FR-007**: The system MUST expand reasoning-capable models into per-level variants in all model selection dropdowns (Settings and Pipeline editor).
+- **FR-008**: The system MUST display a visual indicator (reasoning badge) on model variants to communicate the reasoning level.
+- **FR-009**: The system MUST visually highlight the model's default reasoning level among its variants.
+- **FR-010**: The system MUST display models without reasoning support unchanged — no badges, no suffixes, no expansion.
+- **FR-011**: The system MUST support configuring reasoning effort independently per pipeline agent node.
+- **FR-012**: The system MUST keep the API contract (schema) in sync with the new reasoning fields.
+- **FR-013**: The system MUST maintain backwards compatibility — existing users with no reasoning preference MUST experience no change in behavior.
 
 ### Key Entities
 
-- **ModelOption**: Backend model descriptor; gains reasoning metadata fields.
-- **AIPreferences**: User-level AI settings; gains reasoning_effort preference.
-- **PipelineAgentNode**: Per-agent pipeline config; gains reasoning_effort in config dict.
-- **AIModel**: Frontend model descriptor; gains reasoning metadata and per-variant reasoning_effort.
-- **PipelineModelOverride**: Pipeline-level model override; gains reasoning_effort field.
+- **Model**: An AI model available for use; gains metadata about supported reasoning levels and a default reasoning level.
+- **AI Preferences**: User-level AI configuration; gains a reasoning effort field for the user's default reasoning intensity.
+- **Pipeline Agent Node**: Per-agent configuration within a pipeline; gains a reasoning effort setting alongside the model selection.
+- **Model Variant**: A frontend display concept where a single reasoning-capable model is expanded into multiple selectable entries, one per supported reasoning level.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: `GET /api/v1/settings/models/copilot` returns reasoning fields for all reasoning-capable models.
-- **SC-002**: All backend tests pass (`pytest tests/ -v`).
-- **SC-003**: All frontend tests pass (`npm test`).
-- **SC-004**: TypeScript type check passes (`npx tsc --noEmit`).
-- **SC-005**: Contract validation passes (`bash scripts/validate-contracts.sh`).
-- **SC-006**: Settings model dropdown shows reasoning variants (e.g., "o3 (High)") for reasoning-capable models.
-- **SC-007**: Pipeline model selector shows reasoning variants.
-- **SC-008**: Selecting a reasoning model variant results in `reasoning_effort` appearing in SessionConfig in backend logs.
-- **SC-009**: Models without reasoning support display unchanged.
+- **SC-001**: Users can see reasoning level options for all reasoning-capable models within the model selection interface.
+- **SC-002**: Users can select a reasoning level and have it persist across sessions without re-selection.
+- **SC-003**: Selecting a reasoning model variant in Settings results in the AI provider receiving the correct reasoning effort for subsequent interactions.
+- **SC-004**: Pipeline agents configured with different reasoning levels produce interactions that reflect their individual reasoning configurations.
+- **SC-005**: Models without reasoning support display identically to their current presentation — no visual changes, no additional UI elements.
+- **SC-006**: The model and reasoning level are stored as separate fields, ensuring no parsing is needed and backwards compatibility is maintained.
+- **SC-007**: The API contract between frontend and backend remains valid and in sync after the changes.
+- **SC-008**: 100% of existing automated tests continue to pass after the changes (no regressions).
+- **SC-009**: Users can complete the reasoning level selection workflow (open dropdown → see variants → select → save) in under 10 seconds.
+
+## Assumptions
+
+- The AI provider already returns reasoning level metadata (supported levels and default level) for each model. No provider changes are needed.
+- Reasoning effort values are string identifiers (e.g., "low", "medium", "high", "xhigh") defined by the AI provider.
+- The Copilot provider is the only provider that currently supports reasoning levels. Other providers will be extended separately if/when they gain support.
+- The display format for reasoning variants follows the pattern "ModelName (Level)" (e.g., "o3 (High)") with capitalized level names for user-friendliness.
+- Empty or unset reasoning effort is semantically equivalent to "use the provider's default behavior."
+- The precedence chain (pipeline config → user settings → model default → empty) is consistent with how model selection already works in the system.
