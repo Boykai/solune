@@ -121,6 +121,7 @@ export function ProjectBoard({
               />
             );
           })}
+          </div>
         </div>
         {showScrollFade && (
           <div
