@@ -2668,8 +2668,7 @@ class WorkflowOrchestrator:
                     initial_parallel_error = (
                         f"Failed to assign initial parallel agent '{failed_agents[0]}'"
                         if len(failed_agents) == 1
-                        else "Failed to assign initial parallel agents: "
-                        + ", ".join(failed_agents)
+                        else "Failed to assign initial parallel agents: " + ", ".join(failed_agents)
                     )
                     logger.warning(
                         "Initial parallel assignment had %d failed agent(s) on issue #%s: %s",
