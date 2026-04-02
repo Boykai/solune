@@ -250,7 +250,7 @@ async def list_catalog_agents(
             ttl_seconds=CATALOG_CACHE_TTL,
             stale_fallback=True,
         )
-    except Exception as exc:
+    except httpx.HTTPError as exc:
         logger.warning("Catalog index fetch failed", exc_info=True)
         raise _map_catalog_fetch_error(exc) from exc
 

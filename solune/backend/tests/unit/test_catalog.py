@@ -185,6 +185,16 @@ class TestListCatalogAgents:
         assert excinfo.value.status_code == 503
         assert "timed out" in excinfo.value.details["reason"].lower()
 
+    async def test_unexpected_fetch_errors_propagate(self, mock_db, test_cache):
+        """Non-HTTP failures should bubble up as generic server errors."""
+        with patch(
+            "src.services.agents.catalog._fetch_catalog_index",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("parser exploded"),
+        ):
+            with pytest.raises(RuntimeError, match="parser exploded"):
+                await list_catalog_agents("proj-1", mock_db, cache_instance=test_cache)
+
 
 # ── fetch_agent_raw_content ──────────────────────────────────────────────
 

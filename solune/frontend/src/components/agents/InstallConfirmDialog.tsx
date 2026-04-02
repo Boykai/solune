@@ -35,12 +35,17 @@ export function InstallConfirmDialog({
 
   useScrollLock(isOpen);
 
+  const handleClose = () => {
+    setError(null);
+    onClose();
+  };
+
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
@@ -52,7 +57,7 @@ export function InstallConfirmDialog({
     setError(null);
     try {
       await installMutation.mutateAsync(agent.id);
-      onClose();
+      handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Install failed');
     }
@@ -66,7 +71,7 @@ export function InstallConfirmDialog({
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) {
-      onClose();
+      handleClose();
     }
   };
 
@@ -131,7 +136,7 @@ export function InstallConfirmDialog({
 
         {/* Footer */}
         <div className="flex justify-end gap-3 border-t border-border/70 bg-background/72 px-6 py-4">
-          <Button variant="outline" onClick={onClose} disabled={installMutation.isPending}>
+          <Button variant="outline" onClick={handleClose} disabled={installMutation.isPending}>
             Cancel
           </Button>
           <Button onClick={() => void handleInstall()} disabled={installMutation.isPending}>

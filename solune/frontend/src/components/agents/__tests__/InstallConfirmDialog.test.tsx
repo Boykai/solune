@@ -170,6 +170,54 @@ describe('InstallConfirmDialog', () => {
     });
   });
 
+  it('clears a previous install error when the dialog is reopened', async () => {
+    mockMutateAsync.mockRejectedValue(new Error('GitHub API error'));
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    const { rerender } = render(
+      <InstallConfirmDialog
+        agent={createImportedAgent()}
+        projectId="proj-1"
+        isOpen={true}
+        onClose={onClose}
+      />,
+      { wrapper: createWrapper() },
+    );
+
+    await user.click(screen.getByText('Install'));
+    await waitFor(() => {
+      expect(screen.getByText('GitHub API error')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Cancel'));
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText('GitHub API error')).not.toBeInTheDocument();
+    });
+
+    rerender(
+      <InstallConfirmDialog
+        agent={createImportedAgent()}
+        projectId="proj-1"
+        isOpen={false}
+        onClose={onClose}
+      />,
+    );
+
+    rerender(
+      <InstallConfirmDialog
+        agent={createImportedAgent()}
+        projectId="proj-1"
+        isOpen={true}
+        onClose={onClose}
+      />,
+    );
+
+    expect(screen.queryByText('GitHub API error')).not.toBeInTheDocument();
+  });
+
   it('calls onClose when Cancel button is clicked', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
