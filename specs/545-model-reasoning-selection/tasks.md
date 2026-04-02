@@ -166,7 +166,7 @@
 
 ### Parallel Opportunities
 
-- **Phase 2**: T002 and T003 can run in parallel (different files); T001 must complete first (backend types needed by T002)
+- **Phase 2**: T001 must complete first; then T002 and T003 can run in parallel with each other (different files, both depend on T001)
 - **Phase 3 (US1)**: All three test tasks (T004, T005, T006) can run in parallel
 - **Phase 4 (US2)**: T011 can run in parallel with US1 implementation
 - **Phase 5 (US3)**: T014 and T015 can run in parallel; T017 can run in parallel with T016; **entire Phase 5 can run in parallel with Phases 3-4** (backend-only)
