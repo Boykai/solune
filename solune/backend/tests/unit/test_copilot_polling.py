@@ -2953,6 +2953,7 @@ class TestAdvancePipeline:
         mock_ws.broadcast_to_project = AsyncMock()
         mock_orchestrator = MagicMock()
         mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+        mock_orchestrator._update_agent_tracking_state = AsyncMock(return_value=True)
         mock_get_orchestrator.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
         mock_update_tracking.return_value = True
@@ -3023,6 +3024,7 @@ class TestAdvancePipeline:
         mock_ws.broadcast_to_project = AsyncMock()
         mock_orchestrator = MagicMock()
         mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+        mock_orchestrator._update_agent_tracking_state = AsyncMock(return_value=True)
         mock_get_orchestrator.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
         mock_update_tracking.return_value = True
@@ -3254,6 +3256,7 @@ class TestAdvancePipeline:
         mock_ws.broadcast_to_project = AsyncMock()
         mock_orchestrator = MagicMock()
         mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+        mock_orchestrator._update_agent_tracking_state = AsyncMock(return_value=True)
         mock_get_orchestrator.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
         mock_update_tracking.return_value = True
@@ -3289,6 +3292,7 @@ class TestAdvancePipeline:
             for call in mock_orchestrator.assign_agent_for_status.await_args_list
         )
         assert called_indices == [1, 2, 3]
+        assert mock_orchestrator._update_agent_tracking_state.await_count == 3
 
         # No inter-agent sleep for parallel dispatch
         mock_sleep.assert_not_called()
@@ -3356,6 +3360,7 @@ class TestAdvancePipeline:
 
         mock_orchestrator = MagicMock()
         mock_orchestrator.assign_agent_for_status = AsyncMock(side_effect=_side_effect)
+        mock_orchestrator._update_agent_tracking_state = AsyncMock(return_value=True)
         mock_get_orchestrator.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
         mock_update_tracking.return_value = True
@@ -3383,6 +3388,7 @@ class TestAdvancePipeline:
         assert pipeline.groups[1].agent_statuses["archivist"] == "failed"
         assert pipeline.groups[1].agent_statuses["judge"] == "active"
         assert "archivist" in pipeline.failed_agents
+        assert mock_orchestrator._update_agent_tracking_state.await_count == 2
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
@@ -3447,6 +3453,7 @@ class TestAdvancePipeline:
 
         mock_orchestrator = MagicMock()
         mock_orchestrator.assign_agent_for_status = AsyncMock(side_effect=_side_effect)
+        mock_orchestrator._update_agent_tracking_state = AsyncMock(return_value=True)
         mock_get_orchestrator.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
         mock_update_tracking.return_value = True
@@ -3472,6 +3479,7 @@ class TestAdvancePipeline:
         # Other agents completed successfully
         assert pipeline.groups[1].agent_statuses["linter"] == "active"
         assert pipeline.groups[1].agent_statuses["judge"] == "active"
+        assert mock_orchestrator._update_agent_tracking_state.await_count == 2
 
 
 class TestFindCompletedChildPr:
@@ -11937,7 +11945,6 @@ class TestProcessPipelineCompletionParallelAgents:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling._get_tracking_state_from_issue", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.get_current_agent_from_tracking")
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_recovery_assigns_all_unassigned_parallel_agents(
@@ -11945,7 +11952,6 @@ class TestProcessPipelineCompletionParallelAgents:
         mock_config,
         mock_get_orch,
         mock_get_tracking,
-        mock_tracking_state,
         mock_check_done,
         mock_service,
     ):
@@ -11991,11 +11997,11 @@ class TestProcessPipelineCompletionParallelAgents:
         # No agents have completed
         mock_check_done.return_value = False
         # Tracking shows no agent active
-        mock_tracking_state.return_value = ("body", [])
-        mock_get_tracking.return_value = None
+        mock_get_tracking.return_value = ("body", [])
 
         mock_orchestrator = MagicMock()
         mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+        mock_orchestrator._update_agent_tracking_state = AsyncMock(return_value=True)
         mock_get_orch.return_value = mock_orchestrator
         mock_config.return_value = MagicMock()
 
@@ -12013,8 +12019,10 @@ class TestProcessPipelineCompletionParallelAgents:
         # First unassigned agent should be assigned
         assert result is not None
         assert result["action"] == "agent_assigned_after_reconstruction"
+        assert mock_orchestrator.assign_agent_for_status.await_count == 3
+        assert mock_orchestrator._update_agent_tracking_state.await_count == 3
         # Verify tracking table was fetched exactly ONCE (not per-agent)
-        mock_tracking_state.assert_awaited_once()
+        mock_get_tracking.assert_awaited_once()
 
 
 # ── Fix: copilot-review request timestamps recorded ─────────────────────

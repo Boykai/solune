@@ -102,9 +102,10 @@ export function AgentsPipelinePage() {
   });
 
   return (
-    <div className="celestial-fade-in flex h-full flex-col gap-6 overflow-auto rounded-[1.75rem] border border-border/70 bg-background/42 p-6 backdrop-blur-sm dark:border-border/85 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.96)_0%,hsl(var(--panel)/0.9)_100%)]">
+    <div className="projects-page-shell celestial-fade-in flex h-full flex-col gap-5 overflow-auto rounded-[1.5rem] border border-border/70 bg-background/42 p-4 backdrop-blur-sm sm:gap-6 sm:rounded-[1.75rem] sm:p-6 dark:border-border/85 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.96)_0%,hsl(var(--panel)/0.9)_100%)]">
       {/* Page Header */}
       <CelestialCatalogHero
+        className="projects-catalog-hero"
         eyebrow="Constellation Flow"
         title="Orchestrate agents across every stage."
         description="Build custom pipelines that route issues through agents as they move across board columns. Create stages, assign agents, pick models, and save reusable workflows."
@@ -166,122 +167,159 @@ export function AgentsPipelinePage() {
 
       {projectId && !boardLoading && boardData && (
         <>
-          <div ref={pipelineEditorRef} className="flex flex-col gap-4 scroll-mt-6">
-            {/* Pipeline Toolbar */}
-            <PipelineToolbar
-              boardState={pipelineConfig.boardState}
-              isDirty={pipelineConfig.isDirty}
-              isSaving={pipelineConfig.isSaving}
-              isPreset={pipelineConfig.isPreset}
-              pipelineName={pipelineConfig.pipeline?.name}
-              validationErrors={pipelineConfig.validationErrors}
-              onSave={pipelineConfig.savePipeline}
-              onSaveAsCopy={(newName) => pipelineConfig.saveAsCopy(newName)}
-              onDelete={handleDelete}
-              onDiscard={pipelineConfig.discardChanges}
-            />
-
-            {/* Pipeline Board */}
-            {pipelineConfig.boardState !== 'empty' && pipelineConfig.pipeline && (
-              <PipelineBoard
-                columnCount={alignedColumnCount}
-                stages={pipelineConfig.pipeline.stages}
-                availableAgents={availableAgents}
-                agentsLoading={agentsLoading}
-                agentsError={agentsError}
-                onRetryAgents={refetchAgents}
-                availableModels={availableModels}
-                isEditMode={pipelineConfig.boardState === 'editing'}
-                pipelineName={pipelineConfig.pipeline.name}
-                projectId={projectId}
-                modelOverride={pipelineConfig.modelOverride}
-                validationErrors={pipelineConfig.validationErrors}
-                onNameChange={pipelineConfig.setPipelineName}
-                onModelOverrideChange={pipelineConfig.setModelOverride}
-                onClearValidationError={pipelineConfig.clearValidationError}
-                onRemoveStage={pipelineConfig.removeStage}
-                onAddAgent={(stageId, slug, groupId) => {
-                  const agent = availableAgents.find((a) => a.slug === slug);
-                  if (agent) pipelineConfig.addAgentToStage(stageId, agent, groupId);
-                }}
-                onRemoveAgent={pipelineConfig.removeAgentFromStage}
-                onUpdateAgent={pipelineConfig.updateAgentInStage}
-                onUpdateStage={(stageId, updates) => pipelineConfig.updateStage(stageId, updates)}
-                onCloneAgent={(stageId, agentNodeId) =>
-                  pipelineConfig.cloneAgentInStage(stageId, agentNodeId)
-                }
-                onReorderAgents={pipelineConfig.reorderAgentsInStage}
-                onAddGroup={pipelineConfig.addGroupToStage}
-                onRemoveGroup={pipelineConfig.removeGroupFromStage}
-                onToggleGroupMode={pipelineConfig.updateGroupExecutionMode}
-                onReorderAgentsInGroup={pipelineConfig.reorderAgentsInGroup}
-              />
-            )}
-
-            {/* Empty board state */}
-            {pipelineConfig.boardState === 'empty' && (
-              <div className="celestial-panel flex flex-col items-center justify-center gap-3 rounded-[1.2rem] border border-dashed border-border/60 bg-background/24 p-8 text-center">
-                <Tooltip contentKey="pipeline.board.createButton">
-                  <button
-                    type="button"
-                    onClick={handleNewPipeline}
-                    className="group relative mb-2 flex h-24 w-24 items-center justify-center rounded-full transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    aria-label="Create new pipeline"
-                  >
-                    <div className="absolute inset-0 rounded-full border border-border/40 bg-[radial-gradient(circle_at_center,hsl(var(--glow)/0.22)_0%,transparent_62%)] transition-colors duration-200 group-hover:border-primary/30 group-hover:bg-[radial-gradient(circle_at_center,hsl(var(--glow)/0.32)_0%,transparent_62%)]" />
-                    <div className="absolute inset-[10px] rounded-full border border-primary/18 transition-colors duration-200 group-hover:border-primary/35" />
-                    <span className="absolute left-1/2 top-1.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[hsl(var(--glow))] shadow-[0_0_12px_hsl(var(--glow)/0.8)]" />
-                    <span className="absolute bottom-4 right-2 h-2.5 w-2.5 rounded-full bg-[hsl(var(--gold))] shadow-[0_0_18px_hsl(var(--gold)/0.45)]" />
-                    <span className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[hsl(var(--gold)/0.55)]" />
-                    <ThemedAgentIcon
-                      name="Pipeline constellation"
-                      iconName="constellation"
-                      size="lg"
-                      className="h-14 w-14 border-primary/30 shadow-[0_12px_30px_hsl(var(--night)/0.3)] transition-transform duration-200 group-hover:scale-105"
-                    />
-                  </button>
-                </Tooltip>
-                <h3 className="text-sm font-semibold text-foreground">Create new agent pipeline</h3>
-                <p className="text-xs text-muted-foreground max-w-md">
-                  Build custom agent workflows by creating a pipeline with stages and agents. Click
-                  the constellation to get started.
+          <section className="celestial-panel rounded-[1.45rem] border border-border/75 p-4 sm:rounded-[1.6rem] sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">
+                  Pipeline editor
+                </p>
+                <h3 className="mt-2 text-xl font-display font-medium text-foreground sm:text-[1.7rem]">
+                  Build a workflow that reads clearly in light mode.
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Configure stages, agent handoffs, and model defaults inside the same soft panel
+                  system used across the rest of Solune.
                 </p>
               </div>
-            )}
-          </div>
-
-          {/* Save error display */}
-          {pipelineConfig.saveError && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-              {pipelineConfig.saveError}
+              <div className="moonwell min-w-0 rounded-[1.2rem] border border-border/60 px-4 py-3 lg:w-[15rem]">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">
+                  Board coverage
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">
+                  {alignedColumnCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  columns aligned to the current pipeline canvas
+                </p>
+              </div>
             </div>
-          )}
 
-          {/* Pipeline Stages Visualization */}
-          <PipelineStagesOverview
-            columns={columns}
-            localMappings={agentConfig.localMappings}
-            alignedColumnCount={alignedColumnCount}
-          />
+            <div ref={pipelineEditorRef} className="mt-5 flex flex-col gap-4 scroll-mt-6">
+              <PipelineToolbar
+                boardState={pipelineConfig.boardState}
+                isDirty={pipelineConfig.isDirty}
+                isSaving={pipelineConfig.isSaving}
+                isPreset={pipelineConfig.isPreset}
+                pipelineName={pipelineConfig.pipeline?.name}
+                validationErrors={pipelineConfig.validationErrors}
+                onSave={pipelineConfig.savePipeline}
+                onSaveAsCopy={(newName) => pipelineConfig.saveAsCopy(newName)}
+                onDelete={handleDelete}
+                onDiscard={pipelineConfig.discardChanges}
+              />
 
-          {/* Saved Workflows List */}
-          <SavedWorkflowsList
-            pipelines={pipelineConfig.pipelines?.pipelines ?? []}
-            activePipelineId={pipelineConfig.editingPipelineId}
-            assignedPipelineId={pipelineConfig.assignedPipelineId}
-            isLoading={pipelineConfig.pipelinesLoading}
-            onSelect={handleWorkflowSelect}
-            onCopy={handleWorkflowCopy}
-            onAssign={pipelineConfig.assignPipeline}
-          />
+              {pipelineConfig.boardState !== 'empty' && pipelineConfig.pipeline && (
+                <PipelineBoard
+                  columnCount={alignedColumnCount}
+                  stages={pipelineConfig.pipeline.stages}
+                  availableAgents={availableAgents}
+                  agentsLoading={agentsLoading}
+                  agentsError={agentsError}
+                  onRetryAgents={refetchAgents}
+                  availableModels={availableModels}
+                  isEditMode={pipelineConfig.boardState === 'editing'}
+                  pipelineName={pipelineConfig.pipeline.name}
+                  projectId={projectId}
+                  modelOverride={pipelineConfig.modelOverride}
+                  validationErrors={pipelineConfig.validationErrors}
+                  onNameChange={pipelineConfig.setPipelineName}
+                  onModelOverrideChange={pipelineConfig.setModelOverride}
+                  onClearValidationError={pipelineConfig.clearValidationError}
+                  onRemoveStage={pipelineConfig.removeStage}
+                  onAddAgent={(stageId, slug, groupId) => {
+                    const agent = availableAgents.find((a) => a.slug === slug);
+                    if (agent) pipelineConfig.addAgentToStage(stageId, agent, groupId);
+                  }}
+                  onRemoveAgent={pipelineConfig.removeAgentFromStage}
+                  onUpdateAgent={pipelineConfig.updateAgentInStage}
+                  onUpdateStage={(stageId, updates) => pipelineConfig.updateStage(stageId, updates)}
+                  onCloneAgent={(stageId, agentNodeId) =>
+                    pipelineConfig.cloneAgentInStage(stageId, agentNodeId)
+                  }
+                  onReorderAgents={pipelineConfig.reorderAgentsInStage}
+                  onAddGroup={pipelineConfig.addGroupToStage}
+                  onRemoveGroup={pipelineConfig.removeGroupFromStage}
+                  onToggleGroupMode={pipelineConfig.updateGroupExecutionMode}
+                  onReorderAgentsInGroup={pipelineConfig.reorderAgentsInGroup}
+                />
+              )}
 
-          {/* Pipeline Analytics Dashboard */}
-          <PipelineAnalytics pipelines={pipelineConfig.pipelines?.pipelines ?? []} />
+              {pipelineConfig.boardState === 'empty' && (
+                <div className="celestial-panel flex flex-col items-center justify-center gap-3 rounded-[1.2rem] border border-dashed border-border/70 bg-background/24 p-8 text-center shadow-none">
+                  <Tooltip contentKey="pipeline.board.createButton">
+                    <button
+                      type="button"
+                      onClick={handleNewPipeline}
+                      className="group relative mb-2 flex h-24 w-24 items-center justify-center rounded-full transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      aria-label="Create new pipeline"
+                    >
+                      <div className="absolute inset-0 rounded-full border border-border/40 bg-[radial-gradient(circle_at_center,hsl(var(--glow)/0.18)_0%,transparent_62%)] transition-colors duration-200 group-hover:border-primary/30 group-hover:bg-[radial-gradient(circle_at_center,hsl(var(--glow)/0.26)_0%,transparent_62%)]" />
+                      <div className="absolute inset-[10px] rounded-full border border-primary/18 transition-colors duration-200 group-hover:border-primary/35" />
+                      <span className="absolute left-1/2 top-1.5 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[hsl(var(--glow))] shadow-[0_0_12px_hsl(var(--glow)/0.8)]" />
+                      <span className="absolute bottom-4 right-2 h-2.5 w-2.5 rounded-full bg-[hsl(var(--gold))] shadow-[0_0_18px_hsl(var(--gold)/0.45)]" />
+                      <span className="absolute left-2 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[hsl(var(--gold)/0.55)]" />
+                      <ThemedAgentIcon
+                        name="Pipeline constellation"
+                        iconName="constellation"
+                        size="lg"
+                        className="h-14 w-14 border-primary/30 shadow-[0_12px_30px_hsl(var(--night)/0.18)] transition-transform duration-200 group-hover:scale-105"
+                      />
+                    </button>
+                  </Tooltip>
+                  <h3 className="text-sm font-semibold text-foreground">Create new agent pipeline</h3>
+                  <p className="max-w-md text-xs text-muted-foreground">
+                    Build custom agent workflows by creating a pipeline with stages and agents. Click
+                    the constellation to get started.
+                  </p>
+                </div>
+              )}
 
-          {/* Pipeline Run History */}
-          {pipelineConfig.editingPipelineId && (
-            <PipelineRunHistory pipelineId={pipelineConfig.editingPipelineId} />
-          )}
+              {pipelineConfig.saveError && (
+                <div className="rounded-[1rem] border border-destructive/25 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                  {pipelineConfig.saveError}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-6">
+            <div className="min-w-0 space-y-5">
+              <SavedWorkflowsList
+                pipelines={pipelineConfig.pipelines?.pipelines ?? []}
+                activePipelineId={pipelineConfig.editingPipelineId}
+                assignedPipelineId={pipelineConfig.assignedPipelineId}
+                isLoading={pipelineConfig.pipelinesLoading}
+                onSelect={handleWorkflowSelect}
+                onCopy={handleWorkflowCopy}
+                onAssign={pipelineConfig.assignPipeline}
+              />
+
+              {pipelineConfig.editingPipelineId && (
+                <section className="celestial-panel rounded-[1.35rem] border border-border/75 p-4 sm:rounded-[1.5rem] sm:p-5">
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">
+                    Automation journal
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    Review recent executions for the selected pipeline without leaving the editor.
+                  </p>
+                  <PipelineRunHistory
+                    pipelineId={pipelineConfig.editingPipelineId}
+                    className="mt-4"
+                  />
+                </section>
+              )}
+            </div>
+
+            <div className="space-y-5">
+              <PipelineStagesOverview
+                columns={columns}
+                localMappings={agentConfig.localMappings}
+                alignedColumnCount={alignedColumnCount}
+              />
+
+              <PipelineAnalytics pipelines={pipelineConfig.pipelines?.pipelines ?? []} />
+            </div>
+          </div>
         </>
       )}
 
