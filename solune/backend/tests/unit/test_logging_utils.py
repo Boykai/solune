@@ -161,7 +161,7 @@ class TestStructuredJsonFormatter:
             args=(),
             exc_info=None,
         )
-        record.request_id = "abc123"  # type: ignore[attr-defined]
+        record.__dict__["request_id"] = "abc123"
         output = formatter.format(record)
         parsed = json.loads(output)
         assert parsed["level"] == "INFO"
@@ -181,7 +181,7 @@ class TestStructuredJsonFormatter:
             args=(),
             exc_info=None,
         )
-        record.request_id = ""  # type: ignore[attr-defined]
+        record.__dict__["request_id"] = ""
         output = formatter.format(record)
         parsed = json.loads(output)
         assert "ghp_secret" not in parsed["message"]
@@ -205,7 +205,7 @@ class TestStructuredJsonFormatter:
             args=(),
             exc_info=exc_info,
         )
-        record.request_id = ""  # type: ignore[attr-defined]
+        record.__dict__["request_id"] = ""
         output = formatter.format(record)
         parsed = json.loads(output)
         assert "exception" in parsed
@@ -236,7 +236,7 @@ class TestRequestIDFilter:
                 exc_info=None,
             )
             f.filter(record)
-            assert record.request_id == "test-request-123"  # type: ignore[attr-defined]
+            assert record.__dict__["request_id"] == "test-request-123"
         finally:
             request_id_var.reset(token)
 
@@ -252,7 +252,7 @@ class TestRequestIDFilter:
             exc_info=None,
         )
         f.filter(record)
-        assert record.request_id == ""  # type: ignore[attr-defined]
+        assert record.__dict__["request_id"] == ""
 
 
 # ---------------------------------------------------------------------------

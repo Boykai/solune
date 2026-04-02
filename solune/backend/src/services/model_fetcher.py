@@ -25,7 +25,7 @@ MAX_BACKOFF = 900  # 15 minutes
 DEFAULT_BACKOFF = 60  # 1 minute
 
 
-def _cancel_evicted_task(_key: str, task: asyncio.Task) -> None:  # type: ignore[type-arg]
+def _cancel_evicted_task(_key: str, task: asyncio.Task[object]) -> None:
     """Cancel an evicted asyncio.Task that hasn't finished yet."""
     if not task.done():
         task.cancel()

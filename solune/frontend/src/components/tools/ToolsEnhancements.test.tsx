@@ -9,6 +9,11 @@ import { McpPresetsGallery } from './McpPresetsGallery';
 import { GitHubMcpConfigGenerator } from './GitHubMcpConfigGenerator';
 import { ToolCard } from './ToolCard';
 
+const navigatorWithClipboard = navigator as Navigator & { clipboard?: Clipboard };
+const documentWithExecCommand = document as Document & {
+  execCommand?: (commandId: string) => boolean;
+};
+
 function makeTool(
   overrides: Partial<McpToolConfig> & { config_content: string; is_active?: boolean }
 ): McpToolConfig {
@@ -258,7 +263,7 @@ describe('GitHubMcpConfigGenerator', () => {
       if (originalClipboard) {
         Object.defineProperty(navigator, 'clipboard', originalClipboard);
       } else {
-        delete (navigator as Record<string, unknown>)['clipboard'];
+        Reflect.deleteProperty(navigatorWithClipboard, 'clipboard');
       }
     }
   });
@@ -293,12 +298,12 @@ describe('GitHubMcpConfigGenerator', () => {
       if (originalExecCommand) {
         Object.defineProperty(document, 'execCommand', originalExecCommand);
       } else {
-        delete (document as Record<string, unknown>)['execCommand'];
+        Reflect.deleteProperty(documentWithExecCommand, 'execCommand');
       }
       if (originalClipboard) {
         Object.defineProperty(navigator, 'clipboard', originalClipboard);
       } else {
-        delete (navigator as Record<string, unknown>)['clipboard'];
+        Reflect.deleteProperty(navigatorWithClipboard, 'clipboard');
       }
     }
   });

@@ -38,6 +38,17 @@ function createWrapper() {
   };
 }
 
+function createChatMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    message_id: 'msg-1',
+    session_id: 'sess-1',
+    sender_type: 'assistant',
+    content: '',
+    timestamp: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
 describe('useChatProposals', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -105,15 +116,17 @@ describe('useChatProposals', () => {
     });
 
     act(() => {
-      result.current.handleActionResponse({
-        session_id: 'sess-1',
+      result.current.handleActionResponse(createChatMessage({
         action_type: 'issue_create',
         action_data: {
           recommendation_id: 'rec-1',
+          proposed_title: 'New Issue',
+          user_story: 'As a user, I want a task created.',
+          ui_ux_description: 'Create a new GitHub issue.',
+          functional_requirements: ['Create the issue'],
           status: 'pending',
-          title: 'New Issue',
         },
-      } as ChatMessage);
+      }));
     });
 
     expect(result.current.pendingRecommendations.size).toBe(1);

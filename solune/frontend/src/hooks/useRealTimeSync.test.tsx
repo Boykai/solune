@@ -70,8 +70,8 @@ describe('useRealTimeSync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockWebSocketInstances = [];
-    // @ts-expect-error - Override global WebSocket
-    global.WebSocket = MockWebSocket;
+    // Override global WebSocket with mock implementation
+    Object.defineProperty(global, 'WebSocket', { value: MockWebSocket, writable: true });
   });
 
   afterEach(() => {
@@ -405,12 +405,14 @@ describe('useRealTimeSync', () => {
   describe('polling fallback', () => {
     it('should handle WebSocket not supported gracefully', () => {
       // Override WebSocket to throw
-      // @ts-expect-error - Override global WebSocket
-      global.WebSocket = class {
-        constructor() {
-          throw new Error('WebSocket not supported');
-        }
-      };
+      Object.defineProperty(global, 'WebSocket', {
+        value: class {
+          constructor() {
+            throw new Error('WebSocket not supported');
+          }
+        },
+        writable: true,
+      });
 
       const { result } = renderHook(() => useRealTimeSync('PVT_123'), {
         wrapper: createWrapper(),
@@ -421,8 +423,7 @@ describe('useRealTimeSync', () => {
       expect(['polling', 'connecting']).toContain(result.current.status);
 
       // Restore mock
-      // @ts-expect-error - Override global WebSocket
-      global.WebSocket = MockWebSocket;
+      Object.defineProperty(global, 'WebSocket', { value: MockWebSocket, writable: true });
     });
 
     it('should only invalidate tasks query during polling (not board data)', async () => {

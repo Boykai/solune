@@ -41,6 +41,7 @@ function makeConfig(stages: PipelineStage[]): PipelineConfig {
     description: 'test',
     stages,
     is_preset: false,
+    preset_id: '',
     created_at: '2025-01-01',
     updated_at: '2025-01-01',
   };

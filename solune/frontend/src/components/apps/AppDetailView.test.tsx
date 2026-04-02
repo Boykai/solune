@@ -65,10 +65,17 @@ const baseApp: App = {
   status: 'stopped',
   repo_type: 'same-repo',
   external_repo_url: null,
+  github_repo_url: null,
+  github_project_url: null,
+  github_project_id: null,
+  parent_issue_number: null,
+  parent_issue_url: null,
+  template_id: null,
   port: 3000,
   error_message: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
+  warnings: null,
 };
 
 describe('AppDetailView', () => {

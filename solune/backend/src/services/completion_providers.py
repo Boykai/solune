@@ -287,9 +287,11 @@ class AzureOpenAICompletionProvider(CompletionProvider):
             from azure.ai.inference import ChatCompletionsClient
             from azure.core.credentials import AzureKeyCredential
 
+            assert settings.azure_openai_endpoint is not None  # guarded above
+            assert settings.azure_openai_key is not None  # guarded above
             self._client = ChatCompletionsClient(
-                endpoint=settings.azure_openai_endpoint,  # type: ignore[arg-type]
-                credential=AzureKeyCredential(settings.azure_openai_key),  # type: ignore[arg-type]
+                endpoint=settings.azure_openai_endpoint,
+                credential=AzureKeyCredential(settings.azure_openai_key),
             )
             self._use_azure_inference = True
             logger.info(

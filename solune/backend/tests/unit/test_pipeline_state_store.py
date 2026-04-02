@@ -50,14 +50,14 @@ def _make_pipeline_state(**overrides) -> PipelineState:
     return PipelineState(**defaults)
 
 
-def _make_main_branch_info(**overrides) -> MainBranchInfo:
-    defaults: MainBranchInfo = {
+def _make_main_branch_info(**overrides: object) -> MainBranchInfo:
+    result: dict[str, object] = {
         "branch": "copilot/issue-100",
         "pr_number": 42,
         "head_sha": "deadbeef",
     }
-    defaults.update(overrides)  # type: ignore[typeddict-item]
-    return defaults
+    result.update(overrides)
+    return result  # type: ignore[return-value]  # factory helper for tests
 
 
 # ── Schema helper ────────────────────────────────────────────────

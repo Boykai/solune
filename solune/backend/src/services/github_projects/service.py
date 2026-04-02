@@ -5,7 +5,7 @@ import contextvars
 import hashlib
 import json as json_mod
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, cast
 
 from src.logging_utils import get_logger
 
@@ -86,7 +86,7 @@ class GitHubProjectsService(
         self._cycle_cache_hit_count = 0
 
     @staticmethod
-    def _cancel_evicted_graphql(_key: str, task: asyncio.Task) -> None:  # type: ignore[type-arg]
+    def _cancel_evicted_graphql(_key: str, task: asyncio.Task[object]) -> None:
         """Cancel an evicted GraphQL task that hasn't finished yet."""
         if not task.done():
             task.cancel()
@@ -112,7 +112,7 @@ class GitHubProjectsService(
         cached = self._cycle_cache.get(cache_key)
         if cached is not None:
             self._cycle_cache_hit_count += 1
-            return cached  # type: ignore[return-value]
+            return cast(_T, cached)
         result = await fetch_fn()
         self._cycle_cache[cache_key] = result
         return result

@@ -31,23 +31,22 @@ function createItem(overrides: Partial<BoardItem> = {}): BoardItem {
 
 function createBoardData(items: BoardItem[]): BoardDataResponse {
   return {
-    project: {
-      project_id: 'PVT_1',
-      name: 'Project',
-      description: null,
-      url: 'https://example.test/project',
-      owner_login: 'acme',
-      status_field: {
-        field_id: 'status-field',
-        options: [{ option_id: 'todo', name: 'Todo', color: 'GRAY', description: null }],
+      project: {
+        project_id: 'PVT_1',
+        name: 'Project',
+        url: 'https://example.test/project',
+        owner_login: 'acme',
+        status_field: {
+          field_id: 'status-field',
+          options: [{ option_id: 'todo', name: 'Todo', color: 'GRAY' }],
+        },
       },
-    },
-    columns: [
-      {
-        status: { option_id: 'todo', name: 'Todo', color: 'GRAY', description: null },
-        items,
-        item_count: items.length,
-        estimate_total: 0,
+      columns: [
+        {
+          status: { option_id: 'todo', name: 'Todo', color: 'GRAY' },
+          items,
+          item_count: items.length,
+          estimate_total: 0,
       },
     ],
     rate_limit: null,
