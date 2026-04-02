@@ -11,6 +11,8 @@ class AgentStatus(StrEnum):
     ACTIVE = "active"
     PENDING_PR = "pending_pr"
     PENDING_DELETION = "pending_deletion"
+    IMPORTED = "imported"
+    INSTALLED = "installed"
 
 
 class AgentSource(StrEnum):
@@ -38,6 +40,10 @@ class Agent(BaseModel):
     branch_name: str | None = None
     source: AgentSource = AgentSource.LOCAL
     created_at: str | None = None
+    agent_type: str = "custom"
+    catalog_source_url: str | None = None
+    catalog_agent_id: str | None = None
+    imported_at: str | None = None
 
 
 class AgentCreate(BaseModel):
@@ -137,3 +143,42 @@ class BulkModelUpdateResult(BaseModel):
     failed_agents: list[str] = Field(default_factory=list)
     target_model_id: str
     target_model_name: str
+
+
+# ── Catalog / Import / Install Models ────────────────────────────────────
+
+
+class CatalogAgent(BaseModel):
+    """Agent listing from the Awesome Copilot catalog."""
+
+    id: str
+    name: str
+    description: str
+    source_url: str
+    already_imported: bool = False
+
+
+class ImportAgentRequest(BaseModel):
+    """Request to import a catalog agent into a project."""
+
+    catalog_agent_id: str
+    name: str
+    description: str
+    source_url: str
+
+
+class ImportAgentResult(BaseModel):
+    """Response from importing a catalog agent."""
+
+    agent: Agent
+    message: str
+
+
+class InstallAgentResult(BaseModel):
+    """Response from installing an imported agent to a repository."""
+
+    agent: Agent
+    pr_url: str
+    pr_number: int
+    issue_number: int | None
+    branch_name: str

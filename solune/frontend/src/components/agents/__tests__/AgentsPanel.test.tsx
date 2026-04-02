@@ -19,6 +19,9 @@ const mockUseUpdateAgent = vi.fn();
 const mockUseBulkUpdateModels = vi.fn();
 const mockUseModels = vi.fn();
 const mockUseUnsavedChanges = vi.fn();
+const mockUseCatalogAgents = vi.fn();
+const mockUseImportAgent = vi.fn();
+const mockUseInstallAgent = vi.fn();
 
 vi.mock('@/hooks/useModels', () => ({
   useModels: (...args: unknown[]) => mockUseModels(...args),
@@ -42,6 +45,9 @@ vi.mock('@/hooks/useAgents', () => ({
   useCreateAgent: (...args: unknown[]) => mockUseCreateAgent(...args),
   useUpdateAgent: (...args: unknown[]) => mockUseUpdateAgent(...args),
   useBulkUpdateModels: (...args: unknown[]) => mockUseBulkUpdateModels(...args),
+  useCatalogAgents: (...args: unknown[]) => mockUseCatalogAgents(...args),
+  useImportAgent: (...args: unknown[]) => mockUseImportAgent(...args),
+  useInstallAgent: (...args: unknown[]) => mockUseInstallAgent(...args),
 }));
 
 vi.mock('@/hooks/useUnsavedChanges', () => ({
@@ -68,7 +74,10 @@ function createAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
     name: 'Reviewer',
     slug: 'reviewer',
     description: 'Reviews pull requests',
+    icon_name: null,
     system_prompt: 'Review carefully',
+    default_model_id: '',
+    default_model_name: '',
     status: 'pending_pr',
     tools: ['read', 'comment'],
     status_column: null,
@@ -77,6 +86,10 @@ function createAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
     branch_name: 'agent/reviewer',
     source: 'local',
     created_at: '2026-03-01T00:00:00Z',
+    agent_type: 'custom',
+    catalog_source_url: null,
+    catalog_agent_id: null,
+    imported_at: null,
     ...overrides,
   };
 }
@@ -137,6 +150,19 @@ describe('AgentsPanel', () => {
       isError: false,
       data: undefined,
       error: null,
+    });
+    mockUseCatalogAgents.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
+    mockUseImportAgent.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    });
+    mockUseInstallAgent.mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
     });
     mockUseModels.mockReturnValue({
       refreshModels: vi.fn(),
@@ -428,5 +454,55 @@ describe('AgentsPanel', () => {
       'href',
       'https://example.test/pr/99'
     );
+  });
+
+  it('opens the install confirmation dialog for imported agents', async () => {
+    mockUseAgentsList.mockReturnValue({
+      data: [
+        createAgent({
+          id: 'imp-1',
+          name: 'Catalog Agent',
+          slug: 'catalog-agent',
+          status: 'imported',
+          agent_type: 'imported',
+          source: 'local',
+          github_pr_number: null,
+          branch_name: null,
+        }),
+      ],
+      isLoading: false,
+      error: null,
+    });
+    mockUseAgentsListPaginated.mockReturnValue({
+      allItems: [
+        createAgent({
+          id: 'imp-1',
+          name: 'Catalog Agent',
+          slug: 'catalog-agent',
+          status: 'imported',
+          agent_type: 'imported',
+          source: 'local',
+          github_pr_number: null,
+          branch_name: null,
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      invalidate: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" owner="octo" repo="widgets" />, {
+      wrapper: createWrapper(),
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: 'Add to repo' }));
+
+    expect(screen.getByRole('heading', { name: 'Install Agent to Repository' })).toBeInTheDocument();
+    expect(screen.getByText('octo/widgets')).toBeInTheDocument();
+    expect(screen.getByText('.github/agents/catalog-agent.agent.md')).toBeInTheDocument();
   });
 });
