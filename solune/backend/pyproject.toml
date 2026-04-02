@@ -167,4 +167,5 @@ also_copy = [
     "src/protocols.py",
     "src/services/",
     "src/utils.py",
+    "templates/",
 ]
