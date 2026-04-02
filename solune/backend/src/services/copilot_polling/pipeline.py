@@ -736,16 +736,21 @@ async def _process_pipeline_completion(
                 repo=task_repo,
                 issue_number=task.issue_number,
             )
-            tracking_step = _cp.get_current_agent_from_tracking(body)
+            tracking_steps = _cp.parse_tracking_from_body(body) if body else None
+            active_tracking_agents = {
+                step.agent_name for step in (tracking_steps or []) if _cp.STATE_ACTIVE in step.state
+            }
 
-            # Loop over ALL parallel agents for "agent never assigned" recovery
+            # Collect every unassigned agent in the current group so parallel
+            # recovery dispatches siblings in the same poll cycle.
+            agents_to_assign: list[tuple[str, int]] = []
             for agent in pipeline.current_agents:
                 # 1. Skip agents that are already finished
                 if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
                     continue
 
                 # 2. Check if this agent is active in the tracking table
-                if tracking_step and tracking_step.agent_name == agent:
+                if agent in active_tracking_agents:
                     logger.debug(
                         "Agent '%s' is 🔄 Active in issue #%d tracking table — waiting",
                         agent,
@@ -782,49 +787,113 @@ async def _process_pipeline_completion(
                     agent,
                     task.issue_number,
                 )
-                orchestrator = _cp.get_workflow_orchestrator()
-                ctx = _cp.WorkflowContext(
-                    session_id="polling",
-                    project_id=project_id,
-                    access_token=access_token,
-                    repository_owner=task_owner,
-                    repository_name=task_repo,
-                    issue_id=task.github_content_id,
-                    issue_number=task.issue_number,
-                    project_item_id=task.github_item_id,
-                    current_state=_cp.WorkflowState.READY,
-                )
-                ctx.config = await _cp.get_workflow_config(project_id)
-
-                # Prefer pipeline.original_status for agent lookup.
-                # When external automation moved the issue (e.g. Ready → In
-                # Progress), from_status may reflect the updated board status,
-                # but the pipeline's agents belong to the ORIGINAL status.
-                effective_assign_status = pipeline.original_status or from_status
-
-                # Check rate limit budget before assignment
-                if await _wait_if_rate_limited(
-                    f"first-agent assignment '{agent}' on issue #{task.issue_number}"
-                ):
-                    return None  # Defer to next polling cycle
-
                 try:
-                    # Find the flat index for this specific agent
-                    agent_flat_idx = pipeline.agents.index(agent)
-                    assigned = await orchestrator.assign_agent_for_status(
-                        ctx, effective_assign_status, agent_index=agent_flat_idx
-                    )
-                    if assigned:
-                        _pending_agent_assignments[pending_key] = utcnow()
-                        return {
-                            "status": "success",
-                            "issue_number": task.issue_number,
-                            "action": "agent_assigned_after_reconstruction",
-                            "agent_name": agent,
-                            "from_status": from_status,
-                        }
+                    agents_to_assign.append((agent, pipeline.agents.index(agent)))
                 except ValueError:
                     continue
+
+            if not agents_to_assign:
+                return None
+
+            orchestrator = _cp.get_workflow_orchestrator()
+            ctx = _cp.WorkflowContext(
+                session_id="polling",
+                project_id=project_id,
+                access_token=access_token,
+                repository_owner=task_owner,
+                repository_name=task_repo,
+                issue_id=task.github_content_id,
+                issue_number=task.issue_number,
+                project_item_id=task.github_item_id,
+                current_state=_cp.WorkflowState.READY,
+            )
+            ctx.config = await _cp.get_workflow_config(project_id)
+
+            # Prefer pipeline.original_status for agent lookup.
+            # When external automation moved the issue (e.g. Ready → In
+            # Progress), from_status may reflect the updated board status,
+            # but the pipeline's agents belong to the ORIGINAL status.
+            effective_assign_status = pipeline.original_status or from_status
+
+            # Check rate limit budget before recovery assignment(s)
+            if await _wait_if_rate_limited(
+                f"pipeline recovery assignments on issue #{task.issue_number}"
+            ):
+                return None  # Defer to next polling cycle
+
+            async def _assign_missing_agent(
+                agent_name: str,
+                flat_idx: int,
+                workflow_orchestrator=orchestrator,
+                workflow_context=ctx,
+                assign_status=effective_assign_status,
+                issue_number: int = task.issue_number,
+            ) -> tuple[str, bool]:
+                try:
+                    assigned = await workflow_orchestrator.assign_agent_for_status(
+                        workflow_context, assign_status, agent_index=flat_idx
+                    )
+                    return agent_name, bool(assigned)
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    logger.exception(
+                        "Recovery assignment failed for agent '%s' on issue #%d",
+                        agent_name,
+                        issue_number,
+                    )
+                    return agent_name, False
+
+            if len(agents_to_assign) > 1:
+                assignment_results = await asyncio.gather(
+                    *(
+                        _assign_missing_agent(agent_name, flat_idx)
+                        for agent_name, flat_idx in agents_to_assign
+                    ),
+                )
+            else:
+                agent_name, flat_idx = agents_to_assign[0]
+                assignment_results = [await _assign_missing_agent(agent_name, flat_idx)]
+
+            assigned_agents = [
+                agent_name for agent_name, assigned in assignment_results if assigned
+            ]
+            if not assigned_agents:
+                return None
+
+            assigned_at = utcnow()
+            for agent_name in assigned_agents:
+                _pending_agent_assignments[f"{task.issue_number}:{agent_name}"] = assigned_at
+
+            if pipeline.groups and pipeline.current_group_index < len(pipeline.groups):
+                current_group = pipeline.groups[pipeline.current_group_index]
+                if current_group.execution_mode == "parallel":
+                    for agent_name in assigned_agents:
+                        current_group.agent_statuses[agent_name] = "active"
+
+            pipeline.started_at = assigned_at
+            _cp.set_pipeline_state(task.issue_number, pipeline)
+
+            if len(agents_to_assign) > 1:
+                for agent_name in assigned_agents:
+                    try:
+                        await orchestrator._update_agent_tracking_state(ctx, agent_name, "active")
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to reconcile tracking for agent '%s' on issue #%d: %s",
+                            agent_name,
+                            task.issue_number,
+                            e,
+                        )
+
+            return {
+                "status": "success",
+                "issue_number": task.issue_number,
+                "action": "agent_assigned_after_reconstruction",
+                "agent_name": ", ".join(assigned_agents),
+                "assigned_agents": assigned_agents,
+                "from_status": from_status,
+            }
 
     return None
 
@@ -2021,7 +2090,7 @@ async def _advance_pipeline(
                     "completed_agent": completed_agent,
                 }
 
-            # Resolve flat indices and mark all agents active before dispatch
+            # Resolve flat indices for every agent in the new parallel group.
             agent_indices: list[tuple[str, int]] = []
             for i, agent_slug in enumerate(new_group.agents):
                 try:
@@ -2039,7 +2108,6 @@ async def _advance_pipeline(
                         len(pipeline.agents) - 1,
                     )
                 agent_indices.append((agent_slug, agent_flat_idx))
-                new_group.agent_statuses[agent_slug] = "active"
 
             # Dispatch all parallel agents concurrently
             async def _assign_one(slug: str, flat_idx: int) -> tuple[str, bool]:
@@ -2063,12 +2131,27 @@ async def _advance_pipeline(
             )
 
             success = True
+            successful_agents: list[str] = []
             for slug, ok in results:
-                if not ok:
+                if ok:
+                    successful_agents.append(slug)
+                    new_group.agent_statuses[slug] = "active"
+                else:
                     success = False
                     new_group.agent_statuses[slug] = "failed"
                     pipeline.failed_agents.append(slug)
             _cp.set_pipeline_state(issue_number, pipeline)
+
+            for slug in successful_agents:
+                try:
+                    await orchestrator._update_agent_tracking_state(ctx, slug, "active")
+                except Exception as e:
+                    logger.warning(
+                        "Failed to reconcile tracking for parallel agent '%s' on issue #%d: %s",
+                        slug,
+                        issue_number,
+                        e,
+                    )
 
             if success:
                 await _cp.connection_manager.broadcast_to_project(

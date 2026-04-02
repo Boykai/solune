@@ -51,13 +51,19 @@ export function SavedWorkflowsList({
   return (
     <section
       id="saved-pipelines"
-      className="celestial-fade-in scroll-mt-6"
+      className="celestial-panel celestial-fade-in scroll-mt-6 rounded-[1.35rem] border border-border/75 p-4 sm:rounded-[1.5rem] sm:p-5"
       aria-labelledby="saved-pipelines-title"
     >
-      <h3 id="saved-pipelines-title" className="mb-3 flex items-center gap-2 text-lg font-semibold">
-        <Workflow className="h-5 w-5 text-primary/70" />
-        Saved Pipelines
-      </h3>
+      <div className="mb-4">
+        <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">Saved rituals</p>
+        <h3 id="saved-pipelines-title" className="mt-2 flex items-center gap-2 text-xl font-display font-medium">
+          <Workflow className="h-5 w-5 text-primary/70" />
+          Saved Pipelines
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Reusable workflow presets and project-specific pipelines, presented with the same light card rhythm used across the catalog pages.
+        </p>
+      </div>
 
       {/* Loading skeleton */}
       {isLoading && (
@@ -65,7 +71,7 @@ export function SavedWorkflowsList({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="flex flex-col gap-3 rounded-[1.3rem] border border-border/50 bg-card/80 p-4 animate-pulse"
+              className="moonwell flex animate-pulse flex-col gap-3 rounded-[1.3rem] border border-border/60 p-4"
             >
               <div className="h-4 w-2/3 rounded bg-muted/40" />
               <div className="h-3 w-full rounded bg-muted/30" />
@@ -82,7 +88,7 @@ export function SavedWorkflowsList({
 
       {/* Empty state */}
       {!isLoading && pipelines.length === 0 && (
-        <div className="celestial-panel flex flex-col items-center gap-2 rounded-[1.2rem] border border-dashed border-border/60 p-6 text-center">
+        <div className="moonwell flex flex-col items-center gap-2 rounded-[1.2rem] border border-dashed border-border/70 p-6 text-center shadow-none">
           <Workflow className="h-6 w-6 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">
             No saved pipelines yet. Create your first pipeline above!
@@ -109,12 +115,12 @@ export function SavedWorkflowsList({
                   }
                 }}
                 className={cn(
-                  'flex flex-col gap-2 rounded-xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md',
+                  'celestial-panel flex flex-col gap-2 rounded-[1.35rem] border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md',
                   isActive
                     ? 'border-primary/50 bg-primary/8 ring-1 ring-primary/20 shadow-sm'
                     : pipeline.is_preset
-                      ? 'border-border/60 bg-card/88 hover:border-primary/30'
-                      : 'border-border/60 bg-card/82 hover:border-primary/30'
+                      ? 'border-border/70 bg-card/90 hover:border-primary/30'
+                      : 'border-border/70 bg-card/88 hover:border-primary/30'
                 )}
               >
                 {/* Header: name + badges */}
@@ -165,7 +171,7 @@ export function SavedWorkflowsList({
                     {pipeline.stages.map((stage) => (
                       <span
                         key={stage.id}
-                        className="solar-chip-soft inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium"
+                        className="solar-chip-soft inline-flex items-center gap-1 rounded-[0.7rem] px-2 py-1 text-[10px] font-medium"
                       >
                         {stage.name}
                         <span className="font-medium text-foreground/70">
