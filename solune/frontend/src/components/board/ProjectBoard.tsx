@@ -19,6 +19,7 @@ import type { BoardDataResponse, BoardItem, AvailableAgent } from '@/types';
 import type { BoardGroup } from '@/hooks/useBoardControls';
 import { useBoardDragDrop } from '@/hooks/useBoardDragDrop';
 import { useBoardProjection, type BoardProjectionConfig } from '@/hooks/useBoardProjection';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { BoardColumn } from './BoardColumn';
 import { BoardDragOverlay } from './BoardDragOverlay';
 
@@ -41,9 +42,11 @@ export function ProjectBoard({
   projectionConfig,
 }: ProjectBoardProps) {
   const columnCount = Math.max(boardData.columns.length, 1);
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const colMinWidth = isMobile ? '14rem' : '16rem';
   const gridStyle = useMemo(
-    () => ({ gridTemplateColumns: `repeat(${columnCount}, minmax(min(14rem, 85vw), 1fr))` }),
-    [columnCount]
+    () => ({ gridTemplateColumns: `repeat(${columnCount}, minmax(min(${colMinWidth}, 85vw), 1fr))` }),
+    [columnCount, colMinWidth]
   );
 
   const sensors = useSensors(

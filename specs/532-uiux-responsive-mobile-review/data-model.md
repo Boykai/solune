@@ -133,7 +133,8 @@ Centralized z-index stacking context tokens for `@theme` block in `src/index.css
 | `--z-chat-toggle` | 1001 | Chat | Chat toggle button |
 | `--z-command-backdrop` | 9998 | Command | CommandPalette backdrop |
 | `--z-command` | 9999 | Command | CommandPalette dialog |
-| `--z-notification` | 10000 | Notification | NotificationBell dropdown (highest) |
+| `--z-notification` | 10000 | Notification | NotificationBell dropdown |
+| `--z-install-confirm` | 10010 | Install | InstallConfirmDialog (highest) |
 
 **Validation Rules**:
 - Each z-index value must be unique

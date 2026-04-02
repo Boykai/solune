@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { ProjectBoard } from './ProjectBoard';
 import type { BoardDataResponse, BoardItem } from '@/types';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 // ── Mocks ──
 
@@ -25,6 +26,10 @@ vi.mock('@/hooks/useBoardDragDrop', () => ({
       onDragCancel: vi.fn(),
     },
   })),
+}));
+
+vi.mock('@/hooks/useMediaQuery', () => ({
+  useMediaQuery: vi.fn(() => false),
 }));
 
 vi.mock('./BoardColumn', () => ({
@@ -129,7 +134,7 @@ describe('ProjectBoard', () => {
     expect(scrollContainer.className).toContain('md:snap-none');
   });
 
-  it('sets grid column width with reduced minmax for mobile (14rem)', () => {
+  it('sets grid column width with 16rem minmax on desktop', () => {
     render(
       <ProjectBoard
         boardData={createBoardData()}
@@ -140,9 +145,9 @@ describe('ProjectBoard', () => {
     const grid = screen.getByRole('region', { name: 'Project board' })
       .querySelector('.grid') as HTMLElement;
     expect(grid).toBeTruthy();
-    // 2 columns → repeat(2, minmax(min(14rem, 85vw), 1fr))
+    // 2 columns → repeat(2, minmax(min(16rem, 85vw), 1fr)) on desktop
     expect(grid.style.gridTemplateColumns).toBe(
-      'repeat(2, minmax(min(14rem, 85vw), 1fr))'
+      'repeat(2, minmax(min(16rem, 85vw), 1fr))'
     );
   });
 
@@ -158,7 +163,27 @@ describe('ProjectBoard', () => {
       .querySelector('.grid') as HTMLElement;
     expect(grid).toBeTruthy();
     expect(grid.style.gridTemplateColumns).toBe(
-      'repeat(1, minmax(min(14rem, 85vw), 1fr))'
+      'repeat(1, minmax(min(16rem, 85vw), 1fr))'
     );
+  });
+
+  it('uses 14rem grid min-width on mobile', () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true);
+
+    render(
+      <ProjectBoard
+        boardData={createBoardData()}
+        onCardClick={vi.fn()}
+      />
+    );
+
+    const grid = screen.getByRole('region', { name: 'Project board' })
+      .querySelector('.grid') as HTMLElement;
+    expect(grid).toBeTruthy();
+    expect(grid.style.gridTemplateColumns).toBe(
+      'repeat(2, minmax(min(14rem, 85vw), 1fr))'
+    );
+
+    vi.mocked(useMediaQuery).mockReturnValue(false);
   });
 });
