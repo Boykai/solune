@@ -25,9 +25,9 @@
 
 **Purpose**: Verify current broken state and confirm preconditions before making changes
 
-- [ ] T001 Verify `templates/` is absent from `[tool.mutmut].also_copy` in solune/backend/pyproject.toml
-- [ ] T002 [P] Confirm `api-and-middleware` shard is defined in solune/backend/scripts/run_mutmut_shard.py but missing from .github/workflows/mutation-testing.yml backend matrix
-- [ ] T003 [P] Confirm frontend mutation-testing.yml runs a single monolithic Stryker job (no sharding) in .github/workflows/mutation-testing.yml
+- [x] T001 Verify `templates/` is absent from `[tool.mutmut].also_copy` in solune/backend/pyproject.toml
+- [x] T002 [P] Confirm `api-and-middleware` shard is defined in solune/backend/scripts/run_mutmut_shard.py but missing from .github/workflows/mutation-testing.yml backend matrix
+- [x] T003 [P] Confirm frontend mutation-testing.yml runs a single monolithic Stryker job (no sharding) in .github/workflows/mutation-testing.yml
 
 ---
 
@@ -37,7 +37,7 @@
 
 **⚠️ CRITICAL**: Backend user stories US1 and US2 cannot produce valid results until this phase is complete
 
-- [ ] T004 Add `"templates/"` to the `also_copy` list in `[tool.mutmut]` section of solune/backend/pyproject.toml
+- [x] T004 Add `"templates/"` to the `also_copy` list in `[tool.mutmut]` section of solune/backend/pyproject.toml
 
 **Checkpoint**: Backend mutmut workspace now includes `templates/app-templates/` — backend mutation shards can produce real results
 
@@ -51,10 +51,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Verify `registry.py` path resolution works inside mutmut workspace — run `uv run pytest tests/unit/test_agent_tools.py -v -k "template"` from solune/backend to confirm normal pytest passes with the also_copy fix
-- [ ] T006 [US1] Verify `template_files.py` path resolution is unaffected by the new also_copy entry — run `uv run pytest tests/unit/test_template_files.py -v` from solune/backend
-- [ ] T007 [US1] Run a single backend mutation shard to verify templates are copied into mutant workspace — execute `uv run python scripts/run_mutmut_shard.py --shard app-and-data --max-children 1` from solune/backend and confirm the template-directory warning disappears
-- [ ] T008 [US1] Verify mutmut results contain real kills/survivors (not "not checked") — run `uv run python -m mutmut results` from solune/backend after T007
+- [x] T005 [US1] Verify `registry.py` path resolution works inside mutmut workspace — run `uv run pytest tests/unit/test_agent_tools.py -v -k "template"` from solune/backend to confirm normal pytest passes with the also_copy fix
+- [x] T006 [US1] Verify `template_files.py` path resolution is unaffected by the new also_copy entry — run `uv run pytest tests/unit/test_template_files.py -v` from solune/backend
+- [x] T007 [US1] Run a single backend mutation shard to verify templates are copied into mutant workspace — execute `uv run python scripts/run_mutmut_shard.py --shard app-and-data --max-children 1` from solune/backend and confirm the template-directory warning disappears
+- [x] T008 [US1] Verify mutmut results contain real kills/survivors (not "not checked") — run `uv run python -m mutmut results` from solune/backend after T007
 
 **Checkpoint**: Backend mutation workspace parity is restored — app-template tests pass under both pytest and mutmut
 
@@ -68,9 +68,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Add `api-and-middleware` to the backend mutation matrix in .github/workflows/mutation-testing.yml so CI runs all 5 shards defined in solune/backend/scripts/run_mutmut_shard.py
-- [ ] T010 [US2] Add `api-and-middleware` artifact upload step (pattern: `backend-mutation-report-api-and-middleware`) in .github/workflows/mutation-testing.yml
-- [ ] T011 [US2] Validate that the backend matrix shard list in .github/workflows/mutation-testing.yml exactly matches `SHARDS.keys()` in solune/backend/scripts/run_mutmut_shard.py (5 of 5)
+- [x] T009 [US2] Add `api-and-middleware` to the backend mutation matrix in .github/workflows/mutation-testing.yml so CI runs all 5 shards defined in solune/backend/scripts/run_mutmut_shard.py
+- [x] T010 [US2] Add `api-and-middleware` artifact upload step (pattern: `backend-mutation-report-api-and-middleware`) in .github/workflows/mutation-testing.yml
+- [x] T011 [US2] Validate that the backend matrix shard list in .github/workflows/mutation-testing.yml exactly matches `SHARDS.keys()` in solune/backend/scripts/run_mutmut_shard.py (5 of 5)
 
 **Checkpoint**: CI backend mutation matrix matches the shard script — no shards silently skipped
 
@@ -84,12 +84,12 @@
 
 ### Implementation for User Story 3
 
-- [ ] T012 [P] [US3] Create solune/frontend/stryker-hooks-board.config.mjs extending base config with mutate globs for board/polling hooks: `src/hooks/useAdaptivePolling.ts`, `src/hooks/useBoardProjection.ts`, `src/hooks/useBoardRefresh.ts`, `src/hooks/useProjectBoard.ts`, `src/hooks/useRealTimeSync.ts`
-- [ ] T013 [P] [US3] Create solune/frontend/stryker-hooks-data.config.mjs extending base config with mutate globs for data/query hooks: `src/hooks/useProjects.ts`, `src/hooks/useChat.ts`, `src/hooks/useChatHistory.ts`, `src/hooks/useCommands.ts`, `src/hooks/useWorkflow.ts`, `src/hooks/useSettingsForm.ts`, `src/hooks/useAuth.ts`
-- [ ] T014 [P] [US3] Create solune/frontend/stryker-hooks-general.config.mjs extending base config with mutate glob `src/hooks/**/*.ts` minus board and data hooks (using negation patterns), excluding test files
-- [ ] T015 [P] [US3] Create solune/frontend/stryker-lib.config.mjs extending base config with mutate globs for `src/lib/**/*.ts`, excluding test and property test files
-- [ ] T016 [US3] Add frontend mutation shard matrix (hooks-board, hooks-data, hooks-general, lib) to .github/workflows/mutation-testing.yml with per-shard config file selection and artifact upload
-- [ ] T017 [US3] Verify union of all 4 shard mutate globs equals the original `stryker.config.mjs` mutate scope (`src/hooks/**/*.ts` + `src/lib/**/*.ts` minus test files)
+- [x] T012 [P] [US3] Create solune/frontend/stryker-hooks-board.config.mjs extending base config with mutate globs for board/polling hooks: `src/hooks/useAdaptivePolling.ts`, `src/hooks/useBoardProjection.ts`, `src/hooks/useBoardRefresh.ts`, `src/hooks/useProjectBoard.ts`, `src/hooks/useRealTimeSync.ts`
+- [x] T013 [P] [US3] Create solune/frontend/stryker-hooks-data.config.mjs extending base config with mutate globs for data/query hooks: `src/hooks/useProjects.ts`, `src/hooks/useChat.ts`, `src/hooks/useChatHistory.ts`, `src/hooks/useCommands.ts`, `src/hooks/useWorkflow.ts`, `src/hooks/useSettingsForm.ts`, `src/hooks/useAuth.ts`
+- [x] T014 [P] [US3] Create solune/frontend/stryker-hooks-general.config.mjs extending base config with mutate glob `src/hooks/**/*.ts` minus board and data hooks (using negation patterns), excluding test files
+- [x] T015 [P] [US3] Create solune/frontend/stryker-lib.config.mjs extending base config with mutate globs for `src/lib/**/*.ts`, excluding test and property test files
+- [x] T016 [US3] Add frontend mutation shard matrix (hooks-board, hooks-data, hooks-general, lib) to .github/workflows/mutation-testing.yml with per-shard config file selection and artifact upload
+- [x] T017 [US3] Verify union of all 4 shard mutate globs equals the original `stryker.config.mjs` mutate scope (`src/hooks/**/*.ts` + `src/lib/**/*.ts` minus test files)
 
 **Checkpoint**: Frontend mutation is sharded into 4 parallel CI jobs — each producing its own report artifact
 
@@ -103,8 +103,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T018 [US4] Fix `renderWithProviders()` in solune/frontend/src/test/test-utils.tsx — nest `TooltipProvider` inside `ConfirmationDialogProvider` so `{children}` is rendered exactly once instead of twice as sibling branches
-- [ ] T019 [US4] Run existing frontend test suite (`npm test` from solune/frontend) to confirm no regressions from the provider nesting fix
+- [x] T018 [US4] Fix `renderWithProviders()` in solune/frontend/src/test/test-utils.tsx — nest `TooltipProvider` inside `ConfirmationDialogProvider` so `{children}` is rendered exactly once instead of twice as sibling branches
+- [x] T019 [US4] Run existing frontend test suite (`npm test` from solune/frontend) to confirm no regressions from the provider nesting fix
 
 **Checkpoint**: `renderWithProviders()` renders components exactly once — existing tests pass
 
@@ -118,10 +118,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T020 [P] [US5] Add focused mutation scripts to solune/frontend/package.json: `test:mutate:hooks-board`, `test:mutate:hooks-data`, `test:mutate:hooks-general`, `test:mutate:lib` — each running `stryker run -c stryker-<shard>.config.mjs`
-- [ ] T021 [P] [US5] Update backend mutation section in solune/docs/testing.md to list all 5 shards (auth-and-projects, orchestration, app-and-data, agents-and-integrations, api-and-middleware) with run commands
-- [ ] T022 [P] [US5] Update frontend mutation section in solune/docs/testing.md to list all 4 Stryker shards with focused `npm run test:mutate:<shard>` commands and direct `npx stryker run` examples
-- [ ] T023 [US5] Add entries under `[Unreleased]` in solune/CHANGELOG.md for: backend mutmut workspace parity fix, 5th backend shard addition, frontend Stryker sharding, focused mutation commands, test-utils double-render fix
+- [x] T020 [P] [US5] Add focused mutation scripts to solune/frontend/package.json: `test:mutate:hooks-board`, `test:mutate:hooks-data`, `test:mutate:hooks-general`, `test:mutate:lib` — each running `stryker run -c stryker-<shard>.config.mjs`
+- [x] T021 [P] [US5] Update backend mutation section in solune/docs/testing.md to list all 5 shards (auth-and-projects, orchestration, app-and-data, agents-and-integrations, api-and-middleware) with run commands
+- [x] T022 [P] [US5] Update frontend mutation section in solune/docs/testing.md to list all 4 Stryker shards with focused `npm run test:mutate:<shard>` commands and direct `npx stryker run` examples
+- [x] T023 [US5] Add entries under `[Unreleased]` in solune/CHANGELOG.md for: backend mutmut workspace parity fix, 5th backend shard addition, frontend Stryker sharding, focused mutation commands, test-utils double-render fix
 
 **Checkpoint**: Documentation and package.json reflect the complete shard layout and focused commands
 
@@ -131,11 +131,11 @@
 
 **Purpose**: Final validation and cross-cutting improvements
 
-- [ ] T024 [P] Validate shard-matrix.md contract — confirm `also_copy` includes `templates/`, backend CI matrix has 5 entries, frontend CI matrix has 4 entries, all artifact names follow the naming pattern per specs/005-fix-mutation-tests/contracts/shard-matrix.md
-- [ ] T025 [P] Run backend lint gates: `ruff check src tests && ruff format --check src tests && pyright src` from solune/backend
-- [ ] T026 [P] Run frontend lint and type-check gates: `npm run lint && npm run type-check && npm run type-check:test` from solune/frontend
-- [ ] T027 Run quickstart.md validation — execute the backend and frontend verification commands from specs/005-fix-mutation-tests/quickstart.md to confirm end-to-end workflow
-- [ ] T028 Final review: confirm no mutation threshold lowering, no permanent scope reduction, and all CI shard jobs are expected to upload artifacts
+- [x] T024 [P] Validate shard-matrix.md contract — confirm `also_copy` includes `templates/`, backend CI matrix has 5 entries, frontend CI matrix has 4 entries, all artifact names follow the naming pattern per specs/005-fix-mutation-tests/contracts/shard-matrix.md
+- [x] T025 [P] Run backend lint gates: `ruff check src tests && ruff format --check src tests && pyright src` from solune/backend
+- [x] T026 [P] Run frontend lint and type-check gates: `npm run lint && npm run type-check && npm run type-check:test` from solune/frontend
+- [x] T027 Run quickstart.md validation — execute the backend and frontend verification commands from specs/005-fix-mutation-tests/quickstart.md to confirm end-to-end workflow
+- [x] T028 Final review: confirm no mutation threshold lowering, no permanent scope reduction, and all CI shard jobs are expected to upload artifacts
 
 ---
 

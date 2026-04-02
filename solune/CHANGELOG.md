@@ -6,9 +6,17 @@
 
 ### Fixed
 
+- Backend mutation testing workspace now copies `templates/` directory so app-template tests pass under mutmut.
+- `renderWithProviders()` in test-utils.tsx now nests providers correctly instead of rendering children twice.
 - Browser Agents catalog now lets unexpected internal fetch failures surface as generic server errors instead of reporting them as upstream outages.
 - Browser Agents catalog now derives stable imported IDs from source filenames and follows redirects when fetching catalog indexes and raw agent definitions.
 - Browser Agents install confirmations now clear stale error banners when the dialog is closed and reopened.
+
+### Changed
+
+- Backend mutation CI now runs all 5 shards defined in `run_mutmut_shard.py` (added missing `api-and-middleware` shard).
+- Frontend mutation testing is split into 4 CI shards (`hooks-board`, `hooks-data`, `hooks-general`, `lib`) for faster execution.
+- Added focused mutation commands (`test:mutate:hooks-board`, `test:mutate:hooks-data`, `test:mutate:hooks-general`, `test:mutate:lib`) to frontend package.json.
 
 ## [0.1.0] — 2026-03-17
 
