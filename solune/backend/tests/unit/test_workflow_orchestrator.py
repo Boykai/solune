@@ -2700,6 +2700,66 @@ class TestExecuteFullWorkflow:
         mock_sleep.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_first_parallel_group_partial_failure_sets_pipeline_error(self):
+        from src.models.workflow import ExecutionGroupMapping
+
+        orch = _make_orch()
+        cfg = _make_config(
+            agent_mappings={
+                "Backlog": [
+                    AgentAssignment(slug="tester"),
+                    AgentAssignment(slug="judge"),
+                ],
+                "In Progress": [AgentAssignment(slug="speckit.implement")],
+            },
+            group_mappings={
+                "Backlog": [
+                    ExecutionGroupMapping(
+                        group_id="g1",
+                        order=0,
+                        execution_mode="parallel",
+                        agents=[
+                            AgentAssignment(slug="tester"),
+                            AgentAssignment(slug="judge"),
+                        ],
+                    )
+                ]
+            },
+        )
+        await set_workflow_config("P1", cfg)
+        ctx = _make_ctx(config=cfg)
+        rec = self._make_rec()
+
+        orch.create_issue_from_recommendation = AsyncMock()
+        orch.add_to_project_with_backlog = AsyncMock()
+        orch.create_all_sub_issues = AsyncMock(
+            return_value={
+                "tester": {"number": 20, "node_id": "N20", "url": "u20"},
+                "judge": {"number": 21, "node_id": "N21", "url": "u21"},
+            }
+        )
+        orch._update_agent_tracking_state = AsyncMock(return_value=True)
+
+        async def _assign_side_effect(_ctx, _status, agent_index=0):
+            return agent_index == 0
+
+        orch.assign_agent_for_status = AsyncMock(side_effect=_assign_side_effect)
+
+        result = await orch.execute_full_workflow(ctx, rec)
+
+        assert result.success is False
+        assert "Failed to assign initial parallel agent 'judge'" in result.message
+        pipeline = get_pipeline_state(ctx.issue_number)
+        assert pipeline is not None
+        assert pipeline.error == "Failed to assign initial parallel agent 'judge'"
+        assert pipeline.failed_agents == ["judge"]
+        assert pipeline.groups[0].agent_statuses == {
+            "tester": "active",
+            "judge": "failed",
+        }
+        orch._update_agent_tracking_state.assert_awaited_once_with(ctx, "tester", "active")
+
+    @pytest.mark.asyncio
     async def test_exception_returns_failure(self):
         orch = _make_orch()
         cfg = _make_config()

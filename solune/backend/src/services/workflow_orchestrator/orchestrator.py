@@ -2606,6 +2606,7 @@ class WorkflowOrchestrator:
                 and initial_groups[0].execution_mode == "parallel"
                 and len(initial_groups[0].agents) > 1
             )
+            initial_parallel_error: str | None = None
             if first_parallel_group:
                 import asyncio
 
@@ -2642,9 +2643,15 @@ class WorkflowOrchestrator:
                     ),
                 )
 
-                active_agents = [agent_slug for agent_slug, assigned in results if assigned]
-                for agent_slug in active_agents:
-                    group.agent_statuses[agent_slug] = "active"
+                active_agents: list[str] = []
+                failed_agents: list[str] = []
+                for agent_slug, assigned in results:
+                    if assigned:
+                        active_agents.append(agent_slug)
+                        group.agent_statuses[agent_slug] = "active"
+                    else:
+                        failed_agents.append(agent_slug)
+                        group.agent_statuses[agent_slug] = "failed"
 
                 for agent_slug in active_agents:
                     try:
@@ -2657,18 +2664,42 @@ class WorkflowOrchestrator:
                             e,
                         )
 
+                if failed_agents:
+                    initial_parallel_error = (
+                        f"Failed to assign initial parallel agent '{failed_agents[0]}'"
+                        if len(failed_agents) == 1
+                        else "Failed to assign initial parallel agents: "
+                        + ", ".join(failed_agents)
+                    )
+                    logger.warning(
+                        "Initial parallel assignment had %d failed agent(s) on issue #%s: %s",
+                        len(failed_agents),
+                        ctx.issue_number,
+                        ", ".join(failed_agents),
+                    )
+
                 # Update stored state with active statuses
                 if ctx.issue_number is not None:
                     pipeline = get_pipeline_state(ctx.issue_number)
                     if pipeline:
                         pipeline.started_at = utcnow()
+                        if pipeline.groups:
+                            first_group = pipeline.groups[0]
+                            for agent_slug in active_agents:
+                                first_group.agent_statuses[agent_slug] = "active"
+                            for agent_slug in failed_agents:
+                                first_group.agent_statuses[agent_slug] = "failed"
+                        for agent_slug in failed_agents:
+                            if agent_slug not in pipeline.failed_agents:
+                                pipeline.failed_agents.append(agent_slug)
+                        pipeline.error = initial_parallel_error
                         set_pipeline_state(ctx.issue_number, pipeline)
             else:
                 await self.assign_agent_for_status(ctx, status_name, agent_index=0)
 
             # Check if agent assignment actually succeeded
             pipeline = get_pipeline_state(ctx.issue_number) if ctx.issue_number else None
-            agent_error = pipeline.error if pipeline else None
+            agent_error = initial_parallel_error or (pipeline.error if pipeline else None)
 
             if agent_error:
                 logger.warning(
