@@ -65,13 +65,16 @@ describe('useBoardProjection', () => {
     observerInstances = new Map();
 
     const MockIntersectionObserver = vi.fn(
-      (callback: IntersectionObserverCallback, options?: IntersectionObserverInit) => ({
-        observe: vi.fn((element: Element) => {
-          observerInstances.set(element, { callback, options });
-        }),
-        unobserve: vi.fn(),
-        disconnect: vi.fn(),
-      }),
+      function (this: unknown, callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        const instance = {
+          observe: vi.fn((element: Element) => {
+            observerInstances.set(element, { callback, options });
+          }),
+          unobserve: vi.fn(),
+          disconnect: vi.fn(),
+        };
+        return instance;
+      },
     );
 
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);

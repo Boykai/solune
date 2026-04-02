@@ -49,10 +49,7 @@ class TestShardDefinitions:
         for shard_name, paths in SHARDS.items():
             for path in paths:
                 if path in seen:
-                    pytest.fail(
-                        f"Path {path!r} appears in both {seen[path]!r} "
-                        f"and {shard_name!r}"
-                    )
+                    pytest.fail(f"Path {path!r} appears in both {seen[path]!r} and {shard_name!r}")
                 seen[path] = shard_name
 
     def test_shard_paths_are_relative(self) -> None:
@@ -81,7 +78,7 @@ class TestBuildPathsBlock:
 
     def test_multiple_paths_multiline(self) -> None:
         result = _build_paths_block(["src/api/", "src/middleware/"])
-        assert 'paths_to_mutate = [\n' in result
+        assert "paths_to_mutate = [\n" in result
         assert '    "src/api/",' in result
         assert '    "src/middleware/",' in result
 
@@ -103,9 +100,7 @@ class TestReplacePathsToMutate:
         assert 'tests_dir = ["tests/"]' in result  # Untouched
 
     def test_replaces_with_multiline_block(self) -> None:
-        result = _replace_paths_to_mutate(
-            self._SAMPLE_TOML, ["src/api/", "src/middleware/"]
-        )
+        result = _replace_paths_to_mutate(self._SAMPLE_TOML, ["src/api/", "src/middleware/"])
         assert "src/api/" in result
         assert "src/middleware/" in result
         # Original single-line should be gone
@@ -140,7 +135,9 @@ class TestCIAlignment:
     )
 
     @pytest.mark.skipif(
-        not (Path(__file__).resolve().parents[4] / ".github" / "workflows" / "mutation-testing.yml").exists(),
+        not (
+            Path(__file__).resolve().parents[4] / ".github" / "workflows" / "mutation-testing.yml"
+        ).exists(),
         reason="CI workflow not found (shallow clone or missing file)",
     )
     def test_workflow_matrix_matches_shards(self) -> None:
