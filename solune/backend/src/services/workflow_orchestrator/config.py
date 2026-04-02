@@ -81,9 +81,9 @@ def _parse_agent_mappings(raw_mappings: dict) -> dict[str, list[AgentAssignment]
     return agent_mappings
 
 
-def deduplicate_agent_mappings(
-    mappings: dict[str, list],
-) -> dict[str, list]:
+def deduplicate_agent_mappings[AgentT](
+    mappings: dict[str, list[AgentT]],
+) -> dict[str, list[AgentT]]:
     """Merge case-variant status keys in agent_mappings.
 
     GitHub project column names may differ in casing from the backend
@@ -96,7 +96,7 @@ def deduplicate_agent_mappings(
     the first encountered value wins.
     """
     seen: dict[str, str] = {}  # lowercase → chosen key
-    result: dict[str, list] = {}
+    result: dict[str, list[AgentT]] = {}
     for key, agents in mappings.items():
         lower = key.lower()
         if lower not in seen:
@@ -280,7 +280,7 @@ async def _persist_workflow_config_to_db(
     deduped = deduplicate_agent_mappings(config.agent_mappings)
 
     # Serialize config — use deduped mappings
-    config.agent_mappings = deduped  # type: ignore[assignment]
+    config.agent_mappings = deduped
     config_json = config.model_dump_json()
     agent_mappings_json = json.dumps(
         {
