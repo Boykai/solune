@@ -267,6 +267,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - JSON metadata files (`.last-refresh`), Markdown files (`.change-manifest.md`, all docs), Git tags (`docs-refresh-YYYY-MM-DD`) (003-librarian)
 - Python 3.13 (backend), TypeScript ES2022 / React 18 (frontend) + FastAPI, Pydantic, Pyright (backend); Vite, Vitest, ESLint, TypeScript strict (frontend) (004-linting-cleanup)
 - SQLite via aiosqlite (backend) (004-linting-cleanup)
+- Python 3.11 (backend), TypeScript 5.x (frontend) + FastAPI, mutmut (backend mutation); React 18, Stryker v9.6.0, Vitest (frontend mutation) (001-fix-mutation-tests)
+- N/A (infrastructure/CI changes only) (001-fix-mutation-tests)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 
