@@ -1,10 +1,8 @@
 # Settings
 
-The Settings page lets you configure Solune's behavior, including AI model preferences, Signal notification integration, display options, and workflow automation settings.
+The Settings page lets you configure Solune's behavior, including AI model preferences and Signal notification integration.
 
 ## What You See
-
-The page is divided into two sections:
 
 ### Primary Settings
 
@@ -19,16 +17,6 @@ These are the settings you are most likely to adjust:
   - **Connection status** — shows whether your Signal account is linked
   - **Connect / Disconnect** — link or unlink a Signal account for receiving notifications
   - **QR code** — when connecting, scan the QR code with your Signal app to complete the link
-
-### Advanced Settings
-
-For deeper customization, expand the advanced section:
-
-- **Display** — theme preferences, layout options
-- **Workflow** — automation behavior settings (how agents process issues)
-- **Notifications** — configure which events trigger notifications and through which channels
-- **Project** — project-specific setting overrides
-- **Global** — app-wide default settings
 
 ## How to Use It
 
@@ -54,6 +42,5 @@ After editing any settings, make sure to save before leaving the page. If you ha
 
 ## Tips
 
-- Start with the Primary Settings — most users only need to set their AI model and optionally connect Signal.
-- Advanced settings are collapsed by default to keep the page simple. Expand them when you need fine-grained control.
-- User settings and global settings load independently, so you may see one section ready before the other.
+- Most users only need to set their AI model and optionally connect Signal.
+- User settings load when you open the page — you may see a brief loading indicator.
