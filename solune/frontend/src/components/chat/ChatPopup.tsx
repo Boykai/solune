@@ -114,6 +114,7 @@ export function ChatPopup({
 
     vv.addEventListener('resize', handleResize);
     vv.addEventListener('scroll', handleResize);
+    handleResize();
     return () => {
       vv.removeEventListener('resize', handleResize);
       vv.removeEventListener('scroll', handleResize);
@@ -212,7 +213,11 @@ export function ChatPopup({
       <div
         ref={chatContainerRef}
         style={isMobile
-          ? { paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 'env(safe-area-inset-bottom, 0px)' }
+          ? {
+              paddingBottom: keyboardOffset > 0
+                ? `calc(${keyboardOffset}px + env(safe-area-inset-bottom, 0px))`
+                : 'env(safe-area-inset-bottom, 0px)',
+            }
           : { width: size.width, height: size.height }
         }
         className={cn(

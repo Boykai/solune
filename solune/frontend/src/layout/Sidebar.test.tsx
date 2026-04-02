@@ -126,11 +126,12 @@ describe('Sidebar', () => {
     expect(aside.className).toContain('z-[var(--z-sidebar)]');
   });
 
-  it('renders mobile sidebar as a dialog with aria-modal', () => {
+  it('renders mobile sidebar as a dialog with aria-modal and accessible name', () => {
     renderSidebar({ isMobile: true, isCollapsed: false });
 
-    const aside = screen.getByRole('dialog');
+    const aside = screen.getByRole('dialog', { name: 'Sidebar navigation' });
     expect(aside).toHaveAttribute('aria-modal', 'true');
+    expect(aside).toHaveAttribute('aria-label', 'Sidebar navigation');
   });
 
   it('calls onToggle when mobile backdrop is clicked', () => {

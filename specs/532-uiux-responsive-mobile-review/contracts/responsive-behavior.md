@@ -74,7 +74,7 @@
 
 | Viewport | Expected Behavior |
 |----------|-------------------|
-| mobile (375px) | Height h-[44rem] (704px); max-h-[44rem]; min-h-[32rem]; columns shrink for mobile |
+| mobile (375px) | Height h-[44rem] (704px); max-h-[44rem]; min-h-[28rem]; columns shrink for mobile |
 | tablet (768px+) | Height h-[72rem] (1152px); max-h-[72rem]; min-h-[44rem] |
 | desktop-xl (1280px+) | Height h-[95rem] (1520px); max-h-[95rem] |
 | All | Rounded corners; border; overflow-x-hidden; drag-and-drop feedback ring |
