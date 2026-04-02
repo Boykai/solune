@@ -15,16 +15,16 @@ export function Breadcrumb() {
   const segments = buildBreadcrumbSegments(pathname, NAV_ROUTES, labelOverrides);
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm text-muted-foreground">
+    <nav aria-label="Breadcrumb" className="flex min-w-0 max-w-full items-center gap-1 overflow-hidden text-sm text-muted-foreground">
       {segments.map((segment, i) => (
-        <span key={segment.path} className="flex items-center gap-1">
-          {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-primary/60" />}
+        <span key={segment.path} className="flex min-w-0 items-center gap-1">
+          {i > 0 && <ChevronRight className="w-3.5 h-3.5 shrink-0 text-primary/60" />}
           {i < segments.length - 1 ? (
-            <Link to={segment.path} className="transition-colors hover:text-primary">
+            <Link to={segment.path} className="max-w-[120px] truncate transition-colors hover:text-primary sm:max-w-[200px]">
               {segment.label}
             </Link>
           ) : (
-            <span className="font-medium tracking-wide text-foreground">{segment.label}</span>
+            <span className="max-w-[150px] truncate font-medium tracking-wide text-foreground sm:max-w-[250px]">{segment.label}</span>
           )}
         </span>
       ))}

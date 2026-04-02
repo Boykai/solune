@@ -38,7 +38,7 @@ export function NotificationBell({
     const updatePosition = () => {
       if (!buttonRef.current) return;
       const rect = buttonRef.current.getBoundingClientRect();
-      const panelWidth = 320;
+      const panelWidth = Math.min(320, window.innerWidth - 24);
       const margin = 12;
       const maxLeft = Math.max(window.innerWidth - panelWidth - margin, margin);
 
@@ -98,7 +98,7 @@ export function NotificationBell({
     isOpen && position
       ? createPortal(
           <div
-            className="celestial-panel fixed z-[var(--z-notification)] w-80 overflow-hidden rounded-[1.25rem] border border-border/80 shadow-lg backdrop-blur-md"
+            className="celestial-panel fixed z-[var(--z-notification)] w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden rounded-[1.25rem] border border-border/80 shadow-lg backdrop-blur-md"
             style={{ top: position.top, left: position.left }}
           >
             <div className="flex items-center justify-between border-b border-border/70 bg-background/25 px-4 py-3">

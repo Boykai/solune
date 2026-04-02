@@ -87,12 +87,37 @@ export function ChatPopup({
   const isResizing = useRef(false);
   const startPos = useRef({ x: 0, y: 0, w: 0, h: 0 });
   const cleanupResize = useRef<(() => void) | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   // Keep a ref of the latest size so onResizeStart doesn't need `size` in
   // its dependency array — prevents callback recreation on every resize (T026).
   const sizeRef = useRef(size);
   useEffect(() => {
     sizeRef.current = size;
   }, [size]);
+
+  // T010: Track virtual keyboard visibility via visualViewport API so the
+  // chat input stays above the keyboard on mobile devices.
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+  useEffect(() => {
+    if (!isMobile || !isOpen) {
+      setKeyboardOffset(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const handleResize = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height);
+      setKeyboardOffset(offset);
+    };
+
+    vv.addEventListener('resize', handleResize);
+    vv.addEventListener('scroll', handleResize);
+    return () => {
+      vv.removeEventListener('resize', handleResize);
+      vv.removeEventListener('scroll', handleResize);
+    };
+  }, [isMobile, isOpen]);
 
   // Registers window-level mousemove/mouseup listeners only while a resize
   // is in progress, then removes them on mouseup. This avoids firing handlers
@@ -184,7 +209,11 @@ export function ChatPopup({
       </button>
 
       <div
-        style={isMobile ? undefined : { width: size.width, height: size.height }}
+        ref={chatContainerRef}
+        style={isMobile
+          ? { paddingBottom: keyboardOffset > 0 ? `${keyboardOffset}px` : 'env(safe-area-inset-bottom, 0px)' }
+          : { width: size.width, height: size.height }
+        }
         className={cn(
           isMobile
             ? 'fixed inset-0 z-[var(--z-chat)] flex flex-col bg-background'
