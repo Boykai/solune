@@ -40,7 +40,7 @@ As a developer reviewing mutation results, I need the CI workflow to run exactly
 
 ### User Story 3 — Frontend Mutation Sharding (Priority: P2)
 
-As a developer working on frontend hooks and utilities, I need the frontend mutation run to be split into multiple CI shards so that each shard completes within the CI time limit and produces a focused survivor report. Today the single frontend job times out at roughly 71 % progress, producing an incomplete and unusable report.
+As a developer working on frontend hooks and utilities, I need the frontend mutation run to be split into multiple CI shards so that each shard completes within the CI time limit and produces a focused survivor report. Today the single frontend job times out at roughly 71% progress, producing an incomplete and unusable report.
 
 **Why this priority**: The frontend mutation scope (6,580+ mutants across 73 source files) is too large for a single CI job. Sharding is required before any survivor cleanup work can begin.
 
@@ -155,7 +155,7 @@ As a developer onboarding to the project or reviewing recent changes, I need the
 ### Measurable Outcomes
 
 - **SC-001**: All five backend mutation shards complete without workspace-related aborts and each produces a report with zero "not checked" mutants caused by missing assets.
-- **SC-002**: Each frontend mutation shard completes within the three-hour CI time limit, and the combined shard coverage equals 100 % of the original mutation scope.
+- **SC-002**: Each frontend mutation shard completes within the three-hour CI time limit, and the combined shard coverage equals 100% of the original mutation scope.
 - **SC-003**: A developer can run a focused frontend mutation command targeting a single file and receive results in under five minutes for a typical hook or utility file.
 - **SC-004**: The shared test utility provider wrapper renders children exactly once, verified by an explicit test assertion.
 - **SC-005**: The survivor count for the adaptive polling hook and board projection hook decreases compared to the pre-fix baseline, with deterministic assertions killing previously surviving mutants around tier transitions, visibility polls, and projection ranges.
