@@ -23,6 +23,8 @@ function createChore(overrides: Partial<Chore> = {}): Chore {
     execution_count: 0,
     ai_enhance_enabled: true,
     agent_pipeline_id: '',
+    is_preset: false,
+    preset_id: '',
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,

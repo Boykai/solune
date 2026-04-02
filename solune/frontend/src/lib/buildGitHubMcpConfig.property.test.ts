@@ -6,14 +6,12 @@ import type { McpToolConfig } from '@/types';
 function makeTool(overrides: Partial<McpToolConfig> = {}): McpToolConfig {
   return {
     id: 'tool-1',
-    github_user_id: 'u1',
-    project_id: 'p1',
     name: 'Test Tool',
     description: 'desc',
     endpoint_url: '',
     config_content: JSON.stringify({ mcpServers: { myServer: { type: 'http', url: 'http://localhost' } } }),
     sync_status: 'synced',
-    sync_error: null,
+    sync_error: '',
     synced_at: null,
     github_repo_target: 'owner/repo',
     is_active: true,

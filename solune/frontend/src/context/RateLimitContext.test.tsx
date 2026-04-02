@@ -22,7 +22,7 @@ describe('RateLimitContext', () => {
     const info: RateLimitInfo = {
       limit: 5000,
       remaining: 4500,
-      reset: Math.floor(Date.now() / 1000) + 3600,
+      reset_at: Math.floor(Date.now() / 1000) + 3600,
       used: 500,
     };
 

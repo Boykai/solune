@@ -358,6 +358,7 @@ ruff format src/ tests/
 
 # Type checking
 pyright src/
+pyright tests/
 ```
 
 ### Frontend
@@ -374,11 +375,12 @@ npm run format
 
 # Type checking
 npm run type-check
+npm run type-check:test
 ```
 
 ### Pre-Commit Hook
 
-Install the git pre-commit hook that runs ruff, pyright, eslint, tsc, vitest, and build:
+Install the git pre-commit hook that runs ruff, backend/frontend source type checks, backend/frontend test type checks, vitest, and build:
 
 ```bash
 ./scripts/setup-hooks.sh

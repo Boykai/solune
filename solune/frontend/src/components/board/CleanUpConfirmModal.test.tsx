@@ -60,6 +60,7 @@ function createPreflightData(
     prs_to_close: [],
     prs_to_preserve: [],
     orphaned_issues: [],
+    issues_to_preserve: [],
     open_issues_on_board: 3,
     has_permission: true,
     permission_error: null,

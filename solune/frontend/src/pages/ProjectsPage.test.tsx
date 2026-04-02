@@ -78,8 +78,8 @@ const mocks = vi.hoisted(() => ({
   projectBoard: {
     projectsRateLimitInfo: null,
     projectsLoading: false,
-    projectsError: null,
-    selectedProjectId: 'PVT_1',
+    projectsError: null as Error | null,
+    selectedProjectId: 'PVT_1' as string | null,
     boardData: {
       columns: [
         {
@@ -91,7 +91,7 @@ const mocks = vi.hoisted(() => ({
     },
     boardLoading: false,
     isFetching: false,
-    boardError: null,
+    boardError: null as Error | null,
     lastUpdated: new Date('2026-03-10T21:19:34.006Z'),
     selectProject: vi.fn(),
   },

@@ -20,7 +20,7 @@ const mockToast = toast as unknown as {
 
 const mockItem: BoardItem = {
   item_id: 'item-1',
-  content_type: 'Issue',
+  content_type: 'issue',
   title: 'Test Issue',
   status: 'Todo',
   status_option_id: 'opt-1',
@@ -32,7 +32,7 @@ const mockItem: BoardItem = {
 
 const mockItem2: BoardItem = {
   item_id: 'item-2',
-  content_type: 'Issue',
+  content_type: 'issue',
   title: 'Another Issue',
   status: 'In Progress',
   status_option_id: 'opt-2',

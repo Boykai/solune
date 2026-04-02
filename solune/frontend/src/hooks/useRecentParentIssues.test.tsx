@@ -131,7 +131,7 @@ describe('useRecentParentIssues', () => {
       },
     ]);
     // Override the color to null to test default
-    (boardData.columns[0].status as Record<string, unknown>).color = null;
+    boardData.columns[0].status = { ...boardData.columns[0].status, color: undefined as never };
 
     const { result } = renderHook(() => useRecentParentIssues(boardData));
     expect(result.current[0].statusColor).toBe('GRAY');

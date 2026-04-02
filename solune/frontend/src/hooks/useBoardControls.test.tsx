@@ -95,7 +95,13 @@ describe('useBoardControls', () => {
     const { result } = renderHook(() => useBoardControls('PVT_1', createBoardData()));
 
     act(() => {
-      result.current.setFilters({ labels: ['feature'], assignees: [], milestones: [] });
+      result.current.setFilters({
+        labels: ['feature'],
+        assignees: [],
+        milestones: [],
+        priority: [],
+        pipelineConfig: null,
+      });
       result.current.setSort({ field: 'title', direction: 'desc' });
       result.current.setGroup({ field: 'assignee' });
     });

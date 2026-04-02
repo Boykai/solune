@@ -6,6 +6,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useVoiceInput } from './useVoiceInput';
 
+type SpeechRecognitionWindow = Window & typeof globalThis & {
+  SpeechRecognition?: unknown;
+  webkitSpeechRecognition?: unknown;
+};
+
+const speechWindow = window as SpeechRecognitionWindow;
+
 // Helper to flush microtasks (for promise chains inside the hook)
 function flushPromises() {
   return new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -50,14 +57,14 @@ describe('useVoiceInput', () => {
   let originalMediaDevices: unknown;
 
   beforeEach(() => {
-    originalSpeechRecognition = (window as Record<string, unknown>).SpeechRecognition;
-    originalWebkitSpeechRecognition = (window as Record<string, unknown>).webkitSpeechRecognition;
+    originalSpeechRecognition = speechWindow.SpeechRecognition;
+    originalWebkitSpeechRecognition = speechWindow.webkitSpeechRecognition;
     originalMediaDevices = navigator.mediaDevices;
   });
 
   afterEach(() => {
-    (window as Record<string, unknown>).SpeechRecognition = originalSpeechRecognition;
-    (window as Record<string, unknown>).webkitSpeechRecognition = originalWebkitSpeechRecognition;
+    speechWindow.SpeechRecognition = originalSpeechRecognition;
+    speechWindow.webkitSpeechRecognition = originalWebkitSpeechRecognition;
     Object.defineProperty(navigator, 'mediaDevices', {
       value: originalMediaDevices,
       writable: true,
@@ -69,32 +76,32 @@ describe('useVoiceInput', () => {
 
   describe('browser support detection', () => {
     it('reports supported when SpeechRecognition is available (Firefox)', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
-      delete (window as Record<string, unknown>).webkitSpeechRecognition;
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
+      delete speechWindow.webkitSpeechRecognition;
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.isSupported).toBe(true);
     });
 
     it('reports supported when webkitSpeechRecognition is available (Chrome)', () => {
-      delete (window as Record<string, unknown>).SpeechRecognition;
-      (window as Record<string, unknown>).webkitSpeechRecognition = createSimpleSpeechRecognition();
+      delete speechWindow.SpeechRecognition;
+      speechWindow.webkitSpeechRecognition = createSimpleSpeechRecognition();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.isSupported).toBe(true);
     });
 
     it('reports supported when both SpeechRecognition and webkitSpeechRecognition exist', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
-      (window as Record<string, unknown>).webkitSpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.webkitSpeechRecognition = createSimpleSpeechRecognition();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.isSupported).toBe(true);
     });
 
     it('reports unsupported when neither API is available', () => {
-      delete (window as Record<string, unknown>).SpeechRecognition;
-      delete (window as Record<string, unknown>).webkitSpeechRecognition;
+      delete speechWindow.SpeechRecognition;
+      delete speechWindow.webkitSpeechRecognition;
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.isSupported).toBe(false);
@@ -103,8 +110,8 @@ describe('useVoiceInput', () => {
     it('prefers SpeechRecognition over webkitSpeechRecognition when both exist', async () => {
       const { Ctor: unprefixedCtor } = createMockSpeechRecognition();
       const { Ctor: webkitCtor } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = unprefixedCtor;
-      (window as Record<string, unknown>).webkitSpeechRecognition = webkitCtor;
+      speechWindow.SpeechRecognition = unprefixedCtor;
+      speechWindow.webkitSpeechRecognition = webkitCtor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -123,19 +130,19 @@ describe('useVoiceInput', () => {
 
   describe('initial state', () => {
     it('starts with isRecording false', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.isRecording).toBe(false);
     });
 
     it('starts with empty interimTranscript', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.interimTranscript).toBe('');
     });
 
     it('starts with null error', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
       expect(result.current.error).toBeNull();
     });
@@ -145,8 +152,8 @@ describe('useVoiceInput', () => {
 
   describe('startRecording', () => {
     it('sets error when speech recognition is not supported', () => {
-      delete (window as Record<string, unknown>).SpeechRecognition;
-      delete (window as Record<string, unknown>).webkitSpeechRecognition;
+      delete speechWindow.SpeechRecognition;
+      delete speechWindow.webkitSpeechRecognition;
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
 
@@ -158,7 +165,7 @@ describe('useVoiceInput', () => {
     });
 
     it('sets error when mediaDevices is not available', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
       Object.defineProperty(navigator, 'mediaDevices', {
         value: undefined,
         writable: true,
@@ -176,7 +183,7 @@ describe('useVoiceInput', () => {
 
     it('requests microphone permission and starts recognition on success', async () => {
       const { Ctor } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -192,7 +199,7 @@ describe('useVoiceInput', () => {
 
     it('configures recognition with continuous, interimResults, and lang', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -211,7 +218,7 @@ describe('useVoiceInput', () => {
     it('stops stream tracks immediately after getUserMedia succeeds', async () => {
       const stopFn = vi.fn();
       const { Ctor } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices({
         getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: stopFn }] }),
       } as unknown as MediaDevices);
@@ -227,7 +234,7 @@ describe('useVoiceInput', () => {
     });
 
     it('clears previous error when starting a new recording', async () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
       Object.defineProperty(navigator, 'mediaDevices', {
         value: undefined,
         writable: true,
@@ -244,7 +251,7 @@ describe('useVoiceInput', () => {
 
       // Now restore mediaDevices and try again
       const { Ctor } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       await act(async () => {
@@ -258,7 +265,7 @@ describe('useVoiceInput', () => {
     });
 
     it('sets permission error when getUserMedia is denied', async () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
       mockMediaDevices({
         getUserMedia: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError')),
       } as unknown as MediaDevices);
@@ -282,7 +289,7 @@ describe('useVoiceInput', () => {
   describe('stopRecording', () => {
     it('stops recognition and resets isRecording', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -303,7 +310,7 @@ describe('useVoiceInput', () => {
     });
 
     it('is a no-op when not currently recording', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
 
@@ -321,7 +328,7 @@ describe('useVoiceInput', () => {
   describe('cancelRecording', () => {
     it('aborts recognition and clears interim transcript', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -341,7 +348,7 @@ describe('useVoiceInput', () => {
     });
 
     it('is a no-op when not currently recording', () => {
-      (window as Record<string, unknown>).SpeechRecognition = createSimpleSpeechRecognition();
+      speechWindow.SpeechRecognition = createSimpleSpeechRecognition();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
 
@@ -360,7 +367,7 @@ describe('useVoiceInput', () => {
   describe('error handling', () => {
     it('sets permission error on not-allowed recognition error', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -383,7 +390,7 @@ describe('useVoiceInput', () => {
 
     it('sets permission error on permission-denied recognition error', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -406,7 +413,7 @@ describe('useVoiceInput', () => {
 
     it('sets generic error on non-abort recognition error', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -426,7 +433,7 @@ describe('useVoiceInput', () => {
 
     it('ignores aborted recognition error', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -446,7 +453,7 @@ describe('useVoiceInput', () => {
 
     it('resets isRecording and interimTranscript when onend fires', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -486,7 +493,7 @@ describe('useVoiceInput', () => {
   describe('transcription', () => {
     it('calls onTranscript with final transcript text', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const onTranscript = vi.fn();
@@ -511,7 +518,7 @@ describe('useVoiceInput', () => {
 
     it('updates interimTranscript for non-final results', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result } = renderHook(() => useVoiceInput(vi.fn()));
@@ -535,7 +542,7 @@ describe('useVoiceInput', () => {
 
     it('handles multiple results in a single onresult event', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const onTranscript = vi.fn();
@@ -566,7 +573,7 @@ describe('useVoiceInput', () => {
 
     it('does not call onTranscript when there are only interim results', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const onTranscript = vi.fn();
@@ -596,7 +603,7 @@ describe('useVoiceInput', () => {
   describe('cleanup', () => {
     it('aborts recognition on unmount', async () => {
       const { Ctor, getInstance } = createMockSpeechRecognition();
-      (window as Record<string, unknown>).SpeechRecognition = Ctor;
+      speechWindow.SpeechRecognition = Ctor;
       mockMediaDevices();
 
       const { result, unmount } = renderHook(() => useVoiceInput(vi.fn()));

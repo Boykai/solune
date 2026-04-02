@@ -24,12 +24,16 @@ function fireKeyOnElement(
 }
 
 describe('useGlobalShortcuts', () => {
-  let onOpenShortcutModal: ReturnType<typeof vi.fn>;
+  let onOpenShortcutModalCallCount: number;
+  let onOpenShortcutModal: () => void;
   let dispatchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    onOpenShortcutModal = vi.fn();
+    onOpenShortcutModalCallCount = 0;
+    onOpenShortcutModal = () => {
+      onOpenShortcutModalCallCount += 1;
+    };
     dispatchSpy = vi.spyOn(window, 'dispatchEvent');
   });
 
@@ -40,13 +44,15 @@ describe('useGlobalShortcuts', () => {
   });
 
   function setup() {
-    return renderHook(() => useGlobalShortcuts({ onOpenShortcutModal }));
+    return renderHook(() =>
+      useGlobalShortcuts({ onOpenShortcutModal })
+    );
   }
 
   it('opens shortcut modal on "?" key', () => {
     setup();
     fireKey('?');
-    expect(onOpenShortcutModal).toHaveBeenCalledTimes(1);
+    expect(onOpenShortcutModalCallCount).toBe(1);
   });
 
   it('navigates to sections on number keys 1-5', () => {
@@ -68,7 +74,8 @@ describe('useGlobalShortcuts', () => {
     fireKey('k', { ctrlKey: true });
     expect(dispatchSpy).toHaveBeenCalledWith(expect.any(CustomEvent));
     const call = dispatchSpy.mock.calls.find(
-      (c) => c[0] instanceof CustomEvent && c[0].type === 'solune:open-command-palette',
+      ([event]: [Event]) =>
+        event instanceof CustomEvent && event.type === 'solune:open-command-palette',
     );
     expect(call).toBeTruthy();
   });
@@ -77,7 +84,8 @@ describe('useGlobalShortcuts', () => {
     setup();
     fireKey('k', { metaKey: true });
     const call = dispatchSpy.mock.calls.find(
-      (c) => c[0] instanceof CustomEvent && c[0].type === 'solune:open-command-palette',
+      ([event]: [Event]) =>
+        event instanceof CustomEvent && event.type === 'solune:open-command-palette',
     );
     expect(call).toBeTruthy();
   });
@@ -89,7 +97,7 @@ describe('useGlobalShortcuts', () => {
     input.focus();
 
     fireKeyOnElement(input, '?');
-    expect(onOpenShortcutModal).not.toHaveBeenCalled();
+    expect(onOpenShortcutModalCallCount).toBe(0);
 
     fireKeyOnElement(input, '1');
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -118,7 +126,7 @@ describe('useGlobalShortcuts', () => {
     document.body.appendChild(dialog);
 
     fireKey('?');
-    expect(onOpenShortcutModal).not.toHaveBeenCalled();
+    expect(onOpenShortcutModalCallCount).toBe(0);
 
     fireKey('1');
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -135,7 +143,8 @@ describe('useGlobalShortcuts', () => {
 
     fireKey('k', { ctrlKey: true });
     const call = dispatchSpy.mock.calls.find(
-      (c) => c[0] instanceof CustomEvent && c[0].type === 'solune:open-command-palette',
+      ([event]: [Event]) =>
+        event instanceof CustomEvent && event.type === 'solune:open-command-palette',
     );
     expect(call).toBeFalsy();
 

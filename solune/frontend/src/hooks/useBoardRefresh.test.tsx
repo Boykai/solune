@@ -10,6 +10,7 @@ import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useBoardRefresh } from './useBoardRefresh';
 import type { ReactNode } from 'react';
+import type { BoardDataResponse } from '@/types';
 
 // Mock constants so intervals are short and predictable in tests
 vi.mock('@/constants', () => ({
@@ -43,6 +44,23 @@ function createWrapper(queryClient?: QueryClient) {
     });
   return function Wrapper({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  };
+}
+
+function createBoardData(boardData: Partial<BoardDataResponse> = {}): BoardDataResponse {
+  return {
+    project: {
+      project_id: 'PVT_123',
+      name: 'Test Project',
+      url: 'https://example.test/project',
+      owner_login: 'octocat',
+      status_field: {
+        field_id: 'status-field',
+        options: [{ option_id: 'todo', name: 'Todo', color: 'GRAY' }],
+      },
+    },
+    columns: [],
+    ...boardData,
   };
 }
 
@@ -379,14 +397,14 @@ describe('useBoardRefresh', () => {
       ({ boardData }) => useBoardRefresh({ projectId: 'PVT_123', boardData }),
       {
         wrapper: createWrapper(),
-        initialProps: { boardData: undefined as { rate_limit?: typeof rateLimitData } | undefined },
+        initialProps: { boardData: undefined as BoardDataResponse | undefined },
       }
     );
 
     expect(result.current.rateLimitInfo).toBeNull();
 
     // Provide board data with rate_limit
-    rerender({ boardData: { rate_limit: rateLimitData } as unknown as undefined });
+    rerender({ boardData: createBoardData({ rate_limit: rateLimitData }) });
 
     expect(result.current.rateLimitInfo).toEqual(rateLimitData);
   });
@@ -398,7 +416,7 @@ describe('useBoardRefresh', () => {
       () =>
         useBoardRefresh({
           projectId: 'PVT_123',
-          boardData: { rate_limit: lowRateLimit } as never,
+          boardData: createBoardData({ rate_limit: lowRateLimit }),
         }),
       { wrapper: createWrapper() }
     );

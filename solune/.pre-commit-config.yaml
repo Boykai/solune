@@ -24,6 +24,13 @@ repos:
         files: ^solune/backend/.*\.py$
         pass_filenames: false
 
+      - id: backend-pyright-tests
+        name: Type Check Backend Tests (pyright)
+        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && pyright tests'
+        language: system
+        files: ^solune/backend/.*\.py$
+        pass_filenames: false
+
       - id: backend-bandit
         name: Security Scan Backend (bandit)
         entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && bandit -r src/ -ll -ii --skip B104,B608'
@@ -44,6 +51,13 @@ repos:
       - id: frontend-typecheck
         name: Type Check Frontend (TypeScript)
         entry: bash -c 'cd solune/frontend && npm run type-check'
+        language: system
+        files: ^solune/frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: frontend-typecheck-tests
+        name: Type Check Frontend Tests (TypeScript)
+        entry: bash -c 'cd solune/frontend && npm run type-check:test'
         language: system
         files: ^solune/frontend/.*\.(ts|tsx)$
         pass_filenames: false
