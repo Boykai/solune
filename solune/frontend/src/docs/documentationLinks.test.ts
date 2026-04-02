@@ -115,7 +115,7 @@ function extractPhaseChecklist(markdown: string): string[] {
 
 function extractPhaseHeadings(markdown: string): string[] {
   return Array.from(
-    markdown.matchAll(/^### Phase (\d+)\s*(?::|—|-)\s+(.+)$/gm),
+    markdown.matchAll(/^### Phase (\d+) [—-] (.+)$/gm),
     ([, phaseNumber, phaseTitle]) => `${phaseNumber}:${phaseTitle.trim()}`,
   );
 }
