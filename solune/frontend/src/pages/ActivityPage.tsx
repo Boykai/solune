@@ -160,14 +160,75 @@ function formatMostCommonEvent(byType: Record<string, number>): string {
   return `${humanizeToken(eventType)} (${count})`;
 }
 
+function isUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  return value.startsWith('https://') || value.startsWith('http://');
+}
+
+function isGitHubNumber(key: string, value: unknown): boolean {
+  return (
+    typeof value === 'number' &&
+    (key === 'issue_number' || key === 'pr_number' || key === 'tracking_issue_number')
+  );
+}
+
+function DetailValue({ detailKey, value, urlHint }: { detailKey: string; value: unknown; urlHint?: string }) {
+  if (isUrl(value)) {
+    return (
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary hover:underline"
+      >
+        {value}
+      </a>
+    );
+  }
+  if (isGitHubNumber(detailKey, value) && urlHint) {
+    return (
+      <a
+        href={urlHint}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-primary hover:underline"
+      >
+        #{String(value)}
+      </a>
+    );
+  }
+  if (isGitHubNumber(detailKey, value)) {
+    return <span className="text-primary font-medium">#{String(value)}</span>;
+  }
+  return <span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>;
+}
+
 function DetailView({ detail }: { detail: Record<string, unknown> }) {
+  // Build URL hints: if detail has both issue_number and issue_url, link the number
+  const urlHints: Record<string, string> = {};
+  if (isUrl(detail.issue_url) && detail.issue_number != null) {
+    urlHints.issue_number = detail.issue_url as string;
+  }
+  if (isUrl(detail.pr_url) && detail.pr_number != null) {
+    urlHints.pr_number = detail.pr_url as string;
+  }
+  // For standalone numbers without a paired URL, try to construct from issue_url pattern
+  if (!urlHints.pr_number && detail.pr_number != null && isUrl(detail.issue_url)) {
+    const base = (detail.issue_url as string).replace(/\/issues\/\d+$/, '');
+    urlHints.pr_number = `${base}/pull/${detail.pr_number}`;
+  }
+  if (!urlHints.issue_number && detail.issue_number != null && isUrl(detail.pr_url)) {
+    const base = (detail.pr_url as string).replace(/\/pull\/\d+$/, '');
+    urlHints.issue_number = `${base}/issues/${detail.issue_number}`;
+  }
+
   return (
     <div className="mt-2 rounded-lg bg-muted/40 px-3 py-2 text-xs">
       {Object.entries(detail).map(([key, value]) => (
         <div key={key} className="flex gap-2 py-0.5">
           <span className="font-medium text-muted-foreground">{key}:</span>
           <span className="text-foreground">
-            {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+            <DetailValue detailKey={key} value={value} urlHint={urlHints[key]} />
           </span>
         </div>
       ))}

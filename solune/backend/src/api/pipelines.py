@@ -177,7 +177,7 @@ async def list_pipelines(
 ) -> PipelineConfigListResponse | dict:
     """List all pipeline configurations for a project."""
     service = _get_service()
-    result = await service.list_pipelines(project_id, sort=sort, order=order)
+    result = await service.list_pipelines(project_id, sort=sort, order=order, github_user_id=session.github_user_id)
 
     if limit is not None or cursor is not None:
         from src.services.pagination import apply_pagination
@@ -209,7 +209,7 @@ async def seed_presets(
 ) -> dict:
     """Idempotently seed preset pipeline configurations for a project."""
     service = _get_service()
-    return await service.seed_presets(project_id)
+    return await service.seed_presets(project_id, github_user_id=session.github_user_id)
 
 
 # ── Assignment ──
@@ -334,7 +334,7 @@ async def execute_pipeline_launch(
 
     service = _get_service()
     lookup_project = pipeline_project_id or project_id
-    pipeline = await service.get_pipeline(lookup_project, pipeline_id)
+    pipeline = await service.get_pipeline(lookup_project, pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Selected pipeline config is no longer available")
 
@@ -618,7 +618,7 @@ async def create_pipeline(
     """Create a new pipeline configuration."""
     service = _get_service()
     try:
-        result = await service.create_pipeline(project_id, body)
+        result = await service.create_pipeline(project_id, body, github_user_id=session.github_user_id)
     except ValueError as exc:
         raise AppException(str(exc), status_code=409) from exc
     await log_event(
@@ -650,7 +650,7 @@ async def get_pipeline(
 ) -> PipelineConfig:
     """Get a single pipeline configuration."""
     service = _get_service()
-    pipeline = await service.get_pipeline(project_id, pipeline_id)
+    pipeline = await service.get_pipeline(project_id, pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Pipeline not found")
     return pipeline
@@ -673,7 +673,7 @@ async def update_pipeline(
     """Update an existing pipeline configuration."""
     service = _get_service()
     try:
-        updated = await service.update_pipeline(project_id, pipeline_id, body)
+        updated = await service.update_pipeline(project_id, pipeline_id, body, github_user_id=session.github_user_id)
     except PermissionError as exc:
         raise AuthorizationError(str(exc)) from exc
     except ValueError as exc:
@@ -706,7 +706,7 @@ async def delete_pipeline(
 ) -> dict:
     """Delete a pipeline configuration."""
     service = _get_service()
-    deleted = await service.delete_pipeline(project_id, pipeline_id)
+    deleted = await service.delete_pipeline(project_id, pipeline_id, github_user_id=session.github_user_id)
     if not deleted:
         raise NotFoundError("Pipeline not found")
     await log_event(
@@ -751,7 +751,7 @@ async def create_pipeline_run(
     """Create and start a new pipeline run (FR-001, FR-016)."""
     # Verify the pipeline exists
     service = _get_service()
-    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id)
+    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Pipeline configuration not found")
 
@@ -793,7 +793,7 @@ async def list_pipeline_runs(
     """
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
-    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id)
+    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Pipeline configuration not found")
 
@@ -816,7 +816,7 @@ async def get_pipeline_run(
     """Get detailed run state with all stages/groups (FR-001, FR-002)."""
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
-    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id)
+    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Pipeline configuration not found")
 
@@ -838,7 +838,7 @@ async def cancel_pipeline_run(
     """Cancel a running or pending pipeline run."""
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
-    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id)
+    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Pipeline configuration not found")
 
@@ -882,7 +882,7 @@ async def recover_pipeline_run(
     """Rebuild state and resume a pipeline run (FR-002)."""
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
-    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id)
+    pipeline = await service.get_pipeline(session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id)
     if pipeline is None:
         raise NotFoundError("Pipeline configuration not found")
 

@@ -53,6 +53,7 @@ export function PrimarySettings({ settings, onSave }: PrimarySettingsProps) {
         agent_model: localState.agent_model,
         temperature: localState.temperature,
         reasoning_effort: localState.reasoning_effort,
+        agent_reasoning_effort: localState.agent_reasoning_effort,
       },
     });
   };
@@ -113,6 +114,8 @@ export function PrimarySettings({ settings, onSave }: PrimarySettingsProps) {
             modelsResponse={modelsResponse}
             isLoading={modelsLoading}
             onRetry={() => refetchModels()}
+            onReasoningEffortChange={(effort) => setField('agent_reasoning_effort', effort)}
+            reasoningEffort={localState.agent_reasoning_effort}
           />
           <p className="text-xs text-muted-foreground">
             Fallback model for all GitHub Copilot Agents. Takes lower priority than pipeline model

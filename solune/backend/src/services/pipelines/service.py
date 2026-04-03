@@ -398,17 +398,24 @@ class PipelineService:
         project_id: str,
         sort: str = "updated_at",
         order: str = "desc",
+        github_user_id: str = "",
     ) -> PipelineConfigListResponse:
-        """List all pipeline configurations for a project with enriched summaries."""
+        """List all pipeline configurations for a user with enriched summaries."""
         allowed_sort = {"updated_at", "name", "created_at"}
         allowed_order = {"asc", "desc"}
         sort_col = sort if sort in allowed_sort else "updated_at"
         sort_dir = order if order in allowed_order else "desc"
 
-        cursor = await self._db.execute(
-            f"SELECT * FROM pipeline_configs WHERE project_id = ? ORDER BY {sort_col} {sort_dir.upper()}",
-            (project_id,),
-        )
+        if github_user_id:
+            cursor = await self._db.execute(
+                f"SELECT * FROM pipeline_configs WHERE github_user_id = ? ORDER BY {sort_col} {sort_dir.upper()}",
+                (github_user_id,),
+            )
+        else:
+            cursor = await self._db.execute(
+                f"SELECT * FROM pipeline_configs WHERE project_id = ? ORDER BY {sort_col} {sort_dir.upper()}",
+                (project_id,),
+            )
         rows = await cursor.fetchall()
 
         summaries: list[PipelineConfigSummary] = []
@@ -447,12 +454,19 @@ class PipelineService:
         self,
         project_id: str,
         pipeline_id: str,
+        github_user_id: str = "",
     ) -> PipelineConfig | None:
         """Get a single pipeline configuration by ID."""
-        cursor = await self._db.execute(
-            "SELECT * FROM pipeline_configs WHERE id = ? AND project_id = ?",
-            (pipeline_id, project_id),
-        )
+        if github_user_id:
+            cursor = await self._db.execute(
+                "SELECT * FROM pipeline_configs WHERE id = ? AND github_user_id = ?",
+                (pipeline_id, github_user_id),
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM pipeline_configs WHERE id = ? AND project_id = ?",
+                (pipeline_id, project_id),
+            )
         row = await cursor.fetchone()
         if row is None:
             return None
@@ -464,6 +478,7 @@ class PipelineService:
         self,
         project_id: str,
         body: PipelineConfigCreate,
+        github_user_id: str = "",
     ) -> PipelineConfig:
         """Create a new pipeline configuration.
 
@@ -481,8 +496,8 @@ class PipelineService:
         try:
             await self._db.execute(
                 """
-                INSERT INTO pipeline_configs (id, project_id, name, description, stages, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO pipeline_configs (id, project_id, name, description, stages, github_user_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     pipeline_id,
@@ -490,6 +505,7 @@ class PipelineService:
                     body.name,
                     body.description,
                     stages_json,
+                    github_user_id,
                     now,
                     now,
                 ),
@@ -497,10 +513,10 @@ class PipelineService:
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
             raise ValueError(
-                f"A pipeline named '{body.name}' already exists in this project."
+                f"A pipeline named '{body.name}' already exists."
             ) from exc
 
-        pipeline = await self.get_pipeline(project_id, pipeline_id)
+        pipeline = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
         if pipeline is None:
             raise RuntimeError(f"Pipeline {pipeline_id} was not found after creation")
         return pipeline
@@ -512,6 +528,7 @@ class PipelineService:
         project_id: str,
         pipeline_id: str,
         body: PipelineConfigUpdate,
+        github_user_id: str = "",
     ) -> PipelineConfig | None:
         """Update an existing pipeline configuration.
 
@@ -519,7 +536,7 @@ class PipelineService:
         Raises ValueError on duplicate name.
         Raises PermissionError if the pipeline is a preset.
         """
-        existing = await self.get_pipeline(project_id, pipeline_id)
+        existing = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
         if existing is None:
             return None
 
@@ -553,20 +570,25 @@ class PipelineService:
             return existing
 
         set_clause = ", ".join(f"{col} = ?" for col in safe_updates)
-        values = [*list(safe_updates.values()), pipeline_id, project_id]
+        if github_user_id:
+            values = [*list(safe_updates.values()), pipeline_id, github_user_id]
+            where = "WHERE id = ? AND github_user_id = ?"
+        else:
+            values = [*list(safe_updates.values()), pipeline_id, project_id]
+            where = "WHERE id = ? AND project_id = ?"
 
         try:
             await self._db.execute(
-                f"UPDATE pipeline_configs SET {set_clause} WHERE id = ? AND project_id = ?",
+                f"UPDATE pipeline_configs SET {set_clause} {where}",
                 values,
             )
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
             raise ValueError(
-                f"A pipeline named '{updates.get('name', '')}' already exists in this project."
+                f"A pipeline named '{updates.get('name', '')}' already exists."
             ) from exc
 
-        return await self.get_pipeline(project_id, pipeline_id)
+        return await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
 
     # ── Delete ────────────────────────────────────────────────────────
 
@@ -574,12 +596,19 @@ class PipelineService:
         self,
         project_id: str,
         pipeline_id: str,
+        github_user_id: str = "",
     ) -> bool:
         """Delete a pipeline configuration. Returns True if deleted."""
-        cursor = await self._db.execute(
-            "DELETE FROM pipeline_configs WHERE id = ? AND project_id = ?",
-            (pipeline_id, project_id),
-        )
+        if github_user_id:
+            cursor = await self._db.execute(
+                "DELETE FROM pipeline_configs WHERE id = ? AND github_user_id = ?",
+                (pipeline_id, github_user_id),
+            )
+        else:
+            cursor = await self._db.execute(
+                "DELETE FROM pipeline_configs WHERE id = ? AND project_id = ?",
+                (pipeline_id, project_id),
+            )
         await self._db.commit()
         return cursor.rowcount > 0
 
@@ -588,8 +617,9 @@ class PipelineService:
     async def seed_presets(
         self,
         project_id: str,
+        github_user_id: str = "",
     ) -> dict:
-        """Idempotently seed preset pipeline configurations for a project."""
+        """Idempotently seed preset pipeline configurations for a user."""
         seeded: list[str] = []
         skipped: list[str] = []
 
@@ -597,11 +627,17 @@ class PipelineService:
 
         for preset in _PRESET_DEFINITIONS:
             preset_id = preset["preset_id"]
-            # Check if already seeded
-            cursor = await self._db.execute(
-                "SELECT id FROM pipeline_configs WHERE preset_id = ? AND project_id = ?",
-                (preset_id, project_id),
-            )
+            # Check if already seeded for this user
+            if github_user_id:
+                cursor = await self._db.execute(
+                    "SELECT id FROM pipeline_configs WHERE preset_id = ? AND github_user_id = ?",
+                    (preset_id, github_user_id),
+                )
+            else:
+                cursor = await self._db.execute(
+                    "SELECT id FROM pipeline_configs WHERE preset_id = ? AND project_id = ?",
+                    (preset_id, project_id),
+                )
             existing = await cursor.fetchone()
             if existing:
                 skipped.append(preset_id)
@@ -613,8 +649,8 @@ class PipelineService:
                 await self._db.execute(
                     """
                     INSERT INTO pipeline_configs
-                        (id, project_id, name, description, stages, is_preset, preset_id, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+                        (id, project_id, name, description, stages, is_preset, preset_id, github_user_id, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                     """,
                     (
                         pipeline_id,
@@ -623,6 +659,7 @@ class PipelineService:
                         preset["description"],
                         stages_json,
                         preset_id,
+                        github_user_id,
                         now,
                         now,
                     ),

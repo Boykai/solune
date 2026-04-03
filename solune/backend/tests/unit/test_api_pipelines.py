@@ -15,7 +15,7 @@ from src.models.pipeline import (
 from src.services.pipelines.service import PipelineService
 
 
-async def _create_pipeline(mock_db, project_id: str = "PVT_1") -> str:
+async def _create_pipeline(mock_db, project_id: str = "PVT_1", github_user_id: str = "12345") -> str:
     """Create a saved pipeline for route tests and return its ID."""
     service = PipelineService(mock_db)
     pipeline = await service.create_pipeline(
@@ -43,6 +43,7 @@ async def _create_pipeline(mock_db, project_id: str = "PVT_1") -> str:
                 )
             ],
         ),
+        github_user_id=github_user_id,
     )
     return pipeline.id
 
@@ -214,11 +215,12 @@ class TestGetPipeline:
         assert resp.status_code == 404
 
     @pytest.mark.anyio
-    async def test_get_returns_404_for_wrong_project(self, client, mock_db):
-        """Pipeline exists under project A but request uses project B."""
+    async def test_get_returns_pipeline_across_projects(self, client, mock_db):
+        """Pipeline created under project A is accessible from project B (user-scoped)."""
         pid = await _create_pipeline(mock_db, project_id="PVT_A")
         resp = await client.get(f"/api/v1/pipelines/PVT_B/{pid}")
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        assert resp.json()["id"] == pid
 
 
 class TestDeletePipeline:
@@ -311,6 +313,7 @@ class TestListPipelines:
                     )
                 ],
             ),
+            github_user_id="12345",
         )
         await service.create_pipeline(
             "PVT_LIST",
@@ -337,6 +340,7 @@ class TestListPipelines:
                     )
                 ],
             ),
+            github_user_id="12345",
         )
         resp = await client.get("/api/v1/pipelines/PVT_LIST")
         assert resp.status_code == 200
@@ -474,8 +478,8 @@ class TestCreatePipeline:
     async def test_update_pipeline_rejects_preset_changes(self, client, mock_db):
         """Preset pipelines cannot be modified through the API."""
         service = PipelineService(mock_db)
-        await service.seed_presets("PVT_PRESET_LOCKED")
-        seeded = await service.list_pipelines("PVT_PRESET_LOCKED")
+        await service.seed_presets("PVT_PRESET_LOCKED", github_user_id="12345")
+        seeded = await service.list_pipelines("PVT_PRESET_LOCKED", github_user_id="12345")
         preset_id = next(pipeline.id for pipeline in seeded.pipelines if pipeline.is_preset)
 
         resp = await client.put(

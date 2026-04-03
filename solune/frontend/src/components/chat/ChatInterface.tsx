@@ -84,17 +84,6 @@ interface ChatInterfaceProps {
   approvePlanError?: string | null;
 }
 
-const AI_ENHANCE_STORAGE_KEY = 'chat-ai-enhance';
-
-function getInitialAiEnhance(): boolean {
-  try {
-    const stored = localStorage.getItem(AI_ENHANCE_STORAGE_KEY);
-    return stored === null ? true : stored === 'true';
-  } catch {
-    return true;
-  }
-}
-
 export function ChatInterface({
   messages,
   pendingProposals,
@@ -126,7 +115,6 @@ export function ChatInterface({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [autocompleteCommands, setAutocompleteCommands] = useState<CommandDefinition[]>([]);
   const [showHistoryPopover, setShowHistoryPopover] = useState(false);
-  const [aiEnhance, setAiEnhance] = useState(getInitialAiEnhance);
   const [mentionValidationError, setMentionValidationError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mentionInputRef = useRef<MentionInputHandle>(null);
@@ -194,16 +182,6 @@ export function ChatInterface({
     startRecording,
     stopRecording,
   } = useVoiceInput(handleVoiceTranscript);
-
-  // AI Enhance persistence
-  const handleAiEnhanceChange = useCallback((enabled: boolean) => {
-    setAiEnhance(enabled);
-    try {
-      localStorage.setItem(AI_ENHANCE_STORAGE_KEY, String(enabled));
-    } catch {
-      // localStorage unavailable — state still works in-memory
-    }
-  }, []);
 
   const handleVoiceToggle = useCallback(() => {
     if (isRecording) {
@@ -291,7 +269,6 @@ export function ChatInterface({
 
       onSendMessage(content, {
         isCommand: commandInput,
-        aiEnhance,
         fileUrls,
         pipelineId: pipelineId ?? undefined,
       });
@@ -608,8 +585,6 @@ export function ChatInterface({
       )}
 
       <ChatToolbar
-        aiEnhance={aiEnhance}
-        onAiEnhanceChange={handleAiEnhanceChange}
         onFileSelect={handleFileAdd}
         isRecording={isRecording}
         isVoiceSupported={isVoiceSupported}

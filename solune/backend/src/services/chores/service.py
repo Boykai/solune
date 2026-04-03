@@ -104,22 +104,28 @@ class ChoresService:
 
     # ── Preset Seeding ────────────────────────────────────────────────
 
-    async def seed_presets(self, project_id: str) -> list[Chore]:
-        """Seed built-in chore presets for a project (idempotent).
+    async def seed_presets(self, project_id: str, github_user_id: str = "") -> list[Chore]:
+        """Seed built-in chore presets for a user (idempotent).
 
         Only inserts presets whose ``preset_id`` does not yet exist for the
-        given project.  Returns the list of newly created presets.
+        given user.  Returns the list of newly created presets.
         """
         created: list[Chore] = []
 
         for defn in _CHORE_PRESET_DEFINITIONS:
             preset_id = defn["preset_id"]
 
-            # Check if already seeded
-            cursor = await self._db.execute(
-                "SELECT id FROM chores WHERE preset_id = ? AND project_id = ?",
-                (preset_id, project_id),
-            )
+            # Check if already seeded for this user
+            if github_user_id:
+                cursor = await self._db.execute(
+                    "SELECT id FROM chores WHERE preset_id = ? AND github_user_id = ?",
+                    (preset_id, github_user_id),
+                )
+            else:
+                cursor = await self._db.execute(
+                    "SELECT id FROM chores WHERE preset_id = ? AND project_id = ?",
+                    (preset_id, project_id),
+                )
             if await cursor.fetchone():
                 continue
 
@@ -136,10 +142,10 @@ class ChoresService:
                     id, project_id, name, template_path, template_content,
                     schedule_type, schedule_value,
                     ai_enhance_enabled, agent_pipeline_id,
-                    is_preset, preset_id,
+                    is_preset, preset_id, github_user_id,
                     status, last_triggered_count, execution_count,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'active', 0, 0, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 'active', 0, 0, ?, ?)
                 """,
                 (
                     chore_id,
@@ -152,6 +158,7 @@ class ChoresService:
                     1 if defn["ai_enhance_enabled"] else 0,
                     defn["agent_pipeline_id"],
                     preset_id,
+                    github_user_id,
                     now,
                     now,
                 ),
@@ -187,19 +194,21 @@ class ChoresService:
         body: ChoreCreate,
         *,
         template_path: str,
+        github_user_id: str = "",
     ) -> Chore:
         """Create a new chore record.
 
         Args:
             project_id: GitHub Project node ID.
             body: Validated create payload (name + template_content).
-            template_path: Path to the committed template file in the repo.
+            template_path: Path to the template file (metadata).
+            github_user_id: GitHub user ID for user-scoped ownership.
 
         Returns:
             The newly created Chore.
 
         Raises:
-            ValueError: If a chore with the same name already exists in the project.
+            ValueError: If a chore with the same name already exists.
         """
         chore_id = str(uuid.uuid4())
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -209,8 +218,8 @@ class ChoresService:
                 """
                 INSERT INTO chores (
                     id, project_id, name, template_path, template_content,
-                    status, last_triggered_count, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, 'active', 0, ?, ?)
+                    github_user_id, status, last_triggered_count, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'active', 0, ?, ?)
                 """,
                 (
                     chore_id,
@@ -218,25 +227,32 @@ class ChoresService:
                     body.name,
                     template_path,
                     body.template_content,
+                    github_user_id,
                     now,
                     now,
                 ),
             )
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
-            raise ValueError(f"A chore named '{body.name}' already exists in this project") from exc
+            raise ValueError(f"A chore named '{body.name}' already exists") from exc
 
         chore = await self.get_chore(chore_id)
         if chore is None:
             raise ValueError(f"Failed to retrieve created chore {chore_id}")
         return chore
 
-    async def list_chores(self, project_id: str) -> list[Chore]:
-        """Return all chores for a given project, ordered by creation date."""
-        cursor = await self._db.execute(
-            "SELECT * FROM chores WHERE project_id = ? ORDER BY created_at ASC",
-            (project_id,),
-        )
+    async def list_chores(self, project_id: str, github_user_id: str = "") -> list[Chore]:
+        """Return all chores for a given user, ordered by creation date."""
+        if github_user_id:
+            cursor = await self._db.execute(
+                "SELECT * FROM chores WHERE github_user_id = ? ORDER BY created_at ASC",
+                (github_user_id,),
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM chores WHERE project_id = ? ORDER BY created_at ASC",
+                (project_id,),
+            )
         rows = await cursor.fetchall()
         return [Chore(**dict(row)) for row in rows]
 
@@ -980,80 +996,46 @@ class ChoresService:
         access_token: str,
         owner: str,
         repo: str,
+        github_user_id: str = "",
     ) -> dict:
-        """Create a chore, commit template via PR, and auto-merge.
+        """Create a chore and store template configuration.
 
-        Returns dict with chore, issue_number, pr_number, pr_url,
-        pr_merged, merge_error.
+        Returns dict with chore data. PR/Issue template generation has been
+        removed — templates are stored in the database only.
         """
         from src.models.chores import ChoreCreate
         from src.services.chores.template_builder import (
             build_template,
-            commit_template_to_repo,
+            derive_template_path,
         )
 
         template_content = build_template(body.name, body.template_content)
+        template_path = derive_template_path(body.name)
 
-        # Commit template to repo via branch + PR + tracking issue
-        result = await commit_template_to_repo(
-            github_service=github_service,
-            access_token=access_token,
-            owner=owner,
-            repo=repo,
-            project_id=project_id,
-            name=body.name,
-            template_content=template_content,
-        )
-
-        # Create chore record in database
+        # Create chore record in database (no repo commit)
         create_body = ChoreCreate(name=body.name, template_content=body.template_content)
         chore = await self.create_chore(
             project_id,
             create_body,
-            template_path=result["template_path"],
+            template_path=template_path,
+            github_user_id=github_user_id,
         )
 
         # Update chore with additional fields
         await self.update_chore_fields(
             chore.id,
-            pr_number=result.get("pr_number"),
-            pr_url=result.get("pr_url"),
-            tracking_issue_number=result.get("tracking_issue_number"),
             template_content=template_content,
             ai_enhance_enabled=body.ai_enhance_enabled,
             agent_pipeline_id=body.agent_pipeline_id,
         )
 
         chore = await self.get_chore(chore.id)
-        pr_number = result.get("pr_number")
-        pr_url = result.get("pr_url")
-        tracking_issue_number = result.get("tracking_issue_number")
-        pr_merged = False
-        merge_error = None
-
-        # Auto-merge the PR if requested
-        if body.auto_merge and pr_number:
-            try:
-                from src.services.chores.template_builder import merge_chore_pr
-
-                merged, error = await merge_chore_pr(
-                    github_service=github_service,
-                    access_token=access_token,
-                    owner=owner,
-                    repo=repo,
-                    pr_number=pr_number,
-                )
-                pr_merged = merged
-                merge_error = error
-            except Exception as exc:
-                logger.exception("Auto-merge failed for chore PR #%s", pr_number)
-                merge_error = str(exc)
 
         return {
             "chore": chore,
-            "issue_number": tracking_issue_number,
-            "pr_number": pr_number,
-            "pr_url": pr_url,
-            "pr_merged": pr_merged,
-            "merge_error": merge_error,
+            "issue_number": None,
+            "pr_number": None,
+            "pr_url": None,
+            "pr_merged": False,
+            "merge_error": None,
         }
