@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { useModels } from '@/hooks/useModels';
+import { useModels, formatReasoningLabel } from '@/hooks/useModels';
 import { Brain, ChevronDown, Search, Check, Zap, DollarSign, Crown } from '@/lib/icons';
 import type { AIModel } from '@/types';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,7 @@ function ReasoningBadge({ level, isDefault }: { level: string; isDefault?: boole
     xhigh: 'border-purple-500/25 bg-purple-500/12 text-purple-700 dark:text-purple-300',
   };
   const colorClass = colors[level] ?? 'border-border bg-muted text-muted-foreground';
-  const label = level.charAt(0).toUpperCase() + level.slice(1);
+  const label = formatReasoningLabel(level);
   return (
     <span
       className={cn(
@@ -146,7 +146,9 @@ export function ModelSelector({
     if (!open) setSearch('');
   }, []);
 
-  const selectedModel = models.find((m) => m.id === selectedModelId);
+  const selectedModel = selectedModelName
+    ? models.find((m) => m.id === selectedModelId && m.name === selectedModelName)
+    : models.find((m) => m.id === selectedModelId);
   const triggerLabel =
     selectedModel?.name ?? selectedModelName ?? (allowAuto ? autoLabel : 'Select model');
 

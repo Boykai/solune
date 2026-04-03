@@ -181,7 +181,7 @@ describe('expandReasoningModels', () => {
     expect(result).toHaveLength(3);
     expect(result[0]).toMatchObject({ id: 'o3', name: 'o3 (Low)', reasoning_effort: 'low' });
     expect(result[1]).toMatchObject({ id: 'o3', name: 'o3 (High)', reasoning_effort: 'high' });
-    expect(result[2]).toMatchObject({ id: 'o3', name: 'o3 (Xhigh)', reasoning_effort: 'xhigh' });
+    expect(result[2]).toMatchObject({ id: 'o3', name: 'o3 (XHigh)', reasoning_effort: 'xhigh' });
   });
 
   it('handles mixed models (some with reasoning, some without)', () => {

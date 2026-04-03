@@ -20,6 +20,21 @@ export async function fetchCopilotModels(forceRefresh = false): Promise<AIModel[
 }
 
 /**
+ * Format a reasoning effort level into a human-readable label.
+ *
+ * Handles multi-word camelCase-style levels like "xhigh" → "XHigh".
+ */
+export function formatReasoningLabel(level: string): string {
+  const known: Record<string, string> = {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    xhigh: 'XHigh',
+  };
+  return known[level] ?? level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+/**
  * Expand reasoning-capable models into per-level variants.
  *
  * For each model with `supported_reasoning_efforts`, generates N `AIModel`
@@ -33,7 +48,7 @@ export function expandReasoningModels(raw: AIModel[]): AIModel[] {
       for (const level of model.supported_reasoning_efforts) {
         expanded.push({
           ...model,
-          name: `${model.name} (${level.charAt(0).toUpperCase() + level.slice(1)})`,
+          name: `${model.name} (${formatReasoningLabel(level)})`,
           reasoning_effort: level,
         });
       }

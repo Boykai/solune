@@ -1671,13 +1671,18 @@ class WorkflowOrchestrator:
             ),
             None,
         )
-        effective_model, _effective_reasoning = await self._resolve_effective_model(
+        effective_model, effective_reasoning = await self._resolve_effective_model(
             agent_assignment=original_assignment,
             agent_slug=agent_name,
             project_id=ctx.project_id,
             user_agent_model=ctx.user_agent_model,
             user_reasoning_effort=ctx.user_reasoning_effort,
         )
+        # Persist the resolved reasoning effort onto the workflow context so
+        # downstream code uses the effective value rather than the pre-resolution
+        # input.
+        if effective_reasoning:
+            ctx.user_reasoning_effort = effective_reasoning
 
         max_retries = 3
         base_delay = 3

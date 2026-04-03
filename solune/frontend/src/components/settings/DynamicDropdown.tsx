@@ -14,6 +14,7 @@ import { TriangleAlert } from '@/lib/icons';
 
 import { type ModelOption, type ModelsResponse } from '@/types';
 import { formatTimeAgo } from '@/utils/formatTime';
+import { formatReasoningLabel } from '@/hooks/useModels';
 
 /** Expand reasoning-capable models into per-level variants. */
 function expandModelsForDropdown(models: ModelOption[]): (ModelOption & { reasoning_effort?: string })[] {
@@ -24,7 +25,7 @@ function expandModelsForDropdown(models: ModelOption[]): (ModelOption & { reason
         expanded.push({
           ...m,
           id: m.id,
-          name: `${m.name} (${level.charAt(0).toUpperCase() + level.slice(1)})`,
+          name: `${m.name} (${formatReasoningLabel(level)})`,
           reasoning_effort: level,
         });
       }
@@ -142,8 +143,22 @@ export function DynamicDropdown({
     }
   };
 
-  /** Compute the current composite value for the select element. */
-  const compositeValue = encodeValue(value, reasoningEffort);
+  /** Compute the current composite value for the select element.
+   *
+   * Backward-compat: if a reasoning-capable model is selected but no
+   * reasoning effort is stored (pre-reasoning settings), fall back to the
+   * model's default reasoning effort so the select control has a valid match.
+   */
+  const resolvedEffort = (() => {
+    if (reasoningEffort) return reasoningEffort;
+    if (!value) return undefined;
+    const matchedRaw = rawModels.find((m) => m.id === value);
+    if (matchedRaw?.supported_reasoning_efforts?.length && matchedRaw.default_reasoning_effort) {
+      return matchedRaw.default_reasoning_effort;
+    }
+    return undefined;
+  })();
+  const compositeValue = encodeValue(value, resolvedEffort);
 
   // Loading state
   if (isLoading && !modelsResponse) {
