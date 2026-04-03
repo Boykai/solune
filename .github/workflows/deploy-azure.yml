@@ -29,11 +29,11 @@ jobs:
 
       - name: Log in with Azure (Federated Credentials)
         run: |
-          azd auth login `
-            --client-id "${{ secrets.AZURE_CLIENT_ID }}" `
-            --federated-credential-provider "github" `
+          azd auth login \
+            --client-id "${{ secrets.AZURE_CLIENT_ID }}" \
+            --federated-credential-provider "github" \
             --tenant-id "${{ secrets.AZURE_TENANT_ID }}"
-        shell: pwsh
+        shell: bash
 
       - name: Provision Infrastructure
         run: azd provision --no-prompt

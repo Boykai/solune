@@ -8,17 +8,17 @@ services:
     host: containerapp
     docker:
       path: Dockerfile
-    resourceName: ${AZURE_ENV_NAME}-ca-backend
+    resourceName: ca-backend-${AZURE_ENV_NAME}
   frontend:
     project: ./solune/frontend
     host: containerapp
     docker:
       path: Dockerfile
-    resourceName: ${AZURE_ENV_NAME}-ca-frontend
+    resourceName: ca-frontend-${AZURE_ENV_NAME}
   signal-api:
     host: containerapp
     image: docker.io/bbernhard/signal-cli-rest-api:0.98
-    resourceName: ${AZURE_ENV_NAME}-ca-signal
+    resourceName: ca-signal-${AZURE_ENV_NAME}
 infra:
   provider: bicep
   path: infra
