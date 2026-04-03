@@ -107,7 +107,7 @@ describe('InstallConfirmDialog', () => {
     const overlay = dialog.parentElement;
 
     expect(dialog).toHaveClass('celestial-panel', 'bg-card', 'border-border/80', 'overflow-hidden');
-    expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm', 'z-[10010]');
+    expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm', 'z-[var(--z-install-confirm)]');
   });
 
   it('closes when Escape is pressed', async () => {

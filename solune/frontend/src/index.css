@@ -59,6 +59,25 @@
   /* Theme transition token */
   --transition-theme-shift: 600ms ease-in-out;
 
+  /* ── Z-index layer tokens ── */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-sidebar-backdrop: 40;
+  --z-sidebar: 50;
+  --z-modal-backdrop: 60;
+  --z-modal: 70;
+  --z-tour-overlay: 100;
+  --z-tour-tooltip: 101;
+  --z-agent-modal-base: 110;
+  --z-agent-modal-top: 120;
+  --z-agent-picker: 140;
+  --z-chat: 1000;
+  --z-chat-toggle: 1001;
+  --z-cleanup-modal: 2000;
+  --z-command-backdrop: 9998;
+  --z-command: 9999;
+  --z-notification: 10000;
+  --z-install-confirm: 10010;
 
   @keyframes accordion-down {
     from {

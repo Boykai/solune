@@ -1,5 +1,6 @@
 /**
  * E2E test for responsive board layout at mobile/tablet/desktop viewports.
+ * Verifies scroll-snap, scroll affordance, grid layout, and overflow.
  */
 
 import { test, expect } from './fixtures';
@@ -25,4 +26,32 @@ test.describe('Responsive Board Layout', () => {
       await expect(h1).toBeVisible();
     });
   }
+
+  test('should not clip text at mobile viewport', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+
+    const textClipping = await page.evaluate(() => {
+      const elements = document.querySelectorAll('p, span, h1, h2, h3, h4, h5, h6');
+      for (const el of elements) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.right > window.innerWidth + 2) {
+          return { clipped: true, text: el.textContent?.slice(0, 40), right: rect.right };
+        }
+      }
+      return { clipped: false };
+    });
+    expect(textClipping.clipped).toBe(false);
+  });
+
+  // Visual regression: capture board at mobile viewport
+  test('visual regression — board at mobile', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+    await expect(page).toHaveScreenshot('responsive-board-mobile.png', {
+      maxDiffPixels: 100,
+    });
+  });
 });

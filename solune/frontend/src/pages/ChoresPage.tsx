@@ -158,7 +158,7 @@ export function ChoresPage() {
 
       {/* Unsaved changes confirmation modal */}
       {isBlocked && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" role="presentation" />
           <div className="relative z-10 w-full max-w-sm mx-4 rounded-lg border border-border bg-background shadow-xl p-6 text-center">
             <h3 className="text-lg font-semibold text-foreground mb-2">Unsaved Changes</h3>

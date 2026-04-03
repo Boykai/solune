@@ -5,7 +5,7 @@
  * Prevents accidental GitHub writes by requiring explicit confirmation.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertCircle, Loader2 } from '@/lib/icons';
 import { useInstallAgent } from '@/hooks/useAgents';
@@ -35,10 +35,10 @@ export function InstallConfirmDialog({
 
   useScrollLock(isOpen);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setError(null);
     onClose();
-  };
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -51,7 +51,7 @@ export function InstallConfirmDialog({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   const handleInstall = async () => {
     setError(null);
@@ -77,7 +77,7 @@ export function InstallConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10010] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-install-confirm)] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
       role="presentation"
       onClick={handleBackdropClick}
     >

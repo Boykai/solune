@@ -43,7 +43,7 @@ export function CleanUpSummary({ result, error, onDismiss, onViewHistory }: Clea
   if (!result && error) {
     return createPortal(
       <div
-        className="fixed inset-0 z-[2000] flex items-center justify-center bg-background/80 backdrop-blur-sm"
+        className="fixed inset-0 z-[var(--z-cleanup-modal)] flex items-center justify-center bg-background/80 backdrop-blur-sm"
         role="none"
         onClick={handleBackdropClick}
       >
@@ -82,7 +82,7 @@ export function CleanUpSummary({ result, error, onDismiss, onViewHistory }: Clea
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-cleanup-modal)] flex items-center justify-center bg-background/80 backdrop-blur-sm"
       role="none"
       onClick={handleBackdropClick}
     >

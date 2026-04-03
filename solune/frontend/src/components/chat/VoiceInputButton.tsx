@@ -54,7 +54,7 @@ export function VoiceInputButton({
         type="button"
         onClick={onToggle}
         className={cn(
-          'celestial-focus flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none hover:bg-primary/10',
+          'celestial-focus flex h-11 w-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none hover:bg-primary/10 md:h-8 md:w-8',
           error ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'
         )}
         aria-label={error ? 'Voice input error — click to retry' : 'Start voice input'}

@@ -48,7 +48,7 @@ function HelpButton() {
       aria-label="Help"
       className={({ isActive }) =>
         cn(
-          'celestial-focus flex h-9 w-9 items-center justify-center rounded-full border transition-colors',
+          'celestial-focus flex h-11 w-11 items-center justify-center rounded-full border transition-colors md:h-9 md:w-9',
           isActive
             ? 'border-primary/30 bg-primary/14 text-primary'
             : 'border-transparent text-muted-foreground hover:border-border hover:bg-primary/10 hover:text-foreground',
