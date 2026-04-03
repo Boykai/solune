@@ -3,8 +3,8 @@ targetScope = 'resourceGroup'
 // ─── Parameters ─────────────────────────────────────────────────────────────
 
 @minLength(1)
-@maxLength(64)
-@description('Name of the azd environment — used as a prefix for all resource names and the azd-env-name tag.')
+@maxLength(20)
+@description('Name of the azd environment — used as a prefix for all resource names and the azd-env-name tag. Max 20 characters to satisfy Azure Key Vault (24), Storage Account (24), and Container App (32) naming limits.')
 param environmentName string
 
 @description('Azure region for all resources. Must support Azure Container Apps, Azure OpenAI, and Azure AI Foundry.')
@@ -33,6 +33,10 @@ param openAiModelName string = 'gpt-4o'
 
 @description('Azure OpenAI deployment capacity in thousands of tokens per minute.')
 param deployCapacity int = 10
+
+@secure()
+@description('GitHub Webhook secret for verifying webhook payloads — stored in Key Vault.')
+param githubWebhookSecret string
 
 // ─── Tags ───────────────────────────────────────────────────────────────────
 
@@ -87,6 +91,8 @@ module keyvault 'modules/keyvault.bicep' = {
     githubClientSecret: githubClientSecret
     sessionSecretKey: sessionSecretKey
     encryptionKey: encryptionKey
+    githubWebhookSecret: githubWebhookSecret
+    azureOpenAiKey: openai.outputs.openAiKey
   }
 }
 
