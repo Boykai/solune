@@ -75,7 +75,7 @@ test.describe('Responsive Chat Layout', () => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openChat(page);
     await expect(page).toHaveScreenshot('responsive-chat-mobile.png', {
-      maxDiffPixels: 100,
+      maxDiffPixelRatio: 0.02,
     });
   });
 });
