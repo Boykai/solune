@@ -26,6 +26,7 @@ async def _insert_chore(
     schedule_type: str | None = None,
     schedule_value: int | None = None,
     chore_id: str | None = None,
+    github_user_id: str = "12345",
 ) -> str:
     """Insert a chore directly into the DB for test setup. Returns chore_id."""
     cid = chore_id or str(uuid.uuid4())
@@ -34,8 +35,8 @@ async def _insert_chore(
         INSERT INTO chores (
             id, project_id, name, template_path, template_content,
             status, schedule_type, schedule_value,
-            last_triggered_count, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0,
+            last_triggered_count, github_user_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?,
                   strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
                   strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
         """,
@@ -48,6 +49,7 @@ async def _insert_chore(
             status,
             schedule_type,
             schedule_value,
+            github_user_id,
         ),
     )
     await db.commit()
@@ -71,10 +73,12 @@ class TestListChores:
 
     @pytest.mark.anyio
     async def test_returns_chores_for_project(self, client, mock_db):
-        """GET returns only chores belonging to the requested project."""
+        """GET returns only chores belonging to the requesting user."""
         await _insert_chore(mock_db, project_id="PVT_1", name="Chore A")
         await _insert_chore(mock_db, project_id="PVT_1", name="Chore B")
-        await _insert_chore(mock_db, project_id="PVT_2", name="Other Project Chore")
+        await _insert_chore(
+            mock_db, project_id="PVT_2", name="Other Project Chore", github_user_id="other-user"
+        )
 
         resp = await client.get("/api/v1/chores/PVT_1")
         assert resp.status_code == 200
@@ -85,8 +89,10 @@ class TestListChores:
 
     @pytest.mark.anyio
     async def test_project_isolation(self, client, mock_db):
-        """Chores from other projects are not returned."""
-        await _insert_chore(mock_db, project_id="PVT_2", name="Foreign Chore")
+        """Chores from other users are not returned."""
+        await _insert_chore(
+            mock_db, project_id="PVT_2", name="Foreign Chore", github_user_id="other-user"
+        )
 
         resp = await client.get("/api/v1/chores/PVT_1")
         assert resp.status_code == 200

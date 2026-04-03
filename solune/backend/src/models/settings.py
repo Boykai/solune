@@ -76,6 +76,7 @@ class AIPreferences(BaseModel):
     temperature: float = Field(ge=0.0, le=2.0)
     agent_model: str = ""
     reasoning_effort: str = ""
+    agent_reasoning_effort: str = ""
 
 
 class DisplayPreferences(BaseModel):
@@ -171,6 +172,7 @@ class AIPreferencesUpdate(BaseModel):
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     agent_model: str | None = None
     reasoning_effort: str | None = None
+    agent_reasoning_effort: str | None = None
 
 
 class DisplayPreferencesUpdate(BaseModel):
