@@ -67,7 +67,7 @@ describe('AgentNode', () => {
     await user.click(screen.getByRole('button', { name: /auto/i }));
     await user.click(screen.getByRole('button', { name: /^gpt-5\.4$/i }));
 
-    expect(onModelSelect).toHaveBeenCalledWith('gpt-5.4', 'GPT-5.4');
+    expect(onModelSelect).toHaveBeenCalledWith('gpt-5.4', 'GPT-5.4', undefined);
   });
 
   it('stops pointerdown from interactive controls reaching the drag listener', () => {
