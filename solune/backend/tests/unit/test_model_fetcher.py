@@ -348,6 +348,53 @@ class TestProviderImplementations:
         assert [model.id for model in models] == ["gpt-4o", "gpt-4o-mini"]
         assert models[1].name == "gpt-4o-mini"
 
+    async def test_github_fetcher_extracts_reasoning_efforts_from_sdk(self):
+        """Models with supported_reasoning_efforts populate ModelOption fields."""
+        client = AsyncMock()
+        client.list_models.return_value = [
+            SimpleNamespace(
+                id="o3",
+                name="o3",
+                supported_reasoning_efforts=["low", "medium", "high", "xhigh"],
+                default_reasoning_effort="medium",
+            ),
+            SimpleNamespace(id="gpt-4o", name="GPT-4o"),
+        ]
+        pool = AsyncMock()
+        pool.get_or_create.return_value = client
+        fetcher = GitHubCopilotModelFetcher(pool=pool)
+
+        models = await fetcher.fetch_models("token-1")
+
+        assert len(models) == 2
+        # Model with reasoning support
+        assert models[0].supported_reasoning_efforts == ["low", "medium", "high", "xhigh"]
+        assert models[0].default_reasoning_effort == "medium"
+        # Model without reasoning support
+        assert models[1].supported_reasoning_efforts is None
+        assert models[1].default_reasoning_effort is None
+
+    async def test_github_fetcher_handles_empty_reasoning_efforts(self):
+        """Models with empty/falsy reasoning fields serialize as None."""
+        client = AsyncMock()
+        client.list_models.return_value = [
+            SimpleNamespace(
+                id="gpt-4o",
+                name="GPT-4o",
+                supported_reasoning_efforts=[],
+                default_reasoning_effort="",
+            ),
+        ]
+        pool = AsyncMock()
+        pool.get_or_create.return_value = client
+        fetcher = GitHubCopilotModelFetcher(pool=pool)
+
+        models = await fetcher.fetch_models("token-1")
+
+        assert len(models) == 1
+        assert models[0].supported_reasoning_efforts is None
+        assert models[0].default_reasoning_effort is None
+
     async def test_github_fetcher_raises_provider_rate_limit_error(self):
         response = SimpleNamespace(
             status_code=429,
@@ -378,6 +425,41 @@ class TestProviderImplementations:
             models = await fetcher.fetch_models()
 
         assert models == []
+
+
+class TestModelOptionSerialization:
+    """Verify ModelOption serializes reasoning fields correctly."""
+
+    def test_model_option_with_reasoning_fields(self):
+        option = ModelOption(
+            id="o3",
+            name="o3",
+            provider="copilot",
+            supported_reasoning_efforts=["low", "medium", "high"],
+            default_reasoning_effort="medium",
+        )
+        data = option.model_dump()
+        assert data["supported_reasoning_efforts"] == ["low", "medium", "high"]
+        assert data["default_reasoning_effort"] == "medium"
+
+    def test_model_option_without_reasoning_fields(self):
+        option = ModelOption(id="gpt-4o", name="GPT-4o", provider="copilot")
+        data = option.model_dump()
+        assert data["supported_reasoning_efforts"] is None
+        assert data["default_reasoning_effort"] is None
+
+    def test_model_option_json_round_trip(self):
+        option = ModelOption(
+            id="o3",
+            name="o3",
+            provider="copilot",
+            supported_reasoning_efforts=["high", "xhigh"],
+            default_reasoning_effort="high",
+        )
+        json_str = option.model_dump_json()
+        restored = ModelOption.model_validate_json(json_str)
+        assert restored.supported_reasoning_efforts == ["high", "xhigh"]
+        assert restored.default_reasoning_effort == "high"
 
 
 class TestSingletonHelpers:

@@ -204,9 +204,9 @@ solune/
 │   │   │   │                     # McpPresetsGallery, EditRepoMcpModal,
 │   │   │   │                     # UploadMcpModal, RepoConfigPanel,
 │   │   │   │                     # GitHubMcpConfigGenerator
-│   │   │   ├── settings/         # AI, Display, Workflow, Notification preferences,
-│   │   │   │                     # ProjectSettings, GlobalSettings, SignalConnection,
-│   │   │   │                     # McpSettings, AdvancedSettings
+│   │   │   ├── settings/         # AIPreferences, PrimarySettings, SettingsSection,
+│   │   │   │                     # ProjectSettings, SignalConnection, McpSettings,
+│   │   │   │                     # DynamicDropdown
 │   │   │   └── ui/               # Shared UI primitives (button, input, card, tooltip)
 │   │   ├── hooks/                # React hooks (see Architecture doc)
 │   │   │                         # useAuth, useChat, useChatHistory,

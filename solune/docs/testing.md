@@ -35,14 +35,24 @@ PATH="$PWD/.venv/bin:$PATH" .venv/bin/python -m mutmut run
 # Review the latest result summary
 PATH="$PWD/.venv/bin:$PATH" .venv/bin/python -m mutmut results
 
-# Run a smaller shard locally
+# Run a specific shard locally
 PATH="$PWD/.venv/bin:$PATH" .venv/bin/python scripts/run_mutmut_shard.py --shard app-and-data --max-children 1
 ```
+
+Backend mutation shards (5 total):
+
+| Shard | Scope |
+|-------|-------|
+| `auth-and-projects` | `github_auth`, `completion_providers`, `model_fetcher`, `github_projects/` |
+| `orchestration` | `workflow_orchestrator/`, `pipelines/`, `copilot_polling/`, `task_registry`, `pipeline_state_store`, `agent_tracking` |
+| `app-and-data` | `app_service`, `guard_service`, `metadata_service`, `cache`, `database`, stores, `cleanup_service`, `encryption`, `websocket` |
+| `agents-and-integrations` | `ai_agent`, `agent_creator`, `github_commit_workflow`, signals, `tools/`, `agents/`, `chores/` |
+| `api-and-middleware` | `src/api/`, `src/middleware/`, `src/utils.py` |
 
 Notes:
 
 - Run `mutmut` from `backend/` so the generated `mutants/` tree uses the backend `pyproject.toml` configuration.
-- The backend config mutates `src/services/` but also copies the rest of the `src/` modules required by the test suite into `mutants/`.
+- The backend config mutates `src/services/` but also copies the rest of the `src/` modules and the `templates/` directory required by the test suite into `mutants/`.
 - Backend tests seed `MUTANT_UNDER_TEST=stats` during stats collection so import-time service wiring does not crash the initial mutmut analysis pass.
 - The shard runner temporarily narrows `paths_to_mutate` and restores `pyproject.toml` after each run, which keeps local and CI shard invocations aligned.
 
@@ -51,12 +61,27 @@ Notes:
 ```bash
 cd frontend
 
-# Full mutation run
+# Full mutation run (all shards combined)
 npx stryker run
+
+# Run a specific shard
+npm run test:mutate:hooks-board
+npm run test:mutate:hooks-data
+npm run test:mutate:hooks-general
+npm run test:mutate:lib
 
 # Focused baseline on a single file
 npx stryker run --mutate src/utils/formatTime.ts --testFiles src/utils/formatTime.property.test.ts --reporters clear-text
 ```
+
+Frontend mutation shards (4 total):
+
+| Shard | Config | Scope |
+|-------|--------|-------|
+| `hooks-board` | `stryker-hooks-board.config.mjs` | `useAdaptivePolling`, `useBoardProjection`, `useBoardRefresh`, `useProjectBoard`, `useRealTimeSync` |
+| `hooks-data` | `stryker-hooks-data.config.mjs` | `useProjects`, `useChat`, `useChatHistory`, `useCommands`, `useWorkflow`, `useSettingsForm`, `useAuth` |
+| `hooks-general` | `stryker-hooks-general.config.mjs` | All remaining hooks not in board or data shards |
+| `lib` | `stryker-lib.config.mjs` | `src/lib/**/*.ts` (utilities, config builders, migrations) |
 
 ## Backend Tests
 
@@ -340,7 +365,8 @@ E2E specs:
 - Frontend E2E runs Playwright in Chromium on every push and pull request and uploads `e2e-report/` and `test-results/`.
 - Contract validation exports backend OpenAPI, regenerates frontend types, and type-checks the generated contract.
 - Flaky detection and mutation testing run in dedicated workflows on schedule or manual dispatch.
-- Backend mutation CI runs four shard jobs (`auth-and-projects`, `orchestration`, `app-and-data`, `agents-and-integrations`) to keep reports smaller and faster to finish.
+- Backend mutation CI runs five shard jobs (`auth-and-projects`, `orchestration`, `app-and-data`, `agents-and-integrations`, `api-and-middleware`) to keep reports smaller and faster to finish.
+- Frontend mutation CI runs four shard jobs (`hooks-board`, `hooks-data`, `hooks-general`, `lib`) so each finishes well under the 3-hour timeout.
 
 ## Code Quality
 

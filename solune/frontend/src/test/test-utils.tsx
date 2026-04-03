@@ -55,8 +55,9 @@ export function renderWithProviders(
   function Wrapper({ children }: WrapperProps) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ConfirmationDialogProvider>{children}</ConfirmationDialogProvider>
-        <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+        <ConfirmationDialogProvider>
+          <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+        </ConfirmationDialogProvider>
       </QueryClientProvider>
     );
   }

@@ -839,17 +839,26 @@ class WorkflowOrchestrator:
         agent_slug: str,
         project_id: str,
         user_agent_model: str,
-    ) -> str:
+        user_reasoning_effort: str = "",
+    ) -> tuple[str, str]:
         """
-        Resolve the effective model for a Copilot agent assignment.
+        Resolve the effective model and reasoning effort for a Copilot agent assignment.
 
         Precedence (highest → lowest):
         1. Pipeline config model (``AgentAssignment.config["model_id"]``)
         2. User Settings "agent model" (``ctx.user_agent_model``).
         3. Hardcoded fallback ``"claude-opus-4.6"``.
 
+        Reasoning effort precedence (highest → lowest):
+        1. Pipeline config ``AgentAssignment.config["reasoning_effort"]``
+        2. User Settings ``user_reasoning_effort``
+        3. Empty string (omit — SDK uses its own default)
+
         A model value of ``"auto"`` (case-insensitive) or an empty string is
         treated as *not set* and falls through to the next tier.
+
+        Returns:
+            Tuple of (model_id, reasoning_effort).
         """
         _FALLBACK = "claude-opus-4.6"
 
@@ -866,7 +875,10 @@ class WorkflowOrchestrator:
                     agent_slug,
                     model_id,
                 )
-                return model_id
+                reasoning = (config.get("reasoning_effort") or "").strip()
+                if not reasoning and _is_set(user_reasoning_effort):
+                    reasoning = user_reasoning_effort.strip()
+                return model_id, reasoning
 
         # Tier 2: User Settings "agent model"
         if _is_set(user_agent_model):
@@ -875,7 +887,8 @@ class WorkflowOrchestrator:
                 agent_slug,
                 user_agent_model,
             )
-            return user_agent_model.strip()
+            reasoning = user_reasoning_effort.strip() if user_reasoning_effort else ""
+            return user_agent_model.strip(), reasoning
 
         # Tier 3: Hardcoded fallback
         logger.debug(
@@ -883,7 +896,7 @@ class WorkflowOrchestrator:
             agent_slug,
             _FALLBACK,
         )
-        return _FALLBACK
+        return _FALLBACK, ""
 
     # ──────────────────────────────────────────────────────────────────
     # HELPER: Agent resolution from tracking table (T032)
@@ -1658,12 +1671,18 @@ class WorkflowOrchestrator:
             ),
             None,
         )
-        effective_model = await self._resolve_effective_model(
+        effective_model, effective_reasoning = await self._resolve_effective_model(
             agent_assignment=original_assignment,
             agent_slug=agent_name,
             project_id=ctx.project_id,
             user_agent_model=ctx.user_agent_model,
+            user_reasoning_effort=ctx.user_reasoning_effort,
         )
+        # Persist the resolved reasoning effort onto the workflow context so
+        # downstream code uses the effective value rather than the pre-resolution
+        # input.
+        if effective_reasoning:
+            ctx.user_reasoning_effort = effective_reasoning
 
         max_retries = 3
         base_delay = 3
