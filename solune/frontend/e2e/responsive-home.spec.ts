@@ -1,5 +1,6 @@
 /**
  * E2E test for responsive home layout at mobile/tablet/desktop viewports.
+ * Verifies sidebar collapse, touch targets, and overflow.
  */
 
 import { test, expect } from './fixtures';
@@ -23,4 +24,33 @@ test.describe('Responsive Home Layout', () => {
       await expect(page.locator('h1')).toBeVisible();
     });
   }
+
+  test('should meet minimum touch target sizes at mobile', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+
+    // All visible buttons should have at least one dimension ≥ 44px
+    const buttons = page.locator('button:visible');
+    const count = await buttons.count();
+    for (let i = 0; i < count; i++) {
+      const box = await buttons.nth(i).boundingBox();
+      if (box) {
+        expect(
+          box.width >= 44 || box.height >= 44,
+          `Button ${i} (${box.width}×${box.height}) should have at least one dimension ≥ 44px`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  // Visual regression: capture home at mobile viewport
+  test('visual regression — home at mobile', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.mobile);
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+    await expect(page).toHaveScreenshot('responsive-home-mobile.png', {
+      maxDiffPixels: 100,
+    });
+  });
 });

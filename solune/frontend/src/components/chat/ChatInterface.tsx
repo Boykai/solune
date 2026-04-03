@@ -701,7 +701,7 @@ export function ChatInterface({
             </Tooltip>
           )}
           {showHistoryPopover && chatHistory.length > 0 && (
-            <div className="absolute bottom-full right-0 z-20 mb-2 max-h-60 w-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg backdrop-blur-sm">
+            <div className="absolute bottom-full right-0 z-20 mb-2 max-h-60 w-64 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg backdrop-blur-sm max-sm:left-0 max-sm:w-auto">
               <ul className="py-1">
                 {chatHistory.map((_, idx) => {
                   const reverseIdx = chatHistory.length - 1 - idx;

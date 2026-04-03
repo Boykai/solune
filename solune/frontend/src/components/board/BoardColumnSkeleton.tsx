@@ -8,7 +8,7 @@ import { IssueCardSkeleton } from './IssueCardSkeleton';
 export function BoardColumnSkeleton() {
   return (
     <div
-      className="flex h-[72rem] max-h-[72rem] min-h-[44rem] min-w-0 shrink-0 flex-col overflow-hidden rounded-[1.4rem] border border-border/70 shadow-sm xl:h-[95rem] xl:max-h-[95rem]"
+      className="flex h-[44rem] max-h-[44rem] min-h-[28rem] min-w-0 shrink-0 flex-col overflow-hidden rounded-[1.4rem] border border-border/70 shadow-sm md:h-[72rem] md:max-h-[72rem] md:min-h-[44rem] xl:h-[95rem] xl:max-h-[95rem]"
       role="status"
       aria-busy="true"
     >

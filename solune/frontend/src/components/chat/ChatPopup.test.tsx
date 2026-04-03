@@ -116,3 +116,90 @@ describe('ChatPopup — resize listener scoping', () => {
     await expectNoA11yViolations(container);
   });
 });
+
+describe('ChatPopup — mobile layout', () => {
+  let matchMediaSpy: ReturnType<typeof vi.spyOn>;
+
+  function setMobile(isMobile: boolean) {
+    matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query === '(max-width: 767px)' ? isMobile : false,
+          media: query,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          onchange: null,
+          dispatchEvent: vi.fn(),
+        }) as unknown as MediaQueryList,
+    );
+  }
+
+  afterEach(() => {
+    matchMediaSpy?.mockRestore();
+  });
+
+  it('renders full-screen on mobile (fixed inset-0)', () => {
+    setMobile(true);
+    render(<ChatPopup {...defaultProps} />);
+
+    // Open the chat
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+
+    // The chat container should be full-screen on mobile
+    const chatContainer = screen.getByTestId('chat-interface').parentElement!;
+    expect(chatContainer.className).toContain('fixed');
+    expect(chatContainer.className).toContain('inset-0');
+    expect(chatContainer.className).toContain('flex-col');
+  });
+
+  it('does not show resize handle on mobile', () => {
+    setMobile(true);
+    render(<ChatPopup {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+
+    // Resize handle should not be rendered on mobile
+    const resizeHandle = document.querySelector('.cursor-nw-resize');
+    expect(resizeHandle).toBeNull();
+  });
+
+  it('does not apply explicit width/height inline styles on mobile', () => {
+    setMobile(true);
+    render(<ChatPopup {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+
+    const chatContainer = screen.getByTestId('chat-interface').parentElement!;
+    // On mobile, no explicit width/height should be set (full-screen via CSS classes)
+    expect(chatContainer.style.width).toBe('');
+    expect(chatContainer.style.height).toBe('');
+  });
+
+  it('renders with explicit width/height on desktop', () => {
+    setMobile(false);
+    render(<ChatPopup {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+
+    const chatContainer = screen.getByTestId('chat-interface').parentElement!;
+    // Desktop should have inline width and height (default 400x500)
+    expect(chatContainer.style.width).toBeTruthy();
+    expect(chatContainer.style.height).toBeTruthy();
+    expect(chatContainer.className).not.toContain('inset-0');
+  });
+
+  it('uses z-index CSS variables for chat toggle and panel', () => {
+    setMobile(false);
+    render(<ChatPopup {...defaultProps} />);
+
+    const toggle = screen.getByRole('button', { name: 'Open chat' });
+    expect(toggle.className).toContain('z-[var(--z-chat-toggle)]');
+
+    fireEvent.click(toggle);
+
+    const chatContainer = screen.getByTestId('chat-interface').parentElement!;
+    expect(chatContainer.className).toContain('z-[var(--z-chat)]');
+  });
+});

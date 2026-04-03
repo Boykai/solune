@@ -151,14 +151,14 @@ export function CommandPalette({ isOpen, onClose, projectId }: CommandPalettePro
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[9998] bg-black/50 backdrop-blur-sm celestial-fade-in"
+        className="fixed inset-0 z-[var(--z-command-backdrop)] bg-black/50 backdrop-blur-sm celestial-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
       {/* Dialog */}
       <div
         ref={dialogRef}
-        className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-[15vh]"
+        className="fixed inset-0 z-[var(--z-command)] flex items-start justify-center p-4 pt-[15vh]"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"

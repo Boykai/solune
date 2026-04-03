@@ -23,7 +23,7 @@ export function TaskPreview({ proposal, onConfirm, onReject }: TaskPreviewProps)
   const pipelineLabel = getPipelineLabel(proposal);
 
   return (
-    <div className="ml-11 max-w-[500px] self-start overflow-hidden rounded-lg border border-border bg-background/56">
+    <div className="ml-11 max-w-[90vw] self-start overflow-hidden rounded-lg border border-border bg-background/56 md:max-w-[500px]">
       <div className="bg-primary text-primary-foreground px-4 py-2 text-xs font-medium">
         <span>Task Preview</span>
       </div>

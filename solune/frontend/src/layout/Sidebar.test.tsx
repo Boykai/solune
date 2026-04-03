@@ -113,4 +113,34 @@ describe('Sidebar', () => {
     renderSidebar({ recentInteractions: [] });
     expect(screen.getByText(/no recent parent issues/i)).toBeInTheDocument();
   });
+
+  it('uses centralized z-index CSS variables in mobile overlay', () => {
+    renderSidebar({ isMobile: true, isCollapsed: false });
+
+    // Backdrop should use the sidebar-backdrop z-index token
+    const backdrop = screen.getByRole('presentation');
+    expect(backdrop.className).toContain('z-[var(--z-sidebar-backdrop)]');
+
+    // Sidebar aside should use the sidebar z-index token
+    const aside = screen.getByLabelText('Sidebar navigation');
+    expect(aside.className).toContain('z-[var(--z-sidebar)]');
+  });
+
+  it('renders mobile sidebar as a labelled navigation surface', () => {
+    renderSidebar({ isMobile: true, isCollapsed: false });
+
+    const aside = screen.getByLabelText('Sidebar navigation');
+    expect(aside.tagName).toBe('ASIDE');
+    expect(aside).toHaveAttribute('aria-label', 'Sidebar navigation');
+    expect(aside).not.toHaveAttribute('aria-modal');
+    expect(aside).not.toHaveAttribute('role', 'dialog');
+  });
+
+  it('calls onToggle when mobile backdrop is clicked', () => {
+    const onToggle = vi.fn();
+    renderSidebar({ isMobile: true, isCollapsed: false, onToggle });
+
+    fireEvent.click(screen.getByRole('presentation'));
+    expect(onToggle).toHaveBeenCalledOnce();
+  });
 });

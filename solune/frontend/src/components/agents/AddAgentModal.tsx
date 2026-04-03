@@ -251,7 +251,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   if (showCloseConfirm) {
     return (
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[var(--z-agent-modal-top)] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
         role="presentation"
       >
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
@@ -300,7 +300,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   if (successPrUrl) {
     return (
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[var(--z-agent-modal-top)] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
         role="presentation"
         onClick={resetAndClose}
       >
@@ -344,7 +344,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-agent-modal-base)] flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm"
       role="presentation"
       onClick={handleRequestClose}
     >

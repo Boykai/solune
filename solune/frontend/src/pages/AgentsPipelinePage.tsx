@@ -334,7 +334,7 @@ export function AgentsPipelinePage() {
 
       {/* SPA navigation blocker — shown when react-router navigation is blocked */}
       {isBlocked && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center">
+        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" role="presentation" />
           <div className="relative z-10 mx-4 w-full max-w-sm rounded-lg border border-border bg-background p-6 text-center shadow-xl">
             <h3 className="mb-2 text-lg font-semibold text-foreground">Unsaved Changes</h3>

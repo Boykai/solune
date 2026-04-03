@@ -8,6 +8,7 @@ import { useState, useRef, useEffect, useCallback, type CSSProperties } from 're
 import { GitBranch, Layers, PencilLine } from '@/lib/icons';
 import { StageCard } from './StageCard';
 import { PipelineModelDropdown } from './PipelineModelDropdown';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import type {
   PipelineStage,
@@ -86,10 +87,13 @@ export function PipelineBoard({
   const hasParallelGroup = stages.some(
     (stage) => (stage.groups ?? []).some((g) => g.execution_mode === 'parallel' && g.agents.length > 1)
   );
+  const isMobileScreen = useMediaQuery('(max-width: 767px)');
   const minStageWidthRem = hasParallelGroup ? 20 : 14;
+  const mobileMinStageWidthRem = hasParallelGroup ? 16 : 12;
+  const effectiveMinWidth = isMobileScreen ? mobileMinStageWidthRem : minStageWidthRem;
 
   const gridStyle: CSSProperties = {
-    gridTemplateColumns: `repeat(${Math.max(columnCount, 1)}, minmax(${minStageWidthRem}rem, 1fr))`,
+    gridTemplateColumns: `repeat(${Math.max(columnCount, 1)}, minmax(${effectiveMinWidth}rem, 1fr))`,
   };
 
   useEffect(() => {
@@ -145,7 +149,7 @@ export function PipelineBoard({
                   }
                 }}
                 className={cn(
-                  'w-full max-w-2xl rounded-xl border bg-background/88 px-3.5 py-2 text-lg font-semibold outline-none dark:bg-background/92',
+                  'w-full max-w-2xl rounded-xl border bg-background/88 px-3.5 py-2 text-base font-semibold outline-none dark:bg-background/92 sm:text-lg',
                   validationErrors.name
                     ? 'border-red-500'
                     : 'border-primary/20 dark:border-primary/30'
@@ -161,7 +165,7 @@ export function PipelineBoard({
                   setIsEditingName(true);
                 }}
                 className={cn(
-                  'max-w-2xl text-left text-lg font-semibold leading-tight transition-colors',
+                  'max-w-2xl text-left text-base font-semibold leading-tight transition-colors sm:text-lg',
                   validationErrors.name
                     ? 'text-red-500'
                     : 'text-foreground hover:text-primary'
