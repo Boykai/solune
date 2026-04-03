@@ -1,5 +1,8 @@
 /**
  * useModels — fetch and cache available AI models with provider grouping.
+ *
+ * Reasoning-capable models are expanded into per-level variants with display
+ * names like "o3 (High)" and a populated `reasoning_effort` field.
  */
 
 import { useMemo } from 'react';
@@ -14,6 +17,46 @@ export const modelKeys = {
 
 export async function fetchCopilotModels(forceRefresh = false): Promise<AIModel[]> {
   return modelsApi.list(forceRefresh);
+}
+
+/**
+ * Format a reasoning effort level into a human-readable label.
+ *
+ * Handles multi-word camelCase-style levels like "xhigh" → "XHigh".
+ */
+export function formatReasoningLabel(level: string): string {
+  const known: Record<string, string> = {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    xhigh: 'XHigh',
+  };
+  return known[level] ?? level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+/**
+ * Expand reasoning-capable models into per-level variants.
+ *
+ * For each model with `supported_reasoning_efforts`, generates N `AIModel`
+ * entries — one per reasoning level — with `name: "{name} ({Level})"` and
+ * `reasoning_effort` set. Non-reasoning models pass through unchanged.
+ */
+export function expandReasoningModels(raw: AIModel[]): AIModel[] {
+  const expanded: AIModel[] = [];
+  for (const model of raw) {
+    if (model.supported_reasoning_efforts?.length) {
+      for (const level of model.supported_reasoning_efforts) {
+        expanded.push({
+          ...model,
+          name: `${model.name} (${formatReasoningLabel(level)})`,
+          reasoning_effort: level,
+        });
+      }
+    } else {
+      expanded.push(model);
+    }
+  }
+  return expanded;
 }
 
 export function useModels() {
@@ -33,7 +76,7 @@ export function useModels() {
     },
   });
 
-  const models = useMemo(() => data ?? [], [data]);
+  const models = useMemo(() => expandReasoningModels(data ?? []), [data]);
 
   const modelsByProvider = useMemo<ModelGroup[]>(() => {
     const groups = new Map<string, AIModel[]>();

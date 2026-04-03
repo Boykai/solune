@@ -3656,13 +3656,14 @@ class TestResolveEffectiveModel:
             slug="speckit.specify",
             config={"model_id": "gpt-4o", "model_name": "GPT-4o"},
         )
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=assignment,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="gemini-pro",
         )
         assert model == "gpt-4o"
+        assert reasoning == ""
 
     @pytest.mark.asyncio
     async def test_tier1_pipeline_model_auto_falls_through(self, orchestrator):
@@ -3671,13 +3672,14 @@ class TestResolveEffectiveModel:
             slug="speckit.specify",
             config={"model_id": "auto", "model_name": "Auto"},
         )
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=assignment,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="user-model",
         )
         assert model == "user-model"
+        assert reasoning == ""
 
     @pytest.mark.asyncio
     async def test_tier1_pipeline_model_empty_falls_through(self, orchestrator):
@@ -3686,13 +3688,14 @@ class TestResolveEffectiveModel:
             slug="speckit.specify",
             config={"model_id": "", "model_name": ""},
         )
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=assignment,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="user-model",
         )
         assert model == "user-model"
+        assert reasoning == ""
 
     # ── Tier 2: User Settings "agent model" ───────────────────────────
 
@@ -3700,25 +3703,27 @@ class TestResolveEffectiveModel:
     async def test_tier2_user_agent_model_used_when_no_pipeline_model(self, orchestrator):
         """User's agent model is the tier-2 fallback."""
         assignment = AgentAssignment(slug="speckit.specify", config=None)
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=assignment,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="gemini-1.5-pro",
         )
         assert model == "gemini-1.5-pro"
+        assert reasoning == ""
 
     @pytest.mark.asyncio
     async def test_tier2_user_model_auto_falls_through_to_tier3(self, orchestrator):
         """When user's agent model is 'auto', tier 2 is skipped."""
         assignment = AgentAssignment(slug="speckit.specify", config=None)
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=assignment,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="auto",
         )
         assert model == "claude-opus-4.6"
+        assert reasoning == ""
 
     # ── Tier 3: Hardcoded fallback ────────────────────────────────────
 
@@ -3726,24 +3731,93 @@ class TestResolveEffectiveModel:
     async def test_tier3_hardcoded_fallback_when_all_empty(self, orchestrator):
         """Returns hardcoded fallback when all tiers are empty/auto."""
         assignment = AgentAssignment(slug="speckit.specify", config=None)
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=assignment,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="",
         )
         assert model == "claude-opus-4.6"
+        assert reasoning == ""
 
     @pytest.mark.asyncio
     async def test_tier3_fallback_when_none_assignment(self, orchestrator):
         """Returns hardcoded fallback when assignment is None."""
-        model = await orchestrator._resolve_effective_model(
+        model, reasoning = await orchestrator._resolve_effective_model(
             agent_assignment=None,
             agent_slug="speckit.specify",
             project_id="P1",
             user_agent_model="",
         )
         assert model == "claude-opus-4.6"
+        assert reasoning == ""
+
+    # ── Reasoning effort resolution ──────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_tier1_pipeline_reasoning_effort_returned(self, orchestrator):
+        """When pipeline config has reasoning_effort it is returned."""
+        assignment = AgentAssignment(
+            slug="speckit.specify",
+            config={
+                "model_id": "o3",
+                "model_name": "o3",
+                "reasoning_effort": "high",
+            },
+        )
+        model, reasoning = await orchestrator._resolve_effective_model(
+            agent_assignment=assignment,
+            agent_slug="speckit.specify",
+            project_id="P1",
+            user_agent_model="",
+        )
+        assert model == "o3"
+        assert reasoning == "high"
+
+    @pytest.mark.asyncio
+    async def test_tier1_pipeline_falls_back_to_user_reasoning(self, orchestrator):
+        """When pipeline has model but no reasoning, user reasoning is used."""
+        assignment = AgentAssignment(
+            slug="speckit.specify",
+            config={"model_id": "o3", "model_name": "o3"},
+        )
+        model, reasoning = await orchestrator._resolve_effective_model(
+            agent_assignment=assignment,
+            agent_slug="speckit.specify",
+            project_id="P1",
+            user_agent_model="",
+            user_reasoning_effort="medium",
+        )
+        assert model == "o3"
+        assert reasoning == "medium"
+
+    @pytest.mark.asyncio
+    async def test_tier2_user_reasoning_effort_returned(self, orchestrator):
+        """User reasoning effort is returned when tier 2 (user model) is used."""
+        assignment = AgentAssignment(slug="speckit.specify", config=None)
+        model, reasoning = await orchestrator._resolve_effective_model(
+            agent_assignment=assignment,
+            agent_slug="speckit.specify",
+            project_id="P1",
+            user_agent_model="o3",
+            user_reasoning_effort="xhigh",
+        )
+        assert model == "o3"
+        assert reasoning == "xhigh"
+
+    @pytest.mark.asyncio
+    async def test_tier3_fallback_ignores_user_reasoning(self, orchestrator):
+        """Tier 3 hardcoded fallback does not carry reasoning effort."""
+        assignment = AgentAssignment(slug="speckit.specify", config=None)
+        model, reasoning = await orchestrator._resolve_effective_model(
+            agent_assignment=assignment,
+            agent_slug="speckit.specify",
+            project_id="P1",
+            user_agent_model="",
+            user_reasoning_effort="high",
+        )
+        assert model == "claude-opus-4.6"
+        assert reasoning == ""
 
     # ── Model is wired into assign_copilot_to_issue ───────────────────
 

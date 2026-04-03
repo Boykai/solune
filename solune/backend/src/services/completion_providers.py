@@ -163,6 +163,7 @@ class CopilotCompletionProvider(CompletionProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         github_token: str | None = None,
+        reasoning_effort: str = "",
     ) -> str:
         if not github_token:
             raise ValueError(
@@ -196,6 +197,8 @@ class CopilotCompletionProvider(CompletionProvider):
         }
         if system_content:
             config["system_message"] = {"mode": "replace", "content": system_content}
+        if reasoning_effort:
+            config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
 
         # Create session, send prompt, wait for response
         session = await client.create_session(config)

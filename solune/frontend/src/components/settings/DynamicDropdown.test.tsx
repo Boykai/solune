@@ -110,4 +110,88 @@ describe('DynamicDropdown', () => {
     );
     expect(screen.getByText('Model One')).toBeInTheDocument();
   });
+
+  it('expands reasoning models into per-level options', () => {
+    const modelsResponse: ModelsResponse = {
+      status: 'success',
+      models: [
+        {
+          id: 'o3',
+          name: 'o3',
+          provider: 'copilot',
+          supported_reasoning_efforts: ['low', 'medium', 'high'],
+          default_reasoning_effort: 'medium',
+        },
+        { id: 'gpt-4o', name: 'GPT-4o', provider: 'copilot' },
+      ],
+      fetched_at: new Date().toISOString(),
+      cache_hit: false,
+      rate_limit_warning: false,
+      message: null,
+    };
+    render(<DynamicDropdown {...defaultProps} modelsResponse={modelsResponse} />);
+    expect(screen.getByText('o3 (Low)')).toBeInTheDocument();
+    expect(screen.getByText('o3 (Medium)')).toBeInTheDocument();
+    expect(screen.getByText('o3 (High)')).toBeInTheDocument();
+    expect(screen.getByText('GPT-4o')).toBeInTheDocument();
+  });
+
+  it('fires onReasoningEffortChange when a reasoning variant is selected', async () => {
+    const onChange = vi.fn();
+    const onReasoningEffortChange = vi.fn();
+    const modelsResponse: ModelsResponse = {
+      status: 'success',
+      models: [
+        {
+          id: 'o3',
+          name: 'o3',
+          provider: 'copilot',
+          supported_reasoning_efforts: ['low', 'high'],
+        },
+      ],
+      fetched_at: new Date().toISOString(),
+      cache_hit: false,
+      rate_limit_warning: false,
+      message: null,
+    };
+    render(
+      <DynamicDropdown
+        {...defaultProps}
+        onChange={onChange}
+        onReasoningEffortChange={onReasoningEffortChange}
+        modelsResponse={modelsResponse}
+      />
+    );
+    const select = screen.getByLabelText('Model');
+    await userEvent.setup().selectOptions(select, 'o3::high');
+    expect(onChange).toHaveBeenCalledWith('o3');
+    expect(onReasoningEffortChange).toHaveBeenCalledWith('high');
+  });
+
+  it('clears reasoning effort when a non-reasoning model is selected', async () => {
+    const onChange = vi.fn();
+    const onReasoningEffortChange = vi.fn();
+    const modelsResponse: ModelsResponse = {
+      status: 'success',
+      models: [
+        { id: 'gpt-4o', name: 'GPT-4o', provider: 'copilot' },
+      ],
+      fetched_at: new Date().toISOString(),
+      cache_hit: false,
+      rate_limit_warning: false,
+      message: null,
+    };
+    render(
+      <DynamicDropdown
+        {...defaultProps}
+        onChange={onChange}
+        onReasoningEffortChange={onReasoningEffortChange}
+        modelsResponse={modelsResponse}
+      />
+    );
+    const select = screen.getByLabelText('Model');
+    await userEvent.setup().selectOptions(select, 'gpt-4o');
+    expect(onChange).toHaveBeenCalledWith('gpt-4o');
+    expect(onReasoningEffortChange).toHaveBeenCalledWith('');
+  });
 });

@@ -6,10 +6,35 @@ import { TriangleAlert } from '@/lib/icons';
  * Handles all states: idle, loading, success, error, auth_required, rate_limited.
  * Shows loading spinner, error messages with retry, cache freshness indicator,
  * and prerequisite messages.
+ *
+ * When models support reasoning levels, the dropdown expands them into per-level
+ * variants (e.g., "o3 (High)"). The `onReasoningEffortChange` callback reports
+ * the selected reasoning level separately.
  */
 
-import { type ModelsResponse } from '@/types';
+import { type ModelOption, type ModelsResponse } from '@/types';
 import { formatTimeAgo } from '@/utils/formatTime';
+import { formatReasoningLabel } from '@/hooks/useModels';
+
+/** Expand reasoning-capable models into per-level variants. */
+function expandModelsForDropdown(models: ModelOption[]): (ModelOption & { reasoning_effort?: string })[] {
+  const expanded: (ModelOption & { reasoning_effort?: string })[] = [];
+  for (const m of models) {
+    if (m.supported_reasoning_efforts?.length) {
+      for (const level of m.supported_reasoning_efforts) {
+        expanded.push({
+          ...m,
+          id: m.id,
+          name: `${m.name} (${formatReasoningLabel(level)})`,
+          reasoning_effort: level,
+        });
+      }
+    } else {
+      expanded.push(m);
+    }
+  }
+  return expanded;
+}
 
 interface DynamicDropdownProps {
   /** Current selected value */
@@ -32,6 +57,10 @@ interface DynamicDropdownProps {
   id: string;
   /** Static fallback options (for providers without dynamic fetching) */
   staticOptions?: { id: string; name: string }[];
+  /** Called when a reasoning model variant is selected */
+  onReasoningEffortChange?: (effort: string) => void;
+  /** Current reasoning effort for highlighting the selected variant */
+  reasoningEffort?: string;
 }
 
 
@@ -49,6 +78,8 @@ export function DynamicDropdown({
   label,
   id,
   staticOptions,
+  onReasoningEffortChange,
+  reasoningEffort,
 }: DynamicDropdownProps) {
   // Non-dynamic provider: render static options
   if (!supportsDynamic || !provider) {
@@ -88,10 +119,46 @@ export function DynamicDropdown({
   }
 
   const status = modelsResponse?.status;
-  const models = modelsResponse?.models ?? [];
+  const rawModels = modelsResponse?.models ?? [];
+  const expandedModels = expandModelsForDropdown(rawModels);
   const fetchedAt = modelsResponse?.fetched_at;
   const message = modelsResponse?.message;
   const rateLimitWarning = modelsResponse?.rate_limit_warning;
+
+  /** Encode model id + reasoning effort into a single option value. */
+  const encodeValue = (modelId: string, effort?: string) =>
+    effort ? `${modelId}::${effort}` : modelId;
+
+  /** Decode a composite option value back to model id + reasoning effort. */
+  const handleModelChange = (optionValue: string) => {
+    const separatorIdx = optionValue.indexOf('::');
+    if (separatorIdx !== -1) {
+      const modelId = optionValue.slice(0, separatorIdx);
+      const effort = optionValue.slice(separatorIdx + 2);
+      onChange(modelId);
+      onReasoningEffortChange?.(effort);
+    } else {
+      onChange(optionValue);
+      onReasoningEffortChange?.('');
+    }
+  };
+
+  /** Compute the current composite value for the select element.
+   *
+   * Backward-compat: if a reasoning-capable model is selected but no
+   * reasoning effort is stored (pre-reasoning settings), fall back to the
+   * model's default reasoning effort so the select control has a valid match.
+   */
+  const resolvedEffort = (() => {
+    if (reasoningEffort) return reasoningEffort;
+    if (!value) return undefined;
+    const matchedRaw = rawModels.find((m) => m.id === value);
+    if (matchedRaw?.supported_reasoning_efforts?.length && matchedRaw.default_reasoning_effort) {
+      return matchedRaw.default_reasoning_effort;
+    }
+    return undefined;
+  })();
+  const compositeValue = encodeValue(value, resolvedEffort);
 
   // Loading state
   if (isLoading && !modelsResponse) {
@@ -140,20 +207,23 @@ export function DynamicDropdown({
         <label htmlFor={id} className="text-sm font-medium text-foreground">
           {label}
         </label>
-        {models.length > 0 ? (
+        {expandedModels.length > 0 ? (
           <select
             id={id}
             className={selectClass}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={compositeValue}
+            onChange={(e) => handleModelChange(e.target.value)}
             aria-label={label}
           >
             <option value="">Select a model</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
+            {expandedModels.map((m) => {
+              const key = encodeValue(m.id, m.reasoning_effort);
+              return (
+                <option key={key} value={key}>
+                  {m.name}
+                </option>
+              );
+            })}
           </select>
         ) : null}
         <div
@@ -180,20 +250,23 @@ export function DynamicDropdown({
         <label htmlFor={id} className="text-sm font-medium text-foreground">
           {label}
         </label>
-        {models.length > 0 ? (
+        {expandedModels.length > 0 ? (
           <select
             id={id}
             className={selectClass}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
+            value={compositeValue}
+            onChange={(e) => handleModelChange(e.target.value)}
             aria-label={label}
           >
             <option value="">Select a model</option>
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
+            {expandedModels.map((m) => {
+              const key = encodeValue(m.id, m.reasoning_effort);
+              return (
+                <option key={key} value={key}>
+                  {m.name}
+                </option>
+              );
+            })}
           </select>
         ) : null}
         <div
@@ -210,7 +283,7 @@ export function DynamicDropdown({
   }
 
   // Success state (possibly with rate limit warning)
-  const hasModels = models.length > 0;
+  const hasModels = expandedModels.length > 0;
 
   return (
     <div className="flex flex-col gap-2">
@@ -221,16 +294,19 @@ export function DynamicDropdown({
         <select
           id={id}
           className={selectClass}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
+          value={compositeValue}
+          onChange={(e) => handleModelChange(e.target.value)}
           aria-label={label}
         >
           <option value="">Select a model</option>
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
+          {expandedModels.map((m) => {
+            const key = encodeValue(m.id, m.reasoning_effort);
+            return (
+              <option key={key} value={key}>
+                {m.name}
+              </option>
+            );
+          })}
         </select>
       ) : (
         <div

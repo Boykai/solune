@@ -265,8 +265,10 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 ## Active Technologies
 - Python 3.12+ (backend scripting, git operations), Bash (shell scripts), Markdown (documentation output) + Git CLI (diff, log, tag), existing `solune/docs/` structure, GitHub Issue templates, `lychee` or `markdown-link-check` (link validation) (003-librarian)
 - JSON metadata files (`.last-refresh`), Markdown files (`.change-manifest.md`, all docs), Git tags (`docs-refresh-YYYY-MM-DD`) (003-librarian)
-- Python 3.13 (backend), TypeScript ES2022 / React 18 (frontend) + FastAPI, Pydantic, Pyright (backend); Vite, Vitest, ESLint, TypeScript strict (frontend) (004-linting-cleanup)
+- Historical snapshot for 004-linting-cleanup: Python 3.13 (backend), TypeScript ES2022 / React 18 (frontend) + FastAPI, Pydantic, Pyright (backend); Vite, Vitest, ESLint, TypeScript strict (frontend). Frontend has since moved to React 19.2.0; see the current entry below and `solune/frontend/package.json`.
 - SQLite via aiosqlite (backend) (004-linting-cleanup)
+- Python ≥3.12 (target 3.13) for backend; TypeScript ~6.0.2 / React 19.2.0 for frontend + FastAPI, Pydantic, GitHub Copilot SDK (`copilot` package), `agent_framework_github_copilot`; React, TanStack Query, Tailwind CSS, Lucide Icons (545-model-reasoning-selection)
+- SQLite via aiosqlite for settings/session storage (545-model-reasoning-selection)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

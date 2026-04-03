@@ -5,15 +5,15 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { useModels } from '@/hooks/useModels';
-import { ChevronDown, Search, Check, Zap, DollarSign, Crown } from '@/lib/icons';
+import { useModels, formatReasoningLabel } from '@/hooks/useModels';
+import { Brain, ChevronDown, Search, Check, Zap, DollarSign, Crown } from '@/lib/icons';
 import type { AIModel } from '@/types';
 import { cn } from '@/lib/utils';
 
 interface ModelSelectorProps {
   selectedModelId: string | null;
   selectedModelName?: string | null;
-  onSelect: (modelId: string, modelName: string) => void;
+  onSelect: (modelId: string, modelName: string, reasoningEffort?: string) => void;
   trigger?: React.ReactNode;
   disabled?: boolean;
   allowAuto?: boolean;
@@ -49,6 +49,29 @@ function CostTierBadge({ tier }: { tier: string }) {
   }
 }
 
+function ReasoningBadge({ level, isDefault }: { level: string; isDefault?: boolean }) {
+  const colors: Record<string, string> = {
+    low: 'border-teal-500/25 bg-teal-500/12 text-teal-700 dark:text-teal-300',
+    medium: 'border-sky-500/25 bg-sky-500/12 text-sky-700 dark:text-sky-300',
+    high: 'border-amber-500/25 bg-amber-500/12 text-amber-700 dark:text-amber-300',
+    xhigh: 'border-purple-500/25 bg-purple-500/12 text-purple-700 dark:text-purple-300',
+  };
+  const colorClass = colors[level] ?? 'border-border bg-muted text-muted-foreground';
+  const label = formatReasoningLabel(level);
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]',
+        colorClass,
+      )}
+    >
+      <Brain className="h-2.5 w-2.5" />
+      {label}
+      {isDefault ? ' ★' : ''}
+    </span>
+  );
+}
+
 function formatContextWindow(size: number): string {
   if (size >= 1_000_000) return `${(size / 1_000_000).toFixed(0)}M tokens`;
   if (size >= 1000) return `${(size / 1000).toFixed(0)}K tokens`;
@@ -68,20 +91,25 @@ export function ModelSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const { models, modelsByProvider, isLoading, isRefreshing, refreshModels } = useModels();
-  const recentModelIdsRef = useRef<string[]>([]);
+  const recentModelKeysRef = useRef<string[]>([]);
 
-  const addRecentModel = useCallback((modelId: string) => {
-    const ids = recentModelIdsRef.current;
-    const idx = ids.indexOf(modelId);
-    if (idx !== -1) ids.splice(idx, 1);
-    ids.unshift(modelId);
-    if (ids.length > 3) ids.pop();
+  const getModelKey = useCallback((model: AIModel) => {
+    return model.reasoning_effort ? `${model.id}::${model.reasoning_effort}` : model.id;
+  }, []);
+
+  const addRecentModel = useCallback((model: AIModel) => {
+    const key = model.reasoning_effort ? `${model.id}::${model.reasoning_effort}` : model.id;
+    const keys = recentModelKeysRef.current;
+    const idx = keys.indexOf(key);
+    if (idx !== -1) keys.splice(idx, 1);
+    keys.unshift(key);
+    if (keys.length > 3) keys.pop();
   }, []);
 
   const recentModels = useMemo(
     () =>
-      recentModelIdsRef.current
-        .map((id) => models.find((m) => m.id === id))
+      recentModelKeysRef.current
+        .map((key) => models.find((m) => (m.reasoning_effort ? `${m.id}::${m.reasoning_effort}` : m.id) === key))
         .filter((m): m is AIModel => m !== undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [models, isOpen]
@@ -105,8 +133,8 @@ export function ModelSelector({
 
   const handleSelect = useCallback(
     (model: AIModel) => {
-      addRecentModel(model.id);
-      onSelect(model.id, model.name);
+      addRecentModel(model);
+      onSelect(model.id, model.name, model.reasoning_effort);
       setIsOpen(false);
       setSearch('');
     },
@@ -118,7 +146,9 @@ export function ModelSelector({
     if (!open) setSearch('');
   }, []);
 
-  const selectedModel = models.find((m) => m.id === selectedModelId);
+  const selectedModel = selectedModelName
+    ? models.find((m) => m.id === selectedModelId && m.name === selectedModelName)
+    : models.find((m) => m.id === selectedModelId);
   const triggerLabel =
     selectedModel?.name ?? selectedModelName ?? (allowAuto ? autoLabel : 'Select model');
 
@@ -214,9 +244,9 @@ export function ModelSelector({
               </div>
               {recentModels.map((model) => (
                 <ModelRow
-                  key={`recent-${model.id}`}
+                  key={`recent-${getModelKey(model)}`}
                   model={model}
-                  isSelected={model.id === selectedModelId}
+                  isSelected={model.id === selectedModelId && model.name === selectedModelName}
                   onSelect={handleSelect}
                 />
               ))}
@@ -232,9 +262,9 @@ export function ModelSelector({
               </div>
               {group.models.map((model) => (
                 <ModelRow
-                  key={model.id}
+                  key={getModelKey(model)}
                   model={model}
-                  isSelected={model.id === selectedModelId}
+                  isSelected={model.id === selectedModelId && model.name === selectedModelName}
                   onSelect={handleSelect}
                 />
               ))}
@@ -282,6 +312,12 @@ function ModelRow({
             </span>
           ) : null}
           {model.cost_tier ? <CostTierBadge tier={model.cost_tier} /> : null}
+          {model.reasoning_effort ? (
+            <ReasoningBadge
+              level={model.reasoning_effort}
+              isDefault={model.reasoning_effort === model.default_reasoning_effort}
+            />
+          ) : null}
         </div>
       </div>
     </button>
