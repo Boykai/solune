@@ -148,10 +148,15 @@ exclude_dirs = ["tests"]
 skips = ["B104", "B608"]
 
 [tool.mutmut]
-paths_to_mutate = ["src/services/"]
+paths_to_mutate = [
+    "src/api/",
+    "src/middleware/",
+    "src/utils.py",
+]
 tests_dir = ["tests/"]
 debug = true
 also_copy = [
+    "scripts/",
     "src/api/",
     "src/attachment_formatter.py",
     "src/config.py",
