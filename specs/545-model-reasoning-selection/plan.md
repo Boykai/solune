@@ -13,8 +13,8 @@ Thread the GitHub Copilot SDK's existing reasoning-level data (`supported_reason
 
 **Language/Version**: Python ≥3.12 (target 3.13) for backend; TypeScript ~6.0.2 / React 19.2.0 for frontend  
 **Primary Dependencies**: FastAPI, Pydantic, GitHub Copilot SDK (`copilot` package), `agent_framework_github_copilot`; React, TanStack Query, Tailwind CSS, Lucide Icons  
-**Storage**: JSON settings file (file-based, no database)  
-**Testing**: pytest (backend unit tests), Vitest + React Testing Library (frontend), contract validation via `scripts/validate-contracts.sh`  
+**Storage**: SQLite database via `aiosqlite` (file-based database)  
+**Testing**: pytest (backend unit tests), Vitest + React Testing Library (frontend), contract validation via `solune/scripts/validate-contracts.sh`  
 **Target Platform**: Linux server (backend), modern browsers (frontend)  
 **Project Type**: Web application (frontend + backend)  
 **Performance Goals**: No new performance requirements; model list endpoint latency unchanged  

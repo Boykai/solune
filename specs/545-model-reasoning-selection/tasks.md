@@ -118,10 +118,16 @@
 
 **Independent Test**: Open the pipeline editor, select a reasoning model variant for an agent node, save, and verify `reasoning_effort` is stored in the agent node config alongside `model_id`.
 
+### Tests for User Story 4
+
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
+
+- [ ] T019 [P] [US4] Add test verifying `reasoning_effort` is persisted in the agent node config and passed through the pipeline model selector when a reasoning model variant is selected in solune/frontend/src/components/pipeline/AgentNode.test.tsx
+
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] Update AgentNode to store `reasoning_effort` alongside `model_id` in agent node config when a reasoning model variant is selected in solune/frontend/src/components/pipeline/AgentNode.tsx
-- [ ] T020 [US4] Update PipelineModelDropdown to pass `reasoning_effort` through on model selection (leverages expanded models from `useModels()`) in solune/frontend/src/components/pipeline/PipelineModelDropdown.tsx
+- [ ] T020 [US4] Update AgentNode to store `reasoning_effort` alongside `model_id` in agent node config when a reasoning model variant is selected in solune/frontend/src/components/pipeline/AgentNode.tsx
+- [ ] T021 [US4] Update PipelineModelDropdown to pass `reasoning_effort` through on model selection (leverages expanded models from `useModels()`) in solune/frontend/src/components/pipeline/PipelineModelDropdown.tsx
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -131,9 +137,9 @@
 
 **Purpose**: Schema regeneration, contract validation, and cross-cutting verification
 
-- [ ] T021 Regenerate OpenAPI schema by running `python scripts/export-openapi.py` from solune/backend/
-- [ ] T022 Run contract validation via `bash solune/scripts/validate-contracts.sh` to verify OpenAPI + frontend types stay in sync
-- [ ] T023 Run full verification suite per solune/specs/545-model-reasoning-selection/quickstart.md: backend pytest, frontend npm test, TypeScript type check, contract validation
+- [ ] T022 Regenerate OpenAPI schema by running `python ../scripts/export-openapi.py` from solune/backend/
+- [ ] T023 Run contract validation via `bash solune/scripts/validate-contracts.sh` to verify OpenAPI + frontend types stay in sync
+- [ ] T024 Run full verification suite per solune/specs/545-model-reasoning-selection/quickstart.md: backend pytest, frontend npm test, TypeScript type check, contract validation
 
 ---
 
@@ -170,7 +176,7 @@
 - **Phase 3 (US1)**: All three test tasks (T004, T005, T006) can run in parallel
 - **Phase 4 (US2)**: T011 can run in parallel with US1 implementation
 - **Phase 5 (US3)**: T014 and T015 can run in parallel; T017 can run in parallel with T016; **entire Phase 5 can run in parallel with Phases 3-4** (backend-only)
-- **Phase 6 (US4)**: T019 and T020 can run in parallel (different files)
+- **Phase 6 (US4)**: T019 test can run first; then T020 and T021 can run in parallel (different files)
 
 ---
 
@@ -237,14 +243,14 @@ With multiple developers:
 
 | Metric | Value |
 |--------|-------|
-| **Total tasks** | 23 |
+| **Total tasks** | 24 |
 | **Foundational** | 3 tasks |
 | **User Story 1 (P1)** | 7 tasks (3 tests + 4 implementation) |
 | **User Story 2 (P1)** | 3 tasks (1 test + 2 implementation) |
 | **User Story 3 (P1)** | 5 tasks (2 tests + 3 implementation) |
-| **User Story 4 (P2)** | 2 tasks (implementation only) |
+| **User Story 4 (P2)** | 3 tasks (1 test + 2 implementation) |
 | **Polish** | 3 tasks |
-| **Parallel opportunities** | 12 tasks marked [P]; US3 fully parallelizable with US1/US2 |
+| **Parallel opportunities** | 13 tasks marked [P]; US3 fully parallelizable with US1/US2 |
 | **Suggested MVP scope** | Phase 2 + Phase 3 (User Story 1) — 10 tasks |
 | **Files modified** | ~15 across backend and frontend |
 
