@@ -19,7 +19,7 @@ parameters:
     required: true
     constraints:
       minLength: 1
-      maxLength: 64
+      maxLength: 20
       pattern: "^[a-zA-Z0-9][a-zA-Z0-9-]*$"
     example: "solune-prod"
 
@@ -90,3 +90,11 @@ parameters:
       minimum: 1
       maximum: 100
     example: 10
+
+  githubWebhookSecret:
+    description: >
+      GitHub Webhook secret for verifying webhook payloads. Stored in Key Vault,
+      never exposed in container environment variables.
+    type: string
+    required: true
+    secure: true

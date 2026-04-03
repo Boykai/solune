@@ -10,21 +10,26 @@ param environmentName string
 @description('Azure region for all resources. Must support Azure Container Apps, Azure OpenAI, and Azure AI Foundry.')
 param location string = resourceGroup().location
 
+@minLength(1)
 @description('GitHub OAuth App Client ID.')
 param githubClientId string
 
+@minLength(1)
 @secure()
 @description('GitHub OAuth App Client Secret — stored in Key Vault, never exposed in container env vars.')
 param githubClientSecret string
 
+@minLength(1)
 @secure()
 @description('Session encryption key (64+ character hex string).')
 param sessionSecretKey string
 
+@minLength(1)
 @secure()
 @description('Fernet encryption key for token-at-rest encryption.')
 param encryptionKey string
 
+@minLength(1)
 @description('Numeric GitHub user ID of the admin account.')
 param adminGitHubUserId string
 
@@ -34,6 +39,7 @@ param openAiModelName string = 'gpt-4o'
 @description('Azure OpenAI deployment capacity in thousands of tokens per minute.')
 param deployCapacity int = 10
 
+@minLength(1)
 @secure()
 @description('GitHub Webhook secret for verifying webhook payloads — stored in Key Vault.')
 param githubWebhookSecret string

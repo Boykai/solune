@@ -12,7 +12,7 @@ param identityPrincipalId string
 
 @description('Storage Account (StorageV2, Standard_LRS) for Azure Files shares.')
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
-  name: replace('st${environmentName}', '-', '')
+  name: toLower(replace('st${environmentName}', '-', ''))
   location: location
   tags: tags
   kind: 'StorageV2'
