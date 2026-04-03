@@ -118,7 +118,7 @@ class ChoresService:
             # Check if already seeded for this user
             if github_user_id:
                 cursor = await self._db.execute(
-                    "SELECT id FROM chores WHERE preset_id = ? AND github_user_id = ?",
+                    "SELECT id FROM chores WHERE preset_id = ? AND (github_user_id = ? OR github_user_id = '')",
                     (preset_id, github_user_id),
                 )
             else:
@@ -245,7 +245,7 @@ class ChoresService:
         """Return all chores for a given user, ordered by creation date."""
         if github_user_id:
             cursor = await self._db.execute(
-                "SELECT * FROM chores WHERE github_user_id = ? ORDER BY created_at ASC",
+                "SELECT * FROM chores WHERE (github_user_id = ? OR github_user_id = '') ORDER BY created_at ASC",
                 (github_user_id,),
             )
         else:

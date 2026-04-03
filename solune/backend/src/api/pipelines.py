@@ -175,7 +175,7 @@ async def list_pipelines(
     limit: Annotated[int | None, Query(ge=1, le=100, description="Items per page")] = None,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
 ) -> PipelineConfigListResponse | dict:
-    """List all pipeline configurations for a project."""
+    """List all pipeline configurations for the authenticated user."""
     service = _get_service()
     result = await service.list_pipelines(
         project_id, sort=sort, order=order, github_user_id=session.github_user_id

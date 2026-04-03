@@ -408,7 +408,7 @@ class PipelineService:
 
         if github_user_id:
             cursor = await self._db.execute(
-                f"SELECT * FROM pipeline_configs WHERE github_user_id = ? ORDER BY {sort_col} {sort_dir.upper()}",
+                f"SELECT * FROM pipeline_configs WHERE (github_user_id = ? OR github_user_id = '') ORDER BY {sort_col} {sort_dir.upper()}",
                 (github_user_id,),
             )
         else:
@@ -459,7 +459,7 @@ class PipelineService:
         """Get a single pipeline configuration by ID."""
         if github_user_id:
             cursor = await self._db.execute(
-                "SELECT * FROM pipeline_configs WHERE id = ? AND github_user_id = ?",
+                "SELECT * FROM pipeline_configs WHERE id = ? AND (github_user_id = ? OR github_user_id = '')",
                 (pipeline_id, github_user_id),
             )
         else:
@@ -570,7 +570,7 @@ class PipelineService:
         set_clause = ", ".join(f"{col} = ?" for col in safe_updates)
         if github_user_id:
             values = [*list(safe_updates.values()), pipeline_id, github_user_id]
-            where = "WHERE id = ? AND github_user_id = ?"
+            where = "WHERE id = ? AND (github_user_id = ? OR github_user_id = '')"
         else:
             values = [*list(safe_updates.values()), pipeline_id, project_id]
             where = "WHERE id = ? AND project_id = ?"
@@ -599,7 +599,7 @@ class PipelineService:
         """Delete a pipeline configuration. Returns True if deleted."""
         if github_user_id:
             cursor = await self._db.execute(
-                "DELETE FROM pipeline_configs WHERE id = ? AND github_user_id = ?",
+                "DELETE FROM pipeline_configs WHERE id = ? AND (github_user_id = ? OR github_user_id = '')",
                 (pipeline_id, github_user_id),
             )
         else:
@@ -628,7 +628,7 @@ class PipelineService:
             # Check if already seeded for this user
             if github_user_id:
                 cursor = await self._db.execute(
-                    "SELECT id FROM pipeline_configs WHERE preset_id = ? AND github_user_id = ?",
+                    "SELECT id FROM pipeline_configs WHERE preset_id = ? AND (github_user_id = ? OR github_user_id = '')",
                     (preset_id, github_user_id),
                 )
             else:
