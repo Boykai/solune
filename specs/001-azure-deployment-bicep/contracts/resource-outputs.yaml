@@ -1,0 +1,98 @@
+# Resource Outputs Contract: Solune Azure Deployment
+# This defines the outputs from infra/main.bicep after deployment
+
+openapi: "3.0.3"
+info:
+  title: Solune Azure Deployment — Resource Outputs
+  version: "1.0.0"
+  description: >
+    Output contract for the Solune Azure Deployment Bicep template.
+    These outputs are available after deployment via `az deployment sub show`
+    or `azd env get-values`.
+
+outputs:
+  # ─── Endpoint Outputs ───────────────────────────────────────────────
+  frontendUrl:
+    description: >
+      External FQDN of the frontend Container App. This is the primary
+      URL users will visit. Format: https://ca-frontend-{env}.{hash}.{region}.azurecontainerapps.io
+    type: string
+    example: "https://ca-frontend-solune-prod.happyocean-abc123.eastus2.azurecontainerapps.io"
+
+  backendInternalUrl:
+    description: >
+      Internal FQDN of the backend Container App. Used by frontend nginx
+      to proxy API requests. Only reachable within the Container Apps Environment.
+    type: string
+    example: "https://ca-backend-solune-prod.internal.happyocean-abc123.eastus2.azurecontainerapps.io"
+
+  signalApiInternalUrl:
+    description: >
+      Internal FQDN of the signal-api Container App. Used by the backend
+      as SIGNAL_API_URL. Only reachable within the Container Apps Environment.
+    type: string
+    example: "https://ca-signal-solune-prod.internal.happyocean-abc123.eastus2.azurecontainerapps.io"
+
+  # ─── Resource Identifiers ──────────────────────────────────────────
+  resourceGroupName:
+    description: Name of the resource group containing all resources.
+    type: string
+    example: "rg-solune-prod"
+
+  containerRegistryName:
+    description: Name of the Azure Container Registry.
+    type: string
+    example: "soluneprodacr"
+
+  containerRegistryLoginServer:
+    description: Login server URL for the ACR (used for docker push).
+    type: string
+    example: "soluneprodacr.azurecr.io"
+
+  keyVaultName:
+    description: Name of the Azure Key Vault.
+    type: string
+    example: "kv-solune-prod"
+
+  openAiEndpoint:
+    description: Azure OpenAI endpoint URL.
+    type: string
+    example: "https://oai-solune-prod.openai.azure.com/"
+
+  openAiDeploymentName:
+    description: Name of the OpenAI model deployment.
+    type: string
+    example: "gpt-4o"
+
+  managedIdentityClientId:
+    description: Client ID of the user-assigned managed identity.
+    type: string
+    example: "12345678-abcd-1234-efgh-123456789012"
+
+  # ─── Monitoring ─────────────────────────────────────────────────────
+  logAnalyticsWorkspaceId:
+    description: Resource ID of the Log Analytics Workspace.
+    type: string
+
+  applicationInsightsConnectionString:
+    description: Connection string for Application Insights telemetry.
+    type: string
+
+  # ─── AI Foundry ─────────────────────────────────────────────────────
+  aiFoundryHubName:
+    description: Name of the AI Foundry Hub workspace.
+    type: string
+    example: "aih-solune-prod"
+
+  aiFoundryProjectName:
+    description: Name of the AI Foundry Project workspace.
+    type: string
+    example: "aip-solune-prod"
+
+  # ─── Post-Deployment Instructions ──────────────────────────────────
+  oauthCallbackUrl:
+    description: >
+      The OAuth callback URL that must be configured in the GitHub OAuth App
+      settings after deployment. Format: https://{frontendUrl}/api/v1/auth/github/callback
+    type: string
+    example: "https://ca-frontend-solune-prod.happyocean-abc123.eastus2.azurecontainerapps.io/api/v1/auth/github/callback"

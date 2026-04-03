@@ -1,0 +1,92 @@
+# Bicep Parameter Contract: Solune Azure Deployment
+# This defines the input parameters for infra/main.bicepparam
+
+openapi: "3.0.3"
+info:
+  title: Solune Azure Deployment — Bicep Parameters
+  version: "1.0.0"
+  description: >
+    Input parameter contract for the Solune Azure Deployment Bicep template.
+    These parameters are provided via infra/main.bicepparam or the Azure Portal
+    deploy form (via compiled ARM JSON).
+
+parameters:
+  environmentName:
+    description: >
+      Name of the Azure Developer CLI environment. Used as a prefix for all
+      resource names and the azd-env-name tag.
+    type: string
+    required: true
+    constraints:
+      minLength: 1
+      maxLength: 64
+      pattern: "^[a-zA-Z0-9][a-zA-Z0-9-]*$"
+    example: "solune-prod"
+
+  location:
+    description: >
+      Azure region for all resources. Must support Azure Container Apps,
+      Azure OpenAI, and Azure AI Foundry.
+    type: string
+    required: true
+    default: "eastus2"
+    example: "eastus2"
+
+  githubClientId:
+    description: >
+      GitHub OAuth App Client ID. Create at https://github.com/settings/developers.
+    type: string
+    required: true
+    example: "Ov23li..."
+
+  githubClientSecret:
+    description: >
+      GitHub OAuth App Client Secret. Stored in Key Vault, never exposed in
+      container environment variables.
+    type: string
+    required: true
+    secure: true
+
+  sessionSecretKey:
+    description: >
+      Session encryption key (64+ character hex string). Generate with:
+      openssl rand -hex 32
+    type: string
+    required: true
+    secure: true
+
+  encryptionKey:
+    description: >
+      Fernet encryption key for token-at-rest encryption. Generate with:
+      python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    type: string
+    required: true
+    secure: true
+
+  adminGitHubUserId:
+    description: >
+      Numeric GitHub user ID of the admin account. Find at:
+      https://api.github.com/users/YOUR_USERNAME
+    type: string
+    required: true
+    example: "12345678"
+
+  openAiModelName:
+    description: >
+      Name for the Azure OpenAI model deployment. Also used as the
+      AZURE_OPENAI_DEPLOYMENT environment variable.
+    type: string
+    required: false
+    default: "gpt-4o"
+    example: "gpt-4o"
+
+  deployCapacity:
+    description: >
+      Azure OpenAI deployment capacity in thousands of tokens per minute (TPM).
+    type: integer
+    required: false
+    default: 10
+    constraints:
+      minimum: 1
+      maximum: 100
+    example: 10
