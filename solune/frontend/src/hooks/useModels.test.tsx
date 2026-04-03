@@ -13,7 +13,7 @@ vi.mock('@/services/api', () => ({
 }));
 
 import * as api from '@/services/api';
-import { useModels } from './useModels';
+import { useModels, expandReasoningModels } from './useModels';
 
 const mockModelsApi = api.modelsApi as unknown as {
   list: ReturnType<typeof vi.fn>;
@@ -111,5 +111,113 @@ describe('useModels', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(typeof result.current.refreshModels).toBe('function');
+  });
+
+  it('expands reasoning-capable models into per-level variants', async () => {
+    const modelsWithReasoning = [
+      {
+        id: 'o3',
+        name: 'o3',
+        provider: 'openai',
+        supported_reasoning_efforts: ['low', 'medium', 'high'],
+        default_reasoning_effort: 'medium',
+      },
+      { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+    ];
+    mockModelsApi.list.mockResolvedValue(modelsWithReasoning);
+
+    const { result } = renderHook(() => useModels(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // 3 expanded from o3 + 1 gpt-4o = 4
+    expect(result.current.models).toHaveLength(4);
+    expect(result.current.models[0]).toMatchObject({
+      id: 'o3',
+      name: 'o3 (Low)',
+      reasoning_effort: 'low',
+    });
+    expect(result.current.models[1]).toMatchObject({
+      id: 'o3',
+      name: 'o3 (Medium)',
+      reasoning_effort: 'medium',
+    });
+    expect(result.current.models[2]).toMatchObject({
+      id: 'o3',
+      name: 'o3 (High)',
+      reasoning_effort: 'high',
+    });
+    // Non-reasoning model passes through unchanged
+    expect(result.current.models[3]).toMatchObject({
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+    });
+    expect(result.current.models[3].reasoning_effort).toBeUndefined();
+  });
+});
+
+describe('expandReasoningModels', () => {
+  it('passes through models without reasoning support unchanged', () => {
+    const models = [
+      { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+      { id: 'claude-3', name: 'Claude 3', provider: 'anthropic' },
+    ];
+    const result = expandReasoningModels(models);
+    expect(result).toEqual(models);
+  });
+
+  it('expands models with reasoning support into per-level variants', () => {
+    const models = [
+      {
+        id: 'o3',
+        name: 'o3',
+        provider: 'openai',
+        supported_reasoning_efforts: ['low', 'high', 'xhigh'],
+        default_reasoning_effort: 'high',
+      },
+    ];
+    const result = expandReasoningModels(models);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ id: 'o3', name: 'o3 (Low)', reasoning_effort: 'low' });
+    expect(result[1]).toMatchObject({ id: 'o3', name: 'o3 (High)', reasoning_effort: 'high' });
+    expect(result[2]).toMatchObject({ id: 'o3', name: 'o3 (Xhigh)', reasoning_effort: 'xhigh' });
+  });
+
+  it('handles mixed models (some with reasoning, some without)', () => {
+    const models = [
+      {
+        id: 'o3',
+        name: 'o3',
+        provider: 'openai',
+        supported_reasoning_efforts: ['medium', 'high'],
+      },
+      { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+    ];
+    const result = expandReasoningModels(models);
+    expect(result).toHaveLength(3);
+    expect(result[0].reasoning_effort).toBe('medium');
+    expect(result[1].reasoning_effort).toBe('high');
+    expect(result[2].reasoning_effort).toBeUndefined();
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(expandReasoningModels([])).toEqual([]);
+  });
+
+  it('preserves original model properties in expanded variants', () => {
+    const models = [
+      {
+        id: 'o3',
+        name: 'o3',
+        provider: 'openai',
+        supported_reasoning_efforts: ['high'],
+        default_reasoning_effort: 'high',
+        cost_tier: 'premium' as const,
+      },
+    ];
+    const result = expandReasoningModels(models);
+    expect(result[0].cost_tier).toBe('premium');
+    expect(result[0].default_reasoning_effort).toBe('high');
   });
 });
