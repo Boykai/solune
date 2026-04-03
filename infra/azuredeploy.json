@@ -5,16 +5,16 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1732543940820090519"
+      "templateHash": "8142259483612978761"
     }
   },
   "parameters": {
     "environmentName": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 64,
+      "maxLength": 20,
       "metadata": {
-        "description": "Name of the azd environment — used as a prefix for all resource names and the azd-env-name tag."
+        "description": "Name of the azd environment — used as a prefix for all resource names and the azd-env-name tag. Max 20 characters to satisfy Azure Key Vault (24), Storage Account (24), and Container App (32) naming limits."
       }
     },
     "location": {
@@ -66,6 +66,12 @@
       "defaultValue": 10,
       "metadata": {
         "description": "Azure OpenAI deployment capacity in thousands of tokens per minute."
+      }
+    },
+    "githubWebhookSecret": {
+      "type": "securestring",
+      "metadata": {
+        "description": "GitHub Webhook secret for verifying webhook payloads — stored in Key Vault."
       }
     }
   },
@@ -444,6 +450,12 @@
           },
           "encryptionKey": {
             "value": "[parameters('encryptionKey')]"
+          },
+          "githubWebhookSecret": {
+            "value": "[parameters('githubWebhookSecret')]"
+          },
+          "azureOpenAiKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiKey.value]"
           }
         },
         "template": {
@@ -453,7 +465,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "5032208810116025041"
+              "templateHash": "7589104748043818788"
             }
           },
           "parameters": {
@@ -504,6 +516,18 @@
               "type": "securestring",
               "metadata": {
                 "description": "Fernet encryption key for token-at-rest encryption — stored as a Key Vault secret."
+              }
+            },
+            "githubWebhookSecret": {
+              "type": "securestring",
+              "metadata": {
+                "description": "GitHub Webhook secret for verifying webhook payloads — stored as a Key Vault secret."
+              }
+            },
+            "azureOpenAiKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Azure OpenAI API key — stored as a Key Vault secret for backend use."
               }
             }
           },
@@ -589,6 +613,34 @@
               }
             },
             {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'github-webhook-secret')]",
+              "properties": {
+                "value": "[parameters('githubWebhookSecret')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores GitHub webhook secret in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'azure-openai-key')]",
+              "properties": {
+                "value": "[parameters('azureOpenAiKey')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores Azure OpenAI API key in Key Vault."
+              }
+            },
+            {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
               "scope": "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]",
@@ -632,7 +684,8 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'identity')]"
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]",
+        "[resourceId('Microsoft.Resources/deployments', 'openai')]"
       ]
     },
     {
@@ -671,7 +724,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "17027460680776821980"
+              "templateHash": "12935338330221785228"
             }
           },
           "parameters": {
@@ -798,6 +851,13 @@
                 "description": "Resource ID of the OpenAI account — used by AI Foundry."
               },
               "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName')))]"
+            },
+            "openAiKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Primary access key for the Azure OpenAI account — stored in Key Vault for backend use."
+              },
+              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName'))), '2024-10-01').key1]"
             }
           }
         }
@@ -1248,7 +1308,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "9134141127330254394"
+              "templateHash": "11383453105530261384"
             }
           },
           "parameters": {
@@ -1450,6 +1510,16 @@
                       "name": "encryption-key",
                       "keyVaultUrl": "[format('https://{0}{1}/secrets/encryption-key', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
                       "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "github-webhook-secret",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/github-webhook-secret', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "azure-openai-key",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/azure-openai-key', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
                     }
                   ]
                 },
@@ -1478,6 +1548,14 @@
                         {
                           "name": "ENCRYPTION_KEY",
                           "secretRef": "encryption-key"
+                        },
+                        {
+                          "name": "GITHUB_WEBHOOK_SECRET",
+                          "secretRef": "github-webhook-secret"
+                        },
+                        {
+                          "name": "AZURE_OPENAI_KEY",
+                          "secretRef": "azure-openai-key"
                         },
                         {
                           "name": "AI_PROVIDER",
@@ -1620,6 +1698,12 @@
                         "cpu": "[json('0.5')]",
                         "memory": "1Gi"
                       },
+                      "env": [
+                        {
+                          "name": "BACKEND_ORIGIN",
+                          "value": "[format('http://ca-backend-{0}.internal.{1}', parameters('environmentName'), reference(resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName'))), '2024-03-01').defaultDomain)]"
+                        }
+                      ],
                       "probes": [
                         {
                           "type": "Liveness",

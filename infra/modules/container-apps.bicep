@@ -140,6 +140,16 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: 'https://${vaultName}${environment().suffixes.keyvaultDns}/secrets/encryption-key'
           identity: identityId
         }
+        {
+          name: 'github-webhook-secret'
+          keyVaultUrl: 'https://${vaultName}${environment().suffixes.keyvaultDns}/secrets/github-webhook-secret'
+          identity: identityId
+        }
+        {
+          name: 'azure-openai-key'
+          keyVaultUrl: 'https://${vaultName}${environment().suffixes.keyvaultDns}/secrets/azure-openai-key'
+          identity: identityId
+        }
       ]
     }
     template: {
@@ -156,6 +166,8 @@ resource backendApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'GITHUB_CLIENT_SECRET', secretRef: 'github-client-secret' }
             { name: 'SESSION_SECRET_KEY', secretRef: 'session-secret-key' }
             { name: 'ENCRYPTION_KEY', secretRef: 'encryption-key' }
+            { name: 'GITHUB_WEBHOOK_SECRET', secretRef: 'github-webhook-secret' }
+            { name: 'AZURE_OPENAI_KEY', secretRef: 'azure-openai-key' }
             { name: 'AI_PROVIDER', value: 'azure_openai' }
             { name: 'AZURE_OPENAI_ENDPOINT', value: openAiEndpoint }
             { name: 'AZURE_OPENAI_DEPLOYMENT', value: openAiDeploymentName }
@@ -249,6 +261,9 @@ resource frontendApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.5')
             memory: '1Gi'
           }
+          env: [
+            { name: 'BACKEND_ORIGIN', value: 'http://ca-backend-${environmentName}.internal.${containerAppsEnvironment.properties.defaultDomain}' }
+          ]
           probes: [
             {
               type: 'Liveness'

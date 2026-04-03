@@ -39,13 +39,14 @@ jobs:
         run: azd provision --no-prompt
         env:
           AZURE_ENV_NAME: ${{ env.AZURE_ENV_NAME }}
-          AZURE_LOCATION: ${{ secrets.AZURE_LOCATION || 'eastus2' }}
+          AZURE_LOCATION: ${{ secrets.AZURE_LOCATION }}
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           GITHUB_CLIENT_ID: ${{ secrets.APP_GITHUB_CLIENT_ID }}
           GITHUB_CLIENT_SECRET: ${{ secrets.APP_GITHUB_CLIENT_SECRET }}
           SESSION_SECRET_KEY: ${{ secrets.SESSION_SECRET_KEY }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           ADMIN_GITHUB_USER_ID: ${{ secrets.ADMIN_GITHUB_USER_ID }}
+          GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
 
       - name: Deploy Application
         run: azd deploy --no-prompt

@@ -25,6 +25,14 @@ param sessionSecretKey string
 @description('Fernet encryption key for token-at-rest encryption — stored as a Key Vault secret.')
 param encryptionKey string
 
+@secure()
+@description('GitHub Webhook secret for verifying webhook payloads — stored as a Key Vault secret.')
+param githubWebhookSecret string
+
+@secure()
+@description('Azure OpenAI API key — stored as a Key Vault secret for backend use.')
+param azureOpenAiKey string
+
 @description('Azure Key Vault with RBAC authorization, purge protection, and 90-day soft-delete.')
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: 'kv-${environmentName}'
@@ -76,6 +84,24 @@ resource secretEncryptionKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   name: 'encryption-key'
   properties: {
     value: encryptionKey
+  }
+}
+
+@description('Stores GitHub webhook secret in Key Vault.')
+resource secretGitHubWebhookSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'github-webhook-secret'
+  properties: {
+    value: githubWebhookSecret
+  }
+}
+
+@description('Stores Azure OpenAI API key in Key Vault.')
+resource secretAzureOpenAiKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'azure-openai-key'
+  properties: {
+    value: azureOpenAiKey
   }
 }
 

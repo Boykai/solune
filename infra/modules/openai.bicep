@@ -70,3 +70,7 @@ output openAiDeploymentName string = modelDeployment.name
 
 @description('Resource ID of the OpenAI account — used by AI Foundry.')
 output openAiAccountId string = openAiAccount.id
+
+@description('Primary access key for the Azure OpenAI account — stored in Key Vault for backend use.')
+#disable-next-line outputs-should-not-contain-secrets
+output openAiKey string = openAiAccount.listKeys().key1
