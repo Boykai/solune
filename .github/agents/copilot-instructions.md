@@ -265,7 +265,7 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 ## Active Technologies
 - Python 3.12+ (backend scripting, git operations), Bash (shell scripts), Markdown (documentation output) + Git CLI (diff, log, tag), existing `solune/docs/` structure, GitHub Issue templates, `lychee` or `markdown-link-check` (link validation) (003-librarian)
 - JSON metadata files (`.last-refresh`), Markdown files (`.change-manifest.md`, all docs), Git tags (`docs-refresh-YYYY-MM-DD`) (003-librarian)
-- Python 3.13 (backend), TypeScript ES2022 / React 18 (frontend) + FastAPI, Pydantic, Pyright (backend); Vite, Vitest, ESLint, TypeScript strict (frontend) (004-linting-cleanup)
+- Python 3.13 (backend), TypeScript ES2022 / React 19.2.0 (frontend) + FastAPI, Pydantic, Pyright (backend); Vite, Vitest, ESLint, TypeScript strict (frontend) (004-linting-cleanup)
 - SQLite via aiosqlite (backend) (004-linting-cleanup)
 - TypeScript ~6.0.2, React 19.2.0 + Tailwind CSS ^4.2.0, @radix-ui (popover, tooltip, hover-card), @dnd-kit (core ^6.3.1, sortable ^10.0.0), class-variance-authority ^0.7.1, tailwind-merge ^3.5.0, lucide-react ^1.7.0 (532-uiux-responsive-mobile-review)
 - N/A (frontend-only scope) (532-uiux-responsive-mobile-review)

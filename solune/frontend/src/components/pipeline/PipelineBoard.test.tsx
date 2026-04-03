@@ -204,93 +204,97 @@ describe('PipelineBoard', () => {
   });
 
   it('uses mobile-aware stage min-width (12rem) when matchMedia reports mobile', () => {
-    // Simulate mobile viewport via matchMedia
-    const origMatchMedia = window.matchMedia;
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(max-width: 767px)',
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })) as unknown as typeof window.matchMedia;
+    const matchMediaSpy = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation((query: string) => ({
+        matches: query === '(max-width: 767px)',
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as MediaQueryList);
 
-    renderPipelineBoard(
-      <PipelineBoard
-        columnCount={2}
-        stages={[createStage(), createStage({ id: 'stage-2', name: 'In Progress', order: 1 })]}
-        availableAgents={[]}
-        availableModels={[]}
-        isEditMode={true}
-        pipelineName="Mobile Pipeline"
-        projectId="project-1"
-        modelOverride={{ mode: 'auto', modelId: '', modelName: '' }}
-        validationErrors={{}}
-        onNameChange={vi.fn()}
-        onModelOverrideChange={vi.fn()}
-        onClearValidationError={vi.fn()}
-        onRemoveStage={vi.fn()}
-        onAddAgent={vi.fn()}
-        onRemoveAgent={vi.fn()}
-        onUpdateAgent={vi.fn()}
-        onUpdateStage={vi.fn()}
-        onReorderAgents={vi.fn()}
-      />
-    );
+    try {
+      renderPipelineBoard(
+        <PipelineBoard
+          columnCount={2}
+          stages={[createStage(), createStage({ id: 'stage-2', name: 'In Progress', order: 1 })]}
+          availableAgents={[]}
+          availableModels={[]}
+          isEditMode={true}
+          pipelineName="Mobile Pipeline"
+          projectId="project-1"
+          modelOverride={{ mode: 'auto', modelId: '', modelName: '' }}
+          validationErrors={{}}
+          onNameChange={vi.fn()}
+          onModelOverrideChange={vi.fn()}
+          onClearValidationError={vi.fn()}
+          onRemoveStage={vi.fn()}
+          onAddAgent={vi.fn()}
+          onRemoveAgent={vi.fn()}
+          onUpdateAgent={vi.fn()}
+          onUpdateStage={vi.fn()}
+          onReorderAgents={vi.fn()}
+        />
+      );
 
-    // Mobile should use 12rem min width (reduced from 14rem desktop)
-    expect(screen.getByTestId('pipeline-stage-grid')).toHaveStyle({
-      gridTemplateColumns: 'repeat(2, minmax(12rem, 1fr))',
-    });
-
-    window.matchMedia = origMatchMedia;
+      // Mobile should use 12rem min width (reduced from 14rem desktop)
+      expect(screen.getByTestId('pipeline-stage-grid')).toHaveStyle({
+        gridTemplateColumns: 'repeat(2, minmax(12rem, 1fr))',
+      });
+    } finally {
+      matchMediaSpy.mockRestore();
+    }
   });
 
   it('uses desktop stage min-width (14rem) on non-mobile screens', () => {
-    // Ensure matchMedia does NOT match the mobile query
-    const origMatchMedia = window.matchMedia;
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })) as unknown as typeof window.matchMedia;
+    const matchMediaSpy = vi
+      .spyOn(window, 'matchMedia')
+      .mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as MediaQueryList);
 
-    renderPipelineBoard(
-      <PipelineBoard
-        columnCount={2}
-        stages={[createStage(), createStage({ id: 'stage-2', name: 'In Progress', order: 1 })]}
-        availableAgents={[]}
-        availableModels={[]}
-        isEditMode={true}
-        pipelineName="Desktop Pipeline"
-        projectId="project-1"
-        modelOverride={{ mode: 'auto', modelId: '', modelName: '' }}
-        validationErrors={{}}
-        onNameChange={vi.fn()}
-        onModelOverrideChange={vi.fn()}
-        onClearValidationError={vi.fn()}
-        onRemoveStage={vi.fn()}
-        onAddAgent={vi.fn()}
-        onRemoveAgent={vi.fn()}
-        onUpdateAgent={vi.fn()}
-        onUpdateStage={vi.fn()}
-        onReorderAgents={vi.fn()}
-      />
-    );
+    try {
+      renderPipelineBoard(
+        <PipelineBoard
+          columnCount={2}
+          stages={[createStage(), createStage({ id: 'stage-2', name: 'In Progress', order: 1 })]}
+          availableAgents={[]}
+          availableModels={[]}
+          isEditMode={true}
+          pipelineName="Desktop Pipeline"
+          projectId="project-1"
+          modelOverride={{ mode: 'auto', modelId: '', modelName: '' }}
+          validationErrors={{}}
+          onNameChange={vi.fn()}
+          onModelOverrideChange={vi.fn()}
+          onClearValidationError={vi.fn()}
+          onRemoveStage={vi.fn()}
+          onAddAgent={vi.fn()}
+          onRemoveAgent={vi.fn()}
+          onUpdateAgent={vi.fn()}
+          onUpdateStage={vi.fn()}
+          onReorderAgents={vi.fn()}
+        />
+      );
 
-    // Desktop should use 14rem min width
-    expect(screen.getByTestId('pipeline-stage-grid')).toHaveStyle({
-      gridTemplateColumns: 'repeat(2, minmax(14rem, 1fr))',
-    });
-
-    window.matchMedia = origMatchMedia;
+      // Desktop should use 14rem min width
+      expect(screen.getByTestId('pipeline-stage-grid')).toHaveStyle({
+        gridTemplateColumns: 'repeat(2, minmax(14rem, 1fr))',
+      });
+    } finally {
+      matchMediaSpy.mockRestore();
+    }
   });
 
   it('applies responsive font scaling (text-base sm:text-lg) to pipeline name', () => {

@@ -3,15 +3,20 @@
  * Verifies responsive padding, form input widths, and overflow.
  */
 
-import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
+import { test, expect } from './authenticated-fixtures';
 import { VIEWPORTS } from './viewports';
+
+async function openSettingsPage(page: Page) {
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+}
 
 test.describe('Responsive Settings Layout', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`should render without overflow at ${name} (${viewport.width}x${viewport.height})`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await page.goto('/');
-      await expect(page.locator('body')).toBeVisible();
+      await openSettingsPage(page);
 
       // Check no horizontal scrollbar
       const overflows = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
@@ -21,8 +26,7 @@ test.describe('Responsive Settings Layout', () => {
 
   test('should not clip text at mobile viewport', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
+    await openSettingsPage(page);
 
     const textClipping = await page.evaluate(() => {
       const elements = document.querySelectorAll('p, span, h1, h2, h3, h4, h5, h6, label');
@@ -40,8 +44,7 @@ test.describe('Responsive Settings Layout', () => {
   // Visual regression: capture settings at mobile viewport
   test('visual regression — settings at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
+    await openSettingsPage(page);
     await expect(page).toHaveScreenshot('responsive-settings-mobile.png', {
       maxDiffPixels: 100,
     });

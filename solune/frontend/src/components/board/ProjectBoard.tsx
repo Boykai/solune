@@ -70,16 +70,20 @@ export function ProjectBoard({
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
-    // Defer initial check to avoid synchronous setState in effect body
-    const rafId = requestAnimationFrame(checkScrollFade);
     el.addEventListener('scroll', checkScrollFade, { passive: true });
     window.addEventListener('resize', checkScrollFade);
     return () => {
-      cancelAnimationFrame(rafId);
       el.removeEventListener('scroll', checkScrollFade);
       window.removeEventListener('resize', checkScrollFade);
     };
   }, [checkScrollFade]);
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(checkScrollFade);
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [checkScrollFade, columnCount, colMinWidth]);
 
   // Board projection for lazy loading large boards
   const {

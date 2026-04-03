@@ -122,16 +122,18 @@ describe('Sidebar', () => {
     expect(backdrop.className).toContain('z-[var(--z-sidebar-backdrop)]');
 
     // Sidebar aside should use the sidebar z-index token
-    const aside = screen.getByRole('dialog');
+    const aside = screen.getByLabelText('Sidebar navigation');
     expect(aside.className).toContain('z-[var(--z-sidebar)]');
   });
 
-  it('renders mobile sidebar as a dialog with aria-modal and accessible name', () => {
+  it('renders mobile sidebar as a labelled navigation surface', () => {
     renderSidebar({ isMobile: true, isCollapsed: false });
 
-    const aside = screen.getByRole('dialog', { name: 'Sidebar navigation' });
-    expect(aside).toHaveAttribute('aria-modal', 'true');
+    const aside = screen.getByLabelText('Sidebar navigation');
+    expect(aside.tagName).toBe('ASIDE');
     expect(aside).toHaveAttribute('aria-label', 'Sidebar navigation');
+    expect(aside).not.toHaveAttribute('aria-modal');
+    expect(aside).not.toHaveAttribute('role', 'dialog');
   });
 
   it('calls onToggle when mobile backdrop is clicked', () => {

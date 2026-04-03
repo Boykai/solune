@@ -3,15 +3,22 @@
  * Verifies grid gap scaling, card stacking, and overflow behavior.
  */
 
-import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
+import { test, expect } from './authenticated-fixtures';
 import { VIEWPORTS } from './viewports';
+
+const CHORES_TITLE = 'Turn upkeep into a visible rhythm.';
+
+async function openChoresPage(page: Page) {
+  await page.goto('/chores');
+  await expect(page.getByText(CHORES_TITLE)).toBeVisible();
+}
 
 test.describe('Responsive Chores Layout', () => {
   for (const [name, viewport] of Object.entries(VIEWPORTS)) {
     test(`should render without overflow at ${name} (${viewport.width}x${viewport.height})`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await page.goto('/');
-      await expect(page.locator('body')).toBeVisible();
+      await openChoresPage(page);
 
       // Verify no horizontal overflow
       const overflows = await page.evaluate(() => document.body.scrollWidth > window.innerWidth);
@@ -20,16 +27,13 @@ test.describe('Responsive Chores Layout', () => {
 
     test(`should have readable text at ${name} viewport`, async ({ page }) => {
       await page.setViewportSize(viewport);
-      await page.goto('/');
-      const h1 = page.locator('h1');
-      await expect(h1).toBeVisible();
+      await openChoresPage(page);
     });
   }
 
   test('should not have clipped text at mobile viewport', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
+    await openChoresPage(page);
 
     // Check that all visible text containers are within the viewport width
     const textClipping = await page.evaluate(() => {
@@ -48,8 +52,7 @@ test.describe('Responsive Chores Layout', () => {
   // Visual regression: capture chores layout at mobile viewport
   test('visual regression — chores at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
+    await openChoresPage(page);
     await expect(page).toHaveScreenshot('responsive-chores-mobile.png', {
       maxDiffPixels: 100,
     });

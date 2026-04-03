@@ -53,8 +53,6 @@ export function Sidebar({
         />
         <aside
           className="fixed inset-y-0 left-0 z-[var(--z-sidebar)] flex w-60 flex-col border-r border-border/70 bg-background shadow-xl"
-          aria-modal="true"
-          role="dialog"
           aria-label="Sidebar navigation"
         >
           {renderSidebarContent()}
@@ -66,6 +64,7 @@ export function Sidebar({
   return (
     <aside
       className={cn('celestial-panel relative flex h-full shrink-0 flex-col border-r border-border/70 transition-all duration-300', isCollapsed ? 'w-16' : 'w-60')}
+      aria-label="Sidebar navigation"
     >
       {renderSidebarContent()}
     </aside>

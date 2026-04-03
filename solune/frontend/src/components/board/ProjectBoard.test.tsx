@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { act, render, screen, waitFor } from '@/test/test-utils';
 import { ProjectBoard } from './ProjectBoard';
 import type { BoardDataResponse, BoardItem } from '@/types';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -168,7 +168,7 @@ describe('ProjectBoard', () => {
   });
 
   it('uses 14rem grid min-width on mobile', () => {
-    vi.mocked(useMediaQuery).mockReturnValue(true);
+    vi.mocked(useMediaQuery).mockReturnValueOnce(true);
 
     render(
       <ProjectBoard
@@ -183,7 +183,76 @@ describe('ProjectBoard', () => {
     expect(grid.style.gridTemplateColumns).toBe(
       'repeat(2, minmax(min(14rem, 85vw), 1fr))'
     );
+  });
 
-    vi.mocked(useMediaQuery).mockReturnValue(false);
+  it('recomputes the scroll fade when the board layout changes', async () => {
+    const requestAnimationFrameSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    const cancelAnimationFrameSpy = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => undefined);
+
+    const clientWidth = 320;
+    let scrollWidth = 320;
+    let scrollLeft = 0;
+
+    const clientWidthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function clientWidthGetter(this: HTMLElement) {
+      return this.getAttribute('aria-label') === 'Project board' ? clientWidth : 0;
+    });
+    const scrollWidthSpy = vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function scrollWidthGetter(this: HTMLElement) {
+      return this.getAttribute('aria-label') === 'Project board' ? scrollWidth : 0;
+    });
+    const scrollLeftSpy = vi.spyOn(HTMLElement.prototype, 'scrollLeft', 'get').mockImplementation(function scrollLeftGetter(this: HTMLElement) {
+      return this.getAttribute('aria-label') === 'Project board' ? scrollLeft : 0;
+    });
+
+    try {
+      const { container, rerender } = render(
+        <ProjectBoard
+          boardData={createBoardData({
+            columns: [
+              {
+                status: { option_id: 'col-1', name: 'To Do', color: 'GRAY' },
+                items: [],
+                item_count: 0,
+                estimate_total: 0,
+              },
+            ],
+          })}
+          onCardClick={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(container.querySelector('.bg-gradient-to-l')).toBeNull();
+      });
+
+      scrollWidth = 640;
+      rerender(
+        <ProjectBoard
+          boardData={createBoardData()}
+          onCardClick={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(container.querySelector('.bg-gradient-to-l')).toBeInTheDocument();
+      });
+
+      scrollLeft = 320;
+      act(() => {
+        screen.getByRole('region', { name: 'Project board' }).dispatchEvent(new Event('scroll'));
+      });
+
+      await waitFor(() => {
+        expect(container.querySelector('.bg-gradient-to-l')).toBeNull();
+      });
+    } finally {
+      scrollLeftSpy.mockRestore();
+      scrollWidthSpy.mockRestore();
+      clientWidthSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
+      requestAnimationFrameSpy.mockRestore();
+    }
   });
 });
