@@ -76,7 +76,9 @@ class TestListChores:
         """GET returns only chores belonging to the requesting user."""
         await _insert_chore(mock_db, project_id="PVT_1", name="Chore A")
         await _insert_chore(mock_db, project_id="PVT_1", name="Chore B")
-        await _insert_chore(mock_db, project_id="PVT_2", name="Other Project Chore", github_user_id="other-user")
+        await _insert_chore(
+            mock_db, project_id="PVT_2", name="Other Project Chore", github_user_id="other-user"
+        )
 
         resp = await client.get("/api/v1/chores/PVT_1")
         assert resp.status_code == 200
@@ -88,7 +90,9 @@ class TestListChores:
     @pytest.mark.anyio
     async def test_project_isolation(self, client, mock_db):
         """Chores from other users are not returned."""
-        await _insert_chore(mock_db, project_id="PVT_2", name="Foreign Chore", github_user_id="other-user")
+        await _insert_chore(
+            mock_db, project_id="PVT_2", name="Foreign Chore", github_user_id="other-user"
+        )
 
         resp = await client.get("/api/v1/chores/PVT_1")
         assert resp.status_code == 200

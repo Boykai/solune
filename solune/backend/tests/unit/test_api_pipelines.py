@@ -15,7 +15,9 @@ from src.models.pipeline import (
 from src.services.pipelines.service import PipelineService
 
 
-async def _create_pipeline(mock_db, project_id: str = "PVT_1", github_user_id: str = "12345") -> str:
+async def _create_pipeline(
+    mock_db, project_id: str = "PVT_1", github_user_id: str = "12345"
+) -> str:
     """Create a saved pipeline for route tests and return its ID."""
     service = PipelineService(mock_db)
     pipeline = await service.create_pipeline(
