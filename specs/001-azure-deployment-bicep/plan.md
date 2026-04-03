@@ -12,9 +12,9 @@ Deploy the full Solune stack (FastAPI backend, React/nginx frontend, Signal side
 **Language/Version**: Bicep (Azure Bicep CLI latest) + ARM JSON (compiled output)
 **Primary Dependencies**: Azure Container Apps, Azure OpenAI, Azure AI Foundry, Azure Key Vault, Azure Container Registry, Azure Storage, Log Analytics, Application Insights
 **Storage**: SQLite on Azure Files (solune-data share); Signal config on Azure Files (signal-config share)
-**Testing**: `az bicep lint`, `az deployment sub what-if`, `azd provision --preview`
+**Testing**: `az bicep lint`, `az deployment group what-if`, `azd provision --preview`
 **Target Platform**: Azure (Container Apps managed environment)
-**Project Type**: Infrastructure-as-Code (IaC) — no application code changes
+**Project Type**: Infrastructure-as-Code (IaC) with minimal frontend container changes (nginx template + entrypoint for configurable backend origin)
 **Performance Goals**: N/A (infrastructure provisioning; runtime performance governed by Container Apps scaling rules: backend 1–3 replicas @ 1 CPU/2Gi, frontend 1–2 replicas @ 0.5 CPU/1Gi)
 **Constraints**: No hardcoded secrets in container env vars; all secrets via Key Vault refs + managed identity; ARM JSON required for portal deploy button
 **Scale/Scope**: 3 Container Apps, 8 Bicep modules, ~15 Azure resources total
@@ -79,7 +79,7 @@ solune/frontend/Dockerfile           # Frontend image (port 8080)
 docker-compose.yml                   # Local development (unchanged)
 ```
 
-**Structure Decision**: Infrastructure-as-Code project using `infra/` directory at repository root with modular Bicep files. This follows Azure azd conventions (azure.yaml + infra/). No application source code changes — all 3 existing Dockerfiles are reused as-is. The `infra/modules/` pattern is standard for Bicep modular design.
+**Structure Decision**: Infrastructure-as-Code project using `infra/` directory at repository root with modular Bicep files. This follows Azure azd conventions (azure.yaml + infra/). Frontend container receives minor changes (nginx.conf template + entrypoint.sh) to support configurable backend origin. All 3 existing Dockerfiles are adapted as needed. The `infra/modules/` pattern is standard for Bicep modular design.
 
 ## Constitution Check — Post-Design Re-Evaluation
 

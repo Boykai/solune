@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/001-azure-deployment-bicep/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Not required — IaC-only feature. Validation via `az bicep lint`, `az deployment sub what-if`, and `azd provision --preview` (see Constitution Check IV. Test Optionality in plan.md).
+**Tests**: Not required — IaC-only feature. Validation via `az bicep lint`, `az deployment group what-if`, and `azd provision --preview` (see Constitution Check IV. Test Optionality in plan.md).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -126,15 +126,15 @@
 
 ## Phase 8: User Story 6 — Automated CI/CD Pipeline (Priority: P3)
 
-**Goal**: Every push to main triggers automated Azure provisioning and deployment via GitHub Actions with OIDC federated credentials — no static secrets in GitHub.
+**Goal**: Manual-triggered Azure provisioning and deployment via GitHub Actions with OIDC federated credentials — no static secrets in GitHub. Uses `workflow_dispatch` for controlled deployments; push-to-main trigger can be added later.
 
-**Independent Test**: Verify workflow file syntax. Push a test commit to main → GitHub Actions run completes with OIDC authentication → `azd provision` + `azd deploy` succeed.
+**Independent Test**: Verify workflow file syntax. Trigger workflow manually → GitHub Actions run completes with OIDC authentication → `azd provision` + `azd deploy` succeed.
 
 ### Implementation for User Story 6
 
-- [x] T023 [US6] Create GitHub Actions workflow with OIDC federated credentials for Azure, running `azd provision` + `azd deploy` on push to main in `.github/workflows/deploy-azure.yml`
+- [x] T023 [US6] Create GitHub Actions workflow with OIDC federated credentials for Azure, running `azd provision` + `azd deploy` via manual `workflow_dispatch` trigger in `.github/workflows/deploy-azure.yml`
 
-**Checkpoint**: Automated CI/CD pipeline deploys on push to main with zero static secrets
+**Checkpoint**: CI/CD pipeline available via manual dispatch with zero static secrets
 
 ---
 

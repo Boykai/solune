@@ -39,21 +39,22 @@
 - Store: GITHUB_CLIENT_SECRET, SESSION_SECRET_KEY, ENCRYPTION_KEY, GITHUB_WEBHOOK_SECRET
 - Never pass @secure parameter values to container environment directly
 
-### 3. Azure OpenAI — Deployment with Managed Identity Authentication
+### 3. Azure OpenAI — Deployment with API Key Authentication
 
-**Decision**: Use `Microsoft.CognitiveServices/accounts` (kind: `OpenAI`) with a `Microsoft.CognitiveServices/accounts/deployments` for gpt-4o model. Authenticate via managed identity with `Cognitive Services OpenAI User` role.
+**Decision**: Use `Microsoft.CognitiveServices/accounts` (kind: `OpenAI`) with a `Microsoft.CognitiveServices/accounts/deployments` for gpt-4o model. Authenticate using the Azure OpenAI API key required by the current backend implementation, and store that key in Key Vault for injection into the backend as `AZURE_OPENAI_KEY`.
 
-**Rationale**: Managed identity authentication eliminates API key management. The `azure_openai` AI provider in the Solune backend already supports Azure OpenAI endpoint + deployment name configuration. Using managed identity means no AZURE_OPENAI_KEY needed at all — the backend uses `DefaultAzureCredential`.
+**Rationale**: The current Solune backend configuration requires `AZURE_OPENAI_KEY` at startup and the `AzureOpenAICompletionProvider` uses static API-key authentication. The deployment provisions the Azure OpenAI account and model, retrieves the service key securely via `listKeys()`, stores it in Key Vault, and references it from the backend Container App via Key Vault secret ref. Managed identity authentication (via `DefaultAzureCredential`) is a desirable future enhancement but would require backend code changes before `AZURE_OPENAI_KEY` can be removed.
 
 **Alternatives Considered**:
-- **API key authentication**: Works but requires key rotation management and Key Vault storage.
+- **Managed identity authentication**: Preferred long-term because it avoids API key rotation and secret distribution, but not supported by the current backend implementation without code changes.
 - **GitHub Copilot SDK**: Requires per-user OAuth tokens; not suitable for server-side production use.
 
 **Best Practices Applied**:
 - Use `S0` SKU for OpenAI (standard tier)
 - Set deployment capacity via parameter (default: 10 TPM units)
 - Use `2024-08-06` model version or latest available
-- Assign `Cognitive Services OpenAI User` role to managed identity (not `Contributor`)
+- Store the Azure OpenAI API key in Key Vault and reference it securely from the backend Container App as `AZURE_OPENAI_KEY`
+- Assign `Cognitive Services OpenAI User` role to managed identity for future managed-identity auth support
 
 ### 4. Azure AI Foundry — Hub + Project Configuration
 

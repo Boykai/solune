@@ -42,17 +42,18 @@ A platform operator deploying Solune to Azure needs assurance that no secrets (A
 
 ### User Story 3 - Azure OpenAI-Powered AI Features (Priority: P1)
 
-A Solune user on the Azure deployment accesses AI generation features (e.g., generating board content). The system uses Azure OpenAI with a dedicated gpt-4o model deployment, authenticated via managed identity. This provides reliable, production-grade AI without requiring individual user OAuth tokens.
+A Solune user on the Azure deployment accesses AI generation features (e.g., generating board content). The system uses Azure OpenAI with a dedicated gpt-4o model deployment. The backend authenticates to Azure OpenAI using an `AZURE_OPENAI_KEY` secret that is provisioned and stored in Azure Key Vault as part of the deployment. This provides reliable, production-grade AI without requiring individual user OAuth tokens.
 
 **Why this priority**: AI generation is a core Solune feature. Using Azure OpenAI (instead of Copilot SDK) ensures reliable production access without per-user token management, making it critical for the Azure deployment path.
 
-**Independent Test**: Can be tested by logging into the deployed Solune instance, navigating to a board, and triggering AI content generation. Backend logs confirm requests route to Azure OpenAI and succeed.
+**Independent Test**: Can be tested by logging into the deployed Solune instance, navigating to a board, and triggering AI content generation. Backend logs confirm requests route to Azure OpenAI and succeed using the configured API key.
 
 **Acceptance Scenarios**:
 
 1. **Given** the backend is configured with AI_PROVIDER=azure_openai, **When** a user triggers AI content generation from the Solune UI, **Then** the request is sent to the Azure OpenAI endpoint (not Copilot SDK).
-2. **Given** the Azure OpenAI account has a gpt-4o model deployment, **When** the backend sends a generation request, **Then** it authenticates via managed identity (Cognitive Services OpenAI User role) and receives a successful response.
+2. **Given** the Azure OpenAI account has a gpt-4o model deployment and the `AZURE_OPENAI_KEY` secret is provisioned in Key Vault, **When** the backend sends a generation request, **Then** it authenticates using the configured Azure OpenAI API key and receives a successful response.
 3. **Given** the Azure OpenAI service is temporarily unavailable, **When** a user triggers AI generation, **Then** the system displays a user-friendly error message indicating the service is temporarily unavailable.
+4. **Note**: Direct managed-identity authentication to Azure OpenAI is a future enhancement requiring backend code changes before the `AZURE_OPENAI_KEY` dependency can be removed.
 
 ---
 
@@ -89,15 +90,15 @@ A developer prefers command-line workflows over the Azure Portal. They clone the
 
 ### User Story 6 - Automated CI/CD Pipeline (Priority: P3)
 
-A development team wants automated deployments so that every push to the main branch triggers an Azure provisioning and deployment cycle. Authentication uses OIDC federated credentials — no static secrets stored in GitHub.
+A development team wants controlled deployments triggered via GitHub Actions. The workflow uses OIDC federated credentials — no static secrets stored in GitHub. Deployments are triggered manually via `workflow_dispatch` for safety, allowing teams to control when infrastructure changes are applied.
 
-**Why this priority**: Automation is a best practice but not required for initial deployment. Teams can manually deploy first and add CI/CD later. This is optional and can be developed in parallel.
+**Why this priority**: Automation is a best practice but not required for initial deployment. Teams can manually deploy first and add CI/CD later. Manual dispatch is the safer default for IaC; a push-to-main trigger can be added once teams are confident. This is optional and can be developed in parallel.
 
-**Independent Test**: Can be tested by verifying the workflow file syntax, then pushing a test commit to main and confirming the GitHub Actions run completes successfully with OIDC authentication.
+**Independent Test**: Can be tested by verifying the workflow file syntax, then manually triggering the workflow and confirming the GitHub Actions run completes successfully with OIDC authentication.
 
 **Acceptance Scenarios**:
 
-1. **Given** the CI/CD workflow file exists, **When** a developer pushes to the main branch, **Then** the workflow triggers and runs `azd provision` followed by `azd deploy`.
+1. **Given** the CI/CD workflow file exists, **When** a team member triggers the workflow manually via `workflow_dispatch`, **Then** the workflow runs `azd provision` followed by `azd deploy`.
 2. **Given** OIDC federated credentials are configured in the GitHub repository, **When** the workflow authenticates with Azure, **Then** no static secrets are used — only OIDC token exchange.
 
 ---

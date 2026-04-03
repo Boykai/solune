@@ -26,30 +26,35 @@
     },
     "githubClientId": {
       "type": "string",
+      "minLength": 1,
       "metadata": {
         "description": "GitHub OAuth App Client ID."
       }
     },
     "githubClientSecret": {
       "type": "securestring",
+      "minLength": 1,
       "metadata": {
         "description": "GitHub OAuth App Client Secret — stored in Key Vault, never exposed in container env vars."
       }
     },
     "sessionSecretKey": {
       "type": "securestring",
+      "minLength": 1,
       "metadata": {
         "description": "Session encryption key (64+ character hex string)."
       }
     },
     "encryptionKey": {
       "type": "securestring",
+      "minLength": 1,
       "metadata": {
         "description": "Fernet encryption key for token-at-rest encryption."
       }
     },
     "adminGitHubUserId": {
       "type": "string",
+      "minLength": 1,
       "metadata": {
         "description": "Numeric GitHub user ID of the admin account."
       }
@@ -70,6 +75,7 @@
     },
     "githubWebhookSecret": {
       "type": "securestring",
+      "minLength": 1,
       "metadata": {
         "description": "GitHub Webhook secret for verifying webhook payloads — stored in Key Vault."
       }
@@ -364,7 +370,7 @@
             {
               "type": "Microsoft.ContainerRegistry/registries",
               "apiVersion": "2023-07-01",
-              "name": "[replace(format('{0}acr', parameters('environmentName')), '-', '')]",
+              "name": "[toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "sku": {
@@ -380,15 +386,15 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', replace(format('{0}acr', parameters('environmentName')), '-', ''))]",
-              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', replace(format('{0}acr', parameters('environmentName')), '-', '')), parameters('identityPrincipalId'), variables('acrPullRoleId'))]",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', '')))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))), parameters('identityPrincipalId'), variables('acrPullRoleId'))]",
               "properties": {
                 "principalId": "[parameters('identityPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleId'))]",
                 "principalType": "ServicePrincipal"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.ContainerRegistry/registries', replace(format('{0}acr', parameters('environmentName')), '-', ''))]"
+                "[resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', '')))]"
               ],
               "metadata": {
                 "description": "Assigns AcrPull role to the managed identity on the container registry."
@@ -401,14 +407,14 @@
               "metadata": {
                 "description": "Name of the container registry."
               },
-              "value": "[replace(format('{0}acr', parameters('environmentName')), '-', '')]"
+              "value": "[toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))]"
             },
             "registryLoginServer": {
               "type": "string",
               "metadata": {
                 "description": "Login server URL for the container registry."
               },
-              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', replace(format('{0}acr', parameters('environmentName')), '-', '')), '2023-07-01').loginServer]"
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))), '2023-07-01').loginServer]"
             }
           }
         }
@@ -933,7 +939,7 @@
             {
               "type": "Microsoft.Storage/storageAccounts",
               "apiVersion": "2023-05-01",
-              "name": "[replace(format('st{0}', parameters('environmentName')), '-', '')]",
+              "name": "[toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "kind": "StorageV2",
@@ -952,9 +958,9 @@
             {
               "type": "Microsoft.Storage/storageAccounts/fileServices",
               "apiVersion": "2023-05-01",
-              "name": "[format('{0}/{1}', replace(format('st{0}', parameters('environmentName')), '-', ''), 'default')]",
+              "name": "[format('{0}/{1}', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default')]",
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('st{0}', parameters('environmentName')), '-', ''))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]"
               ],
               "metadata": {
                 "description": "File service for the storage account."
@@ -963,12 +969,12 @@
             {
               "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
               "apiVersion": "2023-05-01",
-              "name": "[format('{0}/{1}/{2}', replace(format('st{0}', parameters('environmentName')), '-', ''), 'default', 'solune-data')]",
+              "name": "[format('{0}/{1}/{2}', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default', 'solune-data')]",
               "properties": {
                 "shareQuota": 1
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', replace(format('st{0}', parameters('environmentName')), '-', ''), 'default')]"
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default')]"
               ],
               "metadata": {
                 "description": "Azure Files share for Solune SQLite database persistence (1 GiB)."
@@ -977,12 +983,12 @@
             {
               "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
               "apiVersion": "2023-05-01",
-              "name": "[format('{0}/{1}/{2}', replace(format('st{0}', parameters('environmentName')), '-', ''), 'default', 'signal-config')]",
+              "name": "[format('{0}/{1}/{2}', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default', 'signal-config')]",
               "properties": {
                 "shareQuota": 1
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', replace(format('st{0}', parameters('environmentName')), '-', ''), 'default')]"
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default')]"
               ],
               "metadata": {
                 "description": "Azure Files share for Signal CLI configuration (1 GiB)."
@@ -991,15 +997,15 @@
             {
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.Storage/storageAccounts', replace(format('st{0}', parameters('environmentName')), '-', ''))]",
-              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', replace(format('st{0}', parameters('environmentName')), '-', '')), parameters('identityPrincipalId'), variables('storageSmbContributorRoleId'))]",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))), parameters('identityPrincipalId'), variables('storageSmbContributorRoleId'))]",
               "properties": {
                 "principalId": "[parameters('identityPrincipalId')]",
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageSmbContributorRoleId'))]",
                 "principalType": "ServicePrincipal"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Storage/storageAccounts', replace(format('st{0}', parameters('environmentName')), '-', ''))]"
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]"
               ],
               "metadata": {
                 "description": "Assigns Storage File Data SMB Share Contributor role to the managed identity."
@@ -1012,21 +1018,21 @@
               "metadata": {
                 "description": "Name of the storage account."
               },
-              "value": "[replace(format('st{0}', parameters('environmentName')), '-', '')]"
+              "value": "[toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))]"
             },
             "storageAccountId": {
               "type": "string",
               "metadata": {
                 "description": "Resource ID of the storage account — used by AI Foundry."
               },
-              "value": "[resourceId('Microsoft.Storage/storageAccounts', replace(format('st{0}', parameters('environmentName')), '-', ''))]"
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]"
             },
             "storageAccountKey": {
               "type": "string",
               "metadata": {
                 "description": "Access key for the storage account — used by Container Apps for Azure Files volume mounts."
               },
-              "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', replace(format('st{0}', parameters('environmentName')), '-', '')), '2023-05-01').keys[0].value]"
+              "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))), '2023-05-01').keys[0].value]"
             }
           }
         }

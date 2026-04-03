@@ -109,8 +109,8 @@ az containerapp show --name ca-frontend-solune-prod --resource-group rg-solune-p
 # Check all container apps are running
 az containerapp list --resource-group rg-solune-prod -o table
 
-# Check backend health
-curl https://<backend-internal-fqdn>/api/v1/health
+# Check backend health (via frontend proxy — backend uses internal ingress)
+curl https://<frontend-fqdn>/api/v1/health
 
 # Check frontend health (external)
 curl https://<frontend-fqdn>/health

@@ -12,7 +12,7 @@ param identityPrincipalId string
 
 @description('Azure Container Registry for hosting container images (Basic SKU, admin disabled).')
 resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
-  name: replace('${environmentName}acr', '-', '')
+  name: toLower(replace('${environmentName}acr', '-', ''))
   location: location
   tags: tags
   sku: {
