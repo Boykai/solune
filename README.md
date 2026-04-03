@@ -132,8 +132,6 @@ azd up
 After deployment, update your GitHub OAuth App callback URL to:
 `https://<frontend-fqdn>/api/v1/auth/github/callback`
 
-See the [Azure Quick Start Guide](specs/001-azure-deployment-bicep/quickstart.md) for detailed instructions.
-
 ## Built With
 
 | Component | Technology |
