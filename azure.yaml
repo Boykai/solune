@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: solune
+metadata:
+  template: solune-azure-deployment
+services:
+  backend:
+    project: ./solune/backend
+    host: containerapp
+    docker:
+      path: Dockerfile
+    resourceName: ${AZURE_ENV_NAME}-ca-backend
+  frontend:
+    project: ./solune/frontend
+    host: containerapp
+    docker:
+      path: Dockerfile
+    resourceName: ${AZURE_ENV_NAME}-ca-frontend
+  signal-api:
+    host: containerapp
+    image: docker.io/bbernhard/signal-cli-rest-api:0.98
+    resourceName: ${AZURE_ENV_NAME}-ca-signal
+infra:
+  provider: bicep
+  path: infra
+  module: main

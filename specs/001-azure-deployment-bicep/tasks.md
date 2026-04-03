@@ -23,9 +23,9 @@
 
 **Purpose**: Create the foundational project structure, azd manifest, and parameter definitions
 
-- [ ] T001 Create `infra/` and `infra/modules/` directory structure at repository root
-- [ ] T002 Create azd service manifest defining backend, frontend, and signal-api services in `azure.yaml`
-- [ ] T003 Create Bicep parameter file with environmentName, location, githubClientId, githubClientSecret (@secure), sessionSecretKey (@secure), encryptionKey (@secure), adminGitHubUserId, openAiModelName, and deployCapacity in `infra/main.bicepparam`
+- [x] T001 Create `infra/` and `infra/modules/` directory structure at repository root
+- [x] T002 Create azd service manifest defining backend, frontend, and signal-api services in `azure.yaml`
+- [x] T003 Create Bicep parameter file with environmentName, location, githubClientId, githubClientSecret (@secure), sessionSecretKey (@secure), encryptionKey (@secure), adminGitHubUserId, openAiModelName, and deployCapacity in `infra/main.bicepparam`
 
 ---
 
@@ -35,14 +35,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Create user-assigned managed identity resource in `infra/modules/identity.bicep` with parameters (environmentName, location, tags) and output (identityId, identityPrincipalId, identityClientId)
-- [ ] T005 [P] Create Log Analytics Workspace + Application Insights in `infra/modules/monitoring.bicep` with parameters (environmentName, location, tags) and outputs (workspaceId, workspaceCustomerId, workspaceSharedKey, appInsightsConnectionString)
-- [ ] T006 [P] Create Azure Container Registry (Basic SKU, admin disabled) + AcrPull role assignment for managed identity in `infra/modules/registry.bicep` with parameters (environmentName, location, tags, identityPrincipalId) and outputs (registryName, registryLoginServer)
-- [ ] T007 [P] Create Azure Key Vault (RBAC auth, purge protection, 90-day soft-delete) + secrets (github-client-id, github-client-secret, session-secret-key, encryption-key) + Key Vault Secrets User role in `infra/modules/keyvault.bicep` with parameters (environmentName, location, tags, identityPrincipalId, githubClientId, githubClientSecret, sessionSecretKey, encryptionKey) and outputs (vaultName, vaultUri)
-- [ ] T008 [P] Create Azure OpenAI account (S0 SKU) + gpt-4o model deployment + Cognitive Services OpenAI User role in `infra/modules/openai.bicep` with parameters (environmentName, location, tags, identityPrincipalId, openAiModelName, deployCapacity) and outputs (openAiEndpoint, openAiDeploymentName)
-- [ ] T009 [P] Create AI Foundry Hub + Project (linked to OpenAI, Key Vault, Storage, Log Analytics) + Azure AI Developer role in `infra/modules/ai-foundry.bicep` with parameters (environmentName, location, tags, identityPrincipalId, openAiAccountId, keyVaultId, storageAccountId, workspaceId) and outputs (hubName, projectName)
-- [ ] T010 [P] Create Storage Account (StorageV2, Standard_LRS) + Azure Files shares (solune-data 1GiB, signal-config 1GiB) + Storage File Data SMB Share Contributor role in `infra/modules/storage.bicep` with parameters (environmentName, location, tags, identityPrincipalId) and outputs (storageAccountName, storageAccountId)
-- [ ] T011 [P] Create Container Apps Environment + 3 container apps (backend, frontend, signal-api) with ingress, scaling, health probes, Key Vault refs, Azure Files volumes, and managed identity in `infra/modules/container-apps.bicep` with parameters (environmentName, location, tags, identityId, identityClientId, registryLoginServer, workspaceCustomerId, workspaceSharedKey, vaultName, openAiEndpoint, openAiDeploymentName, storageAccountName, storageAccountKey, adminGitHubUserId) and outputs (frontendFqdn, backendFqdn, signalApiFqdn)
+- [x] T004 [P] Create user-assigned managed identity resource in `infra/modules/identity.bicep` with parameters (environmentName, location, tags) and output (identityId, identityPrincipalId, identityClientId)
+- [x] T005 [P] Create Log Analytics Workspace + Application Insights in `infra/modules/monitoring.bicep` with parameters (environmentName, location, tags) and outputs (workspaceId, workspaceCustomerId, workspaceSharedKey, appInsightsConnectionString)
+- [x] T006 [P] Create Azure Container Registry (Basic SKU, admin disabled) + AcrPull role assignment for managed identity in `infra/modules/registry.bicep` with parameters (environmentName, location, tags, identityPrincipalId) and outputs (registryName, registryLoginServer)
+- [x] T007 [P] Create Azure Key Vault (RBAC auth, purge protection, 90-day soft-delete) + secrets (github-client-id, github-client-secret, session-secret-key, encryption-key) + Key Vault Secrets User role in `infra/modules/keyvault.bicep` with parameters (environmentName, location, tags, identityPrincipalId, githubClientId, githubClientSecret, sessionSecretKey, encryptionKey) and outputs (vaultName, vaultUri)
+- [x] T008 [P] Create Azure OpenAI account (S0 SKU) + gpt-4o model deployment + Cognitive Services OpenAI User role in `infra/modules/openai.bicep` with parameters (environmentName, location, tags, identityPrincipalId, openAiModelName, deployCapacity) and outputs (openAiEndpoint, openAiDeploymentName)
+- [x] T009 [P] Create AI Foundry Hub + Project (linked to OpenAI, Key Vault, Storage, Log Analytics) + Azure AI Developer role in `infra/modules/ai-foundry.bicep` with parameters (environmentName, location, tags, identityPrincipalId, openAiAccountId, keyVaultId, storageAccountId, workspaceId) and outputs (hubName, projectName)
+- [x] T010 [P] Create Storage Account (StorageV2, Standard_LRS) + Azure Files shares (solune-data 1GiB, signal-config 1GiB) + Storage File Data SMB Share Contributor role in `infra/modules/storage.bicep` with parameters (environmentName, location, tags, identityPrincipalId) and outputs (storageAccountName, storageAccountId)
+- [x] T011 [P] Create Container Apps Environment + 3 container apps (backend, frontend, signal-api) with ingress, scaling, health probes, Key Vault refs, Azure Files volumes, and managed identity in `infra/modules/container-apps.bicep` with parameters (environmentName, location, tags, identityId, identityClientId, registryLoginServer, workspaceCustomerId, workspaceSharedKey, vaultName, openAiEndpoint, openAiDeploymentName, storageAccountName, storageAccountKey, adminGitHubUserId) and outputs (frontendFqdn, backendFqdn, signalApiFqdn)
 
 **Checkpoint**: All Bicep modules exist as independent, lintable files with defined interfaces
 
@@ -56,9 +56,9 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Create main Bicep orchestrator that wires all modules together — managed identity, monitoring, registry, key vault, openai, ai-foundry, storage, container-apps — passes outputs between modules and tags all resources with azd-env-name in `infra/main.bicep`
-- [ ] T013 [US1] Compile `infra/main.bicep` to ARM JSON template via `az bicep build` and save to `infra/azuredeploy.json`
-- [ ] T014 [US1] Add "Deploy to Azure" button badge at top of Quick Start section and new "Azure Deployment" section with prerequisites, one-click button (URL-encoded link to azuredeploy.json), azd up alternative, and post-deployment OAuth redirect URI configuration in `README.md`
+- [x] T012 [US1] Create main Bicep orchestrator that wires all modules together — managed identity, monitoring, registry, key vault, openai, ai-foundry, storage, container-apps — passes outputs between modules and tags all resources with azd-env-name in `infra/main.bicep`
+- [x] T013 [US1] Compile `infra/main.bicep` to ARM JSON template via `az bicep build` and save to `infra/azuredeploy.json`
+- [x] T014 [US1] Add "Deploy to Azure" button badge at top of Quick Start section and new "Azure Deployment" section with prerequisites, one-click button (URL-encoded link to azuredeploy.json), azd up alternative, and post-deployment OAuth redirect URI configuration in `README.md`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional — deploy button in README → Azure Portal form → all resources provisioned → frontend accessible
 
@@ -72,8 +72,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Verify and refine Key Vault secret references in backend container app configuration — ensure env vars (GITHUB_CLIENT_SECRET, SESSION_SECRET_KEY, ENCRYPTION_KEY) use `secretRef` pointing to Key Vault secrets, not literal values, in `infra/modules/container-apps.bicep`
-- [ ] T016 [US2] Verify managed identity role assignment for Key Vault Secrets User is correctly scoped and that the identity is assigned to the backend container app in `infra/modules/keyvault.bicep` and `infra/modules/container-apps.bicep`
+- [x] T015 [US2] Verify and refine Key Vault secret references in backend container app configuration — ensure env vars (GITHUB_CLIENT_SECRET, SESSION_SECRET_KEY, ENCRYPTION_KEY) use `secretRef` pointing to Key Vault secrets, not literal values, in `infra/modules/container-apps.bicep`
+- [x] T016 [US2] Verify managed identity role assignment for Key Vault Secrets User is correctly scoped and that the identity is assigned to the backend container app in `infra/modules/keyvault.bicep` and `infra/modules/container-apps.bicep`
 
 **Checkpoint**: At this point, no secrets are exposed in container env vars — only Key Vault refs + managed identity
 
@@ -87,8 +87,8 @@
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Verify and refine Azure OpenAI environment variable wiring in backend container app — ensure AI_PROVIDER=azure_openai, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_DEPLOYMENT are set from OpenAI module outputs in `infra/modules/container-apps.bicep`
-- [ ] T018 [US3] Verify Cognitive Services OpenAI User role assignment is correctly scoped to the OpenAI account for the managed identity in `infra/modules/openai.bicep`
+- [x] T017 [US3] Verify and refine Azure OpenAI environment variable wiring in backend container app — ensure AI_PROVIDER=azure_openai, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_DEPLOYMENT are set from OpenAI module outputs in `infra/modules/container-apps.bicep`
+- [x] T018 [US3] Verify Cognitive Services OpenAI User role assignment is correctly scoped to the OpenAI account for the managed identity in `infra/modules/openai.bicep`
 
 **Checkpoint**: AI generation works end-to-end via Azure OpenAI with managed identity authentication
 
@@ -102,8 +102,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T019 [US4] Add descriptive comments and @description decorators to all parameters and outputs across all Bicep module files in `infra/modules/*.bicep`
-- [ ] T020 [US4] Run `az bicep lint --file infra/main.bicep` and fix any linting errors across all Bicep files in `infra/`
+- [x] T019 [US4] Add descriptive comments and @description decorators to all parameters and outputs across all Bicep module files in `infra/modules/*.bicep`
+- [x] T020 [US4] Run `az bicep lint --file infra/main.bicep` and fix any linting errors across all Bicep files in `infra/`
 
 **Checkpoint**: All Bicep code is modular, self-documenting, and lint-clean
 
@@ -117,8 +117,8 @@
 
 ### Implementation for User Story 5
 
-- [ ] T021 [US5] Verify and refine azd manifest to ensure all three services (backend, frontend, signal-api) correctly point to their Dockerfiles and target Container App resource names in `azure.yaml`
-- [ ] T022 [US5] Verify `infra/main.bicepparam` integrates correctly with azd environment variables for all required parameters in `infra/main.bicepparam`
+- [x] T021 [US5] Verify and refine azd manifest to ensure all three services (backend, frontend, signal-api) correctly point to their Dockerfiles and target Container App resource names in `azure.yaml`
+- [x] T022 [US5] Verify `infra/main.bicepparam` integrates correctly with azd environment variables for all required parameters in `infra/main.bicepparam`
 
 **Checkpoint**: `azd up` produces an identical environment to the deploy button path
 
@@ -132,7 +132,7 @@
 
 ### Implementation for User Story 6
 
-- [ ] T023 [US6] Create GitHub Actions workflow with OIDC federated credentials for Azure, running `azd provision` + `azd deploy` on push to main in `.github/workflows/deploy-azure.yml`
+- [x] T023 [US6] Create GitHub Actions workflow with OIDC federated credentials for Azure, running `azd provision` + `azd deploy` on push to main in `.github/workflows/deploy-azure.yml`
 
 **Checkpoint**: Automated CI/CD pipeline deploys on push to main with zero static secrets
 
@@ -142,11 +142,11 @@
 
 **Purpose**: Final validation, documentation polish, and cross-cutting improvements
 
-- [ ] T024 [P] Run `az bicep lint --file infra/main.bicep` final validation and fix any remaining issues across `infra/`
-- [ ] T025 [P] Verify frontend→backend routing: nginx proxy to backend internal FQDN, CORS_ORIGINS + FRONTEND_URL set to frontend external FQDN, COOKIE_SECURE=true in `infra/modules/container-apps.bicep`
-- [ ] T026 [P] Verify RBAC consolidation: single managed identity with all 5 roles (AcrPull, Key Vault Secrets User, Cognitive Services OpenAI User, Azure AI Developer, Storage File Data SMB Share Contributor) correctly wired in `infra/main.bicep`
-- [ ] T027 Re-compile `infra/main.bicep` to `infra/azuredeploy.json` if any Bicep changes were made in previous phases via `az bicep build`
-- [ ] T028 Run `specs/001-azure-deployment-bicep/quickstart.md` validation — verify all commands and URLs are accurate
+- [x] T024 [P] Run `az bicep lint --file infra/main.bicep` final validation and fix any remaining issues across `infra/`
+- [x] T025 [P] Verify frontend→backend routing: nginx proxy to backend internal FQDN, CORS_ORIGINS + FRONTEND_URL set to frontend external FQDN, COOKIE_SECURE=true in `infra/modules/container-apps.bicep`
+- [x] T026 [P] Verify RBAC consolidation: single managed identity with all 5 roles (AcrPull, Key Vault Secrets User, Cognitive Services OpenAI User, Azure AI Developer, Storage File Data SMB Share Contributor) correctly wired in `infra/main.bicep`
+- [x] T027 Re-compile `infra/main.bicep` to `infra/azuredeploy.json` if any Bicep changes were made in previous phases via `az bicep build`
+- [x] T028 Run `specs/001-azure-deployment-bicep/quickstart.md` validation — verify all commands and URLs are accurate
 
 ---
 
