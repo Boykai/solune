@@ -273,6 +273,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite (backend) (004-linting-cleanup)
 - Python ≥3.12 (target 3.13) for backend; TypeScript ~6.0.2 / React 19.2.0 for frontend + FastAPI, Pydantic, GitHub Copilot SDK (`copilot` package), `agent_framework_github_copilot`; React, TanStack Query, Tailwind CSS, Lucide Icons (545-model-reasoning-selection)
 - SQLite via aiosqlite for settings/session storage (545-model-reasoning-selection)
+- Python 3.11 (backend), TypeScript 5.x (frontend) + FastAPI, aiosqlite, React 18, TanStack Query, Tailwind CSS, shadcn/ui (615-fix-issues-systematically)
+- SQLite via aiosqlite (settings, pipelines, chores, activity, chat) (615-fix-issues-systematically)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

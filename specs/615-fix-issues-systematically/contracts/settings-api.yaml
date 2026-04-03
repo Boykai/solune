@@ -1,0 +1,248 @@
+# API Contract Changes: Fix Issues Systematically
+# Feature: 615-fix-issues-systematically
+# Date: 2026-04-03
+
+openapi: "3.0.3"
+info:
+  title: "Solune API — Issue #615 Changes"
+  version: "0.2.1"
+  description: >
+    API contract changes for the seven fixes in issue #615.
+    This document describes ONLY the changed/new fields and endpoints.
+
+paths:
+  # ─── Settings ────────────────────────────────────────────────
+  /settings/user:
+    put:
+      summary: "Update user preferences (CHANGED)"
+      description: >
+        Now accepts and persists `ai.reasoning_effort` field.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPreferencesUpdate"
+      responses:
+        "200":
+          description: "Settings saved"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectiveUserSettings"
+
+  /settings/effective:
+    get:
+      summary: "Get effective user settings (CHANGED)"
+      description: >
+        Response now includes `ai.reasoning_effort` populated from database.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EffectiveUserSettings"
+
+  # ─── Chat ────────────────────────────────────────────────────
+  /chat/messages:
+    post:
+      summary: "Send chat message (CHANGED)"
+      description: >
+        The `ai_enhance` field is deprecated and always treated as `true`.
+        All messages are routed through ChatAgentService.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+
+  # ─── Pipelines ───────────────────────────────────────────────
+  /pipelines:
+    get:
+      summary: "List user pipelines (NEW endpoint)"
+      description: >
+        Lists all pipelines owned by the authenticated user, across all projects.
+        Replaces project-scoped `/pipelines/{project_id}` as the primary listing endpoint.
+      parameters:
+        - name: project_id
+          in: query
+          required: false
+          description: "Optional filter by project context"
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineConfig"
+
+  /pipelines/{project_id}:
+    get:
+      summary: "List pipelines for project (CHANGED)"
+      description: >
+        Now returns user-owned pipelines visible in this project context.
+        Includes both user-owned and preset pipelines.
+    post:
+      summary: "Create pipeline (CHANGED)"
+      description: >
+        Now stores `github_user_id` from session. Pipeline is owned by user,
+        associated with project context.
+
+  # ─── Chores ──────────────────────────────────────────────────
+  /chores/{project_id}:
+    get:
+      summary: "List chores (CHANGED)"
+      description: >
+        Now returns user-owned chores. Template generation is removed.
+    post:
+      summary: "Create chore (CHANGED)"
+      description: >
+        No longer triggers PR/Issue template generation.
+        Stores `github_user_id` from session.
+
+  /chores/{project_id}/{chore_id}:
+    put:
+      summary: "Update chore (CHANGED)"
+      description: >
+        No longer triggers template update PR.
+
+components:
+  schemas:
+    AIPreferences:
+      type: object
+      properties:
+        provider:
+          type: string
+          example: "copilot"
+        model:
+          type: string
+          example: "o3"
+        agent_model:
+          type: string
+          example: "claude-sonnet-4"
+        temperature:
+          type: number
+          example: 0.7
+        reasoning_effort:
+          type: string
+          nullable: true
+          description: "NEW — Reasoning effort level for reasoning-capable models"
+          enum: ["low", "medium", "high", "xhigh", null]
+          example: "xhigh"
+
+    UserPreferencesUpdate:
+      type: object
+      properties:
+        ai:
+          type: object
+          properties:
+            provider:
+              type: string
+            model:
+              type: string
+            agent_model:
+              type: string
+            temperature:
+              type: number
+            reasoning_effort:
+              type: string
+              nullable: true
+              description: "NEW — Reasoning effort level to persist"
+
+    EffectiveUserSettings:
+      type: object
+      properties:
+        ai:
+          $ref: "#/components/schemas/AIPreferences"
+
+    ChatMessageRequest:
+      type: object
+      required: ["content"]
+      properties:
+        content:
+          type: string
+        ai_enhance:
+          type: boolean
+          default: true
+          description: "DEPRECATED — Always treated as true. All messages go through ChatAgentService."
+        file_urls:
+          type: array
+          items:
+            type: string
+        pipeline_id:
+          type: string
+          nullable: true
+
+    PipelineConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+          description: "CHANGED — Now optional contextual association, not primary ownership"
+        github_user_id:
+          type: string
+          description: "NEW — User who owns this pipeline"
+        name:
+          type: string
+        description:
+          type: string
+        stages:
+          type: array
+          items:
+            type: object
+        is_preset:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Chore:
+      type: object
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+          description: "CHANGED — Now optional contextual association"
+        github_user_id:
+          type: string
+          description: "NEW — User who owns this chore"
+        name:
+          type: string
+        template_path:
+          type: string
+          description: "DEPRECATED — No longer populated"
+        template_content:
+          type: string
+          description: "DEPRECATED — No longer populated"
+        pr_number:
+          type: integer
+          nullable: true
+          description: "DEPRECATED — No longer populated"
+        pr_url:
+          type: string
+          nullable: true
+          description: "DEPRECATED — No longer populated"
+        tracking_issue_number:
+          type: integer
+          nullable: true
+          description: "DEPRECATED — No longer populated"
+
+    ActivityEvent:
+      type: object
+      description: "No schema changes. Convention for detail JSON field:"
+      properties:
+        detail:
+          type: object
+          description: >
+            JSON object. When PR/Issue references exist, include:
+            `pr_number` (int), `pr_url` (string),
+            `issue_number` (int), `issue_url` (string).
+            Frontend will render these as clickable hyperlinks.
