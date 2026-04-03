@@ -512,9 +512,7 @@ class PipelineService:
             )
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
-            raise ValueError(
-                f"A pipeline named '{body.name}' already exists."
-            ) from exc
+            raise ValueError(f"A pipeline named '{body.name}' already exists.") from exc
 
         pipeline = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
         if pipeline is None:
