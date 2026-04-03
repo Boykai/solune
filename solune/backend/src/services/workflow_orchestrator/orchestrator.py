@@ -1671,7 +1671,7 @@ class WorkflowOrchestrator:
             ),
             None,
         )
-        effective_model, effective_reasoning = await self._resolve_effective_model(
+        effective_model, _effective_reasoning = await self._resolve_effective_model(
             agent_assignment=original_assignment,
             agent_slug=agent_name,
             project_id=ctx.project_id,

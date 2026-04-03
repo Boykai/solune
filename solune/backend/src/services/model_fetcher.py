@@ -146,8 +146,8 @@ class GitHubCopilotModelFetcher(ModelFetchProvider):
                         id=model_id,
                         name=model_name,
                         provider="copilot",
-                        supported_reasoning_efforts=supported if supported else None,
-                        default_reasoning_effort=default if default else None,
+                        supported_reasoning_efforts=supported or None,
+                        default_reasoning_effort=default or None,
                     )
                 )
 
