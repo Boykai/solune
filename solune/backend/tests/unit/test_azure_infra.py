@@ -725,7 +725,9 @@ class TestDeployWorkflow:
         self.content = _read_text(self.path)
 
     def test_workflow_dispatch_trigger(self):
-        assert "workflow_dispatch" in self.data[True]
+        # PyYAML parses YAML key `on:` as Python boolean True.
+        triggers = self.data.get(True, {})
+        assert "workflow_dispatch" in triggers
 
     def test_oidc_permissions(self):
         """Workflow should request id-token: write for OIDC auth."""
