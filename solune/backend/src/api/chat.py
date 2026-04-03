@@ -1698,6 +1698,7 @@ async def confirm_proposal(
                 )
                 user_chat_model = effective_user_settings.ai.model
                 user_agent_model = effective_user_settings.ai.agent_model
+                user_reasoning_effort = effective_user_settings.ai.reasoning_effort
             except Exception:
                 logger.warning(
                     "Could not load effective user settings for session %s; user_chat_model left empty",
@@ -1705,6 +1706,7 @@ async def confirm_proposal(
                 )
                 user_chat_model = ""
                 user_agent_model = ""
+                user_reasoning_effort = ""
 
             ctx = WorkflowContext(
                 session_id=str(session.session_id),
@@ -1716,6 +1718,7 @@ async def confirm_proposal(
                 config=config,
                 user_chat_model=user_chat_model,
                 user_agent_model=user_agent_model,
+                user_reasoning_effort=user_reasoning_effort,
             )
             ctx.issue_id = issue_node_id
             ctx.issue_number = issue_number

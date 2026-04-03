@@ -122,6 +122,9 @@ class WorkflowContext:
     # non-Auto model.  Empty string means no user preference has been supplied
     # and the hardcoded default is used instead.
     user_agent_model: str = ""
+    # User's preferred reasoning effort level from settings (e.g. "high").
+    # Empty string means no preference — SDK uses its own default.
+    user_reasoning_effort: str = ""
 
 
 @dataclass
