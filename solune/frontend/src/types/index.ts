@@ -520,6 +520,7 @@ export interface AIPreferences {
   temperature: number;
   agent_model: string;
   reasoning_effort?: string;
+  agent_reasoning_effort?: string;
 }
 
 export interface DisplayPreferences {
@@ -591,6 +592,7 @@ export interface AIPreferencesUpdate {
   temperature?: number | null;
   agent_model?: string | null;
   reasoning_effort?: string | null;
+  agent_reasoning_effort?: string | null;
 }
 
 export interface DisplayPreferencesUpdate {

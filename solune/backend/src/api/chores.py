@@ -37,7 +37,6 @@ from src.services.activity_logger import log_event
 from src.services.chores.service import ChoreConflictError, ChoresService
 from src.services.chores.template_builder import (
     build_template,
-    commit_template_to_repo,
 )
 from src.services.database import get_db
 from src.services.github_projects import github_projects_service
@@ -64,7 +63,7 @@ async def seed_presets(
     # Verify the authenticated user has access to this project
     await resolve_repository(session.access_token, project_id)
     service = _get_service()
-    created = await service.seed_presets(project_id)
+    created = await service.seed_presets(project_id, github_user_id=session.github_user_id)
     return {"created": len(created)}
 
 
@@ -182,7 +181,7 @@ async def list_chore_names(
     """
     await resolve_repository(session.access_token, project_id)
     service = _get_service()
-    chores = await service.list_chores(project_id)
+    chores = await service.list_chores(project_id, github_user_id=session.github_user_id)
     return [c.name for c in chores]
 
 
@@ -210,7 +209,7 @@ async def list_chores(
     """List all chores for a project."""
     await resolve_repository(session.access_token, project_id)
     service = _get_service()
-    chores = await service.list_chores(project_id)
+    chores = await service.list_chores(project_id, github_user_id=session.github_user_id)
 
     # ── Server-side filtering ──
     if status is not None:
@@ -278,53 +277,30 @@ async def create_chore(
     body: ChoreCreate,
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> Chore:
-    """Create a new chore (generates template, commits via PR, creates tracking issue)."""
+    """Create a new chore and store its template configuration."""
+    from src.services.chores.template_builder import derive_template_path
+
     service = _get_service()
 
     # Build the full template content
     template_content = build_template(body.name, body.template_content)
+    template_path = derive_template_path(body.name)
 
-    # Resolve repository for the project
-    try:
-        owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
-        logger.error(
-            "Failed to resolve repository for project %s: %s", project_id, exc, exc_info=True
-        )
-        raise ValidationError("Could not resolve repository for this project") from exc
-
-    # Commit template to repo via branch + PR + tracking issue
-    try:
-        result = await commit_template_to_repo(
-            github_service=github_projects_service,
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            project_id=project_id,
-            name=body.name,
-            template_content=template_content,
-        )
-    except RuntimeError as exc:
-        handle_service_error(exc, "commit template to repository", GitHubAPIError)
-
-    # Create the chore record in the database
+    # Create the chore record in the database (no repo commit)
     try:
         chore = await service.create_chore(
             project_id,
             body,
-            template_path=result["template_path"],
+            template_path=template_path,
+            github_user_id=session.github_user_id,
         )
     except ValueError as exc:
         logger.warning("Invalid chore creation request: %s", exc)
         raise ValidationError("Invalid chore configuration") from exc
 
-    # Update chore with PR and tracking issue info
-
+    # Update template_content to the fully-built version
     await service.update_chore_fields(
         chore.id,
-        pr_number=result.get("pr_number"),
-        pr_url=result.get("pr_url"),
-        tracking_issue_number=result.get("tracking_issue_number"),
         template_content=template_content,
     )
 
@@ -614,6 +590,7 @@ async def create_chore_with_merge(
             access_token=session.access_token,
             owner=owner,
             repo=repo,
+            github_user_id=session.github_user_id,
         )
     except ValueError as exc:
         logger.warning("Invalid chore creation: %s", exc)

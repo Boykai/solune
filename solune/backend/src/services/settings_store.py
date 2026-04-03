@@ -31,6 +31,8 @@ USER_PREFERENCE_COLUMNS = (
     "ai_model",
     "ai_agent_model",
     "ai_temperature",
+    "ai_reasoning_effort",
+    "ai_agent_reasoning_effort",
     "theme",
     "default_view",
     "sidebar_collapsed",
@@ -120,6 +122,8 @@ async def update_global_settings(
             ai_model = CASE WHEN ? THEN ? ELSE ai_model END,
             ai_agent_model = CASE WHEN ? THEN ? ELSE ai_agent_model END,
             ai_temperature = CASE WHEN ? THEN ? ELSE ai_temperature END,
+            ai_reasoning_effort = CASE WHEN ? THEN ? ELSE ai_reasoning_effort END,
+            ai_agent_reasoning_effort = CASE WHEN ? THEN ? ELSE ai_agent_reasoning_effort END,
             theme = CASE WHEN ? THEN ? ELSE theme END,
             default_view = CASE WHEN ? THEN ? ELSE default_view END,
             sidebar_collapsed = CASE WHEN ? THEN ? ELSE sidebar_collapsed END,
@@ -187,6 +191,8 @@ async def upsert_user_preferences(
             ai_model,
             ai_agent_model,
             ai_temperature,
+            ai_reasoning_effort,
+            ai_agent_reasoning_effort,
             theme,
             default_view,
             sidebar_collapsed,
@@ -198,12 +204,14 @@ async def upsert_user_preferences(
             notify_new_recommendation,
             notify_chat_mention,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(github_user_id) DO UPDATE SET
             ai_provider = CASE WHEN ? THEN excluded.ai_provider ELSE user_preferences.ai_provider END,
             ai_model = CASE WHEN ? THEN excluded.ai_model ELSE user_preferences.ai_model END,
             ai_agent_model = CASE WHEN ? THEN excluded.ai_agent_model ELSE user_preferences.ai_agent_model END,
             ai_temperature = CASE WHEN ? THEN excluded.ai_temperature ELSE user_preferences.ai_temperature END,
+            ai_reasoning_effort = CASE WHEN ? THEN excluded.ai_reasoning_effort ELSE user_preferences.ai_reasoning_effort END,
+            ai_agent_reasoning_effort = CASE WHEN ? THEN excluded.ai_agent_reasoning_effort ELSE user_preferences.ai_agent_reasoning_effort END,
             theme = CASE WHEN ? THEN excluded.theme ELSE user_preferences.theme END,
             default_view = CASE WHEN ? THEN excluded.default_view ELSE user_preferences.default_view END,
             sidebar_collapsed = CASE WHEN ? THEN excluded.sidebar_collapsed ELSE user_preferences.sidebar_collapsed END,
@@ -377,6 +385,8 @@ def _row_to_global_response(row: aiosqlite.Row) -> GlobalSettingsResponse:
             model=row["ai_model"],
             temperature=row["ai_temperature"],
             agent_model=str(row["ai_agent_model"] or ""),
+            reasoning_effort=str(row["ai_reasoning_effort"] or ""),
+            agent_reasoning_effort=str(row["ai_agent_reasoning_effort"] or ""),
         ),
         display=DisplayPreferences(
             theme=ThemeMode(row["theme"]),
@@ -423,6 +433,8 @@ def _merge_user_settings(
             model=str(_pick("ai_model")),
             temperature=float(_pick("ai_temperature")),
             agent_model=str(_pick("ai_agent_model") or ""),
+            reasoning_effort=str(_pick("ai_reasoning_effort") or ""),
+            agent_reasoning_effort=str(_pick("ai_agent_reasoning_effort") or ""),
         ),
         display=DisplayPreferences(
             theme=ThemeMode(str(_pick("theme"))),
@@ -573,6 +585,8 @@ def flatten_user_preferences_update(update: dict) -> dict:
             "model": "ai_model",
             "agent_model": "ai_agent_model",
             "temperature": "ai_temperature",
+            "reasoning_effort": "ai_reasoning_effort",
+            "agent_reasoning_effort": "ai_agent_reasoning_effort",
         },
         "display": {
             "theme": "theme",
