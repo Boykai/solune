@@ -55,11 +55,8 @@ export interface PlanVersion {
   created_at: string;
 }
 
-export interface PlanHistoryResponse {
-  plan_id: string;
-  current_version: number;
-  versions: PlanVersion[];
-}
+/** The history endpoint returns PlanVersion[] directly. */
+export type PlanHistoryResponse = PlanVersion[];
 
 // ─── Step CRUD Types ────────────────────────────────────────────────
 
@@ -74,11 +71,10 @@ export interface StepUpdateRequest {
   title?: string;
   description?: string;
   dependencies?: string[];
-  position?: number;
 }
 
 export interface StepReorderRequest {
-  step_order: Array<{ step_id: string; position: number }>;
+  step_ids: string[];
 }
 
 export interface StepApprovalRequest {

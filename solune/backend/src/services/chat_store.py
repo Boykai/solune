@@ -9,6 +9,7 @@ concurrent writers from causing inconsistent state.
 
 from __future__ import annotations
 
+import collections
 import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -673,7 +674,7 @@ async def snapshot_plan_version(
     now = utcnow().isoformat()
 
     async with transaction(db):
-        await db.execute(
+        cursor = await db.execute(
             """INSERT OR IGNORE INTO chat_plan_versions
                (version_id, plan_id, version, title, summary, steps_json, created_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -687,6 +688,10 @@ async def snapshot_plan_version(
                 now,
             ),
         )
+        if (cursor.rowcount or 0) == 0:
+            # INSERT was ignored (e.g. concurrent snapshot for the same version).
+            # Do not increment the plan version to keep history consistent.
+            return None
         # Increment the plan's version
         await db.execute(
             "UPDATE chat_plans SET version = version + 1, updated_at = ? WHERE plan_id = ?",
@@ -759,11 +764,11 @@ def validate_dag(steps: list[dict]) -> tuple[bool, str]:
             in_degree[s["step_id"]] += 1
 
     # Kahn's algorithm
-    queue = [sid for sid, deg in in_degree.items() if deg == 0]
+    queue = collections.deque(sid for sid, deg in in_degree.items() if deg == 0)
     visited = 0
 
     while queue:
-        node = queue.pop(0)
+        node = queue.popleft()
         visited += 1
         for neighbor in adjacency[node]:
             in_degree[neighbor] -= 1
@@ -829,11 +834,29 @@ async def add_plan_step(
         raise ValueError(f"DAG validation failed: {err}")
 
     async with transaction(db):
-        # Shift positions >= target position
+        # Shift positions >= target position using a temporary offset so the
+        # UNIQUE(plan_id, position) constraint is never violated mid-update.
+        cursor = await db.execute(
+            """SELECT COALESCE(MAX(position), -1)
+               FROM chat_plan_steps
+               WHERE plan_id = ?""",
+            (plan_id,),
+        )
+        row = await cursor.fetchone()
+        max_position = row[0] if row is not None else -1
+        temp_offset = max_position + 1
+
         await db.execute(
-            """UPDATE chat_plan_steps SET position = position + 1
+            """UPDATE chat_plan_steps
+               SET position = position + ?
                WHERE plan_id = ? AND position >= ?""",
-            (plan_id, position),
+            (temp_offset, plan_id, position),
+        )
+        await db.execute(
+            """UPDATE chat_plan_steps
+               SET position = position - ? + 1
+               WHERE plan_id = ? AND position >= ?""",
+            (temp_offset, plan_id, position + temp_offset),
         )
         await db.execute(
             """INSERT INTO chat_plan_steps
@@ -1071,8 +1094,18 @@ async def update_step_approval(
     """Update the approval status of a single step.
 
     Returns True if the step was updated.
-    Raises ValueError if plan is not draft.
+    Raises ValueError if plan is not draft or approval_status is invalid.
     """
+    from src.models.plan import StepApprovalStatus
+
+    # Validate the approval status value
+    valid_statuses = {s.value for s in StepApprovalStatus}
+    if approval_status not in valid_statuses:
+        raise ValueError(
+            f"Invalid approval_status {approval_status!r}; "
+            f"must be one of {sorted(valid_statuses)}"
+        )
+
     plan = await get_plan(db, plan_id)
     if plan is None:
         return False
@@ -1080,9 +1113,18 @@ async def update_step_approval(
     if plan["status"] != "draft":
         raise ValueError("Cannot change approval status of steps in a non-draft plan")
 
+    from src.utils import utcnow
+
+    now = utcnow().isoformat()
+
     async with transaction(db):
         cursor = await db.execute(
             "UPDATE chat_plan_steps SET approval_status = ? WHERE step_id = ? AND plan_id = ?",
             (approval_status, step_id, plan_id),
         )
+        if (cursor.rowcount or 0) > 0:
+            await db.execute(
+                "UPDATE chat_plans SET updated_at = ? WHERE plan_id = ?",
+                (now, plan_id),
+            )
     return (cursor.rowcount or 0) > 0

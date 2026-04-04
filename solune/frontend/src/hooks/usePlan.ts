@@ -16,6 +16,21 @@ import type {
   ThinkingPhase,
 } from '@/types';
 
+/**
+ * usePlanHistory — fetches version history for a plan.
+ *
+ * Extracted as a standalone hook to comply with the Rules of Hooks
+ * (hooks must be called unconditionally at the top level of a
+ * component or custom hook).
+ */
+export function usePlanHistory(planId: string | undefined) {
+  return useQuery({
+    queryKey: ['planHistory', planId],
+    queryFn: () => (planId ? chatApi.getPlanHistory(planId) : []),
+    enabled: !!planId,
+  });
+}
+
 export function usePlan() {
   const queryClient = useQueryClient();
   const [activePlan, setActivePlan] = useState<Plan | null>(null);
@@ -106,15 +121,6 @@ export function usePlan() {
       chatApi.submitStepFeedback(planId, stepId, data),
   });
 
-  // ============ Plan History Query ============
-
-  const usePlanHistory = (planId: string | undefined) =>
-    useQuery({
-      queryKey: ['planHistory', planId],
-      queryFn: () => (planId ? chatApi.getPlanHistory(planId) : []),
-      enabled: !!planId,
-    });
-
   const enterPlanMode = useCallback((plan: Plan) => {
     setActivePlan(plan);
     setIsPlanMode(true);
@@ -146,6 +152,5 @@ export function usePlan() {
     reorderStepsMutation,
     approveStepMutation,
     submitFeedbackMutation,
-    usePlanHistory,
   };
 }
