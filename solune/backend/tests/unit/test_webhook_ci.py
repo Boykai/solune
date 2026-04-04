@@ -309,3 +309,200 @@ class TestWebhookRouting:
         result = await handle_check_suite_event(event)
         assert result["status"] == "ignored"
         assert result["reason"] == "no_associated_prs"
+
+
+class TestWebhookDevopsDispatch:
+    """Tests for check_run webhook dispatching DevOps agent."""
+
+    @pytest.mark.asyncio
+    async def test_check_run_dispatches_devops_when_issue_found(self):
+        """check_run failure should dispatch DevOps when PR is linked to auto-merge issue."""
+        from unittest.mock import AsyncMock, patch
+
+        from src.api.webhooks import handle_check_run_event
+
+        event = CheckRunEvent(
+            action="completed",
+            check_run=CheckRunData(
+                id=100,
+                name="ci-tests",
+                status="completed",
+                conclusion="failure",
+                head_sha="abc123",
+                pull_requests=[CheckRunPR(number=42)],
+            ),
+            repository=RepositoryData(
+                name="repo",
+                owner=OwnerData(login="owner"),
+            ),
+        )
+
+        mock_settings = type("Settings", (), {"github_webhook_token": "test-token"})()
+
+        with (
+            patch(
+                "src.api.webhooks._resolve_issue_for_pr",
+                return_value=10,
+            ),
+            patch(
+                "src.api.webhooks._get_auto_merge_pipeline",
+                return_value={
+                    "project_id": "PVT_123",
+                    "devops_attempts": 0,
+                    "devops_active": False,
+                },
+            ),
+            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch(
+                "src.services.copilot_polling.auto_merge.dispatch_devops_agent",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_dispatch,
+        ):
+            result = await handle_check_run_event(event)
+
+        assert result["status"] == "processed"
+        assert result["devops_dispatched"] is True
+        mock_dispatch.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_check_run_no_dispatch_when_no_linked_issue(self):
+        """check_run failure without linked issue should not dispatch DevOps."""
+        from unittest.mock import patch
+
+        from src.api.webhooks import handle_check_run_event
+
+        event = CheckRunEvent(
+            action="completed",
+            check_run=CheckRunData(
+                id=101,
+                name="ci-tests",
+                status="completed",
+                conclusion="failure",
+                head_sha="abc123",
+                pull_requests=[CheckRunPR(number=42)],
+            ),
+            repository=RepositoryData(
+                name="repo",
+                owner=OwnerData(login="owner"),
+            ),
+        )
+
+        with patch(
+            "src.api.webhooks._resolve_issue_for_pr",
+            return_value=None,
+        ):
+            result = await handle_check_run_event(event)
+
+        assert result["status"] == "processed"
+        assert result["devops_dispatched"] is False
+
+
+class TestWebhookAutoMerge:
+    """Tests for check_suite webhook triggering auto-merge."""
+
+    @pytest.mark.asyncio
+    async def test_check_suite_success_attempts_merge(self):
+        """check_suite success should attempt auto-merge for linked issues."""
+        from unittest.mock import AsyncMock, patch
+
+        from src.api.webhooks import handle_check_suite_event
+
+        event = CheckSuiteEvent(
+            action="completed",
+            check_suite=CheckSuiteData(
+                id=200,
+                status="completed",
+                conclusion="success",
+                head_sha="def456",
+                pull_requests=[CheckRunPR(number=42)],
+            ),
+            repository=RepositoryData(
+                name="repo",
+                owner=OwnerData(login="owner"),
+            ),
+        )
+
+        mock_settings = type("Settings", (), {"github_webhook_token": "test-token"})()
+
+        with (
+            patch(
+                "src.api.webhooks._resolve_issue_for_pr",
+                return_value=10,
+            ),
+            patch(
+                "src.api.webhooks._get_auto_merge_pipeline",
+                return_value={
+                    "project_id": "PVT_123",
+                    "devops_attempts": 0,
+                    "devops_active": False,
+                },
+            ),
+            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                return_value=type("Result", (), {"status": "merged"})(),
+            ) as mock_merge,
+        ):
+            result = await handle_check_suite_event(event)
+
+        assert result["status"] == "processed"
+        assert result["event"] == "check_suite_success"
+        assert result["merge_attempted"] is True
+        mock_merge.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_check_suite_success_no_merge_when_no_issue(self):
+        """check_suite success without linked issue should not attempt merge."""
+        from unittest.mock import patch
+
+        from src.api.webhooks import handle_check_suite_event
+
+        event = CheckSuiteEvent(
+            action="completed",
+            check_suite=CheckSuiteData(
+                id=201,
+                status="completed",
+                conclusion="success",
+                head_sha="def456",
+                pull_requests=[CheckRunPR(number=42)],
+            ),
+            repository=RepositoryData(
+                name="repo",
+                owner=OwnerData(login="owner"),
+            ),
+        )
+
+        with patch(
+            "src.api.webhooks._resolve_issue_for_pr",
+            return_value=None,
+        ):
+            result = await handle_check_suite_event(event)
+
+        assert result["status"] == "processed"
+        assert result["event"] == "check_suite_success"
+        assert result["merge_attempted"] is False
+
+    @pytest.mark.asyncio
+    async def test_check_suite_neutral_ignored(self):
+        """check_suite with neutral conclusion should be ignored."""
+        from src.api.webhooks import handle_check_suite_event
+
+        event = CheckSuiteEvent(
+            action="completed",
+            check_suite=CheckSuiteData(
+                id=202,
+                status="completed",
+                conclusion="neutral",
+                head_sha="abc123",
+                pull_requests=[CheckRunPR(number=1)],
+            ),
+            repository=RepositoryData(
+                name="repo",
+                owner=OwnerData(login="owner"),
+            ),
+        )
+        result = await handle_check_suite_event(event)
+        assert result["status"] == "ignored"
+        assert result["reason"] == "conclusion_not_relevant"

@@ -10,8 +10,10 @@ from src.services.copilot_polling.auto_merge import (
     AutoMergeResult,
     _attempt_auto_merge,
     _auto_merge_retry_loop,
+    _check_devops_done_comment,
     dispatch_devops_agent,
     schedule_auto_merge_retry,
+    schedule_post_devops_merge_retry,
 )
 
 
@@ -625,3 +627,163 @@ class TestAutoMergeRetryLoop:
             assert mock_attempt.await_count == 2
             mock_service.assign_copilot_to_issue.assert_awaited_once()
             assert 42 not in _pending_auto_merge_retries
+
+
+class TestCheckDevopsDoneComment:
+    """Tests for _check_devops_done_comment()."""
+
+    @pytest.mark.asyncio
+    async def test_returns_true_when_done_marker_present(self, mock_service):
+        """Should return True when a comment contains 'devops: Done!'."""
+        mock_service.list_issue_comments = AsyncMock(
+            return_value=[
+                {"body": "Working on fixes..."},
+                {"body": "devops: Done!"},
+            ]
+        )
+        result = await _check_devops_done_comment(
+            access_token="token", owner="owner", repo="repo", issue_number=10
+        )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_no_done_marker(self, mock_service):
+        """Should return False when no comment contains the marker."""
+        mock_service.list_issue_comments = AsyncMock(
+            return_value=[
+                {"body": "Working on fixes..."},
+                {"body": "Still debugging..."},
+            ]
+        )
+        result = await _check_devops_done_comment(
+            access_token="token", owner="owner", repo="repo", issue_number=10
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_empty_comments(self, mock_service):
+        """Should return False when there are no comments."""
+        mock_service.list_issue_comments = AsyncMock(return_value=[])
+        result = await _check_devops_done_comment(
+            access_token="token", owner="owner", repo="repo", issue_number=10
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_api_error(self, mock_service):
+        """Should return False when the API call fails."""
+        mock_service.list_issue_comments = AsyncMock(side_effect=Exception("API error"))
+        result = await _check_devops_done_comment(
+            access_token="token", owner="owner", repo="repo", issue_number=10
+        )
+        assert result is False
+
+
+class TestSchedulePostDevopsMergeRetry:
+    """Tests for schedule_post_devops_merge_retry()."""
+
+    def test_schedules_retry_when_not_pending(self):
+        """Should schedule a retry task and return True."""
+        with patch(
+            "src.services.copilot_polling.auto_merge.asyncio.create_task"
+        ) as mock_create_task:
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries.pop(777, None)
+
+            result = schedule_post_devops_merge_retry(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=777,
+                pipeline_metadata={},
+                project_id="PVT_123",
+            )
+
+            assert result is True
+            mock_create_task.assert_called_once()
+            # Clean up
+            _pending_post_devops_retries.pop(777, None)
+
+    def test_skips_when_already_pending(self):
+        """Should skip and return False if a retry is already pending."""
+        from src.services.copilot_polling.state import _pending_post_devops_retries
+
+        _pending_post_devops_retries[777] = {"project_id": "PVT_123"}
+
+        with patch(
+            "src.services.copilot_polling.auto_merge.asyncio.create_task"
+        ) as mock_create_task:
+            result = schedule_post_devops_merge_retry(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=777,
+                pipeline_metadata={},
+                project_id="PVT_123",
+            )
+
+            assert result is False
+            mock_create_task.assert_not_called()
+
+        # Clean up
+        _pending_post_devops_retries.pop(777, None)
+
+
+class TestDispatchTriggersPostDevopsRetry:
+    """Tests for dispatch_devops_agent() calling schedule_post_devops_merge_retry()."""
+
+    @pytest.mark.asyncio
+    async def test_dispatch_triggers_post_devops_retry(self, mock_ws, mock_service):
+        """Successful dispatch should schedule post-DevOps retry."""
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            return_value=("ISSUE_NODE_ID", "ITEM_ID")
+        )
+        mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+        metadata: dict = {}
+
+        with patch(
+            "src.services.copilot_polling.auto_merge.schedule_post_devops_merge_retry"
+        ) as mock_schedule:
+            result = await dispatch_devops_agent(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=10,
+                pipeline_metadata=metadata,
+                project_id="PVT_123",
+            )
+
+            assert result is True
+            mock_schedule.assert_called_once_with(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=10,
+                pipeline_metadata=metadata,
+                project_id="PVT_123",
+            )
+
+
+class TestDevopsCapBroadcast:
+    """Tests for DevOps cap-reached broadcast on dispatch_devops_agent()."""
+
+    @pytest.mark.asyncio
+    async def test_cap_reached_broadcasts_failure(self, mock_ws):
+        """Should broadcast auto_merge_failed with devops_cap_reached when cap is hit."""
+        metadata: dict = {"devops_active": False, "devops_attempts": 2}
+
+        result = await dispatch_devops_agent(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=10,
+            pipeline_metadata=metadata,
+            project_id="PVT_123",
+        )
+
+        assert result is False
+        mock_ws.broadcast_to_project.assert_awaited_once()
+        call_args = mock_ws.broadcast_to_project.call_args
+        assert call_args[0][1]["type"] == "auto_merge_failed"
+        assert call_args[0][1]["reason"] == "devops_cap_reached"
