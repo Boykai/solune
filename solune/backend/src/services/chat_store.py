@@ -1102,8 +1102,7 @@ async def update_step_approval(
     valid_statuses = {s.value for s in StepApprovalStatus}
     if approval_status not in valid_statuses:
         raise ValueError(
-            f"Invalid approval_status {approval_status!r}; "
-            f"must be one of {sorted(valid_statuses)}"
+            f"Invalid approval_status {approval_status!r}; must be one of {sorted(valid_statuses)}"
         )
 
     plan = await get_plan(db, plan_id)
