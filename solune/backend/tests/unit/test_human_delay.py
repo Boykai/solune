@@ -1246,8 +1246,8 @@ class TestAdvancePipelineDelayNonLastStep:
 
                 # Human completed and pipeline advanced
                 assert "human" in pipeline.completed_agents
-                # Pipeline should NOT be complete — speckit.implement is next
-                assert not pipeline.is_complete or "speckit.implement" in pipeline.completed_agents
+                # Pipeline should NOT be complete — speckit.implement is still pending
+                assert not pipeline.is_complete
                 # The orchestrator assign call should reference the updated index (2),
                 # NOT index 1 (human). This validates the next_agent recomputation.
                 assign_calls = mock_orchestrator.assign_agent_for_status.call_args_list
