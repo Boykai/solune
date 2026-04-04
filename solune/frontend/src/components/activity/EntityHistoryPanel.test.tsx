@@ -1,14 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 import { render, screen } from '@/test/test-utils';
 import { EntityHistoryPanel } from './EntityHistoryPanel';
 
 // ── Mocks ──
 
+// Use a fixed reference time to avoid flaky "just now" assertions
+const FIXED_NOW = new Date('2025-06-15T12:00:00Z');
+
 const mockEvents = [
-  { id: '1', summary: 'Issue created', created_at: new Date().toISOString(), type: 'created' },
-  { id: '2', summary: 'Agent assigned', created_at: new Date(Date.now() - 3600000).toISOString(), type: 'assigned' },
-  { id: '3', summary: 'Status updated', created_at: new Date(Date.now() - 86400000 * 2).toISOString(), type: 'status' },
+  { id: '1', summary: 'Issue created', created_at: FIXED_NOW.toISOString(), type: 'created' },
+  { id: '2', summary: 'Agent assigned', created_at: new Date(FIXED_NOW.getTime() - 3600000).toISOString(), type: 'assigned' },
+  { id: '3', summary: 'Status updated', created_at: new Date(FIXED_NOW.getTime() - 86400000 * 2).toISOString(), type: 'status' },
 ];
 
 vi.mock('@/hooks/useEntityHistory', () => ({
@@ -19,6 +22,15 @@ vi.mock('@/hooks/useEntityHistory', () => ({
 }));
 
 // ── Tests ──
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(FIXED_NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('EntityHistoryPanel', () => {
   it('renders the History toggle button', () => {

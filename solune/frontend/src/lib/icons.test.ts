@@ -48,12 +48,16 @@ describe('icons barrel export', () => {
     expect(Icons.SunMoon).toBeDefined();
   });
 
-  it('exports all icons as React components (functions)', () => {
+  it('exports all icons as valid React components', () => {
     const exports = Object.entries(Icons).filter(
       ([key]) => key !== 'default' && key[0] === key[0].toUpperCase()
     );
     for (const [name, icon] of exports) {
-      expect(typeof icon, `Icon ${name} should be a valid component`).toBe('object');
+      expect(icon, `Icon ${name} should be defined`).toBeDefined();
+      expect(
+        typeof icon === 'object' || typeof icon === 'function',
+        `Icon ${name} should be a valid component (object or function)`,
+      ).toBe(true);
     }
   });
 

@@ -90,17 +90,12 @@ describe('BuildProgress', () => {
   });
 
   it('handles failed phase', () => {
-    render(
-      <BuildProgress
-        progress={makePayload({ phase: 'failed', pct_complete: 50 })}
-      />,
-    );
-    // Progress bar should use red color for failed
     const { container } = render(
       <BuildProgress
         progress={makePayload({ phase: 'failed', pct_complete: 50 })}
       />,
     );
+    // Progress bar should use red color for failed
     const bar = container.querySelector('.bg-red-500');
     expect(bar).toBeInTheDocument();
   });
