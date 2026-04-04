@@ -263,3 +263,10 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
 Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/package.json`, and `.github/workflows/ci.yml`. Prefer those files over copying long version snapshots into new docs or prompts.
+
+## Active Technologies
+- Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `copilot-sdk>=1.0.17` (upgrade from `github-copilot-sdk>=0.1.30`), `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing) (001-full-stack-plan-pipeline)
+- SQLite via `aiosqlite>=0.22.0` (existing) — new migrations for versioning and step status (001-full-stack-plan-pipeline)
+
+## Recent Changes
+- 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `copilot-sdk>=1.0.17` (upgrade from `github-copilot-sdk>=0.1.30`), `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
