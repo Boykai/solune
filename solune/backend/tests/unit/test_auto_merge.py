@@ -428,7 +428,6 @@ class TestScheduleAutoMergeRetry:
             )
 
             _pending_auto_merge_retries.pop(999, None)
-            _background_tasks.discard(mock_task)
 
             result = schedule_auto_merge_retry(
                 access_token="token",
@@ -704,7 +703,6 @@ class TestSchedulePostDevopsMergeRetry:
             )
 
             _pending_post_devops_retries.pop(777, None)
-            _background_tasks.discard(mock_task)
 
             result = schedule_post_devops_merge_retry(
                 access_token="token",

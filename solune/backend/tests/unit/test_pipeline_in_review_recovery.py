@@ -93,6 +93,10 @@ class TestDevopsRecoveryFallback:
     @pytest.mark.asyncio
     async def test_recovery_skips_when_no_done_comment(self):
         """When no 'Done!' comment found, should not attempt merge."""
+        from src.services.copilot_polling.state import _pending_post_devops_retries
+
+        _pending_post_devops_retries.pop(42, None)
+
         task = MagicMock()
         task.issue_number = 42
         task.status = "In Review"
@@ -142,10 +146,6 @@ class TestDevopsRecoveryFallback:
             ),
         ):
             svc.get_project_items = AsyncMock(return_value=[task])
-
-            from src.services.copilot_polling.state import _pending_post_devops_retries
-
-            _pending_post_devops_retries.pop(42, None)
 
             from src.services.copilot_polling.pipeline import check_in_review_issues
 
