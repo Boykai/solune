@@ -86,6 +86,14 @@ class AgentsMixin:
             icon_name=None,
             source=AgentSource.BUILTIN,
         ),
+        AvailableAgent(
+            slug="devops",
+            display_name="DevOps",
+            description="CI failure diagnosis and resolution agent",
+            avatar_url=None,
+            icon_name=None,
+            source=AgentSource.BUILTIN,
+        ),
     ]
 
     _FRONTMATTER_RE = re.compile(r"^---\s*\r?\n(.*?)\r?\n---", re.DOTALL)

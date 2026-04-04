@@ -45,8 +45,8 @@ class TestBuiltinAgents:
         assert len(AgentsMixin.BUILTIN_AGENTS) > 0
 
     def test_builtin_agents_count(self):
-        """Should have exactly 8 built-in agents."""
-        assert len(AgentsMixin.BUILTIN_AGENTS) == 8
+        """Should have exactly 9 built-in agents."""
+        assert len(AgentsMixin.BUILTIN_AGENTS) == 9
 
     def test_all_agents_are_available_agent_instances(self):
         """Each entry should be an AvailableAgent."""
@@ -74,6 +74,7 @@ class TestBuiltinAgents:
             "speckit.implement",
             "speckit.analyze",
             "human",
+            "devops",
         }
         actual = {a.slug for a in AgentsMixin.BUILTIN_AGENTS}
         assert actual == expected
