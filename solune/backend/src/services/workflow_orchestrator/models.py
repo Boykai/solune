@@ -41,6 +41,23 @@ def get_agent_slugs(config: WorkflowConfiguration, status: str) -> list[str]:
     ]
 
 
+def get_agent_configs(config: WorkflowConfiguration) -> dict[str, dict]:
+    """Build agent_slug → config dict mapping from all agent assignments.
+
+    Iterates all statuses in the config and collects non-None config dicts
+    keyed by agent slug.  Later assignments overwrite earlier ones if the
+    same slug appears in multiple statuses.
+    """
+    result: dict[str, dict] = {}
+    for agents in config.agent_mappings.values():
+        for a in agents:
+            slug = a.slug if hasattr(a, "slug") else str(a)
+            cfg = getattr(a, "config", None)
+            if cfg:
+                result[slug] = cfg
+    return result
+
+
 def get_status_order(config: WorkflowConfiguration) -> list[str]:
     """Return the ordered list of pipeline statuses from configuration."""
     return [
@@ -175,6 +192,8 @@ class PipelineState:
     recovered_at: datetime | None = None  # Timestamp of label-driven state recovery
     # Auto merge: True when pipeline should auto-squash-merge parent PR on completion
     auto_merge: bool = False
+    # Maps agent_slug → config dict for runtime config access (e.g. delay_seconds)
+    agent_configs: dict[str, dict] = field(default_factory=dict)
 
     # 1. KEEP THIS (OR ADD IT BACK) - The system needs a single agent name for logging/labels
     @property

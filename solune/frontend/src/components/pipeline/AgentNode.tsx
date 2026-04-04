@@ -1,9 +1,11 @@
 /**
  * AgentNode — represents an agent assigned to a pipeline stage.
  * Shows agent name, model selection, tool count badge, and remove button.
+ * For human agents, also shows a delay-until-auto-merge toggle with a duration badge.
  */
 
-import { X, Wrench, Copy, CheckCircle2, XCircle, Loader2 } from '@/lib/icons';
+import { useState, useEffect } from 'react';
+import { X, Wrench, Copy, CheckCircle2, XCircle, Loader2, Clock } from '@/lib/icons';
 
 export type AgentRunStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -17,12 +19,30 @@ import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import type { DraggableAttributes } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 
+/**
+ * Format seconds into a human-readable duration string.
+ * Examples: 30 → "30s", 300 → "5m", 3600 → "1h", 90 → "1m 30s", 86400 → "24h".
+ */
+function formatDelayDuration(seconds: number): string {
+  if (seconds <= 0) return '0s';
+  const hours = Math.floor(seconds / 3600);
+  const remainder = seconds % 3600;
+  const minutes = Math.floor(remainder / 60);
+  const secs = remainder % 60;
+  const parts: string[] = [];
+  if (hours) parts.push(`${hours}h`);
+  if (minutes) parts.push(`${minutes}m`);
+  if (secs || parts.length === 0) parts.push(`${secs}s`);
+  return parts.join(' ');
+}
+
 interface AgentNodeProps {
   agentNode: PipelineAgentNode;
   onModelSelect: (modelId: string, modelName: string, reasoningEffort?: string) => void;
   onRemove: () => void;
   onToolsClick?: () => void;
   onClone?: () => void;
+  onConfigChange?: (config: Record<string, unknown>) => void;
   isParallel?: boolean;
   /** Runtime status for live pipeline monitoring. */
   agentStatus?: AgentRunStatus;
@@ -40,6 +60,7 @@ export function AgentNode({
   onRemove,
   onToolsClick,
   onClone,
+  onConfigChange,
   isParallel,
   agentStatus,
   dragHandleListeners,
@@ -52,6 +73,43 @@ export function AgentNode({
   const displayName = formatAgentName(agentNode.agent_slug, agentNode.agent_display_name);
   const stopDragPointerPropagation = (event: React.PointerEvent<HTMLElement>) => {
     event.stopPropagation();
+  };
+
+  const isHuman = agentNode.agent_slug === 'human';
+  const currentDelay = agentNode.config?.delay_seconds;
+  const hasDelay = typeof currentDelay === 'number' && currentDelay > 0;
+  const [delayInputValue, setDelayInputValue] = useState<string>(
+    hasDelay ? String(currentDelay) : '300',
+  );
+
+  // Sync local input value when delay_seconds changes externally
+  useEffect(() => {
+    if (hasDelay) {
+      setDelayInputValue(String(currentDelay));
+    }
+  }, [currentDelay, hasDelay]);
+
+  const handleDelayToggle = () => {
+    if (!onConfigChange) return;
+    if (hasDelay) {
+      // Turn off delay
+      const { delay_seconds: _, ...rest } = agentNode.config ?? {};
+      onConfigChange(rest);
+    } else {
+      // Turn on delay with current input value
+      const seconds = Math.max(1, Math.min(86400, Number(delayInputValue) || 300));
+      onConfigChange({ ...agentNode.config, delay_seconds: seconds });
+      setDelayInputValue(String(seconds));
+    }
+  };
+
+  const handleDelayChange = (value: string) => {
+    setDelayInputValue(value);
+    if (!onConfigChange) return;
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 86400) {
+      onConfigChange({ ...agentNode.config, delay_seconds: parsed });
+    }
   };
 
   return (
@@ -152,6 +210,57 @@ export function AgentNode({
             )}
           </button>
         </div>
+
+        {/* Human agent: Delay toggle + badge */}
+        {isHuman && onConfigChange && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2" onPointerDown={stopDragPointerPropagation}>
+            <label className="inline-flex cursor-pointer items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={hasDelay}
+                onChange={handleDelayToggle}
+                className="h-3 w-3 rounded border-border accent-primary"
+                aria-label="Delay until auto-merge"
+              />
+              <span className="text-[10px] text-muted-foreground">Delay until auto-merge</span>
+            </label>
+            {hasDelay && (
+              <input
+                type="number"
+                min={1}
+                max={86400}
+                value={delayInputValue}
+                onChange={(e) => handleDelayChange(e.target.value)}
+                className="h-5 w-16 rounded border border-border/60 bg-background px-1 text-[10px] text-foreground"
+                aria-label="Delay seconds"
+              />
+            )}
+            <span className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+              hasDelay
+                ? 'bg-primary/10 text-primary'
+                : 'bg-muted text-muted-foreground',
+            )}>
+              <Clock className="h-3 w-3" />
+              {hasDelay ? `⏱️ Auto-merge: ${formatDelayDuration(currentDelay as number)}` : 'Manual review'}
+            </span>
+          </div>
+        )}
+
+        {/* Human agent: Badge only (read-only, no onConfigChange) */}
+        {isHuman && !onConfigChange && (
+          <div className="mt-1.5">
+            <span className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+              hasDelay
+                ? 'bg-primary/10 text-primary'
+                : 'bg-muted text-muted-foreground',
+            )}>
+              <Clock className="h-3 w-3" />
+              {hasDelay ? `⏱️ Auto-merge: ${formatDelayDuration(currentDelay as number)}` : 'Manual review'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Clone button */}

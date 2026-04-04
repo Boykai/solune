@@ -29,10 +29,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T001 Merge full `node.config` dict into `AgentAssignment.config` in the group-aware path in `solune/backend/src/services/workflow_orchestrator/config.py` (line ~371-376). Change from `config={"model_id": node.model_id, "model_name": node.model_name} if node.model_id else None` to `config={**node.config, "model_id": node.model_id, "model_name": node.model_name} if node.model_id or node.config else None`
-- [ ] T002 Apply the same `node.config` dict merge to the legacy fallback path in `solune/backend/src/services/workflow_orchestrator/config.py` (line ~397-405)
-- [ ] T003 [P] Add `agent_configs: dict[str, dict] = field(default_factory=dict)` field to the `PipelineState` dataclass in `solune/backend/src/services/workflow_orchestrator/models.py` (after the `auto_merge: bool = False` field, line ~177)
-- [ ] T004 Populate `agent_configs` from `WorkflowConfiguration`'s `AgentAssignment.config` dicts when constructing `PipelineState` in `solune/backend/src/api/pipelines.py` (line ~467-489). Map each agent's slug to its config dict so the execution loop can read `delay_seconds` at runtime.
+- [x] T001 Merge full `node.config` dict into `AgentAssignment.config` in the group-aware path in `solune/backend/src/services/workflow_orchestrator/config.py` (line ~371-376). Change from `config={"model_id": node.model_id, "model_name": node.model_name} if node.model_id else None` to `config={**node.config, "model_id": node.model_id, "model_name": node.model_name} if node.model_id or node.config else None`
+- [x] T002 Apply the same `node.config` dict merge to the legacy fallback path in `solune/backend/src/services/workflow_orchestrator/config.py` (line ~397-405)
+- [x] T003 [P] Add `agent_configs: dict[str, dict] = field(default_factory=dict)` field to the `PipelineState` dataclass in `solune/backend/src/services/workflow_orchestrator/models.py` (after the `auto_merge: bool = False` field, line ~177)
+- [x] T004 Populate `agent_configs` from `WorkflowConfiguration`'s `AgentAssignment.config` dicts when constructing `PipelineState` in `solune/backend/src/api/pipelines.py` (line ~467-489). Map each agent's slug to its config dict so the execution loop can read `delay_seconds` at runtime.
 
 **Checkpoint**: Config flow foundation ready — `delay_seconds` flows from `PipelineAgentNode.config` → `AgentAssignment.config` → `PipelineState.agent_configs["human"]`. User story implementation can now begin.
 
@@ -48,14 +48,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T005 [P] [US1] Unit test for `delay_seconds` validation — valid range `[1, 86400]`, integer type, rejected for values ≤0, >86400, and non-integer types; only meaningful for `agent_slug == "human"` in `solune/backend/tests/unit/test_human_delay.py`
-- [ ] T006 [P] [US1] Unit test for config flow — verify `delay_seconds` in `PipelineAgentNode.config` flows through `AgentAssignment.config` to `PipelineState.agent_configs["human"]["delay_seconds"]` in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T005 [P] [US1] Unit test for `delay_seconds` validation — valid range `[1, 86400]`, integer type, rejected for values ≤0, >86400, and non-integer types; only meaningful for `agent_slug == "human"` in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T006 [P] [US1] Unit test for config flow — verify `delay_seconds` in `PipelineAgentNode.config` flows through `AgentAssignment.config` to `PipelineState.agent_configs["human"]["delay_seconds"]` in `solune/backend/tests/unit/test_human_delay.py`
 
 ### Implementation for User Story 1
 
-- [ ] T007 [P] [US1] Add delay toggle and numeric input to Human agent node in `solune/frontend/src/components/pipeline/AgentNode.tsx`. When `agent_slug === 'human'`, render below the model selector: toggle "Delay until auto-merge" (off by default); when on: `<input type="number" min={1} max={86400}>` for seconds. Updates via existing `onUpdateAgent → config.delay_seconds`. Toggle and input MUST NOT render for non-human agent nodes.
-- [ ] T008 [P] [US1] Verify config merge in `solune/frontend/src/hooks/usePipelineBoardMutations.ts` — confirm `updateAgentInStage` spreads existing config when merging partial updates (line ~193) so updating `config.delay_seconds` does not clobber `config.model_id` or other existing config keys. Fix if needed.
-- [ ] T009 [US1] Add display badge to Human agent node in `solune/frontend/src/components/pipeline/AgentNode.tsx`. When `delay_seconds` is set: show badge "⏱️ Auto-merge: {formatted_duration}". When not set: show badge "Manual review". Duration formatting: 300s→"5m", 3600s→"1h", 90s→"1m 30s", 86400s→"24h".
+- [x] T007 [P] [US1] Add delay toggle and numeric input to Human agent node in `solune/frontend/src/components/pipeline/AgentNode.tsx`. When `agent_slug === 'human'`, render below the model selector: toggle "Delay until auto-merge" (off by default); when on: `<input type="number" min={1} max={86400}>` for seconds. Updates via existing `onUpdateAgent → config.delay_seconds`. Toggle and input MUST NOT render for non-human agent nodes.
+- [x] T008 [P] [US1] Verify config merge in `solune/frontend/src/hooks/usePipelineBoardMutations.ts` — confirm `updateAgentInStage` spreads existing config when merging partial updates (line ~193) so updating `config.delay_seconds` does not clobber `config.model_id` or other existing config keys. Fix if needed.
+- [x] T009 [US1] Add display badge to Human agent node in `solune/frontend/src/components/pipeline/AgentNode.tsx`. When `delay_seconds` is set: show badge "⏱️ Auto-merge: {formatted_duration}". When not set: show badge "Manual review". Duration formatting: 300s→"5m", 3600s→"1h", 90s→"1m 30s", 86400s→"24h".
 
 **Checkpoint**: Human agent node shows delay toggle, accepts numeric input, persists value in config, displays mode badge. Non-human agents show no delay UI. User Story 1 is fully functional and testable independently.
 
@@ -71,14 +71,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US2] Unit test for pipeline execution with human + delay → `asyncio.sleep` loop executes for correct number of iterations and `_attempt_auto_merge()` is invoked after delay expires in `solune/backend/tests/unit/test_human_delay.py`
-- [ ] T011 [P] [US2] Unit test for sub-issue body containing "⏱️ Auto-merge in {duration}. Close early to skip." when delay is configured, and NOT containing it when delay is not configured, in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T010 [P] [US2] Unit test for pipeline execution with human + delay → `asyncio.sleep` loop executes for correct number of iterations and `_attempt_auto_merge()` is invoked after delay expires in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T011 [P] [US2] Unit test for sub-issue body containing "⏱️ Auto-merge in {duration}. Close early to skip." when delay is configured, and NOT containing it when delay is not configured, in `solune/backend/tests/unit/test_human_delay.py`
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Add `delay_seconds` validation guard in `solune/backend/src/services/copilot_polling/pipeline.py`. When `agent_slug == "human"` and `config.get("delay_seconds")` is present: validate it is an `int` in range `[1, 86400]`. If invalid, log a warning and treat as `None` (fall through to existing behavior).
-- [ ] T013 [US2] Implement delay-then-merge execution block in `solune/backend/src/services/copilot_polling/pipeline.py` (augmenting the human agent handling block at line ~1951-2039). When `delay_seconds` is set: (1) create sub-issue (existing flow), (2) comment "⏱️ Auto-merge in {formatted_duration}" on sub-issue, (3) loop `asyncio.sleep(15)` for `ceil(delay_seconds / 15)` iterations, (4) trigger `_attempt_auto_merge()`, (5) close sub-issue with completion comment, (6) mark agent as completed, (7) advance pipeline. Duration formatting: 300s→"5m", 3600s→"1h", 30s→"30s".
-- [ ] T014 [US2] Append "⏱️ Auto-merge in {formatted_duration}. Close early to skip." to human sub-issue body when delay is configured in `solune/backend/src/services/workflow_orchestrator/orchestrator.py` (or `solune/backend/src/services/github_projects/agents.py` — locate where `tailor_body_for_agent` constructs the human sub-issue body and add the delay info there)
+- [x] T012 [US2] Add `delay_seconds` validation guard in `solune/backend/src/services/copilot_polling/pipeline.py`. When `agent_slug == "human"` and `config.get("delay_seconds")` is present: validate it is an `int` in range `[1, 86400]`. If invalid, log a warning and treat as `None` (fall through to existing behavior).
+- [x] T013 [US2] Implement delay-then-merge execution block in `solune/backend/src/services/copilot_polling/pipeline.py` (augmenting the human agent handling block at line ~1951-2039). When `delay_seconds` is set: (1) create sub-issue (existing flow), (2) comment "⏱️ Auto-merge in {formatted_duration}" on sub-issue, (3) loop `asyncio.sleep(15)` for `ceil(delay_seconds / 15)` iterations, (4) trigger `_attempt_auto_merge()`, (5) close sub-issue with completion comment, (6) mark agent as completed, (7) advance pipeline. Duration formatting: 300s→"5m", 3600s→"1h", 30s→"30s".
+- [x] T014 [US2] Append "⏱️ Auto-merge in {formatted_duration}. Close early to skip." to human sub-issue body when delay is configured in `solune/backend/src/services/workflow_orchestrator/orchestrator.py` (or `solune/backend/src/services/github_projects/agents.py` — locate where `tailor_body_for_agent` constructs the human sub-issue body and add the delay info there)
 
 **Checkpoint**: Pipeline with delay-configured Human agent creates sub-issue with delay info, posts countdown comment, waits the full delay duration, triggers auto-merge, closes sub-issue, and advances. User Story 2 is fully functional and testable independently.
 
@@ -94,12 +94,12 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T015 [P] [US3] Unit test for early cancellation — mock sub-issue as closed after 2 polling intervals → pipeline breaks delay loop immediately and proceeds to `_attempt_auto_merge()`, skipping remaining sleep iterations in `solune/backend/tests/unit/test_human_delay.py`
-- [ ] T016 [P] [US3] Unit test for early cancellation via "Done!" comment — mock "Done!" comment detected after 1 polling interval → pipeline breaks delay loop immediately in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T015 [P] [US3] Unit test for early cancellation — mock sub-issue as closed after 2 polling intervals → pipeline breaks delay loop immediately and proceeds to `_attempt_auto_merge()`, skipping remaining sleep iterations in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T016 [P] [US3] Unit test for early cancellation via "Done!" comment — mock "Done!" comment detected after 1 polling interval → pipeline breaks delay loop immediately in `solune/backend/tests/unit/test_human_delay.py`
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Enhance delay loop in `solune/backend/src/services/copilot_polling/pipeline.py` to check sub-issue status (closed or "Done!" comment) after each 15-second `asyncio.sleep` interval. If early cancellation detected, break loop immediately and proceed to `_attempt_auto_merge()`. This refines the delay loop from T013 — instead of blind sleeping, each iteration checks the sub-issue via the existing GitHub API polling infrastructure.
+- [x] T017 [US3] Enhance delay loop in `solune/backend/src/services/copilot_polling/pipeline.py` to check sub-issue status (closed or "Done!" comment) after each 15-second `asyncio.sleep` interval. If early cancellation detected, break loop immediately and proceed to `_attempt_auto_merge()`. This refines the delay loop from T013 — instead of blind sleeping, each iteration checks the sub-issue via the existing GitHub API polling infrastructure.
 
 **Checkpoint**: Early cancellation works — closing the sub-issue or commenting "Done!" during the delay period causes immediate pipeline progression within one polling interval (~15s). User Story 3 is fully functional and testable independently.
 
@@ -115,12 +115,12 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T018 [P] [US4] Unit test for pipeline execution with human + no delay → manual-wait behavior unchanged (pipeline pauses, no `_attempt_auto_merge()` called until sub-issue is manually closed) in `solune/backend/tests/unit/test_human_delay.py`
-- [ ] T019 [P] [US4] Unit test for pipeline execution with human + no delay + `auto_merge: true` + human is last step → existing skip-and-auto-merge behavior preserved (human step skipped, pipeline transitions to auto-merge) in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T018 [P] [US4] Unit test for pipeline execution with human + no delay → manual-wait behavior unchanged (pipeline pauses, no `_attempt_auto_merge()` called until sub-issue is manually closed) in `solune/backend/tests/unit/test_human_delay.py`
+- [x] T019 [P] [US4] Unit test for pipeline execution with human + no delay + `auto_merge: true` + human is last step → existing skip-and-auto-merge behavior preserved (human step skipped, pipeline transitions to auto-merge) in `solune/backend/tests/unit/test_human_delay.py`
 
 ### Implementation for User Story 4
 
-- [ ] T020 [US4] Verify and adjust the delay-aware execution block in `solune/backend/src/services/copilot_polling/pipeline.py` to ensure the `else` branch (when `delay_seconds` is NOT set) preserves: (a) manual-wait path where pipeline pauses until sub-issue close or "Done!" comment, (b) skip-and-auto-merge path for last-step human with `auto_merge` active. No new code expected — this validates the else branch of T013's implementation and confirms backward compatibility.
+- [x] T020 [US4] Verify and adjust the delay-aware execution block in `solune/backend/src/services/copilot_polling/pipeline.py` to ensure the `else` branch (when `delay_seconds` is NOT set) preserves: (a) manual-wait path where pipeline pauses until sub-issue close or "Done!" comment, (b) skip-and-auto-merge path for last-step human with `auto_merge` active. No new code expected — this validates the else branch of T013's implementation and confirms backward compatibility.
 
 **Checkpoint**: Existing manual-review and skip-human-on-auto-merge behaviors are confirmed preserved with zero regressions. User Story 4 is verified.
 
@@ -134,7 +134,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T021 [US5] Render delayed human agent row as "⏱️ Delay ({formatted_duration})" in `solune/backend/src/services/agent_tracking.py` when the human agent is in the delay-waiting state. Duration formatting: 300s→"5m", 3600s→"1h". Manual-wait human agents retain their existing status display unchanged.
+- [x] T021 [US5] Render delayed human agent row as "⏱️ Delay ({formatted_duration})" in `solune/backend/src/services/agent_tracking.py` when the human agent is in the delay-waiting state. Duration formatting: 300s→"5m", 3600s→"1h". Manual-wait human agents retain their existing status display unchanged.
 
 **Checkpoint**: Tracking table clearly distinguishes delay-wait ("⏱️ Delay (5m)") from manual-wait human agents. User Story 5 is complete.
 
@@ -144,11 +144,11 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T022 [P] Extract shared duration formatting helper (seconds → human-readable: 300→"5m", 3600→"1h", 90→"1m 30s", 86400→"24h") into reusable utilities if not already extracted. Backend: `solune/backend/src/services/copilot_polling/pipeline.py` or shared utils module. Frontend: `solune/frontend/src/components/pipeline/AgentNode.tsx` or shared utils.
-- [ ] T023 Run `solune/backend/tests/unit/test_human_delay.py` full suite and verify all tests pass
-- [ ] T024 Run backend regression suite: `cd solune/backend && uv run pytest --cov=src --cov-report=json --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — verify coverage ≥75% and no regressions
-- [ ] T025 Run frontend test suite: `cd solune/frontend && npm run test` — verify no regressions
-- [ ] T026 Run `specs/001-human-agent-delay-until-auto-merge/quickstart.md` validation steps
+- [x] T022 [P] Extract shared duration formatting helper (seconds → human-readable: 300→"5m", 3600→"1h", 90→"1m 30s", 86400→"24h") into reusable utilities if not already extracted. Backend: `solune/backend/src/services/copilot_polling/pipeline.py` or shared utils module. Frontend: `solune/frontend/src/components/pipeline/AgentNode.tsx` or shared utils.
+- [x] T023 Run `solune/backend/tests/unit/test_human_delay.py` full suite and verify all tests pass
+- [x] T024 Run backend regression suite: `cd solune/backend && uv run pytest --cov=src --cov-report=json --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — verify coverage ≥75% and no regressions
+- [x] T025 Run frontend test suite: `cd solune/frontend && npm run test` — verify no regressions
+- [x] T026 Run `specs/001-human-agent-delay-until-auto-merge/quickstart.md` validation steps
 
 ---
 
