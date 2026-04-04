@@ -3203,6 +3203,82 @@ async def check_in_review_issues(
             if result:
                 results.append(result)
 
+        # ── DevOps recovery fallback ──
+        # After pipeline processing, check for stalled DevOps agents:
+        # completed pipelines in "In Review" with no active background
+        # retry polling (e.g. after server restart).  DevOps tracking
+        # state (devops_active/devops_attempts) is kept in-memory via
+        # the pipeline_metadata dict and is NOT persisted on
+        # PipelineState.  After a restart those values are lost, so we
+        # optimistically check for the DevOps "Done!" comment on every
+        # completed in-review issue that has no pending retry.  The
+        # cost is O(n) comment fetches where n = in-review issues
+        # (typically small).
+        from .state import _pending_post_devops_retries
+
+        for task in in_review_tasks:
+            if task.issue_number is None:
+                continue
+            task_owner = task.repository_owner or owner
+            task_repo = task.repository_name or repo
+            if not task_owner or not task_repo:
+                continue
+
+            rec_pipeline = _cp.get_pipeline_state(task.issue_number)
+            if not rec_pipeline or not rec_pipeline.is_complete:
+                continue
+
+            if not getattr(rec_pipeline, "auto_merge", False):
+                continue  # Auto-merge not enabled for this pipeline
+
+            if task.issue_number in _pending_post_devops_retries:
+                continue  # Retry already running
+
+            try:
+                from .auto_merge import (
+                    _attempt_auto_merge,
+                    _check_devops_done_comment,
+                    dispatch_devops_agent,
+                )
+
+                done = await _check_devops_done_comment(
+                    access_token=access_token,
+                    owner=task_owner,
+                    repo=task_repo,
+                    issue_number=task.issue_number,
+                )
+                if done:
+                    logger.info(
+                        "DevOps recovery: 'Done!' detected for stalled issue #%d",
+                        task.issue_number,
+                    )
+                    merge_result = await _attempt_auto_merge(
+                        access_token=access_token,
+                        owner=task_owner,
+                        repo=task_repo,
+                        issue_number=task.issue_number,
+                    )
+                    if merge_result.status == "devops_needed":
+                        pipeline_md: dict[str, Any] = {
+                            "devops_attempts": 0,
+                            "devops_active": False,
+                        }
+                        await dispatch_devops_agent(
+                            access_token=access_token,
+                            owner=task_owner,
+                            repo=task_repo,
+                            issue_number=task.issue_number,
+                            pipeline_metadata=pipeline_md,
+                            project_id=project_id,
+                            merge_result_context=merge_result.context,
+                        )
+            except Exception:
+                logger.warning(
+                    "DevOps recovery failed for issue #%d",
+                    task.issue_number,
+                    exc_info=True,
+                )
+
     except Exception as e:
         logger.error("Error checking in-review issues: %s", e, exc_info=True)
         _polling_state.errors_count += 1
