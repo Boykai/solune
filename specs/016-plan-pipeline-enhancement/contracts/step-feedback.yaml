@@ -1,0 +1,85 @@
+openapi: "3.1.0"
+info:
+  title: Step Feedback API
+  description: Endpoint for submitting per-step refinement feedback
+  version: "1.0.0"
+
+paths:
+  /chat/plans/{plan_id}/steps/{step_id}/feedback:
+    post:
+      operationId: submitStepFeedback
+      summary: Submit feedback for a specific plan step
+      description: |
+        Accepts a comment for a specific step. The feedback is stored transiently
+        in the agent session context (not persisted to the database). On the next
+        plan refinement pass, the agent incorporates this feedback into its response.
+        Feedback is cleared from the session after one refinement cycle.
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Plan identifier
+        - name: step_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Step identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepFeedbackRequest"
+      responses:
+        "200":
+          description: Feedback accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plan_id, step_id, status]
+                properties:
+                  plan_id:
+                    type: string
+                    format: uuid
+                  step_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [accepted]
+        "404":
+          description: Plan or step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    StepFeedbackRequest:
+      type: object
+      required: [comment]
+      properties:
+        comment:
+          type: string
+          minLength: 1
+          maxLength: 4096
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string

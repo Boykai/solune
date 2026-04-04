@@ -275,6 +275,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite for settings/session storage (545-model-reasoning-selection)
 - Bicep (Azure Bicep CLI latest) + ARM JSON (compiled output) + Azure Container Apps, Azure OpenAI, Azure AI Foundry, Azure Key Vault, Azure Container Registry, Azure Storage, Log Analytics, Application Insights (001-azure-deployment-bicep)
 - SQLite on Azure Files (solune-data share); Signal config on Azure Files (signal-config share) (001-azure-deployment-bicep)
+- Python 3.11+ (backend), TypeScript/React 19 (frontend) + FastAPI, aiosqlite, Pydantic v2 (backend); React 19, @tanstack/react-query 5, @dnd-kit 6/10, Tailwind CSS 4 (frontend) (016-plan-pipeline-enhancement)
+- SQLite via aiosqlite; repo pattern with `BEGIN IMMEDIATE` transactions; latest migration is 039 (016-plan-pipeline-enhancement)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 

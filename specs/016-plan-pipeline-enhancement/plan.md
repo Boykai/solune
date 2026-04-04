@@ -1,104 +1,131 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Full-Stack Plan Pipeline Enhancement
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `016-plan-pipeline-enhancement` | **Date**: 2026-04-04 | **Spec**: `/specs/016-plan-pipeline-enhancement/spec.md`
+**Input**: Feature specification from parent issue [#687](https://github.com/Boykai/solune/issues/687)
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Evolve the `/plan` pipeline from a simple create-refine-approve loop into a versioned, step-editable planning surface with a dependency graph, structured refinement, and board-sync progress tracking. The enhancement spans three phases across 16 steps: Phase 1 delivers an iterative refinement loop (versioning, step feedback, guided prompts, diff highlights), Phase 2 adds step CRUD with a dependency DAG and drag-and-drop reordering, and Phase 3 polishes thinking events, adds export, and introduces board-sync progress tracking.
+
+The approach builds on the existing SQLite/aiosqlite storage layer (repo pattern with `BEGIN IMMEDIATE` transactions), the FastAPI SSE streaming in `chat_agent.py`, and the `@dnd-kit` drag-and-drop patterns already proven in `ExecutionGroupCard.tsx`. Two new migrations (040, 041) extend the schema; no new npm dependencies are required.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.11+ (backend), TypeScript/React 19 (frontend)
+**Primary Dependencies**: FastAPI, aiosqlite, Pydantic v2 (backend); React 19, @tanstack/react-query 5, @dnd-kit 6/10, Tailwind CSS 4 (frontend)
+**Storage**: SQLite via aiosqlite; repo pattern with `BEGIN IMMEDIATE` transactions; latest migration is 039
+**Testing**: pytest with coverage ≥75% (backend); Vitest with coverage ≥50% statements (frontend); Playwright E2E
+**Target Platform**: Linux server (Docker containers on Azure Container Apps), modern browsers
+**Project Type**: Web application (backend + frontend)
+**Performance Goals**: Plan operations <200ms p95; SSE streaming latency <100ms first byte; DAG validation <10ms for ≤15 steps
+**Constraints**: SQLite single-writer (transactions must be short); max 15 plan steps (simplifies DAG layout); no new npm dependencies for graph visualization
+**Scale/Scope**: Single-user per session; plans contain 3–15 steps; version history unbounded but expected <50 versions per plan
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+### I. Specification-First Development — ✅ PASS
+
+The parent issue (#687) provides a detailed specification with 16 prioritized steps, clear acceptance criteria per step, and explicit scope boundaries (three phases). Each step has defined dependencies and verification criteria.
+
+### II. Template-Driven Workflow — ✅ PASS
+
+This plan follows the canonical `plan-template.md` structure. All artifacts (research.md, data-model.md, contracts/, quickstart.md) use the prescribed output formats. No custom sections added without justification.
+
+### III. Agent-Orchestrated Execution — ✅ PASS
+
+The plan decomposes into single-responsibility phases: speckit.plan (this document) → speckit.tasks → speckit.implement. Each phase produces well-defined outputs consumed by the next.
+
+### IV. Test Optionality with Clarity — ✅ PASS
+
+Tests are mandated by the specification:
+- Backend: `test_plan_store.py`, `test_api_chat.py` covering versioning, step CRUD, DAG validation, export, feedback
+- Frontend: `PlanPreview.test.tsx`, `usePlan.test.tsx`, `PlanDependencyGraph.test.tsx`
+- Coverage thresholds: backend ≥75%, frontend ≥50%
+
+### V. Simplicity and DRY — ✅ PASS
+
+- Reuses existing `@dnd-kit` patterns from `ExecutionGroupCard.tsx` (no new DnD library)
+- Custom SVG for dependency graph (no new npm dep; max 15 nodes keeps it simple)
+- Feedback is transient (injected into agent context), avoiding a new table
+- Polling for board sync (simpler than webhooks for SQLite)
+- Extends existing `/approve` endpoint rather than creating new ones where possible
+
+### Post-Design Re-check — ✅ PASS
+
+All five principles remain satisfied after Phase 1 design. The data model adds two tables and one column (minimum viable schema). API contracts extend existing patterns. No unnecessary abstractions introduced.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/016-plan-pipeline-enhancement/
+├── plan.md              # This file
+├── research.md          # Phase 0: technology decisions and research
+├── data-model.md        # Phase 1: entity definitions and relationships
+├── quickstart.md        # Phase 1: developer getting-started guide
+├── contracts/           # Phase 1: OpenAPI contract definitions
+│   ├── plan-versioning.yaml
+│   ├── step-crud.yaml
+│   ├── step-feedback.yaml
+│   └── plan-export.yaml
+└── tasks.md             # Phase 2 output (NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
+solune/backend/
 ├── src/
+│   ├── api/
+│   │   └── chat.py                    # New endpoints: feedback, history, step CRUD, export, selective approve
 │   ├── models/
+│   │   └── plan.py                    # PlanVersion model, step mutation schemas, version field
 │   ├── services/
-│   └── api/
+│   │   ├── chat_store.py              # Versioning logic, step CRUD, DAG validation
+│   │   ├── chat_agent.py              # Richer SSE events, feedback context injection
+│   │   ├── agent_tools.py             # save_plan version increment
+│   │   ├── plan_issue_service.py      # Selective step approval
+│   │   └── dag_validator.py           # New: topological sort + cycle detection utility
+│   ├── prompts/
+│   │   └── plan_instructions.py       # Guided refinement, step feedback injection
+│   └── migrations/
+│       ├── 040_plan_versioning.sql    # New: version column + chat_plan_versions table
+│       └── 041_plan_step_status.sql   # New: issue_status column on chat_plan_steps
 └── tests/
+    └── unit/
+        ├── test_plan_store.py         # Versioning, step CRUD, DAG tests
+        └── test_api_chat.py           # Endpoint integration tests
 
-frontend/
+solune/frontend/
 ├── src/
 │   ├── components/
-│   ├── pages/
-│   └── services/
+│   │   └── chat/
+│   │       ├── PlanPreview.tsx              # Step CRUD, refinement sidebar, DnD, diff, progress, export
+│   │       ├── PlanDependencyGraph.tsx      # New: SVG dependency graph
+│   │       └── ThinkingIndicator.tsx        # Breadcrumbs, collapsible tool details
+│   ├── hooks/
+│   │   └── usePlan.ts                       # New mutations: feedback, step CRUD, history, export
+│   ├── services/
+│   │   └── api.ts                           # New client functions for all endpoints
+│   └── types/
+│       └── index.ts                         # PlanVersion, StepFeedback, extended interfaces
 └── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+    ├── src/components/chat/
+    │   ├── PlanPreview.test.tsx
+    │   └── PlanDependencyGraph.test.tsx
+    └── src/hooks/
+        └── usePlan.test.tsx
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application (backend + frontend) following the existing `solune/backend` and `solune/frontend` directory structure. All changes extend existing files except for `dag_validator.py` (backend utility) and `PlanDependencyGraph.tsx` (frontend component), which are new single-purpose modules.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+| New `dag_validator.py` module | Isolates topological sort + cycle detection logic for testability | Inline in `chat_store.py` would mix graph logic with persistence concerns |
+| `chat_plan_versions` table | Required for version history and diff computation | JSON column on `chat_plans` would limit query capabilities and grow unbounded in a single row |
+| Custom SVG component | Lightweight dependency graph visualization for ≤15 nodes | Third-party library (d3, dagre) would add npm dependency for a simple use case |

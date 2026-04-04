@@ -1,0 +1,296 @@
+openapi: "3.1.0"
+info:
+  title: Step CRUD API
+  description: Endpoints for creating, reading, updating, deleting, and reordering plan steps
+  version: "1.0.0"
+
+paths:
+  /chat/plans/{plan_id}/steps:
+    post:
+      operationId: addStep
+      summary: Add a new step to a plan
+      description: |
+        Creates a new step in the plan. If position is omitted, the step is appended
+        at the end. All dependency references are validated via DAG validation.
+        Triggers a version increment and snapshot.
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepCreateRequest"
+      responses:
+        "201":
+          description: Step created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (circular dependency, invalid reference)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /chat/plans/{plan_id}/steps/{step_id}:
+    put:
+      operationId: updateStep
+      summary: Update an existing step
+      description: |
+        Updates step fields (title, description, dependencies). Only provided fields
+        are updated. Dependency changes trigger DAG re-validation.
+        Triggers a version increment and snapshot.
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepUpdateRequest"
+      responses:
+        "200":
+          description: Step updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "404":
+          description: Plan or step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (circular dependency, invalid reference)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteStep
+      summary: Delete a step with cascade
+      description: |
+        Removes the step and updates all other steps that depend on it
+        (removes the deleted step_id from their dependencies list).
+        Remaining step positions are compacted to remove gaps.
+        Triggers a version increment and snapshot.
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/StepId"
+      responses:
+        "200":
+          description: Step deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted_step_id, affected_steps]
+                properties:
+                  deleted_step_id:
+                    type: string
+                    format: uuid
+                  affected_steps:
+                    type: array
+                    description: Step IDs that had their dependencies updated
+                    items:
+                      type: string
+                      format: uuid
+        "404":
+          description: Plan or step not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /chat/plans/{plan_id}/steps/reorder:
+    post:
+      operationId: reorderSteps
+      summary: Bulk reorder plan steps
+      description: |
+        Reorders all steps in the plan according to the provided step_ids array.
+        The array must contain all step IDs exactly once. New positions are assigned
+        based on array index (0-indexed). DAG validation is run after reordering.
+        Triggers a version increment and snapshot.
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepReorderRequest"
+      responses:
+        "200":
+          description: Steps reordered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plan_id, version, steps]
+                properties:
+                  plan_id:
+                    type: string
+                    format: uuid
+                  version:
+                    type: integer
+                  steps:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanStep"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error (missing/duplicate step IDs, circular dependency)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    PlanId:
+      name: plan_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Plan identifier
+
+    StepId:
+      name: step_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Step identifier
+
+  schemas:
+    StepCreateRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          default: []
+          items:
+            type: string
+            format: uuid
+        position:
+          type: integer
+          minimum: 0
+          description: "If omitted, step is appended at the end"
+
+    StepUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    StepReorderRequest:
+      type: object
+      required: [step_ids]
+      properties:
+        step_ids:
+          type: array
+          description: "Ordered list of all step IDs in their new positions"
+          items:
+            type: string
+            format: uuid
+
+    PlanStep:
+      type: object
+      required: [step_id, plan_id, position, title, description, dependencies]
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+        issue_number:
+          type: integer
+          nullable: true
+        issue_url:
+          type: string
+          nullable: true
+        issue_status:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
