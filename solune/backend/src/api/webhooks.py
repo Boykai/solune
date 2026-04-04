@@ -37,7 +37,7 @@ _processed_delivery_ids: BoundedSet[str] = BoundedSet(maxlen=1000)
 def _resolve_issue_for_pr(pr_number: int) -> int | None:
     """Reverse-lookup parent issue number from a PR number via _issue_main_branches cache."""
     try:
-        from src.services.workflow_orchestrator.models import _issue_main_branches
+        from src.services.workflow_orchestrator import _issue_main_branches
 
         for issue_num, info in _issue_main_branches.items():
             if info.get("pr_number") == pr_number:
@@ -61,7 +61,7 @@ def _get_auto_merge_pipeline(issue_number: int) -> dict[str, Any] | None:
         import src.services.copilot_polling as _cp
 
         pipeline = _cp.get_pipeline_state(issue_number)
-        if pipeline and pipeline.is_complete:
+        if pipeline and pipeline.is_complete and getattr(pipeline, "auto_merge", False):
             return {
                 "project_id": getattr(pipeline, "project_id", ""),
                 "devops_attempts": 0,

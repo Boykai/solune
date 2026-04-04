@@ -591,6 +591,7 @@ async def _post_devops_retry_loop(
                 {
                     "type": "auto_merge_failed",
                     "issue_number": issue_number,
+                    "reason": "merge_failed",
                     "error": merge_result.error,
                 },
             )

@@ -888,28 +888,14 @@ class TestWebhookHelpers:
             20: {"pr_number": 55, "branch": "fix"},
         }
         with patch(
-            "src.api.webhooks._resolve_issue_for_pr.__module__",
-            create=True,
+            "src.services.workflow_orchestrator._issue_main_branches",
+            mock_branches,
         ):
-            # Since _resolve_issue_for_pr does a lazy import from models, we
-            # patch the imported variable at the import target location.
-            # The function catches ImportError, so we mock the full path.
-            with patch.dict(
-                "sys.modules",
-                {
-                    "src.services.workflow_orchestrator.models": type(
-                        "FakeModule",
-                        (),
-                        {"_issue_main_branches": mock_branches},
-                    )()
-                },
-            ):
-                result = _resolve_issue_for_pr(42)
-                assert result == 10
+            result = _resolve_issue_for_pr(42)
+            assert result == 10
 
     def test_resolve_issue_for_pr_not_found(self):
         """Should return None when PR is not in the cache."""
-        import sys
         from unittest.mock import patch
 
         from src.api.webhooks import _resolve_issue_for_pr
@@ -917,36 +903,35 @@ class TestWebhookHelpers:
         mock_branches = {
             10: {"pr_number": 42, "branch": "feature"},
         }
-        with patch.dict(
-            sys.modules,
-            {
-                "src.services.workflow_orchestrator.models": type(
-                    "FakeModule",
-                    (),
-                    {"_issue_main_branches": mock_branches},
-                )()
-            },
+        with patch(
+            "src.services.workflow_orchestrator._issue_main_branches",
+            mock_branches,
         ):
             result = _resolve_issue_for_pr(999)
             assert result is None
 
-    def test_resolve_issue_for_pr_import_failure_returns_none(self):
-        """When the import fails, function should return None (broad exception catch)."""
+    def test_resolve_issue_for_pr_empty_cache_returns_none(self):
+        """When the cache is empty, function should return None."""
+        from unittest.mock import patch
+
         from src.api.webhooks import _resolve_issue_for_pr
 
-        # The actual import from models.py fails because _issue_main_branches
-        # is not defined there — the function's except block returns None.
-        result = _resolve_issue_for_pr(42)
-        assert result is None
+        with patch(
+            "src.services.workflow_orchestrator._issue_main_branches",
+            {},
+        ):
+            result = _resolve_issue_for_pr(42)
+            assert result is None
 
     def test_get_auto_merge_pipeline_complete(self):
-        """Should return pipeline metadata for complete pipelines."""
+        """Should return pipeline metadata for complete auto-merge pipelines."""
         from unittest.mock import MagicMock, patch
 
         from src.api.webhooks import _get_auto_merge_pipeline
 
         pipeline = MagicMock()
         pipeline.is_complete = True
+        pipeline.auto_merge = True
         pipeline.project_id = "PVT_123"
 
         with patch(
@@ -957,6 +942,24 @@ class TestWebhookHelpers:
             assert result is not None
             assert result["devops_attempts"] == 0
             assert result["devops_active"] is False
+
+    def test_get_auto_merge_pipeline_complete_no_auto_merge(self):
+        """Should return None for complete pipelines without auto_merge enabled."""
+        from unittest.mock import MagicMock, patch
+
+        from src.api.webhooks import _get_auto_merge_pipeline
+
+        pipeline = MagicMock()
+        pipeline.is_complete = True
+        pipeline.auto_merge = False
+        pipeline.project_id = "PVT_123"
+
+        with patch(
+            "src.services.copilot_polling.get_pipeline_state",
+            return_value=pipeline,
+        ):
+            result = _get_auto_merge_pipeline(10)
+            assert result is None
 
     def test_get_auto_merge_pipeline_incomplete(self):
         """Should return None for incomplete pipelines."""
