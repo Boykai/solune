@@ -4,7 +4,11 @@ Tests cover:
 - validate_labels: taxonomy filtering, dedup, type-label default, ai-generated guarantee
 - classify_labels: happy path with mocked AI, fallback on failure, empty input fast path,
   timeout handling, custom fallback_labels
+- ClassificationResult: dataclass immutability and defaults
+- classify_labels_with_priority: urgency detection, no-urgency fallback, AI timeout,
+  invalid priority handling
 - _parse_labels_response: JSON parsing edge cases
+- _parse_labels_and_priority_response: priority extraction edge cases
 """
 
 from __future__ import annotations
@@ -16,11 +20,16 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from src.constants import TYPE_LABELS
+from src.models.recommendation import IssuePriority
 from src.services.label_classifier import (
     ALWAYS_INCLUDED_LABEL,
     DEFAULT_TYPE_LABEL,
+    ClassificationResult,
+    _parse_labels_and_priority_response,
     _parse_labels_response,
+    _strip_markdown_fences,
     classify_labels,
+    classify_labels_with_priority,
     validate_labels,
 )
 
@@ -86,6 +95,32 @@ class TestValidateLabels:
         )
         for label in ["frontend", "backend", "database", "api", "security", "performance"]:
             assert label in result
+
+
+# ── _strip_markdown_fences ──────────────────────────────────────────────────
+
+
+class TestStripMarkdownFences:
+    def test_plain_json(self):
+        assert _strip_markdown_fences('{"labels": ["bug"]}') == '{"labels": ["bug"]}'
+
+    def test_fenced_json(self):
+        assert _strip_markdown_fences('```json\n{"a":1}\n```') == '{"a":1}'
+
+    def test_leading_trailing_whitespace(self):
+        assert _strip_markdown_fences("  \n  hello  \n  ") == "hello"
+
+    def test_fences_without_language(self):
+        assert _strip_markdown_fences("```\n[1,2]\n```") == "[1,2]"
+
+    def test_opening_fence_only(self):
+        """Only an opening fence — should strip it and return the content."""
+        result = _strip_markdown_fences('```\n{"labels": []}')
+        assert '{"labels": []}' == result
+
+    def test_empty_string(self):
+        assert _strip_markdown_fences("") == ""
+        assert _strip_markdown_fences("   ") == ""
 
 
 # ── _parse_labels_response ──────────────────────────────────────────────────
@@ -328,3 +363,260 @@ class TestClassifyLabels:
         # The description portion should not contain the full 5,000 chars.
         assert len(user_msg) < 5_000
         assert "feature" in result
+
+
+# ── ClassificationResult ────────────────────────────────────────────────────
+
+
+class TestClassificationResult:
+    def test_defaults(self):
+        result = ClassificationResult()
+        assert result.labels == []
+        assert result.priority is None
+
+    def test_with_labels_and_priority(self):
+        result = ClassificationResult(
+            labels=["ai-generated", "bug"],
+            priority=IssuePriority.P1,
+        )
+        assert result.labels == ["ai-generated", "bug"]
+        assert result.priority == IssuePriority.P1
+
+    def test_immutable(self):
+        result = ClassificationResult(labels=["bug"])
+        with pytest.raises(AttributeError):
+            result.priority = IssuePriority.P0  # type: ignore[misc]
+
+
+# ── _parse_labels_and_priority_response ─────────────────────────────────────
+
+
+class TestParseLabelsAndPriorityResponse:
+    def test_labels_only(self):
+        raw = json.dumps({"labels": ["bug", "backend"]})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == ["bug", "backend"]
+        assert priority is None
+
+    def test_labels_with_priority(self):
+        raw = json.dumps({"labels": ["bug", "security"], "priority": "P0"})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == ["bug", "security"]
+        assert priority == IssuePriority.P0
+
+    def test_invalid_priority_ignored(self):
+        raw = json.dumps({"labels": ["bug"], "priority": "P5"})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == ["bug"]
+        assert priority is None
+
+    def test_priority_null_treated_as_none(self):
+        raw = json.dumps({"labels": ["feature"], "priority": None})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == ["feature"]
+        assert priority is None
+
+    def test_priority_as_integer_ignored(self):
+        raw = json.dumps({"labels": ["feature"], "priority": 1})
+        _labels, priority = _parse_labels_and_priority_response(raw)
+        assert priority is None
+
+    def test_array_response_no_priority(self):
+        raw = json.dumps(["bug", "backend"])
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == ["bug", "backend"]
+        assert priority is None
+
+    def test_markdown_fenced_json(self):
+        raw = '```json\n{"labels": ["bug"], "priority": "P1"}\n```'
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == ["bug"]
+        assert priority == IssuePriority.P1
+
+    def test_invalid_json_raises(self):
+        with pytest.raises(json.JSONDecodeError):
+            _parse_labels_and_priority_response("not json at all")
+
+    def test_labels_as_string_returns_empty(self):
+        """When AI returns labels as a string instead of a list, return []."""
+        raw = json.dumps({"labels": "bug", "priority": "P0"})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == []
+        assert priority == IssuePriority.P0
+
+    @pytest.mark.parametrize(
+        ("priority_str", "expected"),
+        [
+            ("P0", IssuePriority.P0),
+            ("P1", IssuePriority.P1),
+            ("P2", IssuePriority.P2),
+            ("P3", IssuePriority.P3),
+        ],
+    )
+    def test_all_valid_priority_values(self, priority_str: str, expected: IssuePriority):
+        """Every valid IssuePriority enum value is parsed correctly."""
+        raw = json.dumps({"labels": ["feature"], "priority": priority_str})
+        _labels, priority = _parse_labels_and_priority_response(raw)
+        assert priority == expected
+
+    def test_empty_dict_returns_empty_labels_no_priority(self):
+        """An empty dict returns empty labels and no priority."""
+        raw = json.dumps({})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == []
+        assert priority is None
+
+
+# ── classify_labels_with_priority ───────────────────────────────────────────
+
+
+class TestClassifyLabelsWithPriority:
+    @pytest.mark.anyio
+    async def test_urgency_detected(self):
+        """AI returns P0 for production outage issues."""
+        ai_response = json.dumps(
+            {
+                "labels": ["bug", "backend", "security"],
+                "priority": "P0",
+            }
+        )
+        mock_provider = AsyncMock()
+        mock_provider.complete.return_value = ai_response
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels_with_priority(
+                title="Critical security vulnerability in authentication module",
+                description="Production system compromised",
+                github_token="tok",
+            )
+
+        assert isinstance(result, ClassificationResult)
+        assert result.priority == IssuePriority.P0
+        assert "bug" in result.labels
+        assert result.labels[0] == ALWAYS_INCLUDED_LABEL
+
+    @pytest.mark.anyio
+    async def test_no_urgency_returns_none_priority(self):
+        """AI omits priority for routine issues."""
+        ai_response = json.dumps(
+            {
+                "labels": ["feature", "frontend"],
+            }
+        )
+        mock_provider = AsyncMock()
+        mock_provider.complete.return_value = ai_response
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels_with_priority(
+                title="Add pagination to user list",
+                github_token="tok",
+            )
+
+        assert result.priority is None
+        assert "feature" in result.labels
+
+    @pytest.mark.anyio
+    async def test_ai_failure_returns_fallback_with_no_priority(self):
+        """On AI failure, fallback labels returned with priority=None."""
+        mock_provider = AsyncMock()
+        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels_with_priority(
+                title="Some issue",
+                github_token="tok",
+            )
+
+        assert result.labels == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
+        assert result.priority is None
+
+    @pytest.mark.anyio
+    async def test_timeout_returns_fallback(self):
+        """AI timeout returns fallback with no priority."""
+
+        async def slow_complete(**kwargs):
+            await asyncio.sleep(60)
+            return json.dumps({"labels": ["bug"], "priority": "P1"})
+
+        mock_provider = AsyncMock()
+        mock_provider.complete.side_effect = slow_complete
+
+        with (
+            patch(
+                "src.services.completion_providers.create_completion_provider",
+                return_value=mock_provider,
+            ),
+            patch(
+                "src.services.label_classifier._CLASSIFICATION_TIMEOUT_SECONDS",
+                0.1,
+            ),
+        ):
+            result = await classify_labels_with_priority(
+                title="Some issue",
+                github_token="tok",
+            )
+
+        assert result.labels == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
+        assert result.priority is None
+
+    @pytest.mark.anyio
+    async def test_invalid_priority_value_from_ai(self):
+        """AI returns an invalid priority value — ignored."""
+        ai_response = json.dumps(
+            {
+                "labels": ["bug", "backend"],
+                "priority": "urgent",
+            }
+        )
+        mock_provider = AsyncMock()
+        mock_provider.complete.return_value = ai_response
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels_with_priority(
+                title="Some urgent issue",
+                github_token="tok",
+            )
+
+        assert result.priority is None
+        assert "bug" in result.labels
+
+    @pytest.mark.anyio
+    async def test_empty_title_returns_fallback(self):
+        """Empty title returns fallback without calling AI."""
+        result = await classify_labels_with_priority(
+            title="   ",
+            github_token="tok",
+        )
+        assert result.labels == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
+        assert result.priority is None
+
+    @pytest.mark.anyio
+    async def test_custom_fallback_on_failure(self):
+        """Custom fallback labels are used on failure."""
+        mock_provider = AsyncMock()
+        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
+
+        with patch(
+            "src.services.completion_providers.create_completion_provider",
+            return_value=mock_provider,
+        ):
+            result = await classify_labels_with_priority(
+                title="Some issue",
+                github_token="tok",
+                fallback_labels=["ai-generated", "pipeline:core"],
+            )
+
+        assert result.labels == ["ai-generated", "pipeline:core"]
+        assert result.priority is None
