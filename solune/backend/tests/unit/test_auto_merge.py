@@ -10,7 +10,9 @@ from src.services.copilot_polling.auto_merge import (
     AutoMergeResult,
     _attempt_auto_merge,
     _auto_merge_retry_loop,
+    _build_devops_instructions,
     _check_devops_done_comment,
+    _post_devops_retry_loop,
     dispatch_devops_agent,
     schedule_auto_merge_retry,
     schedule_post_devops_merge_retry,
@@ -803,3 +805,471 @@ class TestDevopsCapBroadcast:
         call_args = mock_ws.broadcast_to_project.call_args
         assert call_args[0][1]["type"] == "auto_merge_failed"
         assert call_args[0][1]["reason"] == "devops_cap_reached"
+
+
+class TestBuildDevopsInstructions:
+    """Tests for _build_devops_instructions()."""
+
+    def test_ci_failure_context(self):
+        """CI failure context → generates CI failure instructions."""
+        context = {
+            "reason": "ci_failure",
+            "failed_checks": [
+                {"name": "ci-tests", "conclusion": "failure"},
+                {"name": "lint", "conclusion": "timed_out"},
+            ],
+        }
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=10, merge_result_context=context
+        )
+        assert "CI Failures" in result
+        assert "**ci-tests**: failure" in result
+        assert "**lint**: timed_out" in result
+        assert "Fix merge/CI issues for issue #10 in owner/repo" in result
+
+    def test_conflicting_context(self):
+        """Conflicting mergeability → generates merge conflict instructions."""
+        context = {"reason": "conflicting"}
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=20, merge_result_context=context
+        )
+        assert "Merge Conflicts" in result
+        assert "conflicts" in result.lower()
+
+    def test_no_context(self):
+        """No context → generates generic fallback instructions."""
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=30, merge_result_context=None
+        )
+        assert "auto-merge attempt failed" in result
+        assert "issue #30" in result.lower()
+
+    def test_unknown_reason(self):
+        """Unknown reason → generates generic instructions with the reason string."""
+        context = {"reason": "some_other_error", "details": "Network timeout occurred"}
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=40, merge_result_context=context
+        )
+        assert "some_other_error" in result
+        assert "Network timeout occurred" in result
+
+    def test_unknown_reason_without_details(self):
+        """Unknown reason without details → only heading, no extra lines."""
+        context = {"reason": "something_else"}
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=50, merge_result_context=context
+        )
+        assert "something_else" in result
+
+    def test_empty_context(self):
+        """Empty dict context → fallback (``not {}`` is True in Python)."""
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=60, merge_result_context={}
+        )
+        # `not {}` evaluates to True, entering the fallback branch
+        assert "auto-merge attempt failed" in result
+
+
+class TestPostDevopsRetryLoop:
+    """Tests for _post_devops_retry_loop()."""
+
+    @pytest.mark.asyncio
+    async def test_done_detected_merge_succeeds(self, mock_ws, mock_service):
+        """DevOps 'Done!' detected → merge succeeds → broadcasts completion."""
+        mock_check_done = AsyncMock(return_value=True)
+        mock_attempt = AsyncMock(
+            return_value=AutoMergeResult(status="merged", pr_number=42, merge_commit="sha123")
+        )
+        metadata: dict = {"devops_active": True, "devops_attempts": 1}
+
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._check_devops_done_comment",
+                mock_check_done,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                mock_attempt,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries[42] = {"project_id": "PVT_123"}
+
+            await _post_devops_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                pipeline_metadata=metadata,
+                project_id="PVT_123",
+            )
+
+            mock_check_done.assert_awaited_once()
+            mock_attempt.assert_awaited_once()
+            assert metadata["devops_active"] is False
+
+            # Should broadcast post_devops_merge_completed
+            broadcast_calls = mock_ws.broadcast_to_project.call_args_list
+            completed_events = [
+                c for c in broadcast_calls if c[0][1].get("type") == "post_devops_merge_completed"
+            ]
+            assert len(completed_events) == 1
+            assert completed_events[0][0][1]["pr_number"] == 42
+            assert completed_events[0][0][1]["merge_commit"] == "sha123"
+
+            # Tracking cleaned up
+            assert 42 not in _pending_post_devops_retries
+
+    @pytest.mark.asyncio
+    async def test_done_detected_devops_needed_re_dispatches(self, mock_ws, mock_service):
+        """DevOps 'Done!' detected but merge still needs DevOps → re-dispatch."""
+        mock_check_done = AsyncMock(return_value=True)
+        mock_attempt = AsyncMock(
+            return_value=AutoMergeResult(
+                status="devops_needed",
+                pr_number=42,
+                context={"reason": "ci_failure", "failed_checks": []},
+            )
+        )
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            return_value=("NODE_ID", "ITEM_ID")
+        )
+        mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+        metadata: dict = {"devops_active": True, "devops_attempts": 1}
+
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._check_devops_done_comment",
+                mock_check_done,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                mock_attempt,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries[42] = {"project_id": "PVT_123"}
+
+            await _post_devops_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                pipeline_metadata=metadata,
+                project_id="PVT_123",
+            )
+
+            mock_check_done.assert_awaited_once()
+            mock_attempt.assert_awaited_once()
+            # DevOps should have been re-dispatched
+            mock_service.assign_copilot_to_issue.assert_awaited_once()
+            # Tracking cleaned up
+            assert 42 not in _pending_post_devops_retries
+
+    @pytest.mark.asyncio
+    async def test_done_detected_merge_fails(self, mock_ws):
+        """DevOps 'Done!' detected but merge fails → broadcasts failure and stops."""
+        mock_check_done = AsyncMock(return_value=True)
+        mock_attempt = AsyncMock(
+            return_value=AutoMergeResult(
+                status="merge_failed", pr_number=42, error="Branch protection"
+            )
+        )
+
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._check_devops_done_comment",
+                mock_check_done,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                mock_attempt,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries[42] = {"project_id": "PVT_123"}
+
+            await _post_devops_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                pipeline_metadata={"devops_active": True, "devops_attempts": 1},
+                project_id="PVT_123",
+            )
+
+            # Should broadcast auto_merge_failed
+            broadcast_calls = mock_ws.broadcast_to_project.call_args_list
+            failed_events = [
+                c for c in broadcast_calls if c[0][1].get("type") == "auto_merge_failed"
+            ]
+            assert len(failed_events) == 1
+            assert failed_events[0][0][1]["error"] == "Branch protection"
+            assert 42 not in _pending_post_devops_retries
+
+    @pytest.mark.asyncio
+    async def test_done_detected_retry_later_continues_polling(self, mock_ws):
+        """DevOps 'Done!' detected, merge returns retry_later → continues polling."""
+        # First poll: done=True, merge=retry_later
+        # Second poll: done=True, merge=merged
+        done_side_effects = [True, True]
+        merge_side_effects = [
+            AutoMergeResult(
+                status="retry_later",
+                pr_number=42,
+                context={"reason": "checks_pending"},
+            ),
+            AutoMergeResult(
+                status="merged",
+                pr_number=42,
+                merge_commit="sha456",
+            ),
+        ]
+
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._check_devops_done_comment",
+                new_callable=AsyncMock,
+                side_effect=done_side_effects,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                side_effect=merge_side_effects,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries[42] = {"project_id": "PVT_123"}
+
+            await _post_devops_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                pipeline_metadata={"devops_active": True, "devops_attempts": 1},
+                project_id="PVT_123",
+            )
+
+            # Should have polled twice (sleep called twice)
+            assert mock_sleep.await_count == 2
+            # Should broadcast completion
+            broadcast_calls = mock_ws.broadcast_to_project.call_args_list
+            completed_events = [
+                c for c in broadcast_calls if c[0][1].get("type") == "post_devops_merge_completed"
+            ]
+            assert len(completed_events) == 1
+            assert 42 not in _pending_post_devops_retries
+
+    @pytest.mark.asyncio
+    async def test_polling_timeout(self, mock_ws):
+        """Exhausting all polls without 'Done!' → broadcasts timeout failure."""
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._check_devops_done_comment",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.copilot_polling.state.POST_DEVOPS_MAX_POLLS",
+                3,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries[42] = {"project_id": "PVT_123"}
+
+            await _post_devops_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                pipeline_metadata={"devops_active": True, "devops_attempts": 1},
+                project_id="PVT_123",
+            )
+
+            # Should broadcast auto_merge_failed with devops_timeout
+            broadcast_calls = mock_ws.broadcast_to_project.call_args_list
+            failed_events = [
+                c for c in broadcast_calls if c[0][1].get("type") == "auto_merge_failed"
+            ]
+            assert len(failed_events) == 1
+            assert failed_events[0][0][1]["reason"] == "devops_timeout"
+            assert 42 not in _pending_post_devops_retries
+
+    @pytest.mark.asyncio
+    async def test_cleanup_on_exception(self, mock_ws):
+        """Exception during loop → finally block cleans up tracking state."""
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._check_devops_done_comment",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("Unexpected"),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_post_devops_retries
+
+            _pending_post_devops_retries[42] = {"project_id": "PVT_123"}
+
+            with pytest.raises(RuntimeError, match="Unexpected"):
+                await _post_devops_retry_loop(
+                    access_token="token",
+                    owner="owner",
+                    repo="repo",
+                    issue_number=42,
+                    pipeline_metadata={"devops_active": True, "devops_attempts": 1},
+                    project_id="PVT_123",
+                )
+
+            # Finally block should have cleaned up
+            assert 42 not in _pending_post_devops_retries
+
+
+class TestDispatchDevopsAgentEdgeCases:
+    """Edge case tests for dispatch_devops_agent()."""
+
+    @pytest.mark.asyncio
+    async def test_node_id_resolution_failure(self, mock_ws, mock_service):
+        """When issue node ID resolution raises an exception, dispatch should return False."""
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            side_effect=Exception("GraphQL error")
+        )
+        metadata: dict = {"devops_active": False, "devops_attempts": 0}
+
+        result = await dispatch_devops_agent(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=10,
+            pipeline_metadata=metadata,
+            project_id="PVT_123",
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_node_id_returns_none(self, mock_ws, mock_service):
+        """When issue node ID resolution returns None, dispatch should return False."""
+        mock_service.get_issue_node_and_project_item = AsyncMock(return_value=(None, "ITEM_ID"))
+        metadata: dict = {"devops_active": False, "devops_attempts": 0}
+
+        result = await dispatch_devops_agent(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=10,
+            pipeline_metadata=metadata,
+            project_id="PVT_123",
+        )
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_copilot_assignment_exception(self, mock_ws, mock_service):
+        """When Copilot assignment throws, dispatch should return False."""
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            return_value=("ISSUE_NODE_ID", "ITEM_ID")
+        )
+        mock_service.assign_copilot_to_issue = AsyncMock(
+            side_effect=Exception("Assignment API error")
+        )
+        metadata: dict = {"devops_active": False, "devops_attempts": 0}
+
+        result = await dispatch_devops_agent(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=10,
+            pipeline_metadata=metadata,
+            project_id="PVT_123",
+        )
+
+        assert result is False
+        assert metadata.get("devops_active") is not True
+
+    @pytest.mark.asyncio
+    async def test_copilot_assignment_returns_false(self, mock_ws, mock_service):
+        """When Copilot assignment returns False, dispatch should return False."""
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            return_value=("ISSUE_NODE_ID", "ITEM_ID")
+        )
+        mock_service.assign_copilot_to_issue = AsyncMock(return_value=False)
+        metadata: dict = {"devops_active": False, "devops_attempts": 0}
+
+        result = await dispatch_devops_agent(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=10,
+            pipeline_metadata=metadata,
+            project_id="PVT_123",
+        )
+
+        assert result is False
+        assert metadata.get("devops_active") is not True
+
+    @pytest.mark.asyncio
+    async def test_merge_result_context_passed_to_instructions(self, mock_ws, mock_service):
+        """dispatch should pass merge_result_context to _build_devops_instructions."""
+        mock_service.get_issue_node_and_project_item = AsyncMock(
+            return_value=("ISSUE_NODE_ID", "ITEM_ID")
+        )
+        mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+        metadata: dict = {"devops_active": False, "devops_attempts": 0}
+        context = {
+            "reason": "ci_failure",
+            "failed_checks": [{"name": "build", "conclusion": "failure"}],
+        }
+
+        with patch(
+            "src.services.copilot_polling.auto_merge._build_devops_instructions",
+            wraps=_build_devops_instructions,
+        ) as mock_build:
+            result = await dispatch_devops_agent(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=10,
+                pipeline_metadata=metadata,
+                project_id="PVT_123",
+                merge_result_context=context,
+            )
+
+        assert result is True
+        mock_build.assert_called_once_with(
+            owner="owner",
+            repo="repo",
+            issue_number=10,
+            merge_result_context=context,
+        )
+        # Verify custom_instructions was passed to assignment
+        call_kwargs = mock_service.assign_copilot_to_issue.call_args[1]
+        assert "CI Failures" in call_kwargs["custom_instructions"]
+        assert "**build**: failure" in call_kwargs["custom_instructions"]
