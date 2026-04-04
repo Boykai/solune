@@ -1,0 +1,16 @@
+{
+  "hooks": [
+    {
+      "event": "pre_tool_use",
+      "tool": "save_plan",
+      "action": "snapshot_plan_version",
+      "description": "Auto-snapshot plan version before save_plan overwrites"
+    },
+    {
+      "event": "post_tool_use",
+      "tool": "save_plan",
+      "action": "emit_plan_diff",
+      "description": "Emit plan_diff event after save_plan completes"
+    }
+  ]
+}
