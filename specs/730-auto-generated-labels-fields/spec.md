@@ -35,7 +35,7 @@ Default priority is P2 (medium) for all pipeline-launched issues unless overridd
 
 1. **Given** a pipeline with 3 configured agents is launched, **When** the parent issue is created and added to the project, **Then** the project fields are set to Priority = P2, Size = S, Estimate = 0.75, Start date = today, Target date = today + 1 day.
 2. **Given** a pipeline with 1 configured agent is launched, **When** the parent issue is added to the project, **Then** Size = XS, Estimate = 0.5, and Target date = today (same day).
-3. **Given** a pipeline with 20 configured agents is launched, **When** the parent issue is added to the project, **Then** Size = XL, Estimate = 5.0 (clamped to 8.0 max), and Target date is calculated accordingly.
+3. **Given** a pipeline with 20 configured agents is launched, **When** the parent issue is added to the project, **Then** Size = XL, Estimate = 5.0, and Target date is calculated accordingly.
 4. **Given** a pipeline is launched and the metadata-setting step fails (e.g., project field not found, network error), **When** the failure occurs, **Then** the pipeline launch continues without error — the failure is logged but does not block issue creation or agent assignment.
 5. **Given** a pipeline is launched, **When** the parent issue is created, **Then** existing label behavior (AI-generated labels, pipeline label) is unchanged and all labels are applied as before.
 
