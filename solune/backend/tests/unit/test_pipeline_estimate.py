@@ -108,3 +108,31 @@ class TestEstimateFromAgentCount:
         """Negative agent counts are treated as 1."""
         meta = estimate_from_agent_count(-5, today=self.FIXED_TODAY)
         assert meta.estimate_hours == 0.5
+
+    def test_labels_default_to_ai_generated(self):
+        """Returned IssueMetadata includes default labels field."""
+        meta = estimate_from_agent_count(5, today=self.FIXED_TODAY)
+        assert meta.labels == ["ai-generated"]
+
+    def test_model_copy_preserves_fields_when_priority_overridden(self):
+        """Pydantic model_copy() correctly overrides priority while preserving other fields.
+
+        This mirrors the pattern in pipelines.py where the AI-detected priority
+        overrides the default P2 via ``metadata.model_copy(update={...})``.
+        """
+        meta = estimate_from_agent_count(5, today=self.FIXED_TODAY)
+        overridden = meta.model_copy(update={"priority": IssuePriority.P0})
+
+        assert overridden.priority == IssuePriority.P0
+        assert overridden.size == meta.size
+        assert overridden.estimate_hours == meta.estimate_hours
+        assert overridden.start_date == meta.start_date
+        assert overridden.target_date == meta.target_date
+        assert overridden.labels == meta.labels
+
+    def test_return_type_is_issue_metadata(self):
+        """estimate_from_agent_count returns an IssueMetadata instance."""
+        from src.models.recommendation import IssueMetadata
+
+        meta = estimate_from_agent_count(3, today=self.FIXED_TODAY)
+        assert isinstance(meta, IssueMetadata)
