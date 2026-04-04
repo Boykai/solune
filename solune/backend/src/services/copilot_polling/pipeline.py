@@ -2034,15 +2034,18 @@ async def _advance_pipeline(
             _cp.set_pipeline_state(issue_number, pipeline)
 
             # Sleep with 15-second polling for early cancellation
-            intervals = math.ceil(delay_seconds / 15)
+            from .helpers import _check_human_agent_done
+
+            poll_interval = 15
+            intervals = math.ceil(delay_seconds / poll_interval)
             cancelled_early = False
-            for _ in range(intervals):
-                await asyncio.sleep(15)
+            for i in range(intervals):
+                # Sleep only the remaining time on the final interval
+                remaining = delay_seconds - (i * poll_interval)
+                await asyncio.sleep(min(poll_interval, remaining))
                 # Check if sub-issue was closed or "Done!" commented (early cancel)
                 if sub_number:
                     try:
-                        from .helpers import _check_human_agent_done
-
                         done = await _check_human_agent_done(
                             access_token=access_token,
                             owner=owner,
@@ -2074,24 +2077,31 @@ async def _advance_pipeline(
                 duration_str,
             )
 
-            merge_result = await _attempt_auto_merge(
-                access_token=access_token,
-                owner=owner,
-                repo=repo,
-                issue_number=issue_number,
-            )
-
-            if merge_result and merge_result.get("status") == "retry_later":
-                from .auto_merge import schedule_auto_merge_retry
-
-                schedule_auto_merge_retry(
+            try:
+                merge_result = await _attempt_auto_merge(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     issue_number=issue_number,
-                    project_id=project_id,
-                    item_id=item_id,
-                    task_title=task_title,
+                )
+
+                if merge_result.status == "retry_later":
+                    from .auto_merge import schedule_auto_merge_retry
+
+                    schedule_auto_merge_retry(
+                        access_token=access_token,
+                        owner=owner,
+                        repo=repo,
+                        issue_number=issue_number,
+                        project_id=project_id,
+                        item_id=item_id,
+                        task_title=task_title,
+                    )
+            except Exception:
+                logger.error(
+                    "Auto-merge attempt failed after delay for issue #%d",
+                    issue_number,
+                    exc_info=True,
                 )
 
             # Close sub-issue with completion comment
@@ -2165,7 +2175,9 @@ async def _advance_pipeline(
                 from src.services.settings_store import is_auto_merge_enabled
 
                 db = get_db()
-                auto_merge_active = pipeline.auto_merge or await is_auto_merge_enabled(db, project_id)
+                auto_merge_active = pipeline.auto_merge or await is_auto_merge_enabled(
+                    db, project_id
+                )
 
                 if auto_merge_active:
                     logger.info(
