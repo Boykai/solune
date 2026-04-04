@@ -17,11 +17,11 @@ Solune is a full-stack web application with a React frontend, a FastAPI backend,
 └───────────────────────────┘     │  └──────────────────────────┘    │     │  └────────────┘  │
                                   │  ┌──────────────────────────┐    │     │  ┌────────────┐  │
                                   │  │ Copilot Polling Service   │    │     │  │ Copilot    │  │
-                                  │  │ (7 sub-modules)          │    │     │  │ Assignment │  │
+                                  │  │ (11 sub-modules)         │    │     │  │ Assignment │  │
                                   │  └──────────────────────────┘    │     │  └────────────┘  │
                                   │  ┌──────────────────────────┐    │     └──────────────────┘
                                   │  │ GitHub Projects Service   │    │
-                                  │  │ (2 sub-modules)          │    │     ┌──────────────────┐
+                                  │  │ (11 sub-modules)         │    │     ┌──────────────────┐
                                   │  └──────────────────────────┘    │     │ signal-cli-rest- │
                                   │  ┌──────────────────────────┐    │ HTTP │ api (sidecar)    │
                                   │  │ Signal Bridge             │────│────▶│ Signal Relay     │
@@ -87,7 +87,7 @@ The frontend is a single-page React application that provides the visual pipelin
 The backend is the core of Solune — it handles authentication, GitHub API interactions, AI completion, pipeline orchestration, and database management. All endpoints are async, and background tasks run in managed task groups.
 
 - **Framework**: FastAPI with async endpoints, Pydantic v2 models
-- **Database**: SQLite via `aiosqlite` in WAL mode, auto-migrated at startup (SQL migration files `023` through `037`)
+- **Database**: SQLite via `aiosqlite` in WAL mode, auto-migrated at startup (SQL migration files `023` through `039`)
 - **DI**: Singletons registered on `app.state` during lifespan; `dependencies.py` provides `Depends()` getters
 - **Middleware**: `RequestIDMiddleware` for request tracing; CORS middleware; `CSPMiddleware` for Content Security Policy plus companion security headers (including HSTS); `CSRFMiddleware` for double-submit cookie CSRF protection; `RateLimitMiddleware` for request rate limiting
 - **Async Task Safety**: `asyncio.TaskGroup` for background loops (automatic cancellation on shutdown); `TaskRegistry` singleton for fire-and-forget tasks (tracked, drained on shutdown)
@@ -97,15 +97,19 @@ The backend is the core of Solune — it handles authentication, GitHub API inte
 
 | Directory | Purpose |
 |-----------|---------|
-| `api/` | Route handlers: `auth`, `agents`, `board`, `chat`, `chores`, `cleanup`, `health`, `mcp`, `metadata`, `pipelines`, `projects`, `settings`, `signal`, `tasks`, `webhooks`, `workflow` |
-| `models/` | Pydantic v2 models: `agent`, `agent_creator`, `agents`, `board`, `chat`, `chores`, `cleanup`, `mcp`, `pipeline`, `project`, `recommendation`, `settings`, `signal`, `task`, `user`, `workflow` |
+| `api/` | Route handlers: `activity`, `agents`, `apps`, `auth`, `board`, `chat`, `chores`, `cleanup`, `health`, `mcp`, `metadata`, `onboarding`, `pipelines`, `projects`, `settings`, `signal`, `tasks`, `templates`, `tools`, `webhook_models`, `webhooks`, `workflow` |
+| `models/` | Pydantic v2 models: `activity`, `agent`, `agent_creator`, `agents`, `app`, `app_template`, `board`, `build_progress`, `chat`, `chores`, `cleanup`, `guard`, `mcp`, `pagination`, `pipeline`, `pipeline_events`, `pipeline_run`, `pipeline_stage_state`, `plan`, `project`, `recommendation`, `settings`, `signal`, `stage_group`, `task`, `tools`, `user`, `workflow` |
 | `services/` | Business logic (see below) |
-| `services/github_projects/` | `GitHubProjectsService` + `graphql.py` + `GitHubClientFactory` — pooled `githubkit` SDK clients for GitHub API |
-| `services/copilot_polling/` | Background polling loop: `state`, `helpers`, `polling_loop`, `agent_output`, `pipeline`, `recovery`, `completion` |
+| `services/github_projects/` | GitHub API integration (11 sub-modules): `service`, `graphql`, `agents`, `board`, `branches`, `copilot`, `identities`, `issues`, `projects`, `pull_requests`, `repository` — pooled `githubkit` SDK clients |
+| `services/copilot_polling/` | Background polling loop (11 sub-modules): `state`, `helpers`, `polling_loop`, `agent_output`, `pipeline`, `recovery`, `completion`, `auto_merge`, `label_manager`, `pipeline_state_service`, `state_validation` |
 | `services/workflow_orchestrator/` | Pipeline orchestration: `models` (contexts/state), `config` (async load/persist), `transitions`, `orchestrator` |
-| `services/chores/` | Chore templates, scheduler, counter, chat, template builder, service |
-| `services/agents/` | Agent configuration CRUD service (SQLite + GitHub repo merge) + Agent MCP Sync (`agent_mcp_sync.py`) — keeps `mcp-servers` and `tools: ["*"]` in sync across all `.agent.md` files |
-| `migrations/` | SQL migration files `023` through `037` |
+| `services/chores/` | Chore templates, scheduler, counter, chat, template builder, service + `presets/` directory |
+| `services/agents/` | Agent configuration CRUD service (SQLite + GitHub repo merge), Agent MCP Sync (`agent_mcp_sync.py`), and agent catalog browser (`catalog.py`) — keeps `mcp-servers` and `tools: ["*"]` in sync across all `.agent.md` files |
+| `services/app_templates/` | Application template engine: `loader`, `registry`, `renderer` — scaffolds new app projects |
+| `services/mcp_server/` | Model Context Protocol server (6 sub-modules): `auth`, `context`, `middleware`, `prompts`, `resources`, `server` + `tools/` directory |
+| `services/pipelines/` | Pipeline configuration and lifecycle: `pipeline_config`, `service` |
+| `services/tools/` | MCP tool management: `presets`, `service` |
+| `migrations/` | SQL migration files `023` through `039` |
 | `prompts/` | AI prompt templates for issue and task generation |
 | `middleware/` | `RequestIDMiddleware`, `CSPMiddleware` (Content Security Policy + HTTP security headers such as HSTS), `CSRFMiddleware` (double-submit cookie CSRF protection), `RateLimitMiddleware` (request rate limiting), `AdminGuardMiddleware` |
 | `logging_utils.py` | `RequestIDFilter`, `SanitizingFormatter`, `StructuredJsonFormatter` for structured JSON logging |
