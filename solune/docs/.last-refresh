@@ -11,9 +11,9 @@
     "docs/custom-agents-best-practices.md",
     "docs/project-structure.md",
     "docs/setup.md",
+    "docs/signal-integration.md",
     "docs/testing.md",
     "docs/troubleshooting.md",
-    "docs/signal-integration.md",
     "frontend/docs/findings-log.md",
     "README.md"
   ],
