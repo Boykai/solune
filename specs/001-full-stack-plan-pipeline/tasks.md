@@ -192,7 +192,7 @@
 - [ ] T055 [P] [US4] Create MCP server configuration for CLI integration in solune/cli-plugin/.mcp.json
 - [ ] T056 [US4] Implement optional `--acp` mode exposing plan pipeline via Agent Client Protocol with `ExternalServerConfig(url=...)` for containerized deployments in solune/backend/src/services/plan_agent_provider.py
 
-**Checkpoint**: CLI plugin is installable and ACP server provides integration endpoint for external tools.
+**Checkpoint**: CLI plugin is installable and ACP server provides integration endpoint for external tools. Depends on Phases 3–5 (US1 + US2 + US3) being complete.
 
 ---
 
@@ -219,7 +219,7 @@
 - **US1 (Phase 3)**: Depends on Foundational phase completion — **MVP target**
 - **US2 (Phase 4)**: Depends on Foundational phase completion — can run in parallel with US1
 - **US3 (Phase 5)**: Depends on Foundational phase completion — can run in parallel with US1 and US2
-- **US4 (Phase 6)**: Depends on Phases 0–2 (US1 + US2 + US3) — stretch goal
+- **US4 (Phase 6)**: Depends on US1 (Phase 3) + US2 (Phase 4) + US3 (Phase 5) — stretch goal
 - **Polish (Phase 7)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
@@ -270,9 +270,9 @@ Task: T021 "Update ThinkingIndicator.tsx for v2 events"
 Task: T032 "Step CRUD and DAG validation tests in test_plan_store.py"
 Task: T033 "Step CRUD endpoint tests in test_api_chat.py"
 
-# Launch parallel store methods (different methods, same file — sequential):
-Task: T035 "Implement update_plan_step()"
-Task: T036 "Implement delete_plan_step()"
+# Launch parallel endpoint implementations (different endpoints, same file — apply sequentially):
+Task: T040 "Implement PATCH /plans/{plan_id}/steps/{step_id} endpoint"
+Task: T041 "Implement DELETE /plans/{plan_id}/steps/{step_id} endpoint"
 
 # Launch parallel frontend tasks (different files):
 Task: T045 "Add step CRUD API calls to api.ts"
