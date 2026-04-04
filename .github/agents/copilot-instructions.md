@@ -263,3 +263,10 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
 Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/package.json`, and `.github/workflows/ci.yml`. Prefer those files over copying long version snapshots into new docs or prompts.
+
+## Active Technologies
+- Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend) (001-human-agent-delay-until-auto-merge)
+- In-memory `PipelineState` dataclass (no database migration needed — `delay_seconds` stored in `PipelineAgentNode.config` dict) (001-human-agent-delay-until-auto-merge)
+
+## Recent Changes
+- 001-human-agent-delay-until-auto-merge: Added Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend)

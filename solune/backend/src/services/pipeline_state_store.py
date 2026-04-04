@@ -242,6 +242,7 @@ def _row_to_pipeline_state(row) -> Any:
         is_isolated=metadata.get("is_isolated", True),
         recovered_at=_safe_parse_datetime(metadata.get("recovered_at")),
         auto_merge=metadata.get("auto_merge", False),
+        agent_configs=metadata.get("agent_configs", {}),
     )
 
 
@@ -264,6 +265,7 @@ def _pipeline_state_to_row(issue_number: int, state: Any) -> tuple:
         "is_isolated": state.is_isolated,
         "recovered_at": state.recovered_at.isoformat() if state.recovered_at else None,
         "auto_merge": state.auto_merge,
+        "agent_configs": state.agent_configs,
     }
     now = utcnow().isoformat()
     return (
