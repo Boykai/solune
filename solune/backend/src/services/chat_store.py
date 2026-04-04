@@ -468,9 +468,8 @@ async def save_plan(
             (plan.plan_id,),
         )
         for step in plan.steps:
-            approval = getattr(step, "approval_status", "pending")
-            if hasattr(approval, "value"):
-                approval = approval.value
+            approval_raw = getattr(step, "approval_status", "pending")
+            approval: str = getattr(approval_raw, "value", approval_raw)
             await db.execute(
                 """INSERT INTO chat_plan_steps
                    (step_id, plan_id, position, title, description,
