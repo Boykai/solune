@@ -26,16 +26,22 @@ const projects: Project[] = [
   {
     project_id: 'proj-1',
     name: 'Project Alpha',
+    owner_id: 'user-1',
     owner_login: 'testuser',
-    project_number: 1,
-    columns: [],
+    type: 'user',
+    url: 'https://github.com/users/testuser/projects/1',
+    status_columns: [],
+    cached_at: new Date().toISOString(),
   },
   {
     project_id: 'proj-2',
     name: 'Project Beta',
+    owner_id: 'org-1',
     owner_login: 'testorg',
-    project_number: 2,
-    columns: [],
+    type: 'organization',
+    url: 'https://github.com/orgs/testorg/projects/2',
+    status_columns: [],
+    cached_at: new Date().toISOString(),
   },
 ];
 

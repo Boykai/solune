@@ -96,7 +96,18 @@ class TestQueryEvents:
     @pytest.mark.asyncio
     async def test_has_more_when_extra_row(self) -> None:
         rows = [
-            (f"evt-{i}", "test", "issue", f"I-{i}", "P1", "system", "a", "s", None, f"2025-01-{i:02d}T00:00:00Z")
+            (
+                f"evt-{i}",
+                "test",
+                "issue",
+                f"I-{i}",
+                "P1",
+                "system",
+                "a",
+                "s",
+                None,
+                f"2025-01-{i:02d}T00:00:00Z",
+            )
             for i in range(3)
         ]
         db = _make_mock_db(rows, count=3)
@@ -131,14 +142,36 @@ class TestQueryEvents:
     @pytest.mark.asyncio
     async def test_detail_json_parsed(self) -> None:
         detail = json.dumps({"key": "value"})
-        row = ("evt-1", "test", "issue", "I-1", "P1", "system", "a", "s", detail, "2025-01-01T00:00:00Z")
+        row = (
+            "evt-1",
+            "test",
+            "issue",
+            "I-1",
+            "P1",
+            "system",
+            "a",
+            "s",
+            detail,
+            "2025-01-01T00:00:00Z",
+        )
         db = _make_mock_db([row], count=1)
         result = await query_events(db, project_id="P1")
         assert result["items"][0]["detail"] == {"key": "value"}
 
     @pytest.mark.asyncio
     async def test_malformed_detail_json_returns_none(self) -> None:
-        row = ("evt-1", "test", "issue", "I-1", "P1", "system", "a", "s", "not-json", "2025-01-01T00:00:00Z")
+        row = (
+            "evt-1",
+            "test",
+            "issue",
+            "I-1",
+            "P1",
+            "system",
+            "a",
+            "s",
+            "not-json",
+            "2025-01-01T00:00:00Z",
+        )
         db = _make_mock_db([row], count=1)
         result = await query_events(db, project_id="P1")
         assert result["items"][0]["detail"] is None
@@ -169,7 +202,9 @@ class TestGetActivityStats:
         today_cursor.fetchone = AsyncMock(return_value=(3,))
         # Third call: by_type
         by_type_cursor = AsyncMock()
-        by_type_cursor.fetchall = AsyncMock(return_value=[("task_status_change", 5), ("agent_run", 2)])
+        by_type_cursor.fetchall = AsyncMock(
+            return_value=[("task_status_change", 5), ("agent_run", 2)]
+        )
 
         db.execute = AsyncMock(side_effect=[total_cursor, today_cursor, by_type_cursor])
 
