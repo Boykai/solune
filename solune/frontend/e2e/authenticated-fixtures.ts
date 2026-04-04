@@ -795,7 +795,8 @@ async function handleApiRoute(route: Route, mockApi: MockApiState) {
 }
 
 export const test = base.extend<{ mockApi: MockApiState }>({
-  mockApi: async (_args, applyFixture) => {
+  mockApi: async ({ browserName: _browserName }, applyFixture) => {
+    void _browserName;
     await applyFixture(createMockApiState());
   },
   page: async ({ page, mockApi }, applyFixture) => {
