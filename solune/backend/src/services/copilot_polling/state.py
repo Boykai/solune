@@ -216,6 +216,11 @@ _pending_post_devops_retries: BoundedDict[int, dict[str, Any]] = BoundedDict(
 POST_DEVOPS_POLL_INTERVAL: float = 120.0  # seconds between polls
 POST_DEVOPS_MAX_POLLS: int = 30  # max poll iterations (~1 hour)
 
+# Background tasks that must be kept alive until completion.  asyncio only
+# holds weak references to tasks, so we store strong references here to
+# prevent garbage collection of fire-and-forget coroutines (RUF006).
+_background_tasks: set[asyncio.Task[None]] = set()
+
 # Delay (seconds) after merging / before status updates to let GitHub sync.
 POST_ACTION_DELAY_SECONDS: float = 2.0
 
