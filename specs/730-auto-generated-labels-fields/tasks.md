@@ -23,7 +23,7 @@
 
 **Purpose**: Create the new module skeleton required for the pipeline estimate feature
 
-- [ ] T001 Create pipeline_estimate.py module with imports and constants in solune/backend/src/services/pipeline_estimate.py
+- [x] T001 Create pipeline_estimate.py module with imports and constants in solune/backend/src/services/pipeline_estimate.py
 
 ---
 
@@ -47,14 +47,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T002 [P] [US1] Write unit tests for size_from_hours() boundary cases and estimate_from_agent_count() with agent counts 0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 20 in solune/backend/tests/unit/test_pipeline_estimate.py
-- [ ] T003 [P] [US1] Write unit tests for metadata integration in pipeline launch verifying set_issue_metadata() is called after add_to_project_with_backlog() and failures are logged without raising exceptions in solune/backend/tests/unit/test_api_pipelines.py
+- [x] T002 [P] [US1] Write unit tests for size_from_hours() boundary cases and estimate_from_agent_count() with agent counts 0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 20 in solune/backend/tests/unit/test_pipeline_estimate.py
+- [x] T003 [P] [US1] Write unit tests for metadata integration in pipeline launch verifying set_issue_metadata() is called after add_to_project_with_backlog() and failures are logged without raising exceptions in solune/backend/tests/unit/test_api_pipelines.py
 
 ### Implementation for User Story 1
 
-- [ ] T004 [US1] Implement size_from_hours() pure function mapping estimate hours to IssueSize enum (XS ≤ 0.5, S ≤ 1.0, M ≤ 2.0, L ≤ 4.0, XL > 4.0) in solune/backend/src/services/pipeline_estimate.py
-- [ ] T005 [US1] Implement estimate_from_agent_count() returning IssueMetadata with estimate_hours from formula max(0.5, min(8.0, agent_count * 0.25)), size from size_from_hours(), priority P2, start_date today UTC, target_date today + ceil(hours/8) days in solune/backend/src/services/pipeline_estimate.py
-- [ ] T006 [US1] Integrate estimate computation and set_issue_metadata() call with non-blocking try/except error handling after add_to_project_with_backlog() in solune/backend/src/api/pipelines.py
+- [x] T004 [US1] Implement size_from_hours() pure function mapping estimate hours to IssueSize enum (XS ≤ 0.5, S ≤ 1.0, M ≤ 2.0, L ≤ 4.0, XL > 4.0) in solune/backend/src/services/pipeline_estimate.py
+- [x] T005 [US1] Implement estimate_from_agent_count() returning IssueMetadata with estimate_hours from formula max(0.5, min(8.0, agent_count * 0.25)), size from size_from_hours(), priority P2, start_date today UTC, target_date today + ceil(hours/8) days in solune/backend/src/services/pipeline_estimate.py
+- [x] T006 [US1] Integrate estimate computation and set_issue_metadata() call with non-blocking try/except error handling after add_to_project_with_backlog() in solune/backend/src/api/pipelines.py
 
 **Checkpoint**: At this point, User Story 1 should be fully functional — every pipeline launch auto-populates project fields with heuristic-derived metadata. Testable independently.
 
@@ -70,14 +70,14 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T007 [P] [US2] Write unit tests for ClassificationResult dataclass and classify_labels_with_priority() covering urgency detection, no-urgency fallback, AI timeout fallback, and invalid priority value handling in solune/backend/tests/unit/test_label_classifier.py
+- [x] T007 [P] [US2] Write unit tests for ClassificationResult dataclass and classify_labels_with_priority() covering urgency detection, no-urgency fallback, AI timeout fallback, and invalid priority value handling in solune/backend/tests/unit/test_label_classifier.py
 
 ### Implementation for User Story 2
 
-- [ ] T008 [P] [US2] Add frozen ClassificationResult dataclass with labels list and optional IssuePriority priority field to solune/backend/src/services/label_classifier.py
-- [ ] T009 [P] [US2] Extend label classification system prompt with optional priority key and urgency detection rules (P0 for production outage/data loss/security breach, P1 for critical bug/security vulnerability/major functionality broken, null for all others) in solune/backend/src/prompts/label_classification.py
-- [ ] T010 [US2] Implement classify_labels_with_priority() async function that wraps the AI provider call, parses both labels and optional priority from JSON response, validates priority against IssuePriority enum, and returns ClassificationResult with priority=None on any failure or missing priority in solune/backend/src/services/label_classifier.py
-- [ ] T011 [US2] Replace classify_labels() with classify_labels_with_priority() in the pipeline launch path and merge AI-suggested priority into heuristic metadata (override P2 default when AI returns a valid priority) in solune/backend/src/api/pipelines.py
+- [x] T008 [P] [US2] Add frozen ClassificationResult dataclass with labels list and optional IssuePriority priority field to solune/backend/src/services/label_classifier.py
+- [x] T009 [P] [US2] Extend label classification system prompt with optional priority key and urgency detection rules (P0 for production outage/data loss/security breach, P1 for critical bug/security vulnerability/major functionality broken, null for all others) in solune/backend/src/prompts/label_classification.py
+- [x] T010 [US2] Implement classify_labels_with_priority() async function that wraps the AI provider call, parses both labels and optional priority from JSON response, validates priority against IssuePriority enum, and returns ClassificationResult with priority=None on any failure or missing priority in solune/backend/src/services/label_classifier.py
+- [x] T011 [US2] Replace classify_labels() with classify_labels_with_priority() in the pipeline launch path and merge AI-suggested priority into heuristic metadata (override P2 default when AI returns a valid priority) in solune/backend/src/api/pipelines.py
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently — pipeline launch auto-populates metadata and urgent issues get elevated priority.
 
@@ -91,10 +91,10 @@
 
 ### Verification for User Story 3
 
-- [ ] T012 [P] [US3] Verify existing agent label swap tests (_swap_agent_labels) pass unchanged after metadata integration in solune/backend/tests/
-- [ ] T013 [P] [US3] Verify existing stalled label detection and removal tests pass unchanged after metadata integration in solune/backend/tests/
-- [ ] T014 [P] [US3] Verify existing pipeline label persistence tests pass unchanged after metadata integration in solune/backend/tests/
-- [ ] T015 [US3] Run full backend test suite and confirm all existing label lifecycle tests pass without modification using uv run pytest in solune/backend/
+- [x] T012 [P] [US3] Verify existing agent label swap tests (_swap_agent_labels) pass unchanged after metadata integration in solune/backend/tests/
+- [x] T013 [P] [US3] Verify existing stalled label detection and removal tests pass unchanged after metadata integration in solune/backend/tests/
+- [x] T014 [P] [US3] Verify existing pipeline label persistence tests pass unchanged after metadata integration in solune/backend/tests/
+- [x] T015 [US3] Run full backend test suite and confirm all existing label lifecycle tests pass without modification using uv run pytest in solune/backend/
 
 **Checkpoint**: All user stories are independently functional — metadata auto-population, AI priority override, and label lifecycle integrity all verified.
 
@@ -104,9 +104,9 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T016 [P] Add observability logging for computed metadata values (priority, size, estimate, start_date, target_date, agent_count) in solune/backend/src/services/pipeline_estimate.py
-- [ ] T017 Run quickstart.md verification steps to validate end-to-end flow in specs/730-auto-generated-labels-fields/quickstart.md
-- [ ] T018 Run full backend test suite with coverage check (target ≥ 75%) using uv run pytest --cov=src --cov-report=json in solune/backend/
+- [x] T016 [P] Add observability logging for computed metadata values (priority, size, estimate, start_date, target_date, agent_count) in solune/backend/src/services/pipeline_estimate.py
+- [x] T017 Run quickstart.md verification steps to validate end-to-end flow in specs/730-auto-generated-labels-fields/quickstart.md
+- [x] T018 Run full backend test suite with coverage check (target ≥ 75%) using uv run pytest --cov=src --cov-report=json in solune/backend/
 
 ---
 
