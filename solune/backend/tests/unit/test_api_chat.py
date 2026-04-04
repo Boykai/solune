@@ -10,6 +10,9 @@ Covers:
 """
 
 import json
+import tempfile
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -47,6 +50,17 @@ def _proposal(session_id, **kw) -> AITaskProposal:
     }
     defaults.update(kw)
     return AITaskProposal(**defaults)
+
+
+def _make_upload_file(
+    filename: str | None, content: bytes, content_type: str | None = "text/plain"
+):
+    import io
+
+    from starlette.datastructures import Headers, UploadFile
+
+    headers = Headers({"content-type": content_type}) if content_type is not None else Headers()
+    return UploadFile(filename=filename, file=io.BytesIO(content), headers=headers)
 
 
 async def _save_plan(mock_db, session_id: str, **kw) -> dict:
@@ -363,6 +377,30 @@ class TestSendMessageTaskGeneration:
         assert data["action_data"]["proposed_title"] == "Enhanced Title"
         assert mock_chat_agent_service.run.call_args.kwargs["db"] is expected_db
 
+    async def test_ai_enhance_off_without_ai_service_preserves_description(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        mock_session.selected_project_id = "PVT_1"
+        user_input = "Investigate why the login flow gets stuck after redirect"
+
+        with patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")):
+            resp = await client.post(
+                "/api/v1/chat/messages",
+                json={"content": user_input, "ai_enhance": False},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["action_type"] == "task_create"
+        assert data["action_data"]["proposed_title"] == user_input
+        assert data["action_data"]["proposed_description"] == user_input
+        assert data["action_data"]["status"] == "pending"
+        mock_chat_agent_service.run.assert_not_called()
+
+        stored = await client.get("/api/v1/chat/messages")
+        messages = stored.json()["messages"]
+        assert messages[-1]["action_data"]["proposed_description"] == user_input
+
 
 # ── POST /chat/messages/stream ───────────────────────────────────────────────
 
@@ -533,6 +571,29 @@ class TestPlanModeEndpoints:
         assert resp.json()["detail"] == "Please provide a feature description after /plan."
         mock_chat_agent_service.run_plan.assert_not_called()
 
+    async def test_send_plan_message_service_unavailable_does_not_persist_user_message(
+        self, client, mock_session
+    ):
+        mock_session.selected_project_id = "PVT_1"
+
+        with (
+            patch(
+                "src.api.chat._resolve_repository",
+                new=AsyncMock(return_value=("octocat", "hello-world")),
+            ),
+            patch("src.api.chat.get_chat_agent_service", side_effect=RuntimeError("offline")),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages/plan",
+                json={"content": "/plan Build a roadmap"},
+            )
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "Plan mode not available."
+
+        stored = await client.get("/api/v1/chat/messages")
+        assert stored.json()["messages"] == []
+
     async def test_send_plan_message_stream_emits_thinking_and_persists_result(
         self, client, mock_session, mock_chat_agent_service
     ):
@@ -604,6 +665,240 @@ class TestPlanModeEndpoints:
         messages = stored.json()["messages"]
         assert [message["sender_type"] for message in messages] == ["user", "assistant"]
         assert messages[1]["content"] == "Here is the updated plan."
+
+    async def test_send_plan_message_stream_service_unavailable_does_not_persist_user_message(
+        self, client, mock_session
+    ):
+        mock_session.selected_project_id = "PVT_1"
+
+        with (
+            patch(
+                "src.api.chat._resolve_repository",
+                new=AsyncMock(return_value=("octocat", "hello-world")),
+            ),
+            patch("src.api.chat.get_chat_agent_service", side_effect=RuntimeError("offline")),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages/plan/stream",
+                json={"content": "/plan Stream a roadmap"},
+            )
+
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "Plan mode not available."
+
+        stored = await client.get("/api/v1/chat/messages")
+        assert stored.json()["messages"] == []
+
+    async def test_send_plan_message_stream_done_failure_falls_back_to_original_event(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import get_user_projects_cache_key
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Backlog")]
+        cached_project.status_columns[0].name = "Backlog"
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+
+        raw_message = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="Draft plan ready.",
+            action_type=ActionType.PLAN_CREATE,
+            action_data={"plan_id": "plan-raw", "status": "draft"},
+        )
+
+        async def stream_events():
+            yield {"event": "done", "data": raw_message.model_dump_json()}
+
+        mock_chat_agent_service.run_plan_stream = MagicMock(return_value=stream_events())
+
+        with (
+            patch(
+                "src.api.chat._resolve_repository",
+                new=AsyncMock(return_value=("octocat", "hello-world")),
+            ),
+            patch(
+                "src.api.chat.add_message",
+                new=AsyncMock(side_effect=[None, RuntimeError("db unavailable")]),
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages/plan/stream",
+                json={"content": "/plan Handle plan persistence errors"},
+            )
+
+        assert resp.status_code == 200
+        events = _parse_sse_events(resp.text)
+        done_event = next(event for event in events if event["event"] == "done")
+        assert json.loads(done_event["data"]) == raw_message.model_dump(mode="json")
+
+
+class TestTranscriptHelpers:
+    async def test_handle_transcript_upload_returns_none_without_files(
+        self, mock_session, mock_ai_agent_service
+    ):
+        from src.api.chat import _handle_transcript_upload
+
+        result = await _handle_transcript_upload(
+            mock_session,
+            mock_ai_agent_service,
+            "Roadmap",
+            None,
+            None,
+        )
+
+        assert result is None
+        mock_ai_agent_service.analyze_transcript.assert_not_called()
+
+    async def test_handle_transcript_upload_success_with_metadata_fallback(
+        self, mock_session, mock_ai_agent_service
+    ):
+        from src.api.chat import _handle_transcript_upload
+
+        upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{uuid4().hex[:8]}-transcript.txt"
+        file_path = upload_dir / filename
+        file_path.write_text("speaker 1: hello\nspeaker 2: ship it", encoding="utf-8")
+
+        recommendation = _recommendation(
+            mock_session.session_id,
+            technical_notes="T" * 320,
+        )
+        mock_ai_agent_service.analyze_transcript.return_value = recommendation
+        stored: dict[str, IssueRecommendation] = {}
+
+        async def capture_recommendation(rec: IssueRecommendation) -> None:
+            stored["recommendation"] = rec
+
+        try:
+            with (
+                patch(
+                    "src.services.transcript_detector.detect_transcript",
+                    return_value=SimpleNamespace(is_transcript=True),
+                ),
+                patch(
+                    "src.api.chat._resolve_repository",
+                    new=AsyncMock(side_effect=RuntimeError("no repo")),
+                ),
+                patch(
+                    "src.api.chat.store_recommendation",
+                    new=AsyncMock(side_effect=capture_recommendation),
+                ),
+                patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
+                patch("src.api.chat._trigger_signal_delivery") as trigger_signal,
+            ):
+                message = await _handle_transcript_upload(
+                    mock_session,
+                    mock_ai_agent_service,
+                    "Roadmap",
+                    "pipe-1",
+                    [f"/uploads/{filename}"],
+                )
+        finally:
+            file_path.unlink(missing_ok=True)
+
+        assert message is not None
+        assert message.action_data is not None
+        assert message.action_data["pipeline_id"] == "pipe-1"
+        assert message.action_data["file_urls"] == [f"/uploads/{filename}"]
+        assert "Technical Notes:" in message.content
+        assert message.action_data["status"] == "pending"
+        mock_ai_agent_service.analyze_transcript.assert_awaited_once_with(
+            transcript_content="speaker 1: hello\nspeaker 2: ship it",
+            project_name="Roadmap",
+            session_id=str(mock_session.session_id),
+            github_token=mock_session.access_token,
+            metadata_context=None,
+        )
+        assert stored["recommendation"].selected_pipeline_id == "pipe-1"
+        assert stored["recommendation"].file_urls == [f"/uploads/{filename}"]
+        add_message.assert_awaited_once()
+        trigger_signal.assert_called_once()
+
+    async def test_handle_transcript_upload_returns_error_message_when_analysis_fails(
+        self, mock_session, mock_ai_agent_service
+    ):
+        from src.api.chat import _handle_transcript_upload
+
+        upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{uuid4().hex[:8]}-transcript.txt"
+        file_path = upload_dir / filename
+        file_path.write_text("speaker 1: hello", encoding="utf-8")
+        mock_ai_agent_service.analyze_transcript.side_effect = TimeoutError("upstream timeout")
+
+        try:
+            with (
+                patch(
+                    "src.services.transcript_detector.detect_transcript",
+                    return_value=SimpleNamespace(is_transcript=True),
+                ),
+                patch(
+                    "src.api.chat._resolve_repository",
+                    new=AsyncMock(return_value=("octocat", "hello-world")),
+                ),
+                patch(
+                    "src.api.chat.store_recommendation", new_callable=AsyncMock
+                ) as store_recommendation,
+                patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
+            ):
+                message = await _handle_transcript_upload(
+                    mock_session,
+                    mock_ai_agent_service,
+                    "Roadmap",
+                    None,
+                    [f"/uploads/{filename}"],
+                )
+        finally:
+            file_path.unlink(missing_ok=True)
+
+        assert message is not None
+        assert "couldn't extract requirements" in message.content.lower()
+        assert "TimeoutError" in message.content
+        store_recommendation.assert_not_awaited()
+        add_message.assert_awaited_once()
+
+    async def test_extract_transcript_content_returns_first_detected_transcript(self):
+        from src.api.chat import _extract_transcript_content
+
+        upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        non_transcript_name = f"{uuid4().hex[:8]}-notes.txt"
+        transcript_name = f"{uuid4().hex[:8]}-meeting.vtt"
+        non_transcript_path = upload_dir / non_transcript_name
+        transcript_path = upload_dir / transcript_name
+        non_transcript_path.write_text("just some notes", encoding="utf-8")
+        transcript_path.write_text("WEBVTT\n\n00:00.000 --> 00:01.000\nHello", encoding="utf-8")
+
+        try:
+            with patch(
+                "src.services.transcript_detector.detect_transcript",
+                side_effect=[
+                    SimpleNamespace(is_transcript=False),
+                    SimpleNamespace(is_transcript=True),
+                ],
+            ):
+                result = await _extract_transcript_content(
+                    [
+                        "/uploads/missing.txt",
+                        f"/uploads/{non_transcript_name}",
+                        f"/uploads/{transcript_name}",
+                    ]
+                )
+        finally:
+            non_transcript_path.unlink(missing_ok=True)
+            transcript_path.unlink(missing_ok=True)
+
+        assert result == "WEBVTT\n\n00:00.000 --> 00:01.000\nHello"
 
     async def test_get_plan_endpoint_is_scoped_to_current_session(
         self, client, mock_db, mock_session
@@ -949,6 +1244,88 @@ class TestResolveRepository:
                 await _resolve_repository(session)
 
 
+class TestRetryPersist:
+    async def test_retries_transient_operational_errors_then_succeeds(self):
+        import sqlite3
+
+        from src.api.chat import _PERSIST_BASE_DELAY, _retry_persist
+
+        persist = AsyncMock(side_effect=[sqlite3.OperationalError("locked"), None])
+
+        with patch("src.api.chat.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            await _retry_persist(persist, context="message:test")
+
+        assert persist.await_count == 2
+        mock_sleep.assert_awaited_once_with(_PERSIST_BASE_DELAY)
+
+    async def test_non_transient_errors_fail_fast(self):
+        from src.api.chat import _retry_persist
+
+        persist = AsyncMock(side_effect=RuntimeError("boom"))
+
+        with patch("src.api.chat.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            with pytest.raises(RuntimeError, match="boom"):
+                await _retry_persist(persist, context="message:test")
+
+        mock_sleep.assert_not_awaited()
+
+    async def test_exhausted_transient_errors_raise_persistence_error(self):
+        import sqlite3
+
+        from src.api.chat import _PERSIST_MAX_RETRIES, _retry_persist
+        from src.exceptions import PersistenceError
+
+        persist = AsyncMock(side_effect=sqlite3.OperationalError("locked"))
+
+        with patch("src.api.chat.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            with pytest.raises(PersistenceError, match="Failed to persist message:test"):
+                await _retry_persist(persist, context="message:test")
+
+        assert persist.await_count == _PERSIST_MAX_RETRIES
+        assert mock_sleep.await_count == _PERSIST_MAX_RETRIES - 1
+
+
+class TestPostProcessAgentResponse:
+    async def test_task_create_uses_user_content_when_description_is_missing(self, mock_session):
+        from src.api.chat import _post_process_agent_response
+        from src.models.chat import ActionType, ChatMessage, SenderType
+
+        captured: dict[str, AITaskProposal] = {}
+
+        async def capture(proposal: AITaskProposal) -> None:
+            captured["proposal"] = proposal
+
+        message = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="Drafted a task proposal.",
+            action_type=ActionType.TASK_CREATE,
+            action_data={"proposed_title": "Fix login redirect loop"},
+        )
+
+        with patch("src.api.chat.store_proposal", new=AsyncMock(side_effect=capture)):
+            result = await _post_process_agent_response(
+                session=mock_session,
+                message=message,
+                project_name="Roadmap",
+                pipeline_id=None,
+                file_urls=None,
+                cached_projects=None,
+                selected_project_id="PVT_1",
+                user_content="Investigate why login redirects loop forever",
+            )
+
+        assert result.action_data is not None
+        assert result.action_data["proposed_description"] == (
+            "Investigate why login redirects loop forever"
+        )
+        assert result.action_data["status"] == ProposalStatus.PENDING.value
+        assert captured["proposal"].original_input == "Investigate why login redirects loop forever"
+        assert captured["proposal"].proposed_description == (
+            "Investigate why login redirects loop forever"
+        )
+
+
 # ── cancel_proposal (direct unit tests) ─────────────────────────────────────
 
 
@@ -982,6 +1359,23 @@ class TestCancelProposalDirect:
         reloaded = await chat_mod.get_proposal(str(proposal.proposal_id))
         assert reloaded is not None
         assert reloaded.status == ProposalStatus.CANCELLED
+
+    async def test_cancel_succeeds_when_sqlite_update_fails(self, client, mock_session):
+        import src.api.chat as chat_mod
+
+        proposal = _proposal(mock_session.session_id)
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+
+        with patch(
+            "src.services.chat_store.update_proposal_status",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("sqlite unavailable"),
+        ):
+            resp = await client.delete(f"/api/v1/chat/proposals/{proposal.proposal_id}")
+
+        assert resp.status_code == 200
+        assert proposal.status == ProposalStatus.CANCELLED
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
 
 
 # ── confirm_proposal edge cases (direct) ─────────────────────────────────
@@ -1391,6 +1785,399 @@ class TestConfirmProposalPreservesFullDescription:
         chat_mod._proposals.pop(str(proposal.proposal_id), None)
 
 
+class TestConfirmProposalFallbacks:
+    async def test_confirm_expired_proposal_ignores_sqlite_update_failure(
+        self, client, mock_session
+    ):
+        from datetime import timedelta
+
+        import src.api.chat as chat_mod
+        from src.utils import utcnow
+
+        proposal = _proposal(mock_session.session_id)
+        proposal.expires_at = utcnow() - timedelta(hours=1)
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+        mock_session.selected_project_id = "PVT_1"
+
+        with patch(
+            "src.services.chat_store.update_proposal_status",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("sqlite unavailable"),
+        ):
+            resp = await client.post(
+                f"/api/v1/chat/proposals/{proposal.proposal_id}/confirm",
+                json={},
+            )
+
+        assert resp.status_code == 422
+        assert proposal.status == ProposalStatus.CANCELLED
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
+
+    async def test_confirm_continues_when_sqlite_status_update_fails(
+        self, client, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        import src.api.chat as chat_mod
+
+        proposal = _proposal(mock_session.session_id)
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+        mock_session.selected_project_id = "PVT_1"
+
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 100033,
+            "number": 33,
+            "node_id": "I_33",
+            "html_url": "https://github.com/owner/repo/issues/33",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_33"
+
+        empty_pipeline_result = SimpleNamespace(
+            agent_mappings={},
+            source="project",
+            pipeline_name=None,
+            pipeline_id=None,
+            stage_execution_modes={},
+            group_mappings={},
+        )
+
+        with (
+            patch(
+                "src.services.chat_store.update_proposal_status",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("sqlite unavailable"),
+            ) as mock_update_status,
+            patch(
+                "src.config.get_settings",
+                return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
+            ),
+            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
+                new_callable=AsyncMock,
+                return_value=empty_pipeline_result,
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_orch.return_value.assign_agent_for_status = AsyncMock()
+            mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
+
+            resp = await client.post(
+                f"/api/v1/chat/proposals/{proposal.proposal_id}/confirm",
+                json={},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "confirmed"
+        assert proposal.status == ProposalStatus.CONFIRMED
+        mock_update_status.assert_awaited_once()
+        assert mock_set_config.await_args_list[0].args[1].copilot_assignee == "copilot-swe-agent"
+        assert (
+            mock_websocket_manager.broadcast_to_project.await_args.args[1]["type"] == "task_created"
+        )
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
+
+    async def test_confirm_updates_existing_config_and_precreates_subissues(
+        self, client, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        import src.api.chat as chat_mod
+
+        proposal = _proposal(mock_session.session_id)
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+        mock_session.selected_project_id = "PVT_1"
+
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 100037,
+            "number": 37,
+            "node_id": "I_37",
+            "html_url": "https://github.com/owner/repo/issues/37",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_37"
+
+        existing_config = SimpleNamespace(
+            repository_owner="old-owner",
+            repository_name="old-repo",
+            copilot_assignee="",
+            status_backlog="Backlog",
+            agent_mappings={},
+        )
+        pipeline_result = SimpleNamespace(
+            agent_mappings={"Backlog": [{"slug": "copilot-swe-agent"}]},
+            source="project",
+            pipeline_name="Fallback pipeline",
+            pipeline_id=None,
+            stage_execution_modes={},
+            group_mappings={},
+        )
+        effective_settings = SimpleNamespace(
+            ai=SimpleNamespace(
+                model="gpt-4.1-mini",
+                agent_model="o4-mini",
+                reasoning_effort="high",
+            )
+        )
+        agent_sub_issues = [{"slug": "copilot-swe-agent", "issue_number": 3701}]
+
+        with (
+            patch(
+                "src.config.get_settings",
+                return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
+            ),
+            patch(
+                "src.api.chat.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=existing_config,
+            ),
+            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.get_agent_slugs", return_value=["copilot-swe-agent"]),
+            patch(
+                "src.api.chat.get_effective_user_settings",
+                new_callable=AsyncMock,
+                return_value=effective_settings,
+            ),
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
+                new_callable=AsyncMock,
+                return_value=pipeline_result,
+            ),
+            patch(
+                "src.services.workflow_orchestrator.set_pipeline_state"
+            ) as mock_set_pipeline_state,
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=agent_sub_issues)
+            mock_orch.return_value.assign_agent_for_status = AsyncMock()
+
+            resp = await client.post(
+                f"/api/v1/chat/proposals/{proposal.proposal_id}/confirm",
+                json={},
+            )
+
+        assert resp.status_code == 200
+        assert existing_config.repository_owner == "owner"
+        assert existing_config.repository_name == "repo"
+        assert existing_config.copilot_assignee == "copilot-swe-agent"
+        assert mock_set_config.await_args.args[1].agent_mappings == pipeline_result.agent_mappings
+        create_ctx = mock_orch.return_value.create_all_sub_issues.await_args.args[0]
+        assert create_ctx.user_chat_model == "gpt-4.1-mini"
+        assert create_ctx.user_agent_model == "o4-mini"
+        assert create_ctx.user_reasoning_effort == "high"
+        pipeline_state = mock_set_pipeline_state.call_args.args[1]
+        assert pipeline_state.agents == ["copilot-swe-agent"]
+        assert pipeline_state.agent_sub_issues == agent_sub_issues
+        assert mock_websocket_manager.broadcast_to_project.await_count == 2
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
+
+    async def test_confirm_selected_pipeline_falls_back_when_pipeline_missing(
+        self, client, mock_session, mock_github_service
+    ):
+        import src.api.chat as chat_mod
+
+        proposal = _proposal(mock_session.session_id, selected_pipeline_id="pipe-missing")
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+        mock_session.selected_project_id = "PVT_1"
+
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 100034,
+            "number": 34,
+            "node_id": "I_34",
+            "html_url": "https://github.com/owner/repo/issues/34",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_34"
+
+        fallback_result = SimpleNamespace(
+            agent_mappings={"Backlog": [{"slug": "fallback-agent", "display_name": "Fallback"}]},
+            source="project",
+            pipeline_name="Fallback pipeline",
+            pipeline_id=None,
+            stage_execution_modes={},
+            group_mappings={},
+        )
+
+        with (
+            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch(
+                "src.services.workflow_orchestrator.config.load_pipeline_as_agent_mappings",
+                new_callable=AsyncMock,
+                return_value=None,
+            ) as mock_load_selected,
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
+                new_callable=AsyncMock,
+                return_value=fallback_result,
+            ) as mock_resolve_fallback,
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_orch.return_value.assign_agent_for_status = AsyncMock()
+            mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
+
+            resp = await client.post(
+                f"/api/v1/chat/proposals/{proposal.proposal_id}/confirm",
+                json={},
+            )
+
+        assert resp.status_code == 200
+        mock_load_selected.assert_awaited_once_with("PVT_1", "pipe-missing")
+        mock_resolve_fallback.assert_awaited_once_with("PVT_1", mock_session.github_user_id)
+        assert (
+            mock_set_config.await_args_list[-1].args[1].agent_mappings
+            == fallback_result.agent_mappings
+        )
+        assert proposal.pipeline_name == "Fallback pipeline"
+        assert proposal.pipeline_source == "project"
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
+
+    async def test_confirm_broadcasts_agent_assignment_and_starts_polling(
+        self, client, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        import src.api.chat as chat_mod
+
+        proposal = _proposal(mock_session.session_id)
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+        mock_session.selected_project_id = "PVT_1"
+
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 100035,
+            "number": 35,
+            "node_id": "I_35",
+            "html_url": "https://github.com/owner/repo/issues/35",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_35"
+
+        empty_pipeline_result = SimpleNamespace(
+            agent_mappings={},
+            source="project",
+            pipeline_name=None,
+            pipeline_id=None,
+            stage_execution_modes={},
+            group_mappings={},
+        )
+
+        with (
+            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.get_agent_slugs", return_value=["copilot-swe-agent"]),
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
+                new_callable=AsyncMock,
+                return_value=empty_pipeline_result,
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ) as mock_polling,
+        ):
+            mock_orch.return_value.assign_agent_for_status = AsyncMock()
+            mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
+
+            resp = await client.post(
+                f"/api/v1/chat/proposals/{proposal.proposal_id}/confirm",
+                json={},
+            )
+
+        assert resp.status_code == 200
+        assert mock_websocket_manager.broadcast_to_project.await_count == 2
+        assert (
+            mock_websocket_manager.broadcast_to_project.await_args_list[0].args[1]["type"]
+            == "task_created"
+        )
+        assert mock_websocket_manager.broadcast_to_project.await_args_list[1].args[1] == {
+            "type": "agent_assigned",
+            "issue_number": 35,
+            "agent_name": "copilot-swe-agent",
+            "status": "Backlog",
+        }
+        mock_polling.assert_awaited_once_with(
+            access_token=mock_session.access_token,
+            project_id="PVT_1",
+            owner="owner",
+            repo="repo",
+            caller="confirm_proposal",
+        )
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
+
+    async def test_confirm_returns_success_when_agent_assignment_fails(
+        self, client, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        import src.api.chat as chat_mod
+
+        proposal = _proposal(mock_session.session_id)
+        chat_mod._proposals[str(proposal.proposal_id)] = proposal
+        mock_session.selected_project_id = "PVT_1"
+
+        mock_github_service.get_project_repository.return_value = ("owner", "repo")
+        mock_github_service.create_issue.return_value = {
+            "id": 100036,
+            "number": 36,
+            "node_id": "I_36",
+            "html_url": "https://github.com/owner/repo/issues/36",
+        }
+        mock_github_service.add_issue_to_project.return_value = "PVTI_36"
+
+        empty_pipeline_result = SimpleNamespace(
+            agent_mappings={},
+            source="project",
+            pipeline_name=None,
+            pipeline_id=None,
+            stage_execution_modes={},
+            group_mappings={},
+        )
+
+        with (
+            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
+                new_callable=AsyncMock,
+                return_value=empty_pipeline_result,
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ) as mock_polling,
+        ):
+            mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
+            mock_orch.return_value.assign_agent_for_status = AsyncMock(
+                side_effect=RuntimeError("assignment failed")
+            )
+
+            resp = await client.post(
+                f"/api/v1/chat/proposals/{proposal.proposal_id}/confirm",
+                json={},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "confirmed"
+        assert mock_websocket_manager.broadcast_to_project.await_count == 1
+        assert (
+            mock_websocket_manager.broadcast_to_project.await_args_list[0].args[1]["type"]
+            == "task_created"
+        )
+        mock_polling.assert_not_awaited()
+        chat_mod._proposals.pop(str(proposal.proposal_id), None)
+
+
 # ── Regression: error messages MUST NOT leak exception details ──────────────
 
 
@@ -1533,3 +2320,84 @@ class TestUploadFilePathTraversal:
             files={"file": ("malware.exe", io.BytesIO(b"\x00"), "application/octet-stream")},
         )
         assert resp.status_code == 415
+        assert resp.json()["error_code"] == "unsupported_type"
+
+
+class TestUploadFileValidationDirect:
+    async def test_missing_filename_returns_no_file_error(self, mock_session):
+        from src.api.chat import upload_file
+
+        resp = await upload_file(file=_make_upload_file(None, b"hello"), session=mock_session)
+
+        assert resp.status_code == 400
+        assert json.loads(resp.body) == {
+            "filename": "",
+            "error": "No file provided",
+            "error_code": "no_file",
+        }
+
+    async def test_unknown_extension_is_rejected(self, mock_session):
+        from src.api.chat import upload_file
+
+        resp = await upload_file(
+            file=_make_upload_file("notes.xyz", b"hello"), session=mock_session
+        )
+
+        assert resp.status_code == 415
+        assert json.loads(resp.body)["error_code"] == "unsupported_type"
+
+    async def test_empty_file_is_rejected(self, mock_session):
+        from src.api.chat import upload_file
+
+        resp = await upload_file(file=_make_upload_file("notes.txt", b""), session=mock_session)
+
+        assert resp.status_code == 400
+        assert json.loads(resp.body)["error_code"] == "empty_file"
+
+    async def test_oversized_file_is_rejected(self, mock_session):
+        from src.api.chat import upload_file
+
+        with patch("src.api.chat.MAX_FILE_SIZE_BYTES", 4):
+            resp = await upload_file(
+                file=_make_upload_file("notes.txt", b"12345"),
+                session=mock_session,
+            )
+
+        assert resp.status_code == 413
+        assert json.loads(resp.body)["error_code"] == "file_too_large"
+
+    async def test_missing_content_type_defaults_to_octet_stream(self, mock_session):
+        from src.api.chat import upload_file
+
+        resp = await upload_file(
+            file=_make_upload_file("notes.txt", b"hello", content_type=None),
+            session=mock_session,
+        )
+
+        assert resp.content_type == "application/octet-stream"
+        assert resp.file_size == 5
+        stored_path = Path(tempfile.gettempdir()) / "chat-uploads" / Path(resp.file_url).name
+        try:
+            assert stored_path.read_bytes() == b"hello"
+        finally:
+            stored_path.unlink(missing_ok=True)
+
+    async def test_invalid_resolved_path_is_rejected(self, mock_session):
+        import src.api.chat as chat_mod
+
+        with patch.object(
+            chat_mod.Path,
+            "resolve",
+            autospec=True,
+            side_effect=[
+                Path(tempfile.gettempdir()) / "outside",
+                Path(tempfile.gettempdir()) / "chat-uploads",
+            ],
+        ):
+            resp = await chat_mod.upload_file(
+                file=_make_upload_file("report.txt", b"hello"),
+                session=mock_session,
+            )
+
+        assert resp.status_code == 400
+        assert json.loads(resp.body)["error_code"] == "invalid_filename"

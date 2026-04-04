@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { ChevronUp, ChevronDown, X, Plus } from '@/lib/icons';
 import { ToolSelectorModal } from '@/components/tools/ToolSelectorModal';
 import { Tooltip } from '@/components/ui/tooltip';
+import { toast } from 'sonner';
 
 interface ToolsEditorProps {
   tools: string[];
@@ -50,8 +51,17 @@ export function ToolsEditor({
   };
 
   const handleAddConfirm = (selectedIds: string[]) => {
-    // Only add tools not already present
     const newTools = selectedIds.filter((id) => !tools.includes(id));
+    const duplicateCount = selectedIds.length - newTools.length;
+
+    if (duplicateCount > 0) {
+      toast.info(
+        duplicateCount === 1
+          ? '1 selected tool was already assigned'
+          : `${duplicateCount} selected tools were already assigned`
+      );
+    }
+
     if (newTools.length > 0) {
       onToolsChange([...tools, ...newTools]);
     }

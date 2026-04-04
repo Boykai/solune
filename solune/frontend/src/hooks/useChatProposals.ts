@@ -151,6 +151,22 @@ export function useChatProposals() {
     });
   }, []);
 
+  const updateRecommendationStatus = useCallback(
+    (recommendationId: string, status: IssueCreateActionData['status']) => {
+      setPendingRecommendations((prev) => {
+        const existing = prev.get(recommendationId);
+        if (!existing) {
+          return prev;
+        }
+
+        const next = new Map(prev);
+        next.set(recommendationId, { ...existing, status });
+        return next;
+      });
+    },
+    [],
+  );
+
   const clearProposals = useCallback(() => {
     setPendingProposals(new Map());
     setPendingStatusChanges(new Map());
@@ -166,6 +182,7 @@ export function useChatProposals() {
     confirmStatusChange,
     rejectProposal,
     removePendingRecommendation,
+    updateRecommendationStatus,
     clearProposals,
   };
 }
