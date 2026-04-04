@@ -12,7 +12,7 @@ for testing).
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from math import ceil
 
 from src.logging_utils import get_logger
@@ -38,9 +38,9 @@ def size_from_hours(hours: float) -> IssueSize:
     Thresholds (from the feature specification):
 
     * ``≤ 0.5``  → **XS**
-    * ``0.51–1.0`` → **S**
-    * ``1.01–2.0`` → **M**
-    * ``2.01–4.0`` → **L**
+    * ``0.51-1.0`` → **S**
+    * ``1.01-2.0`` → **M**
+    * ``2.01-4.0`` → **L**
     * ``> 4.0``  → **XL**
     """
     if hours <= 0.5:
@@ -79,14 +79,13 @@ def estimate_from_agent_count(
 
     estimate_hours = max(0.5, min(8.0, agent_count * 0.25))
     size = size_from_hours(estimate_hours)
-    _today = today or datetime.now(timezone.utc).date()
+    _today = today or datetime.now(UTC).date()
     start_date = _today.isoformat()
     days = max(1, ceil(estimate_hours / HOURS_PER_DAY))
     target_date = (_today + timedelta(days=days)).isoformat()
 
     logger.info(
-        "Pipeline estimate: agents=%d, hours=%.2f, size=%s, priority=%s, "
-        "start=%s, target=%s",
+        "Pipeline estimate: agents=%d, hours=%.2f, size=%s, priority=%s, start=%s, target=%s",
         agent_count,
         estimate_hours,
         size.value,

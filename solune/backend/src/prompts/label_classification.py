@@ -95,6 +95,16 @@ Output raw JSON ONLY. No markdown fences, no explanation."""
 LABEL_CLASSIFICATION_WITH_PRIORITY_SYSTEM_PROMPT: str = _build_system_prompt_with_priority()
 
 
+def _build_user_content(title: str, description: str = "") -> str:
+    """Build the user message content shared by all label classification prompts."""
+    desc = description[:_MAX_DESCRIPTION_LENGTH] if description else ""
+
+    user_content = f"Title: {title}"
+    if desc.strip():
+        user_content += f"\n\nDescription:\n{desc}"
+    return user_content
+
+
 def build_label_classification_prompt(
     title: str,
     description: str = "",
@@ -109,15 +119,9 @@ def build_label_classification_prompt(
     Returns:
         List of ``{"role": ..., "content": ...}`` message dicts.
     """
-    desc = description[:_MAX_DESCRIPTION_LENGTH] if description else ""
-
-    user_content = f"Title: {title}"
-    if desc.strip():
-        user_content += f"\n\nDescription:\n{desc}"
-
     return [
         {"role": "system", "content": LABEL_CLASSIFICATION_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
+        {"role": "user", "content": _build_user_content(title, description)},
     ]
 
 
@@ -138,13 +142,7 @@ def build_label_classification_with_priority_prompt(
     Returns:
         List of ``{"role": ..., "content": ...}`` message dicts.
     """
-    desc = description[:_MAX_DESCRIPTION_LENGTH] if description else ""
-
-    user_content = f"Title: {title}"
-    if desc.strip():
-        user_content += f"\n\nDescription:\n{desc}"
-
     return [
         {"role": "system", "content": LABEL_CLASSIFICATION_WITH_PRIORITY_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
+        {"role": "user", "content": _build_user_content(title, description)},
     ]

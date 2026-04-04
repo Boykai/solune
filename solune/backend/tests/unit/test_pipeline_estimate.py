@@ -55,22 +55,20 @@ class TestEstimateFromAgentCount:
     @pytest.mark.parametrize(
         ("agent_count", "expected_hours", "expected_size"),
         [
-            (0, 0.5, IssueSize.XS),      # invalid → clamped to 1 → 0.25 → clamped to 0.5
-            (1, 0.5, IssueSize.XS),       # 1 * 0.25 = 0.25 → clamped to 0.5
-            (2, 0.5, IssueSize.XS),       # 2 * 0.25 = 0.5
-            (3, 0.75, IssueSize.S),       # 3 * 0.25 = 0.75
-            (4, 1.0, IssueSize.S),        # 4 * 0.25 = 1.0
-            (5, 1.25, IssueSize.M),       # 5 * 0.25 = 1.25
-            (8, 2.0, IssueSize.M),        # 8 * 0.25 = 2.0
-            (9, 2.25, IssueSize.L),       # 9 * 0.25 = 2.25
-            (16, 4.0, IssueSize.L),       # 16 * 0.25 = 4.0
-            (17, 4.25, IssueSize.XL),     # 17 * 0.25 = 4.25
-            (20, 5.0, IssueSize.XL),      # 20 * 0.25 = 5.0 (clamped to 8.0? no, 5.0 < 8)
+            (0, 0.5, IssueSize.XS),  # invalid → clamped to 1 → 0.25 → clamped to 0.5
+            (1, 0.5, IssueSize.XS),  # 1 * 0.25 = 0.25 → clamped to 0.5
+            (2, 0.5, IssueSize.XS),  # 2 * 0.25 = 0.5
+            (3, 0.75, IssueSize.S),  # 3 * 0.25 = 0.75
+            (4, 1.0, IssueSize.S),  # 4 * 0.25 = 1.0
+            (5, 1.25, IssueSize.M),  # 5 * 0.25 = 1.25
+            (8, 2.0, IssueSize.M),  # 8 * 0.25 = 2.0
+            (9, 2.25, IssueSize.L),  # 9 * 0.25 = 2.25
+            (16, 4.0, IssueSize.L),  # 16 * 0.25 = 4.0
+            (17, 4.25, IssueSize.XL),  # 17 * 0.25 = 4.25
+            (20, 5.0, IssueSize.XL),  # 20 * 0.25 = 5.0 (clamped to 8.0? no, 5.0 < 8)
         ],
     )
-    def test_agent_counts(
-        self, agent_count: int, expected_hours: float, expected_size: IssueSize
-    ):
+    def test_agent_counts(self, agent_count: int, expected_hours: float, expected_size: IssueSize):
         meta = estimate_from_agent_count(agent_count, today=self.FIXED_TODAY)
         assert meta.estimate_hours == expected_hours
         assert meta.size == expected_size
