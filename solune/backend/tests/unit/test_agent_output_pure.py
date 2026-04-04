@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.services.copilot_polling.agent_output import (
     _build_agent_output_summary,
     _format_changed_file_list,
