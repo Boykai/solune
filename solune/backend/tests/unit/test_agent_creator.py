@@ -1890,7 +1890,9 @@ class TestProjectSelection:
         ]
         _agent_sessions["sess-proj3"] = state
 
-        with patch("src.services.agent_creator._resolve_owner_repo", new_callable=AsyncMock) as mock_resolve:
+        with patch(
+            "src.services.agent_creator._resolve_owner_repo", new_callable=AsyncMock
+        ) as mock_resolve:
             mock_resolve.return_value = ("owner", "repo")
 
             result = await handle_agent_command(

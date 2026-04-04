@@ -53,7 +53,7 @@ describe('icons barrel export', () => {
       ([key]) => key !== 'default' && key[0] === key[0].toUpperCase()
     );
     for (const [name, icon] of exports) {
-      expect(typeof icon).toBe('object', `Icon ${name} should be a valid component`);
+      expect(typeof icon, `Icon ${name} should be a valid component`).toBe('object');
     }
   });
 

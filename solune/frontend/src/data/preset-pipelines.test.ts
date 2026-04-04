@@ -57,7 +57,7 @@ describe('PRESET_PIPELINES', () => {
   it('all stages have at least one execution group', () => {
     for (const preset of PRESET_PIPELINES) {
       for (const stage of preset.stages) {
-        expect(stage.groups.length).toBeGreaterThan(0);
+        expect(stage.groups?.length).toBeGreaterThan(0);
       }
     }
   });
@@ -65,7 +65,7 @@ describe('PRESET_PIPELINES', () => {
   it('all execution groups have at least one agent', () => {
     for (const preset of PRESET_PIPELINES) {
       for (const stage of preset.stages) {
-        for (const group of stage.groups) {
+        for (const group of stage.groups ?? []) {
           expect(group.agents.length).toBeGreaterThan(0);
         }
       }
@@ -75,7 +75,7 @@ describe('PRESET_PIPELINES', () => {
   it('all agents have required fields', () => {
     for (const preset of PRESET_PIPELINES) {
       for (const stage of preset.stages) {
-        for (const group of stage.groups) {
+        for (const group of stage.groups ?? []) {
           for (const agent of group.agents) {
             expect(agent.id).toBeTruthy();
             expect(agent.agent_slug).toBeTruthy();

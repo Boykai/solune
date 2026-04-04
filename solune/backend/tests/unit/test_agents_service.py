@@ -1390,7 +1390,7 @@ class TestExtractAgentPreview:
 
     def test_valid_agent_config_block_returns_preview(self):
         text = (
-            'Here is your config:\n```agent-config\n'
+            "Here is your config:\n```agent-config\n"
             '{"name": "Security Bot", "description": "Scans for vulns", '
             '"system_prompt": "You are a security bot.", "tools": ["read"]}\n```'
         )
@@ -1496,9 +1496,7 @@ class TestResolveAgent:
         """If tools JSON is corrupt, agent still resolves with empty tools."""
         await _insert_agent_row(mock_db, agent_id="bad-tools", slug="bad-tools-agent")
         # Corrupt the tools column
-        await mock_db.execute(
-            "UPDATE agent_configs SET tools = 'NOT-JSON' WHERE id = 'bad-tools'"
-        )
+        await mock_db.execute("UPDATE agent_configs SET tools = 'NOT-JSON' WHERE id = 'bad-tools'")
         await mock_db.commit()
 
         service = AgentsService(mock_db)
@@ -1636,7 +1634,7 @@ class TestChat:
     async def test_chat_complete_response_cleans_session(self, mock_db):
         service = AgentsService(mock_db)
         complete_reply = (
-            'Here is your config:\n```agent-config\n'
+            "Here is your config:\n```agent-config\n"
             '{"name": "PR Reviewer", "description": "Reviews PRs", '
             '"system_prompt": "You review PRs.", "tools": ["read"]}\n```'
         )
@@ -1858,9 +1856,7 @@ class TestGatherAgentExamples:
 
     async def test_gathers_up_to_three_examples(self, mock_db):
         service = AgentsService(mock_db)
-        entries = [
-            {"name": f"agent-{i}.agent.md"} for i in range(5)
-        ]
+        entries = [{"name": f"agent-{i}.agent.md"} for i in range(5)]
         mock_github = AsyncMock()
         mock_github.get_directory_contents = AsyncMock(return_value=entries)
         mock_github.get_file_content = AsyncMock(
@@ -2695,9 +2691,7 @@ class TestListRepoAgentsEdgeCases:
         mock_github.get_directory_contents = AsyncMock(
             return_value=[{"name": "lazy.agent.md", "content": ""}]
         )
-        mock_github.get_file_content = AsyncMock(
-            return_value={"content": AGENT_FILE_CONTENT}
-        )
+        mock_github.get_file_content = AsyncMock(return_value={"content": AGENT_FILE_CONTENT})
 
         with patch("src.services.agents.service.github_projects_service", mock_github):
             agents, available = await service._list_repo_agents(
