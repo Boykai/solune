@@ -20,8 +20,6 @@ Covers:
 import json
 import math
 from contextlib import ExitStack
-from dataclasses import dataclass
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -546,7 +544,7 @@ class TestAdvancePipelineDelayPath:
             agent_configs={"human": {"delay_seconds": 15}},
         )
 
-        stack, mock_gps, mock_conn = _base_pipeline_patches()
+        stack, mock_gps, _mock_conn = _base_pipeline_patches()
         with stack:
             with (
                 patch(f"{_PIPELINE_MOD}.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
@@ -703,9 +701,7 @@ class TestAdvancePipelineDelayPath:
                 # Find the delay broadcast
                 broadcast_calls = mock_conn.broadcast_to_project.call_args_list
                 delay_broadcasts = [
-                    c
-                    for c in broadcast_calls
-                    if "⏱️ Delay" in str(c.args[1].get("agent_state", ""))
+                    c for c in broadcast_calls if "⏱️ Delay" in str(c.args[1].get("agent_state", ""))
                 ]
                 assert len(delay_broadcasts) >= 1
 
@@ -989,7 +985,7 @@ class TestAdvancePipelineNoDelaySkip:
             agent_configs={},
         )
 
-        stack, mock_gps, mock_conn = _base_pipeline_patches()
+        stack, _mock_gps, mock_conn = _base_pipeline_patches()
         with stack:
             with (
                 patch(
