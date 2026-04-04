@@ -640,7 +640,9 @@ def schedule_post_devops_merge_retry(
         "pipeline_metadata": pipeline_metadata,
     }
 
-    _task = asyncio.create_task(
+    from .state import _background_tasks
+
+    task = asyncio.create_task(
         _post_devops_retry_loop(
             access_token=access_token,
             owner=owner,
@@ -651,8 +653,8 @@ def schedule_post_devops_merge_retry(
         ),
         name=f"post-devops-retry-{issue_number}",
     )
-    # Reference stored to prevent garbage collection (RUF006).
-    _ = _task
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     logger.info(
         "Scheduled post-DevOps merge retry loop for issue #%d",
@@ -869,7 +871,9 @@ def schedule_auto_merge_retry(
 
     _pending_auto_merge_retries[issue_number] = 0
 
-    _task = asyncio.create_task(
+    from .state import _background_tasks
+
+    task = asyncio.create_task(
         _auto_merge_retry_loop(
             access_token=access_token,
             owner=owner,
@@ -881,8 +885,8 @@ def schedule_auto_merge_retry(
         ),
         name=f"auto-merge-retry-{issue_number}",
     )
-    # Reference stored to prevent garbage collection (RUF006).
-    _ = _task
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     logger.info(
         "Scheduled auto-merge retry loop for issue #%d",

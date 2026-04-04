@@ -3205,8 +3205,17 @@ async def check_in_review_issues(
 
         # ── DevOps recovery fallback ──
         # After pipeline processing, check for stalled DevOps agents:
-        # issues in "In Review" where devops_active=True but no background
-        # retry polling is running (e.g. after server restart).
+        # completed pipelines in "In Review" with no active background
+        # retry polling (e.g. after server restart).  DevOps tracking
+        # state (devops_active/devops_attempts) is kept in-memory via
+        # the pipeline_metadata dict and is NOT persisted on
+        # PipelineState.  After a restart those values are lost, so we
+        # optimistically check for the DevOps "Done!" comment on every
+        # completed in-review issue that has no pending retry.  The
+        # cost is O(n) comment fetches where n = in-review issues
+        # (typically small).
+        from .state import _pending_post_devops_retries
+
         for task in in_review_tasks:
             if task.issue_number is None:
                 continue
@@ -3215,15 +3224,9 @@ async def check_in_review_issues(
             if not task_owner or not task_repo:
                 continue
 
-            pipeline = _cp.get_pipeline_state(task.issue_number)
-            if not pipeline or not pipeline.is_complete:
+            rec_pipeline = _cp.get_pipeline_state(task.issue_number)
+            if not rec_pipeline or not rec_pipeline.is_complete:
                 continue
-
-            metadata = getattr(pipeline, "metadata", None) or {}
-            if not metadata.get("devops_active"):
-                continue
-
-            from .state import _pending_post_devops_retries
 
             if task.issue_number in _pending_post_devops_retries:
                 continue  # Retry already running
@@ -3246,7 +3249,6 @@ async def check_in_review_issues(
                         "DevOps recovery: 'Done!' detected for stalled issue #%d",
                         task.issue_number,
                     )
-                    metadata["devops_active"] = False
                     merge_result = await _attempt_auto_merge(
                         access_token=access_token,
                         owner=task_owner,
@@ -3255,7 +3257,7 @@ async def check_in_review_issues(
                     )
                     if merge_result.status == "devops_needed":
                         pipeline_md: dict[str, Any] = {
-                            "devops_attempts": metadata.get("devops_attempts", 0),
+                            "devops_attempts": 0,
                             "devops_active": False,
                         }
                         await dispatch_devops_agent(

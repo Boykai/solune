@@ -48,7 +48,15 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
 
 
 def _get_auto_merge_pipeline(issue_number: int) -> dict[str, Any] | None:
-    """Get pipeline metadata for an issue if it's in an auto-merge-eligible state."""
+    """Get pipeline metadata for an issue if it's in an auto-merge-eligible state.
+
+    Note: ``devops_attempts`` and ``devops_active`` are tracked in-memory via
+    the ``pipeline_metadata`` dict passed to ``dispatch_devops_agent``; they
+    are NOT persisted on ``PipelineState``.  Webhook-driven dispatches
+    therefore start from defaults.  Deduplication for the webhook path
+    relies on the ``_pending_post_devops_retries`` guard inside
+    ``schedule_post_devops_merge_retry``.
+    """
     try:
         import src.services.copilot_polling as _cp
 
@@ -56,8 +64,8 @@ def _get_auto_merge_pipeline(issue_number: int) -> dict[str, Any] | None:
         if pipeline and pipeline.is_complete:
             return {
                 "project_id": getattr(pipeline, "project_id", ""),
-                "devops_attempts": getattr(pipeline, "devops_attempts", 0),
-                "devops_active": getattr(pipeline, "devops_active", False),
+                "devops_attempts": 0,
+                "devops_active": False,
             }
     except Exception:
         pass

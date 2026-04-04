@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -416,13 +416,19 @@ class TestScheduleAutoMergeRetry:
     """Tests for schedule_auto_merge_retry()."""
 
     def test_schedules_retry_when_not_pending(self):
-        """Should schedule a retry task and return True."""
+        """Should schedule a retry task and add it to _background_tasks."""
+        mock_task = MagicMock()
         with patch(
-            "src.services.copilot_polling.auto_merge.asyncio.create_task"
+            "src.services.copilot_polling.auto_merge.asyncio.create_task",
+            return_value=mock_task,
         ) as mock_create_task:
-            from src.services.copilot_polling.state import _pending_auto_merge_retries
+            from src.services.copilot_polling.state import (
+                _background_tasks,
+                _pending_auto_merge_retries,
+            )
 
             _pending_auto_merge_retries.pop(999, None)
+            _background_tasks.discard(mock_task)
 
             result = schedule_auto_merge_retry(
                 access_token="token",
@@ -436,8 +442,11 @@ class TestScheduleAutoMergeRetry:
 
             assert result is True
             mock_create_task.assert_called_once()
+            assert mock_task in _background_tasks
+            mock_task.add_done_callback.assert_called_once()
             # Clean up
             _pending_auto_merge_retries.pop(999, None)
+            _background_tasks.discard(mock_task)
 
     def test_skips_when_already_pending(self):
         """Should skip and return False if a retry is already pending."""
@@ -683,13 +692,19 @@ class TestSchedulePostDevopsMergeRetry:
     """Tests for schedule_post_devops_merge_retry()."""
 
     def test_schedules_retry_when_not_pending(self):
-        """Should schedule a retry task and return True."""
+        """Should schedule a retry task and add it to _background_tasks."""
+        mock_task = MagicMock()
         with patch(
-            "src.services.copilot_polling.auto_merge.asyncio.create_task"
+            "src.services.copilot_polling.auto_merge.asyncio.create_task",
+            return_value=mock_task,
         ) as mock_create_task:
-            from src.services.copilot_polling.state import _pending_post_devops_retries
+            from src.services.copilot_polling.state import (
+                _background_tasks,
+                _pending_post_devops_retries,
+            )
 
             _pending_post_devops_retries.pop(777, None)
+            _background_tasks.discard(mock_task)
 
             result = schedule_post_devops_merge_retry(
                 access_token="token",
@@ -702,8 +717,11 @@ class TestSchedulePostDevopsMergeRetry:
 
             assert result is True
             mock_create_task.assert_called_once()
+            assert mock_task in _background_tasks
+            mock_task.add_done_callback.assert_called_once()
             # Clean up
             _pending_post_devops_retries.pop(777, None)
+            _background_tasks.discard(mock_task)
 
     def test_skips_when_already_pending(self):
         """Should skip and return False if a retry is already pending."""
