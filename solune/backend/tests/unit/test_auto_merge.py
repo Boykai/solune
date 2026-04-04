@@ -645,11 +645,16 @@ class TestCheckDevopsDoneComment:
     @pytest.mark.asyncio
     async def test_returns_true_when_done_marker_present(self, mock_service):
         """Should return True when a comment contains 'devops: Done!'."""
-        mock_service.list_issue_comments = AsyncMock(
-            return_value=[
-                {"body": "Working on fixes..."},
-                {"body": "devops: Done!"},
-            ]
+        mock_service.get_issue_with_comments = AsyncMock(
+            return_value={
+                "title": "Test",
+                "body": "",
+                "comments": [
+                    {"body": "Working on fixes..."},
+                    {"body": "devops: Done!"},
+                ],
+                "user": {"login": ""},
+            }
         )
         result = await _check_devops_done_comment(
             access_token="token", owner="owner", repo="repo", issue_number=10
@@ -659,11 +664,16 @@ class TestCheckDevopsDoneComment:
     @pytest.mark.asyncio
     async def test_returns_false_when_no_done_marker(self, mock_service):
         """Should return False when no comment contains the marker."""
-        mock_service.list_issue_comments = AsyncMock(
-            return_value=[
-                {"body": "Working on fixes..."},
-                {"body": "Still debugging..."},
-            ]
+        mock_service.get_issue_with_comments = AsyncMock(
+            return_value={
+                "title": "Test",
+                "body": "",
+                "comments": [
+                    {"body": "Working on fixes..."},
+                    {"body": "Still debugging..."},
+                ],
+                "user": {"login": ""},
+            }
         )
         result = await _check_devops_done_comment(
             access_token="token", owner="owner", repo="repo", issue_number=10
@@ -673,7 +683,14 @@ class TestCheckDevopsDoneComment:
     @pytest.mark.asyncio
     async def test_returns_false_on_empty_comments(self, mock_service):
         """Should return False when there are no comments."""
-        mock_service.list_issue_comments = AsyncMock(return_value=[])
+        mock_service.get_issue_with_comments = AsyncMock(
+            return_value={
+                "title": "Test",
+                "body": "",
+                "comments": [],
+                "user": {"login": ""},
+            }
+        )
         result = await _check_devops_done_comment(
             access_token="token", owner="owner", repo="repo", issue_number=10
         )
@@ -682,7 +699,7 @@ class TestCheckDevopsDoneComment:
     @pytest.mark.asyncio
     async def test_returns_false_on_api_error(self, mock_service):
         """Should return False when the API call fails."""
-        mock_service.list_issue_comments = AsyncMock(side_effect=Exception("API error"))
+        mock_service.get_issue_with_comments = AsyncMock(side_effect=Exception("API error"))
         result = await _check_devops_done_comment(
             access_token="token", owner="owner", repo="repo", issue_number=10
         )
