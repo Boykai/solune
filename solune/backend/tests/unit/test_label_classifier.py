@@ -113,6 +113,15 @@ class TestStripMarkdownFences:
     def test_fences_without_language(self):
         assert _strip_markdown_fences("```\n[1,2]\n```") == "[1,2]"
 
+    def test_opening_fence_only(self):
+        """Only an opening fence — should strip it and return the content."""
+        result = _strip_markdown_fences('```\n{"labels": []}')
+        assert '{"labels": []}' == result
+
+    def test_empty_string(self):
+        assert _strip_markdown_fences("") == ""
+        assert _strip_markdown_fences("   ") == ""
+
 
 # ── _parse_labels_response ──────────────────────────────────────────────────
 
@@ -434,6 +443,28 @@ class TestParseLabelsAndPriorityResponse:
         labels, priority = _parse_labels_and_priority_response(raw)
         assert labels == []
         assert priority == IssuePriority.P0
+
+    @pytest.mark.parametrize(
+        ("priority_str", "expected"),
+        [
+            ("P0", IssuePriority.P0),
+            ("P1", IssuePriority.P1),
+            ("P2", IssuePriority.P2),
+            ("P3", IssuePriority.P3),
+        ],
+    )
+    def test_all_valid_priority_values(self, priority_str: str, expected: IssuePriority):
+        """Every valid IssuePriority enum value is parsed correctly."""
+        raw = json.dumps({"labels": ["feature"], "priority": priority_str})
+        _labels, priority = _parse_labels_and_priority_response(raw)
+        assert priority == expected
+
+    def test_empty_dict_returns_empty_labels_no_priority(self):
+        """An empty dict returns empty labels and no priority."""
+        raw = json.dumps({})
+        labels, priority = _parse_labels_and_priority_response(raw)
+        assert labels == []
+        assert priority is None
 
 
 # ── classify_labels_with_priority ───────────────────────────────────────────

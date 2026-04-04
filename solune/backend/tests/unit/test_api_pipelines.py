@@ -249,8 +249,17 @@ class TestLaunchPipelineIssue:
         assert meta["priority"] == "P2"
         assert meta["size"] in {"XS", "S", "M", "L", "XL"}
         assert isinstance(meta["estimate_hours"], float)
+        assert 0.5 <= meta["estimate_hours"] <= 8.0
         assert meta["start_date"]  # non-empty ISO date
         assert meta["target_date"]
+        # Verify the complete set of metadata keys
+        assert set(meta.keys()) == {
+            "priority",
+            "size",
+            "estimate_hours",
+            "start_date",
+            "target_date",
+        }
 
     @pytest.mark.anyio
     async def test_launch_uses_ai_priority_override(self, client, mock_db, mock_github_service):
@@ -369,6 +378,134 @@ class TestLaunchPipelineIssue:
         data = resp.json()
         assert data["success"] is True
         assert data["issue_number"] == 43
+
+    @pytest.mark.anyio
+    async def test_launch_skips_metadata_when_project_item_id_is_none(
+        self, client, mock_db, mock_github_service
+    ):
+        """When add_to_project does not produce a project_item_id, set_issue_metadata is NOT called."""
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 45,
+            "node_id": "I_node_45",
+            "html_url": "https://github.com/owner/repo/issues/45",
+        }
+        mock_github_service.set_issue_metadata = AsyncMock()
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            # Do NOT set ctx.project_item_id — leave it as None
+            return None
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# No project item\n\nShould skip metadata.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        mock_github_service.set_issue_metadata.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_launch_uses_default_p2_when_ai_priority_is_none(
+        self, client, mock_db, mock_github_service
+    ):
+        """When the AI classifier returns priority=None, the default P2 is used."""
+        from src.services.label_classifier import ClassificationResult
+
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 46,
+            "node_id": "I_node_46",
+            "html_url": "https://github.com/owner/repo/issues/46",
+        }
+        mock_github_service.set_issue_metadata = AsyncMock(return_value={"Priority": True})
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_46"
+            return "PVTI_46"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        no_urgency_result = ClassificationResult(
+            labels=["ai-generated", "feature", "frontend"],
+            priority=None,
+        )
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+            patch(
+                "src.services.label_classifier.classify_labels_with_priority",
+                new_callable=AsyncMock,
+                return_value=no_urgency_result,
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Add pagination\n\nRoutine feature request.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        mock_github_service.set_issue_metadata.assert_awaited_once()
+        call_kwargs = mock_github_service.set_issue_metadata.await_args.kwargs
+        meta = call_kwargs["metadata"]
+        assert meta["priority"] == "P2", "Default priority should be P2 when AI returns None"
+        # Verify the full metadata dict structure
+        assert set(meta.keys()) == {
+            "priority",
+            "size",
+            "estimate_hours",
+            "start_date",
+            "target_date",
+        }
+        assert meta["size"] in {"XS", "S", "M", "L", "XL"}
+        assert isinstance(meta["estimate_hours"], float)
+        assert 0.5 <= meta["estimate_hours"] <= 8.0
 
 
 # ══════════════════════════════════════════════════════════════
