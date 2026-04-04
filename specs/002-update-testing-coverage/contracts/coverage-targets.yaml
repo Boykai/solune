@@ -1,0 +1,118 @@
+# Coverage Targets Contract
+
+## Backend Coverage Targets
+
+### Overall Targets
+
+```yaml
+current:
+  line_coverage: 79%
+  branch_coverage: 70%
+  fail_under: 75
+
+target:
+  line_coverage: 85%
+  branch_coverage: 78%
+  fail_under: 80
+```
+
+### Per-Area Targets
+
+```yaml
+areas:
+  api_routes:
+    current: 73.9%
+    target: 82%
+    priority: P1
+    files: 22
+    missing_lines: 943
+
+  agents:
+    current: 60.8%
+    target: 78%
+    priority: P1
+    files: 3
+    missing_lines: 286
+
+  chores:
+    current: 66.9%
+    target: 80%
+    priority: P1
+    files: 6
+    missing_lines: 178
+
+  copilot_polling:
+    current: 78.2%
+    target: 86%
+    priority: P2
+    files: 12
+    missing_lines: 756
+
+  github_projects:
+    current: 81.3%
+    target: 87%
+    priority: P2
+    files: 12
+    missing_lines: 369
+
+  workflow_orchestrator:
+    current: 85.2%
+    target: 90%
+    priority: P2
+    files: 5
+    missing_lines: 184
+
+  other_services:
+    current: 83.6%
+    target: 88%
+    priority: P3
+    files: 37
+    missing_lines: 895
+```
+
+## Frontend Coverage Targets
+
+### Vitest Thresholds
+
+```yaml
+current:
+  statements: 50%
+  branches: 44%
+  functions: 41%
+  lines: 50%
+
+target:
+  statements: 60%
+  branches: 55%
+  functions: 52%
+  lines: 60%
+```
+
+### Focus Areas
+
+```yaml
+focus:
+  hooks:
+    description: "60+ custom hooks — largest source of uncovered logic"
+    priority: P1
+
+  services:
+    description: "API client and schema validation — critical data layer"
+    priority: P1
+
+  components_chat:
+    description: "Complex chat UI with streaming, markdown, commands"
+    priority: P2
+
+  components_pipeline:
+    description: "Pipeline builder with drag-drop state management"
+    priority: P2
+
+  components_board:
+    description: "Kanban board with real-time sync"
+    priority: P2
+
+  e2e:
+    description: "24 Playwright specs — audit for stale/broken flows"
+    priority: P2
+```
