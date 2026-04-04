@@ -371,7 +371,7 @@ async def execute_pipeline_launch(
 
         # Build path-specific fallback: preserve original hardcoded labels on
         # classifier failure so pipeline launch never loses its pipeline label.
-        pipeline_fallback = ["ai-generated"]
+        pipeline_fallback = ["ai-generated", "feature"]
         if _pipeline_name:
             pipeline_fallback.append(build_pipeline_label(_pipeline_name))
 
@@ -431,7 +431,7 @@ async def execute_pipeline_launch(
 
         await orchestrator.add_to_project_with_backlog(ctx)
 
-        # ── Auto-set project fields (non-blocking) ──
+        # ── Auto-set project fields (fail-safe) ──
         try:
             from src.services.pipeline_estimate import estimate_from_agent_count
 
