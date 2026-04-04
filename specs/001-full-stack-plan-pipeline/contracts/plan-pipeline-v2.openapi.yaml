@@ -1,0 +1,605 @@
+openapi: "3.1.0"
+info:
+  title: Solune Plan Pipeline API — v2 Extensions
+  version: "2.0.0"
+  description: >
+    API contract for the Full-Stack Plan Pipeline Enhancement (v2).
+    Extends the existing plan endpoints with versioning, step CRUD,
+    feedback, and history capabilities.
+
+paths:
+  /plans/{plan_id}:
+    get:
+      summary: Get plan with all steps
+      description: Returns the full plan including steps, version, and metadata. Existing endpoint — unchanged.
+      operationId: getPlan
+      tags: [Plans]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: Plan retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      summary: Update plan metadata
+      description: Update plan title and/or summary. Existing endpoint — unchanged.
+      operationId: updatePlan
+      tags: [Plans]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanUpdateRequest"
+      responses:
+        "200":
+          description: Plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plan"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /plans/{plan_id}/approve:
+    post:
+      summary: Approve plan and create GitHub issues
+      description: Existing endpoint — unchanged.
+      operationId: approvePlan
+      tags: [Plans]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: Plan approved, issues created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanApprovalResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Plan not in draft status
+
+  /plans/{plan_id}/exit:
+    post:
+      summary: Exit plan mode
+      description: Existing endpoint — unchanged.
+      operationId: exitPlanMode
+      tags: [Plans]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: Plan mode exited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanExitResponse"
+
+  /plans/{plan_id}/history:
+    get:
+      summary: Get plan version history
+      description: Returns all version snapshots for a plan, ordered by version descending.
+      operationId: getPlanHistory
+      tags: [Plans, Versioning]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      responses:
+        "200":
+          description: Version history retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plan_id, current_version, versions]
+                properties:
+                  plan_id:
+                    type: string
+                    format: uuid
+                  current_version:
+                    type: integer
+                  versions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanVersion"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /plans/{plan_id}/steps:
+    post:
+      summary: Add a step to the plan
+      description: >
+        Adds a new step to a draft plan. Validates DAG constraints
+        (no circular dependencies). Position is auto-assigned to end
+        unless specified.
+      operationId: addPlanStep
+      tags: [Plans, Steps]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepCreateRequest"
+      responses:
+        "201":
+          description: Step created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "400":
+          description: Validation error (circular dependency, invalid fields)
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Plan not in draft status
+
+  /plans/{plan_id}/steps/{step_id}:
+    patch:
+      summary: Update a plan step
+      description: >
+        Updates step title, description, dependencies, or position.
+        Re-validates DAG constraints after update.
+      operationId: updatePlanStep
+      tags: [Plans, Steps]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepUpdateRequest"
+      responses:
+        "200":
+          description: Step updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "400":
+          description: Validation error (circular dependency)
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Plan not in draft status
+    delete:
+      summary: Delete a plan step
+      description: >
+        Removes a step and re-indexes positions. Removes this step_id
+        from other steps' dependency lists.
+      operationId: deletePlanStep
+      tags: [Plans, Steps]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/StepId"
+      responses:
+        "204":
+          description: Step deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Plan not in draft status
+
+  /plans/{plan_id}/steps/{step_id}/feedback:
+    post:
+      summary: Submit feedback on a plan step
+      description: >
+        Submits structured feedback for a specific step. Feedback is
+        routed to the active plan agent via SDK elicitation handler.
+      operationId: submitStepFeedback
+      tags: [Plans, Steps, Feedback]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepFeedbackRequest"
+      responses:
+        "202":
+          description: Feedback accepted, routed to agent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StepFeedbackResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /plans/{plan_id}/steps/reorder:
+    post:
+      summary: Reorder plan steps
+      description: >
+        Reorders steps by providing a new position mapping.
+        Re-validates DAG constraints after reorder.
+      operationId: reorderPlanSteps
+      tags: [Plans, Steps]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepReorderRequest"
+      responses:
+        "200":
+          description: Steps reordered
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanStep"
+        "400":
+          description: Validation error (circular dependency, invalid positions)
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /plans/{plan_id}/steps/{step_id}/approve:
+    post:
+      summary: Approve or reject a specific step
+      description: Set per-step approval status.
+      operationId: approveStep
+      tags: [Plans, Steps]
+      parameters:
+        - $ref: "#/components/parameters/PlanId"
+        - $ref: "#/components/parameters/StepId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StepApprovalRequest"
+      responses:
+        "200":
+          description: Step approval status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanStep"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    PlanId:
+      name: plan_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique plan identifier
+    StepId:
+      name: step_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique step identifier
+
+  schemas:
+    PlanStatus:
+      type: string
+      enum: [draft, approved, completed, failed]
+
+    StepApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected]
+
+    PlanStep:
+      type: object
+      required: [step_id, plan_id, position, title, description, dependencies]
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+        approval_status:
+          $ref: "#/components/schemas/StepApprovalStatus"
+        issue_number:
+          type: integer
+          nullable: true
+        issue_url:
+          type: string
+          nullable: true
+
+    Plan:
+      type: object
+      required: [plan_id, session_id, title, summary, status, version, project_id, project_name, repo_owner, repo_name, steps, created_at, updated_at]
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+        title:
+          type: string
+          maxLength: 256
+        summary:
+          type: string
+          maxLength: 65536
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        version:
+          type: integer
+          minimum: 1
+        project_id:
+          type: string
+        project_name:
+          type: string
+        repo_owner:
+          type: string
+        repo_name:
+          type: string
+        parent_issue_number:
+          type: integer
+          nullable: true
+        parent_issue_url:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStep"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PlanVersion:
+      type: object
+      required: [version_id, plan_id, version, title, summary, steps, created_at]
+      properties:
+        version_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        title:
+          type: string
+        summary:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStep"
+        created_at:
+          type: string
+          format: date-time
+
+    PlanUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        summary:
+          type: string
+          maxLength: 65536
+
+    PlanApprovalResponse:
+      type: object
+      required: [plan_id, status, steps]
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/PlanStatus"
+        parent_issue_number:
+          type: integer
+          nullable: true
+        parent_issue_url:
+          type: string
+          nullable: true
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStep"
+
+    PlanExitResponse:
+      type: object
+      required: [message, plan_id, plan_status]
+      properties:
+        message:
+          type: string
+        plan_id:
+          type: string
+          format: uuid
+        plan_status:
+          $ref: "#/components/schemas/PlanStatus"
+
+    StepCreateRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+          default: []
+        position:
+          type: integer
+          minimum: 0
+          description: If omitted, appends to end
+
+    StepUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+        position:
+          type: integer
+          minimum: 0
+
+    StepFeedbackRequest:
+      type: object
+      required: [feedback_type, content]
+      properties:
+        feedback_type:
+          type: string
+          enum: [comment, approve, reject]
+        content:
+          type: string
+          maxLength: 10000
+          description: Feedback text (required for 'comment' type)
+
+    StepFeedbackResponse:
+      type: object
+      required: [step_id, feedback_type, status]
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        feedback_type:
+          type: string
+        status:
+          type: string
+          enum: [accepted, queued]
+
+    StepReorderRequest:
+      type: object
+      required: [step_ids]
+      properties:
+        step_ids:
+          type: array
+          description: Ordered list of step_ids defining new positions
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+
+    StepApprovalRequest:
+      type: object
+      required: [approval_status]
+      properties:
+        approval_status:
+          $ref: "#/components/schemas/StepApprovalStatus"
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+
+  # SSE Event Schemas (documented, not OpenAPI-native)
+  # These events are streamed via EventSourceResponse on POST /messages/plan/stream
+  x-sse-events:
+    token:
+      description: Partial LLM output text
+      data:
+        content: string
+    thinking:
+      description: Plan mode thinking phase (legacy, preserved)
+      data:
+        phase: ThinkingPhase  # researching | planning | refining
+        detail: string
+    reasoning:
+      description: SDK reasoning delta (new)
+      data:
+        content: string
+    tool_start:
+      description: Tool execution started (new)
+      data:
+        tool: string
+        args: object
+    tool_call:
+      description: Agent invoking a tool (existing)
+      data:
+        tool: string
+        args: object
+    tool_result:
+      description: Tool completed (existing)
+      data:
+        action_type: string
+        action_data: object
+    stage_started:
+      description: Pipeline stage started (new)
+      data:
+        stage: string
+        agent: string
+    stage_completed:
+      description: Pipeline stage completed (new)
+      data:
+        stage: string
+        agent: string
+        result: object
+    stage_failed:
+      description: Pipeline stage failed (new)
+      data:
+        stage: string
+        agent: string
+        error: string
+    plan_diff:
+      description: Plan version diff after save (new)
+      data:
+        plan_id: string
+        from_version: integer
+        to_version: integer
+    done:
+      description: Stream complete (existing)
+      data:
+        message_id: string
+        sender_type: string
+    error:
+      description: Error occurred (existing)
+      data:
+        error: string
