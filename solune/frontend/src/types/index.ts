@@ -120,6 +120,7 @@ export interface PipelineLaunchActionData {
 
 export type PlanStatus = 'draft' | 'approved' | 'completed' | 'failed';
 export type ThinkingPhase = 'researching' | 'planning' | 'refining';
+export type StepApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ThinkingEvent {
   phase: ThinkingPhase;
@@ -132,6 +133,7 @@ export interface PlanStep {
   title: string;
   description: string;
   dependencies: string[];
+  approval_status?: StepApprovalStatus;
   issue_number?: number;
   issue_url?: string;
 }
@@ -142,6 +144,7 @@ export interface Plan {
   title: string;
   summary: string;
   status: PlanStatus;
+  version: number;
   project_id: string;
   project_name: string;
   repo_owner: string;
@@ -151,6 +154,16 @@ export interface Plan {
   steps: PlanStep[];
   created_at: string;
   updated_at: string;
+}
+
+export interface PlanVersion {
+  version_id: string;
+  plan_id: string;
+  version: number;
+  title: string;
+  summary: string;
+  steps_json: string;
+  created_at: string;
 }
 
 export interface PlanCreateActionData {
@@ -177,6 +190,54 @@ export interface PlanExitResponse {
   message: string;
   plan_id: string;
   plan_status: PlanStatus;
+}
+
+// ============ Plan v2 Request/Response Types ============
+
+export interface StepCreateRequest {
+  title: string;
+  description: string;
+  dependencies?: string[];
+  position?: number;
+}
+
+export interface StepUpdateRequest {
+  title?: string;
+  description?: string;
+  dependencies?: string[];
+}
+
+export interface StepReorderRequest {
+  step_ids: string[];
+}
+
+export interface StepApprovalRequest {
+  approval_status: StepApprovalStatus;
+}
+
+export interface StepFeedbackRequest {
+  feedback_type: 'comment' | 'approve' | 'reject';
+  content?: string;
+}
+
+export interface StepFeedbackResponse {
+  step_id: string;
+  plan_id: string;
+  feedback_type: string;
+  acknowledged: boolean;
+}
+
+export interface DependencyGraphNode {
+  step_id: string;
+  title: string;
+  position: number;
+  approval_status?: StepApprovalStatus;
+  dependencies: string[];
+}
+
+export interface DependencyGraphEdge {
+  from: string;
+  to: string;
 }
 
 export type ActionData =

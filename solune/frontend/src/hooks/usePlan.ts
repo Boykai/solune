@@ -1,11 +1,20 @@
 /**
- * usePlan hook — manages plan mode state, approve/exit mutations.
+ * usePlan hook — manages plan mode state, approve/exit mutations,
+ * step CRUD, versioning, and feedback.
  */
 
 import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { chatApi } from '@/services/api';
-import type { Plan, PlanApprovalResponse, ThinkingPhase } from '@/types';
+import type {
+  Plan,
+  PlanApprovalResponse,
+  StepApprovalRequest,
+  StepCreateRequest,
+  StepFeedbackRequest,
+  StepUpdateRequest,
+  ThinkingPhase,
+} from '@/types';
 
 export function usePlan() {
   const queryClient = useQueryClient();
@@ -50,6 +59,62 @@ export function usePlan() {
     },
   });
 
+  // ============ Plan v2 Mutations ============
+
+  const addStepMutation = useMutation({
+    mutationFn: ({ planId, data }: { planId: string; data: StepCreateRequest }) =>
+      chatApi.addStep(planId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan'] });
+    },
+  });
+
+  const updateStepMutation = useMutation({
+    mutationFn: ({ planId, stepId, data }: { planId: string; stepId: string; data: StepUpdateRequest }) =>
+      chatApi.updateStep(planId, stepId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan'] });
+    },
+  });
+
+  const deleteStepMutation = useMutation({
+    mutationFn: ({ planId, stepId }: { planId: string; stepId: string }) =>
+      chatApi.deleteStep(planId, stepId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan'] });
+    },
+  });
+
+  const reorderStepsMutation = useMutation({
+    mutationFn: ({ planId, stepIds }: { planId: string; stepIds: string[] }) =>
+      chatApi.reorderSteps(planId, { step_ids: stepIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan'] });
+    },
+  });
+
+  const approveStepMutation = useMutation({
+    mutationFn: ({ planId, stepId, data }: { planId: string; stepId: string; data: StepApprovalRequest }) =>
+      chatApi.approveStep(planId, stepId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan'] });
+    },
+  });
+
+  const submitFeedbackMutation = useMutation({
+    mutationFn: ({ planId, stepId, data }: { planId: string; stepId: string; data: StepFeedbackRequest }) =>
+      chatApi.submitStepFeedback(planId, stepId, data),
+  });
+
+  // ============ Plan History Query ============
+
+  const usePlanHistory = (planId: string | undefined) =>
+    useQuery({
+      queryKey: ['planHistory', planId],
+      queryFn: () => (planId ? chatApi.getPlanHistory(planId) : []),
+      enabled: !!planId,
+    });
+
   const enterPlanMode = useCallback((plan: Plan) => {
     setActivePlan(plan);
     setIsPlanMode(true);
@@ -74,5 +139,13 @@ export function usePlan() {
     approveMutation,
     exitMutation,
     planQuery,
+    // v2
+    addStepMutation,
+    updateStepMutation,
+    deleteStepMutation,
+    reorderStepsMutation,
+    approveStepMutation,
+    submitFeedbackMutation,
+    usePlanHistory,
   };
 }

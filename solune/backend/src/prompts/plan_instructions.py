@@ -41,6 +41,13 @@ You have access to **read-only** project tools plus ``save_plan``:
 - ``save_plan(title, summary, steps)`` — Persist the plan.  Call this \
 **once** when you are satisfied with the plan structure.
 
+## Version History Awareness
+
+Each plan save creates a new version snapshot.  When refining:
+- Reference the **current version number** when describing changes.
+- Summarize what changed since the previous version.
+- Incorporate all pending step-level feedback before saving.
+
 ## Important Rules
 
 - Never fabricate project data — use your tools for real information.
@@ -58,6 +65,8 @@ def build_plan_instructions(
     repo_owner: str | None = None,
     repo_name: str | None = None,
     available_statuses: list[str] | None = None,
+    current_version: int | None = None,
+    step_feedback: list[dict] | None = None,
 ) -> str:
     """Build the complete plan-mode system instruction string.
 
@@ -67,6 +76,8 @@ def build_plan_instructions(
         repo_owner: Repository owner login.
         repo_name: Repository name.
         available_statuses: Valid status column names for the project.
+        current_version: Current plan version number (for refinement context).
+        step_feedback: List of pending step-level feedback dicts.
 
     Returns:
         Complete system prompt string for the plan agent.
@@ -82,5 +93,14 @@ def build_plan_instructions(
         parts.append(f"**Project ID**: {project_id}")
     if available_statuses:
         parts.append(f"**Available Statuses**: {', '.join(available_statuses)}")
+    if current_version is not None:
+        parts.append(f"\n**Current Plan Version**: v{current_version}")
+    if step_feedback:
+        parts.append("\n## Pending Step Feedback\n")
+        for fb in step_feedback:
+            parts.append(
+                f"- **Step {fb.get('step_id', 'unknown')}** "
+                f"({fb.get('feedback_type', 'comment')}): {fb.get('content', '')}"
+            )
 
     return "\n".join(parts)
