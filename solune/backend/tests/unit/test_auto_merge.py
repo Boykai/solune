@@ -862,11 +862,11 @@ class TestBuildDevopsInstructions:
         assert "something_else" in result
 
     def test_empty_context(self):
-        """Empty dict context → fallback (truthy empty dict evaluates to false)."""
+        """Empty dict context → fallback (``not {}`` is True in Python)."""
         result = _build_devops_instructions(
             owner="owner", repo="repo", issue_number=60, merge_result_context={}
         )
-        # Empty dict is falsy, so falls into the "not merge_result_context" branch
+        # `not {}` evaluates to True, entering the fallback branch
         assert "auto-merge attempt failed" in result
 
 
