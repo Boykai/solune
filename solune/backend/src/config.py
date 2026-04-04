@@ -210,10 +210,10 @@ class Settings(BaseSettings):
                         "AI_PROVIDER=copilot."
                     )
                 if not self.azure_openai_key:
-                    errors.append(
-                        "AZURE_OPENAI_KEY is required when AI_PROVIDER is 'azure_openai'. "
-                        "Set the AZURE_OPENAI_KEY environment variable or switch to "
-                        "AI_PROVIDER=copilot."
+                    _logger.warning(
+                        "AZURE_OPENAI_KEY is not set — agent_provider will use "
+                        "DefaultAzureCredential (managed identity / az login). "
+                        "Set AZURE_OPENAI_KEY if key-based auth is preferred."
                     )
             # 3. Database path — production only
             if not self.database_path or (

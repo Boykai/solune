@@ -96,23 +96,24 @@ class TestCreateAgentCopilot:
 class TestCreateAgentAzure:
     @pytest.mark.asyncio
     @patch("src.services.agent_provider.get_settings")
-    async def test_creates_azure_agent_with_valid_credentials(self, mock_settings):
-        """create_agent() succeeds for azure_openai with full credentials."""
+    async def test_creates_azure_agent_with_valid_endpoint(self, mock_settings):
+        """create_agent() succeeds for azure_openai with endpoint configured."""
         mock_settings.return_value = _make_settings(
             ai_provider="azure_openai",
             azure_openai_endpoint="https://test.openai.azure.com",
-            azure_openai_key="test-key",
             azure_openai_deployment="gpt-4",
         )
 
         mock_agent_cls = MagicMock()
         mock_client_cls = MagicMock()
+        mock_credential_cls = MagicMock()
 
         with patch.dict(
             "sys.modules",
             {
                 "agent_framework": MagicMock(Agent=mock_agent_cls),
-                "agent_framework.azure": MagicMock(AzureOpenAIChatClient=mock_client_cls),
+                "agent_framework_azure_ai": MagicMock(AzureAIClient=mock_client_cls),
+                "azure.identity": MagicMock(DefaultAzureCredential=mock_credential_cls),
             },
         ):
             from src.services.agent_provider import create_agent
@@ -123,32 +124,16 @@ class TestCreateAgentAzure:
 
     @pytest.mark.asyncio
     @patch("src.services.agent_provider.get_settings")
-    async def test_raises_when_azure_credentials_missing(self, mock_settings):
-        """create_agent() raises ValueError when Azure credentials missing."""
+    async def test_raises_when_azure_endpoint_missing(self, mock_settings):
+        """create_agent() raises ValueError when Azure endpoint missing."""
         mock_settings.return_value = _make_settings(
             ai_provider="azure_openai",
             azure_openai_endpoint=None,
-            azure_openai_key=None,
         )
 
         from src.services.agent_provider import create_agent
 
-        with pytest.raises(ValueError, match="Azure OpenAI credentials not configured"):
-            await create_agent(instructions="test")
-
-    @pytest.mark.asyncio
-    @patch("src.services.agent_provider.get_settings")
-    async def test_raises_when_azure_endpoint_only(self, mock_settings):
-        """create_agent() raises when only endpoint is set but key is missing."""
-        mock_settings.return_value = _make_settings(
-            ai_provider="azure_openai",
-            azure_openai_endpoint="https://test.openai.azure.com",
-            azure_openai_key=None,
-        )
-
-        from src.services.agent_provider import create_agent
-
-        with pytest.raises(ValueError, match="Azure OpenAI credentials not configured"):
+        with pytest.raises(ValueError, match="Azure OpenAI endpoint not configured"):
             await create_agent(instructions="test")
 
 

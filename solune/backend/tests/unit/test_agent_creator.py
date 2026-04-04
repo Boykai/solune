@@ -1619,3 +1619,902 @@ class TestEditFlow:
         state = get_active_session("sess-edit3")
         assert state is not None
         assert state.step == CreationStep.RESOLVE_PROJECT
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# generate_issue_body
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestGenerateIssueBody:
+    """Tests for generate_issue_body helper."""
+
+    def test_basic_body(self):
+        from src.services.agent_creator import generate_issue_body
+
+        preview = AgentPreview(
+            name="SecBot",
+            slug="sec-bot",
+            description="Reviews security",
+            system_prompt="You review security.",
+            status_column="In Review",
+            tools=["search_code"],
+        )
+        body = generate_issue_body(preview)
+        assert "# Agent Configuration: SecBot" in body
+        assert "**Description:** Reviews security" in body
+        assert "**Status Column:** In Review" in body
+        assert "`sec-bot`" in body
+        assert "`search_code`" in body
+        assert "#agent" in body
+
+    def test_more_than_10_tools_truncated(self):
+        from src.services.agent_creator import generate_issue_body
+
+        tools = [f"tool{i}" for i in range(15)]
+        preview = AgentPreview(
+            name="ManyToolsBot",
+            slug="many-tools-bot",
+            description="Has many tools",
+            system_prompt="Prompt.",
+            status_column="Done",
+            tools=tools,
+        )
+        body = generate_issue_body(preview)
+        assert "(+5 more)" in body
+        # Only first 10 tools shown
+        assert "`tool9`" in body
+        assert "`tool10`" not in body
+
+    def test_empty_tools(self):
+        from src.services.agent_creator import generate_issue_body
+
+        preview = AgentPreview(
+            name="NoTool",
+            slug="no-tool",
+            description="No tools",
+            system_prompt="Prompt.",
+            status_column="Done",
+            tools=[],
+        )
+        body = generate_issue_body(preview)
+        assert "**Tools:** " in body
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _handle_existing_session — DONE step routing
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestExistingSessionDoneStep:
+    """Tests for handle_agent_command routing when session step is DONE."""
+
+    @pytest.fixture
+    async def admin_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    async def test_done_session_with_non_agent_message(self, admin_db):
+        """After DONE, a non-#agent message returns 'complete' message."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-done1",
+            github_user_id="12345",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+        )
+        state.step = CreationStep.DONE
+        _agent_sessions["sess-done1"] = state
+
+        result = await handle_agent_command(
+            message="hello",
+            session_key="sess-done1",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "complete" in result.lower() or "start a new one" in result.lower()
+        assert get_active_session("sess-done1") is None
+
+    async def test_done_session_with_new_agent_command(self, admin_db):
+        """After DONE, a new #agent command starts a fresh session."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-done2",
+            github_user_id="12345",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+        )
+        state.step = CreationStep.DONE
+        _agent_sessions["sess-done2"] = state
+
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "FreshBot",
+                "description": "Fresh",
+                "system_prompt": "Fresh prompt.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+
+            result = await handle_agent_command(
+                message="#agent Build a fresh bot #Done",
+                session_key="sess-done2",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+        assert "Agent Preview" in result or "complete" in result.lower()
+
+    async def test_unexpected_state_returns_start_over(self, admin_db):
+        """An unexpected step returns a 'start over' message."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-unexp",
+            github_user_id="12345",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+        )
+        state.step = CreationStep.EXECUTING  # shouldn't receive messages in this state
+        _agent_sessions["sess-unexp"] = state
+
+        result = await handle_agent_command(
+            message="some message",
+            session_key="sess-unexp",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "start over" in result.lower() or "unexpected" in result.lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _handle_project_selection — Signal flow
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestProjectSelection:
+    """Tests for project selection in Signal flow."""
+
+    @pytest.fixture
+    async def admin_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    async def test_prompt_project_selection_message(self, admin_db):
+        """When no project_id is provided, user is prompted for project."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            mock_ai.return_value = svc
+
+            result = await handle_agent_command(
+                message="#agent A bot for security",
+                session_key="sess-proj1",
+                project_id=None,
+                owner=None,
+                repo=None,
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+            )
+        assert "Which project" in result
+        state = get_active_session("sess-proj1")
+        assert state is not None
+        assert state.step == CreationStep.RESOLVE_PROJECT
+
+    async def test_project_selection_free_text_fallback(self, admin_db):
+        """Free text in project selection returns could-not-resolve message."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-proj2",
+            github_user_id="12345",
+            raw_description="A bot",
+        )
+        state.step = CreationStep.RESOLVE_PROJECT
+        state.available_projects = []
+        _agent_sessions["sess-proj2"] = state
+
+        result = await handle_agent_command(
+            message="my-project",
+            session_key="sess-proj2",
+            project_id=None,
+            owner=None,
+            repo=None,
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "Could not resolve" in result
+
+    async def test_project_selection_numeric_valid(self, admin_db):
+        """Numeric selection resolves the project and proceeds to status."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-proj3",
+            github_user_id="12345",
+            raw_description="A bot",
+        )
+        state.step = CreationStep.RESOLVE_PROJECT
+        state.available_projects = [
+            {"id": "PVT_1", "title": "My Project"},
+            {"id": "PVT_2", "title": "Other Project"},
+        ]
+        _agent_sessions["sess-proj3"] = state
+
+        with patch(
+            "src.services.agent_creator._resolve_owner_repo", new_callable=AsyncMock
+        ) as mock_resolve:
+            mock_resolve.return_value = ("owner", "repo")
+
+            result = await handle_agent_command(
+                message="1",
+                session_key="sess-proj3",
+                project_id=None,
+                owner=None,
+                repo=None,
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+            )
+        assert "Which status column" in result or "type a column name" in result
+        state_after = get_active_session("sess-proj3")
+        assert state_after is not None
+        assert state_after.project_id == "PVT_1"
+
+    async def test_project_selection_numeric_out_of_range(self, admin_db):
+        """Out-of-range number returns error message."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-proj4",
+            github_user_id="12345",
+            raw_description="A bot",
+        )
+        state.step = CreationStep.RESOLVE_PROJECT
+        state.available_projects = [{"id": "PVT_1", "title": "Proj"}]
+        _agent_sessions["sess-proj4"] = state
+
+        result = await handle_agent_command(
+            message="99",
+            session_key="sess-proj4",
+            project_id=None,
+            owner=None,
+            repo=None,
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "between 1 and" in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Full pipeline success + step 8 + pipeline mappings
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestFullPipelineSuccess:
+    """Tests for the complete creation pipeline success path."""
+
+    @pytest.fixture
+    async def admin_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await mock_db.commit()
+        # Insert project_settings row for pipeline mapping tests
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO project_settings (github_user_id, project_id, updated_at) "
+            "VALUES (?, ?, ?)",
+            ("12345", "PVT_1", "2024-01-01T00:00:00Z"),
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    def _ai_mock(self, name="FullBot"):
+        patcher = patch("src.services.agent_creator.get_ai_agent_service")
+        mock_ai = patcher.start()
+        svc = AsyncMock()
+        svc.generate_agent_config.return_value = {
+            "name": name,
+            "description": "A full bot",
+            "system_prompt": "You are a full bot.",
+            "tools": ["tool1"],
+        }
+        mock_ai.return_value = svc
+        return patcher, svc
+
+    def _gps_mock(self):
+        patcher = patch("src.services.agent_creator.github_projects_service")
+        mock_gps = patcher.start()
+        mock_gps.create_issue = AsyncMock(
+            return_value={
+                "number": 42,
+                "node_id": "I_42",
+                "id": 1,
+                "html_url": "https://github.com/o/r/issues/42",
+            }
+        )
+        mock_gps.get_repository_info = AsyncMock(
+            return_value={
+                "repository_id": "R_1",
+                "head_oid": "abc123",
+                "default_branch": "main",
+            }
+        )
+        mock_gps.create_branch = AsyncMock(return_value="ref-id-1")
+        mock_gps.commit_files = AsyncMock(return_value="commit-oid-1")
+        mock_gps.create_pull_request = AsyncMock(
+            return_value={"number": 10, "url": "https://github.com/o/r/pull/10"}
+        )
+        mock_gps.add_issue_to_project = AsyncMock(return_value="item-1")
+        mock_gps.update_item_status_by_name = AsyncMock()
+        return patcher, mock_gps
+
+    async def _drive_to_preview(self, admin_db, session_key, *, name="FullBot"):
+        ai_patcher, _ = self._ai_mock(name)
+        try:
+            result = await handle_agent_command(
+                message=f"#agent Build a {name} #Done",
+                session_key=session_key,
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            ai_patcher.stop()
+        return result
+
+    async def test_full_success_pipeline(self, admin_db):
+        """Full pipeline: all steps succeed and report is returned."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-full1")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, _mock_gps = self._gps_mock()
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-full1",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        # All pipeline steps should succeed
+        assert "Save agent configuration" in result
+        assert "Verify project column" in result
+        assert "Create GitHub Issue" in result
+        assert "Create branch" in result
+        assert "Commit configuration files" in result
+        assert "Open Pull Request" in result
+        assert "Move issue to In Review" in result
+        # Session should be DONE
+        state = get_active_session("sess-full1")
+        assert state is not None
+        assert state.step == CreationStep.DONE
+
+    async def test_branch_failure_skips_commit_and_pr(self, admin_db):
+        """When branch creation fails, commit and PR are skipped."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-brfail", name="BrBot")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, mock_gps = self._gps_mock()
+        mock_gps.create_branch = AsyncMock(return_value=None)
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-brfail",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "branch creation failed" in result.lower() or "create_branch returned None" in result
+
+    async def test_commit_failure_skips_pr(self, admin_db):
+        """When commit fails, PR step is skipped."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-cmfail", name="CmBot")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, mock_gps = self._gps_mock()
+        mock_gps.commit_files = AsyncMock(return_value=None)
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-cmfail",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "file commit failed" in result.lower() or "commit_files returned None" in result
+
+    async def test_add_issue_to_project_null_item_id(self, admin_db):
+        """When add_issue_to_project returns None, step 8 reports failure."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-noitem", name="NoItemBot")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, mock_gps = self._gps_mock()
+        mock_gps.add_issue_to_project = AsyncMock(return_value=None)
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-noitem",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "missing project item id" in result.lower()
+
+    async def test_move_issue_exception(self, admin_db):
+        """When move issue to In Review raises, error is reported."""
+        preview_result = await self._drive_to_preview(admin_db, "sess-mvfail", name="MvBot")
+        assert "Agent Preview" in preview_result
+
+        gps_patcher, mock_gps = self._gps_mock()
+        mock_gps.update_item_status_by_name = AsyncMock(side_effect=RuntimeError("Move failed"))
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-mvfail",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "In Progress", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "Move failed" in result
+
+    async def test_new_column_pipeline(self, admin_db):
+        """Pipeline with a new column shows 'Create project column' step."""
+        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
+            svc = AsyncMock()
+            svc.generate_agent_config.return_value = {
+                "name": "NewColBot",
+                "description": "A bot",
+                "system_prompt": "Prompt.",
+                "tools": [],
+            }
+            mock_ai.return_value = svc
+            await handle_agent_command(
+                message="#agent Build a bot #brand-new-status",
+                session_key="sess-newcol",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+
+        state = get_active_session("sess-newcol")
+        assert state is not None
+        assert state.is_new_column is True
+
+        gps_patcher, _mock_gps = self._gps_mock()
+        try:
+            result = await handle_agent_command(
+                message="create",
+                session_key="sess-newcol",
+                project_id="PVT_1",
+                owner="o",
+                repo="r",
+                github_user_id="12345",
+                access_token="tok",
+                db=admin_db,
+                project_columns=["Todo", "Done"],
+            )
+        finally:
+            gps_patcher.stop()
+
+        assert "Agent Created" in result
+        assert "Create project column" in result
+
+    async def test_missing_context_returns_error(self, admin_db):
+        """Pipeline with missing owner/repo returns error."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-nocontext",
+            github_user_id="12345",
+            project_id=None,
+            owner=None,
+            repo=None,
+            raw_description="A bot",
+        )
+        state.step = CreationStep.PREVIEW
+        state.preview = AgentPreview(
+            name="Bot",
+            slug="bot",
+            description="A bot",
+            system_prompt="Prompt.",
+            status_column="Done",
+            tools=[],
+        )
+        _agent_sessions["sess-nocontext"] = state
+
+        result = await handle_agent_command(
+            message="create",
+            session_key="sess-nocontext",
+            project_id=None,
+            owner=None,
+            repo=None,
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "Error" in result or "Missing" in result
+        assert get_active_session("sess-nocontext") is None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _update_pipeline_mappings
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestUpdatePipelineMappings:
+    """Tests for the _update_pipeline_mappings helper."""
+
+    @pytest.fixture
+    async def admin_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await mock_db.commit()
+        return mock_db
+
+    async def test_creates_new_mapping(self, admin_db):
+        """Adds a slug to a new status column in pipeline mappings."""
+        from src.services.agent_creator import _update_pipeline_mappings
+
+        # Insert project_settings row
+        await admin_db.execute(
+            "INSERT OR IGNORE INTO project_settings (github_user_id, project_id, updated_at) "
+            "VALUES (?, ?, ?)",
+            ("12345", "PVT_1", "2024-01-01T00:00:00Z"),
+        )
+        await admin_db.commit()
+
+        await _update_pipeline_mappings(
+            db=admin_db,
+            project_id="PVT_1",
+            status_column="In Review",
+            agent_slug="test-bot",
+        )
+
+        import json
+
+        cursor = await admin_db.execute(
+            "SELECT agent_pipeline_mappings FROM project_settings WHERE project_id = ?",
+            ("PVT_1",),
+        )
+        row = await cursor.fetchone()
+        mappings = json.loads(row[0])
+        assert "In Review" in mappings
+        assert "test-bot" in mappings["In Review"]
+
+    async def test_appends_to_existing_mapping(self, admin_db):
+        """Appends a slug to an existing status column mapping."""
+        import json
+
+        from src.services.agent_creator import _update_pipeline_mappings
+
+        await admin_db.execute(
+            "INSERT OR IGNORE INTO project_settings (github_user_id, project_id, agent_pipeline_mappings, updated_at) "
+            "VALUES (?, ?, ?, ?)",
+            ("12345", "PVT_2", json.dumps({"In Review": ["old-bot"]}), "2024-01-01T00:00:00Z"),
+        )
+        await admin_db.commit()
+
+        await _update_pipeline_mappings(
+            db=admin_db,
+            project_id="PVT_2",
+            status_column="In Review",
+            agent_slug="new-bot",
+        )
+
+        cursor = await admin_db.execute(
+            "SELECT agent_pipeline_mappings FROM project_settings WHERE project_id = ?",
+            ("PVT_2",),
+        )
+        row = await cursor.fetchone()
+        mappings = json.loads(row[0])
+        assert mappings["In Review"] == ["old-bot", "new-bot"]
+
+    async def test_no_duplicate_slugs(self, admin_db):
+        """Adding the same slug twice doesn't create duplicates."""
+        import json
+
+        from src.services.agent_creator import _update_pipeline_mappings
+
+        await admin_db.execute(
+            "INSERT OR IGNORE INTO project_settings (github_user_id, project_id, agent_pipeline_mappings, updated_at) "
+            "VALUES (?, ?, ?, ?)",
+            ("12345", "PVT_3", json.dumps({"Done": ["my-bot"]}), "2024-01-01T00:00:00Z"),
+        )
+        await admin_db.commit()
+
+        await _update_pipeline_mappings(
+            db=admin_db,
+            project_id="PVT_3",
+            status_column="Done",
+            agent_slug="my-bot",
+        )
+
+        cursor = await admin_db.execute(
+            "SELECT agent_pipeline_mappings FROM project_settings WHERE project_id = ?",
+            ("PVT_3",),
+        )
+        row = await cursor.fetchone()
+        mappings = json.loads(row[0])
+        assert mappings["Done"] == ["my-bot"]
+
+    async def test_no_project_settings_row_does_not_crash(self, admin_db):
+        """When no project_settings row exists, function doesn't crash."""
+        from src.services.agent_creator import _update_pipeline_mappings
+
+        # Should not raise — logs a warning instead
+        await _update_pipeline_mappings(
+            db=admin_db,
+            project_id="PVT_NONEXISTENT",
+            status_column="Done",
+            agent_slug="test-bot",
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _apply_edit — edge case: no preview
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestApplyEditNoPreview:
+    """Tests for _apply_edit when there's no preview."""
+
+    @pytest.fixture
+    async def admin_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await mock_db.commit()
+        return mock_db
+
+    @pytest.fixture(autouse=True)
+    def _clear_sessions(self):
+        from src.services.agent_creator import _agent_sessions
+
+        _agent_sessions.clear()
+        yield
+        _agent_sessions.clear()
+
+    async def test_edit_without_preview_returns_start_over(self, admin_db):
+        """Editing with no preview returns 'start over' message."""
+        from src.services.agent_creator import _agent_sessions
+
+        state = AgentCreationState(
+            session_id="sess-noprev",
+            github_user_id="12345",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+        )
+        state.step = CreationStep.PREVIEW
+        state.preview = None  # No preview set
+        _agent_sessions["sess-noprev"] = state
+
+        result = await handle_agent_command(
+            message="change name to Foo",
+            session_key="sess-noprev",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "start over" in result.lower() or "No preview" in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _resolve_owner_repo
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestResolveOwnerRepo:
+    """Tests for the _resolve_owner_repo helper."""
+
+    async def test_delegates_to_resolve_repository(self):
+        """_resolve_owner_repo calls resolve_repository utility."""
+        from src.services.agent_creator import _resolve_owner_repo
+
+        with patch("src.utils.resolve_repository", new_callable=AsyncMock) as mock_rr:
+            mock_rr.return_value = ("myowner", "myrepo")
+            owner, repo = await _resolve_owner_repo("tok123", "PVT_1")
+        assert owner == "myowner"
+        assert repo == "myrepo"
+        mock_rr.assert_awaited_once_with("tok123", "PVT_1")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# is_admin_user — no global_settings row
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestIsAdminNoRow:
+    """Tests for is_admin_user when no global_settings row exists."""
+
+    async def test_no_row_returns_false(self, mock_db: aiosqlite.Connection):
+        """When global_settings has no rows, is_admin_user returns False."""
+        # Don't seed any global_settings row
+        result = await is_admin_user(mock_db, "12345")
+        assert result is False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _handle_new_command parse error
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestHandleNewCommandParseError:
+    """Tests for _handle_new_command parse failure path."""
+
+    @pytest.fixture
+    async def admin_db(self, mock_db: aiosqlite.Connection):
+        await mock_db.execute(
+            "INSERT OR IGNORE INTO global_settings (id, updated_at) VALUES (1, '2024-01-01T00:00:00Z')",
+        )
+        await mock_db.execute(
+            "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
+            ("12345",),
+        )
+        await mock_db.commit()
+        return mock_db
+
+    async def test_empty_command_returns_usage(self, admin_db):
+        """An empty #agent command returns usage instructions."""
+        result = await handle_agent_command(
+            message="#agent",
+            session_key="sess-parse-err",
+            project_id="PVT_1",
+            owner="o",
+            repo="r",
+            github_user_id="12345",
+            access_token="tok",
+            db=admin_db,
+        )
+        assert "Error" in result
+        assert "Usage" in result or "usage" in result.lower()
+        assert get_active_session("sess-parse-err") is None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# _normalize_status
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestNormalizeStatus:
+    """Tests for the _normalize_status helper."""
+
+    def test_strips_hyphens_underscores_spaces(self):
+        from src.services.agent_creator import _normalize_status
+
+        assert _normalize_status("In-Progress") == "inprogress"
+        assert _normalize_status("in_review") == "inreview"
+        assert _normalize_status("Code Review") == "codereview"
+
+    def test_lowercases(self):
+        from src.services.agent_creator import _normalize_status
+
+        assert _normalize_status("TODO") == "todo"
+
+    def test_empty_string(self):
+        from src.services.agent_creator import _normalize_status
+
+        assert _normalize_status("") == ""
