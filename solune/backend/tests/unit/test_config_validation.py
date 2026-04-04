@@ -218,7 +218,7 @@ class TestAiProviderValidation:
 
 
 class TestAzureOpenAIConfigRequired:
-    """Azure OpenAI endpoint and key must be set when ai_provider is 'azure_openai'."""
+    """Azure OpenAI endpoint is required; keyless auth falls back to a warning."""
 
     def test_missing_endpoint_raises(self):
         with pytest.raises(ValueError, match="AZURE_OPENAI_ENDPOINT"):
@@ -228,13 +228,16 @@ class TestAzureOpenAIConfigRequired:
                 azure_openai_key="test-key",
             )
 
-    def test_missing_key_raises(self):
-        with pytest.raises(ValueError, match="AZURE_OPENAI_KEY"):
-            _make_production(
-                ai_provider="azure_openai",
-                azure_openai_endpoint="https://example.openai.azure.com",
-                azure_openai_key=None,
-            )
+    def test_missing_key_warns_and_allows_default_credential(self, caplog):
+        s = _make_production(
+            ai_provider="azure_openai",
+            azure_openai_endpoint="https://example.openai.azure.com",
+            azure_openai_key=None,
+        )
+
+        assert s.azure_openai_key is None
+        assert "AZURE_OPENAI_KEY is not set" in caplog.text
+        assert "DefaultAzureCredential" in caplog.text
 
     def test_complete_config_passes(self):
         s = _make_production(
