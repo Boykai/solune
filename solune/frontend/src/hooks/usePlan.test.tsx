@@ -41,6 +41,7 @@ function createPlan(overrides: Partial<Plan> = {}): Plan {
     title: 'Test Plan',
     summary: 'A test plan',
     status: 'draft',
+    version: 1,
     project_id: 'proj-1',
     project_name: 'My Project',
     repo_owner: 'octocat',
