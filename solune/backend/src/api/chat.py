@@ -2404,7 +2404,7 @@ async def add_plan_step_endpoint(
     try:
         req = StepCreateRequest(**body)
     except Exception as e:
-        return JSONResponse(status_code=422, content={"detail": str(e)})
+        return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
         step = await chat_store.add_plan_step(
@@ -2456,7 +2456,7 @@ async def update_plan_step_endpoint(
     try:
         req = StepUpdateRequest(**body)
     except Exception as e:
-        return JSONResponse(status_code=422, content={"detail": str(e)})
+        return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
         step = await chat_store.update_plan_step(
@@ -2531,7 +2531,7 @@ async def reorder_plan_steps_endpoint(
     try:
         req = StepReorderRequest(**body)
     except Exception as e:
-        return JSONResponse(status_code=422, content={"detail": str(e)})
+        return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
         reordered = await chat_store.reorder_plan_steps(db, plan_id, req.step_ids)
@@ -2566,7 +2566,7 @@ async def approve_plan_step_endpoint(
     try:
         req = StepApprovalRequest(**body)
     except Exception as e:
-        return JSONResponse(status_code=422, content={"detail": str(e)})
+        return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
         updated = await chat_store.update_step_approval(
@@ -2608,7 +2608,7 @@ async def submit_step_feedback_endpoint(
     try:
         req = StepFeedbackRequest(**body)
     except Exception as e:
-        return JSONResponse(status_code=422, content={"detail": str(e)})
+        return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     # Feedback is transient — acknowledged but not persisted
     return StepFeedbackResponse(

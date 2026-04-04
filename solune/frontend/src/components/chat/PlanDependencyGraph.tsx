@@ -66,7 +66,7 @@ export function PlanDependencyGraph({ steps, onNodeClick }: PlanDependencyGraphP
           const StatusIcon = style.icon;
           const deps = node.dependencies
             .map((d) => nodeMap.get(d))
-            .filter(Boolean);
+            .filter((d): d is DependencyGraphNode => d !== undefined);
 
           return (
             <div key={node.step_id} className="flex items-start gap-2">
