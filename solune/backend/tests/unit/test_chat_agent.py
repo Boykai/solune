@@ -536,7 +536,7 @@ class TestProviderFactory:
             azure_openai_endpoint=None,
             azure_openai_key=None,
         )
-        with pytest.raises(ValueError, match="Azure OpenAI credentials"):
+        with pytest.raises(ValueError, match="Azure OpenAI endpoint not configured"):
             await create_agent(instructions="test")
 
     @patch("src.services.agent_provider.get_settings")

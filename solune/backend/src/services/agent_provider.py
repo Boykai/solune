@@ -5,7 +5,7 @@ with a Microsoft Agent Framework Agent.
 
 Supported providers:
 - ``copilot``: Uses ``GitHubCopilotAgent`` (per-user OAuth token).
-- ``azure_openai``: Uses ``Agent`` with ``AzureOpenAIChatClient``.
+- ``azure_openai``: Uses ``Agent`` with ``AzureAIClient``.
 """
 
 from __future__ import annotations
@@ -118,25 +118,25 @@ def _create_azure_agent(
     instructions: str,
     tools: list | None = None,
 ) -> Any:
-    """Create an Agent using Azure OpenAI as the backend.
+    """Create an Agent using Azure AI as the backend.
 
-    Uses ``AzureOpenAIChatClient`` from ``agent-framework-azure-ai``.
+    Uses ``AzureAIClient`` from ``agent-framework-azure-ai`` with
+    ``DefaultAzureCredential`` for authentication (supports managed identity,
+    environment variables, and ``az login``).
     """
-    from agent_framework import Agent
-    from agent_framework.azure import AzureOpenAIChatClient
-
     settings = get_settings()
 
-    if not settings.azure_openai_endpoint or not settings.azure_openai_key:
-        raise ValueError(
-            "Azure OpenAI credentials not configured. "
-            "Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY in .env"
-        )
+    if not settings.azure_openai_endpoint:
+        raise ValueError("Azure OpenAI endpoint not configured. Set AZURE_OPENAI_ENDPOINT in .env")
 
-    client = AzureOpenAIChatClient(
-        endpoint=settings.azure_openai_endpoint,
-        api_key=settings.azure_openai_key,
-        deployment_name=settings.azure_openai_deployment,
+    from agent_framework import Agent
+    from agent_framework_azure_ai import AzureAIClient
+    from azure.identity import DefaultAzureCredential
+
+    client = AzureAIClient(
+        project_endpoint=settings.azure_openai_endpoint,
+        model_deployment_name=settings.azure_openai_deployment,
+        credential=DefaultAzureCredential(),
     )
 
     agent = Agent(
@@ -145,5 +145,5 @@ def _create_azure_agent(
         client=client,
         tools=tools or [],
     )
-    logger.info("Created Azure OpenAI Agent (deployment: %s)", settings.azure_openai_deployment)
+    logger.info("Created Azure AI Agent (deployment: %s)", settings.azure_openai_deployment)
     return agent
