@@ -253,9 +253,73 @@ class TestLaunchPipelineIssue:
         assert meta["target_date"]
 
     @pytest.mark.anyio
-    async def test_launch_succeeds_when_metadata_fails(
-        self, client, mock_db, mock_github_service
-    ):
+    async def test_launch_uses_ai_priority_override(self, client, mock_db, mock_github_service):
+        """When the AI classifier detects urgency, its priority overrides the default P2."""
+        from src.models.recommendation import IssuePriority
+        from src.services.label_classifier import ClassificationResult
+
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 44,
+            "node_id": "I_node_44",
+            "html_url": "https://github.com/owner/repo/issues/44",
+        }
+        mock_github_service.set_issue_metadata = AsyncMock(return_value={"Priority": True})
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_44"
+            return "PVTI_44"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        # Mock the classifier to return P0 urgency
+        urgent_result = ClassificationResult(
+            labels=["ai-generated", "bug", "security"],
+            priority=IssuePriority.P0,
+        )
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+            patch(
+                "src.services.label_classifier.classify_labels_with_priority",
+                new_callable=AsyncMock,
+                return_value=urgent_result,
+            ),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Security breach in auth\n\nProduction down.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        mock_github_service.set_issue_metadata.assert_awaited_once()
+        call_kwargs = mock_github_service.set_issue_metadata.await_args.kwargs
+        meta = call_kwargs["metadata"]
+        assert meta["priority"] == "P0", "AI-detected urgency should override default P2"
+
+    @pytest.mark.anyio
+    async def test_launch_succeeds_when_metadata_fails(self, client, mock_db, mock_github_service):
         """Metadata failures are logged but do NOT abort the pipeline launch."""
         pipeline_id = await _create_pipeline(mock_db)
         mock_github_service.create_issue.return_value = {

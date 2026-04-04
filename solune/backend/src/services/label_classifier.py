@@ -222,21 +222,23 @@ def validate_labels(raw_labels: list[str]) -> list[str]:
 # ── Internal helpers ────────────────────────────────────────────────────────
 
 
+def _strip_markdown_fences(raw: str) -> str:
+    """Strip optional markdown code fences and surrounding whitespace."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+    if text.endswith("```"):
+        text = text.rsplit("```", 1)[0]
+    return text.strip()
+
+
 def _parse_labels_response(raw: str) -> list[str]:
     """Extract a ``labels`` list from the AI's JSON response.
 
     Handles common formatting issues: markdown code fences, extra whitespace,
     and direct array responses.
     """
-    text = raw.strip()
-    # Strip markdown fences if present.
-    if text.startswith("```"):
-        text = text.split("\n", 1)[-1]
-    if text.endswith("```"):
-        text = text.rsplit("```", 1)[0]
-    text = text.strip()
-
-    parsed = json.loads(text)
+    parsed = json.loads(_strip_markdown_fences(raw))
 
     if isinstance(parsed, dict):
         labels = parsed.get("labels")
@@ -258,14 +260,7 @@ def _parse_labels_and_priority_response(
         Tuple of ``(labels, priority)`` where priority is ``None`` when not
         present or invalid.
     """
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[-1]
-    if text.endswith("```"):
-        text = text.rsplit("```", 1)[0]
-    text = text.strip()
-
-    parsed = json.loads(text)
+    parsed = json.loads(_strip_markdown_fences(raw))
 
     labels: list[str] = []
     priority: IssuePriority | None = None

@@ -440,9 +440,7 @@ async def execute_pipeline_launch(
 
             # Override default priority if the AI classifier detected urgency.
             if classification.priority is not None:
-                metadata = metadata.model_copy(
-                    update={"priority": classification.priority}
-                )
+                metadata = metadata.model_copy(update={"priority": classification.priority})
 
             if ctx.project_item_id:
                 metadata_dict = {
