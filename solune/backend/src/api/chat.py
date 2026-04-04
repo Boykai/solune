@@ -2679,9 +2679,7 @@ async def submit_step_feedback_endpoint(
         status_code=202,
         content=StepFeedbackResponse(
             step_id=step_id,
-            feedback_type=req.feedback_type.value
-            if hasattr(req.feedback_type, "value")
-            else req.feedback_type,
+            feedback_type=req.feedback_type.value,
             status="accepted",
         ).model_dump(),
     )
