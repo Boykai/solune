@@ -1,42 +1,39 @@
-/**
- * E2E test for chat interaction flow.
- * Tests: verify chat popup toggle, basic chat UI interactions.
- */
-
-import { test, expect } from './fixtures';
-import { VIEWPORTS } from './viewports';
+import { test, expect } from './authenticated-fixtures';
 
 test.describe('Chat Interaction', () => {
-  test('should load app and check for chat elements', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('h1')).toBeVisible();
-    // Chat popup button may be visible when authenticated
+  test('creates and confirms an issue recommendation from chat', async ({ page }) => {
+    await page.goto('/projects');
+
+    await page.getByRole('button', { name: 'Open chat' }).click();
+
+    const input = page.getByLabel(
+      'Chat input — ask questions, describe tasks, use slash commands, or mention pipelines',
+    );
+    await input.fill('Create an issue for saved search filters');
+    await page.locator('form button[type="submit"]').click();
+
+    await expect(page.getByRole('heading', { name: 'Issue Recommendation' })).toBeVisible();
+    await expect(page.getByText('Ship saved search filters')).toBeVisible();
+
+    await page.getByRole('button', { name: /Confirm & Create Issue/i }).click();
+
+    await expect(page.getByText('Recommendation confirmed')).toBeVisible();
   });
 
-  test('should support keyboard interaction on home page', async ({ page }) => {
-    await page.goto('/');
+  test('can clear the current conversation and return to the empty state', async ({ page }) => {
+    await page.goto('/projects');
 
-    // Focus the first interactive element directly to avoid browser/runner Tab focus variance.
-    const firstFocusable = page
-      .locator('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-      .first();
+    await page.getByRole('button', { name: 'Open chat' }).click();
 
-    if (await firstFocusable.count()) {
-      await firstFocusable.focus();
-      await expect(firstFocusable).toBeFocused();
-    } else {
-      // Public unauthenticated screen can be mostly static depending on environment.
-      await expect(page.locator('h1')).toBeVisible();
-    }
-  });
+    const input = page.getByLabel(
+      'Chat input — ask questions, describe tasks, use slash commands, or mention pipelines',
+    );
+    await input.fill('Create an issue for saved search filters');
+    await page.locator('form button[type="submit"]').click();
 
-  test('should be responsive at mobile viewport', async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
-    // Verify no content overflow
-    const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
-    const viewportWidth = await page.evaluate(() => window.innerWidth);
-    expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 1);
+    await expect(page.getByRole('button', { name: 'New Chat' })).toBeVisible();
+    await page.getByRole('button', { name: 'New Chat' }).click();
+
+    await expect(page.getByText('Start a conversation')).toBeVisible();
   });
 });

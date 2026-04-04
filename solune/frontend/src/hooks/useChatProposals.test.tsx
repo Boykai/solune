@@ -258,4 +258,31 @@ describe('useChatProposals', () => {
     expect(result.current.pendingRecommendations.size).toBe(1);
     expect(result.current.pendingRecommendations.has('rec-2')).toBe(true);
   });
+
+  it('updateRecommendationStatus preserves a recommendation while changing its terminal state', () => {
+    const { result } = renderHook(() => useChatProposals(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleActionResponse(createChatMessage({
+        action_type: 'issue_create',
+        action_data: {
+          recommendation_id: 'rec-1',
+          proposed_title: 'New Issue',
+          user_story: 'As a user, I want a task created.',
+          ui_ux_description: 'Create a new GitHub issue.',
+          functional_requirements: ['Create the issue'],
+          status: 'pending',
+        },
+      }));
+    });
+
+    act(() => {
+      result.current.updateRecommendationStatus('rec-1', 'confirmed');
+    });
+
+    expect(result.current.pendingRecommendations.get('rec-1')?.status).toBe('confirmed');
+    expect(result.current.pendingRecommendations.size).toBe(1);
+  });
 });

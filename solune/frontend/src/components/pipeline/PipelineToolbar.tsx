@@ -37,12 +37,15 @@ export function PipelineToolbar({
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copyName, setCopyName] = useState('');
 
-  // Save is always enabled when board is not empty (FR-007)
-  const isSaveEnabled = boardState === 'creating' || (boardState === 'editing' && !isPreset);
+  const errorCount = Object.keys(validationErrors).length;
+  const hasValidationErrors = errorCount > 0;
+  const isSaveEnabled =
+    !hasValidationErrors &&
+    (boardState === 'creating' || (boardState === 'editing' && !isPreset));
+  const isSaveAsCopyEnabled = !isSaving && !hasValidationErrors;
   const isDiscardEnabled =
     (boardState === 'creating' && isDirty) || (boardState === 'editing' && isDirty);
   const isDeleteEnabled = boardState === 'editing' && !isPreset;
-  const errorCount = Object.keys(validationErrors).length;
 
   const handleSaveAsCopy = () => {
     const name = copyName.trim();
@@ -82,10 +85,15 @@ export function PipelineToolbar({
                 setCopyName(`${pipelineName ?? ''} (Copy)`);
                 setShowCopyDialog(true);
               }}
-              disabled={isSaving}
+              disabled={!isSaveAsCopyEnabled}
             >
               <Copy className="mr-1.5 h-3.5 w-3.5" />
               Save as Copy
+              {errorCount > 0 && (
+                <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  {errorCount}
+                </span>
+              )}
             </Button>
 
             {showCopyDialog && (
@@ -126,7 +134,7 @@ export function PipelineToolbar({
                       variant="default"
                       size="sm"
                       onClick={handleSaveAsCopy}
-                      disabled={!copyName.trim()}
+                      disabled={!copyName.trim() || hasValidationErrors}
                     >
                       Save
                     </Button>

@@ -130,6 +130,36 @@ class TestRejectRecommendation:
             resp = await client.post(f"/api/v1/workflow/recommendations/{rec_id}/reject")
         assert resp.status_code == 422  # ValidationError
 
+    async def test_reject_wrong_session(self, client, mock_session):
+        rec = _recommendation(session_id=uuid4())
+        rec_id = str(rec.recommendation_id)
+
+        with patch("src.api.chat._recommendations", {rec_id: rec}):
+            resp = await client.post(f"/api/v1/workflow/recommendations/{rec_id}/reject")
+
+        assert resp.status_code == 404
+
+    async def test_reject_returns_success_when_sqlite_status_update_fails(
+        self, client, mock_session
+    ):
+        import src.api.chat as chat_mod
+
+        rec = _recommendation(session_id=mock_session.session_id)
+        rec_id = str(rec.recommendation_id)
+
+        with (
+            patch("src.api.chat._recommendations", {rec_id: rec}),
+            patch(
+                "src.services.chat_store.update_recommendation_status",
+                new=AsyncMock(side_effect=RuntimeError("db unavailable")),
+            ),
+        ):
+            resp = await client.post(f"/api/v1/workflow/recommendations/{rec_id}/reject")
+
+        assert resp.status_code == 200
+        assert rec.status == RecommendationStatus.REJECTED
+        chat_mod._recommendations.pop(rec_id, None)
+
 
 # ── Workflow Config ─────────────────────────────────────────────────────────
 
@@ -392,6 +422,16 @@ class TestConfirmRecommendation:
         with patch("src.api.chat._recommendations", {rec_id: rec}):
             resp = await client.post(f"/api/v1/workflow/recommendations/{rec_id}/confirm")
         assert resp.status_code == 422
+
+    async def test_wrong_session_returns_not_found(self, client, mock_session):
+        mock_session.selected_project_id = TEST_PROJECT_ID
+        rec = _recommendation(session_id=uuid4())
+        rec_id = str(rec.recommendation_id)
+
+        with patch("src.api.chat._recommendations", {rec_id: rec}):
+            resp = await client.post(f"/api/v1/workflow/recommendations/{rec_id}/confirm")
+
+        assert resp.status_code == 404
 
     async def test_confirm_success(
         self, client, mock_session, mock_github_service, mock_websocket_manager

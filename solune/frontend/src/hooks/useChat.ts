@@ -183,6 +183,7 @@ export function useChat() {
     confirmStatusChange: proposals.confirmStatusChange,
     rejectProposal: proposals.rejectProposal,
     removePendingRecommendation: proposals.removePendingRecommendation,
+    updateRecommendationStatus: proposals.updateRecommendationStatus,
     clearChat,
   };
 }

@@ -6,6 +6,7 @@ import pytest
 
 from src.models.agents import Agent, AgentSource, AgentStatus
 from src.services.agents.service import (
+    _MAX_CHAT_SESSIONS,
     _SESSION_TTL_SECONDS,
     AgentsService,
     _chat_session_timestamps,
@@ -517,6 +518,179 @@ class TestAgentsServiceUpdate:
         assert "solune-tool-ids: tool-123" in content
         assert "tool-123" not in content.split("mcp-servers:", 1)[0]
 
+    async def test_update_agent_runtime_only_uses_preference_path(self, mock_db):
+        service = AgentsService(mock_db)
+        agent = _make_repo_agent(
+            "reviewer",
+            icon_name="star",
+            default_model_id="old-model",
+            default_model_name="Old Model",
+        )
+        updated_agent = agent.model_copy(
+            update={
+                "icon_name": "nova",
+                "default_model_id": "model-2",
+                "default_model_name": "GPT-5.4",
+            }
+        )
+
+        with (
+            patch.object(service, "_resolve_listed_agent", AsyncMock(return_value=agent)),
+            patch.object(
+                service,
+                "_save_runtime_preferences",
+                AsyncMock(return_value=updated_agent),
+            ) as save_preferences,
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                new_callable=AsyncMock,
+            ) as workflow,
+        ):
+            result = await service.update_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="repo:reviewer",
+                body=SimpleNamespace(
+                    name=None,
+                    description=None,
+                    icon_name="nova",
+                    system_prompt=None,
+                    tools=None,
+                    default_model_id="model-2",
+                    default_model_name="GPT-5.4",
+                ),
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        save_preferences.assert_awaited_once()
+        workflow.assert_not_awaited()
+        assert result.pr_number == 0
+        assert result.agent.default_model_id == "model-2"
+        assert result.agent.default_model_name == "GPT-5.4"
+        assert result.agent.icon_name == "nova"
+
+    async def test_update_agent_rejects_pending_deletion(self, mock_db):
+        service = AgentsService(mock_db)
+        pending_deletion = _make_repo_agent("reviewer", status=AgentStatus.PENDING_DELETION)
+
+        with patch.object(
+            service, "_resolve_listed_agent", AsyncMock(return_value=pending_deletion)
+        ):
+            with pytest.raises(ValueError, match="pending deletion"):
+                await service.update_agent(
+                    project_id=PROJECT_ID,
+                    owner=OWNER,
+                    repo=REPO,
+                    agent_id="repo:reviewer",
+                    body=SimpleNamespace(
+                        name="Reviewer",
+                        description="Updated reviewer",
+                        icon_name=None,
+                        system_prompt="Updated prompt",
+                        tools=["read"],
+                        default_model_id=None,
+                        default_model_name=None,
+                    ),
+                    access_token=ACCESS_TOKEN,
+                    github_user_id=GITHUB_USER_ID,
+                )
+
+    async def test_update_agent_marks_existing_local_agent_pending_pr(self, mock_db):
+        await _insert_agent_row_with_prefs(
+            mock_db,
+            agent_id="local-rev",
+            slug="reviewer",
+            lifecycle_status=AgentStatus.ACTIVE.value,
+        )
+
+        service = AgentsService(mock_db)
+        with patch(
+            "src.services.agents.service.commit_files_workflow",
+            AsyncMock(return_value=_workflow_result(pr_number=93, issue_number=68)),
+        ):
+            result = await service.update_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="local-rev",
+                body=SimpleNamespace(
+                    name="Reviewer",
+                    description="Updated reviewer",
+                    icon_name=None,
+                    system_prompt="Updated prompt",
+                    tools=["read", "write"],
+                    default_model_id=None,
+                    default_model_name=None,
+                ),
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        assert result.agent.status == AgentStatus.PENDING_PR
+
+        cursor = await mock_db.execute(
+            "SELECT lifecycle_status, github_pr_number, branch_name, tools FROM agent_configs WHERE id = ?",
+            ("local-rev",),
+        )
+        row = await cursor.fetchone()
+        assert row["lifecycle_status"] == AgentStatus.PENDING_PR.value
+        assert row["github_pr_number"] == 93
+        assert row["branch_name"] == "agent/update-reviewer"
+        assert row["tools"] == '["read", "write"]'
+
+    async def test_update_agent_syncs_mcps_when_workflow_returns_no_pr(self, mock_db):
+        service = AgentsService(mock_db)
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
+        workflow_result = SimpleNamespace(
+            success=True,
+            pr_url=None,
+            pr_number=None,
+            issue_number=69,
+            errors=[],
+        )
+
+        with (
+            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=workflow_result),
+            ),
+            patch(
+                "src.services.agents.agent_mcp_sync.sync_agent_mcps",
+                new_callable=AsyncMock,
+            ) as sync_agent_mcps,
+        ):
+            result = await service.update_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="repo:reviewer",
+                body=SimpleNamespace(
+                    name="Reviewer",
+                    description="Updated reviewer",
+                    icon_name=None,
+                    system_prompt="Updated prompt",
+                    tools=["read", "write"],
+                    default_model_id=None,
+                    default_model_name=None,
+                ),
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        sync_agent_mcps.assert_awaited_once_with(
+            owner=OWNER,
+            repo=REPO,
+            project_id=PROJECT_ID,
+            access_token=ACCESS_TOKEN,
+            trigger="agent_update",
+            db=mock_db,
+        )
+        assert result.pr_number == 0
+
 
 # ---------------------------------------------------------------------------
 # New coverage tests
@@ -992,6 +1166,60 @@ class TestCreateAgent:
         assert result.agent.system_prompt == "Exact prompt."
         assert result.agent.description == "My desc"
 
+    async def test_create_agent_syncs_mcps_when_workflow_returns_no_pr(self, mock_db):
+        service = AgentsService(mock_db)
+        mock_github_service = AsyncMock()
+        mock_github_service.get_file_content.side_effect = FileNotFoundError()
+
+        body = SimpleNamespace(
+            name="Sync Agent",
+            description="Sync MCP metadata locally",
+            icon_name=None,
+            system_prompt="Keep MCP mappings in sync.",
+            tools=["read"],
+            status_column="",
+            default_model_id="",
+            default_model_name="",
+            raw=True,
+        )
+        workflow_result = SimpleNamespace(
+            success=True,
+            pr_url=None,
+            pr_number=None,
+            issue_number=73,
+            errors=[],
+        )
+
+        with (
+            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=workflow_result),
+            ),
+            patch(
+                "src.services.agents.agent_mcp_sync.sync_agent_mcps",
+                new_callable=AsyncMock,
+            ) as sync_agent_mcps,
+        ):
+            result = await service.create_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                body=body,
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        sync_agent_mcps.assert_awaited_once_with(
+            owner=OWNER,
+            repo=REPO,
+            project_id=PROJECT_ID,
+            access_token=ACCESS_TOKEN,
+            trigger="agent_create",
+            db=mock_db,
+        )
+        assert result.pr_number == 0
+
 
 # ── T039: bulk_update_models partial failure ─────────────────────────────
 
@@ -1373,3 +1601,221 @@ class TestInstallAgent:
                 agent_id="imp-1",
                 access_token=ACCESS_TOKEN,
             )
+
+
+class TestAgentsServiceDeleteEdgeCases:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+        yield
+        cache.clear()
+
+    async def test_delete_agent_rejects_pending_deletion(self, mock_db):
+        await _insert_agent_row(
+            mock_db,
+            agent_id="agent-1",
+            slug="reviewer",
+            lifecycle_status=AgentStatus.PENDING_DELETION.value,
+        )
+        service = AgentsService(mock_db)
+
+        with pytest.raises(ValueError, match="already pending deletion"):
+            await service.delete_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="agent-1",
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+    async def test_delete_agent_raises_on_workflow_failure(self, mock_db):
+        await _insert_agent_row(mock_db, agent_id="agent-1", slug="reviewer")
+        service = AgentsService(mock_db)
+
+        with (
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(
+                    return_value=SimpleNamespace(
+                        success=False,
+                        pr_url=None,
+                        pr_number=None,
+                        issue_number=None,
+                        errors=["branch conflict"],
+                    )
+                ),
+            ),
+            pytest.raises(RuntimeError, match="Agent deletion pipeline failed"),
+        ):
+            await service.delete_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="agent-1",
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+
+class TestAgentsServiceChat:
+    @pytest.fixture(autouse=True)
+    def clear_sessions(self):
+        _chat_sessions.clear()
+        _chat_session_timestamps.clear()
+        yield
+        _chat_sessions.clear()
+        _chat_session_timestamps.clear()
+
+    async def test_chat_starts_session_and_persists_history(self, mock_db):
+        service = AgentsService(mock_db)
+        ai_service = SimpleNamespace(
+            _call_completion=AsyncMock(return_value="What tools should this agent use?")
+        )
+
+        with patch("src.services.ai_agent.get_ai_agent_service", return_value=ai_service):
+            result = await service.chat(
+                project_id=PROJECT_ID,
+                message="Create a reviewer agent",
+                session_id=None,
+                access_token=ACCESS_TOKEN,
+            )
+
+        assert result.is_complete is False
+        assert result.preview is None
+        assert result.reply == "What tools should this agent use?"
+        assert result.session_id in _chat_sessions
+        assert len(_chat_sessions[result.session_id]) == 3
+        call_kwargs = ai_service._call_completion.await_args.kwargs
+        assert call_kwargs["github_token"] == ACCESS_TOKEN
+        assert call_kwargs["max_tokens"] == 2000
+        assert call_kwargs["messages"][0]["role"] == "system"
+        assert call_kwargs["messages"][1] == {"role": "user", "content": "Create a reviewer agent"}
+
+    async def test_chat_returns_preview_and_clears_completed_session(self, mock_db):
+        service = AgentsService(mock_db)
+        ai_service = SimpleNamespace(
+            _call_completion=AsyncMock(
+                return_value=(
+                    "```agent-config\n"
+                    '{"name":"Reviewer","description":"Reviews PRs","tools":["read"],'
+                    '"system_prompt":"Review pull requests carefully.","status_column":"Backlog"}'
+                    "\n```"
+                )
+            )
+        )
+
+        with patch("src.services.ai_agent.get_ai_agent_service", return_value=ai_service):
+            result = await service.chat(
+                project_id=PROJECT_ID,
+                message="Create a reviewer agent",
+                session_id="chat-1",
+                access_token=ACCESS_TOKEN,
+            )
+
+        assert result.is_complete is True
+        assert result.preview is not None
+        assert result.preview.name == "Reviewer"
+        assert result.preview.slug == "reviewer"
+        assert result.preview.tools == ["read"]
+        assert "chat-1" not in _chat_sessions
+        assert "chat-1" not in _chat_session_timestamps
+
+    async def test_chat_evicts_oldest_session_when_limit_reached(self, mock_db):
+        service = AgentsService(mock_db)
+        now = time.monotonic()
+        for index in range(_MAX_CHAT_SESSIONS):
+            sid = f"sid-{index}"
+            _chat_sessions[sid] = [{"role": "assistant", "content": "existing"}]
+            _chat_session_timestamps[sid] = now + index
+
+        ai_service = SimpleNamespace(_call_completion=AsyncMock(return_value="Need more detail."))
+
+        with patch("src.services.ai_agent.get_ai_agent_service", return_value=ai_service):
+            result = await service.chat(
+                project_id=PROJECT_ID,
+                message="Create another agent",
+                session_id=None,
+                access_token=ACCESS_TOKEN,
+            )
+
+        assert "sid-0" not in _chat_sessions
+        assert result.session_id in _chat_sessions
+        assert len(_chat_sessions) == _MAX_CHAT_SESSIONS
+
+    async def test_chat_propagates_completion_errors(self, mock_db):
+        service = AgentsService(mock_db)
+        ai_service = SimpleNamespace(
+            _call_completion=AsyncMock(side_effect=RuntimeError("AI down"))
+        )
+
+        with patch("src.services.ai_agent.get_ai_agent_service", return_value=ai_service):
+            with pytest.raises(RuntimeError, match="AI down"):
+                await service.chat(
+                    project_id=PROJECT_ID,
+                    message="Create an agent",
+                    session_id=None,
+                    access_token=ACCESS_TOKEN,
+                )
+
+
+class TestAgentsServiceHelpers:
+    async def test_extract_agent_preview_returns_none_for_invalid_tools_shape(self, mock_db):
+        service = AgentsService(mock_db)
+
+        result = service._extract_agent_preview(
+            "```agent-config\n"
+            '{"name":"Reviewer","description":"Reviews PRs","tools":"read",'
+            '"system_prompt":"Review pull requests carefully."}'
+            "\n```"
+        )
+
+        assert result is None
+
+    async def test_resolve_agent_by_slug_handles_invalid_tools_and_unknown_status(self, mock_db):
+        await mock_db.execute(
+            """INSERT INTO agent_configs
+               (id, name, slug, description, system_prompt, status_column,
+                tools, project_id, owner, repo, created_by, created_at, lifecycle_status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)""",
+            (
+                "agent-1",
+                "Reviewer",
+                "reviewer",
+                "desc",
+                "prompt",
+                "",
+                "not-json",
+                PROJECT_ID,
+                OWNER,
+                REPO,
+                GITHUB_USER_ID,
+                "mystery-status",
+            ),
+        )
+        await mock_db.commit()
+
+        service = AgentsService(mock_db)
+        agent = await service._resolve_agent(PROJECT_ID, "reviewer")
+
+        assert agent is not None
+        assert agent.tools == []
+        assert agent.status == AgentStatus.PENDING_PR
+
+    async def test_resolve_listed_agent_falls_back_to_visible_repo_agents(self, mock_db):
+        service = AgentsService(mock_db)
+        repo_agent = _make_repo_agent("reviewer")
+
+        with (
+            patch.object(service, "_resolve_agent", AsyncMock(return_value=None)),
+            patch.object(service, "list_agents", AsyncMock(return_value=[repo_agent])),
+        ):
+            result = await service._resolve_listed_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                access_token=ACCESS_TOKEN,
+                agent_id="reviewer",
+            )
+
+        assert result == repo_agent

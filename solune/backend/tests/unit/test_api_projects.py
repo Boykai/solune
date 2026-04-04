@@ -190,6 +190,17 @@ class TestCreateProject:
             "owner": "testuser",
         }
 
+    async def test_create_project_requires_title_and_owner(self, client):
+        with patch("src.api.projects.create_standalone_project", new_callable=AsyncMock) as create:
+            resp = await client.post(
+                "/api/v1/projects/create",
+                json={"title": "Fresh Project"},
+            )
+
+        assert resp.status_code == 422
+        assert resp.json()["error"] == "Both 'title' and 'owner' are required."
+        create.assert_not_awaited()
+
 
 # ── Cache Hit Paths ────────────────────────────────────────────────────────
 
@@ -343,6 +354,52 @@ class TestStartCopilotPolling:
             ms.return_value = MagicMock(default_repo_owner="", default_repo_name="")
             await _start_copilot_polling(session, "proj-1")
             mock_poll.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ensure_polling_started_uses_resolved_repository(self, session):
+        with (
+            patch(
+                "src.services.copilot_polling.get_polling_status",
+                return_value={"is_running": False},
+            ),
+            patch(
+                "src.api.projects.resolve_repository",
+                new=AsyncMock(return_value=("owner", "repo")),
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ) as ensure_polling_started,
+        ):
+            await _start_copilot_polling(session, "proj-1")
+
+        ensure_polling_started.assert_awaited_once_with(
+            access_token="tok",
+            project_id="proj-1",
+            owner="owner",
+            repo="repo",
+            caller="select_project",
+        )
+
+    @pytest.mark.asyncio
+    async def test_resolve_repository_failure_skips_start(self, session):
+        with (
+            patch(
+                "src.services.copilot_polling.get_polling_status",
+                return_value={"is_running": False},
+            ),
+            patch(
+                "src.api.projects.resolve_repository",
+                new=AsyncMock(side_effect=RuntimeError("boom")),
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ) as ensure_polling_started,
+        ):
+            await _start_copilot_polling(session, "proj-1")
+
+        ensure_polling_started.assert_not_awaited()
 
 
 # ── Helpers for rate-limit mocks ───────────────────────────────────────────
@@ -542,6 +599,53 @@ class TestGetProjectCacheEdgeCases:
 
 class TestWebSocketSubscribe:
     """T017-T019: WebSocket endpoint internal logic."""
+
+    async def test_auth_failure_closes_socket(self, mock_websocket_manager):
+        from src.api.projects import websocket_subscribe
+
+        mock_ws = AsyncMock()
+        mock_ws.cookies = {}
+        mock_ws.close = AsyncMock()
+
+        with (
+            patch(
+                "src.api.projects.get_current_session",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("invalid session"),
+            ),
+            patch("src.api.projects.connection_manager", mock_websocket_manager),
+        ):
+            await websocket_subscribe(mock_ws, "PVT_abc")
+
+        mock_ws.close.assert_awaited_once_with(code=1008, reason="Authentication required")
+        mock_websocket_manager.connect.assert_not_called()
+
+    async def test_access_denied_closes_before_connect(
+        self, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        from src.api.projects import websocket_subscribe
+        from src.constants import SESSION_COOKIE_NAME
+
+        mock_ws = AsyncMock()
+        mock_ws.cookies = {SESSION_COOKIE_NAME: "test-session-id"}
+        mock_ws.close = AsyncMock()
+
+        with (
+            patch(
+                "src.api.projects.get_current_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
+            patch("src.api.projects.cache") as mock_cache,
+            patch("src.api.projects.github_projects_service", mock_github_service),
+            patch("src.api.projects.connection_manager", mock_websocket_manager),
+        ):
+            mock_cache.get.return_value = [_project(project_id="PVT_other", name="Other")]
+
+            await websocket_subscribe(mock_ws, "PVT_abc")
+
+        mock_ws.close.assert_awaited_once_with(code=4403, reason="Project access denied")
+        mock_websocket_manager.connect.assert_not_called()
 
     async def test_hash_diffing_detects_data_changes(self, client, mock_github_service):
         """T017: compute_data_hash produces different hashes for changed task data,

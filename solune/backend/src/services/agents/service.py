@@ -1230,7 +1230,7 @@ class AgentsService:
             await self._db.execute(
                 """UPDATE agent_configs
                    SET name = ?, slug = ?, description = ?, system_prompt = ?,
-                       tools = ?, icon_name = ?, default_model_id = ?, default_model_name = ?, github_pr_number = ?, branch_name = ?
+                       tools = ?, icon_name = ?, default_model_id = ?, default_model_name = ?, github_pr_number = ?, branch_name = ?, lifecycle_status = ?
                    WHERE id = ?""",
                 (
                     name,
@@ -1243,6 +1243,7 @@ class AgentsService:
                     default_model_name,
                     result.pr_number,
                     branch_name,
+                    AgentStatus.PENDING_PR.value,
                     agent.id,
                 ),
             )
@@ -1322,7 +1323,7 @@ class AgentsService:
             system_prompt=system_prompt,
             default_model_id=default_model_id,
             default_model_name=default_model_name,
-            status=agent.status if not agent.id.startswith("repo:") else AgentStatus.PENDING_PR,
+            status=AgentStatus.PENDING_PR,
             tools=list(requested_tools),
             status_column=agent.status_column,
             github_issue_number=agent.github_issue_number,
@@ -1461,9 +1462,16 @@ class AgentsService:
 
         try:
             config = json.loads(match.group(1))
+            if not isinstance(config, dict):
+                return None
+
             name = config.get("name", "")
             if not name:
                 return None
+            tools = config.get("tools", [])
+            if not isinstance(tools, list):
+                return None
+
             slug = AgentPreview.name_to_slug(name)
             return AgentPreview(
                 name=name,
@@ -1471,9 +1479,9 @@ class AgentsService:
                 description=config.get("description", ""),
                 system_prompt=config.get("system_prompt", ""),
                 status_column=config.get("status_column", ""),
-                tools=config.get("tools", []),
+                tools=tools,
             )
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             return None
 
     # ── Helpers ───────────────────────────────────────────────────────────
