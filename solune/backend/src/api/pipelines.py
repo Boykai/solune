@@ -430,6 +430,30 @@ async def execute_pipeline_launch(
 
         await orchestrator.add_to_project_with_backlog(ctx)
 
+        # ── Auto-set project fields (non-blocking) ──
+        try:
+            from src.services.pipeline_estimate import estimate_from_agent_count
+
+            agent_count_for_estimate = _count_configured_agents(config)
+            metadata = estimate_from_agent_count(agent_count_for_estimate)
+
+            if ctx.project_item_id:
+                metadata_dict = {
+                    "priority": metadata.priority.value,
+                    "size": metadata.size.value,
+                    "estimate_hours": metadata.estimate_hours,
+                    "start_date": metadata.start_date,
+                    "target_date": metadata.target_date,
+                }
+                await github_projects_service.set_issue_metadata(
+                    access_token=session.access_token,
+                    project_id=project_id,
+                    item_id=ctx.project_item_id,
+                    metadata=metadata_dict,
+                )
+        except Exception:
+            logger.warning("Failed to set pipeline metadata", exc_info=True)
+
         status_name = config.status_backlog
         agent_sub_issues = await orchestrator.create_all_sub_issues(ctx)
 
