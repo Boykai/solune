@@ -1268,14 +1268,19 @@ async def _post_process_agent_response(
     action_data = message.action_data
 
     if message.action_type == ActionType.TASK_CREATE:
+        proposed_description = action_data.get("proposed_description")
+        if not isinstance(proposed_description, str) or not proposed_description.strip():
+            proposed_description = user_content or ""
+
         proposal = AITaskProposal(
             session_id=session.session_id,
-            original_input=user_content or action_data.get("proposed_description", ""),
+            original_input=user_content or proposed_description,
             proposed_title=action_data.get("proposed_title", "Untitled"),
-            proposed_description=action_data.get("proposed_description", ""),
+            proposed_description=proposed_description,
             selected_pipeline_id=pipeline_id or None,
         )
         await store_proposal(proposal)
+        action_data["proposed_description"] = proposed_description
         action_data["proposal_id"] = str(proposal.proposal_id)
         action_data["status"] = ProposalStatus.PENDING.value
         message.action_data = action_data
@@ -1978,14 +1983,6 @@ async def send_plan_message(
                 project_columns = [col.name for col in p.status_columns]
                 break
 
-    # Create user message
-    user_message = ChatMessage(
-        session_id=session.session_id,
-        sender_type=SenderType.USER,
-        content=chat_request.content,
-    )
-    await add_message(session.session_id, user_message)
-
     try:
         chat_agent_svc = get_chat_agent_service()
     except Exception:
@@ -1993,6 +1990,14 @@ async def send_plan_message(
             status_code=503,
             content={"detail": "Plan mode not available."},
         )
+
+    # Create user message only after plan mode is confirmed available.
+    user_message = ChatMessage(
+        session_id=session.session_id,
+        sender_type=SenderType.USER,
+        content=chat_request.content,
+    )
+    await add_message(session.session_id, user_message)
 
     result = await chat_agent_svc.run_plan(
         message=content,
@@ -2050,14 +2055,6 @@ async def send_plan_message_stream(
                 project_columns = [col.name for col in p.status_columns]
                 break
 
-    # Create user message
-    user_message = ChatMessage(
-        session_id=session.session_id,
-        sender_type=SenderType.USER,
-        content=chat_request.content,
-    )
-    await add_message(session.session_id, user_message)
-
     try:
         chat_agent_svc = get_chat_agent_service()
     except Exception:
@@ -2065,6 +2062,14 @@ async def send_plan_message_stream(
             status_code=503,
             content={"detail": "Plan mode not available."},
         )
+
+    # Create user message only after plan mode is confirmed available.
+    user_message = ChatMessage(
+        session_id=session.session_id,
+        sender_type=SenderType.USER,
+        content=chat_request.content,
+    )
+    await add_message(session.session_id, user_message)
 
     async def event_generator():
         async for event in chat_agent_svc.run_plan_stream(

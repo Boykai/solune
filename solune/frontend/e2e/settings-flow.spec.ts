@@ -1,56 +1,29 @@
-/**
- * E2E test for settings flow.
- * Tests: navigate to settings view, verify settings sections display.
- */
-
-import { test, expect } from './fixtures';
-import { VIEWPORTS } from './viewports';
+import { test, expect } from './authenticated-fixtures';
 
 test.describe('Settings Flow', () => {
-  test('should load the application', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('h1')).toBeVisible();
-    // Visual regression: capture settings page load state
-    await expect(page).toHaveScreenshot('settings-initial-load.png', { maxDiffPixels: 100 });
-  });
+  test('saves AI settings changes and restores them after reload', async ({ page }) => {
+    await page.goto('/settings');
 
-  test('should be keyboard navigable', async ({ page }) => {
-    await page.goto('/');
+    const temperatureSlider = page.locator('#primary-temperature');
+    await expect(temperatureSlider).toHaveValue('0.7');
 
-    // Use explicit focus target to avoid flaky focus behavior in headless browsers.
-    const firstFocusable = page
-      .locator('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-      .first();
-
-    if (await firstFocusable.count()) {
-      await firstFocusable.focus();
-      await expect(firstFocusable).toBeFocused();
-      await page.keyboard.press('Tab');
-    } else {
-      await expect(page.locator('h1')).toBeVisible();
+    await temperatureSlider.focus();
+    for (let index = 0; index < 4; index += 1) {
+      await page.keyboard.press('ArrowRight');
     }
-  });
 
-  test('should handle settings page responsive layout at mobile', async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
-    // No horizontal overflow
-    const overflow = await page.evaluate(
-      () => document.body.scrollWidth > window.innerWidth
-    );
-    expect(overflow).toBe(false);
-  });
+    await expect(temperatureSlider).toHaveValue('1.1');
+    await expect(page.getByText('Temperature: 1.1')).toBeVisible();
 
-  test('should handle settings page responsive layout at tablet', async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.tablet);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
-  });
+    const saveButton = page.getByRole('button', { name: 'Save' });
+    await expect(saveButton).toBeEnabled();
+    await saveButton.click();
 
-  test('should handle settings page responsive layout at desktop', async ({ page }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-    await page.goto('/');
-    await expect(page.locator('body')).toBeVisible();
+    await expect(page.getByText('Saved!')).toBeVisible();
+
+    await page.reload();
+
+    await expect(page.getByText('Temperature: 1.1')).toBeVisible();
+    await expect(page.locator('#primary-temperature')).toHaveValue('1.1');
   });
 });

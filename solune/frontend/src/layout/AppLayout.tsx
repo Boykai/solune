@@ -96,7 +96,7 @@ export function AppLayout() {
     confirmProposal,
     confirmStatusChange,
     rejectProposal,
-    removePendingRecommendation,
+    updateRecommendationStatus,
     clearChat,
   } = useChat();
 
@@ -186,14 +186,14 @@ export function AppLayout() {
           onConfirmRecommendation={async (recommendationId) => {
             const result = await confirmRecommendation(recommendationId);
             if (result.success) {
-              removePendingRecommendation(recommendationId);
+              updateRecommendationStatus(recommendationId, 'confirmed');
             }
             return result;
           }}
           onRejectProposal={rejectProposal}
           onRejectRecommendation={async (recommendationId) => {
             await rejectRecommendation(recommendationId);
-            removePendingRecommendation(recommendationId);
+            updateRecommendationStatus(recommendationId, 'rejected');
           }}
           onNewChat={clearChat}
         />

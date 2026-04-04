@@ -37,12 +37,19 @@ export function PipelineToolbar({
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copyName, setCopyName] = useState('');
 
-  // Save is always enabled when board is not empty (FR-007)
-  const isSaveEnabled = boardState === 'creating' || (boardState === 'editing' && !isPreset);
+  const errorCount = Object.keys(validationErrors).length;
+  const hasValidationErrors = errorCount > 0;
+  const validationErrorLabel =
+    errorCount === 0
+      ? ''
+      : `${errorCount} validation error${errorCount === 1 ? '' : 's'}`;
+  const isSaveEnabled =
+    !hasValidationErrors &&
+    (boardState === 'creating' || (boardState === 'editing' && !isPreset));
+  const isSaveAsCopyEnabled = !isSaving && !hasValidationErrors;
   const isDiscardEnabled =
     (boardState === 'creating' && isDirty) || (boardState === 'editing' && isDirty);
   const isDeleteEnabled = boardState === 'editing' && !isPreset;
-  const errorCount = Object.keys(validationErrors).length;
 
   const handleSaveAsCopy = () => {
     const name = copyName.trim();
@@ -78,14 +85,27 @@ export function PipelineToolbar({
             <Button
               variant="default"
               size="sm"
+              aria-label={
+                errorCount > 0
+                  ? `Save as Copy, ${validationErrorLabel}`
+                  : 'Save as Copy'
+              }
               onClick={() => {
                 setCopyName(`${pipelineName ?? ''} (Copy)`);
                 setShowCopyDialog(true);
               }}
-              disabled={isSaving}
+              disabled={!isSaveAsCopyEnabled}
             >
               <Copy className="mr-1.5 h-3.5 w-3.5" />
               Save as Copy
+              {errorCount > 0 && (
+                <span
+                  className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+                  aria-hidden="true"
+                >
+                  {errorCount}
+                </span>
+              )}
             </Button>
 
             {showCopyDialog && (
@@ -126,7 +146,7 @@ export function PipelineToolbar({
                       variant="default"
                       size="sm"
                       onClick={handleSaveAsCopy}
-                      disabled={!copyName.trim()}
+                      disabled={!copyName.trim() || hasValidationErrors}
                     >
                       Save
                     </Button>
@@ -139,6 +159,7 @@ export function PipelineToolbar({
           <Button
             variant="default"
             size="sm"
+            aria-label={errorCount > 0 ? `Save, ${validationErrorLabel}` : 'Save'}
             onClick={onSave}
             disabled={!isSaveEnabled || isSaving}
           >
@@ -149,7 +170,10 @@ export function PipelineToolbar({
             )}
             Save
             {errorCount > 0 && (
-              <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              <span
+                className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+                aria-hidden="true"
+              >
                 {errorCount}
               </span>
             )}
