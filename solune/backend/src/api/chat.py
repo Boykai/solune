@@ -2128,6 +2128,7 @@ async def get_plan_endpoint(
             title=s["title"],
             description=s["description"],
             dependencies=s.get("dependencies", []),
+            approval_status=s.get("approval_status", "pending"),
             issue_number=s.get("issue_number"),
             issue_url=s.get("issue_url"),
         )
@@ -2139,6 +2140,7 @@ async def get_plan_endpoint(
         title=plan["title"],
         summary=plan["summary"],
         status=plan["status"],
+        version=plan.get("version", 1),
         project_id=plan["project_id"],
         project_name=plan["project_name"],
         repo_owner=plan["repo_owner"],
@@ -2343,3 +2345,317 @@ async def exit_plan_mode_endpoint(
         plan_id=plan_id,
         plan_status=plan["status"],
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan v2 endpoints — history, step CRUD, feedback, approval, reorder, export
+# ---------------------------------------------------------------------------
+
+
+@router.get("/plans/{plan_id}/history")
+async def get_plan_history_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Retrieve version history for a plan, ordered by version descending."""
+    from src.models.plan import PlanVersionResponse
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    versions = await chat_store.get_plan_versions(db, plan_id)
+    return [
+        PlanVersionResponse(
+            version_id=v["version_id"],
+            plan_id=v["plan_id"],
+            version=v["version"],
+            title=v["title"],
+            summary=v["summary"],
+            steps_json=v["steps_json"],
+            created_at=v["created_at"],
+        )
+        for v in versions
+    ]
+
+
+@router.post("/plans/{plan_id}/steps")
+async def add_plan_step_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    request: Request,
+):
+    """Add a new step to a plan."""
+    from src.models.plan import PlanStepResponse, StepCreateRequest
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    body = await request.json()
+    try:
+        req = StepCreateRequest(**body)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"detail": str(e)})
+
+    try:
+        step = await chat_store.add_plan_step(
+            db,
+            plan_id,
+            title=req.title,
+            description=req.description,
+            dependencies=req.dependencies,
+            position=req.position,
+        )
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+
+    if step is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    return JSONResponse(
+        status_code=201,
+        content=PlanStepResponse(
+            step_id=step["step_id"],
+            position=step["position"],
+            title=step["title"],
+            description=step["description"],
+            dependencies=step.get("dependencies", []),
+            approval_status=step.get("approval_status", "pending"),
+        ).model_dump(),
+    )
+
+
+@router.patch("/plans/{plan_id}/steps/{step_id}")
+async def update_plan_step_endpoint(
+    plan_id: str,
+    step_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    request: Request,
+):
+    """Update an existing plan step."""
+    from src.models.plan import PlanStepResponse, StepUpdateRequest
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    body = await request.json()
+    try:
+        req = StepUpdateRequest(**body)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"detail": str(e)})
+
+    try:
+        step = await chat_store.update_plan_step(
+            db,
+            plan_id,
+            step_id,
+            title=req.title,
+            description=req.description,
+            dependencies=req.dependencies,
+        )
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+
+    if step is None:
+        return JSONResponse(status_code=404, content={"detail": "Step not found."})
+
+    return PlanStepResponse(
+        step_id=step["step_id"],
+        position=step["position"],
+        title=step["title"],
+        description=step["description"],
+        dependencies=step.get("dependencies", []),
+        approval_status=step.get("approval_status", "pending"),
+    )
+
+
+@router.delete("/plans/{plan_id}/steps/{step_id}")
+async def delete_plan_step_endpoint(
+    plan_id: str,
+    step_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+):
+    """Delete a plan step."""
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    try:
+        deleted = await chat_store.delete_plan_step(db, plan_id, step_id)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+
+    if not deleted:
+        return JSONResponse(status_code=404, content={"detail": "Step not found."})
+
+    return JSONResponse(status_code=204, content=None)
+
+
+@router.post("/plans/{plan_id}/steps/reorder")
+async def reorder_plan_steps_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    request: Request,
+):
+    """Reorder plan steps with DAG re-validation."""
+    from src.models.plan import StepReorderRequest
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    body = await request.json()
+    try:
+        req = StepReorderRequest(**body)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"detail": str(e)})
+
+    try:
+        reordered = await chat_store.reorder_plan_steps(db, plan_id, req.step_ids)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+
+    if not reordered:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    return {"status": "ok"}
+
+
+@router.post("/plans/{plan_id}/steps/{step_id}/approve")
+async def approve_plan_step_endpoint(
+    plan_id: str,
+    step_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    request: Request,
+):
+    """Update the approval status of a single plan step."""
+    from src.models.plan import StepApprovalRequest
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    body = await request.json()
+    try:
+        req = StepApprovalRequest(**body)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"detail": str(e)})
+
+    try:
+        updated = await chat_store.update_step_approval(
+            db, plan_id, step_id, req.approval_status.value
+        )
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
+
+    if not updated:
+        return JSONResponse(status_code=404, content={"detail": "Step not found."})
+
+    return {"step_id": step_id, "approval_status": req.approval_status.value}
+
+
+@router.post("/plans/{plan_id}/steps/{step_id}/feedback")
+async def submit_step_feedback_endpoint(
+    plan_id: str,
+    step_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    request: Request,
+):
+    """Submit step-level feedback for plan refinement."""
+    from src.models.plan import StepFeedbackRequest, StepFeedbackResponse
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    # Verify step exists
+    step_found = any(s["step_id"] == step_id for s in plan.get("steps", []))
+    if not step_found:
+        return JSONResponse(status_code=404, content={"detail": "Step not found."})
+
+    body = await request.json()
+    try:
+        req = StepFeedbackRequest(**body)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"detail": str(e)})
+
+    # Feedback is transient — acknowledged but not persisted
+    return StepFeedbackResponse(
+        step_id=step_id,
+        plan_id=plan_id,
+        feedback_type=req.feedback_type,
+        acknowledged=True,
+    )
+
+
+@router.get("/plans/{plan_id}/export")
+async def export_plan_endpoint(
+    plan_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    format: str = "markdown",
+):
+    """Export a plan as markdown or GitHub issues format."""
+    from src.services import chat_store
+
+    db = get_db()
+    plan = await chat_store.get_plan(db, plan_id)
+    if plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+    if plan["session_id"] != str(session.session_id):
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    if format == "markdown":
+        lines = [f"# {plan['title']}", "", plan["summary"], "", "## Steps", ""]
+        for s in plan.get("steps", []):
+            deps = ""
+            if s.get("dependencies"):
+                deps = f" (depends on: {', '.join(s['dependencies'])})"
+            lines.append(f"### {s['position'] + 1}. {s['title']}{deps}")
+            lines.append("")
+            lines.append(s["description"])
+            lines.append("")
+        return {"format": "markdown", "content": "\n".join(lines)}
+    elif format == "github_issues":
+        issues = []
+        for s in plan.get("steps", []):
+            issues.append({
+                "title": s["title"],
+                "body": s["description"],
+                "dependencies": s.get("dependencies", []),
+            })
+        return {"format": "github_issues", "plan_title": plan["title"], "issues": issues}
+    else:
+        return JSONResponse(
+            status_code=400, content={"detail": f"Unsupported format: {format}. Use 'markdown' or 'github_issues'."}
+        )
