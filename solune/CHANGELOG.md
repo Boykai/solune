@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- Local Docker Compose backend startup now honors `ADMIN_GITHUB_USER_ID`, so the configured admin identity is available inside the container.
+- Frontend Docker images now remove the base nginx `user` directive before running as the non-root `nginx-app` user, eliminating noisy startup warnings.
 - Backend mutation testing workspace now copies `templates/` directory so app-template tests pass under mutmut.
 - `renderWithProviders()` in test-utils.tsx now nests providers correctly instead of rendering children twice.
 - Browser Agents catalog now lets unexpected internal fetch failures surface as generic server errors instead of reporting them as upstream outages.

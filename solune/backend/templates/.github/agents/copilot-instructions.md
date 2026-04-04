@@ -1,6 +1,6 @@
 # Solune — Development Guidelines
 
-Last updated: 2026-04-01
+Last updated: 2026-04-04
 
 > Prefer official documentation sources and repo-discovery tools when working with frameworks, libraries, or external APIs. Treat tool availability as situational rather than mandatory.
 
@@ -24,15 +24,15 @@ Last updated: 2026-04-01
 - **Node / build:** Node 25 for Docker; CI currently uses Node 20. Vite 8 config lives in `solune/frontend/vite.config.ts`.
 - **Framework:** React 19.2, react-router-dom v7
 - **Language:** TypeScript ~6.0 (strict mode, `@/` alias → `frontend/src`)
-- **State / data fetching:** `@tanstack/react-query` 5.96
+- **State / data fetching:** `@tanstack/react-query` 5.96.2
 - **Styling:** Tailwind CSS 4.2 via `@tailwindcss/vite` (CSS-first v4 model; config lives in `frontend/src/index.css`)
-- **UI primitives:** `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react 0.577`, `@tailwindcss/typography`
+- **UI primitives:** `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `@radix-ui/react-popover`, `@radix-ui/react-hover-card`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` 1.7.0, `sonner` 2.0.7, `@tailwindcss/typography`
 - **Drag-and-drop:** `@dnd-kit/core` 6.3, `@dnd-kit/modifiers` 9.0, `@dnd-kit/sortable` 10.0, `@dnd-kit/utilities` 3.2
-- **Forms:** `react-hook-form` 7.71, `@hookform/resolvers` 5.2, `zod` 4.3
+- **Forms:** `react-hook-form` 7.72.1, `@hookform/resolvers` 5.2.2, `zod` 4.3.6
 - **Markdown:** `react-markdown` 10.1, `remark-gfm` 4.0
-- **Dev tools:** ESLint 10.0, Prettier 3.8, Vitest 4.0 (`happy-dom` environment), Playwright 1.58
-- **Linting:** `eslint-plugin-react-hooks` 7.0, `eslint-plugin-security` 4.0, `eslint-plugin-jsx-a11y` 6.10, `typescript-eslint` 8.56
-- **Testing:** `@testing-library/react` 16.3, `@testing-library/user-event` 14.6, `jest-axe` 10.0, `@fast-check/vitest` 0.3
+- **Dev tools:** ESLint 10.0, Prettier 3.8, Vitest 4.0 (`happy-dom` environment), Playwright 1.59.1
+- **Linting:** `eslint-plugin-react-hooks` 7.0.1, `eslint-plugin-security` 4.0, `eslint-plugin-jsx-a11y` 6.10.2, `typescript-eslint` 8.58
+- **Testing:** `@testing-library/react` 16.3.2, `@testing-library/user-event` 14.6.1, `jest-axe` 10.0, `@fast-check/vitest` 0.3
 
 ### Infrastructure
 
@@ -54,7 +54,7 @@ Last updated: 2026-04-01
 
 - **Auth:** GitHub OAuth with secure HTTP-only session cookies. No JWT / `python-jose` layer.
 - **Real-time:** Native WebSocket (`ConnectionManager` in `solune/backend/src/services/websocket.py`) with SSE fallback in the projects API.
-- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations (`001`–`035`, with the consolidated schema at `023`) run automatically on startup from `solune/backend/src/migrations/`.
+- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations currently run through `039_user_scoped_configs.sql`, with the consolidated schema at `023`, and are applied automatically on startup from `solune/backend/src/migrations/`.
 - **Tailwind v4:** CSS-first config lives in `solune/frontend/src/index.css`. Do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - **Repository resolution:** Use the shared `resolve_repository()` helper in `solune/backend/src/utils.py`. Avoid ad-hoc owner/repo fallback logic.
 - **AI providers:** `completion_providers.py` abstracts GitHub Copilot SDK (default, user OAuth token) and Azure OpenAI (static keys, optional). Selected via `AI_PROVIDER` env var.
@@ -64,7 +64,7 @@ Last updated: 2026-04-01
 - **Signal messaging:** `solune/backend/src/services/signal_bridge.py`, `signal_chat.py`, and `signal_delivery.py` integrate with the Signal sidecar.
 - **MCP tools:** `solune/backend/src/services/mcp_store.py` + `api/mcp.py` manage MCP server configurations and agent tool associations. `solune/backend/src/services/tools/presets.py` defines the preset catalog; `solune/backend/src/services/tools/service.py` handles per-project CRUD and repo sync.
 - **MCP presets flow:** User selects preset on Tools page → draft form → saves as user tool in DB → agent dispatch calls `_resolve_agent_tool_selection()` → `generate_config_files()` writes `mcp-servers:` into `.github/agents/{slug}.agent.md` YAML frontmatter → GitHub reads agent file on assignment.
-- **Remote MCP config:** `.github/agents/mcp.json` defines MCP servers available to remote GitHub Custom Agents (e.g., Context7 HTTP endpoint). This file is co-located with agent definitions and read by GitHub.com during coding agent sessions.
+- **Remote MCP config:** `.github/agents/mcp.json` defines MCP servers available to remote GitHub Custom Agents (currently Context7, Azure MCP, and Bicep MCP). This file is co-located with agent definitions and read by GitHub.com during coding agent sessions.
 - **Encryption:** Fernet (`cryptography` package) used for token-at-rest encryption when `ENCRYPTION_KEY` is set.
 - **`AsyncGenerator` typing:** Always include both type parameters for Python 3.12 compatibility: `AsyncGenerator[str, None]`.
 
@@ -80,7 +80,7 @@ solune/
                        settings, signal, tasks, tools, webhook_models, webhooks,
                        workflow)
     middleware/       Request middleware (request_id context var)
-    migrations/       SQL schema migrations (001–035, run on startup)
+    migrations/       SQL schema migrations (001–039, run on startup)
     models/           Pydantic request/response models
     prompts/          AI prompt templates (issue_generation, task_generation, transcript_analysis)
     services/         Business logic
@@ -140,9 +140,8 @@ npx playwright test             # E2E
 - TypeScript: strict mode, `@/` path alias maps to `frontend/src`.
 - Commits: conventional-commit style — `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
 - Prefer focused, minimal fixes over broad refactors unless the task explicitly calls for architectural work.
-- Tailwind v4 uses the CSS-first setup in `solune/frontend/src/index.css`; do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - Agent `.agent.md` files live in `.github/agents/`; corresponding `.prompt.md` shortcuts live in `.github/prompts/`.
-- `.github/agents/mcp.json` declares MCP servers for remote GitHub Custom Agents (currently Context7, Azure MCP, and Bicep MCP). Do not confuse with `.vscode/mcp.json` (local IDE MCP servers).
+- Do not duplicate remote MCP server definitions outside `.github/agents/mcp.json`; do not confuse it with `.vscode/mcp.json` (local IDE MCP servers).
 
 ## CHANGELOG
 
@@ -211,6 +210,7 @@ All agents live in `.github/agents/`. The repository includes both **Spec Kit pi
 | `architect` | Generates Azure IaC (Bicep), `azd` scaffolds, architecture diagrams, and deploy buttons. Always runs for new apps. |
 | `archivist` | Updates documentation and README to match code changes |
 | `designer` | Creates or refines design assets scoped to changes |
+| `devops` | Diagnoses CI failures, resolves targeted pipeline issues, and helps restore broken checks |
 | `judge` | Triages PR review comments and applies justified changes |
 | `linter` | Runs linting, tests, CI steps, and resolves errors |
 | `quality-assurance` | Scoped quality improvements and defect fixes |
@@ -262,11 +262,4 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Prefer Context7 when you need up-to-date library documentation and examples.
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
-## Active Technologies
-
-Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
-
-## Recent Changes
-- Dependabot upgrades: ESLint 9→10, Vite 7→8, react-hooks 5→7, security 3→4, @vitejs/plugin-react 5→6, Docker images (python 3.14, node 25, nginx 1.29), GitHub Actions (checkout v6, setup-python v6, upload-artifact v7, setup-node v6)
-- Frontend lint compliance: 28 react-hooks v7 errors fixed (render-time state adjustments, purity fixes, memoization preservation)
-- Backend bug fixes: coroutine leak in transitions, dict mutation in completion polling, URL-encoding in label manager, exception handling in agent output, sys.executable in lint test
+Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/package.json`, and `.github/workflows/ci.yml`. Prefer those files over copying long version snapshots into new docs or prompts.
