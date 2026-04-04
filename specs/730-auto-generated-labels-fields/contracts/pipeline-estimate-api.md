@@ -19,8 +19,8 @@ def estimate_from_agent_count(agent_count: int) -> IssueMetadata:
         IssueMetadata with priority=P2, size derived from estimate,
         estimate_hours from formula, start_date=today, target_date computed.
         
-    Raises:
-        ValueError: If agent_count < 1.
+    Note:
+        If agent_count < 1, it is treated as 1 with a warning log.
     """
 ```
 

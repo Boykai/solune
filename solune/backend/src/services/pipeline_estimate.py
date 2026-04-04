@@ -6,8 +6,8 @@ Provides two pure functions:
 * :func:`estimate_from_agent_count` — computes :class:`IssueMetadata` from the
   agent count using the formula ``max(0.5, min(8.0, agent_count * 0.25))``.
 
-All functions are deterministic and side-effect-free (dates are parameterised
-for testing).
+All functions are deterministic (dates are parameterised for testing).
+Logging is the only side effect.
 """
 
 from __future__ import annotations

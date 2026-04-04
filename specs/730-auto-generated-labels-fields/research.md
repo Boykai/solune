@@ -21,16 +21,16 @@
 
 ---
 
-### R2: Non-Blocking Metadata Integration Pattern
+### R2: Fail-Safe Metadata Integration Pattern
 
-**Question**: How to integrate metadata setting into pipeline launch without blocking or failure propagation?
+**Question**: How to integrate metadata setting into pipeline launch without failure propagation?
 
-**Decision**: `asyncio.create_task()` with exception logging, called after `add_to_project_with_backlog()` completes (which provides the `project_item_id` needed by `set_issue_metadata()`).
+**Decision**: Await `set_issue_metadata()` inline after `add_to_project_with_backlog()` completes, wrapped in a try/except that logs warnings on failure. This keeps the implementation simple and ensures explicit sequencing while the try/except prevents metadata failures from aborting the launch.
 
-**Rationale**: The existing `_set_issue_metadata()` in `WorkflowOrchestrator` (line 745) already follows this pattern — it catches all exceptions and logs warnings. The pipeline launch should follow the same convention. Using `asyncio.create_task()` makes it truly non-blocking while still capturing errors. The `project_item_id` is populated by `add_to_project_with_backlog()` and stored in the `WorkflowContext`.
+**Rationale**: The current implementation awaits `set_issue_metadata()` inline inside a try/except block. This preserves explicit sequencing (the `project_item_id` from `add_to_project_with_backlog()` is guaranteed available), avoids fire-and-forget task-lifecycle concerns, and still prevents metadata failures from propagating to the caller.
 
 **Alternatives Considered**:
-- **Inline await**: Simpler but could delay launch response if GraphQL is slow.
+- **`asyncio.create_task()` fire-and-forget**: Rejected — would make the step non-blocking but introduces task-lifecycle/error-handling concerns without measurable benefit, since the metadata call is a single fast GraphQL mutation.
 - **Background queue**: Rejected — no message queue infrastructure exists; overkill for a single metadata call.
 - **Post-launch webhook**: Rejected — adds complexity and latency.
 

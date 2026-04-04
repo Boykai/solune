@@ -34,7 +34,7 @@ Default priority is P2 (medium) for all pipeline-launched issues unless overridd
 **Acceptance Scenarios**:
 
 1. **Given** a pipeline with 3 configured agents is launched, **When** the parent issue is created and added to the project, **Then** the project fields are set to Priority = P2, Size = S, Estimate = 0.75, Start date = today, Target date = today + 1 day.
-2. **Given** a pipeline with 1 configured agent is launched, **When** the parent issue is added to the project, **Then** Size = XS, Estimate = 0.5, and Target date = today (same day).
+2. **Given** a pipeline with 1 configured agent is launched, **When** the parent issue is added to the project, **Then** Size = XS, Estimate = 0.5, and Target date = today + 1 day.
 3. **Given** a pipeline with 20 configured agents is launched, **When** the parent issue is added to the project, **Then** Size = XL, Estimate = 5.0, and Target date is calculated accordingly.
 4. **Given** a pipeline is launched and the metadata-setting step fails (e.g., project field not found, network error), **When** the failure occurs, **Then** the pipeline launch continues without error — the failure is logged but does not block issue creation or agent assignment.
 5. **Given** a pipeline is launched, **When** the parent issue is created, **Then** existing label behavior (AI-generated labels, pipeline label) is unchanged and all labels are applied as before.
@@ -130,7 +130,7 @@ This story confirms that the new metadata-setting step does not interfere with t
 ## Assumptions
 
 - The GitHub Project V2 board used for pipeline issues has the standard fields: Priority (select), Size (select), Estimate (number), Start date (date), Target date (date). If any field is missing, the system logs a warning and sets the remaining fields.
-- The estimate-to-target-date conversion uses calendar days (not business days). A 0.5h estimate results in a same-day target; an 8h estimate results in a +1 day target (assuming an 8-hour workday).
+- The estimate-to-target-date conversion uses calendar days (not business days) with a minimum target offset of +1 day. A 0.5h estimate results in a +1 day target; an 8h estimate also results in a +1 day target (assuming an 8-hour workday).
 - The default priority of P2 is appropriate for the majority of pipeline-launched issues. Only issues with clear urgency signals warrant higher priority.
 - The existing `set_issue_metadata()` function handles the actual field updates; no changes to its interface are needed.
 - The AI classifier's 5-second timeout is sufficient for urgency detection without adding latency to the pipeline launch.
