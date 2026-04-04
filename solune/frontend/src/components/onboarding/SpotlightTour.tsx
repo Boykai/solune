@@ -148,6 +148,8 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
   const wasCollapsedRef = useRef<boolean | null>(null);
   const announcerRef = useRef<HTMLDivElement>(null);
 
+  const [targetMissing, setTargetMissing] = useState(false);
+
   const step = TOUR_STEPS[currentStep];
 
   // Compute target element bounding rect (called on scroll/resize — no scrollIntoView here)
@@ -164,18 +166,40 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
     }
   }, [step]);
 
-  // On step change: scroll target into view and skip missing targets
+  // On step change: scroll target into view, retry if missing, fall back to centered
   useEffect(() => {
-    if (!isActive || !step?.targetSelector) return;
-
-    const el = document.querySelector(`[data-tour-step="${step.targetSelector}"]`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } else {
-      // Target not found — advance past this step so the user isn't stranded
-      next();
+    if (!isActive || !step?.targetSelector) {
+      setTargetMissing(false);
+      return;
     }
-  }, [isActive, step, next]);
+
+    setTargetMissing(false);
+    let attempt = 0;
+    const MAX_RETRIES = 4;
+    const RETRY_MS = 250;
+
+    function tryFind() {
+      const el = document.querySelector(`[data-tour-step="${step.targetSelector}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTargetMissing(false);
+        return;
+      }
+      attempt++;
+      if (attempt < MAX_RETRIES) {
+        timerId = window.setTimeout(tryFind, RETRY_MS);
+      } else {
+        // All retries exhausted — show centered fallback instead of skipping
+        setTargetMissing(true);
+      }
+    }
+
+    let timerId: number | undefined;
+    tryFind();
+    return () => {
+      if (timerId !== undefined) clearTimeout(timerId);
+    };
+  }, [isActive, step]);
 
   // Auto-expand sidebar for sidebar-related steps (steps 2–9)
   useEffect(() => {
@@ -252,15 +276,16 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
 
   return (
     <>
-      <SpotlightOverlay targetRect={targetRect} isVisible={isActive} />
+      <SpotlightOverlay targetRect={targetMissing ? null : targetRect} isVisible={isActive} />
       <SpotlightTooltip
         step={step}
-        targetRect={targetRect}
+        targetRect={targetMissing ? null : targetRect}
         currentStep={currentStep}
         totalSteps={totalSteps}
         onNext={next}
         onBack={prev}
         onSkip={skip}
+        targetMissing={targetMissing}
       />
       {/* Screen reader announcer */}
       <div

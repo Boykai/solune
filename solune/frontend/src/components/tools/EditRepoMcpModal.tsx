@@ -1,6 +1,17 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RepoMcpServerConfig, RepoMcpServerUpdate } from '@/types';
 import { validateMcpJson } from './UploadMcpModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { CharacterCounter } from '@/components/ui/character-counter';
+import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
+
+const MAX_NAME_LENGTH = 100;
 
 interface EditRepoMcpModalProps {
   isOpen: boolean;
@@ -31,14 +42,20 @@ export function EditRepoMcpModal({
   onClose,
   onSave,
 }: EditRepoMcpModalProps) {
-  const titleId = useId();
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const configRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState('');
   const [configContent, setConfigContent] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
+
+  const fieldRefs = useMemo(() => ({ name: nameInputRef, config: configRef }), []);
+  const errors = useMemo(() => ({ name: nameError, config: configError }), [nameError, configError]);
+  const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
 
   const handleClose = useCallback(() => {
-    setValidationError(null);
+    setNameError(null);
+    setConfigError(null);
     onClose();
   }, [onClose]);
 
@@ -50,7 +67,8 @@ export function EditRepoMcpModal({
     if (server) {
       setName(server.name);
       setConfigContent(buildConfigContent(server));
-      setValidationError(null);
+      setNameError(null);
+      setConfigError(null);
     }
   } else if (!isOpen && prevIsOpen) {
     setPrevIsOpen(false);
@@ -66,56 +84,47 @@ export function EditRepoMcpModal({
     }
   }, [isOpen, server]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose, isOpen]);
-
   if (!isOpen || !server) {
     return null;
   }
 
+  const validateName = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Name is required';
+    if (trimmed.length > MAX_NAME_LENGTH) return `Name must be ${MAX_NAME_LENGTH} characters or fewer`;
+    return null;
+  };
+
+  const validateConfig = (value: string) => {
+    const jsonError = validateMcpJson(value);
+    if (jsonError) return jsonError;
+    try {
+      const parsed = JSON.parse(value) as { mcpServers?: Record<string, unknown> };
+      const serverEntries = Object.keys(parsed.mcpServers ?? {});
+      if (serverEntries.length !== 1) return 'Repository MCP editing supports exactly one MCP server entry';
+    } catch {
+      return 'Invalid JSON syntax';
+    }
+    return null;
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setValidationError(null);
 
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setValidationError('Name is required');
-      return;
-    }
+    const newNameError = validateName(name);
+    const newConfigError = validateConfig(configContent);
+    setNameError(newNameError);
+    setConfigError(newConfigError);
 
-    const error = validateMcpJson(configContent);
-    if (error) {
-      setValidationError(error);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(configContent) as { mcpServers?: Record<string, unknown> };
-      const serverEntries = Object.keys(parsed.mcpServers ?? {});
-      if (serverEntries.length !== 1) {
-        setValidationError('Repository MCP editing supports exactly one MCP server entry');
-        return;
-      }
-    } catch {
-      setValidationError('Invalid JSON syntax');
+    if (newNameError || newConfigError) {
+      // Schedule focus after state update
+      requestAnimationFrame(() => focusFirstError());
       return;
     }
 
     try {
       await onSave(server.name, {
-        name: trimmedName,
+        name: name.trim(),
         config_content: configContent,
       });
       handleClose();
@@ -125,22 +134,11 @@ export function EditRepoMcpModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center" role="presentation">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        aria-label="Close dialog"
-        onClick={handleClose}
-      />
-      <div
-        className="celestial-panel celestial-fade-in relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-[1.4rem] border border-border p-6 shadow-lg"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <h2 id={titleId} className="mb-4 text-lg font-semibold">
-          Edit Repository MCP
-        </h2>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto" hideClose>
+        <DialogHeader>
+          <DialogTitle>Edit Repository MCP</DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
@@ -156,10 +154,22 @@ export function EditRepoMcpModal({
               ref={nameInputRef}
               type="text"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+                if (nameError) setNameError(null);
+              }}
+              onBlur={() => setNameError(validateName(name))}
+              aria-invalid={!!nameError}
+              aria-describedby={nameError ? 'repo-mcp-name-error' : undefined}
               className="w-full rounded-md border border-border bg-background/72 px-3 py-2 text-sm"
-              maxLength={100}
+              maxLength={MAX_NAME_LENGTH}
             />
+            <div className="mt-1 flex items-center justify-between">
+              {nameError ? (
+                <p id="repo-mcp-name-error" className="text-xs text-destructive">{nameError}</p>
+              ) : <span />}
+              <CharacterCounter current={name.length} max={MAX_NAME_LENGTH} />
+            </div>
           </div>
 
           <div>
@@ -168,20 +178,21 @@ export function EditRepoMcpModal({
             </label>
             <textarea
               id="repo-mcp-config"
+              ref={configRef}
               value={configContent}
               onChange={(event) => {
                 setConfigContent(event.target.value);
-                setValidationError(null);
+                if (configError) setConfigError(null);
               }}
+              onBlur={() => setConfigError(validateConfig(configContent))}
+              aria-invalid={!!configError}
+              aria-describedby={configError ? 'repo-mcp-config-error' : undefined}
               className="w-full rounded-md border border-border bg-background/72 px-3 py-2 text-xs font-mono leading-relaxed min-h-[180px] resize-y"
             />
+            {configError && (
+              <p id="repo-mcp-config-error" className="mt-1 text-xs text-destructive">{configError}</p>
+            )}
           </div>
-
-          {validationError && (
-            <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
-              {validationError}
-            </div>
-          )}
 
           {submitError && (
             <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
@@ -196,7 +207,7 @@ export function EditRepoMcpModal({
             </div>
           )}
 
-          <div className="flex justify-end gap-2">
+          <DialogFooter>
             <button
               type="button"
               className="rounded-full border border-border bg-background/72 px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-primary/10 hover:text-foreground"
@@ -211,9 +222,9 @@ export function EditRepoMcpModal({
             >
               {isSubmitting ? 'Saving…' : 'Save Changes'}
             </button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

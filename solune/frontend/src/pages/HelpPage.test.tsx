@@ -6,18 +6,22 @@ import { HelpPage } from './HelpPage';
 
 expect.extend(toHaveNoViolations);
 
-vi.mock('@/hooks/useOnboarding', () => ({
-  useOnboarding: () => ({
-    isActive: false,
-    hasCompleted: true,
-    currentStep: 0,
-    totalSteps: 9,
-    next: vi.fn(),
-    prev: vi.fn(),
-    skip: vi.fn(),
-    restart: vi.fn(),
-  }),
-}));
+vi.mock('@/hooks/useOnboarding', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/hooks/useOnboarding')>();
+  return {
+    ...actual,
+    useOnboarding: () => ({
+      isActive: false,
+      hasCompleted: true,
+      currentStep: 0,
+      totalSteps: 9,
+      next: vi.fn(),
+      prev: vi.fn(),
+      skip: vi.fn(),
+      restart: vi.fn(),
+    }),
+  };
+});
 
 vi.mock('@/lib/commands/registry', () => ({
   getAllCommands: () => [],

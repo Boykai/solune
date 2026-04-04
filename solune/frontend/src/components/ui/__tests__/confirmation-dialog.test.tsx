@@ -2,8 +2,13 @@
  * Tests for ConfirmationDialog component.
  *
  * Covers: variant rendering (danger/warning/info), confirm/cancel actions,
- * Escape key dismissal, backdrop click, loading state, error display,
+ * Escape key dismissal, loading state, error display,
  * and ARIA accessibility attributes.
+ *
+ * Built on @radix-ui/react-alert-dialog which provides:
+ * - role="alertdialog" (not "dialog")
+ * - Automatic focus trapping
+ * - No dismiss on outside click (intentional for destructive confirmations)
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -32,12 +37,12 @@ function renderDialog(overrides: Partial<ConfirmationDialogProps> = {}) {
 describe('ConfirmationDialog', () => {
   it('renders nothing when isOpen is false', () => {
     renderDialog({ isOpen: false });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('renders the dialog when isOpen is true', () => {
     renderDialog();
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText('Delete Item')).toBeInTheDocument();
     expect(screen.getByText('Are you sure you want to delete this item?')).toBeInTheDocument();
   });
@@ -58,7 +63,7 @@ describe('ConfirmationDialog', () => {
   // Variant rendering
   it('renders danger variant with AlertTriangle icon', () => {
     renderDialog({ variant: 'danger' });
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('alertdialog');
     // Danger variant should show the icon with red styling
     const icon = dialog.querySelector('svg');
     expect(icon).toBeInTheDocument();
@@ -66,13 +71,13 @@ describe('ConfirmationDialog', () => {
 
   it('renders warning variant', () => {
     renderDialog({ variant: 'warning' });
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText('Delete Item')).toBeInTheDocument();
   });
 
   it('renders info variant', () => {
     renderDialog({ variant: 'info' });
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText('Delete Item')).toBeInTheDocument();
   });
 
@@ -91,17 +96,7 @@ describe('ConfirmationDialog', () => {
 
   it('calls onCancel when Escape key is pressed', () => {
     const { props } = renderDialog();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(props.onCancel).toHaveBeenCalledOnce();
-  });
-
-  it('calls onCancel when backdrop is clicked', () => {
-    const { props } = renderDialog();
-    // The backdrop is the first child div with bg-black/50
-    const backdrop = screen
-      .getByRole('dialog')
-      .parentElement!.querySelector('[aria-hidden="true"]')!;
-    fireEvent.click(backdrop);
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
     expect(props.onCancel).toHaveBeenCalledOnce();
   });
 
@@ -121,16 +116,7 @@ describe('ConfirmationDialog', () => {
 
   it('does not call onCancel on Escape during loading state', () => {
     const { props } = renderDialog({ isLoading: true });
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(props.onCancel).not.toHaveBeenCalled();
-  });
-
-  it('does not call onCancel on backdrop click during loading state', () => {
-    const { props } = renderDialog({ isLoading: true });
-    const backdrop = screen
-      .getByRole('dialog')
-      .parentElement!.querySelector('[aria-hidden="true"]')!;
-    fireEvent.click(backdrop);
+    fireEvent.keyDown(screen.getByRole('alertdialog'), { key: 'Escape' });
     expect(props.onCancel).not.toHaveBeenCalled();
   });
 
@@ -146,26 +132,19 @@ describe('ConfirmationDialog', () => {
   });
 
   // Accessibility
-  it('has role="dialog" and aria-modal="true"', () => {
+  it('has role="alertdialog" and aria-labelledby/describedby', () => {
     renderDialog();
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAttribute('aria-modal', 'true');
-  });
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveAttribute('aria-labelledby');
+    expect(dialog).toHaveAttribute('aria-describedby');
 
-  it('has aria-labelledby referencing the title', () => {
-    renderDialog();
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAttribute('aria-labelledby', 'confirmation-dialog-title');
-    const title = document.getElementById('confirmation-dialog-title');
-    expect(title).toHaveTextContent('Delete Item');
-  });
-
-  it('has aria-describedby referencing the description', () => {
-    renderDialog();
-    const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveAttribute('aria-describedby', 'confirmation-dialog-description');
-    const desc = document.getElementById('confirmation-dialog-description');
-    expect(desc).toHaveTextContent('Are you sure you want to delete this item?');
+    // Verify the linked elements contain the expected text
+    const titleId = dialog.getAttribute('aria-labelledby')!;
+    const descId = dialog.getAttribute('aria-describedby')!;
+    expect(document.getElementById(titleId)).toHaveTextContent('Delete Item');
+    expect(document.getElementById(descId)).toHaveTextContent(
+      'Are you sure you want to delete this item?',
+    );
   });
 
   it('has no accessibility violations', async () => {

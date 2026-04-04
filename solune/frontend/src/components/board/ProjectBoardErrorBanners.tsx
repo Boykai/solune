@@ -34,6 +34,8 @@ interface ProjectBoardErrorBannersProps {
   boardRateLimitError: boolean;
   selectedProjectId: string | null;
   onRetryBoard: (projectId: string) => void;
+  onRetryRefresh?: () => void;
+  onRetryProjects?: () => void;
 }
 
 /** Shared hint row used by every error/rate-limit banner. */
@@ -69,6 +71,8 @@ export function ProjectBoardErrorBanners({
   boardRateLimitError,
   selectedProjectId,
   onRetryBoard,
+  onRetryRefresh,
+  onRetryProjects,
 }: ProjectBoardErrorBannersProps) {
   return (
     <>
@@ -114,6 +118,16 @@ export function ProjectBoardErrorBanners({
             <p>{refreshError.message}</p>
             <ErrorHintRow hint={getErrorHint(refreshError)} />
           </div>
+          {onRetryRefresh && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="ml-auto self-start"
+              onClick={onRetryRefresh}
+            >
+              Retry
+            </Button>
+          )}
         </div>
       )}
 
@@ -135,6 +149,16 @@ export function ProjectBoardErrorBanners({
             })()}
             <ErrorHintRow hint={getErrorHint(projectsError)} />
           </div>
+          {onRetryProjects && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="ml-auto self-start"
+              onClick={onRetryProjects}
+            >
+              Retry
+            </Button>
+          )}
         </div>
       )}
 

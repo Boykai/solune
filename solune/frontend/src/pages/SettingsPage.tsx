@@ -6,9 +6,12 @@
  */
 
 import { useEffect, useCallback } from 'react';
+import { Play } from '@/lib/icons';
+import { Button } from '@/components/ui/button';
 import { CelestialLoadingProgress } from '@/components/common/CelestialLoadingProgress';
 import { PrimarySettings } from '@/components/settings/PrimarySettings';
 import { useUserSettings } from '@/hooks/useSettings';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import type { UserPreferencesUpdate } from '@/types';
 
 /**
@@ -32,6 +35,7 @@ function useUnsavedChangesWarning(isDirty: boolean) {
 }
 
 export function SettingsPage() {
+  const { restart } = useOnboarding();
   const {
     settings: userSettings,
     isLoading: userLoading,
@@ -68,7 +72,13 @@ export function SettingsPage() {
           Orbital Configuration
         </p>
         <h2 className="mb-2 text-3xl font-display font-medium tracking-[0.04em]">Settings</h2>
-        <p className="text-muted-foreground">Configure your preferences for Solune.</p>
+        <div className="flex items-center gap-4">
+          <p className="text-muted-foreground">Configure your preferences for Solune.</p>
+          <Button onClick={restart} variant="outline" size="sm" className="shrink-0">
+            <Play className="mr-2 h-4 w-4" />
+            Replay Tour
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-8">

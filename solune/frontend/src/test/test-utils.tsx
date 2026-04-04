@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render as rtlRender, type RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { ConfirmationDialogProvider } from '@/hooks/useConfirmation';
+import { OnboardingProvider } from '@/hooks/useOnboarding';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 /**
@@ -55,9 +56,11 @@ export function renderWithProviders(
   function Wrapper({ children }: WrapperProps) {
     return (
       <QueryClientProvider client={queryClient}>
-        <ConfirmationDialogProvider>
-          <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
-        </ConfirmationDialogProvider>
+        <OnboardingProvider>
+          <ConfirmationDialogProvider>
+            <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+          </ConfirmationDialogProvider>
+        </OnboardingProvider>
       </QueryClientProvider>
     );
   }
@@ -93,7 +96,11 @@ export { default as userEvent } from '@testing-library/user-event';
 function tooltipAwareRender(ui: ReactElement, options?: RenderOptions) {
   const Wrapper = options?.wrapper;
   function TooltipWrapper({ children }: { children: ReactNode }) {
-    const inner = <TooltipProvider delayDuration={0}>{children}</TooltipProvider>;
+    const inner = (
+      <OnboardingProvider>
+        <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+      </OnboardingProvider>
+    );
     return Wrapper ? <Wrapper>{inner}</Wrapper> : inner;
   }
   return rtlRender(ui, { ...options, wrapper: TooltipWrapper });

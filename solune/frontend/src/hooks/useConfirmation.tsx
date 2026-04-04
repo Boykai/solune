@@ -83,17 +83,21 @@ export function ConfirmationDialogProvider({ children }: { children: ReactNode }
     (result: boolean) => {
       const resolve = resolveRef.current;
       const focusToRestore = previousFocusRef.current;
+      const hasQueuedRequest = queueRef.current.length > 0;
       resolveRef.current = null;
       previousFocusRef.current = null;
       setState(DEFAULT_STATE);
 
-      requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (hasQueuedRequest) {
+          processQueue();
+          return;
+        }
+
         if (focusToRestore?.isConnected) {
           focusToRestore.focus();
         }
-
-        processQueue();
-      });
+      }, 0);
 
       resolve?.(result);
     },
