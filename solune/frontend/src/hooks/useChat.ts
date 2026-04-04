@@ -4,7 +4,8 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { STALE_TIME_MEDIUM } from '@/constants';
+import { toast } from 'sonner';
+import { STALE_TIME_MEDIUM, TOAST_ERROR_MS } from '@/constants';
 import { chatApi } from '@/services/api';
 import type { ChatMessage, ProposalConfirmRequest } from '@/types';
 import { useCommands } from '@/hooks/useCommands';
@@ -22,8 +23,8 @@ const makeLocalMsg = (sender: 'user' | 'system', content: string): ChatMessage =
 export function useChat() {
   const queryClient = useQueryClient();
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
-  const streamingContent = '';
-  const isStreaming = false;
+  const [streamingContent, setStreamingContent] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const proposals = useChatProposals();
 
   const {
@@ -62,7 +63,63 @@ export function useChat() {
       proposals.handleActionResponse(response);
       queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
     },
+    onError: () => {
+      toast.error('Failed to send message — check your connection and try again.', {
+        duration: TOAST_ERROR_MS,
+      });
+    },
   });
+
+  /** Streaming-aware send: uses SSE when ai_enhance is enabled, falls back to non-streaming. */
+  const sendMessageStreaming = useCallback(
+    (
+      data: { content: string; ai_enhance?: boolean; file_urls?: string[]; pipeline_id?: string },
+      tempId: string,
+    ): Promise<void> => {
+      const useStreaming = data.ai_enhance !== false;
+
+      if (!useStreaming) {
+        return sendMutation.mutateAsync(data).then(() => {
+          setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
+        });
+      }
+
+      return new Promise<void>((resolve) => {
+        setIsStreaming(true);
+        setStreamingContent('');
+
+        chatApi.sendMessageStream(
+          data,
+          (token) => {
+            setStreamingContent((prev) => prev + token);
+          },
+          (response) => {
+            setIsStreaming(false);
+            setStreamingContent('');
+            setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
+            proposals.handleActionResponse(response);
+            queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+            resolve();
+          },
+          (error) => {
+            setIsStreaming(false);
+            setStreamingContent('');
+            setLocalMessages((prev) =>
+              prev.map((m) =>
+                m.message_id === tempId ? { ...m, status: 'failed' as const } : m,
+              ),
+            );
+            toast.error(
+              error.message || 'Failed to send message — check your connection and try again.',
+              { duration: TOAST_ERROR_MS },
+            );
+            resolve();
+          },
+        );
+      });
+    },
+    [sendMutation, proposals, queryClient],
+  );
 
   const sendMessage = useCallback(
     async (
@@ -107,13 +164,15 @@ export function useChat() {
       ]);
 
       try {
-        await sendMutation.mutateAsync({
-          content,
-          ai_enhance: options?.aiEnhance ?? true,
-          file_urls: options?.fileUrls ?? [],
-          pipeline_id: options?.pipelineId,
-        });
-        setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
+        await sendMessageStreaming(
+          {
+            content,
+            ai_enhance: options?.aiEnhance ?? true,
+            file_urls: options?.fileUrls ?? [],
+            pipeline_id: options?.pipelineId,
+          },
+          tempId,
+        );
       } catch {
         setLocalMessages((prev) =>
           prev.map((m) =>
@@ -122,7 +181,7 @@ export function useChat() {
         );
       }
     },
-    [sendMutation, isCommand, executeCommand],
+    [sendMutation, sendMessageStreaming, isCommand, executeCommand],
   );
 
   const retryMessage = useCallback(

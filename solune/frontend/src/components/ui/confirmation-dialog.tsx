@@ -1,12 +1,15 @@
 /**
  * ConfirmationDialog — reusable, accessible confirmation dialog for critical actions.
  *
+ * Built on @radix-ui/react-alert-dialog for automatic focus trapping,
+ * scroll lock, and accessible Escape handling.
+ *
  * Supports danger/warning/info variants, async loading states with spinner,
- * inline error display, focus trapping, and ARIA attributes for WCAG 2.1 AA.
+ * inline error display, and ARIA attributes for WCAG 2.1 AA.
  */
 
-import { useEffect, useRef } from 'react';
 import { AlertTriangle, Info, Loader2 } from '@/lib/icons';
+import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -70,134 +73,74 @@ export function ConfirmationDialog({
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const cancelBtnRef = useRef<HTMLButtonElement>(null);
-
-  // Focus the cancel button (safe default) when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      // Small delay to ensure DOM is rendered before focusing
-      requestAnimationFrame(() => {
-        cancelBtnRef.current?.focus();
-      });
-    }
-  }, [isOpen]);
-
-  // Focus trapping and Escape key handling
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isLoading) {
-        e.preventDefault();
-        onCancel();
-        return;
-      }
-
-      if (e.key === 'Tab' && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [tabindex]:not([tabindex="-1"]), a[href], input, select, textarea'
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isLoading, onCancel]);
-
-  if (!isOpen) return null;
-
   const { Icon, iconClass, iconBgClass, confirmBtnClass } = VARIANT_CONFIG[variant];
 
-  const handleBackdropClick = () => {
-    if (!isLoading) {
-      onCancel();
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[var(--z-modal-backdrop)] flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={isLoading ? undefined : handleBackdropClick}
-        role="presentation"
-        aria-hidden="true"
-      />
+    <AlertDialogPrimitive.Root
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isLoading) onCancel();
+      }}
+    >
+      <AlertDialogPrimitive.Portal>
+        <AlertDialogPrimitive.Overlay className="fixed inset-0 z-[var(--z-modal-backdrop,60)] bg-black/50 motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0" />
 
-      {/* Dialog */}
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirmation-dialog-title"
-        aria-describedby="confirmation-dialog-description"
-        className="relative z-10 mx-4 w-full max-w-md rounded-2xl border border-border/80 bg-card p-6 shadow-xl"
-      >
-        {/* Header */}
-        <div className="flex items-start gap-3">
-          <div className={cn('shrink-0 rounded-full p-2', iconBgClass)}>
-            <Icon className={cn('h-5 w-5', iconClass)} />
-          </div>
-          <h3
-            id="confirmation-dialog-title"
-            className="text-base font-semibold text-foreground pt-1.5"
-          >
-            {title}
-          </h3>
-        </div>
-
-        {/* Description (scrollable) */}
-        <div
-          id="confirmation-dialog-description"
-          className="mt-3 max-h-[60vh] overflow-y-auto text-sm leading-relaxed text-muted-foreground"
+        <AlertDialogPrimitive.Content
+          className="fixed left-1/2 top-1/2 z-[var(--z-modal,70)] mx-4 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border/80 bg-card p-6 shadow-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95"
+          onEscapeKeyDown={(e) => {
+            if (isLoading) e.preventDefault();
+          }}
         >
-          {description}
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
-            {error}
+          {/* Header */}
+          <div className="flex items-start gap-3">
+            <div className={cn('shrink-0 rounded-full p-2', iconBgClass)}>
+              <Icon className={cn('h-5 w-5', iconClass)} />
+            </div>
+            <AlertDialogPrimitive.Title className="text-base font-semibold text-foreground pt-1.5">
+              {title}
+            </AlertDialogPrimitive.Title>
           </div>
-        )}
 
-        {/* Buttons */}
-        <div className="mt-5 flex justify-end gap-2">
-          <Button
-            ref={cancelBtnRef}
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="rounded-lg text-foreground"
-            onClick={onCancel}
-            disabled={isLoading}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className={cn('gap-2 rounded-lg', confirmBtnClass)}
-            onClick={onConfirm}
-            disabled={isLoading}
-          >
-            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isLoading ? 'Processing…' : confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
+          {/* Description (scrollable) */}
+          <AlertDialogPrimitive.Description className="mt-3 max-h-[60vh] overflow-y-auto text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </AlertDialogPrimitive.Description>
+
+          {/* Error */}
+          {error && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Buttons */}
+          <div className="mt-5 flex justify-end gap-2">
+            <AlertDialogPrimitive.Cancel asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-lg text-foreground"
+                disabled={isLoading}
+              >
+                {cancelLabel}
+              </Button>
+            </AlertDialogPrimitive.Cancel>
+            <AlertDialogPrimitive.Action asChild onClick={(e) => e.preventDefault()}>
+              <Button
+                type="button"
+                size="sm"
+                className={cn('gap-2 rounded-lg', confirmBtnClass)}
+                onClick={onConfirm}
+                disabled={isLoading}
+              >
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isLoading ? 'Processing…' : confirmLabel}
+              </Button>
+            </AlertDialogPrimitive.Action>
+          </div>
+        </AlertDialogPrimitive.Content>
+      </AlertDialogPrimitive.Portal>
+    </AlertDialogPrimitive.Root>
   );
 }

@@ -14,6 +14,7 @@ vi.mock('@/services/api', () => ({
   chatApi: {
     getMessages: vi.fn(),
     sendMessage: vi.fn(),
+    sendMessageStream: vi.fn(),
     clearMessages: vi.fn(),
     confirmProposal: vi.fn(),
     cancelProposal: vi.fn(),
@@ -37,16 +38,27 @@ vi.mock('@/services/api', () => ({
   },
 }));
 
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
 // Mock constants
 vi.mock('@/constants', () => ({
   STALE_TIME_MEDIUM: 0,
   STALE_TIME_LONG: 0,
   PROPOSAL_EXPIRY_MS: 300000,
+  TOAST_ERROR_MS: 3000,
 }));
 
 const mockChatApi = api.chatApi as unknown as {
   getMessages: ReturnType<typeof vi.fn>;
   sendMessage: ReturnType<typeof vi.fn>;
+  sendMessageStream: ReturnType<typeof vi.fn>;
   clearMessages: ReturnType<typeof vi.fn>;
   confirmProposal: ReturnType<typeof vi.fn>;
   cancelProposal: ReturnType<typeof vi.fn>;
@@ -73,6 +85,23 @@ function createWrapper() {
 describe('useChat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: sendMessageStream delegates to sendMessage, routing
+    // success to onDone and failure to onError.
+    mockChatApi.sendMessageStream.mockImplementation(
+      async (
+        _data: unknown,
+        _onToken: (content: string) => void,
+        onDone: (msg: unknown) => void,
+        onError: (err: Error) => void,
+      ) => {
+        try {
+          const response = await (mockChatApi.sendMessage as unknown as (data: unknown) => Promise<unknown>)(_data);
+          onDone(response);
+        } catch (err) {
+          onError(err instanceof Error ? err : new Error(String(err)));
+        }
+      },
+    );
   });
 
   afterEach(() => {

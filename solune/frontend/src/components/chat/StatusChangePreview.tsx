@@ -2,6 +2,8 @@
  * Status change preview component for confirming status updates.
  */
 
+import { memo } from 'react';
+
 interface StatusChangePreviewProps {
   taskTitle: string;
   currentStatus: string;
@@ -10,7 +12,7 @@ interface StatusChangePreviewProps {
   onReject: () => void;
 }
 
-export function StatusChangePreview({
+export const StatusChangePreview = memo(function StatusChangePreview({
   taskTitle,
   currentStatus,
   targetStatus,
@@ -53,4 +55,4 @@ export function StatusChangePreview({
       </div>
     </div>
   );
-}
+});

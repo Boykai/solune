@@ -53,6 +53,7 @@ export function AgentsPanel({
     allItems: agents,
     isLoading,
     isError: hasError,
+    refetch: refetchAgents,
     hasNextPage: agentsHasNextPage,
     isFetchingNextPage: agentsIsFetchingNextPage,
     fetchNextPage: agentsFetchNextPage,
@@ -311,6 +312,13 @@ export function AgentsPanel({
         <div className="flex flex-col items-center gap-2 rounded-[1.4rem] border border-destructive/30 bg-destructive/5 p-6 text-center">
           <span className="text-sm text-destructive">Failed to load agents</span>
           <p className="text-xs text-muted-foreground">{error.message}</p>
+          <button
+            type="button"
+            onClick={() => refetchAgents()}
+            className="mt-1 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-foreground"
+          >
+            <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" /> Retry
+          </button>
         </div>
       )}
 

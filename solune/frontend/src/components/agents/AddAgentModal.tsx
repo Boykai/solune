@@ -6,7 +6,7 @@
  * "Raw content" toggle bypasses AI and uses exact text as-is.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2 } from '@/lib/icons';
 import { AgentIconCatalog } from '@/components/agents/AgentIconCatalog';
 import { isCelestialIconName, type CelestialIconName } from '@/components/common/agentIcons';
@@ -18,6 +18,8 @@ import type { AgentConfig } from '@/services/api';
 import { ToolsEditor } from './ToolsEditor';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { CharacterCounter } from '@/components/ui/character-counter';
+import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
 
 interface AddAgentModalProps {
   projectId: string;
@@ -31,10 +33,14 @@ const MAX_PROMPT_LENGTH = 30000;
 export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgentModalProps) {
   const isEditMode = !!editAgent;
 
+  const nameRef = useRef<HTMLInputElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [aiEnhance, setAiEnhance] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [promptError, setPromptError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [toolsError, setToolsError] = useState<string | null>(null);
   const [successPrUrl, setSuccessPrUrl] = useState<string | null>(null);
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
@@ -42,6 +48,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   const [showToolSelector, setShowToolSelector] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showEditToolSelector, setShowEditToolSelector] = useState(false);
+
+  const fieldRefs = useMemo(() => ({ name: nameRef, prompt: promptRef }), []);
+  const errors = useMemo(() => ({ name: nameError, prompt: promptError }), [nameError, promptError]);
+  const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
 
   const createMutation = useCreateAgent(projectId);
   const updateMutation = useUpdateAgent(projectId);
@@ -72,7 +82,9 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     setName('');
     setSystemPrompt('');
     setAiEnhance(true);
-    setError(null);
+    setNameError(null);
+    setPromptError(null);
+    setGeneralError(null);
     setToolsError(null);
     setSuccessPrUrl(null);
     setSelectedToolIds([]);
@@ -90,7 +102,9 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   if (isOpen && (!prevIsOpen || editAgentId !== prevEditAgentId)) {
     setPrevIsOpen(true);
     setPrevEditAgentId(editAgentId);
-    setError(null);
+    setNameError(null);
+    setPromptError(null);
+    setGeneralError(null);
     setToolsError(null);
     setSuccessPrUrl(null);
     setShowCloseConfirm(false);
@@ -125,29 +139,37 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     setPrevEditAgentId(editAgentId);
   }
 
+  const validateName = useCallback((value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Name is required';
+    if (trimmed.length > 100) return 'Name must be 100 characters or fewer';
+    return null;
+  }, []);
+
+  const validatePrompt = useCallback((value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'System prompt is required';
+    if (trimmed.length > MAX_PROMPT_LENGTH)
+      return `System prompt must be ${MAX_PROMPT_LENGTH.toLocaleString()} characters or fewer`;
+    return null;
+  }, []);
+
   const handleSave = useCallback(async () => {
-    setError(null);
+    setGeneralError(null);
     setToolsError(null);
+
+    const newNameError = validateName(name);
+    const newPromptError = validatePrompt(systemPrompt);
+    setNameError(newNameError);
+    setPromptError(newPromptError);
+
+    if (newNameError || newPromptError) {
+      requestAnimationFrame(() => focusFirstError());
+      return false;
+    }
 
     const trimmedName = name.trim();
     const trimmedPrompt = systemPrompt.trim();
-
-    if (!trimmedName) {
-      setError('Name is required');
-      return false;
-    }
-    if (trimmedName.length > 100) {
-      setError('Name must be 100 characters or fewer');
-      return false;
-    }
-    if (!trimmedPrompt) {
-      setError('System prompt is required');
-      return false;
-    }
-    if (trimmedPrompt.length > MAX_PROMPT_LENGTH) {
-      setError(`System prompt must be ${MAX_PROMPT_LENGTH.toLocaleString()} characters or fewer`);
-      return false;
-    }
     try {
       if (isEditMode && editAgent) {
         const result = await updateMutation.mutateAsync({
@@ -180,19 +202,22 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
       }
       return true;
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save agent');
+      setGeneralError(err instanceof Error ? err.message : 'Failed to save agent');
       return false;
     }
   }, [
     aiEnhance,
     createMutation,
     editAgent,
+    focusFirstError,
     isEditMode,
     name,
     selectedIconName,
     selectedToolIds,
     systemPrompt,
     updateMutation,
+    validateName,
+    validatePrompt,
   ]);
 
   const handleRequestClose = useCallback(() => {
@@ -396,14 +421,25 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               <Tooltip contentKey="agents.modal.nameField" side="right">
                 <input
                   id="agent-name"
+                  ref={nameRef}
                   type="text"
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    if (nameError) setNameError(null);
+                  }}
+                  onBlur={() => setNameError(validateName(name))}
                   placeholder="e.g., Security Reviewer"
+                  aria-invalid={!!nameError}
+                  aria-describedby={nameError ? 'agent-name-error' : undefined}
                   className="w-full rounded-xl border border-border bg-background/72 px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary/40"
                   maxLength={100}
                 />
               </Tooltip>
+              <div className="mt-1 flex items-center justify-between">
+                {nameError ? <p id="agent-name-error" className="text-xs text-destructive">{nameError}</p> : <span />}
+                <CharacterCounter current={name.length} max={100} />
+              </div>
             </div>
 
             <div>
@@ -416,13 +452,21 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               <Tooltip contentKey="agents.modal.systemPrompt" side="right">
                 <textarea
                   id="agent-system-prompt"
+                  ref={promptRef}
                   value={systemPrompt}
-                  onChange={(event) => setSystemPrompt(event.target.value)}
+                  onChange={(event) => {
+                    setSystemPrompt(event.target.value);
+                    if (promptError) setPromptError(null);
+                  }}
+                  onBlur={() => setPromptError(validatePrompt(systemPrompt))}
                   placeholder="Detailed instructions for the agent's behavior..."
+                  aria-invalid={!!promptError}
+                  aria-describedby={promptError ? 'agent-prompt-error' : undefined}
                   className="min-h-[220px] w-full resize-y rounded-[1.1rem] border border-border bg-background/72 px-3 py-3 font-mono text-xs leading-relaxed outline-none transition-colors focus:border-primary/40"
                   maxLength={MAX_PROMPT_LENGTH}
                 />
               </Tooltip>
+              {promptError && <p id="agent-prompt-error" className="mt-1 text-xs text-destructive">{promptError}</p>}
             </div>
 
             <div>
@@ -493,9 +537,9 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               </div>
             )}
 
-            {error && (
+            {generalError && (
               <div className="rounded-[1rem] bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
+                {generalError}
               </div>
             )}
 

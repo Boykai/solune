@@ -103,11 +103,16 @@ describe('InstallConfirmDialog', () => {
       { wrapper: createWrapper() },
     );
 
-    const dialog = screen.getByRole('dialog', { name: /install agent to repository/i });
-    const overlay = dialog.parentElement;
+    const dialog = screen.getByRole('alertdialog', { name: /install agent to repository/i });
+    const overlay = Array.from(document.body.querySelectorAll('div')).find(
+      (element) =>
+        element.className.includes('bg-background/80') &&
+        element.className.includes('backdrop-blur-sm') &&
+        element.className.includes('z-[var(--z-install-confirm)]'),
+    );
 
     expect(dialog).toHaveClass('celestial-panel', 'bg-card', 'border-border/80', 'overflow-hidden');
-    expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm', 'z-[var(--z-install-confirm)]');
+    expect(overlay).toBeTruthy();
   });
 
   it('closes when Escape is pressed', async () => {

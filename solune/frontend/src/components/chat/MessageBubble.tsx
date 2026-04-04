@@ -2,6 +2,7 @@
  * Message bubble component for chat messages.
  */
 
+import { memo } from 'react';
 import type { ChatMessage } from '@/types';
 import { AlertCircle, RotateCcw } from '@/lib/icons';
 import { cn } from '@/lib/utils';
@@ -13,7 +14,7 @@ interface MessageBubbleProps {
   onRetry?: () => void;
 }
 
-export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, onRetry }: MessageBubbleProps) {
   const isUser = message.sender_type === 'user';
   const isSystem = message.sender_type === 'system';
   const isFailed = message.status === 'failed';
@@ -82,4 +83,4 @@ export function MessageBubble({ message, onRetry }: MessageBubbleProps) {
       </div>
     </div>
   );
-}
+});

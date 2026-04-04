@@ -6,13 +6,15 @@
  * Integrates as a SettingsSection in the Settings page.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { SettingsSection } from './SettingsSection';
 import { useMcpSettings } from '@/hooks/useMcpSettings';
 import { authApi, ApiError } from '@/services/api';
 import { TOAST_SUCCESS_MS } from '@/constants';
 import type { McpConfiguration } from '@/types';
 import { cn } from '@/lib/utils';
+import { CharacterCounter } from '@/components/ui/character-counter';
+import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
 
 // ── Validation Helpers ──
 
@@ -114,36 +116,40 @@ function AddMcpForm({
   serverError: Error | null;
   onClearError: () => void;
 }) {
+  const nameRef = useRef<HTMLInputElement>(null);
+  const urlRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   const [endpointUrl, setEndpointUrl] = useState('');
   const [nameError, setNameError] = useState('');
   const [urlError, setUrlError] = useState('');
 
+  const fieldRefs = useMemo(() => ({ name: nameRef, url: urlRef }), []);
+  const errors = useMemo(() => ({ name: nameError || null, url: urlError || null }), [nameError, urlError]);
+  const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
+
+  const validateName = (value: string): string => {
+    if (!value.trim()) return 'Name is required';
+    if (value.length > 100) return 'Name must be 100 characters or less';
+    return '';
+  };
+
+  const validateUrl = (value: string): string => {
+    if (!value.trim()) return 'Endpoint URL is required';
+    if (value.length > 2048) return 'URL must be 2048 characters or less';
+    if (!isValidUrl(value)) return 'Please enter a valid HTTP or HTTPS URL';
+    return '';
+  };
+
   const validate = (): boolean => {
-    let valid = true;
-    setNameError('');
-    setUrlError('');
-
-    if (!name.trim()) {
-      setNameError('Name is required');
-      valid = false;
-    } else if (name.length > 100) {
-      setNameError('Name must be 100 characters or less');
-      valid = false;
+    const newNameError = validateName(name);
+    const newUrlError = validateUrl(endpointUrl);
+    setNameError(newNameError);
+    setUrlError(newUrlError);
+    if (newNameError || newUrlError) {
+      requestAnimationFrame(() => focusFirstError());
+      return false;
     }
-
-    if (!endpointUrl.trim()) {
-      setUrlError('Endpoint URL is required');
-      valid = false;
-    } else if (endpointUrl.length > 2048) {
-      setUrlError('URL must be 2048 characters or less');
-      valid = false;
-    } else if (!isValidUrl(endpointUrl)) {
-      setUrlError('Please enter a valid HTTP or HTTPS URL');
-      valid = false;
-    }
-
-    return valid;
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,18 +206,25 @@ function AddMcpForm({
         </label>
         <input
           id="mcp-name"
+          ref={nameRef}
           type="text"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             if (nameError) setNameError('');
           }}
+          onBlur={() => setNameError(validateName(name))}
           placeholder="My MCP Server"
           maxLength={100}
+          aria-invalid={!!nameError}
+          aria-describedby={nameError ? 'mcp-name-error' : undefined}
           className={cn('celestial-focus px-3 py-2 text-sm rounded-md border bg-background/72 text-foreground placeholder:text-muted-foreground/50 focus:outline-none', nameError ? 'border-destructive' : 'border-border')}
           disabled={isCreating}
         />
-        {nameError && <p className="text-xs text-destructive">{nameError}</p>}
+        <div className="mt-0.5 flex items-center justify-between">
+          {nameError ? <p id="mcp-name-error" className="text-xs text-destructive">{nameError}</p> : <span />}
+          <CharacterCounter current={name.length} max={100} />
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -220,18 +233,25 @@ function AddMcpForm({
         </label>
         <input
           id="mcp-endpoint"
+          ref={urlRef}
           type="text"
           value={endpointUrl}
           onChange={(e) => {
             setEndpointUrl(e.target.value);
             if (urlError) setUrlError('');
           }}
+          onBlur={() => setUrlError(validateUrl(endpointUrl))}
           placeholder="https://example.com/mcp"
           maxLength={2048}
+          aria-invalid={!!urlError}
+          aria-describedby={urlError ? 'mcp-endpoint-error' : undefined}
           className={cn('celestial-focus px-3 py-2 text-sm rounded-md border bg-background/72 text-foreground placeholder:text-muted-foreground/50 focus:outline-none', urlError ? 'border-destructive' : 'border-border')}
           disabled={isCreating}
         />
-        {urlError && <p className="text-xs text-destructive">{urlError}</p>}
+        <div className="mt-0.5 flex items-center justify-between">
+          {urlError ? <p id="mcp-endpoint-error" className="text-xs text-destructive">{urlError}</p> : <span />}
+          <CharacterCounter current={endpointUrl.length} max={2048} />
+        </div>
       </div>
 
       {serverErrorMsg && (

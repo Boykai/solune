@@ -263,3 +263,10 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - Consider Code Graph Context for relationship-heavy codebase exploration when simple file/search reads are not enough.
 
 Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/package.json`, and `.github/workflows/ci.yml`. Prefer those files over copying long version snapshots into new docs or prompts.
+
+## Active Technologies
+- TypeScript `~6.0.2` for the React frontend; Python `>=3.12` for existing FastAPI APIs + React 19.2, react-router-dom 7.14, TanStack Query 5.96, Tailwind CSS 4.2, React Hook Form 7.72, Zod 4.3, existing SSE chat API, plus planned adoption of Radix Dialog and AlertDialog wrappers for modal standardization (001-solune-ux-improvements)
+- Existing SQLite-backed backend state via current FastAPI endpoints; frontend additions are ephemeral UI state only (001-solune-ux-improvements)
+
+## Recent Changes
+- 001-solune-ux-improvements: Added TypeScript `~6.0.2` for the React frontend; Python `>=3.12` for existing FastAPI APIs + React 19.2, react-router-dom 7.14, TanStack Query 5.96, Tailwind CSS 4.2, React Hook Form 7.72, Zod 4.3, existing SSE chat API, plus planned adoption of Radix Dialog and AlertDialog wrappers for modal standardization
