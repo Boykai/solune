@@ -1,0 +1,153 @@
+openapi: "3.1.0"
+info:
+  title: Plan Export API
+  description: Endpoint for exporting plans in various formats
+  version: "1.0.0"
+
+paths:
+  /chat/plans/{plan_id}/export:
+    get:
+      operationId: exportPlan
+      summary: Export a plan in the specified format
+      description: |
+        Generates a formatted export of the plan. Currently supports Markdown format.
+        The response is a plain text document suitable for download or clipboard copy.
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Plan identifier
+        - name: format
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [markdown]
+            default: markdown
+          description: Export format (currently only markdown is supported)
+      responses:
+        "200":
+          description: Exported plan content
+          content:
+            text/markdown:
+              schema:
+                type: string
+              example: |
+                # My Plan Title
+
+                ## Summary
+                This plan covers...
+
+                ## Steps
+
+                ### 1. First step
+                Description of the first step.
+
+                ### 2. Second step
+                Description of the second step.
+                - **Depends on**: Step 1
+
+                ---
+                *Exported from Solune on 2026-04-04*
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /chat/plans/{plan_id}/approve:
+    post:
+      operationId: approvePlan
+      summary: Approve plan and create GitHub issues
+      description: |
+        Approves the plan and creates GitHub issues for selected (or all) steps.
+        Extended with optional step_ids for selective approval.
+        When step_ids is omitted, all steps are approved (backward-compatible).
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Plan identifier
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlanApproveRequest"
+      responses:
+        "200":
+          description: Plan approved and issues created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlanApprovalResponse"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Plan is not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    PlanApproveRequest:
+      type: object
+      properties:
+        step_ids:
+          type: array
+          description: "Optional list of step IDs to approve. Omit to approve all steps."
+          items:
+            type: string
+            format: uuid
+
+    PlanApprovalResponse:
+      type: object
+      required: [plan_id, status, steps]
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [approved]
+        parent_issue_number:
+          type: integer
+        parent_issue_url:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            required: [step_id, position, title]
+            properties:
+              step_id:
+                type: string
+                format: uuid
+              position:
+                type: integer
+              title:
+                type: string
+              issue_number:
+                type: integer
+              issue_url:
+                type: string
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string

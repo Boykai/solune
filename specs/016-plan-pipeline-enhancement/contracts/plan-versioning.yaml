@@ -1,0 +1,112 @@
+openapi: "3.1.0"
+info:
+  title: Plan Versioning API
+  description: Endpoints for plan version history and diff computation
+  version: "1.0.0"
+
+paths:
+  /chat/plans/{plan_id}/history:
+    get:
+      operationId: getPlanHistory
+      summary: Get plan version history
+      description: |
+        Returns all version snapshots for a plan, ordered by version number descending.
+        Each snapshot includes the plan title, summary, and full step state at that version.
+        Used by the frontend to compute step diffs between versions.
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Plan identifier
+      responses:
+        "200":
+          description: List of plan versions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plan_id, current_version, versions]
+                properties:
+                  plan_id:
+                    type: string
+                    format: uuid
+                  current_version:
+                    type: integer
+                    minimum: 1
+                  versions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanVersion"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    PlanVersion:
+      type: object
+      required: [version_id, plan_id, version, title, summary, steps_snapshot, created_at]
+      properties:
+        version_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          minimum: 1
+        title:
+          type: string
+          maxLength: 256
+        summary:
+          type: string
+          maxLength: 65536
+        steps_snapshot:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlanStepSnapshot"
+        created_at:
+          type: string
+          format: date-time
+
+    PlanStepSnapshot:
+      type: object
+      required: [step_id, position, title, description, dependencies]
+      properties:
+        step_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+          maxLength: 65536
+        dependencies:
+          type: array
+          items:
+            type: string
+            format: uuid
+        issue_number:
+          type: integer
+          nullable: true
+        issue_url:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
