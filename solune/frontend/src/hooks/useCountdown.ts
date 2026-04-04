@@ -13,6 +13,10 @@ export function useCountdown(expiresAt: string): number {
   const [remaining, setRemaining] = useState(() => secondsUntil(expiresAt));
 
   useEffect(() => {
+    // Sync immediately so the display is correct as soon as expiresAt changes,
+    // rather than waiting up to 1 s for the first interval tick.
+    setRemaining(secondsUntil(expiresAt));
+
     const id = setInterval(() => {
       const next = secondsUntil(expiresAt);
       setRemaining(next);
