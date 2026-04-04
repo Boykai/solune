@@ -44,13 +44,14 @@ def get_agent_slugs(config: WorkflowConfiguration, status: str) -> list[str]:
 def get_agent_configs(config: WorkflowConfiguration) -> dict[str, dict]:
     """Build agent_slug → config dict mapping from all agent assignments.
 
-    Iterates all statuses in the config and collects non-None config dicts
-    keyed by agent slug.  Later assignments overwrite earlier ones if the
-    same slug appears in multiple statuses.
+    Iterates statuses in explicit pipeline order (via ``get_status_order``)
+    and collects non-None config dicts keyed by agent slug.  Later
+    assignments overwrite earlier ones if the same slug appears in
+    multiple statuses, with deterministic pipeline-order semantics.
     """
     result: dict[str, dict] = {}
-    for agents in config.agent_mappings.values():
-        for a in agents:
+    for status in get_status_order(config):
+        for a in _ci_get(config.agent_mappings, status, []):
             slug = a.slug if hasattr(a, "slug") else str(a)
             cfg = getattr(a, "config", None)
             if cfg:

@@ -2165,6 +2165,9 @@ async def _advance_pipeline(
                 )
                 _cp.remove_pipeline_state(issue_number)
                 return result
+            # Pipeline not complete — recompute next_agent for the
+            # assignment block below (index was already incremented).
+            next_agent = pipeline.current_agent
         else:
             # ── No delay configured: existing skip / manual-wait paths ──
             remaining_agents = pipeline.agents[pipeline.current_agent_index :]
