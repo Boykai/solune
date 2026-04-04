@@ -855,7 +855,8 @@ async def add_step(
     """
     from src.services import chat_store
 
-    db: aiosqlite.Connection | None = context.session.state.get("db")
+    state = context.session.state if context.session else {}
+    db: aiosqlite.Connection | None = state.get("db")
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
@@ -906,7 +907,8 @@ async def edit_step(
     """
     from src.services import chat_store
 
-    db: aiosqlite.Connection | None = context.session.state.get("db")
+    state = context.session.state if context.session else {}
+    db: aiosqlite.Connection | None = state.get("db")
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
@@ -956,7 +958,8 @@ async def delete_step(
     """
     from src.services import chat_store
 
-    db: aiosqlite.Connection | None = context.session.state.get("db")
+    state = context.session.state if context.session else {}
+    db: aiosqlite.Connection | None = state.get("db")
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
