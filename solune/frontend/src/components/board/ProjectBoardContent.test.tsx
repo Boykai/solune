@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { ProjectBoardContent } from './ProjectBoardContent';
-import type { BoardDataResponse, AvailableAgent } from '@/types';
+import type { BoardColumn, BoardDataResponse, AvailableAgent } from '@/types';
 
 // ── Mocks ──
 
@@ -76,7 +76,7 @@ describe('ProjectBoardContent', () => {
           items: [{ id: 'item-1', title: 'Fix bug', number: 1 }],
           id: 'col-1',
           color: 'GRAY',
-        } as any,
+        } as unknown as BoardColumn,
       ],
     });
     render(

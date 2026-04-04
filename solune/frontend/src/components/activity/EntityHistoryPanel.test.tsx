@@ -79,7 +79,7 @@ describe('EntityHistoryPanel — loading state', () => {
     vi.mocked(useEntityHistory).mockReturnValue({
       allItems: [],
       isLoading: true,
-    } as any);
+    } as unknown as ReturnType<typeof useEntityHistory>);
 
     render(
       <EntityHistoryPanel projectId="proj-1" entityType="issue" entityId="123" />
@@ -95,7 +95,7 @@ describe('EntityHistoryPanel — empty state', () => {
     vi.mocked(useEntityHistory).mockReturnValue({
       allItems: [],
       isLoading: false,
-    } as any);
+    } as unknown as ReturnType<typeof useEntityHistory>);
 
     render(
       <EntityHistoryPanel projectId="proj-1" entityType="issue" entityId="123" />
