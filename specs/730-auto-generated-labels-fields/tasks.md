@@ -48,7 +48,7 @@
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [ ] T002 [P] [US1] Write unit tests for size_from_hours() boundary cases and estimate_from_agent_count() with agent counts 0, 1, 2, 3, 4, 5, 8, 9, 16, 17, 20 in solune/backend/tests/unit/test_pipeline_estimate.py
-- [ ] T003 [P] [US1] Write unit tests for metadata integration in pipeline launch verifying set_issue_metadata() is called after add_to_project_with_backlog() and failures are logged not raised in solune/backend/tests/unit/test_api_pipelines.py
+- [ ] T003 [P] [US1] Write unit tests for metadata integration in pipeline launch verifying set_issue_metadata() is called after add_to_project_with_backlog() and failures are logged without raising exceptions in solune/backend/tests/unit/test_api_pipelines.py
 
 ### Implementation for User Story 1
 
@@ -76,7 +76,7 @@
 
 - [ ] T008 [P] [US2] Add frozen ClassificationResult dataclass with labels list and optional IssuePriority priority field to solune/backend/src/services/label_classifier.py
 - [ ] T009 [P] [US2] Extend label classification system prompt with optional priority key and urgency detection rules (P0 for production outage/data loss/security breach, P1 for critical bug/security vulnerability/major functionality broken, null for all others) in solune/backend/src/prompts/label_classification.py
-- [ ] T010 [US2] Implement classify_labels_with_priority() async function that calls the AI provider, parses labels and optional priority from JSON response, validates priority against IssuePriority enum, and falls back to ClassificationResult with priority=None on any failure in solune/backend/src/services/label_classifier.py
+- [ ] T010 [US2] Implement classify_labels_with_priority() async function that wraps the AI provider call, parses both labels and optional priority from JSON response, validates priority against IssuePriority enum, and returns ClassificationResult with priority=None on any failure or missing priority in solune/backend/src/services/label_classifier.py
 - [ ] T011 [US2] Replace classify_labels() with classify_labels_with_priority() in the pipeline launch path and merge AI-suggested priority into heuristic metadata (override P2 default when AI returns a valid priority) in solune/backend/src/api/pipelines.py
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently — pipeline launch auto-populates metadata and urgent issues get elevated priority.
@@ -124,7 +124,7 @@
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: Can start after Phase 1 — no dependencies on other stories
-- **User Story 2 (P2)**: Depends on US1 being complete — uses the metadata integration point in pipelines.py to merge AI priority
+- **User Story 2 (P2)**: Depends on US1 completion — uses the metadata integration point created by T006 in pipelines.py to merge AI priority
 - **User Story 3 (P3)**: Depends on US1 and US2 — verifies all changes together produce no regressions
 
 ### Within Each User Story
