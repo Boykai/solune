@@ -122,9 +122,6 @@ def _create_azure_agent(
 
     Uses ``AzureOpenAIChatClient`` from ``agent-framework-azure-ai``.
     """
-    from agent_framework import Agent
-    from agent_framework.azure import AzureOpenAIChatClient
-
     settings = get_settings()
 
     if not settings.azure_openai_endpoint or not settings.azure_openai_key:
@@ -132,6 +129,9 @@ def _create_azure_agent(
             "Azure OpenAI credentials not configured. "
             "Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY in .env"
         )
+
+    from agent_framework import Agent
+    from agent_framework_azure_ai import AzureOpenAIChatClient
 
     client = AzureOpenAIChatClient(
         endpoint=settings.azure_openai_endpoint,
