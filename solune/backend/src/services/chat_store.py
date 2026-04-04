@@ -423,22 +423,21 @@ async def save_plan(
 
     now = utcnow().isoformat()
     status_val = plan.status.value if hasattr(plan.status, "value") else plan.status
-    version = getattr(plan, "version", 1) or 1
     async with transaction(db):
-        # Preserve created_at for existing rows via UPSERT
+        # Preserve created_at and derive version server-side for existing rows
+        # via UPSERT. On conflict the DB-side version is kept (never reset to 1).
         await db.execute(
             """INSERT INTO chat_plans
                (plan_id, session_id, title, summary, status, version,
                 project_id, project_name, repo_owner, repo_name,
                 parent_issue_number, parent_issue_url,
                 created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(plan_id) DO UPDATE SET
                  session_id = excluded.session_id,
                  title = excluded.title,
                  summary = excluded.summary,
                  status = excluded.status,
-                 version = excluded.version,
                  project_id = excluded.project_id,
                  project_name = excluded.project_name,
                  repo_owner = excluded.repo_owner,
@@ -452,7 +451,6 @@ async def save_plan(
                 plan.title,
                 plan.summary,
                 status_val,
-                version,
                 plan.project_id,
                 plan.project_name,
                 plan.repo_owner,

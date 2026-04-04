@@ -83,8 +83,8 @@ import type {
   Plan,
   PlanApprovalResponse,
   PlanExitResponse,
+  PlanHistoryResponse,
   PlanStep,
-  PlanVersion,
   StepApprovalRequest,
   StepCreateRequest,
   StepFeedbackRequest,
@@ -684,8 +684,8 @@ export const chatApi = {
   /**
    * Get plan version history.
    */
-  getPlanHistory(planId: string): Promise<PlanVersion[]> {
-    return request<PlanVersion[]>(`/chat/plans/${planId}/history`);
+  getPlanHistory(planId: string): Promise<PlanHistoryResponse> {
+    return request<PlanHistoryResponse>(`/chat/plans/${planId}/history`);
   },
 
   /**
@@ -720,8 +720,8 @@ export const chatApi = {
   /**
    * Reorder plan steps.
    */
-  reorderSteps(planId: string, data: StepReorderRequest): Promise<{ status: string }> {
-    return request<{ status: string }>(`/chat/plans/${planId}/steps/reorder`, {
+  reorderSteps(planId: string, data: StepReorderRequest): Promise<PlanStep[]> {
+    return request<PlanStep[]>(`/chat/plans/${planId}/steps/reorder`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -730,8 +730,8 @@ export const chatApi = {
   /**
    * Approve or reject a single step.
    */
-  approveStep(planId: string, stepId: string, data: StepApprovalRequest): Promise<{ step_id: string; approval_status: string }> {
-    return request<{ step_id: string; approval_status: string }>(`/chat/plans/${planId}/steps/${stepId}/approve`, {
+  approveStep(planId: string, stepId: string, data: StepApprovalRequest): Promise<PlanStep> {
+    return request<PlanStep>(`/chat/plans/${planId}/steps/${stepId}/approve`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

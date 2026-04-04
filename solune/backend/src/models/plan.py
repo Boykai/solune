@@ -150,6 +150,14 @@ class PlanVersionResponse(BaseModel):
     created_at: str
 
 
+class PlanHistoryResponse(BaseModel):
+    """API response wrapping a plan's version history."""
+
+    plan_id: str
+    current_version: int
+    versions: list[PlanVersionResponse]
+
+
 class PlanApprovalResponse(BaseModel):
     """API response after plan approval (issue creation)."""
 
@@ -242,10 +250,20 @@ class StepApprovalRequest(BaseModel):
     approval_status: StepApprovalStatus = Field(..., description="New approval status")
 
 
+class FeedbackType(StrEnum):
+    """Allowed feedback types for step-level feedback."""
+
+    COMMENT = "comment"
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
 class StepFeedbackRequest(BaseModel):
     """Request body for submitting step-level feedback."""
 
-    feedback_type: str = Field(..., description="Feedback type: 'comment', 'approve', or 'reject'")
+    feedback_type: FeedbackType = Field(
+        ..., description="Feedback type: 'comment', 'approve', or 'reject'"
+    )
     content: str = Field(default="", max_length=65536, description="Feedback text")
 
 
@@ -253,6 +271,5 @@ class StepFeedbackResponse(BaseModel):
     """Response after submitting step feedback."""
 
     step_id: str
-    plan_id: str
     feedback_type: str
-    acknowledged: bool = True
+    status: str = "accepted"
