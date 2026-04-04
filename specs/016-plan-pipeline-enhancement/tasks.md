@@ -300,7 +300,7 @@
 
 ### Parallel Opportunities
 
-- **Phase 1**: T001 + T002 are sequential (migration order matters), but T003 + T004 + T005 can run in parallel (different files)
+- **Phase 1**: T001 + T002 can run in parallel (different migrations modifying different tables), and T003 + T004 + T005 can run in parallel (different files)
 - **Phase 2**: T006 + T007 are sequential (store depends on validator), but T008 + T009 can run in parallel with each other (test files)
 - **US1 + US2 + US3 + US6 + US8**: Can all start in parallel after Foundational phase (different files, independent stories)
 - **Within each story**: All tests marked [P] can run in parallel; all client functions marked [P] can run in parallel
