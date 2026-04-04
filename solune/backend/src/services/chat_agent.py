@@ -29,6 +29,7 @@ from src.prompts.agent_instructions import build_system_instructions
 from src.prompts.plan_instructions import build_plan_instructions
 from src.services.agent_provider import create_agent
 from src.services.agent_tools import load_mcp_tools, register_plan_tools, register_tools
+from src.services.plan_agent_provider import on_post_tool_use_hook, on_pre_tool_use_hook
 from src.utils import utcnow
 
 logger = get_logger(__name__)
@@ -614,6 +615,13 @@ class ChatAgentService:
 
                 current_action_type, current_action_data = _extract_action_payload(update)
                 if current_action_type:
+                    # Fire pre-save hook for automatic versioning
+                    if current_action_type == "plan_create":
+                        await on_pre_tool_use_hook(
+                            "save_plan",
+                            current_action_data or {},
+                            agent_session.state,
+                        )
                     action_type = current_action_type
                     action_data = current_action_data
                     yield {
@@ -625,6 +633,15 @@ class ChatAgentService:
                             }
                         ),
                     }
+                    # Fire post-save hook for plan_diff SSE event
+                    if current_action_type == "plan_create":
+                        diff_event = await on_post_tool_use_hook(
+                            "save_plan",
+                            action_data,
+                            agent_session.state,
+                        )
+                        if diff_event:
+                            yield diff_event
 
             if hasattr(stream, "get_final_response"):
                 final_response = await stream.get_final_response()
