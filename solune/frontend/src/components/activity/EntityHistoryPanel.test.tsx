@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 import { render, screen } from '@/test/test-utils';
 import { EntityHistoryPanel } from './EntityHistoryPanel';

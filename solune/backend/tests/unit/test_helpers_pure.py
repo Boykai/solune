@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
-
 from src.services.copilot_polling.helpers import (
     _build_copilot_review_done_marker,
     _build_copilot_review_request_metadata,
