@@ -25,6 +25,7 @@ RUN apk update --no-cache && apk upgrade --no-cache
 
 # Create non-root user for nginx
 RUN addgroup -S nginx-app && adduser -S -G nginx-app nginx-app \
+    && sed -i '/^user\s\+/d' /etc/nginx/nginx.conf \
     && sed -i 's|/run/nginx.pid|/tmp/nginx/nginx.pid|' /etc/nginx/nginx.conf \
     && mkdir -p /var/cache/nginx /var/run /tmp/nginx \
     && chown -R nginx-app:nginx-app /var/cache/nginx /var/run /tmp/nginx \
