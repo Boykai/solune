@@ -547,7 +547,7 @@ async def get_plan(
                     "title": s[3],
                     "description": s[4],
                     "dependencies": json.loads(s[5]) if s[5] else [],
-                    "approval_status": s[6] if s[6] else "pending",
+                    "approval_status": s[6] or "pending",
                     "issue_number": s[7],
                     "issue_url": s[8],
                 }
@@ -751,7 +751,7 @@ def validate_dag(steps: list[dict]) -> tuple[bool, str]:
                 return False, f"Step {s['step_id']!r} depends on unknown step {dep_id!r}"
 
     # Build adjacency and in-degree
-    in_degree: dict[str, int] = {sid: 0 for sid in step_ids}
+    in_degree: dict[str, int] = dict.fromkeys(step_ids, 0)
     adjacency: dict[str, list[str]] = {sid: [] for sid in step_ids}
 
     for s in steps:
@@ -824,7 +824,7 @@ async def add_plan_step(
         "dependencies": deps,
         "approval_status": "pending",
     }
-    proposed = existing_steps + [new_step]
+    proposed = [*existing_steps, new_step]
     is_valid, err = validate_dag(proposed)
     if not is_valid:
         raise ValueError(f"DAG validation failed: {err}")
@@ -892,7 +892,9 @@ async def update_plan_step(
     proposed = []
     for s in plan["steps"]:
         if s["step_id"] == step_id:
-            proposed.append({**s, "title": new_title, "description": new_description, "dependencies": new_deps})
+            proposed.append(
+                {**s, "title": new_title, "description": new_description, "dependencies": new_deps}
+            )
         else:
             proposed.append(s)
 
@@ -927,7 +929,12 @@ async def update_plan_step(
             (utcnow().isoformat(), plan_id),
         )
 
-    updated = {**target_step, "title": new_title, "description": new_description, "dependencies": new_deps}
+    updated = {
+        **target_step,
+        "title": new_title,
+        "description": new_description,
+        "dependencies": new_deps,
+    }
     return updated
 
 

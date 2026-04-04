@@ -13,7 +13,6 @@ from src.services.pipeline_orchestrator import (
     stage_started_event,
 )
 
-
 # =============================================================================
 # SSE Event Helpers
 # =============================================================================
@@ -140,7 +139,7 @@ class TestRunPipeline:
         stages = [
             {"name": "a", "agent": "x", "group": 1, "parallel": False},
         ]
-        results = await run_pipeline(stages, {}, event_callback=callback)
+        await run_pipeline(stages, {}, event_callback=callback)
 
         assert len(events) == 2
         assert events[0]["event"] == "stage_started"

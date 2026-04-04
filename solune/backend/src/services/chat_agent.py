@@ -618,7 +618,9 @@ class ChatAgentService:
                     # Fire pre-save hook for automatic versioning
                     if current_action_type == "plan_create":
                         await on_pre_tool_use_hook(
-                            "save_plan", current_action_data or {}, agent_session.state,
+                            "save_plan",
+                            current_action_data or {},
+                            agent_session.state,
                         )
                     action_type = current_action_type
                     action_data = current_action_data
@@ -634,7 +636,9 @@ class ChatAgentService:
                     # Fire post-save hook for plan_diff SSE event
                     if current_action_type == "plan_create":
                         diff_event = await on_post_tool_use_hook(
-                            "save_plan", action_data, agent_session.state,
+                            "save_plan",
+                            action_data,
+                            agent_session.state,
                         )
                         if diff_event:
                             yield diff_event

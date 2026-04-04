@@ -866,7 +866,11 @@ async def add_step(
 
     try:
         step = await chat_store.add_plan_step(
-            db, plan_id, title=title, description=description, dependencies=deps,
+            db,
+            plan_id,
+            title=title,
+            description=description,
+            dependencies=deps,
         )
     except ValueError as e:
         return ToolResult(content=f"Error adding step: {e}")
@@ -906,8 +910,8 @@ async def edit_step(
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
-    new_title = title if title else None
-    new_desc = description if description else None
+    new_title = title or None
+    new_desc = description or None
     new_deps = None
     if dependencies:
         try:
@@ -917,7 +921,12 @@ async def edit_step(
 
     try:
         step = await chat_store.update_plan_step(
-            db, plan_id, step_id, title=new_title, description=new_desc, dependencies=new_deps,
+            db,
+            plan_id,
+            step_id,
+            title=new_title,
+            description=new_desc,
+            dependencies=new_deps,
         )
     except ValueError as e:
         return ToolResult(content=f"Error updating step: {e}")

@@ -203,8 +203,12 @@ class StepCreateRequest(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=256, description="Step title")
     description: str = Field(..., min_length=1, max_length=65536, description="Step description")
-    dependencies: list[str] = Field(default_factory=list, description="step_ids this step depends on")
-    position: int | None = Field(default=None, ge=0, description="Insert position (auto-appended if omitted)")
+    dependencies: list[str] = Field(
+        default_factory=list, description="step_ids this step depends on"
+    )
+    position: int | None = Field(
+        default=None, ge=0, description="Insert position (auto-appended if omitted)"
+    )
 
 
 class StepUpdateRequest(BaseModel):
@@ -241,9 +245,7 @@ class StepApprovalRequest(BaseModel):
 class StepFeedbackRequest(BaseModel):
     """Request body for submitting step-level feedback."""
 
-    feedback_type: str = Field(
-        ..., description="Feedback type: 'comment', 'approve', or 'reject'"
-    )
+    feedback_type: str = Field(..., description="Feedback type: 'comment', 'approve', or 'reject'")
     content: str = Field(default="", max_length=65536, description="Feedback text")
 
 

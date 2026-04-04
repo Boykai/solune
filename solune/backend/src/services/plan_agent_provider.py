@@ -145,9 +145,7 @@ async def create_plan_session(
     Returns:
         Configured agent session.
     """
-    from copilot import CopilotClient  # type: ignore[reportMissingImports]
     from copilot.types import (  # type: ignore[reportMissingImports]
-        CopilotClientOptions,
         PermissionHandler,
         SessionConfig,
     )

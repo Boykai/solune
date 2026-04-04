@@ -2403,7 +2403,7 @@ async def add_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepCreateRequest(**body)
-    except Exception as e:
+    except Exception:
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2455,7 +2455,7 @@ async def update_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepUpdateRequest(**body)
-    except Exception as e:
+    except Exception:
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2530,7 +2530,7 @@ async def reorder_plan_steps_endpoint(
     body = await request.json()
     try:
         req = StepReorderRequest(**body)
-    except Exception as e:
+    except Exception:
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2565,7 +2565,7 @@ async def approve_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepApprovalRequest(**body)
-    except Exception as e:
+    except Exception:
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2607,7 +2607,7 @@ async def submit_step_feedback_endpoint(
     body = await request.json()
     try:
         req = StepFeedbackRequest(**body)
-    except Exception as e:
+    except Exception:
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     # Feedback is transient — acknowledged but not persisted
@@ -2647,15 +2647,17 @@ async def export_plan_endpoint(
             lines.append("")
         return {"format": "markdown", "content": "\n".join(lines)}
     elif format == "github_issues":
-        issues = []
-        for s in plan.get("steps", []):
-            issues.append({
+        issues = [
+            {
                 "title": s["title"],
                 "body": s["description"],
                 "dependencies": s.get("dependencies", []),
-            })
+            }
+            for s in plan.get("steps", [])
+        ]
         return {"format": "github_issues", "plan_title": plan["title"], "issues": issues}
     else:
         return JSONResponse(
-            status_code=400, content={"detail": f"Unsupported format: {format}. Use 'markdown' or 'github_issues'."}
+            status_code=400,
+            content={"detail": f"Unsupported format: {format}. Use 'markdown' or 'github_issues'."},
         )
