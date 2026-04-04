@@ -56,7 +56,7 @@
 - [ ] T009 [P] [US1] Add unit tests for pipeline state transitions, error recovery paths, and async processing edge cases in solune/backend/tests/unit/test_copilot_polling_pipeline.py targeting solune/backend/src/services/copilot_polling/pipeline.py (65.7% → 82%, 310 missing lines)
 - [ ] T010 [P] [US1] Add unit tests for agent CRUD operations, validation failures, and agent configuration edge cases in solune/backend/tests/unit/test_agents_service.py targeting solune/backend/src/services/agents/service.py (47.4% → 72%, 281 missing lines)
 - [ ] T011 [P] [US1] Add API route tests using AsyncClient for error responses, SSE streaming edge cases, and message handling in solune/backend/tests/unit/test_api_chat.py targeting solune/backend/src/api/chat.py (59.6% → 78%, 275 missing lines)
-- [ ] T012 [P] [US1] Add unit tests for creation workflows, template processing, and validation rules in solune/backend/tests/unit/test_agent_creator.py targeting solune/backend/src/services/agent_creator.py (39.4% → 65%, 240 missing lines)
+- [x] T012 [P] [US1] Add unit tests for creation workflows, template processing, and validation rules in solune/backend/tests/unit/test_agent_creator.py targeting solune/backend/src/services/agent_creator.py (39.4% → 65%, 240 missing lines)
 - [ ] T013 [P] [US1] Add route tests for project CRUD, authorization checks, and pagination in solune/backend/tests/unit/test_api_projects.py targeting solune/backend/src/api/projects.py (37.7% → 65%, 155 missing lines)
 
 ### Tier 2 — Next 5 Files (Important, ~685 missing lines)
