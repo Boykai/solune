@@ -1,0 +1,149 @@
+# API Contract: Human Agent Delay Config
+
+# This feature does not introduce new API endpoints.
+# The delay configuration is stored within the existing PipelineConfig
+# JSON structure, which is already saved/loaded via existing endpoints.
+#
+# This contract documents the shape of the config dict extension.
+
+openapi: "3.0.3"
+info:
+  title: Human Agent Delay Config Extension
+  version: "1.0.0"
+  description: |
+    Documents the PipelineAgentNode.config extension for the
+    "Delay Until Auto-Merge" feature. No new endpoints are added;
+    this config is part of the existing PipelineConfig save/load flow.
+
+components:
+  schemas:
+    HumanAgentConfig:
+      type: object
+      description: |
+        Extended config dict for PipelineAgentNode when agent_slug == "human".
+        All fields are optional; absence means default behavior.
+      properties:
+        model_id:
+          type: string
+          description: Override model ID (existing field, all agents)
+          example: "gpt-4o"
+        model_name:
+          type: string
+          description: Override model display name (existing field, all agents)
+          example: "GPT-4o"
+        delay_seconds:
+          type: integer
+          minimum: 1
+          maximum: 86400
+          description: |
+            Seconds to wait before auto-merging the parent PR.
+            When set: pipeline creates the human sub-issue, waits this duration
+            (polling every 15s for early cancellation via sub-issue close),
+            then triggers auto-merge.
+            When absent/null: current behavior (manual wait for "Done!" or
+            sub-issue close; or skip if auto_merge active and human is last step).
+          example: 300
+
+    PipelineAgentNodeConfig:
+      type: object
+      description: |
+        The full PipelineAgentNode object as stored in PipelineConfig.stages[].groups[].agents[].
+        Only the `config` field is extended by this feature.
+      properties:
+        id:
+          type: string
+          description: Unique node identifier
+        agent_slug:
+          type: string
+          description: Agent identifier slug
+          example: "human"
+        agent_display_name:
+          type: string
+          description: Human-readable display name
+          example: "Human Review"
+        model_id:
+          type: string
+          description: Model ID override
+        model_name:
+          type: string
+          description: Model name override
+        tool_ids:
+          type: array
+          items:
+            type: string
+        tool_count:
+          type: integer
+        config:
+          $ref: "#/components/schemas/HumanAgentConfig"
+
+    PipelineStateAgentConfigs:
+      type: object
+      description: |
+        Runtime mapping of agent_slug → config dict, added to PipelineState.
+        Populated at pipeline launch from WorkflowConfiguration.
+      additionalProperties:
+        type: object
+        properties:
+          model_id:
+            type: string
+          model_name:
+            type: string
+          delay_seconds:
+            type: integer
+            minimum: 1
+            maximum: 86400
+      example:
+        human:
+          delay_seconds: 300
+        copilot:
+          model_id: "gpt-4o"
+          model_name: "GPT-4o"
+
+# ──────────────────────────────────────────────
+# Example: PipelineConfig with human delay
+# ──────────────────────────────────────────────
+# {
+#   "id": "cfg-123",
+#   "project_id": "proj-456",
+#   "name": "My Pipeline",
+#   "stages": [
+#     {
+#       "id": "stage-1",
+#       "name": "In Progress",
+#       "order": 0,
+#       "groups": [
+#         {
+#           "id": "grp-1",
+#           "order": 0,
+#           "execution_mode": "sequential",
+#           "agents": [
+#             {
+#               "id": "node-copilot",
+#               "agent_slug": "copilot",
+#               "agent_display_name": "Copilot",
+#               "model_id": "gpt-4o",
+#               "model_name": "GPT-4o",
+#               "tool_ids": [],
+#               "tool_count": 0,
+#               "config": {}
+#             },
+#             {
+#               "id": "node-human",
+#               "agent_slug": "human",
+#               "agent_display_name": "Human Review",
+#               "model_id": "",
+#               "model_name": "",
+#               "tool_ids": [],
+#               "tool_count": 0,
+#               "config": {
+#                 "delay_seconds": 300
+#               }
+#             }
+#           ]
+#         }
+#       ],
+#       "agents": []
+#     }
+#   ],
+#   "auto_merge": true
+# }
