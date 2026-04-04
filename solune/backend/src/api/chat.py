@@ -2352,28 +2352,29 @@ async def exit_plan_mode_endpoint(
 # ---------------------------------------------------------------------------
 
 
-# Known safe ValueError prefixes that may be forwarded to clients.
-_SAFE_ERROR_PREFIXES = (
-    "Cannot add steps",
-    "Cannot change approval",
-    "Cannot delete steps",
-    "Cannot modify steps",
-    "Cannot reorder steps",
-    "DAG validation failed",
-    "Invalid approval_status",
-)
+# Known safe ValueError messages mapped to fixed client-safe descriptions.
+# Returning hardcoded strings (never str(exc)) breaks the CodeQL taint chain.
+_SAFE_ERROR_MESSAGES: dict[str, str] = {
+    "Cannot add steps": "Cannot add steps to a non-draft plan.",
+    "Cannot change approval": "Cannot change approval status of steps in a non-draft plan.",
+    "Cannot delete steps": "Cannot delete steps from a non-draft plan.",
+    "Cannot modify steps": "Cannot modify steps in a non-draft plan.",
+    "Cannot reorder steps": "Cannot reorder steps in a non-draft plan.",
+    "DAG validation failed": "DAG validation failed: invalid step dependencies.",
+    "Invalid approval_status": "Invalid approval status value.",
+}
 
 
 def _safe_validation_detail(exc: ValueError) -> str:
     """Return a client-safe error detail for a domain ValueError.
 
-    Only forwards the message when it matches a known safe prefix;
+    Returns a hardcoded message when the exception matches a known prefix;
     otherwise returns a generic description to avoid leaking internals.
     """
     msg = str(exc)
-    for prefix in _SAFE_ERROR_PREFIXES:
+    for prefix, safe_msg in _SAFE_ERROR_MESSAGES.items():
         if msg.startswith(prefix):
-            return msg
+            return safe_msg
     return "Invalid request: validation failed."
 
 
