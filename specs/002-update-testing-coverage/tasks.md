@@ -282,7 +282,7 @@ Developer C: Phase 5 (US3 — E2E Tests)
 1. Complete Phase 1: Setup (baseline coverage metrics)
 2. Complete Phase 2: Foundational (test infrastructure verification)
 3. Complete Phase 3: User Story 1 — Backend Coverage (Tier 1 first, then Tier 2, then Tier 3)
-4. **STOP and VALIDATE**: Run `uv run pytest --cov=src --cov-fail-under=80` — verify backend meets new threshold
+4. **STOP and VALIDATE**: Run `uv run pytest --cov=src --cov-fail-under=80 --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — verify backend meets new threshold
 5. Raise `fail_under` to 80 in pyproject.toml
 6. Deploy/demo if ready — backend coverage improvement is independently valuable
 
