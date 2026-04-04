@@ -336,6 +336,15 @@ async def dispatch_devops_agent(
             issue_number,
             devops_attempts,
         )
+        # Broadcast failure so maintainers know human intervention is needed
+        await _cp.connection_manager.broadcast_to_project(
+            project_id,
+            {
+                "type": "auto_merge_failed",
+                "issue_number": issue_number,
+                "reason": "devops_cap_reached",
+            },
+        )
         return False
 
     # Resolve issue node ID for Copilot assignment
@@ -415,6 +424,240 @@ async def dispatch_devops_agent(
         },
     )
 
+    # Schedule post-DevOps merge retry polling
+    schedule_post_devops_merge_retry(
+        access_token=access_token,
+        owner=owner,
+        repo=repo,
+        issue_number=issue_number,
+        pipeline_metadata=pipeline_metadata,
+        project_id=project_id,
+    )
+
+    return True
+
+
+async def _check_devops_done_comment(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+) -> bool:
+    """Check if the DevOps agent has posted a "Done!" completion marker.
+
+    Scans the most recent issue comments (newest first) for the
+    ``devops: Done!`` marker string.
+
+    Returns:
+        True if a "Done!" comment was found, False otherwise.
+    """
+    import src.services.copilot_polling as _cp
+
+    try:
+        comments = await _cp.github_projects_service.list_issue_comments(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            per_page=10,
+            direction="desc",
+        )
+    except Exception:
+        logger.warning(
+            "Failed to fetch comments for issue #%d (DevOps done check)",
+            issue_number,
+            exc_info=True,
+        )
+        return False
+
+    if not comments:
+        return False
+
+    for comment in comments:
+        body = comment.get("body", "") if isinstance(comment, dict) else ""
+        if "devops: Done!" in body:
+            return True
+
+    return False
+
+
+async def _post_devops_retry_loop(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    pipeline_metadata: dict[str, Any],
+    project_id: str,
+) -> None:
+    """Background polling loop that waits for DevOps "Done!" then re-merges.
+
+    Polls every ``POST_DEVOPS_POLL_INTERVAL`` seconds (up to
+    ``POST_DEVOPS_MAX_POLLS`` iterations) for the DevOps agent's completion
+    marker.  On detection, re-attempts auto-merge.
+    """
+    import src.services.copilot_polling as _cp
+
+    from .state import (
+        POST_DEVOPS_MAX_POLLS,
+        POST_DEVOPS_POLL_INTERVAL,
+        _pending_post_devops_retries,
+    )
+
+    try:
+        for poll in range(1, POST_DEVOPS_MAX_POLLS + 1):
+            await asyncio.sleep(POST_DEVOPS_POLL_INTERVAL)
+
+            done = await _check_devops_done_comment(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+            )
+
+            if not done:
+                logger.debug(
+                    "Post-DevOps poll %d/%d for issue #%d: no 'Done!' yet",
+                    poll,
+                    POST_DEVOPS_MAX_POLLS,
+                    issue_number,
+                )
+                continue
+
+            # DevOps completed — mark inactive and re-attempt merge
+            logger.info(
+                "DevOps 'Done!' detected for issue #%d on poll %d",
+                issue_number,
+                poll,
+            )
+            pipeline_metadata["devops_active"] = False
+
+            merge_result = await _attempt_auto_merge(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+            )
+
+            if merge_result.status == "merged":
+                logger.info(
+                    "Post-DevOps merge succeeded for issue #%d (PR #%s)",
+                    issue_number,
+                    merge_result.pr_number,
+                )
+                await _cp.connection_manager.broadcast_to_project(
+                    project_id,
+                    {
+                        "type": "post_devops_merge_completed",
+                        "issue_number": issue_number,
+                        "pr_number": merge_result.pr_number,
+                        "merge_commit": merge_result.merge_commit,
+                    },
+                )
+                return
+
+            if merge_result.status == "devops_needed":
+                logger.info(
+                    "Post-DevOps re-merge still needs DevOps for issue #%d",
+                    issue_number,
+                )
+                await dispatch_devops_agent(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                    pipeline_metadata=pipeline_metadata,
+                    project_id=project_id,
+                    merge_result_context=merge_result.context,
+                )
+                return
+
+            if merge_result.status == "retry_later":
+                logger.info(
+                    "Post-DevOps merge returned retry_later for issue #%d — "
+                    "CI may still be running after DevOps fix",
+                    issue_number,
+                )
+                # Continue polling to give CI time to finish
+                continue
+
+            # merge_failed — stop
+            logger.warning(
+                "Post-DevOps merge failed for issue #%d: %s",
+                issue_number,
+                merge_result.error,
+            )
+            await _cp.connection_manager.broadcast_to_project(
+                project_id,
+                {
+                    "type": "auto_merge_failed",
+                    "issue_number": issue_number,
+                    "error": merge_result.error,
+                },
+            )
+            return
+
+        # Exhausted all polls — timeout
+        logger.warning(
+            "Post-DevOps polling timed out for issue #%d after %d polls",
+            issue_number,
+            POST_DEVOPS_MAX_POLLS,
+        )
+        await _cp.connection_manager.broadcast_to_project(
+            project_id,
+            {
+                "type": "auto_merge_failed",
+                "issue_number": issue_number,
+                "reason": "devops_timeout",
+            },
+        )
+    finally:
+        _pending_post_devops_retries.pop(issue_number, None)
+
+
+def schedule_post_devops_merge_retry(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    pipeline_metadata: dict[str, Any],
+    project_id: str,
+) -> bool:
+    """Schedule a background polling loop to detect DevOps completion and re-merge.
+
+    Returns True if a retry was scheduled, False if one is already running.
+    """
+    from .state import _pending_post_devops_retries
+
+    if issue_number in _pending_post_devops_retries:
+        logger.info(
+            "Post-DevOps retry already pending for issue #%d — skipping",
+            issue_number,
+        )
+        return False
+
+    _pending_post_devops_retries[issue_number] = {
+        "project_id": project_id,
+        "pipeline_metadata": pipeline_metadata,
+    }
+
+    _task = asyncio.create_task(
+        _post_devops_retry_loop(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            pipeline_metadata=pipeline_metadata,
+            project_id=project_id,
+        ),
+        name=f"post-devops-retry-{issue_number}",
+    )
+    # Reference stored to prevent garbage collection (RUF006).
+    _ = _task
+
+    logger.info(
+        "Scheduled post-DevOps merge retry loop for issue #%d",
+        issue_number,
+    )
     return True
 
 

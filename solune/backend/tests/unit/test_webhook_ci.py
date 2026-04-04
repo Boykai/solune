@@ -265,8 +265,8 @@ class TestWebhookRouting:
         assert result["event"] == "check_suite_failure"
 
     @pytest.mark.asyncio
-    async def test_check_suite_success_ignored(self):
-        """check_suite with success conclusion should be ignored."""
+    async def test_check_suite_success_processed(self):
+        """check_suite with success conclusion should be processed (triggers re-merge)."""
         from src.api.webhooks import handle_check_suite_event
 
         event = CheckSuiteEvent(
@@ -284,7 +284,8 @@ class TestWebhookRouting:
             ),
         )
         result = await handle_check_suite_event(event)
-        assert result["status"] == "ignored"
+        assert result["status"] == "processed"
+        assert result["event"] == "check_suite_success"
 
     @pytest.mark.asyncio
     async def test_check_suite_no_prs_ignored(self):
