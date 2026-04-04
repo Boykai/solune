@@ -1,6 +1,7 @@
 """Pipeline state management, status checking, and advancement logic."""
 
 import asyncio
+import math
 from datetime import datetime
 from typing import Any
 
@@ -2033,8 +2034,6 @@ async def _advance_pipeline(
             _cp.set_pipeline_state(issue_number, pipeline)
 
             # Sleep with 15-second polling for early cancellation
-            import math
-
             intervals = math.ceil(delay_seconds / 15)
             cancelled_early = False
             for _ in range(intervals):
@@ -2069,10 +2068,10 @@ async def _advance_pipeline(
             from .auto_merge import _attempt_auto_merge
 
             logger.info(
-                "Human agent delay expired (%s%s) for issue #%d — triggering auto-merge",
-                "early cancel" if cancelled_early else "full delay",
-                f", {duration_str}" if not cancelled_early else "",
+                "Human agent delay %s for issue #%d (configured=%s) — triggering auto-merge",
+                "cancelled early" if cancelled_early else f"completed ({duration_str})",
                 issue_number,
+                duration_str,
             )
 
             merge_result = await _attempt_auto_merge(

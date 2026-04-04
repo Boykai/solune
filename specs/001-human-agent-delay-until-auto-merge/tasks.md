@@ -146,9 +146,9 @@
 
 - [x] T022 [P] Extract shared duration formatting helper (seconds → human-readable: 300→"5m", 3600→"1h", 90→"1m 30s", 86400→"24h") into reusable utilities if not already extracted. Backend: `solune/backend/src/services/copilot_polling/pipeline.py` or shared utils module. Frontend: `solune/frontend/src/components/pipeline/AgentNode.tsx` or shared utils.
 - [x] T023 Run `solune/backend/tests/unit/test_human_delay.py` full suite and verify all tests pass
-- [ ] T024 Run backend regression suite: `cd solune/backend && uv run pytest --cov=src --cov-report=json --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — verify coverage ≥75% and no regressions
-- [ ] T025 Run frontend test suite: `cd solune/frontend && npm run test` — verify no regressions
-- [ ] T026 Run `specs/001-human-agent-delay-until-auto-merge/quickstart.md` validation steps
+- [x] T024 Run backend regression suite: `cd solune/backend && uv run pytest --cov=src --cov-report=json --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — verify coverage ≥75% and no regressions
+- [x] T025 Run frontend test suite: `cd solune/frontend && npm run test` — verify no regressions
+- [x] T026 Run `specs/001-human-agent-delay-until-auto-merge/quickstart.md` validation steps
 
 ---
 
