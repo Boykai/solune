@@ -34,8 +34,12 @@ RUN addgroup -S nginx-app && adduser -S -G nginx-app nginx-app \
 # Copy built assets
 COPY --from=builder --chown=nginx-app:nginx-app /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY --chown=nginx-app:nginx-app nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx configuration as template (envsubst at startup)
+COPY --chown=nginx-app:nginx-app nginx.conf /etc/nginx/conf.d/default.conf.template
+
+# Copy entrypoint script
+COPY --chown=nginx-app:nginx-app entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Switch to non-root user
 USER nginx-app
@@ -47,5 +51,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
-# Run nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Run nginx via entrypoint (handles BACKEND_ORIGIN substitution)
+CMD ["/entrypoint.sh"]

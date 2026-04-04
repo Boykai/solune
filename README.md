@@ -13,6 +13,7 @@
 [![License: MIT](https://img.shields.io/github/license/Boykai/solune?color=0f766e)](https://github.com/Boykai/solune/blob/main/LICENSE)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Boykai/solune?quickstart=1)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FBoykai%2Fsolune%2Fmain%2Finfra%2Fazuredeploy.json)
 
 > Build software with AI agents — from idea to pull request.
 
@@ -96,6 +97,40 @@ Open **<http://localhost:5173>**.
 Click **Code → Codespaces → Create codespace on main**. The dev container auto-installs everything. Copy `solune/.env.example` to `solune/.env`, add your OAuth credentials, and start the services.
 
 See the [Setup Guide](solune/docs/setup.md) for full instructions including local development without Docker.
+
+## Azure Deployment
+
+Deploy the full Solune stack to Azure with a single click — backend, frontend, and Signal sidecar on Azure Container Apps with Azure OpenAI, Key Vault, and managed identity.
+
+### Prerequisites
+
+- An Azure subscription with Contributor + User Access Administrator permissions
+- A [GitHub OAuth App](https://github.com/settings/developers) (Homepage URL and Callback URL updated post-deployment)
+
+### One-Click Deploy
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FBoykai%2Fsolune%2Fmain%2Finfra%2Fazuredeploy.json)
+
+Fill in the deployment form with your GitHub OAuth credentials, secret keys, and admin user ID. Deployment takes ~10 minutes.
+
+### azd CLI Alternative
+
+```bash
+git clone https://github.com/Boykai/solune.git && cd solune
+az login && azd auth login
+azd init -e solune-prod
+azd env set GITHUB_CLIENT_ID <your-client-id>
+azd env set GITHUB_CLIENT_SECRET <your-client-secret>
+azd env set SESSION_SECRET_KEY $(openssl rand -hex 32)
+azd env set ENCRYPTION_KEY $(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+azd env set ADMIN_GITHUB_USER_ID <your-github-user-id>
+azd up
+```
+
+### Post-Deployment
+
+After deployment, update your GitHub OAuth App callback URL to:
+`https://<frontend-fqdn>/api/v1/auth/github/callback`
 
 ## Built With
 

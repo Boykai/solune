@@ -1,0 +1,1976 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936",
+      "templateHash": "8142259483612978761"
+    }
+  },
+  "parameters": {
+    "environmentName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20,
+      "metadata": {
+        "description": "Name of the azd environment — used as a prefix for all resource names and the azd-env-name tag. Max 20 characters to satisfy Azure Key Vault (24), Storage Account (24), and Container App (32) naming limits."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region for all resources. Must support Azure Container Apps, Azure OpenAI, and Azure AI Foundry."
+      }
+    },
+    "githubClientId": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "GitHub OAuth App Client ID."
+      }
+    },
+    "githubClientSecret": {
+      "type": "securestring",
+      "minLength": 1,
+      "metadata": {
+        "description": "GitHub OAuth App Client Secret — stored in Key Vault, never exposed in container env vars."
+      }
+    },
+    "sessionSecretKey": {
+      "type": "securestring",
+      "minLength": 1,
+      "metadata": {
+        "description": "Session encryption key (64+ character hex string)."
+      }
+    },
+    "encryptionKey": {
+      "type": "securestring",
+      "minLength": 1,
+      "metadata": {
+        "description": "Fernet encryption key for token-at-rest encryption."
+      }
+    },
+    "adminGitHubUserId": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Numeric GitHub user ID of the admin account."
+      }
+    },
+    "openAiModelName": {
+      "type": "string",
+      "defaultValue": "gpt-4o",
+      "metadata": {
+        "description": "Name for the Azure OpenAI model deployment."
+      }
+    },
+    "deployCapacity": {
+      "type": "int",
+      "defaultValue": 10,
+      "metadata": {
+        "description": "Azure OpenAI deployment capacity in thousands of tokens per minute."
+      }
+    },
+    "githubWebhookSecret": {
+      "type": "securestring",
+      "minLength": 1,
+      "metadata": {
+        "description": "GitHub Webhook secret for verifying webhook payloads — stored in Key Vault."
+      }
+    }
+  },
+  "variables": {
+    "tags": {
+      "azd-env-name": "[parameters('environmentName')]"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "identity",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "13488217798899163009"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "metadata": {
+                "description": "User-assigned managed identity shared by backend services for accessing Key Vault, ACR, OpenAI, AI Foundry, and Storage."
+              }
+            }
+          ],
+          "outputs": {
+            "identityId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the managed identity."
+              },
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('environmentName')))]"
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity — used for RBAC role assignments."
+              },
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('environmentName'))), '2023-01-31').principalId]"
+            },
+            "identityClientId": {
+              "type": "string",
+              "metadata": {
+                "description": "Client ID of the managed identity — used in Container App configuration."
+              },
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}', parameters('environmentName'))), '2023-01-31').clientId]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "monitoring",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "12888205380488534982"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[format('law-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              },
+              "metadata": {
+                "description": "Log Analytics Workspace for centralized logging and diagnostics."
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[format('ai-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}', parameters('environmentName')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Application Insights for application performance monitoring."
+              }
+            }
+          ],
+          "outputs": {
+            "workspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Log Analytics Workspace."
+              },
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}', parameters('environmentName')))]"
+            },
+            "workspaceCustomerId": {
+              "type": "string",
+              "metadata": {
+                "description": "Customer ID of the Log Analytics Workspace — used by Container Apps Environment."
+              },
+              "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}', parameters('environmentName'))), '2023-09-01').customerId]"
+            },
+            "workspaceSharedKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Shared key for the Log Analytics Workspace — used by Container Apps Environment."
+              },
+              "value": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}', parameters('environmentName'))), '2023-09-01').primarySharedKey]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Insights connection string for telemetry."
+              },
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('ai-{0}', parameters('environmentName'))), '2020-02-02').ConnectionString]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Application Insights instance — used by AI Foundry."
+              },
+              "value": "[resourceId('Microsoft.Insights/components', format('ai-{0}', parameters('environmentName')))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "registry",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "identityPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "7307200592659941139"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity — granted AcrPull role."
+              }
+            }
+          },
+          "variables": {
+            "acrPullRoleId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-07-01",
+              "name": "[toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Basic"
+              },
+              "properties": {
+                "adminUserEnabled": false
+              },
+              "metadata": {
+                "description": "Azure Container Registry for hosting container images (Basic SKU, admin disabled)."
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', '')))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))), parameters('identityPrincipalId'), variables('acrPullRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('identityPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', '')))]"
+              ],
+              "metadata": {
+                "description": "Assigns AcrPull role to the managed identity on the container registry."
+              }
+            }
+          ],
+          "outputs": {
+            "registryName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the container registry."
+              },
+              "value": "[toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))]"
+            },
+            "registryLoginServer": {
+              "type": "string",
+              "metadata": {
+                "description": "Login server URL for the container registry."
+              },
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', toLower(replace(format('{0}acr', parameters('environmentName')), '-', ''))), '2023-07-01').loginServer]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "keyvault",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "identityPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityPrincipalId.value]"
+          },
+          "githubClientId": {
+            "value": "[parameters('githubClientId')]"
+          },
+          "githubClientSecret": {
+            "value": "[parameters('githubClientSecret')]"
+          },
+          "sessionSecretKey": {
+            "value": "[parameters('sessionSecretKey')]"
+          },
+          "encryptionKey": {
+            "value": "[parameters('encryptionKey')]"
+          },
+          "githubWebhookSecret": {
+            "value": "[parameters('githubWebhookSecret')]"
+          },
+          "azureOpenAiKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiKey.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "7589104748043818788"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity — granted Key Vault Secrets User role."
+              }
+            },
+            "githubClientId": {
+              "type": "string",
+              "metadata": {
+                "description": "GitHub OAuth App Client ID — stored as a Key Vault secret."
+              }
+            },
+            "githubClientSecret": {
+              "type": "securestring",
+              "metadata": {
+                "description": "GitHub OAuth App Client Secret — stored as a Key Vault secret."
+              }
+            },
+            "sessionSecretKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Session encryption key (64+ character hex string) — stored as a Key Vault secret."
+              }
+            },
+            "encryptionKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Fernet encryption key for token-at-rest encryption — stored as a Key Vault secret."
+              }
+            },
+            "githubWebhookSecret": {
+              "type": "securestring",
+              "metadata": {
+                "description": "GitHub Webhook secret for verifying webhook payloads — stored as a Key Vault secret."
+              }
+            },
+            "azureOpenAiKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Azure OpenAI API key — stored as a Key Vault secret for backend use."
+              }
+            }
+          },
+          "variables": {
+            "keyVaultSecretsUserRoleId": "4633458b-17de-408a-b874-0445c86b69e6"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.KeyVault/vaults",
+              "apiVersion": "2023-07-01",
+              "name": "[format('kv-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "family": "A",
+                  "name": "standard"
+                },
+                "tenantId": "[subscription().tenantId]",
+                "enableRbacAuthorization": true,
+                "enablePurgeProtection": true,
+                "enableSoftDelete": true,
+                "softDeleteRetentionInDays": 90
+              },
+              "metadata": {
+                "description": "Azure Key Vault with RBAC authorization, purge protection, and 90-day soft-delete."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'github-client-id')]",
+              "properties": {
+                "value": "[parameters('githubClientId')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores GitHub Client ID in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'github-client-secret')]",
+              "properties": {
+                "value": "[parameters('githubClientSecret')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores GitHub Client Secret in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'session-secret-key')]",
+              "properties": {
+                "value": "[parameters('sessionSecretKey')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores session secret key in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'encryption-key')]",
+              "properties": {
+                "value": "[parameters('encryptionKey')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores encryption key in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'github-webhook-secret')]",
+              "properties": {
+                "value": "[parameters('githubWebhookSecret')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores GitHub webhook secret in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.KeyVault/vaults/secrets",
+              "apiVersion": "2023-07-01",
+              "name": "[format('{0}/{1}', format('kv-{0}', parameters('environmentName')), 'azure-openai-key')]",
+              "properties": {
+                "value": "[parameters('azureOpenAiKey')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Stores Azure OpenAI API key in Key Vault."
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]",
+              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName'))), parameters('identityPrincipalId'), variables('keyVaultSecretsUserRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('identityPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('keyVaultSecretsUserRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Assigns Key Vault Secrets User role to the managed identity."
+              }
+            }
+          ],
+          "outputs": {
+            "vaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Key Vault."
+              },
+              "value": "[format('kv-{0}', parameters('environmentName'))]"
+            },
+            "vaultUri": {
+              "type": "string",
+              "metadata": {
+                "description": "URI of the Key Vault."
+              },
+              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName'))), '2023-07-01').vaultUri]"
+            },
+            "vaultId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Key Vault — used by AI Foundry."
+              },
+              "value": "[resourceId('Microsoft.KeyVault/vaults', format('kv-{0}', parameters('environmentName')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]",
+        "[resourceId('Microsoft.Resources/deployments', 'openai')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "openai",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "identityPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityPrincipalId.value]"
+          },
+          "openAiModelName": {
+            "value": "[parameters('openAiModelName')]"
+          },
+          "deployCapacity": {
+            "value": "[parameters('deployCapacity')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "12935338330221785228"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity — granted Cognitive Services OpenAI User role."
+              }
+            },
+            "openAiModelName": {
+              "type": "string",
+              "defaultValue": "gpt-4o",
+              "metadata": {
+                "description": "Name for the Azure OpenAI model deployment."
+              }
+            },
+            "deployCapacity": {
+              "type": "int",
+              "defaultValue": 10,
+              "metadata": {
+                "description": "Azure OpenAI deployment capacity in thousands of tokens per minute."
+              }
+            }
+          },
+          "variables": {
+            "cognitiveServicesOpenAIUserRoleId": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2024-10-01",
+              "name": "[format('oai-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "OpenAI",
+              "sku": {
+                "name": "S0"
+              },
+              "properties": {
+                "customSubDomainName": "[format('oai-{0}', parameters('environmentName'))]",
+                "publicNetworkAccess": "Enabled"
+              },
+              "metadata": {
+                "description": "Azure OpenAI account (S0 SKU) for AI content generation."
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2024-10-01",
+              "name": "[format('{0}/{1}', format('oai-{0}', parameters('environmentName')), parameters('openAiModelName'))]",
+              "sku": {
+                "name": "Standard",
+                "capacity": "[parameters('deployCapacity')]"
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-4o",
+                  "version": "2024-08-06"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "GPT-4o model deployment within the Azure OpenAI account."
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName')))]",
+              "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName'))), parameters('identityPrincipalId'), variables('cognitiveServicesOpenAIUserRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('identityPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cognitiveServicesOpenAIUserRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Assigns Cognitive Services OpenAI User role to the managed identity."
+              }
+            }
+          ],
+          "outputs": {
+            "openAiEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure OpenAI endpoint URL."
+              },
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName'))), '2024-10-01').endpoint]"
+            },
+            "openAiDeploymentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the OpenAI model deployment."
+              },
+              "value": "[parameters('openAiModelName')]"
+            },
+            "openAiAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the OpenAI account — used by AI Foundry."
+              },
+              "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName')))]"
+            },
+            "openAiKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Primary access key for the Azure OpenAI account — stored in Key Vault for backend use."
+              },
+              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', format('oai-{0}', parameters('environmentName'))), '2024-10-01').key1]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "storage",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "identityPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "8821529750726754546"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity — granted Storage File Data SMB Share Contributor role."
+              }
+            }
+          },
+          "variables": {
+            "storageSmbContributorRoleId": "0c867c2a-1d8c-454a-a3db-ab2ea1bdc8bb"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "StorageV2",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "properties": {
+                "minimumTlsVersion": "TLS1_2",
+                "supportsHttpsTrafficOnly": true,
+                "allowBlobPublicAccess": false
+              },
+              "metadata": {
+                "description": "Storage Account (StorageV2, Standard_LRS) for Azure Files shares."
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]"
+              ],
+              "metadata": {
+                "description": "File service for the storage account."
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}/{2}', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default', 'solune-data')]",
+              "properties": {
+                "shareQuota": 1
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default')]"
+              ],
+              "metadata": {
+                "description": "Azure Files share for Solune SQLite database persistence (1 GiB)."
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}/{2}', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default', 'signal-config')]",
+              "properties": {
+                "shareQuota": 1
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')), 'default')]"
+              ],
+              "metadata": {
+                "description": "Azure Files share for Signal CLI configuration (1 GiB)."
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))), parameters('identityPrincipalId'), variables('storageSmbContributorRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('identityPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageSmbContributorRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]"
+              ],
+              "metadata": {
+                "description": "Assigns Storage File Data SMB Share Contributor role to the managed identity."
+              }
+            }
+          ],
+          "outputs": {
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the storage account."
+              },
+              "value": "[toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))]"
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the storage account — used by AI Foundry."
+              },
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', '')))]"
+            },
+            "storageAccountKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Access key for the storage account — used by Container Apps for Azure Files volume mounts."
+              },
+              "value": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(replace(format('st{0}', parameters('environmentName')), '-', ''))), '2023-05-01').keys[0].value]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "ai-foundry",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "identityPrincipalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityPrincipalId.value]"
+          },
+          "openAiAccountId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiAccountId.value]"
+          },
+          "keyVaultId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault'), '2025-04-01').outputs.vaultId.value]"
+          },
+          "storageAccountId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.storageAccountId.value]"
+          },
+          "appInsightsId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "7701957055423666856"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity — granted Azure AI Developer role."
+              }
+            },
+            "openAiAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Azure OpenAI account — linked as AI Services connection."
+              }
+            },
+            "keyVaultId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Key Vault — linked to AI Foundry Hub."
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Storage Account — linked to AI Foundry Hub."
+              }
+            },
+            "appInsightsId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Application Insights instance — linked to AI Foundry Hub."
+              }
+            }
+          },
+          "variables": {
+            "azureAIDeveloperRoleId": "64702f94-c441-49e6-a78b-ef80e0188fee"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.MachineLearningServices/workspaces",
+              "apiVersion": "2024-10-01",
+              "name": "[format('aih-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "Hub",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+              },
+              "properties": {
+                "friendlyName": "[format('Solune AI Hub ({0})', parameters('environmentName'))]",
+                "keyVault": "[parameters('keyVaultId')]",
+                "storageAccount": "[parameters('storageAccountId')]",
+                "applicationInsights": "[parameters('appInsightsId')]"
+              },
+              "metadata": {
+                "description": "AI Foundry Hub — central management workspace for AI resources."
+              }
+            },
+            {
+              "type": "Microsoft.MachineLearningServices/workspaces/connections",
+              "apiVersion": "2024-10-01",
+              "name": "[format('{0}/{1}', format('aih-{0}', parameters('environmentName')), 'aoai-connection')]",
+              "properties": {
+                "category": "AzureOpenAI",
+                "target": "[parameters('openAiAccountId')]",
+                "authType": "AAD",
+                "metadata": {
+                  "ApiType": "Azure",
+                  "ResourceId": "[parameters('openAiAccountId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('aih-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "AI Services connection to Azure OpenAI — links the OpenAI account to the Hub."
+              }
+            },
+            {
+              "type": "Microsoft.MachineLearningServices/workspaces",
+              "apiVersion": "2024-10-01",
+              "name": "[format('aip-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "Project",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "sku": {
+                "name": "Basic",
+                "tier": "Basic"
+              },
+              "properties": {
+                "friendlyName": "[format('Solune AI Project ({0})', parameters('environmentName'))]",
+                "hubResourceId": "[resourceId('Microsoft.MachineLearningServices/workspaces', format('aih-{0}', parameters('environmentName')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('aih-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "AI Foundry Project — feature-specific workspace linked to the Hub."
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.MachineLearningServices/workspaces', format('aip-{0}', parameters('environmentName')))]",
+              "name": "[guid(resourceId('Microsoft.MachineLearningServices/workspaces', format('aip-{0}', parameters('environmentName'))), parameters('identityPrincipalId'), variables('azureAIDeveloperRoleId'))]",
+              "properties": {
+                "principalId": "[parameters('identityPrincipalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('azureAIDeveloperRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.MachineLearningServices/workspaces', format('aip-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Assigns Azure AI Developer role to the managed identity on the AI Project."
+              }
+            }
+          ],
+          "outputs": {
+            "hubName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the AI Foundry Hub."
+              },
+              "value": "[format('aih-{0}', parameters('environmentName'))]"
+            },
+            "projectName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the AI Foundry Project."
+              },
+              "value": "[format('aip-{0}', parameters('environmentName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]",
+        "[resourceId('Microsoft.Resources/deployments', 'keyvault')]",
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
+        "[resourceId('Microsoft.Resources/deployments', 'openai')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storage')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "container-apps",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "identityId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityId.value]"
+          },
+          "identityClientId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityClientId.value]"
+          },
+          "registryLoginServer": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'registry'), '2025-04-01').outputs.registryLoginServer.value]"
+          },
+          "workspaceCustomerId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.workspaceCustomerId.value]"
+          },
+          "workspaceSharedKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.workspaceSharedKey.value]"
+          },
+          "vaultName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault'), '2025-04-01').outputs.vaultName.value]"
+          },
+          "openAiEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiEndpoint.value]"
+          },
+          "openAiDeploymentName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiDeploymentName.value]"
+          },
+          "storageAccountName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.storageAccountName.value]"
+          },
+          "storageAccountKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storage'), '2025-04-01').outputs.storageAccountKey.value]"
+          },
+          "adminGitHubUserId": {
+            "value": "[parameters('adminGitHubUserId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "11383453105530261384"
+            }
+          },
+          "parameters": {
+            "environmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the azd environment — used as a prefix for all resource names."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Tags to apply to all resources."
+              }
+            },
+            "identityId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the user-assigned managed identity."
+              }
+            },
+            "identityClientId": {
+              "type": "string",
+              "metadata": {
+                "description": "Client ID of the user-assigned managed identity — used for DefaultAzureCredential."
+              }
+            },
+            "registryLoginServer": {
+              "type": "string",
+              "metadata": {
+                "description": "Login server URL for the Azure Container Registry."
+              }
+            },
+            "workspaceCustomerId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace customer ID for Container Apps Environment."
+              }
+            },
+            "workspaceSharedKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Log Analytics Workspace shared key for Container Apps Environment."
+              }
+            },
+            "vaultName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Key Vault — used for secret references."
+              }
+            },
+            "openAiEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure OpenAI endpoint URL."
+              }
+            },
+            "openAiDeploymentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure OpenAI model deployment."
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the storage account — used for Azure Files volume mounts."
+              }
+            },
+            "storageAccountKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Storage account access key — used for Azure Files volume mounts."
+              }
+            },
+            "adminGitHubUserId": {
+              "type": "string",
+              "metadata": {
+                "description": "Admin GitHub user ID — passed to backend as ADMIN_GITHUB_USER_ID."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2024-03-01",
+              "name": "[format('cae-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[parameters('workspaceCustomerId')]",
+                    "sharedKey": "[parameters('workspaceSharedKey')]"
+                  }
+                },
+                "workloadProfiles": [
+                  {
+                    "name": "Consumption",
+                    "workloadProfileType": "Consumption"
+                  }
+                ]
+              },
+              "metadata": {
+                "description": "Container Apps Environment with managed VNet and Log Analytics integration."
+              }
+            },
+            {
+              "type": "Microsoft.App/managedEnvironments/storages",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}/{1}', format('cae-{0}', parameters('environmentName')), 'solune-data')]",
+              "properties": {
+                "azureFile": {
+                  "accountName": "[parameters('storageAccountName')]",
+                  "accountKey": "[parameters('storageAccountKey')]",
+                  "shareName": "solune-data",
+                  "accessMode": "ReadWrite"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Azure Files storage mount for solune-data share (SQLite persistence)."
+              }
+            },
+            {
+              "type": "Microsoft.App/managedEnvironments/storages",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}/{1}', format('cae-{0}', parameters('environmentName')), 'signal-config')]",
+              "properties": {
+                "azureFile": {
+                  "accountName": "[parameters('storageAccountName')]",
+                  "accountKey": "[parameters('storageAccountKey')]",
+                  "shareName": "signal-config",
+                  "accessMode": "ReadWrite"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Azure Files storage mount for signal-config share (Signal CLI state)."
+              }
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('ca-backend-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'backend'))]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('identityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "ingress": {
+                    "external": false,
+                    "targetPort": 8000,
+                    "transport": "http",
+                    "allowInsecure": true
+                  },
+                  "registries": [
+                    {
+                      "server": "[parameters('registryLoginServer')]",
+                      "identity": "[parameters('identityId')]"
+                    }
+                  ],
+                  "secrets": [
+                    {
+                      "name": "github-client-id",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/github-client-id', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "github-client-secret",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/github-client-secret', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "session-secret-key",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/session-secret-key', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "encryption-key",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/encryption-key', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "github-webhook-secret",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/github-webhook-secret', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    },
+                    {
+                      "name": "azure-openai-key",
+                      "keyVaultUrl": "[format('https://{0}{1}/secrets/azure-openai-key', parameters('vaultName'), environment().suffixes.keyvaultDns)]",
+                      "identity": "[parameters('identityId')]"
+                    }
+                  ]
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "backend",
+                      "image": "[format('{0}/solune-backend:latest', parameters('registryLoginServer'))]",
+                      "resources": {
+                        "cpu": "[json('1.0')]",
+                        "memory": "2Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "GITHUB_CLIENT_ID",
+                          "secretRef": "github-client-id"
+                        },
+                        {
+                          "name": "GITHUB_CLIENT_SECRET",
+                          "secretRef": "github-client-secret"
+                        },
+                        {
+                          "name": "SESSION_SECRET_KEY",
+                          "secretRef": "session-secret-key"
+                        },
+                        {
+                          "name": "ENCRYPTION_KEY",
+                          "secretRef": "encryption-key"
+                        },
+                        {
+                          "name": "GITHUB_WEBHOOK_SECRET",
+                          "secretRef": "github-webhook-secret"
+                        },
+                        {
+                          "name": "AZURE_OPENAI_KEY",
+                          "secretRef": "azure-openai-key"
+                        },
+                        {
+                          "name": "AI_PROVIDER",
+                          "value": "azure_openai"
+                        },
+                        {
+                          "name": "AZURE_OPENAI_ENDPOINT",
+                          "value": "[parameters('openAiEndpoint')]"
+                        },
+                        {
+                          "name": "AZURE_OPENAI_DEPLOYMENT",
+                          "value": "[parameters('openAiDeploymentName')]"
+                        },
+                        {
+                          "name": "AZURE_CLIENT_ID",
+                          "value": "[parameters('identityClientId')]"
+                        },
+                        {
+                          "name": "SIGNAL_API_URL",
+                          "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('ca-signal-{0}', parameters('environmentName'))), '2024-03-01').configuration.ingress.fqdn)]"
+                        },
+                        {
+                          "name": "FRONTEND_URL",
+                          "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('ca-frontend-{0}', parameters('environmentName'))), '2024-03-01').configuration.ingress.fqdn)]"
+                        },
+                        {
+                          "name": "CORS_ORIGINS",
+                          "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', format('ca-frontend-{0}', parameters('environmentName'))), '2024-03-01').configuration.ingress.fqdn)]"
+                        },
+                        {
+                          "name": "COOKIE_SECURE",
+                          "value": "true"
+                        },
+                        {
+                          "name": "DATABASE_PATH",
+                          "value": "/var/lib/solune/data/settings.db"
+                        },
+                        {
+                          "name": "HOST",
+                          "value": "0.0.0.0"
+                        },
+                        {
+                          "name": "PORT",
+                          "value": "8000"
+                        },
+                        {
+                          "name": "DEBUG",
+                          "value": "false"
+                        },
+                        {
+                          "name": "ADMIN_GITHUB_USER_ID",
+                          "value": "[parameters('adminGitHubUserId')]"
+                        }
+                      ],
+                      "volumeMounts": [
+                        {
+                          "volumeName": "solune-data",
+                          "mountPath": "/var/lib/solune/data"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/api/v1/health",
+                            "port": 8000
+                          },
+                          "initialDelaySeconds": 15,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/api/v1/health",
+                            "port": 8000
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 3
+                  },
+                  "volumes": [
+                    {
+                      "name": "solune-data",
+                      "storageType": "AzureFile",
+                      "storageName": "solune-data"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]",
+                "[resourceId('Microsoft.App/containerApps', format('ca-frontend-{0}', parameters('environmentName')))]",
+                "[resourceId('Microsoft.App/containerApps', format('ca-signal-{0}', parameters('environmentName')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('cae-{0}', parameters('environmentName')), 'solune-data')]"
+              ],
+              "metadata": {
+                "description": "Backend Container App — FastAPI service with Key Vault refs, Azure Files, and managed identity."
+              }
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('ca-frontend-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'frontend'))]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('identityId'))]": {}
+                }
+              },
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8080,
+                    "transport": "http"
+                  },
+                  "registries": [
+                    {
+                      "server": "[parameters('registryLoginServer')]",
+                      "identity": "[parameters('identityId')]"
+                    }
+                  ]
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "frontend",
+                      "image": "[format('{0}/solune-frontend:latest', parameters('registryLoginServer'))]",
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "BACKEND_ORIGIN",
+                          "value": "[format('http://ca-backend-{0}.internal.{1}', parameters('environmentName'), reference(resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName'))), '2024-03-01').defaultDomain)]"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 5,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 2
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]"
+              ],
+              "metadata": {
+                "description": "Frontend Container App — React/nginx with external ingress."
+              }
+            },
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[format('ca-signal-{0}', parameters('environmentName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[union(parameters('tags'), createObject('azd-service-name', 'signal-api'))]",
+              "properties": {
+                "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]",
+                "configuration": {
+                  "activeRevisionsMode": "Single",
+                  "ingress": {
+                    "external": false,
+                    "targetPort": 8080,
+                    "transport": "http",
+                    "allowInsecure": true
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "name": "signal-api",
+                      "image": "docker.io/bbernhard/signal-cli-rest-api:0.98",
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "env": [
+                        {
+                          "name": "MODE",
+                          "value": "json-rpc"
+                        },
+                        {
+                          "name": "DEFAULT_SIGNAL_TEXT_MODE",
+                          "value": "styled"
+                        }
+                      ],
+                      "volumeMounts": [
+                        {
+                          "volumeName": "signal-config",
+                          "mountPath": "/home/.local/share/signal-cli"
+                        }
+                      ],
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "httpGet": {
+                            "path": "/v1/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 15,
+                          "periodSeconds": 30
+                        },
+                        {
+                          "type": "Readiness",
+                          "httpGet": {
+                            "path": "/v1/health",
+                            "port": 8080
+                          },
+                          "initialDelaySeconds": 10,
+                          "periodSeconds": 10
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  },
+                  "volumes": [
+                    {
+                      "name": "signal-config",
+                      "storageType": "AzureFile",
+                      "storageName": "signal-config"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.App/managedEnvironments', format('cae-{0}', parameters('environmentName')))]",
+                "[resourceId('Microsoft.App/managedEnvironments/storages', format('cae-{0}', parameters('environmentName')), 'signal-config')]"
+              ],
+              "metadata": {
+                "description": "Signal API Container App — signal-cli-rest-api with internal ingress and Azure Files volume."
+              }
+            }
+          ],
+          "outputs": {
+            "frontendFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "External FQDN of the frontend Container App."
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-frontend-{0}', parameters('environmentName'))), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "backendFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "Internal FQDN of the backend Container App."
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-backend-{0}', parameters('environmentName'))), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "signalApiFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "Internal FQDN of the Signal API Container App."
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', format('ca-signal-{0}', parameters('environmentName'))), '2024-03-01').configuration.ingress.fqdn]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'identity')]",
+        "[resourceId('Microsoft.Resources/deployments', 'keyvault')]",
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
+        "[resourceId('Microsoft.Resources/deployments', 'openai')]",
+        "[resourceId('Microsoft.Resources/deployments', 'registry')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storage')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "frontendUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "External FQDN of the frontend Container App — primary user-facing URL."
+      },
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.frontendFqdn.value)]"
+    },
+    "backendInternalUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Internal FQDN of the backend Container App."
+      },
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.backendFqdn.value)]"
+    },
+    "signalApiInternalUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Internal FQDN of the Signal API Container App."
+      },
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.signalApiFqdn.value)]"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resource group."
+      },
+      "value": "[resourceGroup().name]"
+    },
+    "containerRegistryName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Azure Container Registry."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'registry'), '2025-04-01').outputs.registryName.value]"
+    },
+    "containerRegistryLoginServer": {
+      "type": "string",
+      "metadata": {
+        "description": "Login server URL for the ACR."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'registry'), '2025-04-01').outputs.registryLoginServer.value]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Key Vault."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'keyvault'), '2025-04-01').outputs.vaultName.value]"
+    },
+    "openAiEndpoint": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure OpenAI endpoint URL."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiEndpoint.value]"
+    },
+    "openAiDeploymentName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the OpenAI model deployment."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'openai'), '2025-04-01').outputs.openAiDeploymentName.value]"
+    },
+    "managedIdentityClientId": {
+      "type": "string",
+      "metadata": {
+        "description": "Client ID of the managed identity."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'identity'), '2025-04-01').outputs.identityClientId.value]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Log Analytics Workspace."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.workspaceId.value]"
+    },
+    "applicationInsightsConnectionString": {
+      "type": "string",
+      "metadata": {
+        "description": "Application Insights connection string."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsConnectionString.value]"
+    },
+    "aiFoundryHubName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AI Foundry Hub."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.hubName.value]"
+    },
+    "aiFoundryProjectName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the AI Foundry Project."
+      },
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.projectName.value]"
+    },
+    "oauthCallbackUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "OAuth callback URL — configure in GitHub OAuth App after deployment."
+      },
+      "value": "[format('https://{0}/api/v1/auth/github/callback', reference(resourceId('Microsoft.Resources/deployments', 'container-apps'), '2025-04-01').outputs.frontendFqdn.value)]"
+    }
+  }
+}
