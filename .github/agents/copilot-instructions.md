@@ -267,6 +267,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 ## Active Technologies
 - Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend) (001-human-agent-delay-until-auto-merge)
 - In-memory `PipelineState` dataclass (no database migration needed — `delay_seconds` stored in `PipelineAgentNode.config` dict) (001-human-agent-delay-until-auto-merge)
+- Python 3.11 + FastAPI, httpx, pydantic, asyncio (770-auto-merge-devops-retry)
+- PostgreSQL (via existing `chat_store`) + in-memory `BoundedDict` caches (770-auto-merge-devops-retry)
 
 ## Recent Changes
 - 001-human-agent-delay-until-auto-merge: Added Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend)

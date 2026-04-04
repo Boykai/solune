@@ -1,0 +1,213 @@
+# Auto-Merge Events Contract
+#
+# Internal event contract for WebSocket broadcasts and webhook handling
+# related to the auto-merge + DevOps retry pipeline.
+#
+# These are NOT public REST API endpoints — they are internal event schemas
+# exchanged via WebSocket broadcasts and webhook handler responses.
+
+openapi: "3.1.0"
+info:
+  title: Auto-Merge Events Contract
+  version: "1.0.0"
+  description: |
+    Internal event schemas for the auto-merge pipeline.
+    Events are broadcast via WebSocket to project subscribers
+    and returned as responses from webhook handlers.
+
+# ──────────────────────────────────────────────────────────
+# WebSocket Broadcast Events
+# ──────────────────────────────────────────────────────────
+
+components:
+  schemas:
+
+    # Broadcast when DevOps agent is dispatched for CI fix / merge conflict
+    DevOpsTriggeredEvent:
+      type: object
+      required: [type, issue_number, attempt]
+      properties:
+        type:
+          type: string
+          enum: [devops_triggered]
+        issue_number:
+          type: integer
+          description: Parent issue number
+        attempt:
+          type: integer
+          description: DevOps attempt number (1 or 2)
+          minimum: 1
+          maximum: 2
+
+    # Broadcast when auto-merge completes successfully
+    AutoMergeCompletedEvent:
+      type: object
+      required: [type, issue_number, pr_number]
+      properties:
+        type:
+          type: string
+          enum: [auto_merge_completed]
+        issue_number:
+          type: integer
+        pr_number:
+          type: integer
+          description: Merged PR number
+        merge_commit:
+          type: string
+          description: Merge commit SHA (optional)
+
+    # Broadcast when auto-merge fails permanently
+    AutoMergeFailedEvent:
+      type: object
+      required: [type, issue_number, reason]
+      properties:
+        type:
+          type: string
+          enum: [auto_merge_failed]
+        issue_number:
+          type: integer
+        reason:
+          type: string
+          description: Failure reason
+          enum:
+            - max_retries_reached
+            - merge_failed
+            - devops_cap_reached
+            - devops_timeout
+
+    # Broadcast when post-DevOps re-merge succeeds
+    PostDevOpsMergeCompletedEvent:
+      type: object
+      required: [type, issue_number, pr_number, devops_attempt]
+      properties:
+        type:
+          type: string
+          enum: [post_devops_merge_completed]
+        issue_number:
+          type: integer
+        pr_number:
+          type: integer
+        devops_attempt:
+          type: integer
+          description: Which DevOps attempt led to the fix
+
+    # ──────────────────────────────────────────────────────
+    # Webhook Handler Response Schemas
+    # ──────────────────────────────────────────────────────
+
+    # Response from handle_check_run_event()
+    CheckRunHandlerResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [processed, ignored]
+        reason:
+          type: string
+          description: Reason for ignoring (when status=ignored)
+          enum:
+            - action_not_completed
+            - conclusion_not_failure
+            - no_associated_prs
+        event:
+          type: string
+          enum: [check_run_failure]
+          description: Present when status=processed
+        check_name:
+          type: string
+          description: Name of the failed check run
+        conclusion:
+          type: string
+          enum: [failure, timed_out]
+        pr_numbers:
+          type: array
+          items:
+            type: integer
+        devops_dispatched:
+          type: boolean
+          description: Whether DevOps agent was dispatched (new field)
+
+    # Response from handle_check_suite_event()
+    CheckSuiteHandlerResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [processed, ignored]
+        reason:
+          type: string
+          description: Reason for ignoring (when status=ignored)
+          enum:
+            - action_not_completed
+            - conclusion_not_relevant
+            - no_associated_prs
+        event:
+          type: string
+          enum: [check_suite_failure, check_suite_success]
+          description: Present when status=processed
+        conclusion:
+          type: string
+          enum: [failure, success]
+        pr_numbers:
+          type: array
+          items:
+            type: integer
+        merge_attempted:
+          type: boolean
+          description: Whether auto-merge was attempted (new field, success path)
+
+    # ──────────────────────────────────────────────────────
+    # Internal Data Structures
+    # ──────────────────────────────────────────────────────
+
+    # AutoMergeResult dataclass (Python → used internally)
+    AutoMergeResult:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [merged, devops_needed, merge_failed, retry_later]
+        pr_number:
+          type: integer
+          nullable: true
+        merge_commit:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        context:
+          type: object
+          description: Additional context (failed_checks, reason, etc.)
+          properties:
+            reason:
+              type: string
+              enum: [ci_failure, conflicting, unknown]
+            failed_checks:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  conclusion:
+                    type: string
+
+    # Pipeline metadata DevOps fields
+    PipelineDevOpsMetadata:
+      type: object
+      properties:
+        devops_active:
+          type: boolean
+          description: True while DevOps agent is actively working
+        devops_attempts:
+          type: integer
+          description: Number of DevOps dispatches (max 2)
+          minimum: 0
+          maximum: 2
+        auto_merge:
+          type: boolean
+          description: Whether auto-merge is enabled for this pipeline
