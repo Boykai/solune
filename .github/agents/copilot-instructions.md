@@ -273,6 +273,8 @@ The Tools page exposes a **Preset Library** of built-in MCP server configuration
 - SQLite via aiosqlite (backend) (004-linting-cleanup)
 - Python ≥3.12 (target 3.13) for backend; TypeScript ~6.0.2 / React 19.2.0 for frontend + FastAPI, Pydantic, GitHub Copilot SDK (`copilot` package), `agent_framework_github_copilot`; React, TanStack Query, Tailwind CSS, Lucide Icons (545-model-reasoning-selection)
 - SQLite via aiosqlite for settings/session storage (545-model-reasoning-selection)
+- Bicep (Azure Bicep CLI latest) + ARM JSON (compiled output) + Azure Container Apps, Azure OpenAI, Azure AI Foundry, Azure Key Vault, Azure Container Registry, Azure Storage, Log Analytics, Application Insights (001-azure-deployment-bicep)
+- SQLite on Azure Files (solune-data share); Signal config on Azure Files (signal-config share) (001-azure-deployment-bicep)
 
 Canonical versions live in `solune/backend/pyproject.toml` and `solune/frontend/package.json`. See **Current Stack** above for the full dependency list.
 
