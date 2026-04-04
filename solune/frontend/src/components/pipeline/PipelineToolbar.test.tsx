@@ -32,7 +32,7 @@ describe('PipelineToolbar', () => {
       validationErrors: { name: 'Name is required' },
     });
 
-    const saveButton = screen.getByRole('button', { name: /save/i });
+    const saveButton = screen.getByRole('button', { name: 'Save, 1 validation error' });
     expect(saveButton).toBeDisabled();
     expect(screen.getByText('1')).toBeInTheDocument();
 
@@ -56,7 +56,9 @@ describe('PipelineToolbar', () => {
       validationErrors: { stages: 'At least one stage is required' },
     });
 
-    expect(screen.getByRole('button', { name: /save as copy/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Save as Copy, 1 validation error' })
+    ).toBeDisabled();
   });
 
   it('submits a trimmed save-as-copy name', async () => {

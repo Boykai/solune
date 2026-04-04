@@ -39,6 +39,10 @@ export function PipelineToolbar({
 
   const errorCount = Object.keys(validationErrors).length;
   const hasValidationErrors = errorCount > 0;
+  const validationErrorLabel =
+    errorCount === 0
+      ? ''
+      : `${errorCount} validation error${errorCount === 1 ? '' : 's'}`;
   const isSaveEnabled =
     !hasValidationErrors &&
     (boardState === 'creating' || (boardState === 'editing' && !isPreset));
@@ -81,6 +85,11 @@ export function PipelineToolbar({
             <Button
               variant="default"
               size="sm"
+              aria-label={
+                errorCount > 0
+                  ? `Save as Copy, ${validationErrorLabel}`
+                  : 'Save as Copy'
+              }
               onClick={() => {
                 setCopyName(`${pipelineName ?? ''} (Copy)`);
                 setShowCopyDialog(true);
@@ -90,7 +99,10 @@ export function PipelineToolbar({
               <Copy className="mr-1.5 h-3.5 w-3.5" />
               Save as Copy
               {errorCount > 0 && (
-                <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                <span
+                  className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+                  aria-hidden="true"
+                >
                   {errorCount}
                 </span>
               )}
@@ -147,6 +159,7 @@ export function PipelineToolbar({
           <Button
             variant="default"
             size="sm"
+            aria-label={errorCount > 0 ? `Save, ${validationErrorLabel}` : 'Save'}
             onClick={onSave}
             disabled={!isSaveEnabled || isSaving}
           >
@@ -157,7 +170,10 @@ export function PipelineToolbar({
             )}
             Save
             {errorCount > 0 && (
-              <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              <span
+                className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+                aria-hidden="true"
+              >
                 {errorCount}
               </span>
             )}
