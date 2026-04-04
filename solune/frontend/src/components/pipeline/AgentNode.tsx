@@ -4,7 +4,7 @@
  * For human agents, also shows a delay-until-auto-merge toggle with a duration badge.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { X, Wrench, Copy, CheckCircle2, XCircle, Loader2, Clock } from '@/lib/icons';
 
 export type AgentRunStatus = 'pending' | 'running' | 'completed' | 'failed';
@@ -78,16 +78,20 @@ export function AgentNode({
   const isHuman = agentNode.agent_slug === 'human';
   const currentDelay = agentNode.config?.delay_seconds;
   const hasDelay = typeof currentDelay === 'number' && currentDelay > 0;
+
+  // Track the previous external delay value to detect prop changes
+  const prevDelayRef = useRef(currentDelay);
   const [delayInputValue, setDelayInputValue] = useState<string>(
     hasDelay ? String(currentDelay) : '300',
   );
 
-  // Sync local input value when delay_seconds changes externally
-  useEffect(() => {
+  // Sync local input value when delay_seconds changes externally (not via effect)
+  if (currentDelay !== prevDelayRef.current) {
+    prevDelayRef.current = currentDelay;
     if (hasDelay) {
       setDelayInputValue(String(currentDelay));
     }
-  }, [currentDelay, hasDelay]);
+  }
 
   const handleDelayToggle = () => {
     if (!onConfigChange) return;

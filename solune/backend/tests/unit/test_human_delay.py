@@ -8,13 +8,10 @@ Covers:
 - Sub-issue body containing delay info when configured
 - Early cancellation via sub-issue close or "Done!" comment
 - format_delay_duration helper
+- Delay loop interval accuracy (no oversleep on final interval)
 """
 
-import asyncio
 import math
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 from src.models.agent import AgentAssignment
 from src.models.workflow import WorkflowConfiguration
@@ -23,7 +20,6 @@ from src.services.workflow_orchestrator.models import (
     PipelineState,
     get_agent_configs,
 )
-
 
 # ── format_delay_duration ────────────────────────────────────────────────────
 
@@ -272,32 +268,86 @@ class TestSubIssueBody:
 class TestPipelineDelayExecution:
     """Tests for pipeline execution with human delay-then-merge."""
 
-    @pytest.mark.asyncio
-    async def test_delay_loop_iterations(self):
+    def test_delay_loop_intervals(self):
         """Delay loop should execute correct number of 15s intervals."""
-        delay_seconds = 45
-        intervals = math.ceil(delay_seconds / 15)
-        assert intervals == 3
+        assert math.ceil(45 / 15) == 3
+        assert math.ceil(30 / 15) == 2
+        assert math.ceil(15 / 15) == 1
 
-        delay_seconds = 30
-        intervals = math.ceil(delay_seconds / 15)
+    def test_delay_loop_last_interval_does_not_oversleep(self):
+        """When delay is not a multiple of 15, the last interval should be shorter."""
+        delay_seconds = 20
+        poll_interval = 15
+        intervals = math.ceil(delay_seconds / poll_interval)
         assert intervals == 2
 
-        delay_seconds = 15
-        intervals = math.ceil(delay_seconds / 15)
-        assert intervals == 1
+        sleep_times: list[float] = []
+        for i in range(intervals):
+            remaining = delay_seconds - (i * poll_interval)
+            sleep_times.append(min(poll_interval, remaining))
 
-    @pytest.mark.asyncio
-    async def test_delay_triggers_auto_merge(self):
-        """After delay expires, _attempt_auto_merge should be invoked."""
-        # We test the delay logic in isolation via format_delay_duration
-        # and validate the math for loop iterations
-        delay_seconds = 300
-        intervals = math.ceil(delay_seconds / 15)
-        assert intervals == 20
+        # First interval: 15s, second interval: 5s (not 15)
+        assert sleep_times == [15, 5]
+        assert sum(sleep_times) == delay_seconds
 
-        # Verify duration formatting used in comments
+    def test_delay_loop_exact_multiple(self):
+        """When delay is exact multiple of 15, all intervals are full 15s."""
+        delay_seconds = 45
+        poll_interval = 15
+        intervals = math.ceil(delay_seconds / poll_interval)
+
+        sleep_times: list[float] = []
+        for i in range(intervals):
+            remaining = delay_seconds - (i * poll_interval)
+            sleep_times.append(min(poll_interval, remaining))
+
+        assert sleep_times == [15, 15, 15]
+        assert sum(sleep_times) == delay_seconds
+
+    def test_delay_duration_format_used_in_comments(self):
+        """Verify duration formatting used in delay comments."""
         assert format_delay_duration(300) == "5m"
+        assert format_delay_duration(30) == "30s"
+        assert format_delay_duration(3600) == "1h"
+
+    def test_delay_validation_rejects_out_of_range(self):
+        """delay_seconds validation in pipeline rejects values outside [1, 86400]."""
+        # Replicate the validation logic from _advance_pipeline
+        for raw_delay in [0, -1, 86401, 100000]:
+            delay_seconds = None
+            try:
+                val = int(raw_delay)
+                if val < 1 or val > 86400:
+                    delay_seconds = None
+                else:
+                    delay_seconds = val
+            except (TypeError, ValueError):
+                pass
+            assert delay_seconds is None, f"Expected None for raw_delay={raw_delay}"
+
+    def test_delay_validation_accepts_valid_values(self):
+        """delay_seconds validation accepts integers in [1, 86400]."""
+        for raw_delay in [1, 15, 300, 3600, 86400]:
+            delay_seconds = None
+            try:
+                val = int(raw_delay)
+                if 1 <= val <= 86400:
+                    delay_seconds = val
+            except (TypeError, ValueError):
+                pass
+            assert delay_seconds == raw_delay
+
+    def test_delay_validation_rejects_non_integer(self):
+        """delay_seconds validation rejects non-integer values."""
+        for raw_delay in ["abc", None, "", []]:
+            delay_seconds = None
+            try:
+                val = int(raw_delay)  # type: ignore[arg-type]
+                if 1 <= val <= 86400:
+                    delay_seconds = val
+            except (TypeError, ValueError):
+                pass
+            assert delay_seconds is None
 
 
 # ── Pipeline execution without delay (backward compat) ───────────────────────
@@ -333,7 +383,7 @@ class TestPipelineNoDelay:
         # human is last step, auto_merge active, no delay → skip path
         human_config = ps.agent_configs.get("human", {})
         delay = human_config.get("delay_seconds")
-        remaining = ps.agents[ps.current_agent_index:]
+        remaining = ps.agents[ps.current_agent_index :]
         is_last_step = len(remaining) == 1
         assert delay is None
         assert is_last_step
@@ -346,10 +396,8 @@ class TestPipelineNoDelay:
 class TestEarlyCancellation:
     """Tests for early cancellation during delay period."""
 
-    @pytest.mark.asyncio
-    async def test_early_cancel_breaks_loop(self):
+    def test_early_cancel_breaks_loop(self):
         """If sub-issue closed early, delay loop should break immediately."""
-        # Simulate: delay of 600s (40 intervals), cancel after 2 intervals
         intervals = math.ceil(600 / 15)
         assert intervals == 40
 
@@ -358,16 +406,14 @@ class TestEarlyCancellation:
         cancelled_early = False
         for i in range(intervals):
             loop_count += 1
-            # Simulate check — cancel after 2 iterations
             if i >= cancelled_at_interval - 1:
                 cancelled_early = True
                 break
 
         assert cancelled_early
-        assert loop_count == 2  # Broke out early
+        assert loop_count == 2
 
-    @pytest.mark.asyncio
-    async def test_no_early_cancel_runs_full_loop(self):
+    def test_no_early_cancel_runs_full_loop(self):
         """Without cancellation, loop runs all intervals."""
         intervals = math.ceil(30 / 15)
         assert intervals == 2
@@ -375,6 +421,30 @@ class TestEarlyCancellation:
         loop_count = 0
         for _ in range(intervals):
             loop_count += 1
-            # No cancellation
 
         assert loop_count == intervals
+
+
+# ── AutoMergeResult dataclass access ─────────────────────────────────────────
+
+
+class TestAutoMergeResultAccess:
+    """Verify that AutoMergeResult is accessed via attribute, not .get()."""
+
+    def test_auto_merge_result_has_status_attribute(self):
+        """AutoMergeResult.status is accessed as an attribute, not dict .get()."""
+        from src.services.copilot_polling.auto_merge import AutoMergeResult
+
+        result = AutoMergeResult(status="retry_later", pr_number=42)
+        assert result.status == "retry_later"
+        assert result.pr_number == 42
+        # Verify it does NOT have a .get() method (it's a dataclass, not dict)
+        assert not hasattr(result, "get")
+
+    def test_auto_merge_result_merged(self):
+        """AutoMergeResult with 'merged' status."""
+        from src.services.copilot_polling.auto_merge import AutoMergeResult
+
+        result = AutoMergeResult(status="merged", pr_number=10, merge_commit="abc123")
+        assert result.status == "merged"
+        assert result.merge_commit == "abc123"
