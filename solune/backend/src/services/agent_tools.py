@@ -820,6 +820,152 @@ def register_plan_tools() -> list:
     ]
 
 
+def register_plan_step_tools() -> list:
+    """Return step CRUD tools for agent-driven plan mutations.
+
+    These tools allow the agent to add, edit, and delete steps programmatically
+    using the same validation logic as the API endpoints.
+    """
+    return [
+        add_step,
+        edit_step,
+        delete_step,
+    ]
+
+
+# ── Plan Step CRUD tools (v2) ────────────────────────────────────────────
+
+
+@tool
+async def add_step(
+    context: FunctionInvocationContext,
+    plan_id: str,
+    title: str,
+    description: str,
+    dependencies: str = "[]",
+) -> ToolResult:
+    """Add a new step to an existing plan.
+
+    Args:
+        context: Agent function invocation context.
+        plan_id: The plan to add a step to.
+        title: Step title (max 256 chars).
+        description: Step description with acceptance criteria.
+        dependencies: JSON array of step_id strings this step depends on.
+    """
+    from src.services import chat_store
+
+    db: aiosqlite.Connection | None = context.session.state.get("db")
+    if db is None:
+        return ToolResult(content="Error: database connection not available.")
+
+    try:
+        deps = json.loads(dependencies) if isinstance(dependencies, str) else dependencies
+    except (json.JSONDecodeError, TypeError):
+        deps = []
+
+    try:
+        step = await chat_store.add_plan_step(
+            db, plan_id, title=title, description=description, dependencies=deps,
+        )
+    except ValueError as e:
+        return ToolResult(content=f"Error adding step: {e}")
+
+    if step is None:
+        return ToolResult(content=f"Error: plan {plan_id!r} not found.")
+
+    return ToolResult(
+        content=f"Added step '{title}' at position {step['position']}.",
+        action_type="step_add",
+        action_data=step,
+    )
+
+
+@tool
+async def edit_step(
+    context: FunctionInvocationContext,
+    plan_id: str,
+    step_id: str,
+    title: str = "",
+    description: str = "",
+    dependencies: str = "",
+) -> ToolResult:
+    """Edit an existing step in a plan.
+
+    Args:
+        context: Agent function invocation context.
+        plan_id: The plan containing the step.
+        step_id: The step to edit.
+        title: New title (empty = no change).
+        description: New description (empty = no change).
+        dependencies: JSON array of step_id strings (empty = no change).
+    """
+    from src.services import chat_store
+
+    db: aiosqlite.Connection | None = context.session.state.get("db")
+    if db is None:
+        return ToolResult(content="Error: database connection not available.")
+
+    new_title = title if title else None
+    new_desc = description if description else None
+    new_deps = None
+    if dependencies:
+        try:
+            new_deps = json.loads(dependencies) if isinstance(dependencies, str) else dependencies
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    try:
+        step = await chat_store.update_plan_step(
+            db, plan_id, step_id, title=new_title, description=new_desc, dependencies=new_deps,
+        )
+    except ValueError as e:
+        return ToolResult(content=f"Error updating step: {e}")
+
+    if step is None:
+        return ToolResult(content=f"Error: step {step_id!r} not found in plan {plan_id!r}.")
+
+    return ToolResult(
+        content=f"Updated step '{step['title']}'.",
+        action_type="step_edit",
+        action_data=step,
+    )
+
+
+@tool
+async def delete_step(
+    context: FunctionInvocationContext,
+    plan_id: str,
+    step_id: str,
+) -> ToolResult:
+    """Delete a step from a plan.
+
+    Args:
+        context: Agent function invocation context.
+        plan_id: The plan containing the step.
+        step_id: The step to delete.
+    """
+    from src.services import chat_store
+
+    db: aiosqlite.Connection | None = context.session.state.get("db")
+    if db is None:
+        return ToolResult(content="Error: database connection not available.")
+
+    try:
+        deleted = await chat_store.delete_plan_step(db, plan_id, step_id)
+    except ValueError as e:
+        return ToolResult(content=f"Error deleting step: {e}")
+
+    if not deleted:
+        return ToolResult(content=f"Error: step {step_id!r} not found in plan {plan_id!r}.")
+
+    return ToolResult(
+        content=f"Deleted step {step_id!r}.",
+        action_type="step_delete",
+        action_data={"step_id": step_id, "plan_id": plan_id},
+    )
+
+
 # ── App Builder tools ───────────────────────────────────────────────────
 
 

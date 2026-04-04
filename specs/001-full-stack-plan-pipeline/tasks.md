@@ -26,9 +26,9 @@
 
 **Purpose**: SDK upgrade and database schema migrations required by all user stories
 
-- [ ] T001 Upgrade `copilot-sdk>=1.0.17` (replace `github-copilot-sdk>=0.1.30,<1`) in solune/backend/pyproject.toml
-- [ ] T002 [P] Create migration 040_plan_versioning.sql adding `version` column to `chat_plans` and `chat_plan_versions` table in solune/backend/src/migrations/040_plan_versioning.sql
-- [ ] T003 [P] Create migration 041_plan_step_status.sql adding `approval_status` column to `chat_plan_steps` in solune/backend/src/migrations/041_plan_step_status.sql
+- [x] T001 Upgrade `copilot-sdk>=1.0.17` (replace `github-copilot-sdk>=0.1.30,<1`) in solune/backend/pyproject.toml
+- [x] T002 [P] Create migration 040_plan_versioning.sql adding `version` column to `chat_plans` and `chat_plan_versions` table in solune/backend/src/migrations/040_plan_versioning.sql
+- [x] T003 [P] Create migration 041_plan_step_status.sql adding `approval_status` column to `chat_plan_steps` in solune/backend/src/migrations/041_plan_step_status.sql
 
 ---
 
@@ -38,12 +38,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add `version: int` field (default 1) to Plan model in solune/backend/src/models/plan.py
-- [ ] T005 [P] Add PlanVersion model (version_id, plan_id, version, title, summary, steps_json, created_at) in solune/backend/src/models/plan.py
-- [ ] T006 [P] Add StepApprovalStatus enum (`pending`/`approved`/`rejected`) and `approval_status` field to PlanStep model in solune/backend/src/models/plan.py
-- [ ] T007 Implement `snapshot_plan_version()` to save current plan state to `chat_plan_versions` in solune/backend/src/services/chat_store.py
-- [ ] T008 [P] Implement `get_plan_versions()` to query version history for a plan in solune/backend/src/services/chat_store.py
-- [ ] T009 [P] Add v2 types (PlanVersion, StepApprovalStatus, StepCreateRequest, StepUpdateRequest, StepReorderRequest, StepApprovalRequest, StepFeedbackRequest/Response, enhanced SSE event types, DependencyGraph types) to solune/frontend/src/types/index.ts
+- [x] T004 Add `version: int` field (default 1) to Plan model in solune/backend/src/models/plan.py
+- [x] T005 [P] Add PlanVersion model (version_id, plan_id, version, title, summary, steps_json, created_at) in solune/backend/src/models/plan.py
+- [x] T006 [P] Add StepApprovalStatus enum (`pending`/`approved`/`rejected`) and `approval_status` field to PlanStep model in solune/backend/src/models/plan.py
+- [x] T007 Implement `snapshot_plan_version()` to save current plan state to `chat_plan_versions` in solune/backend/src/services/chat_store.py
+- [x] T008 [P] Implement `get_plan_versions()` to query version history for a plan in solune/backend/src/services/chat_store.py
+- [x] T009 [P] Add v2 types (PlanVersion, StepApprovalStatus, StepCreateRequest, StepUpdateRequest, StepReorderRequest, StepApprovalRequest, StepFeedbackRequest/Response, enhanced SSE event types, DependencyGraph types) to solune/frontend/src/types/index.ts
 
 **Checkpoint**: Foundation ready — user story implementation can now begin in parallel
 
@@ -59,36 +59,36 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US1] Create unit tests for plan agent profiles, create_plan_session(), and session hooks in solune/backend/tests/unit/test_plan_agent_provider.py
-- [ ] T011 [P] [US1] Create unit tests for pipeline orchestrator stage sequencing, parallel groups, and sub-agent event handling in solune/backend/tests/unit/test_pipeline_orchestrator.py
+- [x] T010 [P] [US1] Create unit tests for plan agent profiles, create_plan_session(), and session hooks in solune/backend/tests/unit/test_plan_agent_provider.py
+- [x] T011 [P] [US1] Create unit tests for pipeline orchestrator stage sequencing, parallel groups, and sub-agent event handling in solune/backend/tests/unit/test_pipeline_orchestrator.py
 
 ### Implementation for User Story 1
 
 #### Step 0A: Upgrade SDK + Define Plan Agent Profile
 
-- [ ] T012 [P] [US1] Define PLAN_AGENT_PROFILE (name: `solune-plan`, tool whitelist: `get_project_context`, `get_pipeline_list`, `save_plan`, PLAN_SYSTEM_INSTRUCTIONS prompt) and SPECKIT_AGENT_PROFILES for each pipeline stage in solune/backend/src/services/plan_agent_provider.py
-- [ ] T013 [US1] Implement `create_plan_session()` factory wrapping `CopilotClient.create_session(custom_agents=[...])` in solune/backend/src/services/plan_agent_provider.py
-- [ ] T014 [US1] Update `create_agent()` to route plan mode to SDK custom agent sessions via `create_plan_session()` in solune/backend/src/services/agent_provider.py
+- [x] T012 [P] [US1] Define PLAN_AGENT_PROFILE (name: `solune-plan`, tool whitelist: `get_project_context`, `get_pipeline_list`, `save_plan`, PLAN_SYSTEM_INSTRUCTIONS prompt) and SPECKIT_AGENT_PROFILES for each pipeline stage in solune/backend/src/services/plan_agent_provider.py
+- [x] T013 [US1] Implement `create_plan_session()` factory wrapping `CopilotClient.create_session(custom_agents=[...])` in solune/backend/src/services/plan_agent_provider.py
+- [x] T014 [US1] Update `create_agent()` to route plan mode to SDK custom agent sessions via `create_plan_session()` in solune/backend/src/services/agent_provider.py
 
 #### Step 0B: Session Hooks for Plan Versioning
 
-- [ ] T015 [US1] Register `on_pre_tool_use` hook: when `toolName == "save_plan"`, call `snapshot_plan_version()` to save current plan state in solune/backend/src/services/plan_agent_provider.py
-- [ ] T016 [US1] Register `on_post_tool_use` hook: after `save_plan` completes, emit `plan_diff` delta as SSE event in solune/backend/src/services/plan_agent_provider.py
+- [x] T015 [US1] Register `on_pre_tool_use` hook: when `toolName == "save_plan"`, call `snapshot_plan_version()` to save current plan state in solune/backend/src/services/plan_agent_provider.py
+- [x] T016 [US1] Register `on_post_tool_use` hook: after `save_plan` completes, emit `plan_diff` delta as SSE event in solune/backend/src/services/plan_agent_provider.py
 
 #### Step 0C: Sub-Agent Pipeline Orchestrator
 
-- [ ] T017 [US1] Create pipeline_orchestrator.py: sequence speckit agents via SDK sessions, listen for `subagent.completed/failed` to drive stage transitions, support parallel groups via `asyncio.gather()`, emit `stage_started/completed/failed` SSE events in solune/backend/src/services/pipeline_orchestrator.py
-- [ ] T018 [US1] Wire pipeline orchestrator into chat_agent.py for pipeline-mode execution in solune/backend/src/services/chat_agent.py
+- [x] T017 [US1] Create pipeline_orchestrator.py: sequence speckit agents via SDK sessions, listen for `subagent.completed/failed` to drive stage transitions, support parallel groups via `asyncio.gather()`, emit `stage_started/completed/failed` SSE events in solune/backend/src/services/pipeline_orchestrator.py
+- [x] T018 [US1] Wire pipeline orchestrator into chat_agent.py for pipeline-mode execution in solune/backend/src/services/chat_agent.py
 
 #### Step 0D: Streaming Event Upgrade
 
-- [ ] T019 [US1] Map SDK events to enhanced SSE (`assistant.reasoning_delta` → `reasoning`, `tool.execution_start` → `tool_start`, `assistant.intent` → enhanced `thinking`, `subagent.*` → `stage_*`) preserving backward compatibility in solune/backend/src/services/chat_agent.py
-- [ ] T020 [US1] Update completion_providers.py for SDK v1.0.17 compatibility in solune/backend/src/services/completion_providers.py
+- [x] T019 [US1] Map SDK events to enhanced SSE (`assistant.reasoning_delta` → `reasoning`, `tool.execution_start` → `tool_start`, `assistant.intent` → enhanced `thinking`, `subagent.*` → `stage_*`) preserving backward compatibility in solune/backend/src/services/chat_agent.py
+- [x] T020 [US1] Update completion_providers.py for SDK v1.0.17 compatibility in solune/backend/src/services/completion_providers.py
 
 #### Frontend: Enhanced Thinking + Streaming
 
-- [ ] T021 [P] [US1] Update ThinkingIndicator.tsx to handle new event types (`reasoning`, `tool_start`, `stage_started/completed/failed`) with progressive disclosure in solune/frontend/src/components/chat/ThinkingIndicator.tsx
-- [ ] T022 [US1] Add reasoning stream display and pipeline stage progress bar driven by `stage_*` events in solune/frontend/src/components/chat/PlanPreview.tsx
+- [x] T021 [P] [US1] Update ThinkingIndicator.tsx to handle new event types (`reasoning`, `tool_start`, `stage_started/completed/failed`) with progressive disclosure in solune/frontend/src/components/chat/ThinkingIndicator.tsx
+- [x] T022 [US1] Add reasoning stream display and pipeline stage progress bar driven by `stage_*` events in solune/frontend/src/components/chat/PlanPreview.tsx
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently — plan mode uses dedicated SDK custom agents with tool whitelists, session hooks auto-snapshot versions, pipeline orchestrator drives stage transitions, and enhanced SSE events stream to the frontend.
 
@@ -104,26 +104,26 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T023 [P] [US2] Add plan versioning unit tests (snapshot creation, version increment, get_plan_versions ordering) to solune/backend/tests/unit/test_plan_store.py
-- [ ] T024 [P] [US2] Add history and feedback endpoint tests (GET /plans/{plan_id}/history, POST /plans/{plan_id}/steps/{step_id}/feedback) to solune/backend/tests/unit/test_api_chat.py
+- [x] T023 [P] [US2] Add plan versioning unit tests (snapshot creation, version increment, get_plan_versions ordering) to solune/backend/tests/unit/test_plan_store.py
+- [x] T024 [P] [US2] Add history and feedback endpoint tests (GET /plans/{plan_id}/history, POST /plans/{plan_id}/steps/{step_id}/feedback) to solune/backend/tests/unit/test_api_chat.py
 
 ### Implementation for User Story 2
 
 #### Backend: History + Feedback Endpoints
 
-- [ ] T025 [US2] Implement `GET /plans/{plan_id}/history` endpoint returning version snapshots ordered by version descending in solune/backend/src/api/chat.py
-- [ ] T026 [P] [US2] Implement `POST /plans/{plan_id}/steps/{step_id}/feedback` endpoint routing feedback to SDK `on_user_input_request` handler in solune/backend/src/api/chat.py
+- [x] T025 [US2] Implement `GET /plans/{plan_id}/history` endpoint returning version snapshots ordered by version descending in solune/backend/src/api/chat.py
+- [x] T026 [P] [US2] Implement `POST /plans/{plan_id}/steps/{step_id}/feedback` endpoint routing feedback to SDK `on_user_input_request` handler in solune/backend/src/api/chat.py
 
 #### Backend: Refinement Prompt
 
-- [ ] T027 [US2] Enhance PLAN_SYSTEM_INSTRUCTIONS with version-history awareness (current version number, change summary) and per-step comment injection in solune/backend/src/prompts/plan_instructions.py
+- [x] T027 [US2] Enhance PLAN_SYSTEM_INSTRUCTIONS with version-history awareness (current version number, change summary) and per-step comment injection in solune/backend/src/prompts/plan_instructions.py
 
 #### Frontend: Version History + Feedback UI
 
-- [ ] T028 [P] [US2] Add `getPlanHistory()` and `submitStepFeedback()` API calls to solune/frontend/src/services/api.ts
-- [ ] T029 [P] [US2] Add feedback mutation (`useSubmitStepFeedback`) and version history query (`usePlanHistory`) to solune/frontend/src/hooks/usePlan.ts
-- [ ] T030 [US2] Add refinement sidebar with "Request Changes" button → inline per-step comment input + handle elicitation SSE events in solune/frontend/src/components/chat/PlanPreview.tsx
-- [ ] T031 [US2] Implement version selector and client-side diff rendering between version snapshots in solune/frontend/src/components/chat/PlanPreview.tsx
+- [x] T028 [P] [US2] Add `getPlanHistory()` and `submitStepFeedback()` API calls to solune/frontend/src/services/api.ts
+- [x] T029 [P] [US2] Add feedback mutation (`useSubmitStepFeedback`) and version history query (`usePlanHistory`) to solune/frontend/src/hooks/usePlan.ts
+- [x] T030 [US2] Add refinement sidebar with "Request Changes" button → inline per-step comment input + handle elicitation SSE events in solune/frontend/src/components/chat/PlanPreview.tsx
+- [x] T031 [US2] Implement version selector and client-side diff rendering between version snapshots in solune/frontend/src/components/chat/PlanPreview.tsx
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently — plan versions are automatically tracked, history is viewable with diffs, and step-level feedback flows through SDK elicitation.
 
@@ -139,39 +139,39 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T032 [P] [US3] Add step CRUD and DAG validation unit tests (add/update/delete step, cycle detection, reorder) to solune/backend/tests/unit/test_plan_store.py
-- [ ] T033 [P] [US3] Add step CRUD, reorder, and approval endpoint tests (POST/PATCH/DELETE steps, reorder, approve) to solune/backend/tests/unit/test_api_chat.py
+- [x] T032 [P] [US3] Add step CRUD and DAG validation unit tests (add/update/delete step, cycle detection, reorder) to solune/backend/tests/unit/test_plan_store.py
+- [x] T033 [P] [US3] Add step CRUD, reorder, and approval endpoint tests (POST/PATCH/DELETE steps, reorder, approve) to solune/backend/tests/unit/test_api_chat.py
 
 ### Implementation for User Story 3
 
 #### Backend: Step CRUD Store Methods
 
-- [ ] T034 [US3] Implement `add_plan_step()` with position auto-assignment and DAG validation in solune/backend/src/services/chat_store.py
-- [ ] T035 [P] [US3] Implement `update_plan_step()` with DAG re-validation after update in solune/backend/src/services/chat_store.py
-- [ ] T036 [P] [US3] Implement `delete_plan_step()` with cascade removal from other steps' dependency lists and position re-indexing in solune/backend/src/services/chat_store.py
-- [ ] T037 [US3] Implement `validate_dag()` using Kahn's algorithm for topological sort (O(V+E) cycle detection) in solune/backend/src/services/chat_store.py
-- [ ] T038 [US3] Implement `reorder_plan_steps()` with DAG re-validation in solune/backend/src/services/chat_store.py
+- [x] T034 [US3] Implement `add_plan_step()` with position auto-assignment and DAG validation in solune/backend/src/services/chat_store.py
+- [x] T035 [P] [US3] Implement `update_plan_step()` with DAG re-validation after update in solune/backend/src/services/chat_store.py
+- [x] T036 [P] [US3] Implement `delete_plan_step()` with cascade removal from other steps' dependency lists and position re-indexing in solune/backend/src/services/chat_store.py
+- [x] T037 [US3] Implement `validate_dag()` using Kahn's algorithm for topological sort (O(V+E) cycle detection) in solune/backend/src/services/chat_store.py
+- [x] T038 [US3] Implement `reorder_plan_steps()` with DAG re-validation in solune/backend/src/services/chat_store.py
 
 #### Backend: Step CRUD API Endpoints
 
-- [ ] T039 [US3] Implement `POST /plans/{plan_id}/steps` endpoint (add step, 201 on success, 400 on DAG violation, 409 if not draft) in solune/backend/src/api/chat.py
-- [ ] T040 [P] [US3] Implement `PATCH /plans/{plan_id}/steps/{step_id}` endpoint (update step, re-validate DAG) in solune/backend/src/api/chat.py
-- [ ] T041 [P] [US3] Implement `DELETE /plans/{plan_id}/steps/{step_id}` endpoint (delete step, cascade dep removal, 204) in solune/backend/src/api/chat.py
-- [ ] T042 [US3] Implement `POST /plans/{plan_id}/steps/reorder` endpoint with DAG re-validation in solune/backend/src/api/chat.py
-- [ ] T043 [US3] Implement `POST /plans/{plan_id}/steps/{step_id}/approve` endpoint for per-step approval status in solune/backend/src/api/chat.py
+- [x] T039 [US3] Implement `POST /plans/{plan_id}/steps` endpoint (add step, 201 on success, 400 on DAG violation, 409 if not draft) in solune/backend/src/api/chat.py
+- [x] T040 [P] [US3] Implement `PATCH /plans/{plan_id}/steps/{step_id}` endpoint (update step, re-validate DAG) in solune/backend/src/api/chat.py
+- [x] T041 [P] [US3] Implement `DELETE /plans/{plan_id}/steps/{step_id}` endpoint (delete step, cascade dep removal, 204) in solune/backend/src/api/chat.py
+- [x] T042 [US3] Implement `POST /plans/{plan_id}/steps/reorder` endpoint with DAG re-validation in solune/backend/src/api/chat.py
+- [x] T043 [US3] Implement `POST /plans/{plan_id}/steps/{step_id}/approve` endpoint for per-step approval status in solune/backend/src/api/chat.py
 
 #### Backend: Agent Tools
 
-- [ ] T044 [US3] Register `@define_tool` functions for `add_step`, `edit_step`, `delete_step` applying same CRUD and validation logic in solune/backend/src/services/agent_tools.py
+- [x] T044 [US3] Register `@define_tool` functions for `add_step`, `edit_step`, `delete_step` applying same CRUD and validation logic in solune/backend/src/services/agent_tools.py
 
 #### Frontend: Step CRUD + Graph UI
 
-- [ ] T045 [P] [US3] Add step CRUD (`addStep`, `updateStep`, `deleteStep`), reorder (`reorderSteps`), and approve (`approveStep`) API calls to solune/frontend/src/services/api.ts
-- [ ] T046 [P] [US3] Add step CRUD mutations (`useAddStep`, `useUpdateStep`, `useDeleteStep`, `useReorderSteps`, `useApproveStep`) with optimistic updates to solune/frontend/src/hooks/usePlan.ts
-- [ ] T047 [US3] Implement click-to-edit inline editing for step title/description in solune/frontend/src/components/chat/PlanPreview.tsx
-- [ ] T048 [US3] Implement drag-and-drop step reorder with `@dnd-kit` integration in solune/frontend/src/components/chat/PlanPreview.tsx
-- [ ] T049 [US3] Add per-step approve/reject UI buttons with approval status visual indicators in solune/frontend/src/components/chat/PlanPreview.tsx
-- [ ] T050 [US3] Create PlanDependencyGraph.tsx component rendering DAG with step nodes, dependency edges, and approval status visual distinction in solune/frontend/src/components/chat/PlanDependencyGraph.tsx
+- [x] T045 [P] [US3] Add step CRUD (`addStep`, `updateStep`, `deleteStep`), reorder (`reorderSteps`), and approve (`approveStep`) API calls to solune/frontend/src/services/api.ts
+- [x] T046 [P] [US3] Add step CRUD mutations (`useAddStep`, `useUpdateStep`, `useDeleteStep`, `useReorderSteps`, `useApproveStep`) with optimistic updates to solune/frontend/src/hooks/usePlan.ts
+- [x] T047 [US3] Implement click-to-edit inline editing for step title/description in solune/frontend/src/components/chat/PlanPreview.tsx
+- [x] T048 [US3] Implement drag-and-drop step reorder with `@dnd-kit` integration in solune/frontend/src/components/chat/PlanPreview.tsx
+- [x] T049 [US3] Add per-step approve/reject UI buttons with approval status visual indicators in solune/frontend/src/components/chat/PlanPreview.tsx
+- [x] T050 [US3] Create PlanDependencyGraph.tsx component rendering DAG with step nodes, dependency edges, and approval status visual distinction in solune/frontend/src/components/chat/PlanDependencyGraph.tsx
 
 **Checkpoint**: All core user stories (1–3) should now be independently functional — step CRUD with DAG validation, visual dependency graph, per-step approval, and agent-driven step mutations all work.
 
@@ -185,11 +185,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T051 [P] [US4] Create CLI plugin manifest (`plugin.json`) with plan agent metadata in solune/cli-plugin/plugin.json
-- [ ] T052 [P] [US4] Create plan agent definition for CLI in solune/cli-plugin/agents/solune-plan.agent.md
-- [ ] T053 [P] [US4] Create plan CRUD skill definition in solune/cli-plugin/skills/plan-crud/SKILL.md
-- [ ] T054 [P] [US4] Create hook configuration for CLI integration in solune/cli-plugin/hooks/hooks.json
-- [ ] T055 [P] [US4] Create MCP server configuration for CLI integration in solune/cli-plugin/.mcp.json
+- [x] T051 [P] [US4] Create CLI plugin manifest (`plugin.json`) with plan agent metadata in solune/cli-plugin/plugin.json
+- [x] T052 [P] [US4] Create plan agent definition for CLI in solune/cli-plugin/agents/solune-plan.agent.md
+- [x] T053 [P] [US4] Create plan CRUD skill definition in solune/cli-plugin/skills/plan-crud/SKILL.md
+- [x] T054 [P] [US4] Create hook configuration for CLI integration in solune/cli-plugin/hooks/hooks.json
+- [x] T055 [P] [US4] Create MCP server configuration for CLI integration in solune/cli-plugin/.mcp.json
 - [ ] T056 [US4] Implement optional `--acp` mode exposing plan pipeline via Agent Client Protocol with `ExternalServerConfig(url=...)` for containerized deployments in solune/backend/src/services/plan_agent_provider.py
 
 **Checkpoint**: CLI plugin is installable and ACP server provides integration endpoint for external tools. Depends on Phases 3–5 (US1 + US2 + US3) being complete.
@@ -200,7 +200,7 @@
 
 **Purpose**: Improvements that affect multiple user stories and final verification
 
-- [ ] T057 [P] Implement `GET /plans/{plan_id}/export?format=markdown|github_issues` endpoint in solune/backend/src/api/chat.py
+- [x] T057 [P] Implement `GET /plans/{plan_id}/export?format=markdown|github_issues` endpoint in solune/backend/src/api/chat.py
 - [ ] T058 [P] Implement board sync — after plan approval, sync step status changes to project board columns in solune/backend/src/services/chat_store.py
 - [ ] T059 Add batch operations (select multiple steps → bulk approve/reject/delete, bulk dependency assignment) to solune/backend/src/api/chat.py
 - [ ] T060 [P] Run backend coverage validation: `cd solune/backend && uv run pytest tests/unit/ --cov=src --cov-fail-under=75`
