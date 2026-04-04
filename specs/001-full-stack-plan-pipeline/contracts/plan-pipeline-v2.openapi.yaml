@@ -98,7 +98,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PlanHistoryResponse"
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanVersion"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -393,20 +395,6 @@ components:
           type: string
           format: date-time
 
-    PlanHistoryResponse:
-      type: object
-      required: [plan_id, current_version, versions]
-      properties:
-        plan_id:
-          type: string
-          format: uuid
-        current_version:
-          type: integer
-        versions:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlanVersion"
-
     PlanUpdateRequest:
       type: object
       properties:
@@ -515,20 +503,15 @@ components:
 
     StepReorderRequest:
       type: object
-      required: [step_order]
+      required: [step_ids]
       properties:
-        step_order:
+        step_ids:
           type: array
+          description: Ordered list of step_ids defining new positions
           items:
-            type: object
-            required: [step_id, position]
-            properties:
-              step_id:
-                type: string
-                format: uuid
-              position:
-                type: integer
-                minimum: 0
+            type: string
+            format: uuid
+          minItems: 1
 
     StepApprovalRequest:
       type: object
