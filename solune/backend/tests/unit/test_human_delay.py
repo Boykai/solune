@@ -1179,6 +1179,82 @@ class TestAdvancePipelineDelayValidation:
                 assert len(skip_broadcasts) >= 1
 
 
+class TestAdvancePipelineDelayNonLastStep:
+    """Test delay path when human is NOT the last step (pipeline continues)."""
+
+    @pytest.mark.asyncio
+    async def test_delay_path_advances_to_next_agent_when_not_last(self):
+        """After delay completes with human not last, next_agent should be the
+        following agent (not 'human' again)."""
+        from src.services.copilot_polling.auto_merge import AutoMergeResult
+
+        pipeline = _make_pipeline_state(
+            agents=["copilot", "human", "speckit.implement"],
+            agent_configs={"human": {"delay_seconds": 15}},
+        )
+
+        stack, _mock_gps, _mock_conn = _base_pipeline_patches()
+        with stack:
+            # Mock the orchestrator assignment path that runs AFTER delay
+            mock_orchestrator = MagicMock()
+            mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+            mock_orchestrator._update_agent_tracking_state = AsyncMock()
+
+            with (
+                patch(f"{_PIPELINE_MOD}.asyncio.sleep", new_callable=AsyncMock),
+                patch(
+                    f"{_HELPERS_MOD}._check_human_agent_done",
+                    new_callable=AsyncMock,
+                    return_value=False,
+                ),
+                patch(
+                    f"{_AUTO_MERGE_MOD}._attempt_auto_merge",
+                    new_callable=AsyncMock,
+                    return_value=AutoMergeResult(status="merged", pr_number=10),
+                ),
+                patch(f"{_CP}.get_workflow_orchestrator", return_value=mock_orchestrator),
+                patch(f"{_CP}.WorkflowContext") as mock_ctx_cls,
+                patch(
+                    f"{_CP}.get_workflow_config",
+                    new_callable=AsyncMock,
+                    return_value=MagicMock(),
+                ),
+                patch(
+                    f"{_PIPELINE_MOD}._wait_if_rate_limited",
+                    new_callable=AsyncMock,
+                    return_value=False,
+                ),
+            ):
+                mock_ctx_cls.return_value = MagicMock()
+                mock_ctx_cls.return_value.config = None
+
+                from src.services.copilot_polling.pipeline import _advance_pipeline
+
+                await _advance_pipeline(
+                    access_token="tok",
+                    project_id="PVT_test",
+                    item_id="item1",
+                    owner="test-owner",
+                    repo="test-repo",
+                    issue_number=42,
+                    issue_node_id=None,
+                    pipeline=pipeline,
+                    from_status="In Progress",
+                    to_status="Done",
+                    task_title="Test task",
+                )
+
+                # Human completed and pipeline advanced
+                assert "human" in pipeline.completed_agents
+                # Pipeline should NOT be complete — speckit.implement is still pending
+                assert not pipeline.is_complete
+                # The orchestrator assign call should reference the updated index (2),
+                # NOT index 1 (human). This validates the next_agent recomputation.
+                assign_calls = mock_orchestrator.assign_agent_for_status.call_args_list
+                assert len(assign_calls) == 1
+                assert assign_calls[0].kwargs.get("agent_index") == 2
+
+
 # ══════════════════════════════════════════════════════════════════
 # Pipeline state store round-trip — agent_configs
 # ══════════════════════════════════════════════════════════════════
