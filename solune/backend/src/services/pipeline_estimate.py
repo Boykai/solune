@@ -12,7 +12,7 @@ for testing).
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from math import ceil
 
 from src.logging_utils import get_logger
@@ -79,7 +79,7 @@ def estimate_from_agent_count(
 
     estimate_hours = max(0.5, min(8.0, agent_count * 0.25))
     size = size_from_hours(estimate_hours)
-    _today = today or date.today()
+    _today = today or datetime.now(timezone.utc).date()
     start_date = _today.isoformat()
     days = max(1, ceil(estimate_hours / HOURS_PER_DAY))
     target_date = (_today + timedelta(days=days)).isoformat()
