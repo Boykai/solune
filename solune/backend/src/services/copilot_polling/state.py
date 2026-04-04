@@ -6,6 +6,7 @@ import asyncio
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from src.logging_utils import get_logger
 from src.utils import BoundedDict, BoundedSet
@@ -206,6 +207,14 @@ _pending_auto_merge_retries: BoundedDict[int, int] = BoundedDict(
 )  # issue_number -> attempt count so far
 MAX_AUTO_MERGE_RETRIES: int = 3
 AUTO_MERGE_RETRY_BASE_DELAY: float = 60.0  # seconds; doubles each attempt
+
+# Post-DevOps merge retry: after DevOps agent is dispatched, poll for the
+# "Done!" completion marker and re-attempt auto-merge.
+_pending_post_devops_retries: BoundedDict[int, dict[str, Any]] = BoundedDict(
+    maxlen=200
+)  # issue_number -> retry context dict
+POST_DEVOPS_POLL_INTERVAL: float = 120.0  # seconds between polls
+POST_DEVOPS_MAX_POLLS: int = 30  # max poll iterations (~1 hour)
 
 # Delay (seconds) after merging / before status updates to let GitHub sync.
 POST_ACTION_DELAY_SECONDS: float = 2.0
