@@ -2371,7 +2371,7 @@ def _safe_validation_detail(exc: ValueError) -> str:
     Returns a hardcoded message when the exception matches a known prefix;
     otherwise returns a generic description to avoid leaking internals.
     """
-    msg = str(exc)
+    msg = str(exc)  # Used only for prefix matching; never returned to clients.
     for prefix, safe_msg in _SAFE_ERROR_MESSAGES.items():
         if msg.startswith(prefix):
             return safe_msg
