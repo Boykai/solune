@@ -2032,7 +2032,7 @@ class TestFullPipelineSuccess:
         preview_result = await self._drive_to_preview(admin_db, "sess-full1")
         assert "Agent Preview" in preview_result
 
-        gps_patcher, mock_gps = self._gps_mock()
+        gps_patcher, _mock_gps = self._gps_mock()
         try:
             result = await handle_agent_command(
                 message="create",
@@ -2189,7 +2189,7 @@ class TestFullPipelineSuccess:
         assert state is not None
         assert state.is_new_column is True
 
-        gps_patcher, mock_gps = self._gps_mock()
+        gps_patcher, _mock_gps = self._gps_mock()
         try:
             result = await handle_agent_command(
                 message="create",

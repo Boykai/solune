@@ -43,7 +43,7 @@ class TestDecodeCursor:
         assert eid == "event-1"
 
     def test_invalid_base64_raises(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             decode_cursor("not-valid-base64!!!")
 
     def test_invalid_json_raises(self) -> None:

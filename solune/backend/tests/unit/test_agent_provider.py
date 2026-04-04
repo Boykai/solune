@@ -112,7 +112,7 @@ class TestCreateAgentAzure:
             "sys.modules",
             {
                 "agent_framework": MagicMock(Agent=mock_agent_cls),
-                "agent_framework.azure": MagicMock(AzureOpenAIChatClient=mock_client_cls),
+                "agent_framework_azure_ai": MagicMock(AzureOpenAIChatClient=mock_client_cls),
             },
         ):
             from src.services.agent_provider import create_agent

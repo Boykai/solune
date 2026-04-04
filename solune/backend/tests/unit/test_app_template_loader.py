@@ -49,7 +49,7 @@ class TestLoadTemplate:
     def test_raises_when_template_json_missing(self, tmp_path: Path) -> None:
         tdir = tmp_path / "empty-dir"
         tdir.mkdir()
-        with pytest.raises(FileNotFoundError, match="template.json not found"):
+        with pytest.raises(FileNotFoundError, match=r"template\.json not found"):
             load_template(tdir)
 
     def test_raises_on_invalid_category(self, tmp_path: Path) -> None:
