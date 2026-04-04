@@ -1036,6 +1036,14 @@ async def reorder_plan_steps(
     from src.utils import utcnow
 
     async with transaction(db):
+        # Use temporary high positions to avoid UNIQUE constraint conflicts
+        offset = 10000
+        for i, sid in enumerate(step_ids):
+            await db.execute(
+                "UPDATE chat_plan_steps SET position = ? WHERE step_id = ? AND plan_id = ?",
+                (offset + i, sid, plan_id),
+            )
+        # Set final positions
         for i, sid in enumerate(step_ids):
             await db.execute(
                 "UPDATE chat_plan_steps SET position = ? WHERE step_id = ? AND plan_id = ?",
