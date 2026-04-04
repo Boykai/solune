@@ -454,13 +454,11 @@ async def _check_devops_done_comment(
     import src.services.copilot_polling as _cp
 
     try:
-        comments = await _cp.github_projects_service.list_issue_comments(
+        issue_data = await _cp.github_projects_service.get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
             issue_number=issue_number,
-            per_page=10,
-            direction="desc",
         )
     except Exception:
         logger.warning(
@@ -470,6 +468,7 @@ async def _check_devops_done_comment(
         )
         return False
 
+    comments = issue_data.get("comments", []) if isinstance(issue_data, dict) else []
     if not comments:
         return False
 
