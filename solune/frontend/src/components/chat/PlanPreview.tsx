@@ -2,11 +2,11 @@
  * PlanPreview — Rich plan display card for the /plan planning mode.
  *
  * Shows plan title, summary, ordered steps with dependency annotations,
- * status badges, and action buttons (Request Changes, Approve, Exit).
+ * status badges, per-step approval indicators, and action buttons.
  */
 
-import type { PlanCreateActionData, PlanApprovalResponse } from '@/types';
-import { Check, ExternalLink, GitBranch, Loader2, ListChecks, X } from '@/lib/icons';
+import type { PlanCreateActionData, PlanApprovalResponse, StepApprovalStatus } from '@/types';
+import { Check, ExternalLink, GitBranch, Loader2, ListChecks, X, CheckCircle, XCircle, Clock } from '@/lib/icons';
 import { cn } from '@/lib/utils';
 
 interface PlanPreviewProps {
@@ -14,6 +14,8 @@ interface PlanPreviewProps {
   onApprove?: (planId: string) => Promise<PlanApprovalResponse>;
   onExit?: (planId: string) => Promise<void>;
   onRequestChanges?: () => void;
+  /** Callback for per-step approval. */
+  onStepApprove?: (stepId: string, status: StepApprovalStatus) => void;
   /** Updated plan data after approval (with issue links). */
   approvedData?: PlanApprovalResponse | null;
   isApproving?: boolean;
@@ -27,11 +29,18 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
   failed: { label: 'Failed', className: 'bg-red-500/15 text-red-700 dark:text-red-400' },
 };
 
+const APPROVAL_ICONS: Record<string, { icon: typeof Clock; className: string }> = {
+  pending: { icon: Clock, className: 'text-muted-foreground' },
+  approved: { icon: CheckCircle, className: 'text-green-600 dark:text-green-400' },
+  rejected: { icon: XCircle, className: 'text-red-600 dark:text-red-400' },
+};
+
 export function PlanPreview({
   plan,
   onApprove,
   onExit,
   onRequestChanges,
+  onStepApprove,
   approvedData,
   isApproving = false,
   approveError = null,
@@ -84,6 +93,9 @@ export function PlanPreview({
             <ol className="space-y-1.5">
               {plan.steps.map((step) => {
                 const issueData = stepIssueMap.get(step.step_id);
+                const approvalStatus = step.approval_status ?? 'pending';
+                const approvalIcon = APPROVAL_ICONS[approvalStatus] ?? APPROVAL_ICONS.pending;
+                const ApprovalIcon = approvalIcon.icon;
                 return (
                   <li key={step.step_id} className="flex items-start gap-2 text-sm">
                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground mt-0.5">
@@ -92,6 +104,7 @@ export function PlanPreview({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium text-foreground">{step.title}</span>
+                        <ApprovalIcon className={cn('h-3.5 w-3.5 shrink-0', approvalIcon.className)} />
                         {issueData?.issue_number && (
                           <a
                             href={issueData.issue_url || '#'}
@@ -111,6 +124,27 @@ export function PlanPreview({
                             return depStep ? `Step ${depStep.position + 1}` : depId;
                           }).join(', ')}
                         </span>
+                      )}
+                      {/* Per-step approval buttons (draft mode only) */}
+                      {status === 'draft' && onStepApprove && approvalStatus === 'pending' && (
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            type="button"
+                            onClick={() => onStepApprove(step.step_id, 'approved')}
+                            className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-green-700 dark:text-green-400 hover:bg-green-500/10 transition-colors"
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onStepApprove(step.step_id, 'rejected')}
+                            className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-red-700 dark:text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            <XCircle className="h-3 w-3" />
+                            Reject
+                          </button>
+                        </div>
                       )}
                     </div>
                   </li>

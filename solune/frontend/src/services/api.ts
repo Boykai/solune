@@ -83,6 +83,14 @@ import type {
   Plan,
   PlanApprovalResponse,
   PlanExitResponse,
+  PlanHistoryResponse,
+  PlanStep,
+  StepApprovalRequest,
+  StepCreateRequest,
+  StepFeedbackRequest,
+  StepFeedbackResponse,
+  StepReorderRequest,
+  StepUpdateRequest,
   ThinkingEvent,
 } from '@/types';
 import { BoardDataResponseSchema } from '@/services/schemas/board';
@@ -668,6 +676,74 @@ export const chatApi = {
   exitPlanMode(planId: string): Promise<PlanExitResponse> {
     return request<PlanExitResponse>(`/chat/plans/${planId}/exit`, {
       method: 'POST',
+    });
+  },
+
+  // ============ Plan v2 API Methods ============
+
+  /**
+   * Get plan version history.
+   */
+  getPlanHistory(planId: string): Promise<PlanHistoryResponse> {
+    return request<PlanHistoryResponse>(`/chat/plans/${planId}/history`);
+  },
+
+  /**
+   * Add a new step to a plan.
+   */
+  addStep(planId: string, data: StepCreateRequest): Promise<PlanStep> {
+    return request<PlanStep>(`/chat/plans/${planId}/steps`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Update an existing plan step.
+   */
+  updateStep(planId: string, stepId: string, data: StepUpdateRequest): Promise<PlanStep> {
+    return request<PlanStep>(`/chat/plans/${planId}/steps/${stepId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete a plan step.
+   */
+  deleteStep(planId: string, stepId: string): Promise<void> {
+    return request<void>(`/chat/plans/${planId}/steps/${stepId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Reorder plan steps.
+   */
+  reorderSteps(planId: string, data: StepReorderRequest): Promise<PlanStep[]> {
+    return request<PlanStep[]>(`/chat/plans/${planId}/steps/reorder`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Approve or reject a single step.
+   */
+  approveStep(planId: string, stepId: string, data: StepApprovalRequest): Promise<PlanStep> {
+    return request<PlanStep>(`/chat/plans/${planId}/steps/${stepId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Submit step-level feedback.
+   */
+  submitStepFeedback(planId: string, stepId: string, data: StepFeedbackRequest): Promise<StepFeedbackResponse> {
+    return request<StepFeedbackResponse>(`/chat/plans/${planId}/steps/${stepId}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };
