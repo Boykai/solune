@@ -107,7 +107,8 @@ class TestPostToolUseHook:
         assert result["event"] == "plan_diff"
         data = json.loads(result["data"])
         assert data["plan_id"] == "plan-1"
-        assert data["action"] == "saved"
+        assert "from_version" in data
+        assert "to_version" in data
 
     @pytest.mark.anyio
     async def test_returns_none_without_plan_id(self):

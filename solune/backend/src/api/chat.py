@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Request, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
 from src.api.auth import get_session_dep
@@ -2384,7 +2384,7 @@ async def get_plan_history_endpoint(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ):
     """Retrieve version history for a plan, ordered by version descending."""
-    from src.models.plan import PlanVersionResponse
+    from src.models.plan import PlanHistoryResponse, PlanVersionResponse
     from src.services import chat_store
 
     db = get_db()
@@ -2395,18 +2395,22 @@ async def get_plan_history_endpoint(
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
     versions = await chat_store.get_plan_versions(db, plan_id)
-    return [
-        PlanVersionResponse(
-            version_id=v["version_id"],
-            plan_id=v["plan_id"],
-            version=v["version"],
-            title=v["title"],
-            summary=v["summary"],
-            steps_json=v["steps_json"],
-            created_at=v["created_at"],
-        )
-        for v in versions
-    ]
+    return PlanHistoryResponse(
+        plan_id=plan_id,
+        current_version=plan.get("version", 1),
+        versions=[
+            PlanVersionResponse(
+                version_id=v["version_id"],
+                plan_id=v["plan_id"],
+                version=v["version"],
+                title=v["title"],
+                summary=v["summary"],
+                steps_json=v["steps_json"],
+                created_at=v["created_at"],
+            )
+            for v in versions
+        ],
+    )
 
 
 @router.post("/plans/{plan_id}/steps")
@@ -2533,7 +2537,7 @@ async def delete_plan_step_endpoint(
     if not deleted:
         return JSONResponse(status_code=404, content={"detail": "Step not found."})
 
-    return JSONResponse(status_code=204, content=None)
+    return Response(status_code=204)
 
 
 @router.post("/plans/{plan_id}/steps/reorder")
@@ -2543,7 +2547,7 @@ async def reorder_plan_steps_endpoint(
     request: Request,
 ):
     """Reorder plan steps with DAG re-validation."""
-    from src.models.plan import StepReorderRequest
+    from src.models.plan import PlanStepResponse, StepReorderRequest
     from src.services import chat_store
 
     db = get_db()
@@ -2567,7 +2571,22 @@ async def reorder_plan_steps_endpoint(
     if not reordered:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
-    return {"status": "ok"}
+    # Re-fetch the plan to return the updated steps in new order
+    updated_plan = await chat_store.get_plan(db, plan_id)
+    if updated_plan is None:
+        return JSONResponse(status_code=404, content={"detail": "Plan not found."})
+
+    return [
+        PlanStepResponse(
+            step_id=s["step_id"],
+            position=s["position"],
+            title=s["title"],
+            description=s["description"],
+            dependencies=s.get("dependencies", []),
+            approval_status=s.get("approval_status", "pending"),
+        )
+        for s in updated_plan.get("steps", [])
+    ]
 
 
 @router.post("/plans/{plan_id}/steps/{step_id}/approve")
@@ -2578,7 +2597,7 @@ async def approve_plan_step_endpoint(
     request: Request,
 ):
     """Update the approval status of a single plan step."""
-    from src.models.plan import StepApprovalRequest
+    from src.models.plan import PlanStepResponse, StepApprovalRequest
     from src.services import chat_store
 
     db = get_db()
@@ -2604,7 +2623,26 @@ async def approve_plan_step_endpoint(
     if not updated:
         return JSONResponse(status_code=404, content={"detail": "Step not found."})
 
-    return {"step_id": step_id, "approval_status": req.approval_status.value}
+    # Re-fetch step to return full response
+    updated_plan = await chat_store.get_plan(db, plan_id)
+    step_data = None
+    if updated_plan:
+        for s in updated_plan.get("steps", []):
+            if s["step_id"] == step_id:
+                step_data = s
+                break
+
+    if step_data is None:
+        return {"step_id": step_id, "approval_status": req.approval_status.value}
+
+    return PlanStepResponse(
+        step_id=step_data["step_id"],
+        position=step_data["position"],
+        title=step_data["title"],
+        description=step_data["description"],
+        dependencies=step_data.get("dependencies", []),
+        approval_status=step_data.get("approval_status", "pending"),
+    )
 
 
 @router.post("/plans/{plan_id}/steps/{step_id}/feedback")
@@ -2636,12 +2674,16 @@ async def submit_step_feedback_endpoint(
     except Exception:
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
-    # Feedback is transient — acknowledged but not persisted
-    return StepFeedbackResponse(
-        step_id=step_id,
-        plan_id=plan_id,
-        feedback_type=req.feedback_type,
-        acknowledged=True,
+    # Feedback is transient — accepted for async agent processing
+    return JSONResponse(
+        status_code=202,
+        content=StepFeedbackResponse(
+            step_id=step_id,
+            feedback_type=req.feedback_type.value
+            if hasattr(req.feedback_type, "value")
+            else req.feedback_type,
+            status="accepted",
+        ).model_dump(),
     )
 
 

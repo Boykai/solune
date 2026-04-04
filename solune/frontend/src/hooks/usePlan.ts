@@ -26,7 +26,7 @@ import type {
 export function usePlanHistory(planId: string | undefined) {
   return useQuery({
     queryKey: ['planHistory', planId],
-    queryFn: () => (planId ? chatApi.getPlanHistory(planId) : []),
+    queryFn: () => (planId ? chatApi.getPlanHistory(planId) : { plan_id: '', current_version: 0, versions: [] }),
     enabled: !!planId,
   });
 }

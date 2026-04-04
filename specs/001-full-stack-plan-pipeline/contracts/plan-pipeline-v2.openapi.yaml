@@ -98,9 +98,18 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/PlanVersion"
+                type: object
+                required: [plan_id, current_version, versions]
+                properties:
+                  plan_id:
+                    type: string
+                    format: uuid
+                  current_version:
+                    type: integer
+                  versions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PlanVersion"
         "404":
           $ref: "#/components/responses/NotFound"
 

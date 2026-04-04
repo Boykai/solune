@@ -75,7 +75,7 @@ Each `save_plan` call automatically:
 View version history:
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8000/api/plans/{plan_id}/history
+  http://localhost:8000/chat/plans/{plan_id}/history
 ```
 
 ### Step Feedback (New)
@@ -85,7 +85,7 @@ Submit per-step feedback:
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"feedback_type": "comment", "content": "This step needs more detail on error handling"}' \
-  http://localhost:8000/api/plans/{plan_id}/steps/{step_id}/feedback
+  http://localhost:8000/chat/plans/{plan_id}/steps/{step_id}/feedback
 ```
 
 ### Step CRUD (New)
@@ -95,7 +95,7 @@ Add a step:
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title": "Add rate limiting", "description": "Implement rate limiting middleware", "dependencies": []}' \
-  http://localhost:8000/api/plans/{plan_id}/steps
+  http://localhost:8000/chat/plans/{plan_id}/steps
 ```
 
 Update a step:
@@ -103,15 +103,15 @@ Update a step:
 curl -X PATCH -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"title": "Add rate limiting v2", "dependencies": ["<other_step_id>"]}' \
-  http://localhost:8000/api/plans/{plan_id}/steps/{step_id}
+  http://localhost:8000/chat/plans/{plan_id}/steps/{step_id}
 ```
 
 Reorder steps:
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"step_order": [{"step_id": "...", "position": 0}, {"step_id": "...", "position": 1}]}' \
-  http://localhost:8000/api/plans/{plan_id}/steps/reorder
+  -d '{"step_ids": ["<step_id_1>", "<step_id_2>", "<step_id_3>"]}' \
+  http://localhost:8000/chat/plans/{plan_id}/steps/reorder
 ```
 
 ### Dependency Graph (New)

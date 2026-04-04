@@ -55,8 +55,12 @@ export interface PlanVersion {
   created_at: string;
 }
 
-/** The history endpoint returns PlanVersion[] directly. */
-export type PlanHistoryResponse = PlanVersion[];
+/** The history endpoint returns a wrapper with plan_id, current_version, and versions. */
+export interface PlanHistoryResponse {
+  plan_id: string;
+  current_version: number;
+  versions: PlanVersion[];
+}
 
 // ─── Step CRUD Types ────────────────────────────────────────────────
 

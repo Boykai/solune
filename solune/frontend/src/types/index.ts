@@ -166,6 +166,12 @@ export interface PlanVersion {
   created_at: string;
 }
 
+export interface PlanHistoryResponse {
+  plan_id: string;
+  current_version: number;
+  versions: PlanVersion[];
+}
+
 export interface PlanCreateActionData {
   plan_id: string;
   title: string;
@@ -222,9 +228,8 @@ export interface StepFeedbackRequest {
 
 export interface StepFeedbackResponse {
   step_id: string;
-  plan_id: string;
   feedback_type: string;
-  acknowledged: boolean;
+  status: 'accepted' | 'queued';
 }
 
 export interface DependencyGraphNode {

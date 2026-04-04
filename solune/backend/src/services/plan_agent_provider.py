@@ -111,9 +111,30 @@ async def on_post_tool_use_hook(
     if plan_id is None:
         return None
 
+    # Derive version numbers from context or result
+    from_version = 1
+    to_version = 1
+    db = context.get("db")
+    if db is not None and plan_id:
+        try:
+            from src.services.chat_store import get_plan
+
+            plan = await get_plan(db, plan_id)
+            if plan:
+                to_version = plan.get("version", 1)
+                from_version = max(1, to_version - 1)
+        except Exception:
+            logger.debug("Could not read plan version for plan_diff event")
+
     return {
         "event": "plan_diff",
-        "data": json.dumps({"plan_id": plan_id, "action": "saved"}),
+        "data": json.dumps(
+            {
+                "plan_id": plan_id,
+                "from_version": from_version,
+                "to_version": to_version,
+            }
+        ),
     }
 
 

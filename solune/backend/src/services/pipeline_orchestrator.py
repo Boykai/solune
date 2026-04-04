@@ -25,8 +25,8 @@ logger = get_logger(__name__)
 # ``parallel=True`` run concurrently via asyncio.gather().
 PIPELINE_STAGES: list[dict[str, Any]] = [
     # Group 1 — speckit core (serial)
-    {"name": "plan", "agent": "solune-plan", "group": 1, "parallel": False},
     {"name": "specify", "agent": "solune-specify", "group": 1, "parallel": False},
+    {"name": "plan", "agent": "solune-plan", "group": 1, "parallel": False},
     {"name": "tasks", "agent": "solune-tasks", "group": 1, "parallel": False},
     {"name": "analyze", "agent": "solune-analyze", "group": 1, "parallel": False},
     {"name": "implement", "agent": "solune-implement", "group": 1, "parallel": False},
