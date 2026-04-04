@@ -13,7 +13,6 @@ import json
 from typing import Any
 
 from src.logging_utils import get_logger
-from src.services.plan_agent_provider import SPECKIT_AGENT_PROFILES
 
 logger = get_logger(__name__)
 

@@ -97,10 +97,10 @@ def build_plan_instructions(
         parts.append(f"\n**Current Plan Version**: v{current_version}")
     if step_feedback:
         parts.append("\n## Pending Step Feedback\n")
-        for fb in step_feedback:
-            parts.append(
-                f"- **Step {fb.get('step_id', 'unknown')}** "
-                f"({fb.get('feedback_type', 'comment')}): {fb.get('content', '')}"
-            )
+        parts.extend(
+            f"- **Step {fb.get('step_id', 'unknown')}** "
+            f"({fb.get('feedback_type', 'comment')}): {fb.get('content', '')}"
+            for fb in step_feedback
+        )
 
     return "\n".join(parts)

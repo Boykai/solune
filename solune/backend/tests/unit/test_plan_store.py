@@ -452,7 +452,7 @@ class TestDAGValidation:
             {"step_id": "b", "dependencies": ["a"]},
             {"step_id": "c", "dependencies": ["a", "b"]},
         ]
-        is_valid, err = validate_dag(steps)
+        is_valid, _err = validate_dag(steps)
         assert is_valid is True
 
     def test_circular_dependency_detected(self):
@@ -488,7 +488,7 @@ class TestDAGValidation:
             {"step_id": "d", "dependencies": ["b", "c"]},
             {"step_id": "e", "dependencies": ["d"]},
         ]
-        is_valid, err = validate_dag(steps)
+        is_valid, _err = validate_dag(steps)
         assert is_valid is True
 
     def test_three_node_cycle(self):
@@ -502,7 +502,7 @@ class TestDAGValidation:
         assert "Circular dependency" in err
 
     def test_empty_steps_valid(self):
-        is_valid, err = validate_dag([])
+        is_valid, _err = validate_dag([])
         assert is_valid is True
 
 
@@ -544,9 +544,7 @@ class TestStepCRUD:
         plan = _make_plan(steps=steps)
         await save_plan(mock_db, plan)
 
-        step = await add_plan_step(
-            mock_db, "plan-1", "Step 2", "Desc", dependencies=["s-1"]
-        )
+        step = await add_plan_step(mock_db, "plan-1", "Step 2", "Desc", dependencies=["s-1"])
         assert step is not None
         assert step["dependencies"] == ["s-1"]
 
@@ -556,9 +554,7 @@ class TestStepCRUD:
         await save_plan(mock_db, plan)
 
         with pytest.raises(ValueError, match="DAG validation failed"):
-            await add_plan_step(
-                mock_db, "plan-1", "Bad Step", "Desc", dependencies=["nonexistent"]
-            )
+            await add_plan_step(mock_db, "plan-1", "Bad Step", "Desc", dependencies=["nonexistent"])
 
     @pytest.mark.anyio
     async def test_add_step_non_draft_rejected(self, mock_db):
@@ -593,9 +589,7 @@ class TestStepCRUD:
         plan = _make_plan(steps=steps)
         await save_plan(mock_db, plan)
 
-        updated = await update_plan_step(
-            mock_db, "plan-1", "s-2", dependencies=["s-1"]
-        )
+        updated = await update_plan_step(mock_db, "plan-1", "s-2", dependencies=["s-1"])
         assert updated is not None
         assert updated["dependencies"] == ["s-1"]
 
@@ -609,9 +603,7 @@ class TestStepCRUD:
         await save_plan(mock_db, plan)
 
         with pytest.raises(ValueError, match="DAG validation failed"):
-            await update_plan_step(
-                mock_db, "plan-1", "s-2", dependencies=["s-1"]
-            )
+            await update_plan_step(mock_db, "plan-1", "s-2", dependencies=["s-1"])
 
     @pytest.mark.anyio
     async def test_update_nonexistent_step(self, mock_db):
