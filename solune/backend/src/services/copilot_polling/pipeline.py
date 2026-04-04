@@ -3228,6 +3228,9 @@ async def check_in_review_issues(
             if not rec_pipeline or not rec_pipeline.is_complete:
                 continue
 
+            if not getattr(rec_pipeline, "auto_merge", False):
+                continue  # Auto-merge not enabled for this pipeline
+
             if task.issue_number in _pending_post_devops_retries:
                 continue  # Retry already running
 
