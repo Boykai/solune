@@ -367,7 +367,7 @@ async def execute_pipeline_launch(
 
         issue_title = issue_title_override or _derive_issue_title(issue_description)
 
-        from src.services.label_classifier import classify_labels
+        from src.services.label_classifier import classify_labels_with_priority
 
         # Build path-specific fallback: preserve original hardcoded labels on
         # classifier failure so pipeline launch never loses its pipeline label.
@@ -375,12 +375,13 @@ async def execute_pipeline_launch(
         if _pipeline_name:
             pipeline_fallback.append(build_pipeline_label(_pipeline_name))
 
-        issue_labels = await classify_labels(
+        classification = await classify_labels_with_priority(
             title=issue_title,
             description=issue_description,
             github_token=session.access_token,
             fallback_labels=pipeline_fallback,
         )
+        issue_labels = classification.labels
         if _pipeline_name:
             pipeline_label = build_pipeline_label(_pipeline_name)
             if pipeline_label not in issue_labels:
@@ -429,6 +430,36 @@ async def execute_pipeline_launch(
         orchestrator = get_workflow_orchestrator()
 
         await orchestrator.add_to_project_with_backlog(ctx)
+
+        # ── Auto-set project fields (non-blocking) ──
+        try:
+            from src.services.pipeline_estimate import estimate_from_agent_count
+
+            agent_count_for_estimate = _count_configured_agents(config)
+            metadata = estimate_from_agent_count(agent_count_for_estimate)
+
+            # Override default priority if the AI classifier detected urgency.
+            if classification.priority is not None:
+                metadata = metadata.model_copy(
+                    update={"priority": classification.priority}
+                )
+
+            if ctx.project_item_id:
+                metadata_dict = {
+                    "priority": metadata.priority.value,
+                    "size": metadata.size.value,
+                    "estimate_hours": metadata.estimate_hours,
+                    "start_date": metadata.start_date,
+                    "target_date": metadata.target_date,
+                }
+                await github_projects_service.set_issue_metadata(
+                    access_token=session.access_token,
+                    project_id=project_id,
+                    item_id=ctx.project_item_id,
+                    metadata=metadata_dict,
+                )
+        except Exception:
+            logger.warning("Failed to set pipeline metadata", exc_info=True)
 
         status_name = config.status_backlog
         agent_sub_issues = await orchestrator.create_all_sub_issues(ctx)

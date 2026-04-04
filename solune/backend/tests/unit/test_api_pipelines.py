@@ -193,6 +193,119 @@ class TestLaunchPipelineIssue:
         assignment = await PipelineService(mock_db).get_assignment("PVT_1")
         assert assignment.pipeline_id == ""
 
+    @pytest.mark.anyio
+    async def test_launch_sets_project_metadata_after_add_to_project(
+        self, client, mock_db, mock_github_service
+    ):
+        """set_issue_metadata() is called after add_to_project_with_backlog()."""
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 42,
+            "node_id": "I_node_42",
+            "html_url": "https://github.com/owner/repo/issues/42",
+        }
+        mock_github_service.set_issue_metadata = AsyncMock(return_value={"Priority": True})
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_42"
+            return "PVTI_42"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Import this issue\n\nCarry over the original context.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        mock_github_service.set_issue_metadata.assert_awaited_once()
+        call_kwargs = mock_github_service.set_issue_metadata.await_args.kwargs
+        assert call_kwargs["item_id"] == "PVTI_42"
+        meta = call_kwargs["metadata"]
+        assert meta["priority"] == "P2"
+        assert meta["size"] in {"XS", "S", "M", "L", "XL"}
+        assert isinstance(meta["estimate_hours"], float)
+        assert meta["start_date"]  # non-empty ISO date
+        assert meta["target_date"]
+
+    @pytest.mark.anyio
+    async def test_launch_succeeds_when_metadata_fails(
+        self, client, mock_db, mock_github_service
+    ):
+        """Metadata failures are logged but do NOT abort the pipeline launch."""
+        pipeline_id = await _create_pipeline(mock_db)
+        mock_github_service.create_issue.return_value = {
+            "number": 43,
+            "node_id": "I_node_43",
+            "html_url": "https://github.com/owner/repo/issues/43",
+        }
+        mock_github_service.set_issue_metadata = AsyncMock(
+            side_effect=RuntimeError("GraphQL unavailable")
+        )
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_43"
+            return "PVTI_43"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Another issue\n\nDescription here.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is True
+        assert data["issue_number"] == 43
+
 
 # ══════════════════════════════════════════════════════════════
 # Pipeline CRUD — negative / error path tests
