@@ -35,6 +35,7 @@ from src.services.settings_store import get_effective_user_settings
 from src.services.workflow_orchestrator import (
     WorkflowContext,
     count_active_pipelines_for_project,
+    get_agent_configs,
     get_agent_slugs,
     get_pipeline_state,
     get_project_launch_lock,
@@ -472,6 +473,7 @@ async def execute_pipeline_launch(
                             agent_sub_issues=agent_sub_issues,
                             started_at=utcnow(),
                             queued=should_queue,
+                            agent_configs=get_agent_configs(config),
                         ),
                     )
             else:
@@ -485,6 +487,7 @@ async def execute_pipeline_launch(
                         agent_sub_issues=agent_sub_issues,
                         started_at=utcnow(),
                         queued=False,
+                        agent_configs=get_agent_configs(config),
                     ),
                 )
 

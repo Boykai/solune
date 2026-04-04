@@ -369,10 +369,11 @@ async def load_pipeline_as_agent_mappings(
                             slug=node.agent_slug,
                             display_name=node.agent_display_name or None,
                             config={
+                                **node.config,
                                 "model_id": node.model_id,
                                 "model_name": node.model_name,
                             }
-                            if node.model_id
+                            if node.model_id or node.config
                             else None,
                         )
                         for node in group.agents
@@ -395,10 +396,11 @@ async def load_pipeline_as_agent_mappings(
                         slug=node.agent_slug,
                         display_name=node.agent_display_name or None,
                         config={
+                            **node.config,
                             "model_id": node.model_id,
                             "model_name": node.model_name,
                         }
-                        if node.model_id
+                        if node.model_id or node.config
                         else None,
                     )
                     for node in stage.agents
