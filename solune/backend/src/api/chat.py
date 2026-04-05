@@ -395,6 +395,9 @@ async def _handle_transcript_upload(
             continue
 
         try:
+            if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                logger.warning("Skipping oversized uploaded file %s during transcript analysis", filename)
+                continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception as exc:
             logger.warning("Could not read uploaded file %s: %s", filename, exc)
@@ -1234,6 +1237,11 @@ async def _extract_transcript_content(file_urls: list[str]) -> str | None:
             continue
 
         try:
+            if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
+                logger.warning(
+                    "Skipping oversized uploaded file %s during transcript extraction", filename
+                )
+                continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
