@@ -42,6 +42,7 @@ export function AgentChatFlow({
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMutation = useAgentChat(projectId);
+  const errorMessage = chatMutation.error instanceof Error ? chatMutation.error.message : null;
 
   // Send initial message
   useEffect(() => {
@@ -139,6 +140,15 @@ export function AgentChatFlow({
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {errorMessage}
+        </div>
+      )}
 
       {/* Preview */}
       {preview && (

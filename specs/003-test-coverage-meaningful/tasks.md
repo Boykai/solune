@@ -23,7 +23,7 @@ description: "Task list for implementing meaningful backend and frontend test co
 **Purpose**: Confirm the baseline and gather the shared test utilities that later phases will reuse.
 
 - [ ] T001 Run the baseline targeted commands from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` against `/home/runner/work/solune/solune/solune/backend/tests/unit` and `/home/runner/work/solune/solune/solune/frontend/src` to confirm a clean starting point
-- [ ] T002 Audit reusable test helpers in `/home/runner/work/solune/solune/solune/backend/tests/conftest.py`, `/home/runner/work/solune/solune/solune/frontend/src/test/setup.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/test/test-utils.tsx` before adding new suites
+- [X] T002 Audit reusable test helpers in `/home/runner/work/solune/solune/solune/backend/tests/conftest.py`, `/home/runner/work/solune/solune/solune/frontend/src/test/setup.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/test/test-utils.tsx` before adding new suites
 
 ---
 
@@ -79,14 +79,14 @@ description: "Task list for implementing meaningful backend and frontend test co
 
 - [ ] T014 [P] [US2] Create or expand `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_settings.py` to cover admin enforcement, empty-update no-op behavior, workflow sync, cache invalidation, and `/api/v1/settings/models/{provider}` missing-token handling from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/contracts/test-coverage-surfaces.openapi.yaml`
 - [ ] T015 [P] [US2] Create or expand `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_onboarding.py` to cover default state, progress persistence, completion timestamps, dismiss-vs-complete behavior, and `step > 13` validation from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/contracts/test-coverage-surfaces.openapi.yaml`
-- [ ] T016 [P] [US2] Create `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_templates.py` to cover empty registry, invalid category, summary-vs-detail filtering, and 404 responses from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/contracts/test-coverage-surfaces.openapi.yaml`
+- [X] T016 [P] [US2] Create `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_templates.py` to cover empty registry, invalid category, summary-vs-detail filtering, and 404 responses from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/contracts/test-coverage-surfaces.openapi.yaml`
 - [ ] T017 [P] [US2] Create or expand `/home/runner/work/solune/solune/solune/backend/tests/unit/test_pipeline_estimate.py` to cover hour-threshold boundaries, invalid agent-count logging, and deterministic date calculation in `/home/runner/work/solune/solune/solune/backend/src/services/pipeline_estimate.py`
 - [ ] T018 [P] [US2] Create or expand `/home/runner/work/solune/solune/solune/backend/tests/unit/test_completion_providers.py` to cover concurrent pool access, cleanup on remove, timeout empty-string fallback, Azure configuration validation, and factory dispatch in `/home/runner/work/solune/solune/solune/backend/src/services/completion_providers.py`
 
 ### Implementation for User Story 2
 
 - [ ] T019 [US2] Fix no-op activity logging in `/home/runner/work/solune/solune/solune/backend/src/api/settings.py` to satisfy `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_settings.py`
-- [ ] T020 [US2] Run the targeted backend verification from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` for `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_settings.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_onboarding.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_templates.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_pipeline_estimate.py`, and `/home/runner/work/solune/solune/solune/backend/tests/unit/test_completion_providers.py`
+- [X] T020 [US2] Run the targeted backend verification from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` for `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_settings.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_onboarding.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_templates.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_pipeline_estimate.py`, and `/home/runner/work/solune/solune/solune/backend/tests/unit/test_completion_providers.py`
 
 **Checkpoint**: User Story 2 is complete when the zero-coverage backend modules pass independently at their required thresholds.
 
@@ -102,14 +102,14 @@ description: "Task list for implementing meaningful backend and frontend test co
 
 - [ ] T021 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentsPanel.test.tsx` covering empty state, search filter, sort toggle, modal open-close, delete with undo, infinite scroll, and loading/error states
 - [ ] T022 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AddAgentModal.test.tsx` covering name validation, create-vs-edit mode state, prompt length limits, character counter updates, and AI enhance toggling
-- [ ] T023 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentChatFlow.test.tsx` covering initial message auto-send, Enter-vs-Shift+Enter behavior, disabled input while pending, and contextual error display
-- [ ] T024 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/ExecutionGroupCard.test.tsx` covering grouped-agent rendering, execution-mode toggling, and remove-agent behavior
-- [ ] T025 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineModelDropdown.test.tsx` covering open-close state, model selection, and click-outside dismissal
-- [ ] T026 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineRunHistory.test.tsx` covering collapse-expand behavior, duration formatting, status badges, and lazy query loading
+- [X] T023 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentChatFlow.test.tsx` covering initial message auto-send, Enter-vs-Shift+Enter behavior, disabled input while pending, and contextual error display
+- [X] T024 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/ExecutionGroupCard.test.tsx` covering grouped-agent rendering, execution-mode toggling, and remove-agent behavior
+- [X] T025 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineModelDropdown.test.tsx` covering open-close state, model selection, and click-outside dismissal
+- [X] T026 [P] [US3] Create `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineRunHistory.test.tsx` covering collapse-expand behavior, duration formatting, status badges, and lazy query loading
 
 ### Implementation for User Story 3
 
-- [ ] T027 [US3] Run the targeted frontend verification from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` for `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentsPanel.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AddAgentModal.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentChatFlow.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/ExecutionGroupCard.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineModelDropdown.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineRunHistory.test.tsx`
+- [X] T027 [US3] Run the targeted frontend verification from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` for `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentsPanel.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AddAgentModal.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentChatFlow.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/ExecutionGroupCard.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineModelDropdown.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/components/pipeline/PipelineRunHistory.test.tsx`
 
 **Checkpoint**: User Story 3 is complete when the critical component suites pass independently with meaningful behavioral coverage.
 
@@ -123,13 +123,13 @@ description: "Task list for implementing meaningful backend and frontend test co
 
 ### Tests for User Story 4
 
-- [ ] T028 [P] [US4] Create `/home/runner/work/solune/solune/solune/frontend/src/lib/route-suggestions.test.ts` covering Levenshtein accuracy, threshold filtering, relevance ordering, and empty-input handling
+- [X] T028 [P] [US4] Create `/home/runner/work/solune/solune/solune/frontend/src/lib/route-suggestions.test.ts` covering Levenshtein accuracy, threshold filtering, relevance ordering, and empty-input handling
 - [ ] T029 [P] [US4] Create `/home/runner/work/solune/solune/solune/frontend/src/lib/commands/registry.test.ts` covering register, unregister, get, filter, and argument parsing behavior
-- [ ] T030 [P] [US4] Create `/home/runner/work/solune/solune/solune/frontend/src/context/SyncStatusContext.test.tsx` covering provider state management, immediate transition visibility, and equality-based deduplication
+- [X] T030 [P] [US4] Create `/home/runner/work/solune/solune/solune/frontend/src/context/SyncStatusContext.test.tsx` covering provider state management, immediate transition visibility, and equality-based deduplication
 
 ### Implementation for User Story 4
 
-- [ ] T031 [US4] Run the targeted frontend verification from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` for `/home/runner/work/solune/solune/solune/frontend/src/lib/route-suggestions.test.ts`, `/home/runner/work/solune/solune/solune/frontend/src/lib/commands/registry.test.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/context/SyncStatusContext.test.tsx`
+- [X] T031 [US4] Run the targeted frontend verification from `/home/runner/work/solune/solune/specs/003-test-coverage-meaningful/quickstart.md` for `/home/runner/work/solune/solune/solune/frontend/src/lib/route-suggestions.test.ts`, `/home/runner/work/solune/solune/solune/frontend/src/lib/commands/registry.test.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/context/SyncStatusContext.test.tsx`
 
 **Checkpoint**: User Story 4 is complete when the foundational utility and context tests pass independently.
 
