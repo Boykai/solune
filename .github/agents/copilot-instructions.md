@@ -2,178 +2,101 @@
 
 Last updated: 2026-04-04
 
-> Prefer official documentation sources and repo-discovery tools when working with frameworks, libraries, or external APIs. Treat tool availability as situational rather than mandatory.
+> Prefer repo discovery and canonical source files over copying version
+> inventories into prompts or docs. Use official library documentation when
+> external behavior matters.
 
-## Current Stack
+## Canonical Sources
 
-### Backend
+- Exact backend runtimes, dependencies, and coverage gates live in
+  `solune/backend/pyproject.toml`.
+- Exact frontend dependencies and runnable scripts live in
+  `solune/frontend/package.json`.
+- Required CI runtimes and validation gates live in
+  `.github/workflows/ci.yml`.
+- Product, setup, architecture, and testing guidance live in `README.md`,
+  `solune/README.md`, and `solune/docs/`.
+- The platform changelog for this repo is `solune/CHANGELOG.md`.
 
-- **Runtime floor:** Python `>=3.12` (`solune/backend/pyproject.toml`); primary dev/runtime target is Python 3.13 (`ruff` target `py313`, `pyright` `pythonVersion = "3.13"`); Docker image is `python:3.14-slim`; CI uses Python 3.12
-- **Framework:** FastAPI `>=0.135.0`, Uvicorn `>=0.42.0`
-- **GitHub integration:** `githubkit>=0.14.6`, `httpx>=0.28.0`
-- **Validation / config:** `pydantic>=2.12.0`, `pydantic-settings>=2.13.0`
-- **Storage:** SQLite via `aiosqlite>=0.22.0` (WAL mode, single persistent connection, migrations run on startup)
-- **AI providers:** `github-copilot-sdk>=0.1.30` (default), `openai>=2.26.0`, `azure-ai-inference>=1.0.0b9` (optional fallbacks)
-- **Security / crypto:** `cryptography>=46.0.5` (Fernet token-at-rest encryption)
-- **Rate limiting:** `slowapi>=0.1.9`
-- **Utilities:** `tenacity>=9.1.0`, `websockets>=16.0`, `python-multipart>=0.0.22`, `pyyaml>=6.0.3`
-- **Dev tools:** `ruff>=0.15.0`, `pyright>=1.1.408`, `pytest>=9.0.0`, `pytest-asyncio>=1.3.0`, `pytest-cov>=7.0.0`
+## Repository Shape
 
-### Frontend
+- Repo-root automation and deployment files live at the top level:
+  `README.md`, `docker-compose.yml`, `azure.yaml`, `infra/`, and `.github/`.
+- The product code lives under `solune/`:
+  - `solune/backend/` — FastAPI backend, SQLite persistence, migrations, tests.
+  - `solune/frontend/` — React frontend, unit tests, Playwright E2E.
+  - `solune/docs/` — product documentation.
+  - `solune/scripts/` — hooks, diagram generation, and validation scripts.
+  - `solune/CHANGELOG.md` — user-facing release notes.
+- `.github/agents/copilot-instructions.md` is the repo's custom instruction
+  file even though it sits beside agent definitions.
+- `.github/agents/*.agent.md` are custom agents,
+  `.github/prompts/*.prompt.md` are prompt shortcuts, and
+  `.github/agents/mcp.json` is the remote MCP configuration for GitHub-hosted
+  agent sessions.
+- `.vscode/mcp.json` is local IDE MCP configuration. Do not treat it as the
+  remote GitHub agent MCP file.
 
-- **Node / build:** Node 25 for Docker; CI currently uses Node 20. Vite 8 config lives in `solune/frontend/vite.config.ts`.
-- **Framework:** React 19.2, react-router-dom v7
-- **Language:** TypeScript ~6.0 (strict mode, `@/` alias → `frontend/src`)
-- **State / data fetching:** `@tanstack/react-query` 5.96.2
-- **Styling:** Tailwind CSS 4.2 via `@tailwindcss/vite` (CSS-first v4 model; config lives in `frontend/src/index.css`)
-- **UI primitives:** `@radix-ui/react-slot`, `@radix-ui/react-tooltip`, `@radix-ui/react-popover`, `@radix-ui/react-hover-card`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react` 1.7.0, `sonner` 2.0.7, `@tailwindcss/typography`
-- **Drag-and-drop:** `@dnd-kit/core` 6.3, `@dnd-kit/modifiers` 9.0, `@dnd-kit/sortable` 10.0, `@dnd-kit/utilities` 3.2
-- **Forms:** `react-hook-form` 7.72.1, `@hookform/resolvers` 5.2.2, `zod` 4.3.6
-- **Markdown:** `react-markdown` 10.1, `remark-gfm` 4.0
-- **Dev tools:** ESLint 10.0, Prettier 3.8, Vitest 4.0 (`happy-dom` environment), Playwright 1.59.1
-- **Linting:** `eslint-plugin-react-hooks` 7.0.1, `eslint-plugin-security` 4.0, `eslint-plugin-jsx-a11y` 6.10.2, `typescript-eslint` 8.58
-- **Testing:** `@testing-library/react` 16.3.2, `@testing-library/user-event` 14.6.1, `jest-axe` 10.0, `@fast-check/vitest` 0.3
+## Stack Summary
 
-### Infrastructure
+- Backend: FastAPI, Pydantic v2, SQLite via `aiosqlite`, Microsoft Agent
+  Framework, GitHub Copilot SDK, Azure AI/OpenAI fallbacks, WebSockets, and
+  SSE streaming.
+- Frontend: React 19, TypeScript strict mode, Vite 8, TanStack Query v5,
+  Tailwind CSS 4, Radix UI primitives, React Hook Form, and Zod.
+- Infrastructure: Docker Compose runs backend, frontend, and Signal sidecar
+  locally; Azure deployment assets live under `infra/`.
+- For exact versions, read the canonical files instead of extending this
+  document with package-by-package snapshots.
 
-`docker-compose.yml` defines three services:
+## Backend Notes
 
-| Service | Container | Host port | Container port | Notes |
-|---|---|---|---|---|
-| `backend` | `solune-backend` | 8000 | 8000 | FastAPI / Uvicorn |
-| `frontend` | `solune-frontend` | 5173 | 8080 | nginx static server |
-| `signal-api` | `solune-signal-api` | internal only | 8080 | `bbernhard/signal-cli-rest-api` |
+- Most backend work happens in `solune/backend/src/api/`,
+  `solune/backend/src/services/`, `solune/backend/src/models/`,
+  `solune/backend/src/middleware/`, and
+  `solune/backend/src/migrations/`.
+- Use `resolve_repository()` from `solune/backend/src/utils.py` for
+  owner/repo parsing instead of duplicating fallback logic.
+- SQLite runs in WAL mode and migrations are applied automatically on startup
+  from `solune/backend/src/migrations/`.
+- Agent and pipeline execution logic is concentrated in `services/agents/`,
+  `services/pipelines/`, `services/copilot_polling/`, and
+  `services/workflow_orchestrator/`.
+- Tool and MCP flows span `src/api/mcp.py`, `services/mcp_store.py`,
+  `services/tools/presets.py`, `services/tools/service.py`, and
+  `services/agents/service.py`.
+- Keep `AsyncGenerator` annotations fully parameterized for Python 3.12
+  compatibility, for example `AsyncGenerator[str, None]`.
 
-- Backend health: `GET http://localhost:8000/api/v1/health`
-- Frontend health: `GET http://localhost:8080/health` (inside container); `http://localhost:5173` from host
-- Data volume: `solune-data` mounted at `/var/lib/solune/data` (SQLite database)
-- Signal config volume: `signal-cli-config` at `/home/.local/share/signal-cli`
-- All three services share the `solune-network` bridge network
+## Frontend Notes
 
-## Architecture Notes
+- Most frontend work happens in `solune/frontend/src/components/`, `pages/`,
+  `hooks/`, `services/`, `context/`, and `lib/`.
+- The API client lives in `solune/frontend/src/services/api.ts`.
+- Tailwind uses the CSS-first v4 model in `solune/frontend/src/index.css`.
+  Do not add `tailwind.config.js` or `postcss.config.js` unless the build
+  model changes.
+- Reuse shared Celestial theme utilities in
+  `solune/frontend/src/index.css` instead of adding component-local animation
+  systems or duplicating gradients.
+- Prefer existing shared UI wrappers in
+  `solune/frontend/src/components/ui/` before introducing new overlay,
+  dialog, or form primitives.
+- Frontend E2E tests live in `solune/frontend/e2e/`; component and hook tests
+  live alongside source under `solune/frontend/src/`.
 
-- **Auth:** GitHub OAuth with secure HTTP-only session cookies. No JWT / `python-jose` layer.
-- **Real-time:** Native WebSocket (`ConnectionManager` in `solune/backend/src/services/websocket.py`) with SSE fallback in the projects API.
-- **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations currently run through `039_user_scoped_configs.sql`, with the consolidated schema at `023`, and are applied automatically on startup from `solune/backend/src/migrations/`.
-- **Tailwind v4:** CSS-first config lives in `solune/frontend/src/index.css`. Do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
-- **Repository resolution:** Use the shared `resolve_repository()` helper in `solune/backend/src/utils.py`. Avoid ad-hoc owner/repo fallback logic.
-- **AI providers:** `completion_providers.py` abstracts GitHub Copilot SDK (default, user OAuth token) and Azure OpenAI (static keys, optional). Selected via `AI_PROVIDER` env var.
-- **Agent pipelines:** Configured in SQLite (`pipeline_configs`) and executed by `solune/backend/src/services/copilot_polling/` + `solune/backend/src/services/workflow_orchestrator/`.
-- **Pipeline state:** `solune/backend/src/services/pipeline_state_store.py` persists pipeline execution state across restarts.
-- **Chores:** `solune/backend/src/services/chores/` manages scheduled recurring tasks.
-- **Signal messaging:** `solune/backend/src/services/signal_bridge.py`, `signal_chat.py`, and `signal_delivery.py` integrate with the Signal sidecar.
-- **MCP tools:** `solune/backend/src/services/mcp_store.py` + `api/mcp.py` manage MCP server configurations and agent tool associations. `solune/backend/src/services/tools/presets.py` defines the preset catalog; `solune/backend/src/services/tools/service.py` handles per-project CRUD and repo sync.
-- **MCP presets flow:** User selects preset on Tools page → draft form → saves as user tool in DB → agent dispatch calls `_resolve_agent_tool_selection()` → `generate_config_files()` writes `mcp-servers:` into `.github/agents/{slug}.agent.md` YAML frontmatter → GitHub reads agent file on assignment.
-- **Remote MCP config:** `.github/agents/mcp.json` defines MCP servers available to remote GitHub Custom Agents (currently Context7, Azure MCP, and Bicep MCP). This file is co-located with agent definitions and read by GitHub.com during coding agent sessions.
-- **Encryption:** Fernet (`cryptography` package) used for token-at-rest encryption when `ENCRYPTION_KEY` is set.
-- **`AsyncGenerator` typing:** Always include both type parameters for Python 3.12 compatibility: `AsyncGenerator[str, None]`.
+## Working Rules
 
-## Repo Layout
-
-```text
-solune/
-  backend/
-    src/
-    api/              FastAPI route handlers
-                      (activity, agents, apps, auth, board, chat, chores, cleanup,
-                       health, mcp, metadata, onboarding, pipelines, projects,
-                       settings, signal, tasks, tools, webhook_models, webhooks,
-                       workflow)
-    middleware/       Request middleware (request_id context var)
-    migrations/       SQL schema migrations (001–039, run on startup)
-    models/           Pydantic request/response models
-    prompts/          AI prompt templates (issue_generation, task_generation, transcript_analysis)
-    services/         Business logic
-      agents/         Agent config CRUD
-      chores/         Scheduled chores (scheduler, counter, chat, template)
-      copilot_polling/ Copilot PR polling loop and agent output parsing
-      tools/          MCP tool service (presets catalog, per-project CRUD, repo sync)
-      github_projects/ GitHub Projects v2 GraphQL + REST
-      mcp_server/     MCP server implementation
-      pipelines/      Pipeline config service
-      workflow_orchestrator/ Issue workflow state machine
-    tests/
-      unit/
-      integration/
-      helpers/
-
-  frontend/
-    src/
-      assets/         Static assets
-      components/     UI components by domain
-      constants/      Shared constants
-      context/        React context providers
-      data/           Static data files
-      hooks/          React hooks
-      layout/         Shell components
-      lib/            Shared utilities
-      pages/          Route-level pages
-      services/       HTTP client (`api.ts`)
-      types/          Shared TypeScript types
-      utils/          Pure utility helpers
-    e2e/              Playwright end-to-end tests
-```
-
-## Commands
-
-```bash
-# Backend
-cd solune/backend && source .venv/bin/activate
-ruff check src/ tests/          # lint
-ruff format src/ tests/         # format (or --check)
-pyright src/                    # type-check
-pytest tests/unit/ -q           # fast unit tests
-pytest tests/ --cov=src         # full suite with coverage
-
-# Frontend
-cd solune/frontend
-npm run lint                    # ESLint
-npm run type-check              # tsc --noEmit
-npm run test                    # Vitest (run once)
-npm run build                   # production build
-npx playwright test             # E2E
-```
-
-## Conventions
-
-- Python: Ruff-driven, 100-character line limit, `known-first-party = ["src"]`.
-- TypeScript: strict mode, `@/` path alias maps to `frontend/src`.
-- Commits: conventional-commit style — `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
-- Prefer focused, minimal fixes over broad refactors unless the task explicitly calls for architectural work.
-- Agent `.agent.md` files live in `.github/agents/`; corresponding `.prompt.md` shortcuts live in `.github/prompts/`.
-- Do not duplicate remote MCP server definitions outside `.github/agents/mcp.json`; do not confuse it with `.vscode/mcp.json` (local IDE MCP servers).
-
-## CHANGELOG
-
-**All agents must update `CHANGELOG.md`** (repo root) when implementing changes that affect user-facing behavior, APIs, configuration, or infrastructure.
-
-### When to update
-- Adding new features, pages, components, or API endpoints
-- Fixing bugs or correcting behavior
-- Removing or deprecating existing functionality
-- Changing configuration, environment variables, or infrastructure
-- Security fixes or dependency updates with user impact
-
-### When NOT to update
-- Internal refactors with no user-visible effect
-- Test-only changes
-- Documentation-only changes (unless they reflect a product change)
-- Spec/plan/task file creation (spec work is not a shipped change)
-
-### Format
-Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions. Add entries under the `[Unreleased]` section using these categories:
-- **Added** — new features or capabilities
-- **Changed** — modifications to existing behavior
-- **Deprecated** — features marked for future removal
-- **Removed** — features that have been deleted
-- **Fixed** — bug fixes
-- **Security** — vulnerability or security-related changes
-
-Each entry should be a single concise line describing the change from a user's perspective. Example:
-```markdown
-### Added
-- Pipeline Analytics dashboard on the Agents Pipelines page showing agent frequency and model distribution
-```
+- Prefer focused, minimal fixes over broad refactors unless the task
+  explicitly requires structural change.
+- Use conventional commit prefixes such as `feat:`, `fix:`, `docs:`,
+  `refactor:`, `test:`, and `chore:`.
+- Update `solune/CHANGELOG.md` for user-facing behavior changes, API changes,
+  configuration changes, infra changes, and dependency changes with user
+  impact.
+- Do not add changelog entries for test-only, spec-only, or purely internal
+  refactors with no user-visible effect.
+- Prefer Context7 when you need current third-party library documentation and examples.
 
 ## Validation Expectations
 
