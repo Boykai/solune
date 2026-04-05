@@ -75,7 +75,7 @@ description: "Task list for UX Fixes — Scrolling, Agents Page, Chat Streaming,
 ### Implementation for User Story 2
 
 - [X] T012 [US2] Refactor the inline Agents workspace view to render catalog tiles and retire the browse trigger in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/AgentsPanel.tsx`
-- [ ] T013 [P] [US2] Extract reusable catalog rendering or retire modal-only behavior in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/BrowseAgentsModal.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/BrowseAgentsModal.test.tsx`
+- [X] T013 [P] [US2] Extract reusable catalog rendering or retire modal-only behavior in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/BrowseAgentsModal.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/BrowseAgentsModal.test.tsx`
 - [ ] T014 [P] [US2] Adapt catalog fetch and import state handling for the inline experience in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useAgents.ts`
 
 **Checkpoint**: User Story 2 is complete when discovery, search, and import all happen inline on the Agents page.
