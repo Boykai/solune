@@ -25,6 +25,8 @@ from src.models.chat import (
 )
 from src.models.user import UserSession
 
+ARTIFICIALLY_LOW_FILE_SIZE_BYTES = 4
+
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -880,7 +882,10 @@ class TestTranscriptHelpers:
 
         try:
             with (
-                patch("src.api.chat.MAX_FILE_SIZE_BYTES", 4),
+                patch(
+                    "src.api.chat.MAX_FILE_SIZE_BYTES",
+                    ARTIFICIALLY_LOW_FILE_SIZE_BYTES,
+                ),
                 patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
             ):
                 result = await _handle_transcript_upload(
@@ -941,7 +946,10 @@ class TestTranscriptHelpers:
 
         try:
             with (
-                patch("src.api.chat.MAX_FILE_SIZE_BYTES", 4),
+                patch(
+                    "src.api.chat.MAX_FILE_SIZE_BYTES",
+                    ARTIFICIALLY_LOW_FILE_SIZE_BYTES,
+                ),
                 patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
             ):
                 result = await _extract_transcript_content([f"/uploads/{filename}"])
