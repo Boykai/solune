@@ -113,7 +113,7 @@ class PlanStepResponse(BaseModel):
     title: str
     description: str
     dependencies: list[str]
-    approval_status: str = "pending"
+    approval_status: StepApprovalStatus = StepApprovalStatus.PENDING
     issue_number: int | None = None
     issue_url: str | None = None
 

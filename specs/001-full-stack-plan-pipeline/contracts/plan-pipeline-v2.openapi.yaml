@@ -6,6 +6,12 @@ info:
     API contract for the Full-Stack Plan Pipeline Enhancement (v2).
     Extends the existing plan endpoints with versioning, step CRUD,
     feedback, and history capabilities.
+    All paths are relative to the chat router prefix `/chat`.
+    For example, `/plans/{plan_id}` is served at `/chat/plans/{plan_id}`.
+
+servers:
+  - url: /chat
+    description: Chat router prefix (all plan endpoints are under /chat)
 
 paths:
   /plans/{plan_id}:
@@ -304,12 +310,9 @@ components:
 
     PlanStep:
       type: object
-      required: [step_id, plan_id, position, title, description, dependencies]
+      required: [step_id, position, title, description, dependencies]
       properties:
         step_id:
-          type: string
-          format: uuid
-        plan_id:
           type: string
           format: uuid
         position:
@@ -382,7 +385,7 @@ components:
 
     PlanVersion:
       type: object
-      required: [version_id, plan_id, version, title, summary, steps, created_at]
+      required: [version_id, plan_id, version, title, summary, steps_json, created_at]
       properties:
         version_id:
           type: string
@@ -396,10 +399,9 @@ components:
           type: string
         summary:
           type: string
-        steps:
-          type: array
-          items:
-            $ref: "#/components/schemas/PlanStep"
+        steps_json:
+          type: string
+          description: JSON-encoded array of step snapshots at this version
         created_at:
           type: string
           format: date-time

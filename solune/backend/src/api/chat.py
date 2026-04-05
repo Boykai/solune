@@ -2360,8 +2360,12 @@ _SAFE_ERROR_MESSAGES: dict[str, str] = {
     "Cannot delete steps": "Cannot delete steps from a non-draft plan.",
     "Cannot modify steps": "Cannot modify steps in a non-draft plan.",
     "Cannot reorder steps": "Cannot reorder steps in a non-draft plan.",
+    "Cannot update steps": "Cannot update steps of a non-draft plan.",
     "DAG validation failed": "DAG validation failed: invalid step dependencies.",
     "Invalid approval_status": "Invalid approval status value.",
+    "step_ids must contain exactly the current step IDs": (
+        "step_ids must contain exactly the current step IDs."
+    ),
 }
 
 
@@ -2652,7 +2656,13 @@ async def submit_step_feedback_endpoint(
     session: Annotated[UserSession, Depends(get_session_dep)],
     request: Request,
 ):
-    """Submit step-level feedback for plan refinement."""
+    """Submit step-level feedback for plan refinement.
+
+    Stub: validates the plan/step and accepts the feedback with HTTP 202,
+    but does not yet persist or route the feedback to the active agent
+    session.  Persistence and SDK elicitation will be wired in when the
+    Copilot SDK upgrade lands.
+    """
     from src.models.plan import StepFeedbackRequest, StepFeedbackResponse
     from src.services import chat_store
 

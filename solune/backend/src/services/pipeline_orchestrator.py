@@ -151,23 +151,36 @@ async def run_pipeline(
 
     for group_num in sorted(groups.keys()):
         group_stages = groups[group_num]
-        has_parallel = any(s.get("parallel", False) for s in group_stages)
 
-        if has_parallel:
-            # Run parallel stages concurrently
-            async def _run_with_events(s: dict[str, Any]) -> StageResult:
-                if event_callback:
-                    await event_callback(stage_started_event(s["name"]))
-                result = await _run_stage(s, context)
-                if event_callback:
-                    if result.success:
-                        await event_callback(stage_completed_event(s["name"], result.output))
-                    else:
-                        await event_callback(stage_failed_event(s["name"], result.error))
-                return result
+        # Split into serial and parallel subsets for mixed groups
+        serial_stages = [s for s in group_stages if not s.get("parallel", False)]
+        parallel_stages = [s for s in group_stages if s.get("parallel", False)]
 
+        async def _run_with_events(s: dict[str, Any]) -> StageResult:
+            if event_callback:
+                await event_callback(stage_started_event(s["name"]))
+            result = await _run_stage(s, context)
+            if event_callback:
+                if result.success:
+                    await event_callback(stage_completed_event(s["name"], result.output))
+                else:
+                    await event_callback(stage_failed_event(s["name"], result.error))
+            return result
+
+        # Run serial stages first, in order
+        for s in serial_stages:
+            result = await _run_with_events(s)
+            results.append(result)
+
+            # Halt on serial failure
+            if not result.success:
+                logger.error("Serial stage %s failed — halting pipeline", result.name)
+                return results
+
+        # Then run parallel stages concurrently
+        if parallel_stages:
             group_results = await asyncio.gather(
-                *[_run_with_events(s) for s in group_stages],
+                *[_run_with_events(s) for s in parallel_stages],
                 return_exceptions=False,
             )
             results.extend(group_results)
@@ -176,24 +189,5 @@ async def run_pipeline(
             for r in group_results:
                 if not r.success:
                     logger.warning("Parallel stage %s failed: %s", r.name, r.error)
-        else:
-            # Run serial stages one at a time
-            for s in group_stages:
-                if event_callback:
-                    await event_callback(stage_started_event(s["name"]))
-
-                result = await _run_stage(s, context)
-                results.append(result)
-
-                if event_callback:
-                    if result.success:
-                        await event_callback(stage_completed_event(s["name"], result.output))
-                    else:
-                        await event_callback(stage_failed_event(s["name"], result.error))
-
-                # Halt on serial failure
-                if not result.success:
-                    logger.error("Serial stage %s failed — halting pipeline", result.name)
-                    return results
 
     return results

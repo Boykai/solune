@@ -51,7 +51,7 @@ export interface PlanVersion {
   version: number;
   title: string;
   summary: string;
-  steps: PlanStepV2[];
+  steps_json: string;
   created_at: string;
 }
 
@@ -123,8 +123,7 @@ export interface ToolStartEvent {
 /** Pipeline stage events */
 export interface StageEvent {
   stage: string;
-  agent: string;
-  result?: Record<string, unknown>;
+  output?: string;
   error?: string;
 }
 

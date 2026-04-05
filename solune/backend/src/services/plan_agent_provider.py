@@ -37,13 +37,13 @@ SPECKIT_AGENT_PROFILES: dict[str, dict[str, Any]] = {
     "solune-specify": {
         "name": "solune-specify",
         "description": "Specification agent — creates feature specifications from natural language descriptions.",
-        "tool_whitelist": ["get_project_context", "save_spec"],
+        "tool_whitelist": ["get_project_context", "save_plan"],
         "permission": "read_only",
     },
     "solune-tasks": {
         "name": "solune-tasks",
         "description": "Task generation agent — creates actionable task breakdowns from specifications.",
-        "tool_whitelist": ["get_project_context", "save_tasks"],
+        "tool_whitelist": ["get_project_context", "save_plan"],
         "permission": "read_only",
     },
     "solune-analyze": {

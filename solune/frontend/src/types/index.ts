@@ -223,7 +223,7 @@ export interface StepApprovalRequest {
 
 export interface StepFeedbackRequest {
   feedback_type: 'comment' | 'approve' | 'reject';
-  content?: string;
+  content: string;
 }
 
 export interface StepFeedbackResponse {
