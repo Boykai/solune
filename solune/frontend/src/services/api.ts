@@ -368,7 +368,7 @@ export const chatApi = {
     data: ChatMessageRequest,
     onToken: (content: string) => void,
     onDone: (message: ChatMessage) => void,
-    onError: (error: Error) => void,
+    onError: (error: Error & { partialContent?: string }) => void,
   ): Promise<void> {
     const url = `${API_BASE_URL}/chat/messages/stream`;
     const csrfToken = getCsrfToken();
@@ -422,8 +422,20 @@ export const chatApi = {
           const msgData = tryParseJson(parsed.data, parsed.data) ?? parsed;
           onDone(msgData as ChatMessage);
         } else if (eventType === 'error') {
-          const message = (parsed.data || parsed.message || parsed.error || 'Stream error') as string;
-          onError(new Error(message));
+          const errorData = tryParseJson(parsed.data, parsed) ?? parsed;
+          let details: Record<string, unknown> = {};
+          if (typeof errorData !== 'object' || errorData === null) {
+            console.debug('[SSE] Unexpected error payload shape:', errorData);
+          } else {
+            details = errorData as Record<string, unknown>;
+          }
+          const error = new Error(
+            (details.message || parsed.message || parsed.error || 'Stream error') as string
+          ) as Error & { partialContent?: string };
+          if (typeof details.partial_content === 'string') {
+            error.partialContent = details.partial_content;
+          }
+          onError(error);
         } else if (parsed.content) {
           // Fallback: direct token content without explicit event type
           onToken(parsed.content as string);

@@ -7,8 +7,20 @@ import type { ChatMessage } from '@/types';
 // ── Mock sub-components ──
 
 vi.mock('./MessageBubble', () => ({
-  MessageBubble: ({ message }: { message: ChatMessage }) => (
-    <div data-testid="message-bubble">{message.content}</div>
+  MessageBubble: ({
+    message,
+    isStreaming,
+    streamError,
+  }: {
+    message: ChatMessage;
+    isStreaming?: boolean;
+    streamError?: string | null;
+  }) => (
+    <div data-testid="message-bubble">
+      {message.content}
+      {isStreaming ? ' [streaming]' : ''}
+      {streamError ? ` [${streamError}]` : ''}
+    </div>
   ),
 }));
 
@@ -170,6 +182,13 @@ function renderChat(overrides: Partial<React.ComponentProps<typeof ChatInterface
 // ── Tests ──
 
 describe('ChatInterface', () => {
+  const scrollIntoView = vi.fn();
+
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoView,
+  });
+
   it('renders the New Chat button when messages exist', () => {
     renderChat({ messages: [createMessage()] });
 
@@ -201,5 +220,64 @@ describe('ChatInterface', () => {
     fireEvent.click(screen.getByText('New Chat'));
 
     expect(onNewChat).toHaveBeenCalledOnce();
+  });
+
+  it('renders transient streaming content before the final message arrives', () => {
+    renderChat({
+      messages: [createMessage({ content: 'User prompt' })],
+      isStreaming: true,
+      streamingContent: 'Assistant is typing',
+    });
+
+    expect(screen.getByText('Assistant is typing [streaming]')).toBeInTheDocument();
+  });
+
+  it('keeps partial streaming content visible when the stream errors', () => {
+    renderChat({
+      messages: [createMessage({ content: 'User prompt' })],
+      streamingContent: 'Partial answer',
+      streamingError: 'Stream error',
+    });
+
+    expect(screen.getByText('Partial answer [Stream error]')).toBeInTheDocument();
+  });
+
+  it('pauses auto-follow when the user scrolls away from the bottom', () => {
+    scrollIntoView.mockClear();
+    const baseMessages = [createMessage({ content: 'User prompt' })];
+
+    const { rerender } = renderChat({
+      messages: baseMessages,
+      streamingContent: 'First token',
+    });
+
+    const viewport = screen.getByTestId('chat-messages-viewport');
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 400 });
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 200, writable: true });
+
+    fireEvent.scroll(viewport);
+    scrollIntoView.mockClear();
+
+    rerender(
+      <ChatInterface
+        messages={baseMessages}
+        pendingProposals={new Map()}
+        pendingStatusChanges={new Map()}
+        pendingRecommendations={new Map()}
+        isSending={false}
+        streamingContent="Second token"
+        onSendMessage={vi.fn()}
+        onRetryMessage={vi.fn()}
+        onConfirmProposal={vi.fn()}
+        onConfirmStatusChange={vi.fn()}
+        onConfirmRecommendation={vi.fn()}
+        onRejectProposal={vi.fn()}
+        onRejectRecommendation={vi.fn()}
+        onNewChat={vi.fn()}
+      />
+    );
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });

@@ -92,6 +92,9 @@ export function AppLayout() {
     pendingStatusChanges,
     pendingRecommendations,
     isSending,
+    isStreaming,
+    streamingContent,
+    streamingError,
     sendMessage,
     retryMessage,
     confirmProposal,
@@ -175,11 +178,14 @@ export function AppLayout() {
         <ChatPopup
           messages={messages}
           pendingProposals={pendingProposals}
-          pendingStatusChanges={pendingStatusChanges}
-          pendingRecommendations={pendingRecommendations}
-          isSending={isSending}
-          projectId={selectedProject?.project_id}
-          onSendMessage={sendMessage}
+            pendingStatusChanges={pendingStatusChanges}
+            pendingRecommendations={pendingRecommendations}
+            isSending={isSending}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+            streamingError={streamingError}
+            projectId={selectedProject?.project_id}
+            onSendMessage={sendMessage}
           onRetryMessage={retryMessage}
           onConfirmProposal={async (proposalId) => {
             await confirmProposal(proposalId);

@@ -12,12 +12,20 @@ import { CopyButton } from '@/components/ui/copy-button';
 interface MessageBubbleProps {
   message: ChatMessage;
   onRetry?: () => void;
+  isStreaming?: boolean;
+  streamError?: string | null;
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, onRetry }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({
+  message,
+  onRetry,
+  isStreaming = false,
+  streamError = null,
+}: MessageBubbleProps) {
   const isUser = message.sender_type === 'user';
   const isSystem = message.sender_type === 'system';
   const isFailed = message.status === 'failed';
+  const resolvedModel = message.resolved_model;
 
   return (
     <div
@@ -51,9 +59,25 @@ export const MessageBubble = memo(function MessageBubble({ message, onRetry }: M
             )}
           </div>
         )}
-        {!isUser && !isSystem && !isFailed && (
+        {!isUser && !isSystem && !isFailed && !isStreaming && (
           <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <CopyButton value={message.content} label="Copy message" />
+          </div>
+        )}
+        {!isUser && !isSystem && (isStreaming || streamError || resolvedModel) && (
+          <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
+            {isStreaming && <span>Streaming response…</span>}
+            {streamError && (
+              <span className="text-destructive">
+                Stream interrupted — partial response shown.
+              </span>
+            )}
+            {resolvedModel?.resolution_status === 'resolved' && resolvedModel.model_name && (
+              <span>Model used: {resolvedModel.model_name}</span>
+            )}
+            {resolvedModel?.resolution_status === 'failed' && resolvedModel.guidance && (
+              <span className="text-amber-600 dark:text-amber-400">{resolvedModel.guidance}</span>
+            )}
           </div>
         )}
         {isFailed && (

@@ -97,4 +97,34 @@ describe('MessageBubble', () => {
     const { container } = render(<MessageBubble message={createMessage()} />);
     await expectNoA11yViolations(container);
   });
+
+  it('shows streaming and resolved-model metadata for assistant messages', () => {
+    render(
+      <MessageBubble
+        message={createMessage({
+          sender_type: 'assistant',
+          resolved_model: {
+            selection_mode: 'auto',
+            resolution_status: 'resolved',
+            model_name: 'GPT-5',
+          },
+        })}
+        isStreaming={true}
+      />
+    );
+
+    expect(screen.getByText('Streaming response…')).toBeInTheDocument();
+    expect(screen.getByText('Model used: GPT-5')).toBeInTheDocument();
+  });
+
+  it('shows partial-stream error guidance when rendering a transient assistant bubble', () => {
+    render(
+      <MessageBubble
+        message={createMessage({ sender_type: 'assistant', content: 'Partial reply' })}
+        streamError="Stream failed"
+      />
+    );
+
+    expect(screen.getByText('Stream interrupted — partial response shown.')).toBeInTheDocument();
+  });
 });

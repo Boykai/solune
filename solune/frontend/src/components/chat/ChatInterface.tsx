@@ -39,6 +39,10 @@ import { useMentionAutocomplete } from '@/hooks/useMentionAutocomplete';
 import type { CommandDefinition } from '@/lib/commands/types';
 import { History, ListChecks, Mic } from '@/lib/icons';
 
+const SCROLL_FOLLOW_THRESHOLD_PX = 48;
+const STREAMING_MESSAGE_ID = 'streaming-assistant-preview';
+const STREAMING_SESSION_ID = 'streaming-session-preview';
+
 function formatDateSeparator(date: Date): string {
   const today = new Date();
   const yesterday = new Date(today);
@@ -60,6 +64,9 @@ interface ChatInterfaceProps {
   pendingStatusChanges: Map<string, StatusChangeProposal>;
   pendingRecommendations: Map<string, IssueCreateActionData>;
   isSending: boolean;
+  isStreaming?: boolean;
+  streamingContent?: string;
+  streamingError?: string | null;
   projectId?: string;
   onSendMessage: (
     content: string,
@@ -90,6 +97,9 @@ export function ChatInterface({
   pendingStatusChanges,
   pendingRecommendations,
   isSending,
+  isStreaming = false,
+  streamingContent = '',
+  streamingError = null,
   projectId,
   onSendMessage,
   onRetryMessage,
@@ -117,9 +127,11 @@ export function ChatInterface({
   const [showHistoryPopover, setShowHistoryPopover] = useState(false);
   const [mentionValidationError, setMentionValidationError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
   const mentionInputRef = useRef<MentionInputHandle>(null);
   const historyPopoverRef = useRef<HTMLDivElement>(null);
   const historyNavTriggered = useRef(false);
+  const [shouldFollowStream, setShouldFollowStream] = useState(true);
 
   // Integrate command system directly so autocomplete works regardless of
   // whether the parent passes command props (ChatPopup does not).
@@ -191,10 +203,29 @@ export function ChatInterface({
     }
   }, [isRecording, startRecording, stopRecording]);
 
+  const isNearBottom = useCallback((element: HTMLDivElement) => {
+    return (
+      element.scrollHeight - element.scrollTop - element.clientHeight <=
+      SCROLL_FOLLOW_THRESHOLD_PX
+    );
+  }, []);
+
+  const handleViewportScroll = useCallback(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) return;
+    setShouldFollowStream(isNearBottom(viewport));
+  }, [isNearBottom]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if ((isStreaming || streamingError || streamingContent) && shouldFollowStream) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isStreaming, shouldFollowStream, streamingContent, streamingError]);
 
   // Update autocomplete state when input changes.
   // Derive filtered commands internally via useCommands() so autocomplete
@@ -424,7 +455,12 @@ export function ChatInterface({
           </button>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
+      <div
+        ref={messagesViewportRef}
+        data-testid="chat-messages-viewport"
+        onScroll={handleViewportScroll}
+        className="flex-1 overflow-y-auto p-6 flex flex-col gap-4"
+      >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
             <h3 className="text-lg font-semibold text-foreground mb-2">Start a conversation</h3>
@@ -549,6 +585,20 @@ export function ChatInterface({
               </div>
             );
           })
+        )}
+
+        {(streamingContent || streamingError) && (
+          <MessageBubble
+            message={{
+              message_id: STREAMING_MESSAGE_ID,
+              session_id: STREAMING_SESSION_ID,
+              sender_type: 'assistant',
+              content: streamingContent,
+              timestamp: new Date().toISOString(),
+            }}
+            isStreaming={isStreaming}
+            streamError={streamingError}
+          />
         )}
 
         {isSending && (
