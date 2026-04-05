@@ -88,6 +88,17 @@ const ActionDataSchema = z.union([
   PipelineLaunchActionDataSchema,
 ]);
 
+const ResolvedModelInfoSchema = z.object({
+  selection_mode: z.enum(['auto', 'explicit']),
+  resolution_status: z.enum(['resolved', 'failed']),
+  model_id: z.string().nullable().optional(),
+  model_name: z.string().nullable().optional(),
+  source: z
+    .enum(['pipeline_override', 'agent_default', 'user_default', 'provider_default', 'unknown'])
+    .optional(),
+  guidance: z.string().nullable().optional(),
+});
+
 const ChatMessageSchema = z.object({
   message_id: z.string(),
   session_id: z.string(),
@@ -97,6 +108,7 @@ const ChatMessageSchema = z.object({
   action_data: ActionDataSchema.optional(),
   timestamp: z.string(),
   status: z.enum(['pending', 'sent', 'failed']).optional(),
+  resolved_model: ResolvedModelInfoSchema.nullable().optional(),
 });
 
 export const ChatMessagesResponseSchema = z.object({
