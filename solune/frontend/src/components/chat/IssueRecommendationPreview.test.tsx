@@ -88,6 +88,64 @@ describe('IssueRecommendationPreview', () => {
     );
   });
 
+  it('shows the resolved auto-model name after issue creation succeeds', async () => {
+    const onConfirm = vi.fn().mockResolvedValue({
+      success: true,
+      issue_number: 42,
+      issue_url: 'https://github.com/org/repo/issues/42',
+      current_status: 'Todo',
+      message: 'Created',
+      resolved_model: {
+        selection_mode: 'auto',
+        resolution_status: 'resolved',
+        model_name: 'GPT-5',
+      },
+    } as WorkflowResult);
+
+    render(
+      <IssueRecommendationPreview
+        recommendation={createRecommendation()}
+        onConfirm={onConfirm}
+        onReject={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /Confirm & Create Issue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Model used: GPT-5')).toBeInTheDocument();
+    });
+  });
+
+  it('shows auto-model guidance when resolution fails during issue creation', async () => {
+    const onConfirm = vi.fn().mockResolvedValue({
+      success: false,
+      issue_number: 42,
+      issue_url: 'https://github.com/org/repo/issues/42',
+      current_status: 'Todo',
+      message: 'Created with warnings',
+      resolved_model: {
+        selection_mode: 'auto',
+        resolution_status: 'failed',
+        guidance: 'Choose a specific model before retrying.',
+      },
+    } as WorkflowResult);
+
+    render(
+      <IssueRecommendationPreview
+        recommendation={createRecommendation()}
+        onConfirm={onConfirm}
+        onReject={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /Confirm & Create Issue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Choose a specific model before retrying.')).toBeInTheDocument();
+    });
+  });
+
   it('calls onReject', async () => {
     const onReject = vi.fn().mockResolvedValue(undefined);
     render(

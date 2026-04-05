@@ -73,6 +73,16 @@ export function IssueRecommendationPreview({
             <strong>Issue #{result.issue_number}</strong>: {recommendation.proposed_title}
           </p>
           <p className="my-1">Status: {result.current_status}</p>
+          {result.resolved_model?.resolution_status === 'resolved' &&
+            result.resolved_model.model_name && (
+              <p className="my-1">Model used: {result.resolved_model.model_name}</p>
+            )}
+          {result.resolved_model?.resolution_status === 'failed' &&
+            result.resolved_model.guidance && (
+              <p className="my-1 text-amber-700 dark:text-amber-300">
+                {result.resolved_model.guidance}
+              </p>
+            )}
           {result.issue_url && (
             <a
               href={result.issue_url}
@@ -100,6 +110,16 @@ export function IssueRecommendationPreview({
           <p className="my-1">
             <strong>Issue #{result.issue_number}</strong>: {recommendation.proposed_title}
           </p>
+          {result.resolved_model?.resolution_status === 'resolved' &&
+            result.resolved_model.model_name && (
+              <p className="my-1">Model used: {result.resolved_model.model_name}</p>
+            )}
+          {result.resolved_model?.resolution_status === 'failed' &&
+            result.resolved_model.guidance && (
+              <p className="my-1 text-amber-700 dark:text-amber-300">
+                {result.resolved_model.guidance}
+              </p>
+            )}
           {result.issue_url && (
             <a
               href={result.issue_url}

@@ -65,11 +65,12 @@ describe('SettingsPage', () => {
 
   it('shows loading indicator while user settings load', () => {
     mockUseUserSettings.mockReturnValue(userSettingsHook({ isLoading: true }));
-    render(<SettingsPage />);
+    const { container } = render(<SettingsPage />);
     expect(screen.getByText('Loading user settings…')).toBeInTheDocument();
     // Should not render the main heading or settings content while loading
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
     expect(screen.queryByText('AI Configuration')).not.toBeInTheDocument();
+    expect(container.firstChild).not.toHaveClass('h-full', 'overflow-y-auto');
   });
 
   // ── Loaded State with Data ──
@@ -78,8 +79,9 @@ describe('SettingsPage', () => {
     mockUseUserSettings.mockReturnValue(
       userSettingsHook({ settings: mockUserSettings })
     );
-    render(<SettingsPage />);
+    const { container } = render(<SettingsPage />);
     expect(screen.getByText('AI Configuration')).toBeInTheDocument();
+    expect(container.firstChild).not.toHaveClass('h-full', 'overflow-y-auto');
   });
 
   // ── Removed Sections ──

@@ -9,6 +9,20 @@ import * as api from '@/services/api';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from '@/components/ThemeProvider';
 
+function createMockUserSettings() {
+  return {
+    ai: { provider: 'copilot', model: 'gpt-4o', temperature: 0.7 },
+    display: { theme: 'dark', default_view: 'board', sidebar_collapsed: false },
+    workflow: { auto_assign: true, default_status: 'Todo', polling_interval: 15 },
+    notifications: {
+      task_status_change: true,
+      agent_completion: true,
+      new_recommendation: true,
+      chat_mention: true,
+    },
+  };
+}
+
 // Mock the API module
 vi.mock('@/services/api', () => ({
   chatApi: {
@@ -23,17 +37,7 @@ vi.mock('@/services/api', () => ({
     updateStatus: vi.fn(),
   },
   settingsApi: {
-    getUserSettings: vi.fn().mockResolvedValue({
-      ai: { provider: 'copilot', model: 'gpt-4o', temperature: 0.7 },
-      display: { theme: 'dark', default_view: 'board', sidebar_collapsed: false },
-      workflow: { auto_assign: true, default_status: 'Todo', polling_interval: 15 },
-      notifications: {
-        task_status_change: true,
-        agent_completion: true,
-        new_recommendation: true,
-        chat_mention: true,
-      },
-    }),
+    getUserSettings: vi.fn().mockResolvedValue(createMockUserSettings()),
     updateUserSettings: vi.fn().mockResolvedValue({}),
   },
 }));
@@ -63,6 +67,9 @@ const mockChatApi = api.chatApi as unknown as {
   confirmProposal: ReturnType<typeof vi.fn>;
   cancelProposal: ReturnType<typeof vi.fn>;
 };
+const mockSettingsApi = api.settingsApi as unknown as {
+  getUserSettings: ReturnType<typeof vi.fn>;
+};
 
 // Create wrapper with QueryClientProvider and ThemeProvider
 function createWrapper() {
@@ -85,6 +92,7 @@ function createWrapper() {
 describe('useChat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSettingsApi.getUserSettings.mockResolvedValue(createMockUserSettings());
     // Default: sendMessageStream delegates to sendMessage, routing
     // success to onDone and failure to onError.
     mockChatApi.sendMessageStream.mockImplementation(

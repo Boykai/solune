@@ -102,6 +102,27 @@ describe('ChatMessagesResponseSchema', () => {
     expect(result.messages[0].action_type).toBe('pipeline_launch');
   });
 
+  it('accepts assistant messages with resolved auto-model metadata', () => {
+    const result = ChatMessagesResponseSchema.parse({
+      messages: [
+        {
+          ...baseMessage,
+          sender_type: 'assistant',
+          content: 'Done',
+          resolved_model: {
+            selection_mode: 'auto',
+            resolution_status: 'resolved',
+            model_id: 'gpt-5',
+            model_name: 'GPT-5',
+            source: 'provider_default',
+          },
+        },
+      ],
+    });
+
+    expect(result.messages[0].resolved_model?.model_name).toBe('GPT-5');
+  });
+
   it('rejects invalid sender_type', () => {
     const data = { messages: [{ ...baseMessage, sender_type: 'bot' }] };
     expect(() => ChatMessagesResponseSchema.parse(data)).toThrow();
@@ -113,9 +134,13 @@ describe('ChatMessagesResponseSchema', () => {
   });
 
   it('accepts all action_type enum values', () => {
-    for (const at of ['task_create', 'status_update', 'project_select', 'issue_create', 'pipeline_launch'] as const) {
-      // Just verifying the enum values don't throw when used as action_type
-      // (action_data must match, but task_id satisfies the union for status_update)
+    for (const at of [
+      'task_create',
+      'status_update',
+      'project_select',
+      'issue_create',
+      'pipeline_launch',
+    ] as const) {
       const msg = {
         ...baseMessage,
         action_type: at,
