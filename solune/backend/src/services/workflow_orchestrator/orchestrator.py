@@ -31,6 +31,7 @@ from .models import (
     WorkflowState,
     _ci_get,
     find_next_actionable_status,
+    get_agent_configs,
     get_agent_slugs,
     get_status_order,
 )
@@ -396,13 +397,30 @@ class WorkflowOrchestrator:
 
         agent_sub_issues: dict[str, dict] = {}
 
+        # Collect agent configs for delay_seconds on human agents
+        all_agent_configs = get_agent_configs(config)
+
         for agent_name in all_agents:
             try:
+                # Extract delay_seconds for human agent sub-issue body
+                agent_delay: int | None = None
+                if agent_name == "human":
+                    human_cfg = all_agent_configs.get("human", {})
+                    raw_delay = human_cfg.get("delay_seconds")
+                    if raw_delay is not None:
+                        try:
+                            agent_delay = int(raw_delay)
+                            if agent_delay < 1 or agent_delay > 86400:
+                                agent_delay = None
+                        except (TypeError, ValueError):
+                            agent_delay = None
+
                 sub_body = self.github.tailor_body_for_agent(
                     parent_body=parent_body,
                     agent_name=agent_name,
                     parent_issue_number=ctx.issue_number,
                     parent_title=parent_title,
+                    delay_seconds=agent_delay,
                 )
 
                 sub_issue = await self.github.create_sub_issue(

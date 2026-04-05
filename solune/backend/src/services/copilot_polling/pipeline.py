@@ -1,6 +1,7 @@
 """Pipeline state management, status checking, and advancement logic."""
 
 import asyncio
+import math
 from datetime import datetime
 from typing import Any
 
@@ -23,6 +24,25 @@ from .state import (
 )
 
 logger = get_logger(__name__)
+
+
+def format_delay_duration(seconds: int) -> str:
+    """Format seconds into a human-readable duration string.
+
+    Examples: 30 → "30s", 300 → "5m", 3600 → "1h", 90 → "1m 30s", 86400 → "24h".
+    """
+    if seconds <= 0:
+        return "0s"
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    parts: list[str] = []
+    if hours:
+        parts.append(f"{hours}h")
+    if minutes:
+        parts.append(f"{minutes}m")
+    if secs or not parts:
+        parts.append(f"{secs}s")
+    return " ".join(parts)
 
 
 async def _dequeue_next_pipeline(
@@ -1948,95 +1968,293 @@ async def _advance_pipeline(
     next_agent = pipeline.current_agent
     pipeline.started_at = utcnow()
 
-    # ── Human Agent Skip (Auto Merge) ──
-    # When auto_merge is active (project-level OR pipeline-level) and the
-    # human agent is the last step in the pipeline, skip it with a ⏭ SKIPPED
-    # indicator and proceed directly to pipeline completion and auto-merge flow.
+    # ── Human Agent: Delay-Then-Merge / Skip / Manual Wait ──
     if next_agent == "human":
-        # Check if human is the last step
-        remaining_agents = pipeline.agents[pipeline.current_agent_index :]
-        is_last_step = len(remaining_agents) == 1
-
-        if is_last_step:
-            from src.services.database import get_db
-            from src.services.settings_store import is_auto_merge_enabled
-
-            db = get_db()
-            auto_merge_active = pipeline.auto_merge or await is_auto_merge_enabled(db, project_id)
-
-            if auto_merge_active:
-                logger.info(
-                    "Auto-merge: skipping human agent (last step) for issue #%d",
+        # Read delay_seconds from agent config
+        human_config = pipeline.agent_configs.get("human", {})
+        raw_delay = human_config.get("delay_seconds")
+        delay_seconds: int | None = None
+        if raw_delay is not None:
+            try:
+                delay_seconds = int(raw_delay)
+                if delay_seconds < 1 or delay_seconds > 86400:
+                    logger.warning(
+                        "Invalid delay_seconds=%r for human agent on issue #%d (must be 1-86400), ignoring",
+                        raw_delay,
+                        issue_number,
+                    )
+                    delay_seconds = None
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Non-integer delay_seconds=%r for human agent on issue #%d, ignoring",
+                    raw_delay,
                     issue_number,
                 )
 
-                # Mark step as SKIPPED in pipeline
-                pipeline.completed_agents.append("human")
-                pipeline.current_agent_index += 1
+        if delay_seconds is not None:
+            # ── Delay-then-merge path ──
+            duration_str = format_delay_duration(delay_seconds)
+            logger.info(
+                "Human agent delay: %s for issue #%d before auto-merge",
+                duration_str,
+                issue_number,
+            )
 
-                # Update group tracking if applicable
-                if pipeline.groups and pipeline.current_group_index < len(pipeline.groups):
-                    group = pipeline.groups[pipeline.current_group_index]
-                    group.agent_statuses["human"] = "completed"
+            # Broadcast delay state to tracking
+            await _cp.connection_manager.broadcast_to_project(
+                project_id,
+                {
+                    "type": "task_update",
+                    "issue_number": issue_number,
+                    "agent": "human",
+                    "agent_state": f"⏱️ Delay ({duration_str})",
+                    "timestamp": utcnow().isoformat(),
+                },
+            )
 
-                _cp.set_pipeline_state(issue_number, pipeline)
+            # Comment on sub-issue with delay info
+            human_sub = pipeline.agent_sub_issues.get("human")
+            sub_number = human_sub.get("number") if human_sub else None
+            if sub_number:
+                try:
+                    await _cp.github_projects_service.create_issue_comment(
+                        access_token=access_token,
+                        owner=owner,
+                        repo=repo,
+                        issue_number=sub_number,
+                        body=f"⏱️ Auto-merge in {duration_str}",
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to comment delay info on human sub-issue #%d",
+                        sub_number,
+                        exc_info=True,
+                    )
 
-                # Close human sub-issue with skip comment
-                human_sub = pipeline.agent_sub_issues.get("human")
-                if human_sub:
-                    sub_number = human_sub.get("number")
-                    if sub_number:
-                        try:
-                            await _cp.github_projects_service.create_issue_comment(
-                                access_token=access_token,
-                                owner=owner,
-                                repo=repo,
-                                issue_number=sub_number,
-                                body="Skipped — Auto Merge enabled",
+            _cp.set_pipeline_state(issue_number, pipeline)
+
+            # Sleep with 15-second polling for early cancellation
+            from .helpers import _check_human_agent_done
+
+            poll_interval = 15
+            intervals = math.ceil(delay_seconds / poll_interval)
+            cancelled_early = False
+            for i in range(intervals):
+                # Sleep only the remaining time on the final interval
+                remaining = delay_seconds - (i * poll_interval)
+                await asyncio.sleep(min(poll_interval, remaining))
+                # Check if sub-issue was closed or "Done!" commented (early cancel)
+                if sub_number:
+                    try:
+                        done = await _check_human_agent_done(
+                            access_token=access_token,
+                            owner=owner,
+                            repo=repo,
+                            parent_issue_number=issue_number,
+                            pipeline=pipeline,
+                        )
+                        if done:
+                            logger.info(
+                                "Human agent delay: early cancellation detected for issue #%d",
+                                issue_number,
                             )
-                            await _cp.github_projects_service.update_issue_state(
-                                access_token=access_token,
-                                owner=owner,
-                                repo=repo,
-                                issue_number=sub_number,
-                                state="closed",
-                                state_reason="not_planned",
-                            )
-                        except Exception:
-                            logger.warning(
-                                "Failed to close human sub-issue #%d",
-                                sub_number,
-                                exc_info=True,
-                            )
+                            cancelled_early = True
+                            break
+                    except Exception:
+                        logger.debug(
+                            "Early cancel check failed for issue #%d, continuing delay",
+                            issue_number,
+                            exc_info=True,
+                        )
 
-                # Mark as SKIPPED in tracking table
-                await _cp.connection_manager.broadcast_to_project(
-                    project_id,
-                    {
-                        "type": "task_update",
-                        "issue_number": issue_number,
-                        "agent": "human",
-                        "agent_state": "⏭ SKIPPED",
-                        "timestamp": utcnow().isoformat(),
-                    },
+            # Trigger auto-merge
+            from .auto_merge import _attempt_auto_merge
+
+            logger.info(
+                "Human agent delay %s for issue #%d (configured=%s) — triggering auto-merge",
+                "cancelled early" if cancelled_early else f"completed ({duration_str})",
+                issue_number,
+                duration_str,
+            )
+
+            try:
+                merge_result = await _attempt_auto_merge(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
                 )
 
-                # Pipeline is now complete — transition
-                if pipeline.is_complete:
-                    result = await _transition_after_pipeline_complete(
+                if merge_result.status == "retry_later":
+                    from .auto_merge import schedule_auto_merge_retry
+
+                    schedule_auto_merge_retry(
                         access_token=access_token,
-                        project_id=project_id,
-                        item_id=item_id,
                         owner=owner,
                         repo=repo,
                         issue_number=issue_number,
-                        issue_node_id=issue_node_id,
-                        from_status=from_status,
-                        to_status=to_status,
+                        project_id=project_id,
+                        item_id=item_id,
                         task_title=task_title,
                     )
-                    _cp.remove_pipeline_state(issue_number)
-                    return result
+            except Exception:
+                logger.error(
+                    "Auto-merge attempt failed after delay for issue #%d",
+                    issue_number,
+                    exc_info=True,
+                )
+
+            # Close sub-issue with completion comment
+            if sub_number:
+                try:
+                    await _cp.github_projects_service.create_issue_comment(
+                        access_token=access_token,
+                        owner=owner,
+                        repo=repo,
+                        issue_number=sub_number,
+                        body="✅ Delay completed — auto-merge triggered",
+                    )
+                    await _cp.github_projects_service.update_issue_state(
+                        access_token=access_token,
+                        owner=owner,
+                        repo=repo,
+                        issue_number=sub_number,
+                        state="closed",
+                        state_reason="completed",
+                    )
+                except Exception:
+                    logger.warning(
+                        "Failed to close human sub-issue #%d after delay",
+                        sub_number,
+                        exc_info=True,
+                    )
+
+            # Mark agent as completed and advance pipeline
+            pipeline.completed_agents.append("human")
+            pipeline.current_agent_index += 1
+
+            if pipeline.groups and pipeline.current_group_index < len(pipeline.groups):
+                group = pipeline.groups[pipeline.current_group_index]
+                group.agent_statuses["human"] = "completed"
+
+            _cp.set_pipeline_state(issue_number, pipeline)
+
+            await _cp.connection_manager.broadcast_to_project(
+                project_id,
+                {
+                    "type": "task_update",
+                    "issue_number": issue_number,
+                    "agent": "human",
+                    "agent_state": "✅ Done",
+                    "timestamp": utcnow().isoformat(),
+                },
+            )
+
+            if pipeline.is_complete:
+                result = await _transition_after_pipeline_complete(
+                    access_token=access_token,
+                    project_id=project_id,
+                    item_id=item_id,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                    issue_node_id=issue_node_id,
+                    from_status=from_status,
+                    to_status=to_status,
+                    task_title=task_title,
+                )
+                _cp.remove_pipeline_state(issue_number)
+                return result
+            # Pipeline not complete — recompute next_agent for the
+            # assignment block below (index was already incremented).
+            next_agent = pipeline.current_agent
+        else:
+            # ── No delay configured: existing skip / manual-wait paths ──
+            remaining_agents = pipeline.agents[pipeline.current_agent_index :]
+            is_last_step = len(remaining_agents) == 1
+
+            if is_last_step:
+                from src.services.database import get_db
+                from src.services.settings_store import is_auto_merge_enabled
+
+                db = get_db()
+                auto_merge_active = pipeline.auto_merge or await is_auto_merge_enabled(
+                    db, project_id
+                )
+
+                if auto_merge_active:
+                    logger.info(
+                        "Auto-merge: skipping human agent (last step) for issue #%d",
+                        issue_number,
+                    )
+
+                    # Mark step as SKIPPED in pipeline
+                    pipeline.completed_agents.append("human")
+                    pipeline.current_agent_index += 1
+
+                    # Update group tracking if applicable
+                    if pipeline.groups and pipeline.current_group_index < len(pipeline.groups):
+                        group = pipeline.groups[pipeline.current_group_index]
+                        group.agent_statuses["human"] = "completed"
+
+                    _cp.set_pipeline_state(issue_number, pipeline)
+
+                    # Close human sub-issue with skip comment
+                    human_sub = pipeline.agent_sub_issues.get("human")
+                    if human_sub:
+                        sub_number = human_sub.get("number")
+                        if sub_number:
+                            try:
+                                await _cp.github_projects_service.create_issue_comment(
+                                    access_token=access_token,
+                                    owner=owner,
+                                    repo=repo,
+                                    issue_number=sub_number,
+                                    body="Skipped — Auto Merge enabled",
+                                )
+                                await _cp.github_projects_service.update_issue_state(
+                                    access_token=access_token,
+                                    owner=owner,
+                                    repo=repo,
+                                    issue_number=sub_number,
+                                    state="closed",
+                                    state_reason="not_planned",
+                                )
+                            except Exception:
+                                logger.warning(
+                                    "Failed to close human sub-issue #%d",
+                                    sub_number,
+                                    exc_info=True,
+                                )
+
+                    # Mark as SKIPPED in tracking table
+                    await _cp.connection_manager.broadcast_to_project(
+                        project_id,
+                        {
+                            "type": "task_update",
+                            "issue_number": issue_number,
+                            "agent": "human",
+                            "agent_state": "⏭ SKIPPED",
+                            "timestamp": utcnow().isoformat(),
+                        },
+                    )
+
+                    # Pipeline is now complete — transition
+                    if pipeline.is_complete:
+                        result = await _transition_after_pipeline_complete(
+                            access_token=access_token,
+                            project_id=project_id,
+                            item_id=item_id,
+                            owner=owner,
+                            repo=repo,
+                            issue_number=issue_number,
+                            issue_node_id=issue_node_id,
+                            from_status=from_status,
+                            to_status=to_status,
+                            task_title=task_title,
+                        )
+                        _cp.remove_pipeline_state(issue_number)
+                        return result
 
     _cp.set_pipeline_state(issue_number, pipeline)
 
@@ -2984,6 +3202,82 @@ async def check_in_review_issues(
             )
             if result:
                 results.append(result)
+
+        # ── DevOps recovery fallback ──
+        # After pipeline processing, check for stalled DevOps agents:
+        # completed pipelines in "In Review" with no active background
+        # retry polling (e.g. after server restart).  DevOps tracking
+        # state (devops_active/devops_attempts) is kept in-memory via
+        # the pipeline_metadata dict and is NOT persisted on
+        # PipelineState.  After a restart those values are lost, so we
+        # optimistically check for the DevOps "Done!" comment on every
+        # completed in-review issue that has no pending retry.  The
+        # cost is O(n) comment fetches where n = in-review issues
+        # (typically small).
+        from .state import _pending_post_devops_retries
+
+        for task in in_review_tasks:
+            if task.issue_number is None:
+                continue
+            task_owner = task.repository_owner or owner
+            task_repo = task.repository_name or repo
+            if not task_owner or not task_repo:
+                continue
+
+            rec_pipeline = _cp.get_pipeline_state(task.issue_number)
+            if not rec_pipeline or not rec_pipeline.is_complete:
+                continue
+
+            if not getattr(rec_pipeline, "auto_merge", False):
+                continue  # Auto-merge not enabled for this pipeline
+
+            if task.issue_number in _pending_post_devops_retries:
+                continue  # Retry already running
+
+            try:
+                from .auto_merge import (
+                    _attempt_auto_merge,
+                    _check_devops_done_comment,
+                    dispatch_devops_agent,
+                )
+
+                done = await _check_devops_done_comment(
+                    access_token=access_token,
+                    owner=task_owner,
+                    repo=task_repo,
+                    issue_number=task.issue_number,
+                )
+                if done:
+                    logger.info(
+                        "DevOps recovery: 'Done!' detected for stalled issue #%d",
+                        task.issue_number,
+                    )
+                    merge_result = await _attempt_auto_merge(
+                        access_token=access_token,
+                        owner=task_owner,
+                        repo=task_repo,
+                        issue_number=task.issue_number,
+                    )
+                    if merge_result.status == "devops_needed":
+                        pipeline_md: dict[str, Any] = {
+                            "devops_attempts": 0,
+                            "devops_active": False,
+                        }
+                        await dispatch_devops_agent(
+                            access_token=access_token,
+                            owner=task_owner,
+                            repo=task_repo,
+                            issue_number=task.issue_number,
+                            pipeline_metadata=pipeline_md,
+                            project_id=project_id,
+                            merge_result_context=merge_result.context,
+                        )
+            except Exception:
+                logger.warning(
+                    "DevOps recovery failed for issue #%d",
+                    task.issue_number,
+                    exc_info=True,
+                )
 
     except Exception as e:
         logger.error("Error checking in-review issues: %s", e, exc_info=True)
