@@ -258,6 +258,102 @@ describe('AgentsPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders the Awesome Copilot catalog inline instead of a browse modal trigger', () => {
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Helps with alpha work',
+          source_url: 'https://example.test/catalog-alpha',
+          already_imported: false,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    expect(screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' })).toBeInTheDocument();
+    expect(screen.getByText('Catalog Alpha')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Browse Agents' })).not.toBeInTheDocument();
+  });
+
+  it('filters inline catalog agents by search query', async () => {
+    const user = userEvent.setup();
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Helps with alpha work',
+          source_url: 'https://example.test/catalog-alpha',
+          already_imported: false,
+        },
+        {
+          id: 'catalog-2',
+          name: 'Catalog Beta',
+          description: 'Helps with beta work',
+          source_url: 'https://example.test/catalog-beta',
+          already_imported: true,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    await user.type(screen.getByPlaceholderText('Search catalog agents…'), 'Alpha');
+
+    await waitFor(() => {
+      expect(screen.getByText('Catalog Alpha')).toBeInTheDocument();
+      expect(screen.queryByText('Catalog Beta')).not.toBeInTheDocument();
+    });
+  });
+
+  it('imports inline catalog agents with their snapshot metadata', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue(undefined);
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Helps with alpha work',
+          source_url: 'https://example.test/catalog-alpha',
+          already_imported: false,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    mockUseImportAgent.mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        catalog_agent_id: 'catalog-1',
+        name: 'Catalog Alpha',
+        description: 'Helps with alpha work',
+        source_url: 'https://example.test/catalog-alpha',
+      });
+    });
+  });
+
   it('opens the inline editor for pending local agents', async () => {
     mockUsePendingAgentsList.mockReturnValue({
       data: [createAgent()],

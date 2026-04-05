@@ -51,6 +51,9 @@ interface ChatPopupProps {
   pendingStatusChanges: Map<string, StatusChangeProposal>;
   pendingRecommendations: Map<string, IssueCreateActionData>;
   isSending: boolean;
+  isStreaming?: boolean;
+  streamingContent?: string;
+  streamingError?: string | null;
   projectId?: string;
   onSendMessage: (
     content: string,
@@ -71,6 +74,9 @@ export function ChatPopup({
   pendingStatusChanges,
   pendingRecommendations,
   isSending,
+  isStreaming,
+  streamingContent,
+  streamingError,
   projectId,
   onSendMessage,
   onRetryMessage,
@@ -255,6 +261,9 @@ export function ChatPopup({
           pendingStatusChanges={pendingStatusChanges}
           pendingRecommendations={pendingRecommendations}
           isSending={isSending}
+          isStreaming={isStreaming}
+          streamingContent={streamingContent}
+          streamingError={streamingError}
           projectId={projectId}
           onSendMessage={onSendMessage}
           onRetryMessage={onRetryMessage}

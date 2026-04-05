@@ -264,6 +264,7 @@ export interface ChatMessage {
   action_data?: ActionData;
   timestamp: string;
   status?: MessageStatus;
+  resolved_model?: ResolvedModelInfo | null;
 }
 
 export interface ChatMessageRequest {
@@ -513,6 +514,7 @@ export interface WorkflowResult {
   project_item_id?: string;
   current_status?: string;
   message: string;
+  resolved_model?: ResolvedModelInfo | null;
 }
 
 export interface PipelineIssueLaunchRequest {
@@ -1489,4 +1491,12 @@ export interface FaqEntry {
   question: string;
   answer: string;
   category: FaqCategory;
+}
+export interface ResolvedModelInfo {
+  selection_mode: 'auto' | 'explicit';
+  resolution_status: 'resolved' | 'failed';
+  model_id?: string | null;
+  model_name?: string | null;
+  source?: 'pipeline_override' | 'agent_default' | 'user_default' | 'provider_default' | 'unknown';
+  guidance?: string | null;
 }

@@ -2,7 +2,7 @@
  * Chat hook for managing messages and proposals.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { STALE_TIME_MEDIUM, TOAST_ERROR_MS } from '@/constants';
@@ -25,6 +25,8 @@ export function useChat() {
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingError, setStreamingError] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const proposals = useChatProposals();
 
   const {
@@ -54,6 +56,21 @@ export function useChat() {
     () => [...(messagesData?.messages ?? []), ...localMessages],
     [messagesData, localMessages]
   );
+
+  useEffect(() => {
+    if (!streamingMessageId) return;
+    const hasFinalMessage = (messagesData?.messages ?? []).some(
+      (message) => message.message_id === streamingMessageId
+    );
+    if (hasFinalMessage) {
+      const frame = requestAnimationFrame(() => {
+        setStreamingContent('');
+        setStreamingError(null);
+        setStreamingMessageId(null);
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [messagesData, streamingMessageId]);
 
   const { isCommand, executeCommand } = useCommands({ clearChat, messages: allMessages });
 
@@ -87,6 +104,8 @@ export function useChat() {
       return new Promise<void>((resolve) => {
         setIsStreaming(true);
         setStreamingContent('');
+        setStreamingError(null);
+        setStreamingMessageId(null);
 
         chatApi.sendMessageStream(
           data,
@@ -95,7 +114,9 @@ export function useChat() {
           },
           (response) => {
             setIsStreaming(false);
-            setStreamingContent('');
+            setStreamingContent(response.content);
+            setStreamingError(null);
+            setStreamingMessageId(response.message_id);
             setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
             proposals.handleActionResponse(response);
             queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
@@ -103,7 +124,11 @@ export function useChat() {
           },
           (error) => {
             setIsStreaming(false);
-            setStreamingContent('');
+            setStreamingContent((prev) => error.partialContent ?? prev);
+            setStreamingError(
+              error.message || 'Failed to send message — check your connection and try again.'
+            );
+            setStreamingMessageId(null);
             setLocalMessages((prev) =>
               prev.map((m) =>
                 m.message_id === tempId ? { ...m, status: 'failed' as const } : m,
@@ -232,6 +257,7 @@ export function useChat() {
     isSending: sendMutation.isPending,
     isStreaming,
     streamingContent,
+    streamingError,
     error: error as Error | null,
     pendingProposals: proposals.pendingProposals,
     pendingStatusChanges: proposals.pendingStatusChanges,

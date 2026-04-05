@@ -22,7 +22,7 @@ description: "Task list for UX Fixes — Scrolling, Agents Page, Chat Streaming,
 
 **Purpose**: Prepare the shared frontend contract surface needed by streaming and resolved-model UX work.
 
-- [ ] T001 Update shared chat and workflow response typings for `resolved_model` metadata in `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts`
+- [X] T001 Update shared chat and workflow response typings for `resolved_model` metadata in `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts`
 - [ ] T002 [P] Align SSE parsing and additive response handling for chat and pipeline payloads in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`
 
 ---
@@ -48,12 +48,12 @@ description: "Task list for UX Fixes — Scrolling, Agents Page, Chat Streaming,
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T005 [P] [US1] Add single-scroll regression coverage for Settings loading and ready shells in `/home/runner/work/solune/solune/solune/frontend/src/pages/SettingsPage.test.tsx`
+- [X] T005 [P] [US1] Add single-scroll regression coverage for Settings loading and ready shells in `/home/runner/work/solune/solune/solune/frontend/src/pages/SettingsPage.test.tsx`
 - [ ] T006 [P] [US1] Add single-scroll regression coverage for Agents and Pipeline shells in `/home/runner/work/solune/solune/solune/frontend/src/pages/AgentsPage.test.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/pages/AgentsPipelinePage.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Remove nested scroll ownership from loading and content wrappers in `/home/runner/work/solune/solune/solune/frontend/src/pages/SettingsPage.tsx`
+- [X] T007 [US1] Remove nested scroll ownership from loading and content wrappers in `/home/runner/work/solune/solune/solune/frontend/src/pages/SettingsPage.tsx`
 - [ ] T008 [P] [US1] Align the Agents page shell to a single scroll owner in `/home/runner/work/solune/solune/solune/frontend/src/pages/AgentsPage.tsx`
 - [ ] T009 [P] [US1] Align the pipeline page shell to a single scroll owner in `/home/runner/work/solune/solune/solune/frontend/src/pages/AgentsPipelinePage.tsx`
 
@@ -70,11 +70,11 @@ description: "Task list for UX Fixes — Scrolling, Agents Page, Chat Streaming,
 ### Tests for User Story 2 ⚠️
 
 - [ ] T010 [P] [US2] Add contract coverage for `/agents/{project_id}/catalog` and `/agents/{project_id}/import` in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_agents.py`
-- [ ] T011 [P] [US2] Expand inline catalog regression coverage for search, import, empty, and error states in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentsPanel.test.tsx`
+- [X] T011 [P] [US2] Expand inline catalog regression coverage for search, import, empty, and error states in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AgentsPanel.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Refactor the inline Agents workspace view to render catalog tiles and retire the browse trigger in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/AgentsPanel.tsx`
+- [X] T012 [US2] Refactor the inline Agents workspace view to render catalog tiles and retire the browse trigger in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/AgentsPanel.tsx`
 - [ ] T013 [P] [US2] Extract reusable catalog rendering or retire modal-only behavior in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/BrowseAgentsModal.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/BrowseAgentsModal.test.tsx`
 - [ ] T014 [P] [US2] Adapt catalog fetch and import state handling for the inline experience in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useAgents.ts`
 
@@ -91,13 +91,13 @@ description: "Task list for UX Fixes — Scrolling, Agents Page, Chat Streaming,
 ### Tests for User Story 3 ⚠️
 
 - [ ] T015 [P] [US3] Extend SSE regression coverage for token, done, and error frames in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_chat.py`
-- [ ] T016 [P] [US3] Expand streaming UI regression coverage for incremental rendering, follow/pause scroll, and clean completion in `/home/runner/work/solune/solune/solune/frontend/src/components/chat/ChatInterface.test.tsx`
+- [X] T016 [P] [US3] Expand streaming UI regression coverage for incremental rendering, follow/pause scroll, and clean completion in `/home/runner/work/solune/solune/solune/frontend/src/components/chat/ChatInterface.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Preserve streaming buffers, partial errors, and near-bottom follow state in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useChat.ts`
-- [ ] T018 [P] [US3] Render transient assistant streaming state and viewport follow logic in `/home/runner/work/solune/solune/solune/frontend/src/components/chat/ChatInterface.tsx`
-- [ ] T019 [P] [US3] Add streaming and partial-error presentation that hands off cleanly to finalized messages in `/home/runner/work/solune/solune/solune/frontend/src/components/chat/MessageBubble.tsx`
+- [X] T017 [US3] Preserve streaming buffers, partial errors, and near-bottom follow state in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useChat.ts`
+- [X] T018 [P] [US3] Render transient assistant streaming state and viewport follow logic in `/home/runner/work/solune/solune/solune/frontend/src/components/chat/ChatInterface.tsx`
+- [X] T019 [P] [US3] Add streaming and partial-error presentation that hands off cleanly to finalized messages in `/home/runner/work/solune/solune/solune/frontend/src/components/chat/MessageBubble.tsx`
 
 **Checkpoint**: User Story 3 is complete when chat feels live from first token through final completion or error.
 
