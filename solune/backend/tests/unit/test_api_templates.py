@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 from src.models.app_template import AppCategory, AppTemplate, IaCTarget, ScaffoldType, TemplateFile
 
+MEDIUM_DIFFICULTY = "M"
+
 
 def _template(template_id: str = "saas-react-fastapi", *, category: AppCategory = AppCategory.SAAS) -> AppTemplate:
     return AppTemplate(
@@ -11,7 +13,7 @@ def _template(template_id: str = "saas-react-fastapi", *, category: AppCategory 
         name="SaaS — React + FastAPI",
         description="Full-stack starter",
         category=category,
-        difficulty="M",
+        difficulty=MEDIUM_DIFFICULTY,
         tech_stack=["react", "fastapi"],
         scaffold_type=ScaffoldType.STARTER,
         files=[
@@ -54,7 +56,7 @@ class TestListTemplatesEndpoint:
                 "name": "SaaS — React + FastAPI",
                 "description": "Full-stack starter",
                 "category": "saas",
-                "difficulty": "M",
+                "difficulty": MEDIUM_DIFFICULTY,
                 "tech_stack": ["react", "fastapi"],
                 "scaffold_type": "starter",
                 "iac_target": "docker",
@@ -86,7 +88,7 @@ class TestGetTemplateEndpoint:
             "name": "SaaS — React + FastAPI",
             "description": "Full-stack starter",
             "category": "saas",
-            "difficulty": "M",
+            "difficulty": MEDIUM_DIFFICULTY,
             "tech_stack": ["react", "fastapi"],
             "scaffold_type": "starter",
             "iac_target": "docker",
