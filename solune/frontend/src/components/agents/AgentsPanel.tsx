@@ -211,7 +211,7 @@ export function AgentsPanel({
 
   const catalogErrorMessage = getErrorMessage(
     catalogError,
-    'Browser Agents catalog is temporarily unavailable.'
+    'Browse Agents catalog is temporarily unavailable.'
   );
   const catalogErrorReason =
     catalogError instanceof ApiError && typeof catalogError.error.details?.reason === 'string'
@@ -368,7 +368,7 @@ export function AgentsPanel({
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">{catalogErrorMessage}</p>
               <p className="text-sm text-muted-foreground">
-                Browser Agents is showing an empty catalog until the upstream source responds again.
+                Browse Agents is showing an empty catalog until the upstream source responds again.
               </p>
               {catalogErrorReason && (
                 <p className="text-xs text-muted-foreground">{catalogErrorReason}</p>

@@ -63,6 +63,8 @@ export function useChat() {
       (message) => message.message_id === streamingMessageId
     );
     if (hasFinalMessage) {
+      // Defer cleanup to the next frame so the final persisted message can paint
+      // before the transient streaming bubble is removed.
       const frame = requestAnimationFrame(() => {
         setStreamingContent('');
         setStreamingError(null);

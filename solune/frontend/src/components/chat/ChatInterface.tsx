@@ -39,6 +39,10 @@ import { useMentionAutocomplete } from '@/hooks/useMentionAutocomplete';
 import type { CommandDefinition } from '@/lib/commands/types';
 import { History, ListChecks, Mic } from '@/lib/icons';
 
+const SCROLL_FOLLOW_THRESHOLD_PX = 48;
+const STREAMING_MESSAGE_ID = 'streaming-assistant-preview';
+const STREAMING_SESSION_ID = 'streaming-session-preview';
+
 function formatDateSeparator(date: Date): string {
   const today = new Date();
   const yesterday = new Date(today);
@@ -200,8 +204,10 @@ export function ChatInterface({
   }, [isRecording, startRecording, stopRecording]);
 
   const isNearBottom = useCallback((element: HTMLDivElement) => {
-    const threshold = 48;
-    return element.scrollHeight - element.scrollTop - element.clientHeight <= threshold;
+    return (
+      element.scrollHeight - element.scrollTop - element.clientHeight <=
+      SCROLL_FOLLOW_THRESHOLD_PX
+    );
   }, []);
 
   const handleViewportScroll = useCallback(() => {
@@ -584,8 +590,8 @@ export function ChatInterface({
         {(streamingContent || streamingError) && (
           <MessageBubble
             message={{
-              message_id: 'streaming-assistant',
-              session_id: 'streaming',
+              message_id: STREAMING_MESSAGE_ID,
+              session_id: STREAMING_SESSION_ID,
               sender_type: 'assistant',
               content: streamingContent,
               timestamp: new Date().toISOString(),

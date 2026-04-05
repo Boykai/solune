@@ -423,6 +423,9 @@ export const chatApi = {
           onDone(msgData as ChatMessage);
         } else if (eventType === 'error') {
           const errorData = tryParseJson(parsed.data, parsed) ?? parsed;
+          if (typeof errorData !== 'object' || errorData === null) {
+            console.debug('[SSE] Unexpected error payload shape:', errorData);
+          }
           const details =
             typeof errorData === 'object' && errorData !== null
               ? (errorData as Record<string, unknown>)
