@@ -467,15 +467,32 @@ describe('AgentsPanel', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAgentsListPaginated.mockReturnValue({ allItems: [ createAgent({ id: 'repo:alpha', slug: 'alpha', name: 'Alpha', source: 'repo', status: 'active', created_at: '2026-03-07T08:00:00Z', }), ], isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
+    mockUseAgentsListPaginated.mockReturnValue({
+      allItems: [
+        createAgent({
+          id: 'repo:alpha',
+          slug: 'alpha',
+          name: 'Alpha',
+          source: 'repo',
+          status: 'active',
+          created_at: '2026-03-07T08:00:00Z',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      invalidate: vi.fn(),
+    });
 
     render(<AgentsPanel projectId="PVT_1" pendingSubIssueCounts={{ alpha: 3 }} />, {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getAllByText('Recently added').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Assigned sub-issues').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('3 open').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Recently added')).toHaveLength(2);
+    expect(screen.getAllByText('Assigned sub-issues')).toHaveLength(2);
+    expect(screen.getAllByText('3 open')).toHaveLength(2);
 
     vi.useRealTimers();
   });
@@ -494,7 +511,23 @@ describe('AgentsPanel', () => {
       isLoading: false,
       error: null,
     });
-    mockUseAgentsListPaginated.mockReturnValue({ allItems: [ createAgent({ id: 'repo:alpha', slug: 'alpha', name: 'Alpha', source: 'repo', status: 'active', }), ], isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
+    mockUseAgentsListPaginated.mockReturnValue({
+      allItems: [
+        createAgent({
+          id: 'repo:alpha',
+          slug: 'alpha',
+          name: 'Alpha',
+          source: 'repo',
+          status: 'active',
+        }),
+      ],
+      isLoading: false,
+      isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      invalidate: vi.fn(),
+    });
 
     render(
       <AgentsPanel
@@ -505,7 +538,7 @@ describe('AgentsPanel', () => {
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getAllByText('2 configs').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('2 configs')).toHaveLength(2);
     expect(screen.queryByText('9 configs')).not.toBeInTheDocument();
   });
 

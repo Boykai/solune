@@ -29,9 +29,12 @@ export function AgentChatFlow({
   onAgentReady,
   onCancel,
 }: AgentChatFlowProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'user', content: initialMessage },
-  ]);
+  const initialMessageRef = useRef(initialMessage.trim());
+  const hasSentInitialMessageRef = useRef(false);
+  const normalizedInitialMessage = initialMessageRef.current;
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    normalizedInitialMessage ? [{ role: 'user', content: normalizedInitialMessage }] : [],
+  );
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{
@@ -42,11 +45,17 @@ export function AgentChatFlow({
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMutation = useAgentChat(projectId);
+  const errorMessage = chatMutation.error instanceof Error ? chatMutation.error.message : null;
 
   // Send initial message
   useEffect(() => {
+    if (!normalizedInitialMessage || hasSentInitialMessageRef.current) {
+      return;
+    }
+    hasSentInitialMessageRef.current = true;
+
     chatMutation.mutate(
-      { message: initialMessage, session_id: null },
+      { message: normalizedInitialMessage, session_id: null },
       {
         onSuccess: (data) => {
           setSessionId(data.session_id);
@@ -139,6 +148,15 @@ export function AgentChatFlow({
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {errorMessage}
+        </div>
+      )}
 
       {/* Preview */}
       {preview && (
