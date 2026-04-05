@@ -17,6 +17,12 @@ interface SyncStatusContextValue extends SyncStatusState {
   updateSyncStatus: (status: SyncStatus, lastUpdate: Date | null) => void;
 }
 
+function isSameLastUpdate(a: Date | null, b: Date | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.getTime() === b.getTime();
+}
+
 const SyncStatusContext = createContext<SyncStatusContextValue>({
   status: 'disconnected',
   lastUpdate: null,
@@ -32,7 +38,7 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
 
   const updateSyncStatus = useCallback((status: SyncStatus, lastUpdate: Date | null) => {
     const prev = stateRef.current;
-    if (prev.status === status && prev.lastUpdate === lastUpdate) return;
+    if (prev.status === status && isSameLastUpdate(prev.lastUpdate, lastUpdate)) return;
     const next = { status, lastUpdate };
     stateRef.current = next;
     setState(next);
