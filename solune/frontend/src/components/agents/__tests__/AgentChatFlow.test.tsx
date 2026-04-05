@@ -38,6 +38,22 @@ describe('AgentChatFlow', () => {
     expect(screen.getByText('Help me refine this agent')).toBeInTheDocument();
   });
 
+  it('does not auto-send or render a blank message for whitespace-only initial input', () => {
+    render(
+      <AgentChatFlow
+        projectId="proj-1"
+        initialMessage="   "
+        agentName="Planner"
+        onAgentReady={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(mockUseAgentChat).toHaveBeenCalledWith('proj-1');
+    expect(mockMutate).not.toHaveBeenCalled();
+    expect(screen.queryByText('You')).not.toBeInTheDocument();
+  });
+
   it('sends on Enter but not on Shift+Enter', async () => {
     const user = userEvent.setup();
     mockMutate.mockImplementation((_payload, options) => {

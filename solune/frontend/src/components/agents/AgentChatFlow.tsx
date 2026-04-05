@@ -29,9 +29,12 @@ export function AgentChatFlow({
   onAgentReady,
   onCancel,
 }: AgentChatFlowProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'user', content: initialMessage },
-  ]);
+  const initialMessageRef = useRef(initialMessage.trim());
+  const hasSentInitialMessageRef = useRef(false);
+  const normalizedInitialMessage = initialMessageRef.current;
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    normalizedInitialMessage ? [{ role: 'user', content: normalizedInitialMessage }] : [],
+  );
   const [input, setInput] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [preview, setPreview] = useState<{
@@ -46,8 +49,13 @@ export function AgentChatFlow({
 
   // Send initial message
   useEffect(() => {
+    if (!normalizedInitialMessage || hasSentInitialMessageRef.current) {
+      return;
+    }
+    hasSentInitialMessageRef.current = true;
+
     chatMutation.mutate(
-      { message: initialMessage, session_id: null },
+      { message: normalizedInitialMessage, session_id: null },
       {
         onSuccess: (data) => {
           setSessionId(data.session_id);

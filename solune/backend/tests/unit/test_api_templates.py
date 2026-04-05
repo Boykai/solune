@@ -7,7 +7,9 @@ from src.models.app_template import AppCategory, AppTemplate, IaCTarget, Scaffol
 MEDIUM_DIFFICULTY = "M"
 
 
-def _template(template_id: str = "saas-react-fastapi", *, category: AppCategory = AppCategory.SAAS) -> AppTemplate:
+def _template(
+    template_id: str = "saas-react-fastapi", *, category: AppCategory = AppCategory.SAAS
+) -> AppTemplate:
     return AppTemplate(
         id=template_id,
         name="SaaS — React + FastAPI",
