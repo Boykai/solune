@@ -83,13 +83,14 @@ export function ConfirmationDialogProvider({ children }: { children: ReactNode }
     (result: boolean) => {
       const resolve = resolveRef.current;
       const focusToRestore = previousFocusRef.current;
-      const hasQueuedRequest = queueRef.current.length > 0;
       resolveRef.current = null;
       previousFocusRef.current = null;
       setState(DEFAULT_STATE);
 
+      // Check queue length inside the timeout so any request that was queued
+      // between closeDialog() being called and the timeout firing is not missed.
       setTimeout(() => {
-        if (hasQueuedRequest) {
+        if (queueRef.current.length > 0) {
           processQueue();
           return;
         }
