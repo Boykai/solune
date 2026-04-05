@@ -1,0 +1,316 @@
+openapi: 3.1.0
+info:
+  title: Solune UX Fixes Contract
+  version: 0.1.0
+  description: >
+    Additive contract for UX fixes covering inline agent discovery, streaming chat
+    rendering support, and resolved Auto-model visibility.
+servers:
+  - url: http://localhost:8000/api/v1
+tags:
+  - name: agents
+  - name: chat
+  - name: pipelines
+paths:
+  /agents/{project_id}/catalog:
+    get:
+      tags: [agents]
+      summary: List catalog agents for inline discovery
+      operationId: listCatalogAgents
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Catalog agents with import status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogAgent"
+  /agents/{project_id}/import:
+    post:
+      tags: [agents]
+      summary: Import a catalog agent into the current project
+      operationId: importCatalogAgent
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportAgentRequest"
+      responses:
+        "201":
+          description: Agent imported or marked as imported
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportAgentResult"
+        "409":
+          description: Agent already imported or duplicate catalog record
+  /chat/messages:
+    post:
+      tags: [chat]
+      summary: Send a chat message and receive a finalized assistant message
+      operationId: sendChatMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+      responses:
+        "200":
+          description: Final assistant message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+  /chat/messages/stream:
+    post:
+      tags: [chat]
+      summary: Stream assistant response tokens for immediate UI display
+      operationId: streamChatMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+      responses:
+        "200":
+          description: SSE stream of token, done, and error events
+          content:
+            text/event-stream:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/TokenEvent"
+                  - $ref: "#/components/schemas/DoneEvent"
+                  - $ref: "#/components/schemas/ErrorEvent"
+  /pipelines/{project_id}/launch:
+    post:
+      tags: [pipelines]
+      summary: Launch a pipeline using the selected or Auto-resolved model
+      operationId: launchPipeline
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PipelineIssueLaunchRequest"
+      responses:
+        "200":
+          description: Pipeline launch accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowResult"
+components:
+  schemas:
+    CatalogAgent:
+      type: object
+      required: [id, name, description, source_url, already_imported]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        source_url:
+          type: string
+          format: uri
+        already_imported:
+          type: boolean
+    AgentSummary:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        default_model_name:
+          type: string
+          nullable: true
+    ImportAgentRequest:
+      type: object
+      required: [catalog_agent_id, name, description, source_url]
+      properties:
+        catalog_agent_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        source_url:
+          type: string
+          format: uri
+    ImportAgentResult:
+      type: object
+      required: [agent, message]
+      properties:
+        agent:
+          $ref: "#/components/schemas/AgentSummary"
+        message:
+          type: string
+    ChatMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+        ai_enhance:
+          type: boolean
+          default: true
+        file_urls:
+          type: array
+          items:
+            type: string
+            format: uri
+        pipeline_id:
+          type: string
+          nullable: true
+    ResolvedModelInfo:
+      type: object
+      required: [selection_mode, resolution_status]
+      properties:
+        selection_mode:
+          type: string
+          enum: [auto, explicit]
+        resolution_status:
+          type: string
+          enum: [resolved, failed]
+        model_id:
+          type: string
+          nullable: true
+        model_name:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [pipeline_override, agent_default, user_default, provider_default, unknown]
+        guidance:
+          type: string
+          nullable: true
+    ChatMessage:
+      type: object
+      required: [message_id, session_id, sender_type, content, timestamp]
+      properties:
+        message_id:
+          type: string
+        session_id:
+          type: string
+        sender_type:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        action_type:
+          type: string
+          nullable: true
+        action_data:
+          type: object
+          nullable: true
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+        resolved_model:
+          allOf:
+            - $ref: "#/components/schemas/ResolvedModelInfo"
+          nullable: true
+    TokenEvent:
+      type: object
+      required: [event, data]
+      properties:
+        event:
+          type: string
+          const: token
+        data:
+          type: object
+          required: [content]
+          properties:
+            content:
+              type: string
+    DoneEvent:
+      type: object
+      required: [event, data]
+      properties:
+        event:
+          type: string
+          const: done
+        data:
+          $ref: "#/components/schemas/ChatMessage"
+    ErrorEvent:
+      type: object
+      required: [event, data]
+      properties:
+        event:
+          type: string
+          const: error
+        data:
+          type: object
+          required: [message]
+          properties:
+            message:
+              type: string
+            partial_content:
+              type: string
+              nullable: true
+    PipelineIssueLaunchRequest:
+      type: object
+      required: [issue_description, pipeline_id]
+      properties:
+        issue_description:
+          type: string
+        pipeline_id:
+          type: string
+    WorkflowResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        issue_id:
+          type: string
+          nullable: true
+        issue_number:
+          type: integer
+          nullable: true
+        issue_url:
+          type: string
+          format: uri
+          nullable: true
+        project_item_id:
+          type: string
+          nullable: true
+        current_status:
+          type: string
+          nullable: true
+        message:
+          type: string
+        resolved_model:
+          allOf:
+            - $ref: "#/components/schemas/ResolvedModelInfo"
+          nullable: true
