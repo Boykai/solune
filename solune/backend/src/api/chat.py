@@ -396,7 +396,9 @@ async def _handle_transcript_upload(
 
         try:
             if file_path.stat().st_size > MAX_FILE_SIZE_BYTES:
-                logger.warning("Skipping oversized uploaded file %s during transcript analysis", filename)
+                logger.warning(
+                    "Skipping oversized uploaded file %s during transcript analysis", filename
+                )
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception as exc:
