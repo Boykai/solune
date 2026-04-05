@@ -317,6 +317,34 @@ describe('AgentsPanel', () => {
     });
   });
 
+  it('shows an inline empty state when the catalog search has no matches', async () => {
+    const user = userEvent.setup();
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Helps with alpha work',
+          source_url: 'https://example.test/catalog-alpha',
+          already_imported: false,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    await user.type(screen.getByPlaceholderText('Search catalog agents…'), 'Zeta');
+
+    await waitFor(() => {
+      expect(screen.getByText('No agents match your search.')).toBeInTheDocument();
+      expect(screen.queryByText('Catalog Alpha')).not.toBeInTheDocument();
+    });
+  });
+
   it('imports inline catalog agents with their snapshot metadata', async () => {
     const user = userEvent.setup();
     const mutateAsync = vi.fn().mockResolvedValue(undefined);

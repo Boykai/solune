@@ -127,4 +127,21 @@ describe('MessageBubble', () => {
 
     expect(screen.getByText('Stream interrupted — partial response shown.')).toBeInTheDocument();
   });
+
+  it('shows failed auto-model guidance for assistant messages', () => {
+    render(
+      <MessageBubble
+        message={createMessage({
+          sender_type: 'assistant',
+          resolved_model: {
+            selection_mode: 'auto',
+            resolution_status: 'failed',
+            guidance: 'Choose a specific model before retrying.',
+          },
+        })}
+      />
+    );
+
+    expect(screen.getByText('Choose a specific model before retrying.')).toBeInTheDocument();
+  });
 });
