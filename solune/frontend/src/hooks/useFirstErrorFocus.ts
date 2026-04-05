@@ -1,4 +1,4 @@
-import { useCallback, useRef, type RefObject } from 'react';
+import { useCallback, useLayoutEffect, useRef, type RefObject } from 'react';
 
 /**
  * Returns a `focusFirstError` function that, when called, focuses the first
@@ -24,13 +24,16 @@ export function useFirstErrorFocus(
   fieldRefs: Record<string, RefObject<HTMLElement | null>>,
   errors: Record<string, string | null | undefined>,
 ) {
-  // Mirror both arguments into refs so the callback is always up-to-date,
-  // regardless of which render's closure it was captured in.
+  // Mirror both arguments into refs via useLayoutEffect so the callback is
+  // always up-to-date regardless of which render's closure it was captured in.
+  // useLayoutEffect runs synchronously after every render, before the browser
+  // paints — so by the time requestAnimationFrame fires the refs are current.
   const fieldRefsRef = useRef(fieldRefs);
-  fieldRefsRef.current = fieldRefs;
-
   const errorsRef = useRef(errors);
-  errorsRef.current = errors;
+  useLayoutEffect(() => {
+    fieldRefsRef.current = fieldRefs;
+    errorsRef.current = errors;
+  });
 
   return useCallback(() => {
     const latestRefs = fieldRefsRef.current;
