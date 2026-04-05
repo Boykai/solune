@@ -11,12 +11,17 @@ function secondsUntil(isoTimestamp: string): number {
 
 export function useCountdown(expiresAt: string): number {
   const [remaining, setRemaining] = useState(() => secondsUntil(expiresAt));
+  const [prevExpiresAt, setPrevExpiresAt] = useState(expiresAt);
+
+  // Sync remaining immediately when expiresAt changes (update-state-during-render
+  // pattern: React re-renders synchronously with the new value before painting,
+  // avoiding the up-to-1s stale display that a simple effect would cause).
+  if (prevExpiresAt !== expiresAt) {
+    setPrevExpiresAt(expiresAt);
+    setRemaining(secondsUntil(expiresAt));
+  }
 
   useEffect(() => {
-    // Sync immediately so the display is correct as soon as expiresAt changes,
-    // rather than waiting up to 1 s for the first interval tick.
-    setRemaining(secondsUntil(expiresAt));
-
     const id = setInterval(() => {
       const next = secondsUntil(expiresAt);
       setRemaining(next);
