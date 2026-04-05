@@ -25,7 +25,7 @@ from src.models.chat import (
 )
 from src.models.user import UserSession
 
-ARTIFICIALLY_LOW_FILE_SIZE_BYTES = 4
+TEST_MAX_FILE_SIZE_BYTES = 4
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -878,13 +878,13 @@ class TestTranscriptHelpers:
         upload_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{uuid4().hex[:8]}-transcript.txt"
         file_path = upload_dir / filename
-        file_path.write_text("speaker 1: hello", encoding="utf-8")
+        file_path.write_text("x" * 10, encoding="utf-8")
 
         try:
             with (
                 patch(
                     "src.api.chat.MAX_FILE_SIZE_BYTES",
-                    ARTIFICIALLY_LOW_FILE_SIZE_BYTES,
+                    TEST_MAX_FILE_SIZE_BYTES,
                 ),
                 patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
             ):
@@ -942,13 +942,13 @@ class TestTranscriptHelpers:
         upload_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{uuid4().hex[:8]}-meeting.vtt"
         file_path = upload_dir / filename
-        file_path.write_text("WEBVTT\n\n00:00.000 --> 00:01.000\nHello", encoding="utf-8")
+        file_path.write_text("x" * 10, encoding="utf-8")
 
         try:
             with (
                 patch(
                     "src.api.chat.MAX_FILE_SIZE_BYTES",
-                    ARTIFICIALLY_LOW_FILE_SIZE_BYTES,
+                    TEST_MAX_FILE_SIZE_BYTES,
                 ),
                 patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
             ):
