@@ -29,7 +29,9 @@ export function AgentChatFlow({
   onAgentReady,
   onCancel,
 }: AgentChatFlowProps) {
-  const normalizedInitialMessage = initialMessage.trim();
+  const initialMessageRef = useRef(initialMessage.trim());
+  const hasSentInitialMessageRef = useRef(false);
+  const normalizedInitialMessage = initialMessageRef.current;
   const [messages, setMessages] = useState<ChatMessage[]>(
     normalizedInitialMessage ? [{ role: 'user', content: normalizedInitialMessage }] : [],
   );
@@ -47,9 +49,10 @@ export function AgentChatFlow({
 
   // Send initial message
   useEffect(() => {
-    if (!normalizedInitialMessage) {
+    if (!normalizedInitialMessage || hasSentInitialMessageRef.current) {
       return;
     }
+    hasSentInitialMessageRef.current = true;
 
     chatMutation.mutate(
       { message: normalizedInitialMessage, session_id: null },
@@ -69,7 +72,7 @@ export function AgentChatFlow({
       }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalizedInitialMessage]);
+  }, []);
 
   // Auto-scroll
   useEffect(() => {
