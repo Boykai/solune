@@ -251,7 +251,7 @@ describe('AgentsPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /update all models/i }));
 
-    expect(screen.getByRole('dialog', { name: 'Bulk model update dialog' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Update All Agent Models' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Update All Agent Models' })).toBeInTheDocument();
     expect(
       screen.getByText(/Select the target model to apply to all 2 agents/i)
