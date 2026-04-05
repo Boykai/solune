@@ -1492,6 +1492,13 @@ export interface FaqEntry {
   answer: string;
   category: FaqCategory;
 }
+/**
+ * Metadata describing how a concrete model was chosen for a chat or pipeline action.
+ *
+ * `model_id`, `model_name`, and `source` are typically present when resolution succeeds.
+ * `guidance` is typically present when Auto resolution fails and the UI should steer the
+ * user toward a manual model selection.
+ */
 export interface ResolvedModelInfo {
   selection_mode: 'auto' | 'explicit';
   resolution_status: 'resolved' | 'failed';

@@ -423,13 +423,12 @@ export const chatApi = {
           onDone(msgData as ChatMessage);
         } else if (eventType === 'error') {
           const errorData = tryParseJson(parsed.data, parsed) ?? parsed;
+          let details: Record<string, unknown> = {};
           if (typeof errorData !== 'object' || errorData === null) {
             console.debug('[SSE] Unexpected error payload shape:', errorData);
+          } else {
+            details = errorData as Record<string, unknown>;
           }
-          const details =
-            typeof errorData === 'object' && errorData !== null
-              ? (errorData as Record<string, unknown>)
-              : {};
           const error = new Error(
             (details.message || parsed.message || parsed.error || 'Stream error') as string
           ) as Error & { partialContent?: string };
