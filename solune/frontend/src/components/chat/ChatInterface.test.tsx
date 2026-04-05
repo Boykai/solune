@@ -280,4 +280,46 @@ describe('ChatInterface', () => {
 
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
+
+  it('resumes auto-follow after the user scrolls back to the bottom', () => {
+    scrollIntoView.mockClear();
+    const baseMessages = [createMessage({ content: 'User prompt' })];
+
+    const { rerender } = renderChat({
+      messages: baseMessages,
+      streamingContent: 'First token',
+    });
+
+    const viewport = screen.getByTestId('chat-messages-viewport');
+    Object.defineProperty(viewport, 'scrollHeight', { configurable: true, value: 400 });
+    Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 200, writable: true });
+
+    fireEvent.scroll(viewport);
+    scrollIntoView.mockClear();
+
+    viewport.scrollTop = 300;
+    fireEvent.scroll(viewport);
+
+    rerender(
+      <ChatInterface
+        messages={baseMessages}
+        pendingProposals={new Map()}
+        pendingStatusChanges={new Map()}
+        pendingRecommendations={new Map()}
+        isSending={false}
+        streamingContent="Second token"
+        onSendMessage={vi.fn()}
+        onRetryMessage={vi.fn()}
+        onConfirmProposal={vi.fn()}
+        onConfirmStatusChange={vi.fn()}
+        onConfirmRecommendation={vi.fn()}
+        onRejectProposal={vi.fn()}
+        onRejectRecommendation={vi.fn()}
+        onNewChat={vi.fn()}
+      />
+    );
+
+    expect(scrollIntoView).toHaveBeenCalled();
+  });
 });
