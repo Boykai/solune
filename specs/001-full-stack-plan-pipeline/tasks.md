@@ -26,7 +26,7 @@
 
 **Purpose**: SDK upgrade and database schema migrations required by all user stories
 
-- [x] T001 Upgrade `copilot-sdk>=1.0.17` (replace `github-copilot-sdk>=0.1.30,<1`) in solune/backend/pyproject.toml
+- [ ] T001 Upgrade to `copilot-sdk>=1.0.17` (replace current `github-copilot-sdk>=0.1.30,<1`) in solune/backend/pyproject.toml — deferred until SDK v1 is GA
 - [x] T002 [P] Create migration 040_plan_versioning.sql adding `version` column to `chat_plans` and `chat_plan_versions` table in solune/backend/src/migrations/040_plan_versioning.sql
 - [x] T003 [P] Create migration 041_plan_step_status.sql adding `approval_status` column to `chat_plan_steps` in solune/backend/src/migrations/041_plan_step_status.sql
 
@@ -224,7 +224,7 @@
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories. Requires `copilot-sdk>=1.0.17` from Setup.
+- **User Story 1 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories. Requires SDK upgrade (`copilot-sdk>=1.0.17`, deferred) from Setup.
 - **User Story 2 (P2)**: Can start after Foundational (Phase 2) — Independently testable. Session hooks from US1 enhance automatic snapshotting, but versioning works via store methods alone.
 - **User Story 3 (P3)**: Can start after Foundational (Phase 2) — Independently testable. Agent-driven step mutations (T044) benefit from US1's `@define_tool` framework but can be tested independently.
 - **User Story 4 (P4, stretch)**: Depends on US1 + US2 + US3 being complete — CLI plugin wraps the entire plan pipeline.
@@ -327,5 +327,5 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Backward compatibility: no breaking changes to existing `/plans/{plan_id}` GET/PATCH/approve/exit endpoints
-- SDK pin: `copilot-sdk>=1.0.17` — latest public preview, Python 3.11+ required (project uses 3.12+)
+- SDK pin: currently `github-copilot-sdk>=0.1.30,<1`; upgrade to `copilot-sdk>=1.0.17` planned when SDK v1 is GA — Python 3.11+ required (project uses 3.12+)
 - Wrap all SDK calls behind `agent_provider.py` / `plan_agent_provider.py` to absorb breaking SDK changes

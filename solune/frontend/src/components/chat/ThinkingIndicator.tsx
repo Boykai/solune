@@ -6,7 +6,7 @@
  */
 
 import type { ThinkingPhase } from '@/types';
-import { Search, ListChecks, Pencil } from '@/lib/icons';
+import { Search, ListChecks, Pencil, Brain, Wrench } from '@/lib/icons';
 
 interface ThinkingIndicatorProps {
   phase: ThinkingPhase;
@@ -19,6 +19,8 @@ const PHASE_CONFIG: Record<string, { icon: typeof Search; label: string }> = {
   researching: { icon: Search, label: 'Researching project context\u2026' },
   planning: { icon: ListChecks, label: 'Drafting implementation plan\u2026' },
   refining: { icon: Pencil, label: 'Incorporating your feedback\u2026' },
+  reasoning: { icon: Brain, label: 'Reasoning through approach\u2026' },
+  tool_start: { icon: Wrench, label: 'Running tool\u2026' },
 };
 
 export function ThinkingIndicator({ phase, detail, stageName }: ThinkingIndicatorProps) {

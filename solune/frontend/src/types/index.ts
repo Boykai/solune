@@ -119,7 +119,7 @@ export interface PipelineLaunchActionData {
 // ============ Plan Mode Types ============
 
 export type PlanStatus = 'draft' | 'approved' | 'completed' | 'failed';
-export type ThinkingPhase = 'researching' | 'planning' | 'refining';
+export type ThinkingPhase = 'researching' | 'planning' | 'refining' | 'reasoning' | 'tool_start';
 export type StepApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface ThinkingEvent {

@@ -154,12 +154,13 @@ async def create_plan_session(
     """Create a Copilot SDK session configured for plan mode.
 
     Wraps ``CopilotClient.create_session()`` with the appropriate custom
-    agent profile, tool whitelist, and session hooks.
+    agent profile and system prompt.  Tool registration and session hooks
+    are handled by the caller (see ``ChatAgentService``).
 
     Args:
         github_token: User's GitHub OAuth token.
         instructions: Override system instructions (defaults to profile's prompt).
-        tools: Tool functions to register.
+        tools: Tool functions the caller intends to register (logged, not wired here).
         reasoning_effort: SDK reasoning effort level.
         agent_profile: Profile name from SPECKIT_AGENT_PROFILES.
 

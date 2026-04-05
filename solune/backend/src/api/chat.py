@@ -2352,34 +2352,37 @@ async def exit_plan_mode_endpoint(
 # ---------------------------------------------------------------------------
 
 
-# Known safe ValueError messages mapped to fixed client-safe descriptions.
+# Known safe ValueError messages mapped to (http_status, client-safe description).
 # Returning hardcoded strings (never str(exc)) breaks the CodeQL taint chain.
-_SAFE_ERROR_MESSAGES: dict[str, str] = {
-    "Cannot add steps": "Cannot add steps to a non-draft plan.",
-    "Cannot change approval": "Cannot change approval status of steps in a non-draft plan.",
-    "Cannot delete steps": "Cannot delete steps from a non-draft plan.",
-    "Cannot modify steps": "Cannot modify steps in a non-draft plan.",
-    "Cannot reorder steps": "Cannot reorder steps in a non-draft plan.",
-    "Cannot update steps": "Cannot update steps of a non-draft plan.",
-    "DAG validation failed": "DAG validation failed: invalid step dependencies.",
-    "Invalid approval_status": "Invalid approval status value.",
+# Non-draft plan conflicts → 409; validation errors → 400.
+_SAFE_ERROR_MESSAGES: dict[str, tuple[int, str]] = {
+    "Cannot add steps": (409, "Cannot add steps to a non-draft plan."),
+    "Cannot change approval": (409, "Cannot change approval status of steps in a non-draft plan."),
+    "Cannot delete steps": (409, "Cannot delete steps from a non-draft plan."),
+    "Cannot modify steps": (409, "Cannot modify steps in a non-draft plan."),
+    "Cannot reorder steps": (409, "Cannot reorder steps in a non-draft plan."),
+    "Cannot update steps": (409, "Cannot update steps of a non-draft plan."),
+    "DAG validation failed": (400, "DAG validation failed: invalid step dependencies."),
+    "Invalid approval_status": (400, "Invalid approval status value."),
     "step_ids must contain exactly the current step IDs": (
-        "step_ids must contain exactly the current step IDs."
+        400,
+        "step_ids must contain exactly the current step IDs.",
     ),
 }
 
 
-def _safe_validation_detail(exc: ValueError) -> str:
-    """Return a client-safe error detail for a domain ValueError.
+def _safe_validation_detail(exc: ValueError) -> tuple[int, str]:
+    """Return a (status_code, detail) pair for a domain ValueError.
 
-    Returns a hardcoded message when the exception matches a known prefix;
-    otherwise returns a generic description to avoid leaking internals.
+    Returns 409 for non-draft plan conflicts, 400 for validation errors,
+    and a generic 400 when the exception doesn't match a known prefix.
+    Uses hardcoded messages only (never ``str(exc)``) to avoid leaking internals.
     """
     msg = str(exc)  # Used only for prefix matching; never returned to clients.
-    for prefix, safe_msg in _SAFE_ERROR_MESSAGES.items():
+    for prefix, response in _SAFE_ERROR_MESSAGES.items():
         if msg.startswith(prefix):
-            return safe_msg
-    return "Invalid request: validation failed."
+            return response
+    return 400, "Invalid request: validation failed."
 
 
 @router.get("/plans/{plan_id}/history")
@@ -2450,7 +2453,8 @@ async def add_plan_step_endpoint(
             position=req.position,
         )
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": _safe_validation_detail(e)})
+        status, detail = _safe_validation_detail(e)
+        return JSONResponse(status_code=status, content={"detail": detail})
 
     if step is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
@@ -2502,7 +2506,8 @@ async def update_plan_step_endpoint(
             dependencies=req.dependencies,
         )
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": _safe_validation_detail(e)})
+        status, detail = _safe_validation_detail(e)
+        return JSONResponse(status_code=status, content={"detail": detail})
 
     if step is None:
         return JSONResponse(status_code=404, content={"detail": "Step not found."})
@@ -2536,7 +2541,8 @@ async def delete_plan_step_endpoint(
     try:
         deleted = await chat_store.delete_plan_step(db, plan_id, step_id)
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": _safe_validation_detail(e)})
+        status, detail = _safe_validation_detail(e)
+        return JSONResponse(status_code=status, content={"detail": detail})
 
     if not deleted:
         return JSONResponse(status_code=404, content={"detail": "Step not found."})
@@ -2570,7 +2576,8 @@ async def reorder_plan_steps_endpoint(
     try:
         reordered = await chat_store.reorder_plan_steps(db, plan_id, req.step_ids)
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": _safe_validation_detail(e)})
+        status, detail = _safe_validation_detail(e)
+        return JSONResponse(status_code=status, content={"detail": detail})
 
     if not reordered:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
@@ -2622,7 +2629,8 @@ async def approve_plan_step_endpoint(
             db, plan_id, step_id, req.approval_status.value
         )
     except ValueError as e:
-        return JSONResponse(status_code=400, content={"detail": _safe_validation_detail(e)})
+        status, detail = _safe_validation_detail(e)
+        return JSONResponse(status_code=status, content={"detail": detail})
 
     if not updated:
         return JSONResponse(status_code=404, content={"detail": "Step not found."})
