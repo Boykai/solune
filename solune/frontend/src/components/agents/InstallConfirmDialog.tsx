@@ -5,11 +5,10 @@
  * Prevents accidental GitHub writes by requiring explicit confirmation.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useState } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { AlertCircle, Loader2 } from '@/lib/icons';
 import { useInstallAgent } from '@/hooks/useAgents';
-import { useScrollLock } from '@/hooks/useScrollLock';
 import { Button } from '@/components/ui/button';
 import type { AgentConfig } from '@/services/api';
 
@@ -33,25 +32,10 @@ export function InstallConfirmDialog({
   const installMutation = useInstallAgent(projectId);
   const [error, setError] = useState<string | null>(null);
 
-  useScrollLock(isOpen);
-
   const handleClose = useCallback(() => {
     setError(null);
     onClose();
   }, [onClose]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        handleClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleClose]);
 
   const handleInstall = async () => {
     setError(null);
@@ -69,37 +53,19 @@ export function InstallConfirmDialog({
   const agentPath = `.github/agents/${agent.slug}.agent.md`;
   const promptPath = `.github/prompts/${agent.slug}.prompt.md`;
 
-  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) {
-      handleClose();
-    }
-  };
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[var(--z-install-confirm)] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
-      role="presentation"
-      onClick={handleBackdropClick}
-    >
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
-      <div
-        className="celestial-panel celestial-fade-in w-full max-w-lg overflow-hidden rounded-[1.5rem] border border-border/80 bg-card shadow-xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="install-confirm-title"
-        onClick={(event) => event.stopPropagation()}
+  return (
+    <AlertDialog open={isOpen} onOpenChange={(open) => { if (!open && !installMutation.isPending) handleClose(); }}>
+      <AlertDialogContent
+        overlayClassName="z-[var(--z-install-confirm)]"
+        className="z-[var(--z-install-confirm)] max-w-lg overflow-hidden rounded-[1.5rem] border-border/80 bg-card p-0"
       >
-        {/* Header */}
-        <div className="border-b border-border/70 bg-background/72 px-6 py-5">
-          <h2 id="install-confirm-title" className="text-lg font-semibold text-foreground">
-            Install Agent to Repository
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <AlertDialogHeader className="border-b border-border/70 bg-background/72 px-6 py-5">
+          <AlertDialogTitle>Install Agent to Repository</AlertDialogTitle>
+          <AlertDialogDescription>
             This will create a GitHub issue and pull request.
-          </p>
-        </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
 
-        {/* Body */}
         <div className="space-y-4 bg-background/50 px-6 py-5">
           <div className="rounded-[1.2rem] border border-border/70 bg-background/78 p-4">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -134,24 +100,26 @@ export function InstallConfirmDialog({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-border/70 bg-background/72 px-6 py-4">
-          <Button variant="outline" onClick={handleClose} disabled={installMutation.isPending}>
-            Cancel
-          </Button>
-          <Button onClick={() => void handleInstall()} disabled={installMutation.isPending}>
-            {installMutation.isPending ? (
-              <>
-                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                Installing…
-              </>
-            ) : (
-              'Install'
-            )}
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body
+        <AlertDialogFooter className="border-t border-border/70 bg-background/72 px-6 py-4">
+          <AlertDialogCancel asChild>
+            <Button variant="outline" disabled={installMutation.isPending}>
+              Cancel
+            </Button>
+          </AlertDialogCancel>
+          <AlertDialogAction asChild onClick={(event) => event.preventDefault()}>
+            <Button onClick={() => void handleInstall()} disabled={installMutation.isPending}>
+              {installMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  Installing…
+                </>
+              ) : (
+                'Install'
+              )}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

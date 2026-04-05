@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Shared Radix dialog and alert-dialog primitives for frontend modal workflows, including reusable character-count and first-error-focus helpers.
+
 ### Fixed
 
 - Local Docker Compose backend startup now honors `ADMIN_GITHUB_USER_ID`, so the configured admin identity is available inside the container.
@@ -13,12 +17,17 @@
 - Browser Agents catalog now lets unexpected internal fetch failures surface as generic server errors instead of reporting them as upstream outages.
 - Browser Agents catalog now derives stable imported IDs from source filenames and follows redirects when fetching catalog indexes and raw agent definitions.
 - Browser Agents install confirmations now clear stale error banners when the dialog is closed and reopened.
+- Chat now prefers the existing SSE stream for long-running assistant replies, keeps partial progress visible, and surfaces recoverable failures with inline retry affordances.
+- Projects, list surfaces, and app chrome now show stronger loading, sync, and retry feedback without replacing the underlying layout.
+- Onboarding replay and 404 recovery now offer clearer re-entry paths, and tour steps fall back gracefully when a target cannot be resolved.
 
 ### Changed
 
 - Backend mutation CI now runs all 5 shards defined in `run_mutmut_shard.py` (added missing `api-and-middleware` shard).
 - Frontend mutation testing is split into 4 CI shards (`hooks-board`, `hooks-data`, `hooks-general`, `lib`) for faster execution.
 - Added focused mutation commands (`test:mutate:hooks-board`, `test:mutate:hooks-data`, `test:mutate:hooks-general`, `test:mutate:lib`) to frontend package.json.
+- Modal workflows across apps, tools, agents, and pipeline confirmations now share more consistent overlay, focus, and submission behavior.
+- Primary route transitions and not-found recovery now provide smoother visual continuity and better navigation suggestions.
 
 ## [0.1.0] — 2026-03-17
 

@@ -7,6 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { ChevronDown, FileUp, Sparkles } from '@/lib/icons';
 import type { AppCreate, Owner, RepoType } from '@/types/apps';
 import type { PipelineConfigSummary } from '@/types';
+import { CharacterCounter } from '@/components/ui/character-counter';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
 
 const REPO_TYPE_OPTIONS: { value: RepoType; label: string }[] = [
   { value: 'same-repo', label: 'Same Repo' },
@@ -78,7 +81,9 @@ export function CreateAppDialog({
   defaultPipelineId = '',
   projectId = null,
 }: CreateAppDialogProps) {
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
   const [aiEnhance, setAiEnhance] = useState(true);
@@ -92,12 +97,16 @@ export function CreateAppDialog({
   const [selectedPipelineId, setSelectedPipelineId] = useState(defaultPipelineId);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
   // Fall back to first available owner when owners load asynchronously
   const effectiveRepoOwner = repoOwner || owners?.[0]?.login || '';
 
-  const dialogRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef<HTMLInputElement>(null);
+
+  const fieldRefs = useMemo(() => ({ name: initialFocusRef, description: descriptionRef }), []);
+  const errors = useMemo(() => ({ name: nameError, description: descriptionError }), [nameError, descriptionError]);
+  const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
 
   // Move initial focus into the dialog when it opens
   useEffect(() => {
@@ -105,35 +114,6 @@ export function CreateAppDialog({
       initialFocusRef.current?.focus();
     });
   }, []);
-
-  // Focus trapping and Escape key handling
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (e.key === 'Tab' && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [tabindex]:not([tabindex="-1"]), a[href], input, select, textarea'
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   /** Derive a kebab-case slug from a display name. */
   const slugify = (text: string): string =>
@@ -153,7 +133,7 @@ export function CreateAppDialog({
     if (!file) return;
 
     if (!isAcceptedFile(file)) {
-      setCreateError('Only .md, .txt, .vtt, and .srt files are supported.');
+      setGeneralError('Only .md, .txt, .vtt, and .srt files are supported.');
       event.target.value = '';
       return;
     }
@@ -161,24 +141,39 @@ export function CreateAppDialog({
     try {
       const text = await file.text();
       if (text.length > MAX_DESCRIPTION_LENGTH) {
-        setCreateError(`File exceeds ${MAX_DESCRIPTION_LENGTH.toLocaleString()} character limit.`);
+        setDescriptionError(`File exceeds ${MAX_DESCRIPTION_LENGTH.toLocaleString()} character limit.`);
         event.target.value = '';
         return;
       }
       setDescription(text);
       setUploadedFileName(file.name);
-      setCreateError(null);
+      setDescriptionError(null);
+      setGeneralError(null);
     } catch {
-      setCreateError('Could not read the selected file.');
+      setGeneralError('Could not read the selected file.');
     } finally {
       event.target.value = '';
     }
   }, []);
 
+  const validateDisplayName = useCallback((value: string): string | null => {
+    if (!value.trim()) return 'Display name is required.';
+    return null;
+  }, []);
+
+  const validateDescription = useCallback((value: string): string | null => {
+    if (value.trim().length > MAX_DESCRIPTION_LENGTH) {
+      return `Description exceeds ${MAX_DESCRIPTION_LENGTH.toLocaleString()} character limit.`;
+    }
+    return null;
+  }, []);
+
   const handleCreate = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      setCreateError(null);
+      setNameError(null);
+      setDescriptionError(null);
+      setGeneralError(null);
 
       const formData = new FormData(e.currentTarget);
       const trimmedDisplayName = displayName.trim();
@@ -186,15 +181,16 @@ export function CreateAppDialog({
       const nameOverride = String(formData.get('name') ?? '').trim();
       const name = nameOverride || derivedName;
 
-      if (!name || !trimmedDisplayName) {
-        setCreateError('Display name is required.');
-        return;
-      }
+      const newNameError = validateDisplayName(displayName);
+      const newDescError = validateDescription(description);
+      setNameError(newNameError);
+      setDescriptionError(newDescError);
 
-      if (trimmedDescription.length > MAX_DESCRIPTION_LENGTH) {
-        setCreateError(
-          `Description exceeds ${MAX_DESCRIPTION_LENGTH.toLocaleString()} character limit.`
-        );
+      if (newNameError || newDescError || (!name && !trimmedDisplayName)) {
+        if (!newNameError && (!name || !trimmedDisplayName)) {
+          setNameError('Display name is required.');
+        }
+        requestAnimationFrame(() => focusFirstError());
         return;
       }
 
@@ -215,7 +211,7 @@ export function CreateAppDialog({
 
       if (repoType === 'new-repo') {
         if (!effectiveRepoOwner) {
-          setCreateError('Repository owner is required for new repository.');
+          setGeneralError('Repository owner is required for new repository.');
           return;
         }
         payload.repo_owner = effectiveRepoOwner;
@@ -224,7 +220,7 @@ export function CreateAppDialog({
         const trimmedAzureId = azureClientId.trim();
         const azureSecretPresent = azureClientSecret.trim().length > 0;
         if ((trimmedAzureId && !azureSecretPresent) || (!trimmedAzureId && azureSecretPresent)) {
-          setCreateError(
+          setGeneralError(
             'Azure Client ID and Client Secret must both be provided or both omitted.'
           );
           return;
@@ -236,21 +232,21 @@ export function CreateAppDialog({
       } else if (repoType === 'external-repo') {
         const url = String(formData.get('external_repo_url') ?? '').trim();
         if (!url) {
-          setCreateError('External repository URL is required.');
+          setGeneralError('External repository URL is required.');
           return;
         }
         payload.external_repo_url = url;
         const branchOverride = String(formData.get('branch') ?? '').trim();
         payload.branch = branchOverride || derivedBranch;
         if (!payload.branch) {
-          setCreateError('Target branch could not be derived.');
+          setGeneralError('Target branch could not be derived.');
           return;
         }
       } else {
         const branchOverride = String(formData.get('branch') ?? '').trim();
         payload.branch = branchOverride || derivedBranch;
         if (!payload.branch) {
-          setCreateError('Target branch could not be derived. Please provide a display name.');
+          setGeneralError('Target branch could not be derived. Please provide a display name.');
           return;
         }
       }
@@ -260,7 +256,7 @@ export function CreateAppDialog({
           /* handled by parent */
         },
         onError: (err) => {
-          setCreateError(getErrorMessage(err, 'Could not create app. Please try again.'));
+          setGeneralError(getErrorMessage(err, 'Could not create app. Please try again.'));
         },
       });
     },
@@ -280,40 +276,31 @@ export function CreateAppDialog({
       projectId,
       onSubmit,
       getErrorMessage,
+      focusFirstError,
+      validateDisplayName,
+      validateDescription,
     ]
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        role="presentation"
-        aria-hidden="true"
-      />
-
-      {/* Dialog */}
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-app-dialog-title"
-        className="relative z-10"
-      >
+    <Dialog open={true} onOpenChange={(open) => { if (!open && !isPending) onClose(); }}>
+      <DialogContent hideClose className="max-h-[85vh] max-w-md overflow-y-auto p-0">
         <form
           onSubmit={handleCreate}
-          className="w-full max-w-md rounded-xl border border-border/80 bg-card p-6 shadow-xl max-h-[85vh] overflow-y-auto"
+          className="w-full rounded-xl p-6"
         >
-          <h2 id="create-app-dialog-title" className="mb-4 text-lg font-bold text-foreground">
-            Create App
-          </h2>
-          {createError && (
+          <DialogHeader className="mb-4">
+            <DialogTitle>Create App</DialogTitle>
+            <DialogDescription>
+              Create a new application and configure the repository, pipeline, and AI scaffolding settings.
+            </DialogDescription>
+          </DialogHeader>
+          {generalError && (
             <div
               className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
               role="alert"
             >
-              {createError}
+              {generalError}
             </div>
           )}
           <div className="space-y-4">
@@ -357,9 +344,16 @@ export function CreateAppDialog({
                 maxLength={128}
                 placeholder="My Awesome App"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => {
+                  setDisplayName(e.target.value);
+                  if (nameError) setNameError(null);
+                }}
+                onBlur={() => setNameError(validateDisplayName(displayName))}
+                aria-invalid={!!nameError}
+                aria-describedby={nameError ? 'app-name-error' : undefined}
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
               />
+              {nameError && <p id="app-name-error" className="mt-1 text-xs text-destructive">{nameError}</p>}
               {derivedName && repoType !== 'new-repo' && (
                 <p className="mt-1 text-xs text-zinc-400">
                   Name: <span className="font-mono">{derivedName}</span> · Branch:{' '}
@@ -409,6 +403,7 @@ export function CreateAppDialog({
               </div>
               <textarea
                 id="app-description"
+                ref={descriptionRef}
                 name="description"
                 rows={5}
                 maxLength={MAX_DESCRIPTION_LENGTH}
@@ -416,7 +411,11 @@ export function CreateAppDialog({
                 onChange={(e) => {
                   setDescription(e.target.value);
                   setUploadedFileName('');
+                  if (descriptionError) setDescriptionError(null);
                 }}
+                onBlur={() => setDescriptionError(validateDescription(description))}
+                aria-invalid={!!descriptionError}
+                aria-describedby={descriptionError ? 'app-desc-error' : undefined}
                 placeholder={
                   aiEnhance
                     ? 'Describe your app — AI will generate a short repo description and a rich project overview.\n\nSupports Markdown, transcripts (.vtt, .srt), or upload a file.'
@@ -430,10 +429,9 @@ export function CreateAppDialog({
                     ? 'AI will produce a short repo description (≤350 chars) and a detailed project description.'
                     : 'Supports Markdown and file upload.'}
                 </span>
-                <span>
-                  {description.length.toLocaleString()} / {MAX_DESCRIPTION_LENGTH.toLocaleString()}
-                </span>
+                <CharacterCounter current={description.length} max={MAX_DESCRIPTION_LENGTH} />
               </div>
+              {descriptionError && <p id="app-desc-error" className="mt-1 text-xs text-destructive">{descriptionError}</p>}
               {issueTitlePreview && (
                 <p className="mt-1 text-xs text-zinc-400">
                   Derived issue title:{' '}
@@ -700,6 +698,7 @@ export function CreateAppDialog({
               type="button"
               className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 dark:text-zinc-400 dark:hover:bg-zinc-800"
               onClick={onClose}
+              disabled={isPending}
             >
               Cancel
             </button>
@@ -720,7 +719,7 @@ export function CreateAppDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

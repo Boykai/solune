@@ -132,7 +132,7 @@ export function AgentCard({
             <Tooltip contentKey="agents.card.iconButton">
               <button
                 type="button"
-                className="celestial-focus rounded-[1rem] transition-transform hover:-translate-y-0.5"
+                className="celestial-focus inline-flex min-h-11 min-w-11 items-center justify-center rounded-[1rem] transition-transform hover:-translate-y-0.5"
                 onClick={() => setIsIconPickerOpen(true)}
                 aria-label="Choose icon"
               >

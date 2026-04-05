@@ -8,6 +8,7 @@ import { Breadcrumb } from './Breadcrumb';
 import { NotificationBell } from './NotificationBell';
 import { LoginButton } from '@/components/auth/LoginButton';
 import { RateLimitBar } from './RateLimitBar';
+import { useSyncStatusContext } from '@/context/SyncStatusContext';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 
@@ -60,6 +61,44 @@ function HelpButton() {
   );
 }
 
+function SyncIndicator() {
+  const { status, lastUpdate } = useSyncStatusContext();
+  if (status === 'disconnected' && !lastUpdate) return null;
+
+  const label =
+    status === 'connected'
+      ? 'Live'
+      : status === 'polling'
+        ? 'Polling'
+        : status === 'connecting'
+          ? 'Connecting'
+          : 'Offline';
+
+  const dotClass =
+    status === 'connected'
+      ? 'bg-emerald-500'
+      : status === 'polling'
+        ? 'bg-amber-400'
+        : status === 'connecting'
+          ? 'bg-amber-400 animate-pulse'
+          : 'bg-muted-foreground/50';
+
+  const ago = lastUpdate
+    ? `Last synced ${lastUpdate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : undefined;
+
+  return (
+    <span
+      className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:inline-flex"
+      title={ago}
+      aria-label={`Sync status: ${label}${ago ? `. ${ago}` : ''}`}
+    >
+      <span className={cn('h-1.5 w-1.5 rounded-full', dotClass)} />
+      {label}
+    </span>
+  );
+}
+
 export function TopBar({
   isDarkMode: _isDarkMode,
   onToggleTheme: _onToggleTheme,
@@ -76,6 +115,7 @@ export function TopBar({
 
       <div className="flex items-center gap-3">
         <RateLimitBar />
+        <SyncIndicator />
 
         {/* Search / Command Palette trigger */}
         <SearchTrigger />

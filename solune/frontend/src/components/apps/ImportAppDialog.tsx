@@ -1,9 +1,11 @@
 /**
  * ImportAppDialog — modal for importing a GitHub repository into Solune.
- * Validates URL, shows repo info, and handles import submission.
+ * Validates URL, uses the shared dialog wrapper, and handles async submission.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { ImportAppRequest } from '@/types/app-template';
 
 const GITHUB_URL_RE = /^https:\/\/github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+\/?$/;
@@ -21,17 +23,6 @@ export function ImportAppDialog({ onImport, onClose, isPending = false }: Import
 
   const isValidUrl = GITHUB_URL_RE.test(url);
 
-  // Close on Escape key — matches CreateAppDialog accessibility pattern.
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidUrl) {
@@ -43,11 +34,16 @@ export function ImportAppDialog({ onImport, onClose, isPending = false }: Import
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
-        <h2 className="mb-4 text-lg font-semibold">Import from GitHub</h2>
+    <Dialog open={true} onOpenChange={(open) => { if (!open && !isPending) onClose(); }}>
+      <DialogContent hideClose className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Import from GitHub</DialogTitle>
+          <DialogDescription>
+            Import an existing repository into Solune and optionally create a linked GitHub Project.
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
             <label htmlFor="github-url" className="mb-1 block text-sm font-medium">
               Repository URL
@@ -88,25 +84,25 @@ export function ImportAppDialog({ onImport, onClose, isPending = false }: Import
             </label>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted"
+              disabled={isPending}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!isValidUrl || isPending}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
               data-testid="import-submit"
             >
               {isPending ? 'Importing…' : 'Import'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

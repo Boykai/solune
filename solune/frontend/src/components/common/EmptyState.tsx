@@ -14,10 +14,12 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
   hint?: string;
 }
 
-export function EmptyState({ icon: Icon, title, description, actionLabel, onAction, hint }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, actionLabel, onAction, secondaryLabel, onSecondary, hint }: EmptyStateProps) {
   return (
     <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-[1.35rem] border border-dashed border-border/80 bg-background/42 p-8 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
@@ -35,6 +37,15 @@ export function EmptyState({ icon: Icon, title, description, actionLabel, onActi
         <Button variant="default" onClick={onAction}>
           {actionLabel}
         </Button>
+      )}
+      {secondaryLabel && onSecondary && (
+        <button
+          type="button"
+          onClick={onSecondary}
+          className="mt-3 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          {secondaryLabel}
+        </button>
       )}
     </div>
   );
