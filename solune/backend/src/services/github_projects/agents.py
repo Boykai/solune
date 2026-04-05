@@ -86,6 +86,14 @@ class AgentsMixin:
             icon_name=None,
             source=AgentSource.BUILTIN,
         ),
+        AvailableAgent(
+            slug="devops",
+            display_name="DevOps",
+            description="CI failure diagnosis and resolution agent",
+            avatar_url=None,
+            icon_name=None,
+            source=AgentSource.BUILTIN,
+        ),
     ]
 
     _FRONTMATTER_RE = re.compile(r"^---\s*\r?\n(.*?)\r?\n---", re.DOTALL)
@@ -203,6 +211,7 @@ class AgentsMixin:
         agent_name: str,
         parent_issue_number: int,
         parent_title: str,
+        delay_seconds: int | None = None,
     ) -> str:
         """
         Tailor a parent issue's body for a specific agent sub-issue.
@@ -215,6 +224,7 @@ class AgentsMixin:
             agent_name: The agent slug (e.g., "speckit.specify")
             parent_issue_number: Parent issue number for cross-referencing
             parent_title: Parent issue title
+            delay_seconds: Optional delay before auto-merge (human agent only)
 
         Returns:
             Tailored markdown body for the sub-issue
@@ -275,6 +285,13 @@ class AgentsMixin:
 ---
 *Sub-issue created for agent `{agent_name}` — see parent issue #{parent_issue_number} for full context*
 """
+        # Append delay info for human agents with delay configured
+        if agent_name == "human" and delay_seconds is not None and delay_seconds > 0:
+            from src.services.copilot_polling.pipeline import format_delay_duration
+
+            duration_str = format_delay_duration(delay_seconds)
+            body += f"\n⏱️ Auto-merge in {duration_str}. Close early to skip.\n"
+
         return body
 
     async def list_available_agents(

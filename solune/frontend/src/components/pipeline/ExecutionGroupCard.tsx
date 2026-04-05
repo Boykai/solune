@@ -37,6 +37,7 @@ function SortableAgentNode({
   onRemove,
   onToolsClick,
   onClone,
+  onConfigChange,
   isParallel,
 }: {
   agent: PipelineAgentNode;
@@ -44,6 +45,7 @@ function SortableAgentNode({
   onRemove: () => void;
   onToolsClick?: () => void;
   onClone?: () => void;
+  onConfigChange?: (config: Record<string, unknown>) => void;
   isParallel?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -57,6 +59,7 @@ function SortableAgentNode({
       onRemove={onRemove}
       onToolsClick={onToolsClick}
       onClone={onClone}
+      onConfigChange={onConfigChange}
       isParallel={isParallel}
       setNodeRef={setNodeRef}
       dragHandleListeners={listeners}
@@ -196,6 +199,9 @@ export function ExecutionGroupCard({
                   onRemove={() => onRemoveAgent(agent.id)}
                   onToolsClick={() => onToolsClick(agent.id)}
                   onClone={onCloneAgent ? () => onCloneAgent(agent.id) : undefined}
+                  onConfigChange={(config) =>
+                    onUpdateAgent(agent.id, { config })
+                  }
                 />
               ))}
             </div>

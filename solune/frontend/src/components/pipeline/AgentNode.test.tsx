@@ -95,4 +95,201 @@ describe('AgentNode', () => {
 
     await expectNoA11yViolations(container);
   });
+
+  // ── Human Agent: Delay Until Auto-Merge ──
+
+  describe('Human agent delay toggle', () => {
+    it('shows "Manual review" badge for human agent without delay', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({ agent_slug: 'human', agent_display_name: 'Human' })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Manual review')).toBeInTheDocument();
+    });
+
+    it('shows delay toggle checkbox for human agent with onConfigChange', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({ agent_slug: 'human', agent_display_name: 'Human' })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByLabelText('Delay until auto-merge')).toBeInTheDocument();
+    });
+
+    it('does not show delay toggle for non-human agents', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({ agent_slug: 'copilot' })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByLabelText('Delay until auto-merge')).not.toBeInTheDocument();
+    });
+
+    it('shows auto-merge badge when delay_seconds is set', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({
+            agent_slug: 'human',
+            agent_display_name: 'Human',
+            config: { delay_seconds: 300 },
+          })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Auto-merge: 5m/)).toBeInTheDocument();
+    });
+
+    it('shows auto-merge badge with hours format for large delays', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({
+            agent_slug: 'human',
+            agent_display_name: 'Human',
+            config: { delay_seconds: 3600 },
+          })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Auto-merge: 1h/)).toBeInTheDocument();
+    });
+
+    it('shows numeric input when delay is enabled', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({
+            agent_slug: 'human',
+            agent_display_name: 'Human',
+            config: { delay_seconds: 300 },
+          })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      const input = screen.getByLabelText('Delay seconds');
+      expect(input).toBeInTheDocument();
+      expect(input).toHaveValue(300);
+    });
+
+    it('does not show numeric input when delay is disabled', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({ agent_slug: 'human', agent_display_name: 'Human' })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByLabelText('Delay seconds')).not.toBeInTheDocument();
+    });
+
+    it('calls onConfigChange with delay_seconds when toggle is turned on', async () => {
+      const onConfigChange = vi.fn();
+      render(
+        <AgentNode
+          agentNode={createAgentNode({ agent_slug: 'human', agent_display_name: 'Human' })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={onConfigChange}
+        />
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByLabelText('Delay until auto-merge'));
+
+      // Should enable delay with default 300s
+      expect(onConfigChange).toHaveBeenCalledWith(
+        expect.objectContaining({ delay_seconds: 300 })
+      );
+    });
+
+    it('calls onConfigChange without delay_seconds when toggle is turned off', async () => {
+      const onConfigChange = vi.fn();
+      render(
+        <AgentNode
+          agentNode={createAgentNode({
+            agent_slug: 'human',
+            agent_display_name: 'Human',
+            config: { delay_seconds: 300 },
+          })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={onConfigChange}
+        />
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByLabelText('Delay until auto-merge'));
+
+      // Should disable delay — config should NOT contain delay_seconds
+      expect(onConfigChange).toHaveBeenCalledWith(
+        expect.not.objectContaining({ delay_seconds: expect.anything() })
+      );
+    });
+
+    it('shows read-only badge for human agent without onConfigChange', () => {
+      render(
+        <AgentNode
+          agentNode={createAgentNode({
+            agent_slug: 'human',
+            agent_display_name: 'Human',
+            config: { delay_seconds: 60 },
+          })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Auto-merge: 1m/)).toBeInTheDocument();
+      // Toggle should NOT be visible in read-only mode
+      expect(screen.queryByLabelText('Delay until auto-merge')).not.toBeInTheDocument();
+    });
+
+    it('updates delay via numeric input', async () => {
+      const onConfigChange = vi.fn();
+      render(
+        <AgentNode
+          agentNode={createAgentNode({
+            agent_slug: 'human',
+            agent_display_name: 'Human',
+            config: { delay_seconds: 300 },
+          })}
+          onModelSelect={vi.fn()}
+          onRemove={vi.fn()}
+          onConfigChange={onConfigChange}
+        />
+      );
+
+      const user = userEvent.setup();
+      const input = screen.getByLabelText('Delay seconds');
+      await user.clear(input);
+      await user.type(input, '600');
+
+      // Should have called onConfigChange with the updated delay
+      expect(onConfigChange).toHaveBeenCalledWith(
+        expect.objectContaining({ delay_seconds: 600 })
+      );
+    });
+  });
 });

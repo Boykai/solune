@@ -5,6 +5,10 @@ AI completion provider to infer content-based labels from an issue title and
 optional description.  All three issue creation paths (pipeline launch, task
 creation, agent tool) call this shared service.
 
+The companion :func:`classify_labels_with_priority` extends classification to
+optionally detect urgency signals and return a priority suggestion alongside
+the labels.
+
 The companion :func:`validate_labels` is a pure post-processing function that
 ensures the label set satisfies the invariants defined in the contract:
 
@@ -18,10 +22,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass, field
 
 from src.constants import LABELS, TYPE_LABELS
 from src.logging_utils import get_logger
-from src.prompts.label_classification import build_label_classification_prompt
+from src.models.recommendation import IssuePriority
+from src.prompts.label_classification import (
+    build_label_classification_prompt,
+    build_label_classification_with_priority_prompt,
+)
 
 logger = get_logger(__name__)
 
@@ -38,6 +47,20 @@ _FALLBACK_LABELS: list[str] = [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
 
 # Maximum seconds to wait for the AI provider before falling back.
 _CLASSIFICATION_TIMEOUT_SECONDS: float = 5.0
+
+# Valid IssuePriority values for quick membership check.
+_VALID_PRIORITIES: set[str] = {p.value for p in IssuePriority}
+
+
+# ── Data classes ────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class ClassificationResult:
+    """Result of label classification with optional priority detection."""
+
+    labels: list[str] = field(default_factory=list)
+    priority: IssuePriority | None = None
 
 
 # ── Public API ──────────────────────────────────────────────────────────────
@@ -102,6 +125,63 @@ async def classify_labels(
         return fallback
 
 
+async def classify_labels_with_priority(
+    title: str,
+    description: str = "",
+    *,
+    github_token: str,
+    fallback_labels: list[str] | None = None,
+) -> ClassificationResult:
+    """Classify labels and optionally detect priority for a GitHub issue.
+
+    Same as :func:`classify_labels` but also extracts an optional priority
+    from the AI response.  Falls back to labels-only (``priority=None``) on
+    any failure.
+
+    Args:
+        title: Issue title.
+        description: Optional issue body (truncated internally).
+        github_token: GitHub OAuth token for the AI provider.
+        fallback_labels: Optional path-specific fallback labels returned when
+            classification fails.
+
+    Returns:
+        :class:`ClassificationResult` with validated labels and optional priority.
+    """
+    fallback = list(fallback_labels) if fallback_labels is not None else list(_FALLBACK_LABELS)
+
+    if not title.strip():
+        return ClassificationResult(labels=fallback, priority=None)
+
+    try:
+        from src.services.completion_providers import create_completion_provider
+
+        provider = create_completion_provider()
+        messages = build_label_classification_with_priority_prompt(title, description)
+
+        raw_response = await asyncio.wait_for(
+            provider.complete(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=256,
+                github_token=github_token,
+            ),
+            timeout=_CLASSIFICATION_TIMEOUT_SECONDS,
+        )
+
+        labels, priority = _parse_labels_and_priority_response(raw_response)
+        validated_labels = validate_labels(labels)
+        return ClassificationResult(labels=validated_labels, priority=priority)
+
+    except Exception:
+        logger.warning(
+            "Label classification with priority failed for title=%r; using fallback labels",
+            title[:80],
+            exc_info=True,
+        )
+        return ClassificationResult(labels=fallback, priority=None)
+
+
 def validate_labels(raw_labels: list[str]) -> list[str]:
     """Post-process raw AI output into a valid label set.
 
@@ -142,21 +222,23 @@ def validate_labels(raw_labels: list[str]) -> list[str]:
 # ── Internal helpers ────────────────────────────────────────────────────────
 
 
+def _strip_markdown_fences(raw: str) -> str:
+    """Strip optional markdown code fences and surrounding whitespace."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+    if text.endswith("```"):
+        text = text.rsplit("```", 1)[0]
+    return text.strip()
+
+
 def _parse_labels_response(raw: str) -> list[str]:
     """Extract a ``labels`` list from the AI's JSON response.
 
     Handles common formatting issues: markdown code fences, extra whitespace,
     and direct array responses.
     """
-    text = raw.strip()
-    # Strip markdown fences if present.
-    if text.startswith("```"):
-        text = text.split("\n", 1)[-1]
-    if text.endswith("```"):
-        text = text.rsplit("```", 1)[0]
-    text = text.strip()
-
-    parsed = json.loads(text)
+    parsed = json.loads(_strip_markdown_fences(raw))
 
     if isinstance(parsed, dict):
         labels = parsed.get("labels")
@@ -167,3 +249,32 @@ def _parse_labels_response(raw: str) -> list[str]:
         return list(parsed)
 
     return []
+
+
+def _parse_labels_and_priority_response(
+    raw: str,
+) -> tuple[list[str], IssuePriority | None]:
+    """Extract ``labels`` and optional ``priority`` from the AI JSON response.
+
+    Returns:
+        Tuple of ``(labels, priority)`` where priority is ``None`` when not
+        present or invalid.
+    """
+    parsed = json.loads(_strip_markdown_fences(raw))
+
+    labels: list[str] = []
+    priority: IssuePriority | None = None
+
+    if isinstance(parsed, dict):
+        raw_labels = parsed.get("labels")
+        if isinstance(raw_labels, list):
+            labels = list(raw_labels)
+
+        raw_priority = parsed.get("priority")
+        if isinstance(raw_priority, str) and raw_priority in _VALID_PRIORITIES:
+            priority = IssuePriority(raw_priority)
+
+    elif isinstance(parsed, list):
+        labels = list(parsed)
+
+    return labels, priority

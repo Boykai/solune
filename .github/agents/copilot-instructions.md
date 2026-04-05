@@ -270,3 +270,10 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 
 ## Recent Changes
 - 001-solune-ux-improvements: Added TypeScript `~6.0.2` for the React frontend; Python `>=3.12` for existing FastAPI APIs + React 19.2, react-router-dom 7.14, TanStack Query 5.96, Tailwind CSS 4.2, React Hook Form 7.72, Zod 4.3, existing SSE chat API, plus planned adoption of Radix Dialog and AlertDialog wrappers for modal standardization
+- Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend) (001-human-agent-delay-until-auto-merge)
+- In-memory `PipelineState` dataclass (no database migration needed — `delay_seconds` stored in `PipelineAgentNode.config` dict) (001-human-agent-delay-until-auto-merge)
+- Python 3.11 + FastAPI, httpx, pydantic, asyncio (770-auto-merge-devops-retry)
+- PostgreSQL (via existing `chat_store`) + in-memory `BoundedDict` caches (770-auto-merge-devops-retry)
+
+## Recent Changes
+- 001-human-agent-delay-until-auto-merge: Added Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend)
