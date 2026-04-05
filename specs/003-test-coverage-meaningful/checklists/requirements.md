@@ -31,9 +31,10 @@
 
 ## Notes
 
-- All checklist items pass. The specification avoids naming specific technologies in requirements and success criteria — tool names are referenced only in Assumptions where they provide context.
-- Four user stories cover the full scope across four priority tiers (P1–P3), with two P1 stories for backend (highest impact) and P2–P3 for frontend.
+- All checklist items pass. The specification avoids naming specific technologies in requirements and success criteria — tool names are referenced only in Assumptions where they provide context for planners.
+- Four user stories cover the full scope across three priority tiers (P1–P3), with two P1 stories for backend (highest impact) and P2–P3 for frontend.
 - Twenty-six functional requirements are defined, each testable via the acceptance scenarios in the corresponding user stories.
 - Ten measurable success criteria use quantitative metrics (coverage percentages, bug counts, regression counts) and qualitative measures (convention compliance, behavioral verification).
 - No [NEEDS CLARIFICATION] markers were needed — the parent issue provides sufficiently detailed requirements with specific module targets, coverage thresholds, bug descriptions, and test case specifications.
 - The specification deliberately keeps coverage tool references generic in requirements and success criteria, confining specific tool commands to the Assumptions section.
+- Acceptance scenarios expanded to 70 total across all stories, covering every test case from the parent issue's phased plan including retry logic, cache behavior, concurrent access, factory dispatch, keyboard handling, lazy loading, and edge-case inputs.

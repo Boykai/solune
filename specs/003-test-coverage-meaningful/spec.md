@@ -20,9 +20,23 @@ A developer runs the backend test suite against the existing low-coverage API mo
 1. **Given** `api/chat.py` has a proposal with `expires_at` set to `None`, **When** the proposal expiry check runs, **Then** the system handles the `None` value gracefully without raising an unhandled exception
 2. **Given** `api/chat.py` receives a file upload, **When** the file exceeds the size limit or has a disallowed type, **Then** the system rejects the request with an appropriate error before processing
 3. **Given** `api/chat.py` receives a transcript read request with path traversal characters, **When** the path is resolved, **Then** the system rejects the request and does not access files outside the allowed directory
-4. **Given** `api/board.py` encounters an authentication error, **When** the error is classified, **Then** it is correctly distinguished from a rate-limit error and handled with the appropriate retry strategy
-5. **Given** `api/apps.py` processes a name consisting entirely of special characters, **When** the name normalization function strips all characters, **Then** the system handles the resulting empty string without creating an invalid resource
-6. **Given** `utils.py` receives a URL with enterprise domain, HTTPS scheme, or `.git` suffix variations, **When** the URL is parsed, **Then** the correct repository owner and name are extracted in all cases
+4. **Given** `api/chat.py` receives a streaming request with missing action data, **When** the streaming error handler runs, **Then** the system returns a meaningful error instead of crashing
+5. **Given** `api/chat.py` receives a post-processing request with an unrecognized action type, **When** the action type is validated, **Then** the system rejects the request with an appropriate error
+6. **Given** `api/chat.py` `_retry_persist` encounters a transient error, **When** the retry logic executes, **Then** the operation is retried; when the error is permanent, the retry is skipped and the error is propagated
+7. **Given** `api/board.py` encounters an authentication error, **When** the error is classified, **Then** it is correctly distinguished from a rate-limit error and handled with the appropriate retry strategy
+8. **Given** `api/board.py` calls `_retry_after_seconds()` with edge-case inputs (zero, negative, missing header), **When** the retry delay is computed, **Then** a safe default is returned without errors
+9. **Given** `api/board.py` has a stale cache entry, **When** the cache fallback is triggered, **Then** the stale data is served while a background refresh is initiated
+10. **Given** `api/board.py` manual refresh is invoked, **When** the refresh completes, **Then** the sub-issue cache is deleted and fresh data is fetched
+11. **Given** `api/board.py` data hash is computed, **When** the hash stability is verified across identical inputs, **Then** the hash value is deterministic and consistent
+12. **Given** `api/apps.py` processes a name consisting entirely of special characters, **When** the name normalization function strips all characters, **Then** the system handles the resulting empty string without creating an invalid resource
+13. **Given** `api/apps.py` launches a pipeline and the launch fails, **When** the failure is caught, **Then** the system logs a warning and does not propagate the error to the user as a hard failure
+14. **Given** `api/apps.py` receives duplicate repository import attempts via different URL formats, **When** URL normalization is applied, **Then** the duplicates are correctly detected
+15. **Given** `api/apps.py` receives a force-delete request and partial failure occurs, **When** some resources fail to delete, **Then** the system reports which resources failed without leaving the app in an inconsistent state
+16. **Given** `utils.py` receives a URL with enterprise domain, HTTPS scheme, or `.git` suffix variations, **When** the URL is parsed, **Then** the correct repository owner and name are extracted in all cases
+17. **Given** `utils.py` BoundedDict reaches capacity, **When** a new entry is inserted, **Then** the eviction callback fires for the oldest entry and `move_to_end` correctly reorders access
+18. **Given** `utils.py` `resolve_repository` is called with partial information, **When** the full fallback chain is exercised, **Then** each fallback level is tried in order and the first successful resolution is returned
+19. **Given** `utils.py` REST repo extraction receives a malformed URL, **When** the URL is parsed, **Then** the system returns a safe default or error without crashing
+20. **Given** `utils.py` `cached_fetch` has a cached value, **When** a refresh bypass is requested, **Then** the cache is skipped and a fresh value is retrieved
 
 ---
 
@@ -38,17 +52,31 @@ A developer creates test suites for five backend modules that currently have zer
 
 1. **Given** a non-admin user, **When** they attempt to update global settings, **Then** the system returns a 403 Forbidden response
 2. **Given** an admin user submits an empty settings update, **When** the update is processed, **Then** the system treats it as a no-op and does not log an activity event
-3. **Given** a new user begins onboarding, **When** the initial state is retrieved, **Then** all default values are populated correctly and progress is preserved across sessions
-4. **Given** an onboarding step value exceeds the valid boundary (greater than 13), **When** the step is submitted, **Then** the system returns a 422 validation error
-5. **Given** a template request with an invalid category, **When** the registry is queried, **Then** the system returns a 400 error with a descriptive message
-6. **Given** a pipeline estimation request with a specific agent count, **When** the estimate is computed, **Then** the hour threshold boundaries (0.5, 1.0, 2.0, 4.0) produce consistent and deterministic results
-7. **Given** a completion provider client pool, **When** multiple requests arrive concurrently, **Then** the pool handles access without deadlocks or resource leaks
+3. **Given** a settings update modifies project settings containing a `__workflow__` key, **When** the update is saved, **Then** the workflow sync mechanism is triggered correctly
+4. **Given** a settings cache exists, **When** settings are updated, **Then** the cache is invalidated before the next read
+5. **Given** the model fetcher runs without an authentication token, **When** the fetch is attempted, **Then** the system handles the missing token gracefully with an appropriate fallback or error
+6. **Given** a new user begins onboarding, **When** the initial state is retrieved, **Then** all default values are populated correctly and progress is preserved across sessions
+7. **Given** a user completes the final onboarding step, **When** the completion is recorded, **Then** a completion timestamp is stored and the state reflects completed status
+8. **Given** a user dismisses onboarding before completing it, **When** the dismiss action is processed, **Then** the dismissal is recorded separately from completion
+9. **Given** an onboarding step value exceeds the valid boundary (greater than 13), **When** the step is submitted, **Then** the system returns a 422 validation error
+10. **Given** a template request with an invalid category, **When** the registry is queried, **Then** the system returns a 400 error with a descriptive message
+11. **Given** the template registry is empty, **When** a template listing is requested, **Then** the system returns an empty collection without errors
+12. **Given** a template request specifying summary mode, **When** the response is generated, **Then** only summary fields are included (not full detail fields)
+13. **Given** a request for a non-existent template, **When** the template is fetched by identifier, **Then** the system returns a 404 response
+14. **Given** a pipeline estimation request with a specific agent count, **When** the estimate is computed, **Then** the hour threshold boundaries (0.5, 1.0, 2.0, 4.0) produce consistent and deterministic results
+15. **Given** a pipeline estimation request with an invalid agent count (zero or negative), **When** the estimate is computed, **Then** the system logs a warning and returns a safe minimum estimate
+16. **Given** a pipeline estimation target date calculation, **When** the estimate is generated on different calendar dates, **Then** the result is deterministic for the same inputs regardless of execution time
+17. **Given** a completion provider client pool, **When** multiple requests arrive concurrently, **Then** the pool handles access without deadlocks or resource leaks
+18. **Given** a completion provider is removed from the pool, **When** the cleanup runs, **Then** all associated resources are released and subsequent requests do not reference the removed provider
+19. **Given** a completion provider session times out, **When** the timeout is detected, **Then** the system returns an empty string rather than propagating the error
+20. **Given** an Azure completion provider configuration, **When** the configuration is validated, **Then** missing or invalid fields are reported with specific error messages
+21. **Given** a completion provider factory, **When** a request specifies a provider type, **Then** the factory dispatches to the correct provider implementation
 
 ---
 
 ### User Story 3 - Frontend Critical Component Testing (Priority: P2)
 
-A developer creates test suites for the highest-impact frontend components: the Agents panel (list, search, sort, delete, undo), the Add Agent modal (validation, create vs edit modes), the Agent Chat Flow (message handling, keyboard interactions), and the Pipeline components (execution groups, model dropdowns, run history). Each test suite covers user interactions, state transitions, accessibility, and error/loading states using behavior-driven testing patterns. After this work, the most complex interactive components have automated tests that verify their user-facing behavior.
+A developer creates test suites for the highest-impact frontend components: the Agents panel (list, search, sort, delete, undo), the Add Agent modal (validation, create vs edit modes), the Agent Chat Flow (message handling, keyboard interactions), and the Pipeline components (execution groups, model dropdowns, run history). Each test suite covers user interactions, state transitions, and error/loading states using behavior-driven testing patterns. After this work, the most complex interactive components have automated tests that verify their user-facing behavior.
 
 **Why this priority**: Frontend coverage is significantly lower (57.8%) than backend. These components represent the most complex interactive surfaces — they handle user input, state management, and async operations. Behavioral tests here catch regressions that are expensive to find manually. The Agents panel and Pipeline components are used in every pipeline workflow.
 
@@ -58,10 +86,27 @@ A developer creates test suites for the highest-impact frontend components: the 
 
 1. **Given** the Agents panel renders with no agents configured, **When** the panel loads, **Then** an empty state message is displayed guiding the user to create their first agent
 2. **Given** the Agents panel has multiple agents, **When** the user types in the search filter, **Then** the displayed agent list updates to show only matching agents
-3. **Given** the user deletes an agent from the panel, **When** the deletion completes, **Then** an undo option is presented allowing the user to restore the agent within a time window
-4. **Given** the Add Agent modal is open in create mode, **When** the user enters a name that fails validation (empty, too long, or containing invalid characters), **Then** an inline error message is shown and the create button is disabled
-5. **Given** the Agent Chat Flow is active and a message is pending, **When** the user attempts to send another message, **Then** the input is disabled until the pending response completes
-6. **Given** a Pipeline run history entry, **When** the user expands the entry, **Then** the duration is formatted in human-readable units and status badges reflect the correct run state
+3. **Given** the Agents panel sort toggle is clicked, **When** the sort order changes, **Then** the agent list re-renders in the new order
+4. **Given** the user opens the add-agent modal from the panel, **When** the modal renders, **Then** all form fields are in their default state and the modal can be closed
+5. **Given** the user deletes an agent from the panel, **When** the deletion completes, **Then** an undo option is presented allowing the user to restore the agent within a time window
+6. **Given** the Agents panel supports infinite scroll, **When** the user scrolls to the bottom, **Then** additional agents are loaded without interrupting the current view
+7. **Given** the Agents panel is loading data, **When** the loading state is active, **Then** a loading indicator is displayed and actions are disabled
+8. **Given** the Agents panel encounters an error fetching agents, **When** the error state renders, **Then** an error message is displayed with a retry option
+9. **Given** the Add Agent modal is open in create mode, **When** the user enters a name that fails validation (empty, too long, or containing invalid characters), **Then** an inline error message is shown and the create button is disabled
+10. **Given** the Add Agent modal is open in edit mode, **When** the modal loads, **Then** the existing agent's values are pre-populated in all fields
+11. **Given** the Add Agent modal prompt field, **When** the user types beyond the character limit, **Then** the character counter updates and additional input is prevented or flagged
+12. **Given** the Add Agent modal AI enhance toggle, **When** the toggle is activated, **Then** the prompt enhancement feature is enabled
+13. **Given** the Agent Chat Flow receives an initial message, **When** the flow starts, **Then** the first message is auto-sent without requiring user action
+14. **Given** the Agent Chat Flow is active, **When** the user presses Enter, **Then** the current message is sent; when the user presses Shift+Enter, a new line is inserted instead
+15. **Given** the Agent Chat Flow is active and a message is pending, **When** the user attempts to send another message, **Then** the input is disabled until the pending response completes
+16. **Given** the Agent Chat Flow encounters a send error, **When** the error occurs, **Then** an error message is displayed to the user with context about the failure
+17. **Given** an ExecutionGroupCard with multiple agents, **When** the execution mode toggle is changed, **Then** the display reflects the new execution mode for all agents in the group
+18. **Given** an ExecutionGroupCard, **When** an agent is removed from the group, **Then** the card updates to reflect the remaining agents
+19. **Given** the PipelineModelDropdown is open, **When** the user selects a model, **Then** the dropdown closes and the selected model is reflected in the display
+20. **Given** the PipelineModelDropdown is open, **When** the user clicks outside the dropdown, **Then** the dropdown closes without selecting a new model
+21. **Given** a Pipeline run history entry, **When** the user expands the entry, **Then** the duration is formatted in human-readable units and status badges reflect the correct run state
+22. **Given** the Pipeline run history in collapsed state, **When** the user clicks to expand, **Then** the content is revealed with appropriate transition
+23. **Given** the Pipeline run history, **When** the history panel loads, **Then** entries are loaded lazily to avoid performance degradation with large histories
 
 ---
 
@@ -76,8 +121,11 @@ A developer creates tests for frontend utility functions and context providers: 
 **Acceptance Scenarios**:
 
 1. **Given** a route suggestion input, **When** the Levenshtein distance is calculated against available routes, **Then** the results are correctly filtered by the threshold and empty inputs return no suggestions
-2. **Given** a command registered in the registry, **When** the registry is queried with a filter, **Then** only matching commands are returned and argument parsing produces the correct tokens
-3. **Given** the Sync Status context provider is active, **When** multiple rapid state transitions occur with equivalent values, **Then** duplicate transitions are deduplicated and downstream consumers do not re-render unnecessarily
+2. **Given** a route suggestion input with a close but inexact match, **When** the suggestion algorithm runs, **Then** the closest routes are returned in relevance order
+3. **Given** a command registered in the registry, **When** the registry is queried with a filter, **Then** only matching commands are returned and argument parsing produces the correct tokens
+4. **Given** a command is unregistered from the registry, **When** the registry is queried for that command, **Then** the command is no longer returned
+5. **Given** the Sync Status context provider is active, **When** multiple rapid state transitions occur with equivalent values, **Then** duplicate transitions are deduplicated and downstream consumers do not re-render unnecessarily
+6. **Given** the Sync Status context provider transitions from one state to another, **When** the transition completes, **Then** the new state is immediately available to all consuming components
 
 ---
 
