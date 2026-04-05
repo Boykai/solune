@@ -35,6 +35,9 @@ export function getSuggestions(
   { limit = 3, threshold = 4 } = {},
 ): NavRoute[] {
   const input = pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+  if (!input || routes.length === 0) {
+    return [];
+  }
 
   return routes
     .map((r) => ({ route: r, dist: levenshtein(input, r.path.replace(/^\//, '')) }))

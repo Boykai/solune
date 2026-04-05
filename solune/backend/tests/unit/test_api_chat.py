@@ -25,6 +25,8 @@ from src.models.chat import (
 )
 from src.models.user import UserSession
 
+TEST_MAX_FILE_SIZE_BYTES = 4
+
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -867,6 +869,39 @@ class TestTranscriptHelpers:
         store_recommendation.assert_not_awaited()
         add_message.assert_awaited_once()
 
+    async def test_handle_transcript_upload_skips_oversized_files(
+        self, mock_session, mock_ai_agent_service
+    ):
+        from src.api.chat import _handle_transcript_upload
+
+        upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{uuid4().hex[:8]}-transcript.txt"
+        file_path = upload_dir / filename
+        file_path.write_text("x" * 10, encoding="utf-8")
+
+        try:
+            with (
+                patch(
+                    "src.api.chat.MAX_FILE_SIZE_BYTES",
+                    TEST_MAX_FILE_SIZE_BYTES,
+                ),
+                patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
+            ):
+                result = await _handle_transcript_upload(
+                    mock_session,
+                    mock_ai_agent_service,
+                    "Roadmap",
+                    None,
+                    [f"/uploads/{filename}"],
+                )
+        finally:
+            file_path.unlink(missing_ok=True)
+
+        assert result is None
+        detect_transcript.assert_not_called()
+        mock_ai_agent_service.analyze_transcript.assert_not_called()
+
     async def test_extract_transcript_content_returns_first_detected_transcript(self):
         from src.api.chat import _extract_transcript_content
 
@@ -899,6 +934,30 @@ class TestTranscriptHelpers:
             transcript_path.unlink(missing_ok=True)
 
         assert result == "WEBVTT\n\n00:00.000 --> 00:01.000\nHello"
+
+    async def test_extract_transcript_content_skips_oversized_files(self):
+        from src.api.chat import _extract_transcript_content
+
+        upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{uuid4().hex[:8]}-meeting.vtt"
+        file_path = upload_dir / filename
+        file_path.write_text("x" * 10, encoding="utf-8")
+
+        try:
+            with (
+                patch(
+                    "src.api.chat.MAX_FILE_SIZE_BYTES",
+                    TEST_MAX_FILE_SIZE_BYTES,
+                ),
+                patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
+            ):
+                result = await _extract_transcript_content([f"/uploads/{filename}"])
+        finally:
+            file_path.unlink(missing_ok=True)
+
+        assert result is None
+        detect_transcript.assert_not_called()
 
     async def test_get_plan_endpoint_is_scoped_to_current_session(
         self, client, mock_db, mock_session

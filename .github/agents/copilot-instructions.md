@@ -190,6 +190,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 ## Active Technologies
 - Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing) (001-full-stack-plan-pipeline)
 - SQLite via `aiosqlite>=0.22.0` (existing) — new migrations for versioning and step status (001-full-stack-plan-pipeline)
+- Python 3.12+ in `/home/runner/work/solune/solune/solune/backend`; TypeScript ~6.0.2 + React 19.2 in `/home/runner/work/solune/solune/solune/frontend` + FastAPI, Pydantic v2, aiosqlite, slowapi, pytest, pytest-asyncio, pytest-cov, React, TanStack Query, Vitest, Testing Library, happy-dom (003-test-coverage-meaningful)
+- SQLite via `aiosqlite` for backend state; temporary filesystem uploads/transcripts for chat attachment and transcript-path scenarios (003-test-coverage-meaningful)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
@@ -198,5 +200,5 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - Python 3.11 + FastAPI, httpx, pydantic, asyncio (770-auto-merge-devops-retry)
 - PostgreSQL (via existing `chat_store`) + in-memory `BoundedDict` caches (770-auto-merge-devops-retry)
 
-## Recent Changes
+- 003-test-coverage-meaningful: Added Python 3.12+ in `/home/runner/work/solune/solune/solune/backend`; TypeScript ~6.0.2 + React 19.2 in `/home/runner/work/solune/solune/solune/frontend` + FastAPI, Pydantic v2, aiosqlite, slowapi, pytest, pytest-asyncio, pytest-cov, React, TanStack Query, Vitest, Testing Library, happy-dom
 - 001-human-agent-delay-until-auto-merge: Added Python 3.11 (backend), TypeScript / React (frontend) + FastAPI, Pydantic (backend); React, Vite, Tailwind CSS, Radix UI, dnd-kit (frontend)
