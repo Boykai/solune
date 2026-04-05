@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from '@/lib/icons';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
 import { CelestialLoader } from '@/components/common/CelestialLoader';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import { cn } from '@/lib/utils';
 import type { Project } from '@/types';
 
@@ -25,6 +26,7 @@ export function ProjectSelectionEmptyState({
   const [isOpen, setIsOpen] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { hasCompleted, restart } = useOnboarding();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -171,6 +173,15 @@ export function ProjectSelectionEmptyState({
           </div>
         )}
       </div>
+      {hasCompleted && (
+        <button
+          type="button"
+          onClick={restart}
+          className="mt-4 text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          Replay onboarding tour
+        </button>
+      )}
     </div>
   );
 }

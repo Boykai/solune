@@ -5,10 +5,12 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { CelestialLoadingProgress } from '@/components/common/CelestialLoadingProgress';
+import { BoardColumnSkeleton } from '@/components/board/BoardColumnSkeleton';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRateLimitStatus } from '@/context/RateLimitContext';
 import { useProjectBoard } from '@/hooks/useProjectBoard';
 import { useRealTimeSync } from '@/hooks/useRealTimeSync';
+import { useSyncStatusContext } from '@/context/SyncStatusContext';
 import { useBoardRefresh } from '@/hooks/useBoardRefresh';
 import { useProjects } from '@/hooks/useProjects';
 import { useAuth } from '@/hooks/useAuth';
@@ -42,6 +44,7 @@ export function ProjectsPage() {
     projects,
     isLoading: projectsListLoading,
     selectProject,
+    refreshProjects,
   } = useProjects(user?.selected_project_id);
 
   const {
@@ -69,6 +72,12 @@ export function ProjectsPage() {
   const { status: syncStatus, lastUpdate: syncLastUpdate } = useRealTimeSync(selectedProjectId, {
     onRefreshTriggered: stableResetTimer,
   });
+
+  // Push sync status to the global context so TopBar can display it on any page.
+  const { updateSyncStatus } = useSyncStatusContext();
+  useEffect(() => {
+    updateSyncStatus(syncStatus, syncLastUpdate);
+  }, [syncStatus, syncLastUpdate, updateSyncStatus]);
 
   const isWebSocketConnected = syncStatus === 'connected';
 
@@ -439,6 +448,8 @@ export function ProjectsPage() {
         boardRateLimitError={boardRateLimitError}
         selectedProjectId={selectedProjectId}
         onRetryBoard={selectBoardProject}
+        onRetryRefresh={refresh}
+        onRetryProjects={refreshProjects}
       />
 
       {/* Content area */}
@@ -453,7 +464,7 @@ export function ProjectsPage() {
       )}
 
       {selectedProjectId && boardLoading && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <div className="flex flex-1 flex-col gap-4">
           <CelestialLoadingProgress
             phases={[
               { label: 'Connecting to GitHub…', complete: !projectsLoading },
@@ -462,6 +473,11 @@ export function ProjectsPage() {
               { label: 'Loading agents…', complete: !agentsLoading },
             ]}
           />
+          <div className="flex gap-4 overflow-x-auto" aria-busy="true">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <BoardColumnSkeleton key={i} />
+            ))}
+          </div>
         </div>
       )}
 

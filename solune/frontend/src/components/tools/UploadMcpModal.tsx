@@ -2,8 +2,12 @@
  * UploadMcpModal — modal dialog for uploading/pasting MCP configuration JSON.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { McpToolConfig, McpToolConfigCreate, McpToolConfigUpdate } from '@/types';
+import { CharacterCounter } from '@/components/ui/character-counter';
+import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
+
+const MAX_NAME_LENGTH = 100;
 
 interface UploadMcpModalProps {
   isOpen: boolean;
@@ -91,12 +95,15 @@ export function UploadMcpModal({
   editingTool = null,
   initialDraft = null,
 }: UploadMcpModalProps) {
+  const nameRef = useRef<HTMLInputElement>(null);
+  const configRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [configContent, setConfigContent] = useState('');
   const [githubRepoTarget, setGithubRepoTarget] = useState('');
   const [mode, setMode] = useState<'paste' | 'file'>('paste');
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [multiServerWarning, setMultiServerWarning] = useState<string | null>(null);
   const isEditMode = editingTool !== null;
@@ -105,13 +112,18 @@ export function UploadMcpModal({
     [editingTool?.name, existingNames]
   );
 
+  const fieldRefs = useMemo(() => ({ name: nameRef, config: configRef }), []);
+  const errors = useMemo(() => ({ name: nameError, config: configError }), [nameError, configError]);
+  const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
+
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
     setConfigContent('');
     setGithubRepoTarget('');
     setMode('paste');
-    setValidationError(null);
+    setNameError(null);
+    setConfigError(null);
     setDuplicateWarning(null);
     setMultiServerWarning(null);
   }, []);
@@ -138,7 +150,8 @@ export function UploadMcpModal({
       setConfigContent(editingTool.config_content);
       setGithubRepoTarget(editingTool.github_repo_target);
       setMode('paste');
-      setValidationError(null);
+      setNameError(null);
+      setConfigError(null);
       setDuplicateWarning(null);
       setMultiServerWarning(null);
       return;
@@ -149,7 +162,8 @@ export function UploadMcpModal({
       setConfigContent(initialDraft.config_content ?? '');
       setGithubRepoTarget(initialDraft.github_repo_target ?? '');
       setMode('paste');
-      setValidationError(null);
+      setNameError(null);
+      setConfigError(null);
       setDuplicateWarning(null);
       setMultiServerWarning(null);
       return;
@@ -207,49 +221,53 @@ export function UploadMcpModal({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_CONFIG_SIZE) {
-      setValidationError('File exceeds 256 KB limit');
+      setConfigError('File exceeds 256 KB limit');
       return;
     }
     const reader = new FileReader();
     reader.onload = () => {
       const text = reader.result as string;
       setConfigContent(text);
-      setValidationError(null);
+      setConfigError(null);
     };
     reader.readAsText(file);
   };
 
+  const validateNameField = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Name is required';
+    if (trimmed.length > MAX_NAME_LENGTH) return `Name must be ${MAX_NAME_LENGTH} characters or fewer`;
+    return null;
+  };
+
+  const validateConfigField = (value: string): string | null => {
+    return validateMcpJson(value);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setValidationError(null);
 
-    const trimmedName = name.trim();
-    if (!trimmedName) {
-      setValidationError('Name is required');
-      return;
-    }
-    if (trimmedName.length > 100) {
-      setValidationError('Name must be 100 characters or fewer');
-      return;
-    }
+    const newNameError = validateNameField(name);
+    const newConfigError = validateConfigField(configContent);
+    setNameError(newNameError);
+    setConfigError(newConfigError);
 
-    const error = validateMcpJson(configContent);
-    if (error) {
-      setValidationError(error);
+    if (newNameError || newConfigError) {
+      requestAnimationFrame(() => focusFirstError());
       return;
     }
 
     try {
       if (editingTool) {
         await onUpdate(editingTool.id, {
-          name: trimmedName,
+          name: name.trim(),
           description: description.trim(),
           config_content: configContent,
           github_repo_target: githubRepoTarget.trim(),
         });
       } else {
         await onUpload({
-          name: trimmedName,
+          name: name.trim(),
           description: description.trim(),
           config_content: configContent,
           github_repo_target: githubRepoTarget.trim(),
@@ -289,13 +307,24 @@ export function UploadMcpModal({
             </label>
             <input
               id="tool-name"
+              ref={nameRef}
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+              onBlur={() => setNameError(validateNameField(name))}
               placeholder="e.g., Sentry MCP"
+              aria-invalid={!!nameError}
+              aria-describedby={nameError ? 'tool-name-error' : undefined}
               className="w-full rounded-md border border-border bg-background/72 px-3 py-2 text-sm"
-              maxLength={100}
+              maxLength={MAX_NAME_LENGTH}
             />
+            <div className="mt-1 flex items-center justify-between">
+              {nameError ? <p id="tool-name-error" className="text-xs text-destructive">{nameError}</p> : <span />}
+              <CharacterCounter current={name.length} max={MAX_NAME_LENGTH} />
+            </div>
             {duplicateWarning && <p className="mt-1 text-xs text-amber-600">{duplicateWarning}</p>}
             {multiServerWarning && (
               <p className="mt-1 text-xs text-amber-600">{multiServerWarning}</p>
@@ -337,11 +366,13 @@ export function UploadMcpModal({
             {mode === 'paste' ? (
               <textarea
                 id="mcp-config-textarea"
+                ref={configRef}
                 value={configContent}
                 onChange={(e) => {
                   setConfigContent(e.target.value);
-                  setValidationError(null);
+                  if (configError) setConfigError(null);
                 }}
+                onBlur={() => setConfigError(validateConfigField(configContent))}
                 placeholder={
                   '{\n  "mcpServers": {\n    "my-server": {\n      "type": "http",\n      "url": "https://example.com/mcp"\n    }\n  }\n}'
                 }
@@ -374,10 +405,10 @@ export function UploadMcpModal({
             />
           </div>
 
-          {/* Validation Error */}
-          {validationError && (
+          {/* Config field error */}
+          {configError && (
             <div className="text-sm text-destructive bg-destructive/10 rounded-md p-2">
-              {validationError}
+              {configError}
             </div>
           )}
 

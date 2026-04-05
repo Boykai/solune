@@ -7,6 +7,8 @@
  */
 
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useBulkUpdateModels } from '@/hooks/useAgents';
 import { ModelSelector } from '@/components/pipeline/ModelSelector';
 import type { AgentConfig } from '@/services/api';
@@ -55,29 +57,17 @@ export function BulkModelUpdateDialog({
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      role="presentation"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="Close bulk model update dialog"
-        onClick={handleClose}
-      />
-      <div
-        className="celestial-panel celestial-fade-in relative bg-card rounded-lg border border-border shadow-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Bulk model update dialog"
-      >
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen && !mutation.isPending) handleClose(); }}>
+      <DialogContent hideClose className="max-h-[80vh] max-w-md overflow-y-auto">
         {step === 1 && (
           <>
-            <h3 className="text-lg font-semibold mb-1">Update All Agent Models</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Select the target model to apply to all {agents.length} agent
-              {agents.length === 1 ? '' : 's'}.
-            </p>
+            <DialogHeader className="mb-4">
+              <DialogTitle>Update All Agent Models</DialogTitle>
+              <DialogDescription>
+                Select the target model to apply to all {agents.length} agent
+                {agents.length === 1 ? '' : 's'}.
+              </DialogDescription>
+            </DialogHeader>
             <div className="mb-4">
               <ModelSelector
                 selectedModelId={selectedModelId}
@@ -92,32 +82,34 @@ export function BulkModelUpdateDialog({
                 Selected: <span className="font-medium">{selectedModelName}</span>
               </p>
             )}
-            <div className="flex justify-end gap-2">
-              <button
+            <DialogFooter>
+              <Button
                 type="button"
-                className="celestial-focus px-4 py-2 text-sm font-medium rounded-md bg-muted hover:bg-muted/80 text-muted-foreground"
+                variant="outline"
                 onClick={handleClose}
+                disabled={mutation.isPending}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="celestial-focus px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 disabled={!selectedModelId}
                 onClick={() => setStep(2)}
               >
                 Next
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </>
         )}
 
         {step === 2 && (
           <>
-            <h3 className="text-lg font-semibold mb-1">Confirm Bulk Update</h3>
-            <p className="text-sm text-muted-foreground mb-3">
-              Update all agents to <span className="font-medium">{selectedModelName}</span>?
-            </p>
+            <DialogHeader className="mb-3">
+              <DialogTitle>Confirm Bulk Update</DialogTitle>
+              <DialogDescription>
+                Update all agents to <span className="font-medium">{selectedModelName}</span>?
+              </DialogDescription>
+            </DialogHeader>
             <div className="mb-4 rounded-md border border-border/60 bg-background/50 p-3 max-h-48 overflow-y-auto">
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {agents.length} agent{agents.length === 1 ? '' : 's'} will be updated
@@ -140,26 +132,25 @@ export function BulkModelUpdateDialog({
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
-              <button
+            <DialogFooter>
+              <Button
                 type="button"
-                className="celestial-focus px-4 py-2 text-sm font-medium rounded-md bg-muted hover:bg-muted/80 text-muted-foreground"
+                variant="outline"
                 onClick={() => setStep(1)}
               >
                 Back
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="celestial-focus px-4 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 disabled={mutation.isPending}
                 onClick={handleConfirm}
               >
                 {mutation.isPending ? 'Updating…' : 'Confirm'}
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

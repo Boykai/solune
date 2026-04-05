@@ -10,6 +10,7 @@ import { StageCard } from './StageCard';
 import { PipelineModelDropdown } from './PipelineModelDropdown';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
+import { CharacterCounter } from '@/components/ui/character-counter';
 import type {
   PipelineStage,
   PipelineAgentNode,
@@ -179,6 +180,11 @@ export function PipelineBoard({
               <p id="pipeline-name-error" className="mt-1 text-xs text-red-500">
                 {validationErrors.name}
               </p>
+            )}
+            {showInlineNameInput && (
+              <div className="mt-1">
+                <CharacterCounter current={editNameValue.length} max={100} />
+              </div>
             )}
           </div>
           <p className="mt-3 max-w-2xl text-xs leading-5 text-muted-foreground">
