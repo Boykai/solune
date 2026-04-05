@@ -68,7 +68,8 @@ export function AgentChatFlow({
         },
       }
     );
-  }, [chatMutation, normalizedInitialMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [normalizedInitialMessage]);
 
   // Auto-scroll
   useEffect(() => {
