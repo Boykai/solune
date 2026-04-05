@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { Outlet } from 'react-router-dom';
+import { PageTransition } from '@/components/layout/PageTransition';
 import { TriangleAlert, X } from '@/lib/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
@@ -23,6 +23,7 @@ import { ChatPopup } from '@/components/chat/ChatPopup';
 import { SpotlightTour } from '@/components/onboarding/SpotlightTour';
 import { OnboardingProvider } from '@/hooks/useOnboarding';
 import { RateLimitProvider } from '@/context/RateLimitContext';
+import { SyncStatusProvider } from '@/context/SyncStatusContext';
 import { Toaster } from 'sonner';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { KeyboardShortcutModal } from '@/components/ui/keyboard-shortcut-modal';
@@ -120,6 +121,7 @@ export function AppLayout() {
   return (
     <OnboardingProvider>
     <RateLimitProvider>
+    <SyncStatusProvider>
       <div className="celestial-shell starfield relative flex h-screen overflow-hidden bg-background text-foreground">
         <div className="pointer-events-none absolute inset-0 opacity-90">
           <div className="absolute left-[-10rem] top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-primary/12 blur-3xl celestial-pulse-glow" />
@@ -164,7 +166,7 @@ export function AppLayout() {
             />
             <SignalBannerBar />
             <main className="relative flex-1 overflow-auto overscroll-y-contain px-2 pb-2">
-              <Outlet />
+              <PageTransition />
             </main>
           </BreadcrumbProvider>
         </div>
@@ -225,6 +227,7 @@ export function AppLayout() {
           }}
         />
       </div>
+    </SyncStatusProvider>
     </RateLimitProvider>
     </OnboardingProvider>
   );

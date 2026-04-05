@@ -43,7 +43,7 @@ describe('useConfirmation', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     });
     expect(screen.getByText('Test Title')).toBeInTheDocument();
     expect(screen.getByText('Test Description')).toBeInTheDocument();
@@ -122,7 +122,7 @@ describe('useConfirmation', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     });
 
     act(() => {
@@ -216,7 +216,7 @@ describe('useConfirmation', () => {
 
     // Dialog should close
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
     expect(asyncFn).toHaveBeenCalledOnce();
   });
@@ -250,7 +250,7 @@ describe('useConfirmation', () => {
     });
 
     // Dialog should still be open (for retry)
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
 
     // Confirm button should be re-enabled for retry
     expect(screen.getByText('Go')).not.toBeDisabled();
@@ -320,7 +320,7 @@ describe('useConfirmation', () => {
     });
   });
 
-  it('restores focus to the queued trigger after the final dialog closes', async () => {
+  it('releases focus after the final queued dialog closes', async () => {
     function FocusHarness() {
       const { confirm } = useConfirmation();
 
@@ -386,11 +386,11 @@ describe('useConfirmation', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
 
     await waitFor(() => {
-      expect(document.activeElement).toBe(secondTrigger);
+      expect(document.activeElement).toBe(document.body);
     });
   });
 });

@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface InfiniteScrollContainerProps {
   children: ReactNode;
@@ -15,6 +16,8 @@ interface InfiniteScrollContainerProps {
   isError?: boolean;
   onRetry?: () => void;
   className?: string;
+  /** Number of skeleton placeholder rows to show while loading the next page. */
+  skeletonCount?: number;
 }
 
 export function InfiniteScrollContainer({
@@ -25,6 +28,7 @@ export function InfiniteScrollContainer({
   isError = false,
   onRetry,
   className,
+  skeletonCount = 3,
 }: InfiniteScrollContainerProps) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -55,11 +59,19 @@ export function InfiniteScrollContainer({
         <div ref={sentinelRef} aria-hidden="true" className="h-1" />
       )}
 
-      {/* Loading indicator */}
+      {/* Loading indicator with skeleton placeholders */}
       {isFetchingNextPage && (
-        <div className="flex items-center justify-center py-4" aria-live="polite">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading more…</span>
+        <div className="space-y-3 py-4" aria-live="polite" aria-busy="true">
+          {Array.from({ length: skeletonCount }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border/60 p-4">
+              <Skeleton variant="shimmer" className="mb-2 h-4 w-3/5" />
+              <Skeleton variant="shimmer" className="h-3 w-2/5" />
+            </div>
+          ))}
+          <div className="flex items-center justify-center">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading more…</span>
+          </div>
         </div>
       )}
 

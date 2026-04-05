@@ -7,13 +7,17 @@ import { ScrollText, Sparkles, X } from '@/lib/icons';
  * Pipeline selector, sparse vs. rich input detection, and double-confirmation flow.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCreateChoreWithAutoMerge, useChoreTemplates } from '@/hooks/useChores';
 import { ChoreChatFlow } from './ChoreChatFlow';
 import { ConfirmChoreModal } from './ConfirmChoreModal';
 import { PipelineSelector } from './PipelineSelector';
 import type { ChoreTemplate } from '@/types';
 import { cn } from '@/lib/utils';
+import { CharacterCounter } from '@/components/ui/character-counter';
+import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
+
+const MAX_NAME_LENGTH = 200;
 
 interface AddChoreModalProps {
   projectId: string;
@@ -50,9 +54,13 @@ function isSparseInput(text: string): boolean {
 }
 
 export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: AddChoreModalProps) {
+  const nameRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const [name, setName] = useState('');
   const [templateContent, setTemplateContent] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [showChatFlow, setShowChatFlow] = useState(false);
   const [sparseContent, setSparseContent] = useState('');
   const [aiEnhance, setAiEnhance] = useState(true);
@@ -60,6 +68,9 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingContent, setPendingContent] = useState('');
 
+  const fieldRefs = useMemo(() => ({ name: nameRef, content: contentRef }), []);
+  const errors = useMemo(() => ({ name: nameError, content: contentError }), [nameError, contentError]);
+  const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
   const createMutation = useCreateChoreWithAutoMerge(projectId);
   const { data: repoTemplates } = useChoreTemplates(isOpen ? projectId : null);
 
@@ -110,7 +121,7 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
       resetAndClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create chore';
-      setError(message);
+      setGeneralError(message);
       setShowConfirm(false);
     }
   };
@@ -118,7 +129,9 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
   const resetAndClose = () => {
     setName('');
     setTemplateContent('');
-    setError(null);
+    setNameError(null);
+    setContentError(null);
+    setGeneralError(null);
     setShowChatFlow(false);
     setSparseContent('');
     setAiEnhance(true);
@@ -128,25 +141,33 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
     onClose();
   };
 
+  const validateName = (value: string): string | null => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Name is required';
+    if (trimmed.length > MAX_NAME_LENGTH) return `Name must be ${MAX_NAME_LENGTH} characters or fewer`;
+    return null;
+  };
+
+  const validateContent = (value: string): string | null => {
+    if (!value.trim()) return 'Template content is required';
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setGeneralError(null);
 
-    const trimmedName = name.trim();
+    const newNameError = validateName(name);
+    const newContentError = validateContent(templateContent);
+    setNameError(newNameError);
+    setContentError(newContentError);
+
+    if (newNameError || newContentError) {
+      requestAnimationFrame(() => focusFirstError());
+      return;
+    }
+
     const trimmedContent = templateContent.trim();
-
-    if (!trimmedName) {
-      setError('Name is required');
-      return;
-    }
-    if (trimmedName.length > 200) {
-      setError('Name must be 200 characters or fewer');
-      return;
-    }
-    if (!trimmedContent) {
-      setError('Template content is required');
-      return;
-    }
 
     // Route sparse input through chat flow (US3)
     if (isSparseInput(trimmedContent)) {
@@ -155,7 +176,7 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
       return;
     }
 
-    await createChore(trimmedName, trimmedContent);
+    await createChore(name.trim(), trimmedContent);
   };
 
   const handleTemplateReady = async (content: string) => {
@@ -266,15 +287,26 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
             </label>
             <input
               id="chore-name"
+              ref={nameRef}
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError) setNameError(null);
+              }}
+              onBlur={() => setNameError(validateName(name))}
               placeholder="e.g., Bug Bash, Dependency Update"
+              aria-invalid={!!nameError}
+              aria-describedby={nameError ? 'chore-name-error' : undefined}
               className="flex h-9 w-full rounded-md border border-input bg-background/72 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              maxLength={200}
+              maxLength={MAX_NAME_LENGTH}
               // eslint-disable-next-line jsx-a11y/no-autofocus
               autoFocus
             />
+            <div className="mt-0.5 flex items-center justify-between">
+              {nameError ? <p id="chore-name-error" className="text-xs text-destructive">{nameError}</p> : <span />}
+              <CharacterCounter current={name.length} max={MAX_NAME_LENGTH} />
+            </div>
           </div>
 
           {/* Template Content */}
@@ -284,12 +316,20 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
             </label>
             <textarea
               id="chore-content"
+              ref={contentRef}
               value={templateContent}
-              onChange={(e) => setTemplateContent(e.target.value)}
+              onChange={(e) => {
+                setTemplateContent(e.target.value);
+                if (contentError) setContentError(null);
+              }}
+              onBlur={() => setContentError(validateContent(templateContent))}
               placeholder="Enter detailed markdown content or a brief description to start a guided chat..."
               rows={10}
+              aria-invalid={!!contentError}
+              aria-describedby={contentError ? 'chore-content-error' : undefined}
               className="flex w-full rounded-md border border-input bg-background/72 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-y min-h-[120px]"
             />
+            {contentError && <p id="chore-content-error" className="text-xs text-destructive">{contentError}</p>}
             <p className="text-xs text-muted-foreground">
               Brief descriptions start a guided chat; detailed markdown creates the chore directly
             </p>
@@ -329,7 +369,7 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
           />
 
           {/* Error */}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {generalError && <p className="text-sm text-destructive">{generalError}</p>}
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">

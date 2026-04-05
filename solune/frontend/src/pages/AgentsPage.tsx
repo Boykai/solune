@@ -3,7 +3,7 @@
  * Composes AgentsPanel (catalog), useAgentConfig (assignments), and board columns.
  */
 
-import { TriangleAlert } from '@/lib/icons';
+import { RefreshCw, TriangleAlert } from '@/lib/icons';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
@@ -41,14 +41,14 @@ export function AgentsPage() {
 
   const { boardData, boardLoading } = useProjectBoard({ selectedProjectId: projectId });
   const agentConfig = useAgentConfig(projectId);
-  const { data: pipelineList, isError: pipelineListError } = useQuery({
+  const { data: pipelineList, isError: pipelineListError, refetch: refetchPipelineList } = useQuery({
     queryKey: ['pipelines', 'list', projectId ?? ''],
     queryFn: () => pipelinesApi.list(projectId!),
     enabled: !!projectId,
     staleTime: 30_000,
   });
 
-  const { isError: pipelineAssignmentError } = useQuery({
+  const { isError: pipelineAssignmentError, refetch: refetchPipelineAssignment } = useQuery({
     queryKey: ['pipelines', 'assignment', projectId ?? ''],
     queryFn: () => pipelinesApi.getAssignment(projectId!),
     enabled: !!projectId,
@@ -153,6 +153,16 @@ export function AgentsPage() {
               <div className="flex items-center gap-2 rounded-[1.25rem] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                 <TriangleAlert className="h-4 w-4 shrink-0" />
                 <span>Failed to load pipeline data. Assignment details may be incomplete.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pipelineListError) refetchPipelineList();
+                    if (pipelineAssignmentError) refetchPipelineAssignment();
+                  }}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-destructive/10"
+                >
+                  <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" /> Retry
+                </button>
               </div>
             )}
             {boardLoading ? (

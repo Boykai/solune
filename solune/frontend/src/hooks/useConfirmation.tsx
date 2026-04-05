@@ -87,13 +87,18 @@ export function ConfirmationDialogProvider({ children }: { children: ReactNode }
       previousFocusRef.current = null;
       setState(DEFAULT_STATE);
 
-      requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Re-check live queue length: a new confirm() call may have been
+        // enqueued in a microtask between resolve() and this callback.
+        if (queueRef.current.length > 0) {
+          processQueue();
+          return;
+        }
+
         if (focusToRestore?.isConnected) {
           focusToRestore.focus();
         }
-
-        processQueue();
-      });
+      }, 0);
 
       resolve?.(result);
     },

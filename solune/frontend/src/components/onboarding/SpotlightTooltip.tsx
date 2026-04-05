@@ -19,6 +19,7 @@ interface SpotlightTooltipProps {
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
+  targetMissing?: boolean;
 }
 
 const MARGIN = 16;
@@ -103,6 +104,7 @@ export function SpotlightTooltip({
   onNext,
   onBack,
   onSkip,
+  targetMissing = false,
 }: SpotlightTooltipProps) {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -189,6 +191,11 @@ export function SpotlightTooltip({
             </p>
             <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
+            {targetMissing && (
+              <p className="mt-1.5 text-xs italic text-muted-foreground/60">
+                This element isn't visible right now.
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-4 flex flex-col gap-3">
@@ -238,6 +245,11 @@ export function SpotlightTooltip({
           </p>
           <h3 className="text-base font-semibold text-foreground">{step.title}</h3>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.description}</p>
+          {targetMissing && (
+            <p className="mt-1.5 text-xs italic text-muted-foreground/60">
+              This element isn't visible right now.
+            </p>
+          )}
         </div>
       </div>
       <div className="mt-4 flex flex-col gap-3">
