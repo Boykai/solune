@@ -8,6 +8,7 @@ import { ChevronDown, FileUp, Sparkles } from '@/lib/icons';
 import type { AppCreate, Owner, RepoType } from '@/types/apps';
 import type { PipelineConfigSummary } from '@/types';
 import { CharacterCounter } from '@/components/ui/character-counter';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
 
 const REPO_TYPE_OPTIONS: { value: RepoType; label: string }[] = [
@@ -101,7 +102,6 @@ export function CreateAppDialog({
   // Fall back to first available owner when owners load asynchronously
   const effectiveRepoOwner = repoOwner || owners?.[0]?.login || '';
 
-  const dialogRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef<HTMLInputElement>(null);
 
   const fieldRefs = useMemo(() => ({ name: initialFocusRef, description: descriptionRef }), []);
@@ -114,35 +114,6 @@ export function CreateAppDialog({
       initialFocusRef.current?.focus();
     });
   }, []);
-
-  // Focus trapping and Escape key handling
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (e.key === 'Tab' && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [tabindex]:not([tabindex="-1"]), a[href], input, select, textarea'
-        );
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
 
   /** Derive a kebab-case slug from a display name. */
   const slugify = (text: string): string =>
@@ -312,30 +283,18 @@ export function CreateAppDialog({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        role="presentation"
-        aria-hidden="true"
-      />
-
-      {/* Dialog */}
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-app-dialog-title"
-        className="relative z-10"
-      >
+    <Dialog open={true} onOpenChange={(open) => { if (!open && !isPending) onClose(); }}>
+      <DialogContent hideClose className="max-h-[85vh] max-w-md overflow-y-auto p-0">
         <form
           onSubmit={handleCreate}
-          className="w-full max-w-md rounded-xl border border-border/80 bg-card p-6 shadow-xl max-h-[85vh] overflow-y-auto"
+          className="w-full rounded-xl p-6"
         >
-          <h2 id="create-app-dialog-title" className="mb-4 text-lg font-bold text-foreground">
-            Create App
-          </h2>
+          <DialogHeader className="mb-4">
+            <DialogTitle>Create App</DialogTitle>
+            <DialogDescription>
+              Create a new application and configure the repository, pipeline, and AI scaffolding settings.
+            </DialogDescription>
+          </DialogHeader>
           {generalError && (
             <div
               className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
@@ -739,6 +698,7 @@ export function CreateAppDialog({
               type="button"
               className="rounded-lg px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 dark:text-zinc-400 dark:hover:bg-zinc-800"
               onClick={onClose}
+              disabled={isPending}
             >
               Cancel
             </button>
@@ -759,7 +719,7 @@ export function CreateAppDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

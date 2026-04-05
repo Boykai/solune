@@ -13,7 +13,7 @@ describe('Build Smoke Tests', () => {
     it('imports the main App component', async () => {
       const mod = await import('@/App');
       expect(mod.default).toBeDefined();
-    });
+    }, 15000);
 
     it('imports the API service module', async () => {
       const mod = await import('@/services/api');

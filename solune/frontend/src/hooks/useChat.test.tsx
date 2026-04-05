@@ -95,7 +95,7 @@ describe('useChat', () => {
         onError: (err: Error) => void,
       ) => {
         try {
-          const response = await (mockChatApi.sendMessage as (...args: unknown[]) => Promise<unknown>)(_data);
+          const response = await (mockChatApi.sendMessage as unknown as (data: unknown) => Promise<unknown>)(_data);
           onDone(response);
         } catch (err) {
           onError(err instanceof Error ? err : new Error(String(err)));

@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { PageTransition } from '@/components/layout/PageTransition';
+import { PageTransition } from './PageTransition';
 import { TriangleAlert, X } from '@/lib/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';

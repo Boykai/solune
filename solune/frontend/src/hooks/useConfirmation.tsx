@@ -87,9 +87,9 @@ export function ConfirmationDialogProvider({ children }: { children: ReactNode }
       previousFocusRef.current = null;
       setState(DEFAULT_STATE);
 
+      // Re-check the live queue length inside the timeout so a confirm() request
+      // queued in a microtask between resolve() and this callback is not missed.
       setTimeout(() => {
-        // Re-check live queue length: a new confirm() call may have been
-        // enqueued in a microtask between resolve() and this callback.
         if (queueRef.current.length > 0) {
           processQueue();
           return;

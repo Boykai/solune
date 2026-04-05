@@ -63,15 +63,17 @@ export const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     /** Hide the built-in close button (e.g. when you supply your own). */
     hideClose?: boolean;
+    /** Override classes applied to the shared overlay. */
+    overlayClassName?: string;
   }
->(({ className, children, hideClose, ...props }, ref) => (
+>(({ className, children, hideClose, overlayClassName, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-[var(--z-modal,70)] w-full max-w-lg -translate-x-1/2 -translate-y-1/2',
-        'rounded-2xl border border-border/80 bg-card p-6 shadow-xl',
+        'celestial-panel rounded-2xl border border-border/80 bg-card p-6 shadow-xl',
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
         'motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95',
         className,

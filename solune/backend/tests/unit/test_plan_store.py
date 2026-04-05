@@ -6,18 +6,30 @@ Covers:
 - update_plan_status lifecycle transitions
 - update_plan_step_issue / update_plan_parent_issue post-approval updates
 - Edge cases: missing plan, empty steps, plan replacement
+- Plan versioning: snapshot_plan_version, get_plan_versions
+- Step CRUD: add_plan_step, update_plan_step, delete_plan_step
+- DAG validation: validate_dag, reorder_plan_steps
+- Step approval: update_step_approval
 """
 
 import pytest
 
 from src.models.plan import Plan, PlanStep
 from src.services.chat_store import (
+    add_plan_step,
+    delete_plan_step,
     get_plan,
+    get_plan_versions,
+    reorder_plan_steps,
     save_plan,
+    snapshot_plan_version,
     update_plan,
     update_plan_parent_issue,
     update_plan_status,
+    update_plan_step,
     update_plan_step_issue,
+    update_step_approval,
+    validate_dag,
 )
 
 # =============================================================================
@@ -340,4 +352,405 @@ class TestUpdatePlanIssueLinks:
     @pytest.mark.anyio
     async def test_update_parent_issue_nonexistent(self, mock_db):
         ok = await update_plan_parent_issue(mock_db, "nonexistent", 1, "https://example.com")
+        assert ok is False
+
+
+# =============================================================================
+# Plan Versioning
+# =============================================================================
+
+
+class TestPlanVersioning:
+    """Tests for snapshot_plan_version and get_plan_versions."""
+
+    @pytest.mark.anyio
+    async def test_snapshot_creates_version(self, mock_db):
+        plan = _make_plan(steps=[_make_step()])
+        await save_plan(mock_db, plan)
+
+        version_id = await snapshot_plan_version(mock_db, "plan-1")
+        assert version_id is not None
+
+        versions = await get_plan_versions(mock_db, "plan-1")
+        assert len(versions) == 1
+        assert versions[0]["version"] == 1
+        assert versions[0]["title"] == "Test Plan"
+
+    @pytest.mark.anyio
+    async def test_snapshot_increments_plan_version(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        await snapshot_plan_version(mock_db, "plan-1")
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert result["version"] == 2
+
+    @pytest.mark.anyio
+    async def test_multiple_snapshots(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        await snapshot_plan_version(mock_db, "plan-1")
+        await snapshot_plan_version(mock_db, "plan-1")
+
+        versions = await get_plan_versions(mock_db, "plan-1")
+        assert len(versions) == 2
+        # Ordered by version DESC
+        assert versions[0]["version"] == 2
+        assert versions[1]["version"] == 1
+
+    @pytest.mark.anyio
+    async def test_snapshot_nonexistent_plan(self, mock_db):
+        result = await snapshot_plan_version(mock_db, "nonexistent")
+        assert result is None
+
+    @pytest.mark.anyio
+    async def test_get_versions_empty(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        versions = await get_plan_versions(mock_db, "plan-1")
+        assert versions == []
+
+    @pytest.mark.anyio
+    async def test_version_preserves_steps(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0, title="Step A")]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        await snapshot_plan_version(mock_db, "plan-1")
+        versions = await get_plan_versions(mock_db, "plan-1")
+        assert len(versions) == 1
+        import json
+
+        steps_data = json.loads(versions[0]["steps_json"])
+        assert len(steps_data) == 1
+        assert steps_data[0]["title"] == "Step A"
+
+
+# =============================================================================
+# DAG Validation
+# =============================================================================
+
+
+class TestDAGValidation:
+    """Tests for validate_dag using Kahn's algorithm."""
+
+    def test_valid_dag_no_dependencies(self):
+        steps = [
+            {"step_id": "a", "dependencies": []},
+            {"step_id": "b", "dependencies": []},
+        ]
+        is_valid, err = validate_dag(steps)
+        assert is_valid is True
+        assert err == ""
+
+    def test_valid_dag_with_dependencies(self):
+        steps = [
+            {"step_id": "a", "dependencies": []},
+            {"step_id": "b", "dependencies": ["a"]},
+            {"step_id": "c", "dependencies": ["a", "b"]},
+        ]
+        is_valid, _err = validate_dag(steps)
+        assert is_valid is True
+
+    def test_circular_dependency_detected(self):
+        steps = [
+            {"step_id": "a", "dependencies": ["b"]},
+            {"step_id": "b", "dependencies": ["a"]},
+        ]
+        is_valid, err = validate_dag(steps)
+        assert is_valid is False
+        assert "Circular dependency" in err
+
+    def test_self_dependency_detected(self):
+        steps = [
+            {"step_id": "a", "dependencies": ["a"]},
+        ]
+        is_valid, err = validate_dag(steps)
+        assert is_valid is False
+        assert "Circular dependency" in err
+
+    def test_unknown_dependency_detected(self):
+        steps = [
+            {"step_id": "a", "dependencies": ["nonexistent"]},
+        ]
+        is_valid, err = validate_dag(steps)
+        assert is_valid is False
+        assert "unknown step" in err
+
+    def test_complex_dag(self):
+        steps = [
+            {"step_id": "a", "dependencies": []},
+            {"step_id": "b", "dependencies": ["a"]},
+            {"step_id": "c", "dependencies": ["a"]},
+            {"step_id": "d", "dependencies": ["b", "c"]},
+            {"step_id": "e", "dependencies": ["d"]},
+        ]
+        is_valid, _err = validate_dag(steps)
+        assert is_valid is True
+
+    def test_three_node_cycle(self):
+        steps = [
+            {"step_id": "a", "dependencies": ["c"]},
+            {"step_id": "b", "dependencies": ["a"]},
+            {"step_id": "c", "dependencies": ["b"]},
+        ]
+        is_valid, err = validate_dag(steps)
+        assert is_valid is False
+        assert "Circular dependency" in err
+
+    def test_empty_steps_valid(self):
+        is_valid, _err = validate_dag([])
+        assert is_valid is True
+
+
+# =============================================================================
+# Step CRUD
+# =============================================================================
+
+
+class TestStepCRUD:
+    """Tests for add_plan_step, update_plan_step, delete_plan_step."""
+
+    @pytest.mark.anyio
+    async def test_add_step(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        step = await add_plan_step(mock_db, "plan-1", "New Step", "Description")
+        assert step is not None
+        assert step["title"] == "New Step"
+        assert step["position"] == 0
+
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert len(result["steps"]) == 1
+
+    @pytest.mark.anyio
+    async def test_add_step_auto_position(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        step = await add_plan_step(mock_db, "plan-1", "Step 2", "Desc")
+        assert step is not None
+        assert step["position"] == 1
+
+    @pytest.mark.anyio
+    async def test_add_step_with_dependencies(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        step = await add_plan_step(mock_db, "plan-1", "Step 2", "Desc", dependencies=["s-1"])
+        assert step is not None
+        assert step["dependencies"] == ["s-1"]
+
+    @pytest.mark.anyio
+    async def test_add_step_dag_violation(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        with pytest.raises(ValueError, match="DAG validation failed"):
+            await add_plan_step(mock_db, "plan-1", "Bad Step", "Desc", dependencies=["nonexistent"])
+
+    @pytest.mark.anyio
+    async def test_add_step_non_draft_rejected(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+        await update_plan_status(mock_db, "plan-1", "approved")
+
+        with pytest.raises(ValueError, match="non-draft"):
+            await add_plan_step(mock_db, "plan-1", "Step", "Desc")
+
+    @pytest.mark.anyio
+    async def test_add_step_nonexistent_plan(self, mock_db):
+        result = await add_plan_step(mock_db, "nonexistent", "Step", "Desc")
+        assert result is None
+
+    @pytest.mark.anyio
+    async def test_update_step_title(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0, title="Old")]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        updated = await update_plan_step(mock_db, "plan-1", "s-1", title="New Title")
+        assert updated is not None
+        assert updated["title"] == "New Title"
+
+    @pytest.mark.anyio
+    async def test_update_step_dependencies(self, mock_db):
+        steps = [
+            _make_step(step_id="s-1", position=0),
+            _make_step(step_id="s-2", position=1),
+        ]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        updated = await update_plan_step(mock_db, "plan-1", "s-2", dependencies=["s-1"])
+        assert updated is not None
+        assert updated["dependencies"] == ["s-1"]
+
+    @pytest.mark.anyio
+    async def test_update_step_dag_violation(self, mock_db):
+        steps = [
+            _make_step(step_id="s-1", position=0, dependencies=["s-2"]),
+            _make_step(step_id="s-2", position=1),
+        ]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        with pytest.raises(ValueError, match="DAG validation failed"):
+            await update_plan_step(mock_db, "plan-1", "s-2", dependencies=["s-1"])
+
+    @pytest.mark.anyio
+    async def test_update_nonexistent_step(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        result = await update_plan_step(mock_db, "plan-1", "nonexistent", title="X")
+        assert result is None
+
+    @pytest.mark.anyio
+    async def test_delete_step(self, mock_db):
+        steps = [
+            _make_step(step_id="s-1", position=0),
+            _make_step(step_id="s-2", position=1),
+        ]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        deleted = await delete_plan_step(mock_db, "plan-1", "s-1")
+        assert deleted is True
+
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert len(result["steps"]) == 1
+        assert result["steps"][0]["step_id"] == "s-2"
+        assert result["steps"][0]["position"] == 0  # Re-indexed
+
+    @pytest.mark.anyio
+    async def test_delete_step_cascades_deps(self, mock_db):
+        steps = [
+            _make_step(step_id="s-1", position=0),
+            _make_step(step_id="s-2", position=1, dependencies=["s-1"]),
+        ]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        deleted = await delete_plan_step(mock_db, "plan-1", "s-1")
+        assert deleted is True
+
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert result["steps"][0]["dependencies"] == []
+
+    @pytest.mark.anyio
+    async def test_delete_nonexistent_step(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        deleted = await delete_plan_step(mock_db, "plan-1", "nonexistent")
+        assert deleted is False
+
+
+# =============================================================================
+# Step Reorder
+# =============================================================================
+
+
+class TestStepReorder:
+    """Tests for reorder_plan_steps."""
+
+    @pytest.mark.anyio
+    async def test_reorder_steps(self, mock_db):
+        steps = [
+            _make_step(step_id="s-1", position=0),
+            _make_step(step_id="s-2", position=1),
+            _make_step(step_id="s-3", position=2),
+        ]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        ok = await reorder_plan_steps(mock_db, "plan-1", ["s-3", "s-1", "s-2"])
+        assert ok is True
+
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert result["steps"][0]["step_id"] == "s-3"
+        assert result["steps"][1]["step_id"] == "s-1"
+        assert result["steps"][2]["step_id"] == "s-2"
+
+    @pytest.mark.anyio
+    async def test_reorder_mismatched_ids_rejected(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        with pytest.raises(ValueError, match="exactly the current step IDs"):
+            await reorder_plan_steps(mock_db, "plan-1", ["s-1", "s-extra"])
+
+    @pytest.mark.anyio
+    async def test_reorder_non_draft_rejected(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+        await update_plan_status(mock_db, "plan-1", "approved")
+
+        with pytest.raises(ValueError, match="non-draft"):
+            await reorder_plan_steps(mock_db, "plan-1", ["s-1"])
+
+
+# =============================================================================
+# Step Approval
+# =============================================================================
+
+
+class TestStepApproval:
+    """Tests for update_step_approval."""
+
+    @pytest.mark.anyio
+    async def test_approve_step(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        ok = await update_step_approval(mock_db, "plan-1", "s-1", "approved")
+        assert ok is True
+
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert result["steps"][0]["approval_status"] == "approved"
+
+    @pytest.mark.anyio
+    async def test_reject_step(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+
+        ok = await update_step_approval(mock_db, "plan-1", "s-1", "rejected")
+        assert ok is True
+
+        result = await get_plan(mock_db, "plan-1")
+        assert result is not None
+        assert result["steps"][0]["approval_status"] == "rejected"
+
+    @pytest.mark.anyio
+    async def test_approve_non_draft_rejected(self, mock_db):
+        steps = [_make_step(step_id="s-1", position=0)]
+        plan = _make_plan(steps=steps)
+        await save_plan(mock_db, plan)
+        await update_plan_status(mock_db, "plan-1", "approved")
+
+        with pytest.raises(ValueError, match="non-draft"):
+            await update_step_approval(mock_db, "plan-1", "s-1", "approved")
+
+    @pytest.mark.anyio
+    async def test_approve_nonexistent_step(self, mock_db):
+        plan = _make_plan()
+        await save_plan(mock_db, plan)
+
+        ok = await update_step_approval(mock_db, "plan-1", "nonexistent", "approved")
         assert ok is False

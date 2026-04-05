@@ -43,7 +43,7 @@ export const AlertDialogOverlay = React.forwardRef<
   <AlertDialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-[var(--z-modal-backdrop,60)] bg-black/50',
+      'fixed inset-0 z-[var(--z-modal-backdrop,60)] bg-background/80 backdrop-blur-sm',
       'motion-safe:data-[state=open]:animate-in motion-safe:data-[state=open]:fade-in-0',
       'motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0',
       className,
@@ -59,15 +59,17 @@ AlertDialogOverlay.displayName = 'AlertDialogOverlay';
 
 export const AlertDialogContent = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & {
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, ...props }, ref) => (
   <AlertDialogPortal>
-    <AlertDialogOverlay />
+    <AlertDialogOverlay className={overlayClassName} />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
         'fixed left-1/2 top-1/2 z-[var(--z-modal,70)] w-full max-w-md -translate-x-1/2 -translate-y-1/2',
-        'rounded-2xl border border-border/80 bg-card p-6 shadow-xl',
+        'celestial-panel rounded-2xl border border-border/80 bg-card p-6 shadow-xl',
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
         'motion-safe:data-[state=closed]:animate-out motion-safe:data-[state=closed]:fade-out-0 motion-safe:data-[state=closed]:zoom-out-95',
         className,
