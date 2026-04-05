@@ -9,6 +9,7 @@ concurrent writers from causing inconsistent state.
 
 from __future__ import annotations
 
+import collections
 import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -423,14 +424,15 @@ async def save_plan(
     now = utcnow().isoformat()
     status_val = plan.status.value if hasattr(plan.status, "value") else plan.status
     async with transaction(db):
-        # Preserve created_at for existing rows via UPSERT
+        # Preserve created_at and derive version server-side for existing rows
+        # via UPSERT. On conflict the DB-side version is kept (never reset to 1).
         await db.execute(
             """INSERT INTO chat_plans
-               (plan_id, session_id, title, summary, status,
+               (plan_id, session_id, title, summary, status, version,
                 project_id, project_name, repo_owner, repo_name,
                 parent_issue_number, parent_issue_url,
                 created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(plan_id) DO UPDATE SET
                  session_id = excluded.session_id,
                  title = excluded.title,
@@ -465,11 +467,13 @@ async def save_plan(
             (plan.plan_id,),
         )
         for step in plan.steps:
+            approval_raw = getattr(step, "approval_status", "pending")
+            approval: str = getattr(approval_raw, "value", approval_raw)
             await db.execute(
                 """INSERT INTO chat_plan_steps
                    (step_id, plan_id, position, title, description,
-                    dependencies, issue_number, issue_url)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    dependencies, approval_status, issue_number, issue_url)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     step.step_id,
                     plan.plan_id,
@@ -477,6 +481,7 @@ async def save_plan(
                     step.title,
                     step.description,
                     json.dumps(step.dependencies),
+                    approval,
                     step.issue_number,
                     step.issue_url,
                 ),
@@ -489,7 +494,7 @@ async def get_plan(
 ) -> dict | None:
     """Retrieve a plan with all its steps joined."""
     cursor = await db.execute(
-        """SELECT plan_id, session_id, title, summary, status,
+        """SELECT plan_id, session_id, title, summary, status, version,
                   project_id, project_name, repo_owner, repo_name,
                   parent_issue_number, parent_issue_url,
                   created_at, updated_at
@@ -507,14 +512,15 @@ async def get_plan(
             "title": row[2],
             "summary": row[3],
             "status": row[4],
-            "project_id": row[5],
-            "project_name": row[6],
-            "repo_owner": row[7],
-            "repo_name": row[8],
-            "parent_issue_number": row[9],
-            "parent_issue_url": row[10],
-            "created_at": row[11],
-            "updated_at": row[12],
+            "version": row[5],
+            "project_id": row[6],
+            "project_name": row[7],
+            "repo_owner": row[8],
+            "repo_name": row[9],
+            "parent_issue_number": row[10],
+            "parent_issue_url": row[11],
+            "created_at": row[12],
+            "updated_at": row[13],
         }
     else:
         plan_dict = dict(row)
@@ -522,7 +528,7 @@ async def get_plan(
     # Fetch steps
     step_cursor = await db.execute(
         """SELECT step_id, plan_id, position, title, description,
-                  dependencies, issue_number, issue_url
+                  dependencies, approval_status, issue_number, issue_url
            FROM chat_plan_steps WHERE plan_id = ?
            ORDER BY position ASC""",
         (plan_id,),
@@ -539,14 +545,17 @@ async def get_plan(
                     "title": s[3],
                     "description": s[4],
                     "dependencies": json.loads(s[5]) if s[5] else [],
-                    "issue_number": s[6],
-                    "issue_url": s[7],
+                    "approval_status": s[6] or "pending",
+                    "issue_number": s[7],
+                    "issue_url": s[8],
                 }
             )
         else:
             d = dict(s)
             raw_deps = d.get("dependencies")
             d["dependencies"] = json.loads(raw_deps) if raw_deps else []
+            if "approval_status" not in d or d["approval_status"] is None:
+                d["approval_status"] = "pending"
             steps.append(d)
 
     plan_dict["steps"] = steps
@@ -632,4 +641,487 @@ async def update_plan_parent_issue(
                WHERE plan_id = ?""",
             (parent_issue_number, parent_issue_url, utcnow().isoformat(), plan_id),
         )
+    return (cursor.rowcount or 0) > 0
+
+
+# ---------------------------------------------------------------------------
+# Plan versioning
+# ---------------------------------------------------------------------------
+
+
+async def snapshot_plan_version(
+    db: aiosqlite.Connection,
+    plan_id: str,
+) -> str | None:
+    """Save a snapshot of the current plan state to chat_plan_versions.
+
+    Returns the version_id of the created snapshot, or None if the plan
+    was not found.
+    """
+    from uuid import uuid4
+
+    from src.utils import utcnow
+
+    plan = await get_plan(db, plan_id)
+    if plan is None:
+        return None
+
+    version = plan.get("version", 1)
+    version_id = str(uuid4())
+    steps_json = json.dumps(plan.get("steps", []))
+    now = utcnow().isoformat()
+
+    async with transaction(db):
+        cursor = await db.execute(
+            """INSERT OR IGNORE INTO chat_plan_versions
+               (version_id, plan_id, version, title, summary, steps_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                version_id,
+                plan_id,
+                version,
+                plan["title"],
+                plan["summary"],
+                steps_json,
+                now,
+            ),
+        )
+        if (cursor.rowcount or 0) == 0:
+            # INSERT was ignored (e.g. concurrent snapshot for the same version).
+            # Do not increment the plan version to keep history consistent.
+            return None
+        # Increment the plan's version
+        await db.execute(
+            "UPDATE chat_plans SET version = version + 1, updated_at = ? WHERE plan_id = ?",
+            (now, plan_id),
+        )
+    return version_id
+
+
+async def get_plan_versions(
+    db: aiosqlite.Connection,
+    plan_id: str,
+) -> list[dict]:
+    """Query version history for a plan, ordered by version descending."""
+    cursor = await db.execute(
+        """SELECT version_id, plan_id, version, title, summary, steps_json, created_at
+           FROM chat_plan_versions
+           WHERE plan_id = ?
+           ORDER BY version DESC""",
+        (plan_id,),
+    )
+    rows = await cursor.fetchall()
+    versions = []
+    for r in rows:
+        if isinstance(r, tuple):
+            versions.append(
+                {
+                    "version_id": r[0],
+                    "plan_id": r[1],
+                    "version": r[2],
+                    "title": r[3],
+                    "summary": r[4],
+                    "steps_json": r[5],
+                    "created_at": r[6],
+                }
+            )
+        else:
+            versions.append(dict(r))
+    return versions
+
+
+# ---------------------------------------------------------------------------
+# DAG validation
+# ---------------------------------------------------------------------------
+
+
+def validate_dag(steps: list[dict]) -> tuple[bool, str]:
+    """Validate that step dependencies form a DAG (no circular dependencies).
+
+    Uses Kahn's algorithm for topological sort (O(V+E) cycle detection).
+
+    Returns:
+        (is_valid, error_message) — True if no cycles, or False with a
+        description of the offending cycle.
+    """
+    step_ids = {s["step_id"] for s in steps}
+
+    # Check all deps reference existing steps
+    for s in steps:
+        for dep_id in s.get("dependencies", []):
+            if dep_id not in step_ids:
+                return False, f"Step {s['step_id']!r} depends on unknown step {dep_id!r}"
+
+    # Build adjacency and in-degree
+    in_degree: dict[str, int] = dict.fromkeys(step_ids, 0)
+    adjacency: dict[str, list[str]] = {sid: [] for sid in step_ids}
+
+    for s in steps:
+        for dep_id in s.get("dependencies", []):
+            adjacency[dep_id].append(s["step_id"])
+            in_degree[s["step_id"]] += 1
+
+    # Kahn's algorithm
+    queue = collections.deque(sid for sid, deg in in_degree.items() if deg == 0)
+    visited = 0
+
+    while queue:
+        node = queue.popleft()
+        visited += 1
+        for neighbor in adjacency[node]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    if visited != len(step_ids):
+        cycle_nodes = [sid for sid, deg in in_degree.items() if deg > 0]
+        return False, f"Circular dependency detected among steps: {cycle_nodes}"
+
+    return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Step CRUD operations
+# ---------------------------------------------------------------------------
+
+
+async def add_plan_step(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    title: str,
+    description: str,
+    dependencies: list[str] | None = None,
+    position: int | None = None,
+) -> dict | None:
+    """Add a new step to a plan with position auto-assignment and DAG validation.
+
+    Returns the created step dict, or None if the plan is not found.
+    Raises ValueError on DAG violation or non-draft plan.
+    """
+    from uuid import uuid4
+
+    plan = await get_plan(db, plan_id)
+    if plan is None:
+        return None
+
+    if plan["status"] != "draft":
+        raise ValueError("Cannot add steps to a non-draft plan")
+
+    existing_steps = plan.get("steps", [])
+
+    # Auto-assign position if not specified
+    if position is None:
+        position = len(existing_steps)
+
+    step_id = str(uuid4())
+    deps = dependencies or []
+
+    # Build proposed steps list for DAG validation
+    new_step = {
+        "step_id": step_id,
+        "plan_id": plan_id,
+        "position": position,
+        "title": title,
+        "description": description,
+        "dependencies": deps,
+        "approval_status": "pending",
+    }
+    proposed = [*existing_steps, new_step]
+    is_valid, err = validate_dag(proposed)
+    if not is_valid:
+        raise ValueError(f"DAG validation failed: {err}")
+
+    async with transaction(db):
+        # Shift positions >= target position using a temporary offset so the
+        # UNIQUE(plan_id, position) constraint is never violated mid-update.
+        cursor = await db.execute(
+            """SELECT COALESCE(MAX(position), -1)
+               FROM chat_plan_steps
+               WHERE plan_id = ?""",
+            (plan_id,),
+        )
+        row = await cursor.fetchone()
+        max_position = row[0] if row is not None else -1
+        temp_offset = max_position + 1
+
+        await db.execute(
+            """UPDATE chat_plan_steps
+               SET position = position + ?
+               WHERE plan_id = ? AND position >= ?""",
+            (temp_offset, plan_id, position),
+        )
+        await db.execute(
+            """UPDATE chat_plan_steps
+               SET position = position - ? + 1
+               WHERE plan_id = ? AND position >= ?""",
+            (temp_offset, plan_id, position + temp_offset),
+        )
+        await db.execute(
+            """INSERT INTO chat_plan_steps
+               (step_id, plan_id, position, title, description,
+                dependencies, approval_status)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                step_id,
+                plan_id,
+                position,
+                title,
+                description,
+                json.dumps(deps),
+                "pending",
+            ),
+        )
+    return new_step
+
+
+async def update_plan_step(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    step_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    dependencies: list[str] | None = None,
+) -> dict | None:
+    """Update an existing plan step with DAG re-validation.
+
+    Returns the updated step dict, or None if not found.
+    Raises ValueError on DAG violation or non-draft plan.
+    """
+    plan = await get_plan(db, plan_id)
+    if plan is None:
+        return None
+
+    if plan["status"] != "draft":
+        raise ValueError("Cannot update steps of a non-draft plan")
+
+    # Find the target step
+    target_step = None
+    for s in plan.get("steps", []):
+        if s["step_id"] == step_id:
+            target_step = s
+            break
+    if target_step is None:
+        return None
+
+    # Apply updates
+    new_title = title if title is not None else target_step["title"]
+    new_description = description if description is not None else target_step["description"]
+    new_deps = dependencies if dependencies is not None else target_step.get("dependencies", [])
+
+    # DAG validation with updated step
+    proposed = []
+    for s in plan["steps"]:
+        if s["step_id"] == step_id:
+            proposed.append(
+                {**s, "title": new_title, "description": new_description, "dependencies": new_deps}
+            )
+        else:
+            proposed.append(s)
+
+    is_valid, err = validate_dag(proposed)
+    if not is_valid:
+        raise ValueError(f"DAG validation failed: {err}")
+
+    from src.utils import utcnow
+
+    async with transaction(db):
+        sets: list[str] = []
+        params: list[str | int] = []
+        if title is not None:
+            sets.append("title = ?")
+            params.append(title)
+        if description is not None:
+            sets.append("description = ?")
+            params.append(description)
+        if dependencies is not None:
+            sets.append("dependencies = ?")
+            params.append(json.dumps(dependencies))
+        if not sets:
+            return target_step
+
+        params.extend([step_id, plan_id])
+        await db.execute(
+            f"UPDATE chat_plan_steps SET {', '.join(sets)} WHERE step_id = ? AND plan_id = ?",
+            tuple(params),
+        )
+        await db.execute(
+            "UPDATE chat_plans SET updated_at = ? WHERE plan_id = ?",
+            (utcnow().isoformat(), plan_id),
+        )
+
+    updated = {
+        **target_step,
+        "title": new_title,
+        "description": new_description,
+        "dependencies": new_deps,
+    }
+    return updated
+
+
+async def delete_plan_step(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    step_id: str,
+) -> bool:
+    """Delete a step with cascade removal from other steps' dependency lists.
+
+    Re-indexes positions after deletion. Returns True if deleted.
+    Raises ValueError if plan is non-draft.
+    """
+    plan = await get_plan(db, plan_id)
+    if plan is None:
+        return False
+
+    if plan["status"] != "draft":
+        raise ValueError("Cannot delete steps from a non-draft plan")
+
+    target = None
+    for s in plan.get("steps", []):
+        if s["step_id"] == step_id:
+            target = s
+            break
+    if target is None:
+        return False
+
+    from src.utils import utcnow
+
+    async with transaction(db):
+        # Delete the step
+        await db.execute(
+            "DELETE FROM chat_plan_steps WHERE step_id = ? AND plan_id = ?",
+            (step_id, plan_id),
+        )
+        # Remove from other steps' dependency lists
+        step_cursor = await db.execute(
+            "SELECT step_id, dependencies FROM chat_plan_steps WHERE plan_id = ?",
+            (plan_id,),
+        )
+        rows = await step_cursor.fetchall()
+        for row in rows:
+            sid = row[0] if isinstance(row, tuple) else row["step_id"]
+            deps_raw = row[1] if isinstance(row, tuple) else row["dependencies"]
+            deps = json.loads(deps_raw) if deps_raw else []
+            if step_id in deps:
+                deps.remove(step_id)
+                await db.execute(
+                    "UPDATE chat_plan_steps SET dependencies = ? WHERE step_id = ?",
+                    (json.dumps(deps), sid),
+                )
+        # Re-index positions
+        remaining = await db.execute(
+            "SELECT step_id FROM chat_plan_steps WHERE plan_id = ? ORDER BY position ASC",
+            (plan_id,),
+        )
+        remaining_rows = await remaining.fetchall()
+        for idx, r in enumerate(remaining_rows):
+            sid = r[0] if isinstance(r, tuple) else r["step_id"]
+            await db.execute(
+                "UPDATE chat_plan_steps SET position = ? WHERE step_id = ?",
+                (idx, sid),
+            )
+        await db.execute(
+            "UPDATE chat_plans SET updated_at = ? WHERE plan_id = ?",
+            (utcnow().isoformat(), plan_id),
+        )
+    return True
+
+
+async def reorder_plan_steps(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    step_ids: list[str],
+) -> bool:
+    """Reorder plan steps with DAG re-validation.
+
+    Args:
+        step_ids: Ordered list of step_ids defining new positions.
+
+    Returns True if reordered. Raises ValueError on DAG violation or non-draft plan.
+    """
+    plan = await get_plan(db, plan_id)
+    if plan is None:
+        return False
+
+    if plan["status"] != "draft":
+        raise ValueError("Cannot reorder steps of a non-draft plan")
+
+    existing_ids = {s["step_id"] for s in plan.get("steps", [])}
+    if set(step_ids) != existing_ids:
+        raise ValueError("step_ids must contain exactly the current step IDs")
+
+    # Build reordered steps
+    step_map = {s["step_id"]: s for s in plan["steps"]}
+    reordered = []
+    for i, sid in enumerate(step_ids):
+        s = {**step_map[sid], "position": i}
+        reordered.append(s)
+
+    is_valid, err = validate_dag(reordered)
+    if not is_valid:
+        raise ValueError(f"DAG validation failed: {err}")
+
+    from src.utils import utcnow
+
+    async with transaction(db):
+        # Use temporary high positions to avoid UNIQUE constraint conflicts
+        offset = 10000
+        for i, sid in enumerate(step_ids):
+            await db.execute(
+                "UPDATE chat_plan_steps SET position = ? WHERE step_id = ? AND plan_id = ?",
+                (offset + i, sid, plan_id),
+            )
+        # Set final positions
+        for i, sid in enumerate(step_ids):
+            await db.execute(
+                "UPDATE chat_plan_steps SET position = ? WHERE step_id = ? AND plan_id = ?",
+                (i, sid, plan_id),
+            )
+        await db.execute(
+            "UPDATE chat_plans SET updated_at = ? WHERE plan_id = ?",
+            (utcnow().isoformat(), plan_id),
+        )
+    return True
+
+
+async def update_step_approval(
+    db: aiosqlite.Connection,
+    plan_id: str,
+    step_id: str,
+    approval_status: str,
+) -> bool:
+    """Update the approval status of a single step.
+
+    Returns True if the step was updated.
+    Raises ValueError if plan is not draft or approval_status is invalid.
+    """
+    from src.models.plan import StepApprovalStatus
+
+    # Validate the approval status value
+    valid_statuses = {s.value for s in StepApprovalStatus}
+    if approval_status not in valid_statuses:
+        raise ValueError(
+            f"Invalid approval_status {approval_status!r}; must be one of {sorted(valid_statuses)}"
+        )
+
+    plan = await get_plan(db, plan_id)
+    if plan is None:
+        return False
+
+    if plan["status"] != "draft":
+        raise ValueError("Cannot change approval status of steps in a non-draft plan")
+
+    from src.utils import utcnow
+
+    now = utcnow().isoformat()
+
+    async with transaction(db):
+        cursor = await db.execute(
+            "UPDATE chat_plan_steps SET approval_status = ? WHERE step_id = ? AND plan_id = ?",
+            (approval_status, step_id, plan_id),
+        )
+        if (cursor.rowcount or 0) > 0:
+            await db.execute(
+                "UPDATE chat_plans SET updated_at = ? WHERE plan_id = ?",
+                (now, plan_id),
+            )
     return (cursor.rowcount or 0) > 0
