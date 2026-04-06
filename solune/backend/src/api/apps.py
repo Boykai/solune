@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Annotated
 
@@ -43,6 +44,9 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 _SessionDep = Annotated[UserSession, Depends(get_session_dep)]
+
+# Track fire-and-forget orchestration tasks to prevent GC collection
+_background_tasks: set[asyncio.Task[None]] = set()
 
 
 @router.get("/owners")
@@ -542,7 +546,6 @@ async def create_with_plan_endpoint(
     Returns immediately with orchestration ID.  The planning and phase
     creation run asynchronously in the background.
     """
-    import asyncio
     import uuid
 
     from src.services.app_plan_orchestrator import AppPlanOrchestrator
@@ -596,7 +599,9 @@ async def create_with_plan_endpoint(
                 "Background orchestration failed for %s", payload.app_name, exc_info=True
             )
 
-    asyncio.create_task(_run_orchestration())
+    task = asyncio.create_task(_run_orchestration())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     return CreateWithPlanResponse(
         app_name=payload.app_name,

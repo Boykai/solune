@@ -1715,9 +1715,9 @@ import type {
   Owner,
   CreateProjectRequest,
   CreateProjectResponse,
-  type AppCreateWithPlanRequest,
-  type AppCreateWithPlanResponse,
-  type AppPlanStatusResponse,
+  AppCreateWithPlanRequest,
+  AppCreateWithPlanResponse,
+  AppPlanStatusResponse,
 } from '@/types/apps';
 
 export const appsApi = {

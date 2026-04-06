@@ -107,7 +107,7 @@ class AppPlanOrchestrator:
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
-                timeout=speckit_timeout,
+                speckit_max_wait=speckit_timeout,
                 poll_interval=poll_interval,
             )
 
@@ -213,7 +213,7 @@ class AppPlanOrchestrator:
         access_token: str,
         owner: str,
         repo: str,
-        timeout: int = 1200,
+        speckit_max_wait: int = 1200,
         poll_interval: int = 30,
     ) -> str:
         """Create a temporary issue, assign speckit.plan, and fetch plan.md."""
@@ -250,9 +250,10 @@ class AppPlanOrchestrator:
 
             # Poll for completion
             elapsed = 0
-            while elapsed < timeout:
-                await asyncio.sleep(poll_interval)
-                elapsed += poll_interval
+            while elapsed < speckit_max_wait:
+                if poll_interval > 0:
+                    await asyncio.sleep(poll_interval)
+                elapsed += max(poll_interval, 1)  # Ensure progress even with poll_interval=0
 
                 done = await self._github_service.check_agent_completion_comment(
                     access_token=access_token,
@@ -265,7 +266,7 @@ class AppPlanOrchestrator:
                     logger.info("speckit.plan completed for issue #%d", issue_number)
                     break
             else:
-                msg = f"speckit.plan timed out after {timeout}s on issue #{issue_number}"
+                msg = f"speckit.plan timed out after {speckit_max_wait}s on issue #{issue_number}"
                 raise TimeoutError(msg)
 
             # Discover PR branch from the issue
@@ -449,8 +450,15 @@ class AppPlanOrchestrator:
 
         # Build phase_index → issue_number mapping
         phase_to_issue: dict[int, int] = {}
-        for phase, issue_num in zip(phases, phase_issue_numbers):
+        for phase, issue_num in zip(phases, phase_issue_numbers, strict=True):
             phase_to_issue[phase.index] = issue_num
+
+        # Create a system session for pipeline launches
+        session = UserSession(
+            access_token=access_token,
+            github_user_id="orchestrator",
+            github_username="orchestrator",
+        )
 
         for wave_idx, wave in enumerate(waves):
             for phase in wave:
@@ -467,17 +475,13 @@ class AppPlanOrchestrator:
                 ]
 
                 try:
-                    session = UserSession(
-                        access_token=access_token,
-                        session_id="orchestrator",
-                    )
                     await execute_pipeline_launch(
                         project_id=project_id,
                         issue_description=f"Phase {phase.index}: {phase.title}",
                         pipeline_id=pipeline_id,
                         session=session,
                         auto_merge=True,
-                        prerequisite_issues=prereq_issues if prereq_issues else None,
+                        prerequisite_issues=prereq_issues or None,
                     )
                     logger.info(
                         "Launched pipeline for Phase %d (wave %d, prerequisites: %s)",

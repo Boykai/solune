@@ -27,7 +27,7 @@ class PlanPhase:
 
 
 # Regex patterns
-_PHASE_HEADING_RE = re.compile(r"###\s+Phase\s+(\d+)\s*[—–\-]\s*(.+)", re.IGNORECASE)
+_PHASE_HEADING_RE = re.compile(r"###\s+Phase\s+(\d+)\s*[\u2014\u2013\-]\s*(.+)", re.IGNORECASE)
 _DEPENDS_ON_RE = re.compile(r"depends?\s+on\s+phase\s+(\d+)", re.IGNORECASE)
 _PARALLEL_WITH_RE = re.compile(r"parallel\s+with\s+phase\s+(\d+)", re.IGNORECASE)
 _STEP_PATTERN_RE = re.compile(r"^\*\*Step\s+\d+", re.IGNORECASE)
@@ -165,7 +165,7 @@ def _detect_circular_dependencies(phases: list[PlanPhase]) -> None:
     def dfs(idx: int) -> None:
         if idx in in_stack:
             cycle_start = path.index(idx)
-            cycle = path[cycle_start:] + [idx]
+            cycle = [*path[cycle_start:], idx]
             cycle_str = " → ".join(f"Phase {i}" for i in cycle)
             msg = f"Circular dependency detected: {cycle_str}"
             raise ValueError(msg)
@@ -205,7 +205,6 @@ def group_into_waves(phases: list[PlanPhase]) -> list[list[PlanPhase]]:
     if not phases:
         return []
 
-    phase_map = {p.index: p for p in phases}
     resolved: set[int] = set()
     remaining = list(phases)
     waves: list[list[PlanPhase]] = []
