@@ -20,8 +20,8 @@ _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 
 SHARDS: dict[str, list[str]] = getattr(_mod, "SHARDS")  # noqa: B009
-_replace_paths_to_mutate: Callable[..., str] = getattr(_mod, "_replace_paths_to_mutate")  # noqa: B009
-_build_paths_block: Callable[..., str] = getattr(_mod, "_build_paths_block")  # noqa: B009
+_replace_paths_to_mutate: Callable[[str, list[str]], str] = getattr(_mod, "_replace_paths_to_mutate")  # noqa: B009
+_build_paths_block: Callable[[list[str]], str] = getattr(_mod, "_build_paths_block")  # noqa: B009
 
 
 # ── Shard definition tests ──────────────────────────────────────────────

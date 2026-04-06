@@ -6,10 +6,12 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [ ] No implementation details (languages, frameworks, APIs)
 - [x] Focused on user value and business needs
 - [x] Written for non-technical stakeholders
 - [x] All mandatory sections completed
+
+> **Note**: The "No implementation details" item is unchecked because the spec necessarily references specific languages (Python, TypeScript), tools (pyright, tsc), and file paths. This is inherent to the domain — developers are the users and type checking tooling is the product being improved. The spec uses these references as domain artifacts, not as implementation prescriptions.
 
 ## Requirement Completeness
 

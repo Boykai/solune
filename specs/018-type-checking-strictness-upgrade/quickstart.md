@@ -222,7 +222,7 @@ interface SpeechRecognitionWindow extends Window {
   webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
 }
 
-const win = window as unknown as SpeechRecognitionWindow;
+const win: SpeechRecognitionWindow = window;
 ```
 
 ### Step 13: lazyWithRetry.ts (2 suppressions)

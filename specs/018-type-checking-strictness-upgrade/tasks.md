@@ -59,9 +59,9 @@
 - [ ] T005 [P] [US1] Create copilot SDK type stubs (`__init__.pyi`, `types.pyi`, `generated/session_events.pyi`) in `solune/backend/src/typestubs/copilot/` per `specs/018-type-checking-strictness-upgrade/contracts/copilot-stubs.md`
 - [ ] T006 [US1] Remove 6 `# type: ignore[reportMissingImports]` from copilot imports in `solune/backend/src/services/agent_provider.py`, `solune/backend/src/services/completion_providers.py`, and `solune/backend/src/services/plan_agent_provider.py`
 
-### Step 4: ExtendedGitHubCopilotOptions TypedDict (3 suppressions)
+### Step 4: reasoning_effort in Type Stubs (3 suppressions)
 
-- [ ] T007 [US1] Declare `ExtendedGitHubCopilotOptions(GitHubCopilotOptions, total=False)` with `reasoning_effort: str` and replace `GitHubCopilotOptions` type annotations where `reasoning_effort` is set. Remove 3 `# type: ignore[typeddict-unknown-key]` in `solune/backend/src/services/agent_provider.py`, `solune/backend/src/services/completion_providers.py`, and `solune/backend/src/services/plan_agent_provider.py`
+- [ ] T007 [US1] Include `reasoning_effort: str` directly in the copilot SDK `SessionConfig` stub and `agent_framework_github_copilot` `GitHubCopilotOptions` stub (no separate `ExtendedGitHubCopilotOptions` needed since we control the stubs). Remove 3 `# type: ignore[typeddict-unknown-key]` in `solune/backend/src/services/agent_provider.py`, `solune/backend/src/services/completion_providers.py`, and `solune/backend/src/services/plan_agent_provider.py`
 
 ### Step 5: slowapi + FastAPIInstrumentor Arg Types (2 suppressions)
 

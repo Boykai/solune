@@ -7,7 +7,7 @@ return no-op instances so instrumented code can call them unconditionally.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from src.logging_utils import get_logger
 
@@ -24,8 +24,12 @@ _meter: Meter | None = None
 
 if TYPE_CHECKING:
     _SpanProcessorBase = SpanProcessor
+    _TracerBase = Tracer
+    _MeterBase = Meter
 else:
     _SpanProcessorBase = object
+    _TracerBase = object
+    _MeterBase = object
 
 
 class _RequestIDSpanProcessor(_SpanProcessorBase):
@@ -121,15 +125,21 @@ class _NoOpSpan:
         pass
 
 
-class _NoOpTracer:
+class _NoOpTracer(_TracerBase):
     """Lightweight no-op tracer — avoids importing ``opentelemetry``."""
 
-    def start_as_current_span(self, name: str, **kwargs: object) -> _NoOpSpan:
+    def start_as_current_span(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return _NoOpSpan()
+
+    def start_span(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return _NoOpSpan()
 
 
-class _NoOpMeter:
+class _NoOpMeter(_MeterBase):
     """Lightweight no-op meter — avoids importing ``opentelemetry``."""
+
+    def __init__(self) -> None:
+        pass  # Skip Meter.__init__ which requires a name parameter
 
     class _NoOpInstrument:
         def set(self, value: object, attributes: object = None) -> None:
@@ -141,13 +151,25 @@ class _NoOpMeter:
         def add(self, amount: object, attributes: object = None) -> None:
             pass
 
-    def create_gauge(self, name: str, **kwargs: object) -> _NoOpInstrument:
+    def create_gauge(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return self._NoOpInstrument()
 
-    def create_histogram(self, name: str, **kwargs: object) -> _NoOpInstrument:
+    def create_histogram(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return self._NoOpInstrument()
 
-    def create_counter(self, name: str, **kwargs: object) -> _NoOpInstrument:
+    def create_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_up_down_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_observable_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_observable_gauge(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_observable_up_down_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return self._NoOpInstrument()
 
 
@@ -155,11 +177,11 @@ def get_tracer() -> Tracer:
     """Return the active tracer, or a local no-op tracer (zero OTel imports)."""
     if _tracer is not None:
         return _tracer
-    return cast(Tracer, _NoOpTracer())
+    return _NoOpTracer()
 
 
 def get_meter() -> Meter:
     """Return the active meter, or a local no-op meter (zero OTel imports)."""
     if _meter is not None:
         return _meter
-    return cast(Meter, _NoOpMeter())
+    return _NoOpMeter()

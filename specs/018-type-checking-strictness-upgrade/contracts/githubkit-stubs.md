@@ -28,19 +28,20 @@ The `githubkit` library returns `Response` objects whose `.parsed_data` attribut
 ```
 src/typestubs/
 └── githubkit/
-    └── __init__.pyi      # Response[T], GitHub class
+    ├── __init__.pyi      # Response[T], GitHub, TokenAuthStrategy
+    ├── exception.pyi     # RequestFailed, PrimaryRateLimitExceeded
+    ├── retry.pyi         # RetryChainDecision, RETRY_RATE_LIMIT, RETRY_SERVER_ERROR
+    └── throttling.pyi    # LocalThrottler
 ```
 
-## Stub Definition
+## Stub Definitions
 
 ### `githubkit/__init__.pyi`
 
 ```python
-from typing import Any, Generic, TypeVar
+from typing import Any
 
-T = TypeVar("T")
-
-class Response(Generic[T]):
+class Response[T]:
     """Typed githubkit Response enabling attribute access on parsed_data."""
     parsed_data: T
     status_code: int
@@ -50,14 +51,55 @@ class Response(Generic[T]):
 
 class GitHub:
     """GitHub API client."""
-    def __init__(self, **kwargs: Any) -> None: ...
+    def __init__(self, auth: Any = ..., **kwargs: Any) -> None: ...
     @property
     def rest(self) -> Any: ...
     @property
     def graphql(self) -> Any: ...
+    async def arequest(self, method: str, url: str, **kwargs: Any) -> Any: ...
+    async def async_graphql(self, query: str, **kwargs: Any) -> Any: ...
+    async def __aenter__(self) -> GitHub: ...
+    async def __aexit__(self, *args: Any) -> None: ...
+
+class TokenAuthStrategy:
+    def __init__(self, token: str) -> None: ...
 ```
 
-**Key design choice**: `parsed_data: T` is typed as a generic parameter. The actual attribute access patterns in `github_projects/` files access properties on `parsed_data` which is typically a Pydantic model from githubkit's generated types. With `Response[T]`, pyright can infer `T` from context and check attribute access.
+### `githubkit/exception.pyi`
+
+```python
+from typing import Any
+
+class RequestFailed(Exception):
+    response: Any
+
+class PrimaryRateLimitExceeded(RequestFailed):
+    retry_after: int | None
+```
+
+### `githubkit/retry.pyi`
+
+```python
+from typing import Any
+
+class RetryChainDecision:
+    def __init__(self, *decisions: Any) -> None: ...
+
+RETRY_RATE_LIMIT: Any
+RETRY_SERVER_ERROR: Any
+```
+
+### `githubkit/throttling.pyi`
+
+```python
+class LocalThrottler:
+    def __init__(self, max_concurrency: int = ..., **kwargs: object) -> None: ...
+```
+
+**Key design choices**:
+- `GitHub` does NOT define `__getattr__` — this ensures pyright checks concrete attribute access
+- Submodule stubs (`exception`, `retry`, `throttling`) prevent the project-local stubs from shadowing the real package's submodules
+- `Response[T]` uses a generic type parameter so pyright can infer `T` from context
 
 ## Resolution Strategy
 

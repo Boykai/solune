@@ -76,24 +76,24 @@ class GitHub:
 
 > **Note**: Stubs are intentionally minimal — they cover only the symbols and attributes actually used in the Solune codebase. Expand as needed when new usage is added.
 
-### Entity: ExtendedGitHubCopilotOptions
+### Entity: SessionConfig and reasoning_effort
 
-**Location**: Local to each provider file (or shared in a `src/services/_copilot_types.py`)
+**Location**: `src/typestubs/copilot/types.pyi`
+
+The `reasoning_effort` key is included directly in the `SessionConfig` TypedDict stub rather than via an `ExtendedGitHubCopilotOptions` extension. This is simpler because the stubs are project-local and can declare the full surface used in the codebase.
 
 ```python
-from typing_extensions import TypedDict
-
-class ExtendedGitHubCopilotOptions(GitHubCopilotOptions, total=False):
-    """Extension adding reasoning_effort key not yet in SDK types."""
+class SessionConfig(TypedDict, total=False):
+    """Options passed to create_session."""
+    model: str
+    on_permission_request: Any
+    system_message: dict[str, str]
     reasoning_effort: str
 ```
 
-**Fields**:
-| Field | Type | Required | Source |
-|-------|------|----------|--------|
-| reasoning_effort | `str` | No (`total=False`) | Runtime config, not in SDK TypedDict |
+Similarly, `GitHubCopilotOptions` in `src/typestubs/agent_framework_github_copilot/__init__.pyi` includes `reasoning_effort` directly.
 
-**Relationships**: Extends `GitHubCopilotOptions` from copilot SDK stubs.
+**Rationale**: Since we author the stubs ourselves, there's no need for a separate extension TypedDict — we control the type surface and can include all fields used by the codebase.
 
 ### Entity: OTel Protocol Classes (Modified)
 
