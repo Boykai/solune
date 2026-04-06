@@ -297,14 +297,15 @@ async def ensure_polling_started(
 
     async with _polling_startup_lock:
         try:
+            # Import once for both the task-existence check and task assignment.
+            import src.services.copilot_polling as _self
+
             status = get_polling_status()
             if status["is_running"]:
                 return False
 
             # Also treat an existing, non-done task as "running" to prevent
             # duplicate task creation when the task hasn't set is_running yet.
-            import src.services.copilot_polling as _self
-
             if _self._polling_task is not None and not _self._polling_task.done():
                 return False
 
@@ -328,11 +329,9 @@ async def ensure_polling_started(
 
             # Eagerly mark as running so subsequent callers that acquire the
             # startup lock before the task executes still see is_running=True.
-            from .state import _polling_state_lock
+            from .state import _polling_state, _polling_state_lock
 
             async with _polling_state_lock:
-                from .state import _polling_state
-
                 _polling_state.is_running = True
 
             log_suffix = f" from {caller}" if caller else ""
