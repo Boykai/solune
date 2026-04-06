@@ -290,45 +290,47 @@ async def ensure_polling_started(
 
     # Always register the project so the multi-project polling loop
     # picks it up even if the loop is already running for another project.
+    from .state import _polling_startup_lock
     from .state import register_project as _register
 
     _register(project_id, owner, repo, access_token)
 
-    try:
-        status = get_polling_status()
-        if status["is_running"]:
+    async with _polling_startup_lock:
+        try:
+            status = get_polling_status()
+            if status["is_running"]:
+                return False
+
+            from src.services.task_registry import task_registry
+
+            task = task_registry.create_task(
+                poll_for_copilot_completion(
+                    access_token=access_token,
+                    project_id=project_id,
+                    owner=owner,
+                    repo=repo,
+                    interval_seconds=interval_seconds,
+                ),
+                name="copilot-polling",
+            )
+
+            # Store on the package namespace so stop_polling() can cancel it and
+            # tests that patch ``src.services.copilot_polling._polling_task`` still
+            # work.
+            import src.services.copilot_polling as _self
+
+            _self._polling_task = task
+
+            log_suffix = f" from {caller}" if caller else ""
+            _logger.info(
+                "Auto-started Copilot polling%s for project %s",
+                log_suffix,
+                project_id,
+            )
+            return True
+        except Exception as err:
+            _logger.warning("Failed to start polling: %s", err)
             return False
-
-        from src.services.task_registry import task_registry
-
-        task = task_registry.create_task(
-            poll_for_copilot_completion(
-                access_token=access_token,
-                project_id=project_id,
-                owner=owner,
-                repo=repo,
-                interval_seconds=interval_seconds,
-            ),
-            name="copilot-polling",
-        )
-
-        # Store on the package namespace so stop_polling() can cancel it and
-        # tests that patch ``src.services.copilot_polling._polling_task`` still
-        # work.
-        import src.services.copilot_polling as _self
-
-        _self._polling_task = task
-
-        log_suffix = f" from {caller}" if caller else ""
-        _logger.info(
-            "Auto-started Copilot polling%s for project %s",
-            log_suffix,
-            project_id,
-        )
-        return True
-    except Exception as err:
-        _logger.warning("Failed to start polling: %s", err)
-        return False
 
 
 async def ensure_app_pipeline_polling(

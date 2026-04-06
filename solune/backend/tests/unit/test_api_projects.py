@@ -247,116 +247,9 @@ class TestStartCopilotPolling:
         mock_session.access_token = "tok"
         return mock_session
 
-    @pytest.fixture
-    def mock_gps(self):
-        # resolve_repository imports github_projects_service from src.services.github_projects
-        with patch("src.services.github_projects.github_projects_service") as m:
-            yield m
-
     @pytest.mark.asyncio
-    async def test_starts_polling_with_repo_info(self, session, mock_gps):
-        """Happy path: get_project_repository returns repo info."""
-        mock_gps.get_project_repository = AsyncMock(return_value=("owner", "repo"))
-        with (
-            patch(
-                "src.services.copilot_polling.get_polling_status",
-                return_value={"is_running": False},
-            ),
-            patch(
-                "src.services.copilot_polling.poll_for_copilot_completion", new_callable=AsyncMock
-            ),
-            patch("src.services.copilot_polling._polling_task", None),
-        ):
-            await _start_copilot_polling(session, "proj-1")
-
-    @pytest.mark.asyncio
-    async def test_stops_existing_polling_first(self, session, mock_gps):
-        """If polling is already running, stops it before restarting."""
-        mock_gps.get_project_repository = AsyncMock(return_value=("o", "r"))
-        with (
-            patch(
-                "src.services.copilot_polling.get_polling_status", return_value={"is_running": True}
-            ),
-            patch("src.services.copilot_polling.stop_polling") as mock_stop,
-            patch(
-                "src.services.copilot_polling.poll_for_copilot_completion", new_callable=AsyncMock
-            ),
-            patch("src.services.copilot_polling._polling_task", None),
-            patch("asyncio.sleep", new_callable=AsyncMock),
-        ):
-            await _start_copilot_polling(session, "proj-1")
-            mock_stop.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_falls_back_to_workflow_config(self, session, mock_gps):
-        """Falls back to workflow config when get_project_repository returns None."""
-        mock_gps.get_project_repository = AsyncMock(return_value=None)
-        config = MagicMock(repository_owner="cfg-owner", repository_name="cfg-repo")
-        with (
-            patch(
-                "src.services.copilot_polling.get_polling_status",
-                return_value={"is_running": False},
-            ),
-            patch(
-                "src.services.copilot_polling.poll_for_copilot_completion", new_callable=AsyncMock
-            ),
-            patch("src.services.copilot_polling._polling_task", None),
-            patch(
-                "src.services.workflow_orchestrator.get_workflow_config",
-                new_callable=AsyncMock,
-                return_value=config,
-            ),
-        ):
-            await _start_copilot_polling(session, "proj-1")
-
-    @pytest.mark.asyncio
-    async def test_falls_back_to_settings(self, session, mock_gps):
-        """Falls back to settings when both repo and config are None."""
-        mock_gps.get_project_repository = AsyncMock(return_value=None)
-        with (
-            patch(
-                "src.services.copilot_polling.get_polling_status",
-                return_value={"is_running": False},
-            ),
-            patch(
-                "src.services.copilot_polling.poll_for_copilot_completion", new_callable=AsyncMock
-            ),
-            patch("src.services.copilot_polling._polling_task", None),
-            patch(
-                "src.services.workflow_orchestrator.get_workflow_config",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
-            patch("src.config.get_settings") as ms,
-        ):
-            ms.return_value = MagicMock(default_repo_owner="s-owner", default_repo_name="s-repo")
-            await _start_copilot_polling(session, "proj-1")
-
-    @pytest.mark.asyncio
-    async def test_no_repo_info_skips_polling(self, session, mock_gps):
-        """When no repo info available, polling is not started."""
-        mock_gps.get_project_repository = AsyncMock(return_value=None)
-        with (
-            patch(
-                "src.services.copilot_polling.get_polling_status",
-                return_value={"is_running": False},
-            ),
-            patch(
-                "src.services.copilot_polling.poll_for_copilot_completion", new_callable=AsyncMock
-            ) as mock_poll,
-            patch(
-                "src.services.workflow_orchestrator.get_workflow_config",
-                new_callable=AsyncMock,
-                return_value=None,
-            ),
-            patch("src.config.get_settings") as ms,
-        ):
-            ms.return_value = MagicMock(default_repo_owner="", default_repo_name="")
-            await _start_copilot_polling(session, "proj-1")
-            mock_poll.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_ensure_polling_started_uses_resolved_repository(self, session):
+    async def test_starts_polling_with_resolved_repo(self, session):
+        """Happy path: resolve_repository returns repo info, polling starts."""
         with (
             patch(
                 "src.services.copilot_polling.get_polling_status",
@@ -369,11 +262,11 @@ class TestStartCopilotPolling:
             patch(
                 "src.services.copilot_polling.ensure_polling_started",
                 new_callable=AsyncMock,
-            ) as ensure_polling_started,
+            ) as mock_ensure,
         ):
             await _start_copilot_polling(session, "proj-1")
 
-        ensure_polling_started.assert_awaited_once_with(
+        mock_ensure.assert_awaited_once_with(
             access_token="tok",
             project_id="proj-1",
             owner="owner",
@@ -382,7 +275,30 @@ class TestStartCopilotPolling:
         )
 
     @pytest.mark.asyncio
+    async def test_stops_existing_polling_first(self, session):
+        """If polling is already running, stops it before restarting."""
+        with (
+            patch(
+                "src.services.copilot_polling.get_polling_status",
+                return_value={"is_running": True},
+            ),
+            patch("src.services.copilot_polling.stop_polling") as mock_stop,
+            patch(
+                "src.api.projects.resolve_repository",
+                new=AsyncMock(return_value=("o", "r")),
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ),
+            patch("asyncio.sleep", new_callable=AsyncMock),
+        ):
+            await _start_copilot_polling(session, "proj-1")
+            mock_stop.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_resolve_repository_failure_skips_start(self, session):
+        """When resolve_repository raises, polling is not started."""
         with (
             patch(
                 "src.services.copilot_polling.get_polling_status",
