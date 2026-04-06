@@ -1411,6 +1411,45 @@ class TestWebhookL2Fallback:
             result = await _get_auto_merge_pipeline(10, "owner", "repo")
             assert result is None
 
+    @pytest.mark.asyncio
+    async def test_l1_no_auto_merge_project_level_fallback_uses_l1_project_id(self):
+        """L1 pipeline exists without auto_merge → Step C uses L1's project_id for project-level check."""
+        from src.api.webhooks import _get_auto_merge_pipeline
+
+        # L1 returns a pipeline that is complete but auto_merge is False
+        # (e.g. a reconstructed pipeline that lost the flag — root cause #3)
+        l1_pipeline = MagicMock()
+        l1_pipeline.is_complete = True
+        l1_pipeline.auto_merge = False
+        l1_pipeline.project_id = "PVT_L1"
+
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=l1_pipeline,
+            ),
+            # L2 is skipped when L1 is not None, but patch for safety
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.services.database.get_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.services.settings_store.is_auto_merge_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
+            assert result is not None
+            assert result["project_id"] == "PVT_L1"
+            assert result["devops_attempts"] == 0
+            assert result["devops_active"] is False
+
 
 class TestDeferredRemoval:
     """Tests for deferred pipeline state removal during auto-merge retry."""

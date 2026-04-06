@@ -103,8 +103,14 @@ async def _get_auto_merge_pipeline(
 
             project_id: str | None = None
 
+            # Try to resolve project_id from L1 state (covers the case where
+            # L1 returned a pipeline but auto_merge was False — e.g. a
+            # reconstructed pipeline that lost the flag).
+            if pipeline is not None:
+                project_id = getattr(pipeline, "project_id", None) or None
+
             # Try to resolve project_id from L2 state (reuse result from Step B)
-            if l2_pipeline:
+            if not project_id and l2_pipeline:
                 project_id = getattr(l2_pipeline, "project_id", None)
 
             # Try to resolve project_id from _issue_main_branches
