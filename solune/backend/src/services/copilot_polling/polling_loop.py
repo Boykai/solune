@@ -645,6 +645,8 @@ async def poll_app_pipeline(
         project_id,
     )
 
+    consecutive_missing_state = 0
+
     try:
         while True:
             try:
@@ -665,19 +667,51 @@ async def poll_app_pipeline(
                 )
                 parent_tasks = [t for t in all_tasks if not is_sub_issue(t)]
 
+                # Use the same rate-limit-aware skip logic as the main loop
+                # so that recovery and output steps run during normal operation.
+                remaining_pre, _ = await _check_rate_limit_budget()
+                skip_expensive = (
+                    remaining_pre is not None
+                    and remaining_pre <= RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD
+                )
+
                 for step in POLL_STEPS:
-                    if step.is_expensive:
-                        continue  # skip expensive steps for scoped polling
+                    if step.is_expensive and skip_expensive:
+                        logger.debug(
+                            "Scoped poll (issue #%d): Skipping %s — rate limit budget low",
+                            parent_issue_number,
+                            step.name,
+                        )
+                        continue
                     await step.execute(access_token, project_id, owner, repo, parent_tasks)
 
                 # Re-check after processing — pipeline may have just completed.
                 pipeline_state = _cp.get_pipeline_state(parent_issue_number)
-                if pipeline_state is None or pipeline_state.is_complete:
+                if pipeline_state is not None and pipeline_state.is_complete:
                     logger.info(
                         "App pipeline for issue #%d finished — stopping scoped polling",
                         parent_issue_number,
                     )
                     break
+
+                if pipeline_state is None:
+                    consecutive_missing_state += 1
+                    if consecutive_missing_state >= 3:
+                        logger.warning(
+                            "App pipeline for issue #%d: state missing for %d consecutive "
+                            "cycles — stopping scoped polling",
+                            parent_issue_number,
+                            consecutive_missing_state,
+                        )
+                        break
+                    logger.warning(
+                        "App pipeline for issue #%d: state is None (attempt %d/3) "
+                        "— will retry next cycle",
+                        parent_issue_number,
+                        consecutive_missing_state,
+                    )
+                else:
+                    consecutive_missing_state = 0
 
             except Exception as exc:
                 logger.warning(

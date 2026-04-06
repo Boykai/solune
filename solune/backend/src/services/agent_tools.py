@@ -394,7 +394,6 @@ async def create_project_issue(
     """Create a GitHub issue for a new project.
 
     Use this after assessing difficulty and selecting a pipeline preset.
-    When autonomous creation is disabled, returns a proposal instead.
 
     Args:
         context: Framework-injected invocation context.
@@ -405,23 +404,6 @@ async def create_project_issue(
     logger.info("Tool create_project_issue called: title=%s", title[:80])
 
     settings = get_settings()
-
-    if not settings.chat_auto_create_enabled:
-        state = context.session.state if context.session else {}
-        preset_id = state.get("selected_preset_id", "medium")
-        return ToolResult(
-            content=(
-                f"**Project Proposal** (autonomous creation is disabled)\n\n"
-                f"**Title**: {title}\n\n"
-                f"**Pipeline Preset**: `{preset_id}`\n\n"
-                f"{body[:500]}{'...' if len(body) > 500 else ''}\n\n"
-                f"To create this project, enable `CHAT_AUTO_CREATE_ENABLED=true` "
-                f"or create the issue manually."
-            ),
-            action_type=None,
-            action_data=None,
-        )
-
     state = context.session.state if context.session else {}
     github_token = state.get("github_token")
     project_name = state.get("project_name", "Unknown Project")

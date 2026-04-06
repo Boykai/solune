@@ -259,6 +259,103 @@ async def _discover_and_register_active_projects() -> int:
     return registered_count
 
 
+async def _restore_app_pipeline_polling() -> int:
+    """Restore scoped app-pipeline polling tasks after a container restart.
+
+    Scans in-memory pipeline states for new-repo / external-repo app
+    pipelines (where the pipeline's repo differs from the default repo)
+    and restarts scoped polling for each.
+
+    Returns the number of restored polling tasks.
+    """
+    from src.services.copilot_polling import ensure_app_pipeline_polling
+    from src.services.database import get_db
+    from src.services.pipeline_state_store import get_all_pipeline_states
+
+    settings = get_settings()
+    default_owner = (settings.default_repo_owner or "").lower()
+    default_repo = (settings.default_repo_name or "").lower()
+
+    db = get_db()
+    token: str | None = None
+    try:
+        cursor = await db.execute(
+            "SELECT access_token FROM user_sessions "
+            "WHERE selected_project_id IS NOT NULL "
+            "ORDER BY updated_at DESC LIMIT 1",
+        )
+        row = await cursor.fetchone()
+        if row:
+            token = row["access_token"]
+    except Exception:
+        pass
+
+    if not token:
+        token = settings.github_webhook_token
+    if not token:
+        return 0
+
+    import json
+
+    project_repo_map: dict[str, tuple[str, str]] = {}
+    try:
+        cursor = await db.execute(
+            "SELECT project_id, workflow_config FROM project_settings "
+            "WHERE workflow_config IS NOT NULL",
+        )
+        for ps_row in await cursor.fetchall():
+            try:
+                wf = json.loads(ps_row["workflow_config"])
+                wf_owner = wf.get("repository_owner", "")
+                wf_repo = wf.get("repository_name", "")
+                if wf_owner and wf_repo:
+                    project_repo_map[ps_row["project_id"]] = (wf_owner, wf_repo)
+            except (json.JSONDecodeError, TypeError):
+                continue
+    except Exception:
+        pass
+
+    restored = 0
+    for issue_number, state in get_all_pipeline_states().items():
+        pid = getattr(state, "project_id", None)
+        if not pid:
+            continue
+        if getattr(state, "is_complete", False):
+            continue
+
+        owner, repo = project_repo_map.get(pid, (default_owner, default_repo))
+        if not owner or not repo:
+            continue
+
+        # If the pipeline's repo matches the default repo, it is handled
+        # by the main polling loop — no scoped task needed.
+        if owner.lower() == default_owner and repo.lower() == default_repo:
+            continue
+
+        started = await ensure_app_pipeline_polling(
+            access_token=token,
+            project_id=pid,
+            owner=owner,
+            repo=repo,
+            parent_issue_number=issue_number,
+        )
+        if started:
+            restored += 1
+            logger.info(
+                "Restored scoped app-pipeline polling for issue #%d on %s/%s",
+                issue_number,
+                owner,
+                repo,
+            )
+
+    if restored:
+        logger.info(
+            "Restored %d scoped app-pipeline polling task(s) after restart",
+            restored,
+        )
+    return restored
+
+
 async def _startup_agent_mcp_sync(db: aiosqlite.Connection) -> None:
     """Run agent MCP sync on startup to reconcile drift (FR-009).
 
@@ -359,8 +456,17 @@ async def _polling_watchdog_loop() -> None:
                     count_active_pipelines_for_project,
                     get_queued_pipelines_for_project,
                 )
+                from src.utils import utcnow as _utcnow
 
+                _now = _utcnow()
                 for mp in get_monitored_projects():
+                    # Grace period: don't unregister projects registered
+                    # less than 60s ago to avoid a race between
+                    # set_pipeline_state() and register_project() in
+                    # execute_pipeline_launch().
+                    age_seconds = (_now - mp.registered_at).total_seconds()
+                    if age_seconds < 60:
+                        continue
                     if (
                         count_active_pipelines_for_project(mp.project_id) == 0
                         and len(get_queued_pipelines_for_project(mp.project_id)) == 0
@@ -536,6 +642,13 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             await _discover_and_register_active_projects()
         except Exception as e:
             logger.warning("Multi-project discovery failed (non-fatal): %s", e)
+
+        # Restore scoped app-pipeline polling for new-repo / external-repo
+        # apps whose polling tasks were lost during the restart.
+        try:
+            await _restore_app_pipeline_polling()
+        except Exception as e:
+            logger.warning("App-pipeline polling restore failed (non-fatal): %s", e)
 
         # Agent MCP sync — fire-and-forget via TaskRegistry
         async def _run_startup_agent_mcp_sync_background() -> None:
