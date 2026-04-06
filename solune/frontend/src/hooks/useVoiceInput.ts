@@ -38,9 +38,13 @@ type SpeechRecognitionInstance = {
   onend: (() => void) | null;
 };
 
+interface SpeechRecognitionWindow {
+  SpeechRecognition?: new () => SpeechRecognitionInstance;
+  webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+}
+
 function getSpeechRecognitionConstructor(): (new () => SpeechRecognitionInstance) | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const win = window as any;
+  const win = window as unknown as SpeechRecognitionWindow;
   return win.SpeechRecognition || win.webkitSpeechRecognition || null;
 }
 

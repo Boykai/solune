@@ -10,8 +10,7 @@ const RELOAD_KEY = 'solune-chunk-reload';
  * error and does a single page reload to fetch fresh assets. A
  * sessionStorage flag prevents infinite reload loops.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function lazyWithRetry<T extends ComponentType<any>>(
+export function lazyWithRetry<T extends ComponentType<Record<string, unknown>>>(
   factory: () => Promise<{ default: T }>
 ) {
   return lazy(async () => {
