@@ -34,7 +34,7 @@
 
 **Purpose**: No shared blockers — backend and frontend user stories are independent workstreams
 
-**⚠️ NOTE**: Phase 1 (Setup) must complete before User Story 1 begins, since type stubs require the directory and pyright config. User Stories 3 and 4 (frontend) have no dependency on backend setup and can begin immediately after Phase 1 or in parallel.
+**⚠️ NOTE**: Phase 1 (Setup) must complete before User Story 1 begins, since type stubs require the directory and pyright config. User Stories 3 and 4 (frontend) have no dependency on backend setup and can begin immediately — fully in parallel with Phase 1 and US1.
 
 **Checkpoint**: Setup ready — user story implementation can now begin
 
@@ -174,7 +174,7 @@
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: Can start after Setup — no dependencies on other stories. **This is the MVP.**
-- **User Story 2 (P2)**: Reuses US1 Step 2 pattern (`Settings.model_validate({})`). Can start Step 7, 8, 10 in parallel with US1; Step 9 reuses Step 2 pattern; Step 11 is the final gating task.
+- **User Story 2 (P2)**: Reuses US1 Step 2 pattern (`Settings.model_validate({})`). Can start Steps 7, 8, 10 in parallel with US1; Step 9 (T013) reuses Step 2 (T004) pattern; Step 11 (T015) is the final gating task.
 - **User Story 3 (P2)**: Fully independent of backend stories — can start immediately. All 4 tasks are parallel.
 - **User Story 4 (P3)**: Depends on US3 completion. T021 depends on T020.
 
@@ -192,7 +192,7 @@ T001 (dirs) + T002 (config) ─── Setup complete
         │
         ├── T003 [P] (OTel protocols) ──────────────┐
         ├── T004 [P] (Settings) ────────────────────┤
-        ├── T005 [P] (copilot stubs) → T006 → T007 ├── T008 (slowapi — depends on T003 + T004)
+        ├── T005 [P] (copilot stubs) → T006, T007   ├── T008 (slowapi — depends on T003 + T004)
         └── T009 [P] (githubkit stub) → T010        │
                                                      │
                                          US1 complete ✓
