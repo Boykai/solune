@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import aiosqlite
@@ -57,7 +58,7 @@ def _make_main_branch_info(**overrides: object) -> MainBranchInfo:
         "head_sha": "deadbeef",
     }
     result.update(overrides)
-    return result  # type: ignore[return-value]  # factory helper for tests
+    return cast(MainBranchInfo, result)
 
 
 # ── Schema helper ────────────────────────────────────────────────

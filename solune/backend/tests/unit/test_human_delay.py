@@ -20,6 +20,7 @@ Covers:
 import json
 import math
 from contextlib import ExitStack
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -353,7 +354,7 @@ class TestPipelineDelayExecution:
         for raw_delay in ["abc", None, "", []]:
             delay_seconds = None
             try:
-                val = int(raw_delay)  # type: ignore[arg-type]
+                val = int(cast(Any, raw_delay))
                 if 1 <= val <= 86400:
                     delay_seconds = val
             except (TypeError, ValueError):
