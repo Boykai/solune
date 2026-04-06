@@ -565,7 +565,7 @@ class TestParseIssueMetadata:
         assert meta.size == IssueSize.M
         assert meta.estimate_hours == 4.0
         assert "ai-generated" in meta.labels
-        assert "feature" in meta.labels
+        assert "enhancement" in meta.labels
 
     def test_custom_priority_and_size(self, service):
         meta = service._parse_issue_metadata({"priority": "P1", "size": "XL"})
@@ -615,7 +615,7 @@ class TestParseIssueMetadata:
     def test_non_list_labels(self, service):
         meta = service._parse_issue_metadata({"labels": "not-a-list"})
         assert "ai-generated" in meta.labels
-        assert "feature" in meta.labels  # default type label added
+        assert "enhancement" in meta.labels  # default type label added
 
 
 class TestIsValidDate:

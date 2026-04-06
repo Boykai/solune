@@ -279,6 +279,8 @@ async def execute_pipeline_launch(
     session: UserSession,
     pipeline_project_id: str | None = None,
     target_repo: tuple[str, str] | None = None,
+    auto_merge: bool = False,
+    prerequisite_issues: list[int] | None = None,
 ) -> WorkflowResult:
     """Core pipeline launch logic — reusable by both the endpoint and app creation.
 
@@ -372,7 +374,7 @@ async def execute_pipeline_launch(
 
         # Build path-specific fallback: preserve original hardcoded labels on
         # classifier failure so pipeline launch never loses its pipeline label.
-        pipeline_fallback = ["ai-generated", "feature"]
+        pipeline_fallback = ["ai-generated", "enhancement"]
         if _pipeline_name:
             pipeline_fallback.append(build_pipeline_label(_pipeline_name))
 
@@ -502,6 +504,8 @@ async def execute_pipeline_launch(
                             agent_sub_issues=agent_sub_issues,
                             started_at=utcnow(),
                             queued=should_queue,
+                            auto_merge=auto_merge,
+                            prerequisite_issues=prerequisite_issues or [],
                             agent_configs=get_agent_configs(config),
                         ),
                     )
@@ -516,6 +520,8 @@ async def execute_pipeline_launch(
                         agent_sub_issues=agent_sub_issues,
                         started_at=utcnow(),
                         queued=False,
+                        auto_merge=auto_merge,
+                        prerequisite_issues=prerequisite_issues or [],
                         agent_configs=get_agent_configs(config),
                     ),
                 )

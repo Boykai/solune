@@ -456,7 +456,7 @@ class TestLaunchPipelineIssue:
         mock_orchestrator.assign_agent_for_status.return_value = True
 
         no_urgency_result = ClassificationResult(
-            labels=["ai-generated", "feature", "frontend"],
+            labels=["ai-generated", "enhancement", "frontend"],
             priority=None,
         )
 

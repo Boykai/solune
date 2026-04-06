@@ -254,7 +254,7 @@ class IssueRecommendation(BaseModel):
                     "estimate_hours": 4.0,
                     "start_date": "2026-02-03",
                     "target_date": "2026-02-04",
-                    "labels": ["ai-generated", "feature", "export"],
+                    "labels": ["ai-generated", "enhancement", "export"],
                     "assignees": [],
                     "milestone": None,
                     "branch": None,
