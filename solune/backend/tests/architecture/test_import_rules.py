@@ -16,6 +16,9 @@ ALLOWLIST: set[tuple[str, str]] = {
     # services → api: MCP launch_pipeline delegates to the shared pipeline
     # orchestrator in api/pipelines.py — planned refactor to service layer.
     ("src/services/mcp_server/tools/pipelines.py", "src.api.pipelines"),
+    # services → api: app plan orchestrator reuses execute_pipeline_launch
+    # from api/pipelines.py — same planned refactor applies.
+    ("src/services/app_plan_orchestrator.py", "src.api.pipelines"),
 }
 
 
@@ -78,10 +81,6 @@ class TestApiBoundary:
         ("src/api/projects.py", "src.services.done_items_store"),
         ("src/api/workflow.py", "src.services.settings_store"),
         ("src/api/workflow.py", "src.services.chat_store"),
-        # webhooks → pipeline_state_store / settings_store: 3-tier auto-merge
-        # fallback (L1 → L2 SQLite → project-level) requires direct store access.
-        ("src/api/webhooks.py", "src.services.pipeline_state_store"),
-        ("src/api/webhooks.py", "src.services.settings_store"),
     }
 
     def test_api_does_not_import_store_modules(self) -> None:
