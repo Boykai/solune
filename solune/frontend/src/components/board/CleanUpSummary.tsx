@@ -26,10 +26,10 @@ export function CleanUpSummary({ result, error, onDismiss, onViewHistory }: Clea
     [onDismiss]
   );
 
-  // Always lock scroll while this component is mounted — the parent only
-  // renders CleanUpSummary when there is content to show, so a constant
-  // `true` avoids stale-lock issues from conditional toggling.
-  useScrollLock(true);
+  const isVisible = Boolean(result || error);
+
+  // Lock scroll only while there is modal content to display.
+  useScrollLock(isVisible);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
