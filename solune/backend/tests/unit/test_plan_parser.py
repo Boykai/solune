@@ -189,7 +189,7 @@ Some description.
         assert phases[0].title == "Em Dash Title"
 
     def test_en_dash_in_heading(self) -> None:
-        """Phase headings with en dash (–) should be parsed."""
+        """Phase headings with en dash should be parsed."""
         plan = """\
 ## Implementation Phases
 
