@@ -110,7 +110,7 @@
 
 ## Phase 5: User Story 3 — Frontend Source Code Achieves Full Type Safety (Priority: P2)
 
-**Goal**: Remove all 7 type assertion workarounds (2 `@ts-expect-error` + 2 `as any` + 2 `eslint-disable` + 1 `as unknown as`) from frontend source files and replace with properly typed alternatives.
+**Goal**: Remove all 6 type assertion workarounds (2 `@ts-expect-error` + 1 `as any` + 2 `eslint-disable` + 1 `as unknown as`) from frontend source files and replace with properly typed alternatives.
 
 **Independent Test**: Run `cd solune/frontend && npm run type-check && npm run lint` with zero errors. Confirm no `as any`, `@ts-expect-error`, or type-related `eslint-disable` directives remain in `src/` (excluding test files). All existing tests pass.
 

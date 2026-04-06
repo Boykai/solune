@@ -101,7 +101,7 @@ generate_backend_components() {
             [[ "$name" == "__pycache__" || "$name" == "__init__.py" ]] && continue
 
             local label
-            label=$(echo "$name" | sed 's/\.py$//' | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1')
+            label=$(echo "$name" | sed 's/\.py$//' | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | sed 's/Github/GitHub/g')
             local node_id="SVC_${idx}"
 
             if [[ -d "$entry" ]]; then
@@ -125,7 +125,7 @@ generate_backend_components() {
             name=$(basename "$entry" .py)
             [[ "$name" == "__init__" ]] && continue
             local label
-            label=$(echo "$name" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1')
+            label=$(echo "$name" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | sed 's/Github/GitHub/g')
             local node_id="API_${aidx}"
             api_defs="${api_defs}        ${node_id}[\"${label}\"]"$'\n'
             aidx=$((aidx + 1))
@@ -173,7 +173,7 @@ generate_frontend_components() {
             local name
             name=$(basename "$entry")
             local label
-            label=$(echo "$name" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1')
+            label=$(echo "$name" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | sed 's/Github/GitHub/g')
             local count
             count=$(find "$entry" -maxdepth 1 \( -name '*.tsx' -o -name '*.ts' \) ! -name '*.test.*' ! -name '*.spec.*' | wc -l | tr -d ' ')
             comp_defs="${comp_defs}        C_${cidx}[\"${label}<br/>(${count} files)\"]"$'\n'
