@@ -141,3 +141,41 @@ async def test_activity_resource_propagates_service_errors_after_auth(registered
     ):
         with pytest.raises(RuntimeError, match="db down"):
             await handler(_ctx(mcp_ctx), "proj-1")
+
+
+@pytest.mark.asyncio
+async def test_board_resource_returns_placeholder_json(registered_resources) -> None:
+    handler = registered_resources["solune://projects/{project_id}/board"]
+    mcp_ctx = McpContext(github_token="ghp_valid", github_user_id=1, github_login="octocat")
+
+    with patch(
+        "src.services.mcp_server.resources.verify_mcp_project_access",
+        new=AsyncMock(),
+    ):
+        result = await handler(_ctx(mcp_ctx), "proj-1")
+
+    payload = json.loads(result)
+    assert payload["project_id"] == "proj-1"
+    assert "note" in payload
+
+
+@pytest.mark.asyncio
+async def test_pipelines_resource_returns_empty_when_no_matching_states(
+    registered_resources,
+) -> None:
+    handler = registered_resources["solune://projects/{project_id}/pipelines"]
+    mcp_ctx = McpContext(github_token="ghp_valid", github_user_id=1, github_login="octocat")
+
+    with (
+        patch(
+            "src.services.mcp_server.resources.verify_mcp_project_access",
+            new=AsyncMock(),
+        ),
+        patch(
+            "src.services.pipeline_state_store.get_all_pipeline_states",
+            return_value={},
+        ),
+    ):
+        result = await handler(_ctx(mcp_ctx), "proj-1")
+
+    assert json.loads(result) == {"project_id": "proj-1", "pipeline_states": {}}

@@ -110,3 +110,25 @@ class TestGetTemplateEndpoint:
 
         assert response.status_code == 404
         assert response.json()["detail"] == "Template not found"
+
+
+class TestListTemplatesPagination:
+    async def test_multiple_categories_each_return_own_filter(self, client):
+        """Each category enum value is accepted without error."""
+        for cat in AppCategory:
+            with patch("src.api.templates.list_templates", return_value=[]) as mock_list:
+                response = await client.get(f"/api/v1/templates?category={cat.value}")
+            assert response.status_code == 200
+            mock_list.assert_called_once_with(category=cat)
+
+    async def test_list_multiple_templates_returns_all(self, client):
+        templates = [
+            _template("t1", category=AppCategory.SAAS),
+            _template("t2", category=AppCategory.API),
+        ]
+        with patch("src.api.templates.list_templates", return_value=templates):
+            response = await client.get("/api/v1/templates")
+
+        assert response.status_code == 200
+        ids = [t["id"] for t in response.json()]
+        assert ids == ["t1", "t2"]
