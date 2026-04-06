@@ -372,7 +372,7 @@ async def execute_pipeline_launch(
 
         # Build path-specific fallback: preserve original hardcoded labels on
         # classifier failure so pipeline launch never loses its pipeline label.
-        pipeline_fallback = ["ai-generated", "feature"]
+        pipeline_fallback = ["ai-generated", "enhancement"]
         if _pipeline_name:
             pipeline_fallback.append(build_pipeline_label(_pipeline_name))
 
