@@ -145,27 +145,32 @@ export interface AppPlanStatusResponse {
 export interface PlanStatusUpdateEvent {
   type: 'plan_status_update';
   orchestration_id: string;
+  app_name?: string;
   status: PlanOrchestrationStatus;
   error?: string;
 }
 
 export interface PlanPhaseCreatedEvent {
   type: 'plan_phase_created';
+  app_name: string;
   phase_index: number;
   phase_total: number;
   phase_title: string;
   issue_number: number;
+  issue_url: string;
 }
 
 export interface PlanOrchestrationCompleteEvent {
   type: 'plan_orchestration_complete';
   orchestration_id: string;
+  app_name: string;
   phase_count: number;
 }
 
 export interface PlanOrchestrationFailedEvent {
   type: 'plan_orchestration_failed';
   orchestration_id: string;
+  app_name: string;
   error: string;
 }
 

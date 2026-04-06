@@ -616,15 +616,18 @@ async def create_with_plan_endpoint(
 
 @router.get("/{app_name}/plan-status", response_model=PlanStatusResponse)
 async def get_plan_status_endpoint(
+    request: Request,
     app_name: str,
-    _session: _SessionDep,
+    session: _SessionDep,
 ) -> PlanStatusResponse:
     """Get the current status of a plan-driven app creation."""
     import json
 
+    from src.dependencies import verify_project_access
+
     db = get_db()
     cursor = await db.execute(
-        """SELECT id, app_name, status, phase_count, phase_issue_numbers,
+        """SELECT id, app_name, project_id, status, phase_count, phase_issue_numbers,
                   error_message, created_at, updated_at
            FROM app_plan_orchestrations
            WHERE app_name = ?
@@ -634,6 +637,9 @@ async def get_plan_status_endpoint(
     row = await cursor.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="No plan orchestration found for this app")
+
+    # Verify the caller has access to the orchestration's project
+    await verify_project_access(request, row["project_id"], session)
 
     phase_issues: list[PhaseIssueInfo] = []
     if row["phase_issue_numbers"]:

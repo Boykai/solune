@@ -154,6 +154,17 @@ class AppPlanOrchestrator:
                 phase_issue_numbers=phase_issue_numbers,
             )
 
+            # Broadcast terminal success event
+            await self._broadcast(
+                project_id,
+                {
+                    "type": "plan_orchestration_complete",
+                    "orchestration_id": orch_id,
+                    "app_name": app_name,
+                    "phase_count": len(phases),
+                },
+            )
+
             return OrchestrationResult(
                 success=True,
                 orchestration_id=orch_id,
@@ -180,6 +191,18 @@ class AppPlanOrchestrator:
                 status="failed",
                 error_message=str(exc),
             )
+
+            # Broadcast terminal failure event
+            await self._broadcast(
+                project_id,
+                {
+                    "type": "plan_orchestration_failed",
+                    "orchestration_id": orch_id,
+                    "app_name": app_name,
+                    "error": str(exc),
+                },
+            )
+
             return OrchestrationResult(
                 success=False,
                 orchestration_id=orch_id,
@@ -284,16 +307,16 @@ class AppPlanOrchestrator:
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
-                path=f"specs/001-{app_name}/plan.md",
+                path="plan.md",
                 ref=pr_branch,
             )
             if not plan_md:
-                # Try alternative path
+                # Try alternative spec path
                 plan_md = await self._github_service.get_file_content_from_ref(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
-                    path="plan.md",
+                    path=f"specs/001-{app_name}/plan.md",
                     ref=pr_branch,
                 )
             if not plan_md:
@@ -552,7 +575,7 @@ class AppPlanOrchestrator:
         project_id: str,
         status: str,
         plan_md_content: str | None = None,
-        phase_count: int = 0,
+        phase_count: int | None = None,
         phase_issue_numbers: list[int] | None = None,
         error_message: str | None = None,
     ) -> None:

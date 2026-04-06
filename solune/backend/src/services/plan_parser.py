@@ -89,6 +89,17 @@ def parse_plan(plan_md_content: str) -> list[PlanPhase]:
         msg = "No implementation phases found in plan.md content"
         raise ValueError(msg)
 
+    # Validate phase indices are unique and sequential (1, 2, 3, ...)
+    indices = [p.index for p in phases]
+    if len(indices) != len(set(indices)):
+        duplicates = [i for i in indices if indices.count(i) > 1]
+        msg = f"Duplicate phase indices found: {sorted(set(duplicates))}"
+        raise ValueError(msg)
+    expected = list(range(1, len(phases) + 1))
+    if sorted(indices) != expected:
+        msg = f"Phase indices must be sequential starting from 1, got: {sorted(indices)}"
+        raise ValueError(msg)
+
     # Validate dependencies
     phase_indices = {p.index for p in phases}
     for phase in phases:
@@ -128,9 +139,7 @@ def _finalize_phase(phase: PlanPhase, block_lines: list[str]) -> None:
             phase.execution_mode = "parallel"
 
         # Check for step patterns
-        if _STEP_PATTERN_RE.match(stripped) or (
-            _NUMBERED_STEP_RE.match(stripped) and not in_description
-        ):
+        if _STEP_PATTERN_RE.match(stripped) or _NUMBERED_STEP_RE.match(stripped):
             steps.append(stripped)
             in_description = False
         elif stripped.startswith("**Depends on**:") or stripped.startswith("**Depends on:**"):

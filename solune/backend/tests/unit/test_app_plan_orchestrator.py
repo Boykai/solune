@@ -464,7 +464,9 @@ class TestLaunchPhasePipelines:
             PlanPhase(index=2, title="B", depends_on_phases=[1]),
         ]
 
-        with patch("src.api.pipelines.execute_pipeline_launch") as mock_launch:
+        with patch(
+            "src.api.pipelines.execute_pipeline_launch", new_callable=AsyncMock
+        ) as mock_launch:
             mock_launch.return_value = MagicMock(success=True)
 
             await orchestrator._launch_phase_pipelines(
@@ -486,7 +488,9 @@ class TestLaunchPhasePipelines:
             PlanPhase(index=2, title="B", depends_on_phases=[1]),
         ]
 
-        with patch("src.api.pipelines.execute_pipeline_launch") as mock_launch:
+        with patch(
+            "src.api.pipelines.execute_pipeline_launch", new_callable=AsyncMock
+        ) as mock_launch:
             mock_launch.return_value = MagicMock(success=True)
 
             await orchestrator._launch_phase_pipelines(
@@ -512,7 +516,9 @@ class TestLaunchPhasePipelines:
             PlanPhase(index=2, title="B", depends_on_phases=[1]),
         ]
 
-        with patch("src.api.pipelines.execute_pipeline_launch") as mock_launch:
+        with patch(
+            "src.api.pipelines.execute_pipeline_launch", new_callable=AsyncMock
+        ) as mock_launch:
             mock_launch.return_value = MagicMock(success=True)
 
             await orchestrator._launch_phase_pipelines(
@@ -598,7 +604,9 @@ class TestDiamondDependencyPrerequisites:
                 new_callable=AsyncMock,
                 return_value="Plan summary",
             ),
-            patch("src.api.pipelines.execute_pipeline_launch") as mock_launch,
+            patch(
+                "src.api.pipelines.execute_pipeline_launch", new_callable=AsyncMock
+            ) as mock_launch,
         ):
             mock_launch.return_value = MagicMock(success=True)
 

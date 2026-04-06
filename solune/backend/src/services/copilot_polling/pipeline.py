@@ -8,7 +8,7 @@ from typing import Any
 import src.services.copilot_polling as _cp
 from src.constants import ACTIVE_LABEL, build_agent_label, find_agent_label, find_pipeline_label
 from src.logging_utils import get_logger
-from src.services.pipeline_state_store import get_project_launch_lock
+from src.services.pipeline_state_store import get_pipeline_state_async, get_project_launch_lock
 from src.utils import utcnow
 
 from .state import (
@@ -100,7 +100,7 @@ async def _dequeue_next_pipeline(
                 # cleaned up — treat as prerequisite met.
                 all_met = True
                 for prereq_issue in prereqs:
-                    prereq_state = _cp.get_pipeline_state(prereq_issue)
+                    prereq_state = await get_pipeline_state_async(prereq_issue)
                     if prereq_state is None:
                         # State removed after successful merge — prerequisite met
                         continue

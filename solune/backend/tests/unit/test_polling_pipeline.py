@@ -235,11 +235,15 @@ class TestDequeuePrerequisites:
                 "src.services.copilot_polling.pipeline.get_project_launch_lock",
                 return_value=asyncio.Lock(),
             ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_state,
+            ),
             patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
-            mock_cp.get_pipeline_state.return_value = prereq_state
 
             await _dequeue_next_pipeline("token", "PVT_1", "test")
             mock_cp.set_pipeline_state.assert_not_called()
@@ -269,11 +273,15 @@ class TestDequeuePrerequisites:
                 "src.services.copilot_polling.pipeline.get_project_launch_lock",
                 return_value=asyncio.Lock(),
             ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_state,
+            ),
             patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
-            mock_cp.get_pipeline_state.return_value = prereq_state
 
             await _dequeue_next_pipeline("token", "PVT_1", "test")
             mock_cp.set_pipeline_state.assert_not_called()
@@ -300,11 +308,15 @@ class TestDequeuePrerequisites:
                 "src.services.copilot_polling.pipeline.get_project_launch_lock",
                 return_value=asyncio.Lock(),
             ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
-            mock_cp.get_pipeline_state.return_value = None  # State removed after merge
             mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
 
             await _dequeue_next_pipeline("token", "PVT_1", "test")
@@ -338,11 +350,15 @@ class TestDequeuePrerequisites:
                 "src.services.copilot_polling.pipeline.get_project_launch_lock",
                 return_value=asyncio.Lock(),
             ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_complete,
+            ),
             patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
-            mock_cp.get_pipeline_state.return_value = prereq_complete
             mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
             mock_cp.get_workflow_orchestrator.return_value = AsyncMock()
             mock_cp.WorkflowContext = lambda **kw: AsyncMock(**kw)
@@ -384,11 +400,15 @@ class TestDequeuePrerequisites:
                 "src.services.copilot_polling.pipeline.get_project_launch_lock",
                 return_value=asyncio.Lock(),
             ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_incomplete,
+            ),
             patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [blocked, ready]
-            mock_cp.get_pipeline_state.return_value = prereq_incomplete
             mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
             mock_cp.get_workflow_orchestrator.return_value = AsyncMock()
             mock_cp.WorkflowContext = lambda **kw: AsyncMock(**kw)
@@ -414,7 +434,7 @@ class TestDequeuePrerequisites:
         prereq_incomplete.queued = False
         prereq_incomplete.is_complete = False
 
-        def get_prereq_state(issue_num):
+        async def get_prereq_state(issue_num):
             if issue_num == 10:
                 return prereq_complete
             return prereq_incomplete
@@ -430,11 +450,14 @@ class TestDequeuePrerequisites:
                 "src.services.copilot_polling.pipeline.get_project_launch_lock",
                 return_value=asyncio.Lock(),
             ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                side_effect=get_prereq_state,
+            ),
             patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
-            mock_cp.get_pipeline_state.side_effect = get_prereq_state
 
             await _dequeue_next_pipeline("token", "PVT_1", "test")
             mock_cp.set_pipeline_state.assert_not_called()
