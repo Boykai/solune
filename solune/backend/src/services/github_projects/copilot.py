@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from datetime import datetime
 
 from src.logging_utils import get_logger

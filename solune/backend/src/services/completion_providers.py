@@ -12,11 +12,14 @@ Provides a unified interface for different AI backends:
 import asyncio
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.utils import BoundedDict
+
+if TYPE_CHECKING:
+    from copilot.types import ReasoningEffort
 
 logger = get_logger(__name__)
 
@@ -63,7 +66,7 @@ class CopilotClientPool:
             if key in self._clients:
                 return self._clients[key]
 
-            from copilot import CopilotClient  # type: ignore[reportMissingImports]
+            from copilot import CopilotClient
             from copilot.types import CopilotClientOptions
 
             options = CopilotClientOptions(github_token=github_token, auto_start=False)
@@ -173,10 +176,10 @@ class CopilotCompletionProvider(CompletionProvider):
 
         client = await self._pool.get_or_create(github_token)
 
-        from copilot.generated.session_events import (  # type: ignore[reportMissingImports]
+        from copilot.generated.session_events import (
             SessionEventType,
         )
-        from copilot.types import (  # type: ignore[reportMissingImports]
+        from copilot.types import (
             PermissionHandler,
             SessionConfig,
         )
@@ -193,12 +196,12 @@ class CopilotCompletionProvider(CompletionProvider):
         # Build SessionConfig (SDK 0.1.0 requires a typed config dict)
         config: SessionConfig = {
             "model": self._model,
-            "on_permission_request": PermissionHandler.approve_all,  # pyright: ignore[reportAttributeAccessIssue]
+            "on_permission_request": PermissionHandler.approve_all,
         }
         if system_content:
             config["system_message"] = {"mode": "replace", "content": system_content}
         if reasoning_effort:
-            config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
+            config["reasoning_effort"] = cast("ReasoningEffort", reasoning_effort)
 
         # Create session, send prompt, wait for response
         session = await client.create_session(config)
@@ -273,7 +276,7 @@ class AzureOpenAICompletionProvider(CompletionProvider):
 
         # Try Azure OpenAI SDK first (openai package)
         try:
-            from openai import AzureOpenAI  # type: ignore[reportMissingImports]
+            from openai import AzureOpenAI
 
             self._client = AzureOpenAI(
                 azure_endpoint=settings.azure_openai_endpoint,
