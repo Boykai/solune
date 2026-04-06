@@ -80,9 +80,7 @@ async def _get_auto_merge_pipeline(
         l2_pipeline = None
         if pipeline is None:
             try:
-                from src.services.pipeline_state_store import get_pipeline_state_async
-
-                l2_pipeline = await get_pipeline_state_async(issue_number)
+                l2_pipeline = await _cp.get_pipeline_state_async(issue_number)
                 if (
                     l2_pipeline
                     and l2_pipeline.is_complete
@@ -98,9 +96,6 @@ async def _get_auto_merge_pipeline(
 
         # Step C: Project-level fallback (state already removed, but project has auto-merge)
         try:
-            from src.services.database import get_db
-            from src.services.settings_store import is_auto_merge_enabled
-
             project_id: str | None = None
 
             # Try to resolve project_id from L1 state (covers the case where
@@ -127,8 +122,8 @@ async def _get_auto_merge_pipeline(
                     pass
 
             if project_id:
-                db = get_db()
-                if await is_auto_merge_enabled(db, project_id):
+                db = _cp.get_db()
+                if await _cp.is_auto_merge_enabled(db, project_id):
                     return {
                         "project_id": project_id,
                         "devops_attempts": 0,

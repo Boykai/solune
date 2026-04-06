@@ -37,7 +37,10 @@ from src.services.agent_tracking import (
     mark_agent_done,
     parse_tracking_from_body,
 )
+from src.services.database import get_db
 from src.services.github_projects import github_projects_service
+from src.services.pipeline_state_store import get_pipeline_state_async
+from src.services.settings_store import is_auto_merge_enabled
 from src.services.websocket import connection_manager
 from src.services.workflow_orchestrator import (
     PipelineGroupInfo,
@@ -218,18 +221,21 @@ __all__ = [
     "find_next_actionable_status",
     "get_agent_slugs",
     "get_current_agent_from_tracking",
+    "get_db",
     "get_issue_main_branch",
     "get_issue_sub_issues",
     "get_monitored_projects",
     "get_next_pending_agent",
     "get_next_status",
     "get_pipeline_state",
+    "get_pipeline_state_async",
     "get_polling_status",
     "get_queued_pipelines_for_project",
     "get_status_order",
     "get_workflow_config",
     "get_workflow_orchestrator",
     "github_projects_service",
+    "is_auto_merge_enabled",
     "is_sub_issue",
     "mark_agent_active",
     "mark_agent_done",

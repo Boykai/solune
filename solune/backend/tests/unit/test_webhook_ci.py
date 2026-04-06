@@ -962,16 +962,16 @@ class TestWebhookHelpers:
                 return_value=pipeline,
             ),
             patch(
-                "src.services.pipeline_state_store.get_pipeline_state_async",
+                "src.services.copilot_polling.get_pipeline_state_async",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "src.services.database.get_db",
+                "src.services.copilot_polling.get_db",
                 return_value=MagicMock(),
             ),
             patch(
-                "src.services.settings_store.is_auto_merge_enabled",
+                "src.services.copilot_polling.is_auto_merge_enabled",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -999,16 +999,16 @@ class TestWebhookHelpers:
                 return_value=pipeline,
             ),
             patch(
-                "src.services.pipeline_state_store.get_pipeline_state_async",
+                "src.services.copilot_polling.get_pipeline_state_async",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "src.services.database.get_db",
+                "src.services.copilot_polling.get_db",
                 return_value=MagicMock(),
             ),
             patch(
-                "src.services.settings_store.is_auto_merge_enabled",
+                "src.services.copilot_polling.is_auto_merge_enabled",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
@@ -1033,16 +1033,16 @@ class TestWebhookHelpers:
                 return_value=None,
             ),
             patch(
-                "src.services.pipeline_state_store.get_pipeline_state_async",
+                "src.services.copilot_polling.get_pipeline_state_async",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "src.services.database.get_db",
+                "src.services.copilot_polling.get_db",
                 return_value=MagicMock(),
             ),
             patch(
-                "src.services.settings_store.is_auto_merge_enabled",
+                "src.services.copilot_polling.is_auto_merge_enabled",
                 new_callable=AsyncMock,
                 return_value=False,
             ),
