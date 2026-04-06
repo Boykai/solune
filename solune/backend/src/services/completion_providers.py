@@ -273,7 +273,7 @@ class AzureOpenAICompletionProvider(CompletionProvider):
 
         # Try Azure OpenAI SDK first (openai package)
         try:
-            from openai import AzureOpenAI  # type: ignore[reportMissingImports]
+            from openai import AzureOpenAI
 
             self._client = AzureOpenAI(
                 azure_endpoint=settings.azure_openai_endpoint,

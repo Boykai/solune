@@ -37,11 +37,8 @@ class TestPollStep:
             return []
 
         step = PollStep(name="test", execute=noop)
-        try:
-            step.name = "other"  # type: ignore[misc]  # testing frozen dataclass
-            raise AssertionError("Expected FrozenInstanceError")
-        except AttributeError:
-            pass
+        with pytest.raises(AttributeError):
+            step.name = "other"  # type: ignore[misc]  # verify frozen
 
 
 class TestPollSteps:

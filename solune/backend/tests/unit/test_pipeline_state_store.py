@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import aiosqlite
@@ -51,13 +52,13 @@ def _make_pipeline_state(**overrides) -> PipelineState:
 
 
 def _make_main_branch_info(**overrides: object) -> MainBranchInfo:
-    result: dict[str, object] = {
+    defaults: MainBranchInfo = {
         "branch": "copilot/issue-100",
         "pr_number": 42,
         "head_sha": "deadbeef",
     }
-    result.update(overrides)
-    return result  # type: ignore[return-value]  # factory helper for tests
+    merged = {**defaults, **overrides}
+    return cast(MainBranchInfo, merged)
 
 
 # ── Schema helper ────────────────────────────────────────────────
