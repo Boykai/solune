@@ -7,12 +7,13 @@ return no-op instances so instrumented code can call them unconditionally.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from src.logging_utils import get_logger
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Meter
+    from opentelemetry.sdk.trace import SpanProcessor
     from opentelemetry.trace import Tracer
 
 logger = get_logger(__name__)
@@ -21,7 +22,13 @@ _tracer: Tracer | None = None
 _meter: Meter | None = None
 
 
-class _RequestIDSpanProcessor:
+if TYPE_CHECKING:
+    _SpanProcessorBase = SpanProcessor
+else:
+    _SpanProcessorBase = object
+
+
+class _RequestIDSpanProcessor(_SpanProcessorBase):
     """SpanProcessor that injects the current X-Request-ID into every span."""
 
     def on_start(self, span: Any, parent_context: Any = None) -> None:
@@ -67,7 +74,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
         tracer_provider = TracerProvider(resource=resource)
         span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
         tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
-        tracer_provider.add_span_processor(_RequestIDSpanProcessor())  # type: ignore[arg-type]  # implements SpanProcessor protocol
+        tracer_provider.add_span_processor(_RequestIDSpanProcessor())
         trace.set_tracer_provider(tracer_provider)
 
         # ── Metrics ──
@@ -77,7 +84,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
         metrics.set_meter_provider(meter_provider)
 
         # ── Auto-instrumentation ──
-        FastAPIInstrumentor.instrument()  # type: ignore[call-arg]  # OTel classmethod
+        FastAPIInstrumentor().instrument()
         HTTPXClientInstrumentor().instrument()
         SQLite3Instrumentor().instrument()
 
@@ -131,6 +138,9 @@ class _NoOpMeter:
         def record(self, value: object, attributes: object = None) -> None:
             pass
 
+        def add(self, amount: object, attributes: object = None) -> None:
+            pass
+
     def create_gauge(self, name: str, **kwargs: object) -> _NoOpInstrument:
         return self._NoOpInstrument()
 
@@ -145,11 +155,11 @@ def get_tracer() -> Tracer:
     """Return the active tracer, or a local no-op tracer (zero OTel imports)."""
     if _tracer is not None:
         return _tracer
-    return _NoOpTracer()  # type: ignore[return-value]  # implements Tracer protocol
+    return cast(Tracer, _NoOpTracer())
 
 
 def get_meter() -> Meter:
     """Return the active meter, or a local no-op meter (zero OTel imports)."""
     if _meter is not None:
         return _meter
-    return _NoOpMeter()  # type: ignore[return-value]  # implements Meter protocol
+    return cast(Meter, _NoOpMeter())

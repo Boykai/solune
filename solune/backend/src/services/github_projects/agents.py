@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import re
 from typing import ClassVar
 
@@ -9,11 +8,12 @@ from githubkit.exception import RequestFailed
 
 from src.logging_utils import get_logger
 from src.models.agent import AgentSource, AvailableAgent
+from src.services.github_projects._mixin_base import _ServiceMixin
 
 logger = get_logger(__name__)
 
 
-class AgentsMixin:
+class AgentsMixin(_ServiceMixin):
     """Agent discovery, body tailoring, and prompt formatting."""
 
     # ──────────────────────────────────────────────────────────────────

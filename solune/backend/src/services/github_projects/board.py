@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -9,6 +8,7 @@ if TYPE_CHECKING:
 from src.constants import StatusNames
 from src.logging_utils import get_logger
 from src.services.done_items_store import save_done_items
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     BOARD_GET_PROJECT_ITEMS_QUERY,
     BOARD_LIST_PROJECTS_QUERY,
@@ -18,7 +18,7 @@ from src.services.github_projects.graphql import (
 logger = get_logger(__name__)
 
 
-class BoardMixin:
+class BoardMixin(_ServiceMixin):
     """Kanban board view — project board data with columns and items."""
 
     # ──────────────────────────────────────────────────────────────────
