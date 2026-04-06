@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import aiosqlite
 from fastapi import FastAPI, Request, status
@@ -743,7 +744,8 @@ def create_app() -> FastAPI:
     from src.middleware.rate_limit import RateLimitKeyMiddleware, limiter
 
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]  # slowapi handler signature mismatch
+    _handler: Any = _rate_limit_exceeded_handler
+    app.add_exception_handler(RateLimitExceeded, _handler)
     app.add_middleware(RateLimitKeyMiddleware)
 
     # Exception handlers

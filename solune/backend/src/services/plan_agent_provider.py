@@ -167,7 +167,7 @@ async def create_plan_session(
     Returns:
         Configured agent session.
     """
-    from copilot.types import (  # type: ignore[reportMissingImports]
+    from copilot.types import (
         PermissionHandler,
         SessionConfig,
     )
@@ -185,7 +185,7 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
+        config["reasoning_effort"] = reasoning_effort  # type: ignore[assignment]  # validated upstream
 
     session = await client.create_session(config)
     logger.info(
