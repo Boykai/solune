@@ -45,9 +45,9 @@ async def test_concurrent_start_attempts_should_never_create_duplicate_polling_t
     gate = asyncio.Event()
 
     async def start_attempt() -> None:
+        await gate.wait()
         async with polling_state_module._polling_startup_lock:
             if polling_state_module._polling_task is None:
-                await gate.wait()
                 task = asyncio.create_task(asyncio.sleep(60))
                 created_tasks.append(task)
                 polling_state_module._polling_task = task
