@@ -11,6 +11,9 @@ import type {
   App,
   AppAssetInventory,
   AppCreate,
+  AppCreateWithPlanRequest,
+  AppCreateWithPlanResponse,
+  AppPlanStatusResponse,
   AppUpdate,
   Owner,
 } from '@/types/apps';
@@ -23,6 +26,7 @@ export const appKeys = {
   detail: (name: string) => [...appKeys.all, 'detail', name] as const,
   status: (name: string) => [...appKeys.all, 'status', name] as const,
   owners: () => [...appKeys.all, 'owners'] as const,
+  planStatus: (name: string) => [...appKeys.all, 'planStatus', name] as const,
 };
 
 /** Type guard to check if an error is an ApiError. */
@@ -431,5 +435,39 @@ export function useOwners() {
     queryKey: appKeys.owners(),
     queryFn: () => appsApi.owners(),
     staleTime: 30_000,
+  });
+}
+
+/** Create an app with plan-driven multi-phase orchestration. */
+export function useCreateAppWithPlan() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AppCreateWithPlanResponse, ApiError, AppCreateWithPlanRequest>({
+    mutationFn: (data) => appsApi.createWithPlan(data),
+    onSuccess: (data) => {
+      toast.success(`Plan-driven creation started for '${data.app_name}'`);
+      queryClient.invalidateQueries({ queryKey: appKeys.list() });
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'Failed to start plan-driven creation'), {
+        duration: Infinity,
+      });
+    },
+  });
+}
+
+/** Poll the plan orchestration status for an app. */
+export function useAppPlanStatus(appName: string | null, options?: { enabled?: boolean }) {
+  return useQuery<AppPlanStatusResponse, ApiError>({
+    queryKey: appKeys.planStatus(appName ?? ''),
+    queryFn: () => appsApi.planStatus(appName!),
+    enabled: !!appName && (options?.enabled !== false),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      // Stop polling when orchestration reaches a terminal state
+      if (status === 'active' || status === 'failed') return false;
+      return 5_000; // Poll every 5 seconds while in progress
+    },
+    staleTime: 2_000,
   });
 }

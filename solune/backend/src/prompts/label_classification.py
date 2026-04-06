@@ -35,7 +35,7 @@ Domain labels (pick all that apply):
 
 Rules:
 1. Always include "ai-generated".
-2. Include exactly ONE type label. If unsure, default to "feature".
+2. Include exactly ONE type label. If unsure, default to "enhancement".
 3. Include all applicable scope and domain labels.
 4. Do NOT invent labels outside the predefined list: {LABELS}
 5. Return a JSON object with a single key "labels" containing an array of strings.
@@ -77,7 +77,7 @@ PRIORITY DETECTION (optional):
 
 Rules:
 1. Always include "ai-generated".
-2. Include exactly ONE type label. If unsure, default to "feature".
+2. Include exactly ONE type label. If unsure, default to "enhancement".
 3. Include all applicable scope and domain labels.
 4. Do NOT invent labels outside the predefined list: {LABELS}
 5. Return a JSON object with keys "labels" (required) and "priority" (optional).
