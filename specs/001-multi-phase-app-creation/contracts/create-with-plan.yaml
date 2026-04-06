@@ -1,0 +1,188 @@
+openapi: "3.1.0"
+info:
+  title: Solune App Plan Orchestration API
+  version: "1.0.0"
+  description: >
+    Endpoints for creating apps with multi-phase plan orchestration.
+    Extends the existing /apps router.
+
+paths:
+  /apps/create-with-plan:
+    post:
+      operationId: createAppWithPlan
+      summary: Create an app with auto-generated plan and phased pipeline execution
+      description: >
+        Creates an app record, generates a plan via the chat plan agent + speckit.plan,
+        parses the plan into phases, creates GitHub Issues per phase, and launches
+        pipelines with auto-merge and wave-based execution.
+        Returns immediately; orchestration runs as a background task.
+      tags:
+        - Apps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppCreateWithPlan"
+      responses:
+        "202":
+          description: Accepted — orchestration started in background
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppCreateWithPlanResponse"
+        "400":
+          description: Validation error (missing fields, invalid name, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: App name already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /apps/{app_name}/plan-status:
+    get:
+      operationId: getAppPlanStatus
+      summary: Get the current status of plan-based app creation orchestration
+      description: >
+        Returns the orchestration state, current phase, created issue links,
+        and error details if the orchestration failed.
+      tags:
+        - Apps
+      parameters:
+        - name: app_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current orchestration status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppPlanStatusResponse"
+        "404":
+          description: App or orchestration not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    AppCreateWithPlan:
+      type: object
+      required:
+        - app_name
+        - display_name
+        - description
+        - pipeline_id
+        - project_id
+      properties:
+        app_name:
+          type: string
+          description: URL-safe app identifier
+          minLength: 2
+          maxLength: 64
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
+        display_name:
+          type: string
+          description: Human-readable app name
+          minLength: 1
+          maxLength: 128
+        description:
+          type: string
+          description: App description — used as input for plan generation
+          minLength: 1
+        pipeline_id:
+          type: string
+          description: Pipeline config ID to use for each phase
+        project_id:
+          type: string
+          description: GitHub Project V2 node ID for issue tracking
+        repo_type:
+          type: string
+          enum: [same-repo, new-repo, external-repo]
+          default: new-repo
+        repo_owner:
+          type: string
+          description: GitHub org/user for new repo (required for new-repo)
+        repo_visibility:
+          type: string
+          enum: [public, private]
+          default: private
+        ai_enhance:
+          type: boolean
+          default: true
+          description: Whether to AI-enhance the description before planning
+
+    AppCreateWithPlanResponse:
+      type: object
+      properties:
+        app_name:
+          type: string
+        plan_status:
+          type: string
+          enum: [planning, speckit_running, parsing_phases, creating_issues, launching_pipelines, active, failed]
+        orchestration_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+          example: "App creation started. Plan generation in progress."
+
+    AppPlanStatusResponse:
+      type: object
+      properties:
+        app_name:
+          type: string
+        orchestration_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [planning, speckit_running, parsing_phases, creating_issues, launching_pipelines, active, failed]
+        phase_count:
+          type: integer
+          nullable: true
+        phase_issues:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/PhaseIssueInfo"
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PhaseIssueInfo:
+      type: object
+      properties:
+        phase_index:
+          type: integer
+        title:
+          type: string
+        issue_number:
+          type: integer
+        issue_url:
+          type: string
+          format: uri
+        pipeline_status:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
