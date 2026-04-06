@@ -34,9 +34,7 @@ async def test_list_chores_returns_serialized_chores(
     chore1.model_dump.return_value = {"id": "chore-1", "name": "Stale branch cleanup"}
     chore2 = MagicMock()
     chore2.model_dump.return_value = {"id": "chore-2", "name": "Dependency update"}
-    MockChoresService.return_value.list_chores = AsyncMock(
-        return_value=[chore1, chore2]
-    )
+    MockChoresService.return_value.list_chores = AsyncMock(return_value=[chore1, chore2])
 
     result = await list_chores(_make_ctx(), "PVT_abc")
 
@@ -75,9 +73,7 @@ async def test_trigger_chore_returns_result(
 
     trigger_result = MagicMock()
     trigger_result.model_dump.return_value = {"status": "triggered"}
-    MockChoresService.return_value.trigger_chore = AsyncMock(
-        return_value=trigger_result
-    )
+    MockChoresService.return_value.trigger_chore = AsyncMock(return_value=trigger_result)
 
     result = await trigger_chore(_make_ctx(), "PVT_abc", "chore-1")
 

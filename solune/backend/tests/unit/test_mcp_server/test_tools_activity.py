@@ -65,17 +65,13 @@ async def test_get_activity_clamps_limit_to_valid_range(
 
     # limit=0 should be clamped to 1
     await get_activity(_make_ctx(), "PVT_abc", limit=0)
-    mock_query_events.assert_awaited_with(
-        mock_get_db.return_value, project_id="PVT_abc", limit=1
-    )
+    mock_query_events.assert_awaited_with(mock_get_db.return_value, project_id="PVT_abc", limit=1)
 
     mock_query_events.reset_mock()
 
     # limit=200 should be clamped to 100
     await get_activity(_make_ctx(), "PVT_abc", limit=200)
-    mock_query_events.assert_awaited_with(
-        mock_get_db.return_value, project_id="PVT_abc", limit=100
-    )
+    mock_query_events.assert_awaited_with(mock_get_db.return_value, project_id="PVT_abc", limit=100)
 
 
 @pytest.mark.asyncio
@@ -88,9 +84,7 @@ async def test_update_item_status_returns_success(
     MockGitHubProjectsService,
     mock_access,
 ):
-    MockGitHubProjectsService.return_value.update_item_status_by_name = AsyncMock(
-        return_value=True
-    )
+    MockGitHubProjectsService.return_value.update_item_status_by_name = AsyncMock(return_value=True)
 
     result = await update_item_status(_make_ctx(), "PVT_abc", "PVTI_item1", "Done")
 

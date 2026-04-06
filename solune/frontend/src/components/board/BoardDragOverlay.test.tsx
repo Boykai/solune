@@ -56,7 +56,7 @@ describe('BoardDragOverlay', () => {
 
   it('renders priority badge when present', () => {
     const item = createBoardItem({
-      priority: { id: 'p1', name: 'P0' },
+      priority: { name: 'P0' },
     });
     render(<BoardDragOverlay item={item} />);
     expect(screen.getByText('P0')).toBeInTheDocument();
