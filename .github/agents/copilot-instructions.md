@@ -194,6 +194,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - SQLite via `aiosqlite` for backend state; temporary filesystem uploads/transcripts for chat attachment and transcript-path scenarios (003-test-coverage-meaningful)
 - Python >=3.12 (backend runtime, pyright configured for 3.13) and TypeScript ~6.0 with React 19.2 (frontend) + FastAPI, Starlette, MCP Python SDK, httpx, OpenTelemetry, uv, pytest, pytest-cov, ruff, pyright; React 19, Vite 8, Vitest 4, eslint, React Testing Library, react-hook-form (001-test-coverage-bugfixes)
 - SQLite-backed backend services plus in-memory MCP auth cache/rate-limit state and pipeline state store; frontend browser state only (001-test-coverage-bugfixes)
+- Python 3.13 (backend), TypeScript 6.0 / ES2022 (frontend) + FastAPI, Pydantic, githubkit, github-copilot-sdk, OpenTelemetry, slowapi (backend); React 19, Vite, TanStack Query, Vitest (frontend) (018-type-checking-strictness-upgrade)
+- SQLite via aiosqlite (backend) (018-type-checking-strictness-upgrade)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
