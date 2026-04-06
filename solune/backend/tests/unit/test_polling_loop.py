@@ -38,7 +38,7 @@ class TestPollStep:
 
         step = PollStep(name="test", execute=noop)
         try:
-            step.name = "other"  # type: ignore[misc]  # testing frozen dataclass
+            setattr(step, "name", "other")  # noqa: B010
             raise AssertionError("Expected FrozenInstanceError")
         except AttributeError:
             pass
