@@ -24,10 +24,10 @@
 
 **Purpose**: Database migration and shared data models needed by all user stories
 
-- [ ] T001 Create database migration for orchestration tracking table in solune/backend/src/migrations/042_app_plan_orchestrations.sql
-- [ ] T002 Add `prerequisite_issues: list[int]` field to PipelineState dataclass in solune/backend/src/services/workflow_orchestrator/models.py
-- [ ] T003 [P] Serialize `prerequisite_issues` in `_pipeline_state_to_row()` metadata JSON in solune/backend/src/services/pipeline_state_store.py
-- [ ] T004 [P] Deserialize `prerequisite_issues` in `_row_to_pipeline_state()` with default `[]` in solune/backend/src/services/pipeline_state_store.py
+- [x] T001 Create database migration for orchestration tracking table in solune/backend/src/migrations/042_app_plan_orchestrations.sql
+- [x] T002 Add `prerequisite_issues: list[int]` field to PipelineState dataclass in solune/backend/src/services/workflow_orchestrator/models.py
+- [x] T003 [P] Serialize `prerequisite_issues` in `_pipeline_state_to_row()` metadata JSON in solune/backend/src/services/pipeline_state_store.py
+- [x] T004 [P] Deserialize `prerequisite_issues` in `_row_to_pipeline_state()` with default `[]` in solune/backend/src/services/pipeline_state_store.py
 
 ---
 
@@ -37,11 +37,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create PlanPhase dataclass (index, title, description, steps, depends_on_phases, execution_mode) in solune/backend/src/services/plan_parser.py
-- [ ] T006 Implement `parse_plan(plan_md_content: str) -> list[PlanPhase]` — extract `## Implementation Phases` section, parse `### Phase N — Title` blocks via regex `r"### Phase (\d+)\s*[—–-]\s*(.+)"`, extract description, steps, dependency markers, and execution mode in solune/backend/src/services/plan_parser.py
-- [ ] T007 Implement `group_into_waves(phases: list[PlanPhase]) -> list[list[PlanPhase]]` — Wave 1: no deps, Wave N: deps all in prior waves in solune/backend/src/services/plan_parser.py
-- [ ] T008 Add circular dependency detection in `parse_plan()` that raises ValueError when cycles are found in solune/backend/src/services/plan_parser.py
-- [ ] T009 Create AppPlanOrchestrator class skeleton with `__init__`, `_update_status()`, and status state machine constants in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T005 Create PlanPhase dataclass (index, title, description, steps, depends_on_phases, execution_mode) in solune/backend/src/services/plan_parser.py
+- [x] T006 Implement `parse_plan(plan_md_content: str) -> list[PlanPhase]` — extract `## Implementation Phases` section, parse `### Phase N — Title` blocks via regex `r"### Phase (\d+)\s*[—–-]\s*(.+)"`, extract description, steps, dependency markers, and execution mode in solune/backend/src/services/plan_parser.py
+- [x] T007 Implement `group_into_waves(phases: list[PlanPhase]) -> list[list[PlanPhase]]` — Wave 1: no deps, Wave N: deps all in prior waves in solune/backend/src/services/plan_parser.py
+- [x] T008 Add circular dependency detection in `parse_plan()` that raises ValueError when cycles are found in solune/backend/src/services/plan_parser.py
+- [x] T009 Create AppPlanOrchestrator class skeleton with `__init__`, `_update_status()`, and status state machine constants in solune/backend/src/services/app_plan_orchestrator.py
 
 **Checkpoint**: Foundation ready — parser and orchestrator skeleton available for all user stories
 
@@ -57,21 +57,21 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T010 [P] [US1] Unit tests for `parse_plan()` — valid plan.md → correct PlanPhase objects, dependency detection, parallel detection, edge cases (single phase, no phases error) in solune/backend/tests/unit/test_plan_parser.py
-- [ ] T011 [P] [US1] Unit tests for `group_into_waves()` — correct wave grouping by dependency depth, single wave when no deps in solune/backend/tests/unit/test_plan_parser.py
-- [ ] T012 [P] [US1] Unit test for circular dependency detection — raises ValueError with cycle info in solune/backend/tests/unit/test_plan_parser.py
-- [ ] T013 [P] [US1] Unit tests for `orchestrate_app_creation()` happy path with mocked services — verifies status transitions: planning → speckit_running → parsing_phases → creating_issues → launching_pipelines → active in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [ ] T014 [P] [US1] Unit tests for error handling in orchestration — speckit.plan timeout, plan.md fetch failure, parse failure (zero phases) in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [ ] T015 [P] [US1] Unit tests for phase issue creation — correct titles (Phase N/M: Title — AppName), correct body content, tracking table appended, added to project board in solune/backend/tests/unit/test_app_plan_orchestrator.py
+- [x] T010 [P] [US1] Unit tests for `parse_plan()` — valid plan.md → correct PlanPhase objects, dependency detection, parallel detection, edge cases (single phase, no phases error) in solune/backend/tests/unit/test_plan_parser.py
+- [x] T011 [P] [US1] Unit tests for `group_into_waves()` — correct wave grouping by dependency depth, single wave when no deps in solune/backend/tests/unit/test_plan_parser.py
+- [x] T012 [P] [US1] Unit test for circular dependency detection — raises ValueError with cycle info in solune/backend/tests/unit/test_plan_parser.py
+- [x] T013 [P] [US1] Unit tests for `orchestrate_app_creation()` happy path with mocked services — verifies status transitions: planning → speckit_running → parsing_phases → creating_issues → launching_pipelines → active in solune/backend/tests/unit/test_app_plan_orchestrator.py
+- [x] T014 [P] [US1] Unit tests for error handling in orchestration — speckit.plan timeout, plan.md fetch failure, parse failure (zero phases) in solune/backend/tests/unit/test_app_plan_orchestrator.py
+- [x] T015 [P] [US1] Unit tests for phase issue creation — correct titles (Phase N/M: Title — AppName), correct body content, tracking table appended, added to project board in solune/backend/tests/unit/test_app_plan_orchestrator.py
 
 ### Implementation for User Story 1
 
-- [ ] T016 [US1] Implement `orchestrate_app_creation()` main flow in AppPlanOrchestrator — call `chat_agent_svc.run_plan()`, create planning issue, assign speckit.plan, poll for Done!, fetch plan.md, parse phases, create issues, launch pipelines in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T017 [US1] Implement `_create_phase_issues()` — for each PlanPhase create a GitHub Parent Issue with title `Phase {N}/{M}: {title} — {app_name}`, body with app overview + phase steps + tracking table, add to project board at Backlog status in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T018 [US1] Implement `_launch_phase_pipelines()` — call `group_into_waves()`, launch Wave 1 with `auto_merge=True` and no prerequisites, queue Wave 2+ with prerequisite_issues in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T019 [US1] Implement error handling in `orchestrate_app_creation()` — configurable timeout for speckit.plan (default 20min), catch parse failures, update status to `failed` with error_message, broadcast failure via WebSocket in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T020 [US1] Create `POST /apps/create-with-plan` endpoint — validate request body per OpenAPI contract, create App record, create AppPlanOrchestration record, start orchestration as BackgroundTask, return 202 with orchestration_id in solune/backend/src/api/apps.py
-- [ ] T021 [US1] Create `GET /apps/{app_name}/plan-status` endpoint — read AppPlanOrchestration from DB, return status, phase_count, phase_issues array with issue numbers/URLs/pipeline status, error_message in solune/backend/src/api/apps.py
+- [x] T016 [US1] Implement `orchestrate_app_creation()` main flow in AppPlanOrchestrator — call `chat_agent_svc.run_plan()`, create planning issue, assign speckit.plan, poll for Done!, fetch plan.md, parse phases, create issues, launch pipelines in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T017 [US1] Implement `_create_phase_issues()` — for each PlanPhase create a GitHub Parent Issue with title `Phase {N}/{M}: {title} — {app_name}`, body with app overview + phase steps + tracking table, add to project board at Backlog status in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T018 [US1] Implement `_launch_phase_pipelines()` — call `group_into_waves()`, launch Wave 1 with `auto_merge=True` and no prerequisites, queue Wave 2+ with prerequisite_issues in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T019 [US1] Implement error handling in `orchestrate_app_creation()` — configurable timeout for speckit.plan (default 20min), catch parse failures, update status to `failed` with error_message, broadcast failure via WebSocket in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T020 [US1] Create `POST /apps/create-with-plan` endpoint — validate request body per OpenAPI contract, create App record, create AppPlanOrchestration record, start orchestration as BackgroundTask, return 202 with orchestration_id in solune/backend/src/api/apps.py
+- [x] T021 [US1] Create `GET /apps/{app_name}/plan-status` endpoint — read AppPlanOrchestration from DB, return status, phase_count, phase_issues array with issue numbers/URLs/pipeline status, error_message in solune/backend/src/api/apps.py
 
 **Checkpoint**: User Story 1 fully functional — plan-driven app creation works end-to-end via API
 
@@ -94,9 +94,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Extend `execute_pipeline_launch()` with `auto_merge: bool = False` and `prerequisite_issues: list[int] | None = None` params — pass both to PipelineState constructor in queue and non-queue branches in solune/backend/src/api/pipelines.py
-- [ ] T027 [US2] Extend `_dequeue_next_pipeline()` with prerequisite checking — before dequeuing, verify all prerequisite_issues have merged PRs; skip pipelines with unmet prerequisites and try next queued one in solune/backend/src/services/copilot_polling/pipeline.py
-- [ ] T028 [US2] Verify auto-merge → dequeue trigger exists — confirm `_dequeue_next_pipeline()` is called after successful auto-merge (already at ~line 2641 in pipeline.py); add comment documenting the prerequisite-aware flow in solune/backend/src/services/copilot_polling/pipeline.py
+- [x] T026 [US2] Extend `execute_pipeline_launch()` with `auto_merge: bool = False` and `prerequisite_issues: list[int] | None = None` params — pass both to PipelineState constructor in queue and non-queue branches in solune/backend/src/api/pipelines.py
+- [x] T027 [US2] Extend `_dequeue_next_pipeline()` with prerequisite checking — before dequeuing, verify all prerequisite_issues have merged PRs; skip pipelines with unmet prerequisites and try next queued one in solune/backend/src/services/copilot_polling/pipeline.py
+- [x] T028 [US2] Verify auto-merge → dequeue trigger exists — confirm `_dequeue_next_pipeline()` is called after successful auto-merge (already at ~line 2641 in pipeline.py); add comment documenting the prerequisite-aware flow in solune/backend/src/services/copilot_polling/pipeline.py
 
 **Checkpoint**: Sequential phase execution works — Phase N+1 starts only after Phase N's PR is merged to main
 
@@ -110,11 +110,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Implement WebSocket broadcasts on status transitions in `_update_status()` — emit `plan_status_update`, `plan_phase_created`, `plan_orchestration_complete`, `plan_orchestration_failed` payloads per AsyncAPI contract via `connection_manager.broadcast_to_project()` in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T030 [P] [US3] Add TypeScript interfaces for `AppCreateWithPlanResponse`, `AppPlanStatusResponse`, `PhaseIssueInfo`, and WebSocket event payloads in solune/frontend/src/types/apps.ts
-- [ ] T031 [P] [US3] Add `useCreateAppWithPlan()` mutation hook — calls `POST /apps/create-with-plan` in solune/frontend/src/hooks/useApps.ts
-- [ ] T032 [P] [US3] Add `useAppPlanStatus(appName)` query hook — polls `GET /apps/{app_name}/plan-status` with fallback when WebSocket is unavailable in solune/frontend/src/hooks/useApps.ts
-- [ ] T033 [US3] Extend CreateAppDialog.tsx — after form submission, transition to Planning Progress view with stepper showing stages (Plan Generation → Agent Running → Parsing → Creating Issues → Launching → Active), listen for WebSocket events to update step status, show links to created phase issues, handle error state with retry option in solune/frontend/src/components/apps/CreateAppDialog.tsx
+- [x] T029 [US3] Implement WebSocket broadcasts on status transitions in `_update_status()` — emit `plan_status_update`, `plan_phase_created`, `plan_orchestration_complete`, `plan_orchestration_failed` payloads per AsyncAPI contract via `connection_manager.broadcast_to_project()` in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T030 [P] [US3] Add TypeScript interfaces for `AppCreateWithPlanResponse`, `AppPlanStatusResponse`, `PhaseIssueInfo`, and WebSocket event payloads in solune/frontend/src/types/apps.ts
+- [x] T031 [P] [US3] Add `useCreateAppWithPlan()` mutation hook — calls `POST /apps/create-with-plan` in solune/frontend/src/hooks/useApps.ts
+- [x] T032 [P] [US3] Add `useAppPlanStatus(appName)` query hook — polls `GET /apps/{app_name}/plan-status` with fallback when WebSocket is unavailable in solune/frontend/src/hooks/useApps.ts
+- [x] T033 [US3] Extend CreateAppDialog.tsx — after form submission, transition to Planning Progress view with stepper showing stages (Plan Generation → Agent Running → Parsing → Creating Issues → Launching → Active), listen for WebSocket events to update step status, show links to created phase issues, handle error state with retry option in solune/frontend/src/components/apps/CreateAppDialog.tsx
 
 **Checkpoint**: Users see real-time progress of plan orchestration with clickable links to phase issues
 
@@ -157,8 +157,8 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T042 [P] Add logging throughout AppPlanOrchestrator — log each status transition, phase issue creation, pipeline launch, and errors in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T043 [P] Add logging for prerequisite checking in `_dequeue_next_pipeline()` — log skip reasons and proceed decisions in solune/backend/src/services/copilot_polling/pipeline.py
+- [x] T042 [P] Add logging throughout AppPlanOrchestrator — log each status transition, phase issue creation, pipeline launch, and errors in solune/backend/src/services/app_plan_orchestrator.py
+- [x] T043 [P] Add logging for prerequisite checking in `_dequeue_next_pipeline()` — log skip reasons and proceed decisions in solune/backend/src/services/copilot_polling/pipeline.py
 - [ ] T044 Run quickstart.md validation — verify all commands from quickstart.md execute successfully against implemented code
 - [ ] T045 Run full backend lint and type check — `ruff check src tests && ruff format --check src tests && pyright src` in solune/backend/
 - [ ] T046 Run full frontend lint and type check — `npm run lint && npm run type-check && npm run build` in solune/frontend/
