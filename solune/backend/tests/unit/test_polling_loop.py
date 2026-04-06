@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from src.services.copilot_polling.polling_loop import (
     POLL_STEPS,
     PollStep,
@@ -64,17 +66,19 @@ class TestPollSteps:
 class TestStopPolling:
     """stop_polling() sets is_running=False and cancels any active task."""
 
-    def test_sets_is_running_false(self):
+    @pytest.mark.asyncio
+    async def test_sets_is_running_false(self):
         with (
             patch("src.services.copilot_polling.polling_loop._polling_state") as mock_state,
             patch("src.services.copilot_polling.polling_loop._cp") as mock_cp,
         ):
             mock_state.is_running = True
             mock_cp._polling_task = None
-            stop_polling()
+            await stop_polling()
             assert mock_state.is_running is False
 
-    def test_cancels_active_task(self):
+    @pytest.mark.asyncio
+    async def test_cancels_active_task(self):
         mock_task = MagicMock()
         mock_task.done.return_value = False
         with (
@@ -82,11 +86,12 @@ class TestStopPolling:
             patch("src.services.copilot_polling.polling_loop._cp") as mock_cp,
         ):
             mock_cp._polling_task = mock_task
-            stop_polling()
+            await stop_polling()
             mock_task.cancel.assert_called_once()
             assert mock_state.is_running is False
 
-    def test_skips_cancel_when_task_done(self):
+    @pytest.mark.asyncio
+    async def test_skips_cancel_when_task_done(self):
         mock_task = MagicMock()
         mock_task.done.return_value = True
         with (
@@ -94,7 +99,7 @@ class TestStopPolling:
             patch("src.services.copilot_polling.polling_loop._cp") as mock_cp,
         ):
             mock_cp._polling_task = mock_task
-            stop_polling()
+            await stop_polling()
             mock_task.cancel.assert_not_called()
             assert mock_state.is_running is False
 

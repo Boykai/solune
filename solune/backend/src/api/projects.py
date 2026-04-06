@@ -298,7 +298,7 @@ async def _start_copilot_polling(session: UserSession, project_id: str) -> None:
     # even if it's in the middle of a long-running API call.
     status = get_polling_status()
     if status["is_running"]:
-        stop_polling()
+        await stop_polling()
         # Give the cancelled task a chance to clean up
         await asyncio.sleep(0.1)
 

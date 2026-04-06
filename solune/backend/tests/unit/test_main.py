@@ -365,6 +365,7 @@ class TestShutdownPollingLogging:
             ),
             patch(
                 "src.services.copilot_polling.stop_polling",
+                new_callable=AsyncMock,
                 side_effect=RuntimeError("polling stop failed"),
             ),
             patch("src.main.logger") as mock_logger,

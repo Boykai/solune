@@ -6287,14 +6287,16 @@ class TestGraphQLRateLimitExtraction:
 class TestStopPolling:
     """Tests for stop_polling."""
 
-    def test_sets_is_running_false(self):
+    @pytest.mark.asyncio
+    async def test_sets_is_running_false(self):
         from src.services.copilot_polling import _polling_state
 
         _polling_state.is_running = True
-        stop_polling()
+        await stop_polling()
         assert _polling_state.is_running is False
 
-    def test_cancels_polling_task(self):
+    @pytest.mark.asyncio
+    async def test_cancels_polling_task(self):
         import src.services.copilot_polling as cp
 
         task = MagicMock()
@@ -6302,16 +6304,17 @@ class TestStopPolling:
         cp._polling_task = task
         cp._polling_state.is_running = True
 
-        stop_polling()
+        await stop_polling()
 
         task.cancel.assert_called_once()
         assert cp._polling_task is None
 
-    def test_no_task_no_error(self):
+    @pytest.mark.asyncio
+    async def test_no_task_no_error(self):
         import src.services.copilot_polling as cp
 
         cp._polling_task = None
-        stop_polling()  # should not raise
+        await stop_polling()  # should not raise
 
 
 # ────────────────────────────────────────────────────────────────────

@@ -706,7 +706,7 @@ async def poll_app_pipeline(
         )
 
 
-def stop_polling() -> None:
+async def stop_polling() -> None:
     """Stop the background polling loop.
 
     Sets the is_running flag to False AND cancels the asyncio task so that
@@ -716,7 +716,8 @@ def stop_polling() -> None:
     callers setting ``src.services.copilot_polling._polling_task`` are
     correctly reflected here.
     """
-    _polling_state.is_running = False
+    async with _polling_state_lock:
+        _polling_state.is_running = False
     if _cp._polling_task is not None and not _cp._polling_task.done():
         _cp._polling_task.cancel()
         _cp._polling_task = None

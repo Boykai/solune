@@ -390,14 +390,11 @@ class TestStopPolling:
                 "src.services.copilot_polling.get_polling_status",
                 return_value=status,
             ),
-            patch("src.services.copilot_polling.stop_polling"),
+            patch("src.services.copilot_polling.stop_polling", new_callable=AsyncMock),
         ):
             resp = await client.post("/api/v1/workflow/polling/stop")
         assert resp.status_code == 200
         assert "not running" in resp.json()["message"].lower()
-
-
-# ── Confirm Recommendation (happy path) ────────────────────────────────────
 
 
 class TestConfirmRecommendation:
@@ -884,7 +881,7 @@ class TestStopPollingRunning:
                 "src.services.copilot_polling.get_polling_status",
                 side_effect=[status_running, status_stopped],
             ),
-            patch("src.services.copilot_polling.stop_polling") as mock_stop,
+            patch("src.services.copilot_polling.stop_polling", new_callable=AsyncMock) as mock_stop,
         ):
             resp = await client.post("/api/v1/workflow/polling/stop")
         assert resp.status_code == 200

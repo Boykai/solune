@@ -282,7 +282,7 @@ class TestStartCopilotPolling:
                 "src.services.copilot_polling.get_polling_status",
                 return_value={"is_running": True},
             ),
-            patch("src.services.copilot_polling.stop_polling") as mock_stop,
+            patch("src.services.copilot_polling.stop_polling", new_callable=AsyncMock) as mock_stop,
             patch(
                 "src.api.projects.resolve_repository",
                 new=AsyncMock(return_value=("o", "r")),

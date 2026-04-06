@@ -570,7 +570,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
             from src.services.copilot_polling import get_polling_status, stop_polling
 
             if get_polling_status()["is_running"]:
-                stop_polling()
+                await stop_polling()
         except Exception as e:
             logger.warning("Error stopping Copilot polling during shutdown: %s", e, exc_info=True)
 
