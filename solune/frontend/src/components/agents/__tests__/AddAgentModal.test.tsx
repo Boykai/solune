@@ -114,4 +114,59 @@ describe('AddAgentModal', () => {
       'https://example.test/pr/1'
     );
   });
+
+  it('validates required fields before creating a new agent', async () => {
+    const user = userEvent.setup();
+    const mutateAsync = vi.fn().mockResolvedValue({
+      pr_url: 'https://example.test/pr/2',
+      pr_number: 2,
+      issue_number: null,
+      branch_name: 'branch',
+      agent: createAgent({ name: 'New Agent' }),
+    });
+    mockUseCreateAgent.mockReturnValue({ mutateAsync, isPending: false });
+
+    render(<AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: /create agent/i }));
+    expect(screen.getByText('Name is required')).toBeInTheDocument();
+    expect(screen.getByText('System prompt is required')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Name'), 'New Agent');
+    await user.type(screen.getByLabelText(/system prompt/i), 'Help with reviews');
+    await user.click(screen.getByRole('button', { name: /create agent/i }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        name: 'New Agent',
+        system_prompt: 'Help with reviews',
+        tools: [],
+        icon_name: null,
+        raw: false,
+      });
+    });
+  });
+
+  it('preserves in-progress edits across rerenders while the same agent stays open', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} editAgent={createAgent()} />
+    );
+
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Reviewer Draft');
+    expect(nameInput).toHaveValue('Reviewer Draft');
+
+    rerender(
+      <AddAgentModal
+        projectId="PVT_1"
+        isOpen={true}
+        onClose={vi.fn()}
+        editAgent={createAgent({ description: 'Updated metadata only' })}
+      />
+    );
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Reviewer Draft');
+  });
 });

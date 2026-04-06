@@ -7,9 +7,10 @@ receive ``resource-updated`` notifications when data changes.
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 
 from src.logging_utils import get_logger
+from src.services.mcp_server.tools import get_mcp_context, verify_mcp_project_access
 
 logger = get_logger(__name__)
 
@@ -18,7 +19,7 @@ def register_resources(mcp: FastMCP) -> None:
     """Register all MCP resource templates on the server instance."""
 
     @mcp.resource("solune://projects/{project_id}/pipelines")
-    async def pipelines_resource(project_id: str) -> str:
+    async def pipelines_resource(ctx: Context, project_id: str) -> str:
         """Current pipeline states for a project.
 
         Returns JSON with all active pipeline states and their stage progress.
@@ -26,6 +27,9 @@ def register_resources(mcp: FastMCP) -> None:
         import json
 
         from src.services.pipeline_state_store import get_all_pipeline_states
+
+        mcp_ctx = get_mcp_context(ctx)
+        await verify_mcp_project_access(mcp_ctx, project_id)
 
         all_states = get_all_pipeline_states()
         project_states = {
@@ -36,13 +40,16 @@ def register_resources(mcp: FastMCP) -> None:
         return json.dumps({"project_id": project_id, "pipeline_states": project_states})
 
     @mcp.resource("solune://projects/{project_id}/board")
-    async def board_resource(project_id: str) -> str:
+    async def board_resource(ctx: Context, project_id: str) -> str:
         """Current board state for a project.
 
         Returns JSON with columns and items from the project board.
         Note: This resource requires a valid GitHub token in the lifespan context.
         """
         import json
+
+        mcp_ctx = get_mcp_context(ctx)
+        await verify_mcp_project_access(mcp_ctx, project_id)
 
         return json.dumps(
             {
@@ -52,7 +59,7 @@ def register_resources(mcp: FastMCP) -> None:
         )
 
     @mcp.resource("solune://projects/{project_id}/activity")
-    async def activity_resource(project_id: str) -> str:
+    async def activity_resource(ctx: Context, project_id: str) -> str:
         """Recent activity feed for a project.
 
         Returns JSON with the latest activity events.
@@ -61,6 +68,9 @@ def register_resources(mcp: FastMCP) -> None:
 
         from src.services.activity_service import query_events
         from src.services.database import get_db
+
+        mcp_ctx = get_mcp_context(ctx)
+        await verify_mcp_project_access(mcp_ctx, project_id)
 
         db = get_db()
         result = await query_events(db, project_id=project_id, limit=20)

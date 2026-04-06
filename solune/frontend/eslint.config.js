@@ -5,7 +5,7 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
 import security from 'eslint-plugin-security';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'coverage', 'test-results', 'e2e-report'] },
+  { ignores: ['dist', 'build', 'node_modules', 'coverage', 'test-results', 'e2e-report'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
