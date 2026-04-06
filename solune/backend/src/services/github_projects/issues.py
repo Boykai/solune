@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import asyncio
 from typing import cast
 
@@ -8,6 +7,7 @@ from githubkit.exception import RequestFailed
 
 from src.exceptions import ValidationError
 from src.logging_utils import get_logger
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     ADD_ISSUE_TO_PROJECT_MUTATION,
     DELETE_PROJECT_ITEM_MUTATION,
@@ -18,7 +18,7 @@ from src.services.github_projects.graphql import (
 logger = get_logger(__name__)
 
 
-class IssuesMixin:
+class IssuesMixin(_ServiceMixin):
     """Issue CRUD, sub-issues, comments, assignment, and project attachment."""
 
     # ──────────────────────────────────────────────────────────────────

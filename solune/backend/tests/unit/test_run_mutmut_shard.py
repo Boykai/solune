@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import textwrap
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -18,9 +19,11 @@ assert _spec is not None and _spec.loader is not None
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 
-SHARDS: dict[str, list[str]] = _mod.SHARDS  # type: ignore[attr-defined]
-_replace_paths_to_mutate = _mod._replace_paths_to_mutate  # type: ignore[attr-defined]
-_build_paths_block = _mod._build_paths_block  # type: ignore[attr-defined]
+SHARDS: dict[str, list[str]] = getattr(_mod, "SHARDS")  # noqa: B009
+_replace_paths_to_mutate: Callable[[str, list[str]], str] = getattr(  # noqa: B009
+    _mod, "_replace_paths_to_mutate"
+)
+_build_paths_block: Callable[[list[str]], str] = getattr(_mod, "_build_paths_block")  # noqa: B009
 
 
 # ── Shard definition tests ──────────────────────────────────────────────

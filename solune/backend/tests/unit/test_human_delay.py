@@ -350,10 +350,13 @@ class TestPipelineDelayExecution:
 
     def test_delay_validation_rejects_non_integer(self):
         """delay_seconds validation rejects non-integer values."""
-        for raw_delay in ["abc", None, "", []]:
+        from typing import Any
+
+        raw_values: list[Any] = ["abc", None, "", []]
+        for raw_delay in raw_values:
             delay_seconds = None
             try:
-                val = int(raw_delay)  # type: ignore[arg-type]
+                val = int(raw_delay)
                 if 1 <= val <= 86400:
                     delay_seconds = val
             except (TypeError, ValueError):
@@ -1422,6 +1425,7 @@ class TestLoadPipelineNodeConfigMerge:
             config={**config_dict, "model_id": model_id, "model_name": model_name},
         )
 
+        assert assignment.config is not None
         assert assignment.config["delay_seconds"] == 60
         assert assignment.config["model_id"] == "gpt-4"
         assert assignment.config["model_name"] == "GPT-4"

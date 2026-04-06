@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from src.logging_utils import get_logger
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     CREATE_PULL_REQUEST_MUTATION,
     GET_ISSUE_LINKED_PRS_QUERY,
@@ -13,7 +13,7 @@ from src.services.github_projects.graphql import (
 logger = get_logger(__name__)
 
 
-class PullRequestsMixin:
+class PullRequestsMixin(_ServiceMixin):
     """Pull request operations — lookup, linking, merging, timeline, and changed files."""
 
     # ──────────────────────────────────────────────────────────────────
