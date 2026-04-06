@@ -21,9 +21,9 @@
 
 **Purpose**: No new project initialization required — existing monorepo with established test infrastructure. Verify prerequisites are in place.
 
-- [ ] T001 Verify concurrency test files exist at `solune/backend/tests/concurrency/test_interleaving.py` and `solune/backend/tests/concurrency/test_polling_races.py` with `@pytest.mark.xfail` markers
-- [ ] T002 [P] Verify MCP test directory exists at `solune/backend/tests/unit/test_mcp_server/` with existing test files (test_auth.py, test_middleware.py, test_resources.py, test_server.py, test_tools_agents.py)
-- [ ] T003 [P] Verify frontend board component directory exists at `solune/frontend/src/components/board/` with target components (CleanUpButton.tsx, PipelineStagesSection.tsx, AddAgentPopover.tsx, etc.)
+- [x] T001 Verify concurrency test files exist at `solune/backend/tests/concurrency/test_interleaving.py` and `solune/backend/tests/concurrency/test_polling_races.py` with `@pytest.mark.xfail` markers
+- [x] T002 [P] Verify MCP test directory exists at `solune/backend/tests/unit/test_mcp_server/` with existing test files (test_auth.py, test_middleware.py, test_resources.py, test_server.py, test_tools_agents.py)
+- [x] T003 [P] Verify frontend board component directory exists at `solune/frontend/src/components/board/` with target components (CleanUpButton.tsx, PipelineStagesSection.tsx, AddAgentPopover.tsx, etc.)
 
 ---
 
@@ -33,8 +33,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Add `import asyncio` (if not present) and `_polling_state_lock = asyncio.Lock()` to `solune/backend/src/services/copilot_polling/state.py`
-- [ ] T005 Add `_polling_startup_lock = asyncio.Lock()` to `solune/backend/src/services/copilot_polling/state.py`
+- [x] T004 Add `import asyncio` (if not present) and `_polling_state_lock = asyncio.Lock()` to `solune/backend/src/services/copilot_polling/state.py`
+- [x] T005 Add `_polling_startup_lock = asyncio.Lock()` to `solune/backend/src/services/copilot_polling/state.py`
 
 **Checkpoint**: Lock infrastructure ready — concurrency bug fix stories can now proceed
 
@@ -48,12 +48,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Import `_polling_state_lock` from `state.py` in `solune/backend/src/services/copilot_polling/polling_loop.py`
-- [ ] T007 [US1] Guard `_polling_state` field mutations at lines 316, 323, 404-405, 494-495, 617, 713 with `async with _polling_state_lock` in `solune/backend/src/services/copilot_polling/polling_loop.py`
-- [ ] T008 [P] [US1] Import `_polling_state_lock` from `state.py` in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T009 [P] [US1] Guard `_polling_state` field mutations at lines 1009-1010, 1102-1103, 3284-3285, 3464-3465 with `async with _polling_state_lock` in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T010 [US1] Remove `@pytest.mark.xfail` marker from `solune/backend/tests/concurrency/test_interleaving.py`
-- [ ] T011 [US1] Verify: `pytest tests/concurrency/test_interleaving.py -v` passes without xfail
+- [x] T006 [US1] Import `_polling_state_lock` from `state.py` in `solune/backend/src/services/copilot_polling/polling_loop.py`
+- [x] T007 [US1] Guard `_polling_state` field mutations at lines 316, 323, 404-405, 494-495, 617, 713 with `async with _polling_state_lock` in `solune/backend/src/services/copilot_polling/polling_loop.py`
+- [x] T008 [P] [US1] Import `_polling_state_lock` from `state.py` in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T009 [P] [US1] Guard `_polling_state` field mutations at lines 1009-1010, 1102-1103, 3284-3285, 3464-3465 with `async with _polling_state_lock` in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T010 [US1] Remove `@pytest.mark.xfail` marker from `solune/backend/tests/concurrency/test_interleaving.py`
+- [x] T011 [US1] Verify: `pytest tests/concurrency/test_interleaving.py -v` passes without xfail
 
 **Checkpoint**: Polling state race condition is fixed — concurrent mutations are serialized via lock
 
@@ -67,10 +67,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Import `_polling_startup_lock` from `state.py` in `solune/backend/src/services/copilot_polling/__init__.py`
-- [ ] T013 [US2] Wrap the check-then-create sequence in `ensure_polling_started()` (~L263-332) with `async with _polling_startup_lock` in `solune/backend/src/services/copilot_polling/__init__.py`
-- [ ] T014 [US2] Remove `@pytest.mark.xfail` marker from `solune/backend/tests/concurrency/test_polling_races.py`
-- [ ] T015 [US2] Verify: `pytest tests/concurrency/test_polling_races.py -v` passes without xfail
+- [x] T012 [US2] Import `_polling_startup_lock` from `state.py` in `solune/backend/src/services/copilot_polling/__init__.py`
+- [x] T013 [US2] Wrap the check-then-create sequence in `ensure_polling_started()` (~L263-332) with `async with _polling_startup_lock` in `solune/backend/src/services/copilot_polling/__init__.py`
+- [x] T014 [US2] Remove `@pytest.mark.xfail` marker from `solune/backend/tests/concurrency/test_polling_races.py`
+- [x] T015 [US2] Verify: `pytest tests/concurrency/test_polling_races.py -v` passes without xfail
 
 **Checkpoint**: Duplicate polling task race condition is fixed — exactly one task per session guaranteed
 
@@ -84,11 +84,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T016 [US3] Replace `get_project_repository()` patches with `resolve_repository()` mocks in `solune/backend/tests/unit/test_api_projects.py` (L253-370)
-- [ ] T017 [US3] Replace `poll_for_copilot_completion()` patches with `ensure_polling_started()` mocks in `solune/backend/tests/unit/test_api_projects.py` (L253-370)
-- [ ] T018 [US3] Update mock return values and assertions to match `resolve_repository()` / `ensure_polling_started()` signatures in `solune/backend/tests/unit/test_api_projects.py`
-- [ ] T019 [US3] Verify: `grep -n "poll_for_copilot_completion\|get_project_repository" solune/backend/tests/unit/test_api_projects.py` returns no results
-- [ ] T020 [US3] Verify: `pytest tests/unit/test_api_projects.py -v` passes
+- [x] T016 [US3] Replace `get_project_repository()` patches with `resolve_repository()` mocks in `solune/backend/tests/unit/test_api_projects.py` (L253-370)
+- [x] T017 [US3] Replace `poll_for_copilot_completion()` patches with `ensure_polling_started()` mocks in `solune/backend/tests/unit/test_api_projects.py` (L253-370)
+- [x] T018 [US3] Update mock return values and assertions to match `resolve_repository()` / `ensure_polling_started()` signatures in `solune/backend/tests/unit/test_api_projects.py`
+- [x] T019 [US3] Verify: `grep -n "poll_for_copilot_completion\|get_project_repository" solune/backend/tests/unit/test_api_projects.py` returns no results
+- [x] T020 [US3] Verify: `pytest tests/unit/test_api_projects.py -v` passes
 
 **Checkpoint**: All P1 blocking stories complete — parallel user story work can now begin
 
@@ -102,8 +102,8 @@
 
 ### Implementation for User Story 4
 
-- [ ] T021 [US4] Add test case for non-list `tools` value (e.g., `tools="read"`) to `TestExtractAgentPreview` class in `solune/backend/tests/unit/test_agents_service.py` — assert `_extract_agent_preview()` returns None
-- [ ] T022 [US4] Verify: `pytest tests/unit/test_agents_service.py::TestExtractAgentPreview -v` passes (7 tests total including new one)
+- [x] T021 [US4] Add test case for non-list `tools` value (e.g., `tools="read"`) to `TestExtractAgentPreview` class in `solune/backend/tests/unit/test_agents_service.py` — assert `_extract_agent_preview()` returns None
+- [x] T022 [US4] Verify: `pytest tests/unit/test_agents_service.py::TestExtractAgentPreview -v` passes (7 tests total including new one)
 
 **Checkpoint**: Agent preview guard validated — malformed tools input safely returns None
 
@@ -117,13 +117,13 @@
 
 ### Implementation for User Story 5
 
-- [ ] T023 [P] [US5] Enhance `solune/backend/tests/unit/test_mcp_server/test_middleware.py` — add tests for valid token auth, missing Authorization header, malformed token format, and context cleanup after request
-- [ ] T024 [P] [US5] Create `solune/backend/tests/unit/test_mcp_server/test_tools_chores.py` — test `list_chores()` CRUD operations, `trigger_chore()` with error dicts, invalid project_id handling
-- [ ] T025 [P] [US5] Create `solune/backend/tests/unit/test_mcp_server/test_tools_chat.py` — test `send_chat_message()`, `get_metadata()`, `cleanup_preflight()`, session handling
-- [ ] T026 [P] [US5] Create `solune/backend/tests/unit/test_mcp_server/test_tools_activity.py` — test `get_activity()` with limit boundaries (1, 100, out-of-range), `update_item_status()` with valid/invalid IDs
-- [ ] T027 [P] [US5] Enhance `solune/backend/tests/unit/test_mcp_server/test_resources.py` — add tests for resource type branches (projects, agents, chores), prompt template selection paths, error responses
-- [ ] T028 [P] [US5] Enhance `solune/backend/tests/unit/test_api_templates.py` — add tests for category enum filtering, 404 on missing template, pagination edge cases (empty results, boundary pages)
-- [ ] T029 [US5] Verify: `pytest tests/unit/test_mcp_server/ -v --cov=src/services/mcp_server --cov-report=term-missing` — middleware 41% → 80%+, tools 20-30% → 70%+, resources 46% → 70%+
+- [x] T023 [P] [US5] Enhance `solune/backend/tests/unit/test_mcp_server/test_middleware.py` — add tests for valid token auth, missing Authorization header, malformed token format, and context cleanup after request
+- [x] T024 [P] [US5] Create `solune/backend/tests/unit/test_mcp_server/test_tools_chores.py` — test `list_chores()` CRUD operations, `trigger_chore()` with error dicts, invalid project_id handling
+- [x] T025 [P] [US5] Create `solune/backend/tests/unit/test_mcp_server/test_tools_chat.py` — test `send_chat_message()`, `get_metadata()`, `cleanup_preflight()`, session handling
+- [x] T026 [P] [US5] Create `solune/backend/tests/unit/test_mcp_server/test_tools_activity.py` — test `get_activity()` with limit boundaries (1, 100, out-of-range), `update_item_status()` with valid/invalid IDs
+- [x] T027 [P] [US5] Enhance `solune/backend/tests/unit/test_mcp_server/test_resources.py` — add tests for resource type branches (projects, agents, chores), prompt template selection paths, error responses
+- [x] T028 [P] [US5] Enhance `solune/backend/tests/unit/test_api_templates.py` — add tests for category enum filtering, 404 on missing template, pagination edge cases (empty results, boundary pages)
+- [x] T029 [US5] Verify: `pytest tests/unit/test_mcp_server/ -v --cov=src/services/mcp_server --cov-report=term-missing` — middleware 41% → 80%+, tools 20-30% → 70%+, resources 46% → 70%+
 
 **Checkpoint**: MCP server components have comprehensive unit test coverage
 
@@ -137,11 +137,11 @@
 
 ### Implementation for User Story 6
 
-- [ ] T030 [P] [US6] Create `solune/frontend/src/layout/PageTransition.test.tsx` — test key={pathname} remount on route change, `motion-safe:animate-page-enter` animation class present, Outlet renders children, null main element guard
-- [ ] T031 [P] [US6] Enhance `solune/frontend/src/components/board/CleanUpSummary.test.tsx` — verify `useScrollLock(true)` is called with constant `true` on component mount
-- [ ] T032 [P] [US6] Enhance page-level tests to verify section anchor IDs (`#agents-catalog`, `#chores-catalog`, `#tools-catalog`) render in the DOM for catalog pages
-- [ ] T033 [US6] Test `scrollIntoView` behavior in AgentsPipelinePage test in `solune/frontend/src/pages/`
-- [ ] T034 [US6] Verify: `npx vitest run --run src/layout/PageTransition.test.tsx src/components/board/CleanUpSummary.test.tsx` passes
+- [x] T030 [P] [US6] Create `solune/frontend/src/layout/PageTransition.test.tsx` — test key={pathname} remount on route change, `motion-safe:animate-page-enter` animation class present, Outlet renders children, null main element guard
+- [x] T031 [P] [US6] Enhance `solune/frontend/src/components/board/CleanUpSummary.test.tsx` — verify `useScrollLock(true)` is called with constant `true` on component mount
+- [x] T032 [P] [US6] Enhance page-level tests to verify section anchor IDs (`#agents-catalog`, `#chores-catalog`, `#tools-catalog`) render in the DOM for catalog pages
+- [x] T033 [US6] Test `scrollIntoView` behavior in AgentsPipelinePage test in `solune/frontend/src/pages/`
+- [x] T034 [US6] Verify: `npx vitest run --run src/layout/PageTransition.test.tsx src/components/board/CleanUpSummary.test.tsx` passes
 
 **Checkpoint**: Scroll behavior has test coverage — regressions in scroll-to-top and scroll-lock will be caught by CI
 
@@ -157,21 +157,21 @@
 
 #### High Priority
 
-- [ ] T035 [P] [US7] Create `solune/frontend/src/components/board/CleanUpButton.test.tsx` — test cleanup workflow orchestration: idle → loading → confirming → executing → summary state transitions
-- [ ] T036 [P] [US7] Create `solune/frontend/src/components/board/PipelineStagesSection.test.tsx` — test pipeline stage rendering, agent dropdown display, pipeline selection interaction
+- [x] T035 [P] [US7] Create `solune/frontend/src/components/board/CleanUpButton.test.tsx` — test cleanup workflow orchestration: idle → loading → confirming → executing → summary state transitions
+- [x] T036 [P] [US7] Create `solune/frontend/src/components/board/PipelineStagesSection.test.tsx` — test pipeline stage rendering, agent dropdown display, pipeline selection interaction
 
 #### Medium Priority
 
-- [ ] T037 [P] [US7] Create `solune/frontend/src/components/board/AddAgentPopover.test.tsx` — test Radix Popover trigger, async agent option loading, search filter, duplicate agent detection
+- [x] T037 [P] [US7] Create `solune/frontend/src/components/board/AddAgentPopover.test.tsx` — test Radix Popover trigger, async agent option loading, search filter, duplicate agent detection
 
 #### Low Priority (Smoke + A11y Only)
 
-- [ ] T038 [P] [US7] Create `solune/frontend/src/components/board/AgentDragOverlay.test.tsx` — smoke render test and accessible markup validation
-- [ ] T039 [P] [US7] Create `solune/frontend/src/components/board/BoardDragOverlay.test.tsx` — smoke render test and accessible markup validation
-- [ ] T040 [P] [US7] Create `solune/frontend/src/components/board/AgentColumnCell.test.tsx` — smoke render test and accessible markup validation
-- [ ] T041 [P] [US7] Create `solune/frontend/src/components/board/AgentConfigRow.test.tsx` — smoke render test and accessible markup validation
-- [ ] T042 [P] [US7] Create `solune/frontend/src/components/board/AgentPresetSelector.test.tsx` — smoke render test and accessible markup validation
-- [ ] T043 [US7] Verify: `npx vitest run --coverage` — board coverage 42% → 55%+; all CI thresholds pass (statements ≥ 50%, branches ≥ 44%, functions ≥ 41%, lines ≥ 50%)
+- [x] T038 [P] [US7] Create `solune/frontend/src/components/board/AgentDragOverlay.test.tsx` — smoke render test and accessible markup validation
+- [x] T039 [P] [US7] Create `solune/frontend/src/components/board/BoardDragOverlay.test.tsx` — smoke render test and accessible markup validation
+- [x] T040 [P] [US7] Create `solune/frontend/src/components/board/AgentColumnCell.test.tsx` — smoke render test and accessible markup validation
+- [x] T041 [P] [US7] Create `solune/frontend/src/components/board/AgentConfigRow.test.tsx` — smoke render test and accessible markup validation
+- [x] T042 [P] [US7] Create `solune/frontend/src/components/board/AgentPresetSelector.test.tsx` — smoke render test and accessible markup validation
+- [x] T043 [US7] Verify: `npx vitest run --coverage` — board coverage 42% → 55%+; all CI thresholds pass (statements ≥ 50%, branches ≥ 44%, functions ≥ 41%, lines ≥ 50%)
 
 **Checkpoint**: Board component coverage target met — all interactive components have baseline test coverage
 
@@ -181,15 +181,15 @@
 
 **Purpose**: Final validation across all stories, type checking, and lint compliance
 
-- [ ] T044 [P] Run backend type check: `cd solune/backend && uv run pyright src` — no new type errors
-- [ ] T045 [P] Run frontend type check: `cd solune/frontend && npx tsc --noEmit` — no new type errors
-- [ ] T046 [P] Run backend lint: `cd solune/backend && uv run ruff check src tests` — no lint errors
-- [ ] T047 [P] Run frontend lint: `cd solune/frontend && npm run lint` — no lint errors
-- [ ] T048 Run full backend test suite: `cd solune/backend && uv run pytest tests/unit/ -v --cov=src --cov-report=term-missing` — coverage 79% → 81%+
-- [ ] T049 Run full frontend test suite: `cd solune/frontend && npx vitest run --coverage` — all thresholds pass
-- [ ] T050 Verify deprecated patches removed: `grep -rn "poll_for_copilot_completion\|get_project_repository" solune/backend/tests/unit/test_api_projects.py` — no matches
-- [ ] T051 Run concurrency test suite: `cd solune/backend && uv run pytest tests/concurrency/ -v` — both formerly-xfail tests pass
-- [ ] T052 Run quickstart.md full verification sequence from `specs/001-test-coverage-bugfixes/quickstart.md`
+- [x] T044 [P] Run backend type check: `cd solune/backend && uv run pyright src` — no new type errors
+- [x] T045 [P] Run frontend type check: `cd solune/frontend && npx tsc --noEmit` — no new type errors
+- [x] T046 [P] Run backend lint: `cd solune/backend && uv run ruff check src tests` — no lint errors
+- [x] T047 [P] Run frontend lint: `cd solune/frontend && npm run lint` — no lint errors
+- [x] T048 Run full backend test suite: `cd solune/backend && uv run pytest tests/unit/ -v --cov=src --cov-report=term-missing` — coverage 79% → 81%+
+- [x] T049 Run full frontend test suite: `cd solune/frontend && npx vitest run --coverage` — all thresholds pass
+- [x] T050 Verify deprecated patches removed: `grep -rn "poll_for_copilot_completion\|get_project_repository" solune/backend/tests/unit/test_api_projects.py` — no matches
+- [x] T051 Run concurrency test suite: `cd solune/backend && uv run pytest tests/concurrency/ -v` — both formerly-xfail tests pass
+- [x] T052 Run quickstart.md full verification sequence from `specs/001-test-coverage-bugfixes/quickstart.md`
 
 ---
 
