@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
+from typing import TYPE_CHECKING
+
 from src.logging_utils import get_logger
 from src.services.github_projects.graphql import (
     CREATE_PULL_REQUEST_MUTATION,
@@ -10,10 +11,13 @@ from src.services.github_projects.graphql import (
     MERGE_PULL_REQUEST_MUTATION,
 )
 
+if TYPE_CHECKING:
+    from src.services.github_projects._protocol import _ServiceProtocol
+
 logger = get_logger(__name__)
 
 
-class PullRequestsMixin:
+class PullRequestsMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Pull request operations — lookup, linking, merging, timeline, and changed files."""
 
     # ──────────────────────────────────────────────────────────────────

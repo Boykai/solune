@@ -13,6 +13,7 @@ from src.logging_utils import get_logger
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Meter
+    from opentelemetry.sdk.trace import SpanProcessor
     from opentelemetry.trace import Tracer
 
 logger = get_logger(__name__)
@@ -21,7 +22,7 @@ _tracer: Tracer | None = None
 _meter: Meter | None = None
 
 
-class _RequestIDSpanProcessor:
+class _RequestIDSpanProcessor(SpanProcessor if TYPE_CHECKING else object):
     """SpanProcessor that injects the current X-Request-ID into every span."""
 
     def on_start(self, span: Any, parent_context: Any = None) -> None:
@@ -67,7 +68,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
         tracer_provider = TracerProvider(resource=resource)
         span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
         tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
-        tracer_provider.add_span_processor(_RequestIDSpanProcessor())  # type: ignore[arg-type]  # implements SpanProcessor protocol
+        tracer_provider.add_span_processor(_RequestIDSpanProcessor())
         trace.set_tracer_provider(tracer_provider)
 
         # ── Metrics ──
@@ -77,7 +78,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
         metrics.set_meter_provider(meter_provider)
 
         # ── Auto-instrumentation ──
-        FastAPIInstrumentor.instrument()  # type: ignore[call-arg]  # OTel classmethod
+        FastAPIInstrumentor().instrument()
         HTTPXClientInstrumentor().instrument()
         SQLite3Instrumentor().instrument()
 
@@ -114,15 +115,21 @@ class _NoOpSpan:
         pass
 
 
-class _NoOpTracer:
+class _NoOpTracer(Tracer if TYPE_CHECKING else object):
     """Lightweight no-op tracer — avoids importing ``opentelemetry``."""
 
-    def start_as_current_span(self, name: str, **kwargs: object) -> _NoOpSpan:
+    def start_as_current_span(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return _NoOpSpan()
+
+    def start_span(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return _NoOpSpan()
 
 
-class _NoOpMeter:
+class _NoOpMeter(Meter if TYPE_CHECKING else object):
     """Lightweight no-op meter — avoids importing ``opentelemetry``."""
+
+    def __init__(self, name: str = "", *args: Any, **kwargs: Any) -> None:
+        pass
 
     class _NoOpInstrument:
         def set(self, value: object, attributes: object = None) -> None:
@@ -131,13 +138,28 @@ class _NoOpMeter:
         def record(self, value: object, attributes: object = None) -> None:
             pass
 
-    def create_gauge(self, name: str, **kwargs: object) -> _NoOpInstrument:
+        def add(self, amount: object, attributes: object = None) -> None:
+            pass
+
+    def create_gauge(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return self._NoOpInstrument()
 
-    def create_histogram(self, name: str, **kwargs: object) -> _NoOpInstrument:
+    def create_histogram(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return self._NoOpInstrument()
 
-    def create_counter(self, name: str, **kwargs: object) -> _NoOpInstrument:
+    def create_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_up_down_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_observable_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_observable_gauge(self, name: str, *args: Any, **kwargs: Any) -> Any:
+        return self._NoOpInstrument()
+
+    def create_observable_up_down_counter(self, name: str, *args: Any, **kwargs: Any) -> Any:
         return self._NoOpInstrument()
 
 
@@ -145,11 +167,11 @@ def get_tracer() -> Tracer:
     """Return the active tracer, or a local no-op tracer (zero OTel imports)."""
     if _tracer is not None:
         return _tracer
-    return _NoOpTracer()  # type: ignore[return-value]  # implements Tracer protocol
+    return _NoOpTracer()  # implements Tracer protocol via TYPE_CHECKING inheritance
 
 
 def get_meter() -> Meter:
     """Return the active meter, or a local no-op meter (zero OTel imports)."""
     if _meter is not None:
         return _meter
-    return _NoOpMeter()  # type: ignore[return-value]  # implements Meter protocol
+    return _NoOpMeter()  # implements Meter protocol via TYPE_CHECKING inheritance

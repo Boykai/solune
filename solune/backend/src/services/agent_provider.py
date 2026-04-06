@@ -10,12 +10,22 @@ Supported providers:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 from src.config import get_settings
 from src.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+
+class _ExtendedCopilotOptions(TypedDict, total=False):
+    """GitHubCopilotOptions with additional ``reasoning_effort`` key."""
+
+    model: str
+    on_permission_request: Any
+    timeout: float
+    mcp_servers: Any
+    reasoning_effort: str
 
 
 async def create_agent(
@@ -75,8 +85,8 @@ async def _create_copilot_agent(
     as a MAF-compatible provider. Reuses the shared CopilotClientPool so
     only one CLI server process exists per GitHub token.
     """
-    from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
-    from copilot import PermissionHandler  # type: ignore[reportMissingImports]
+    from agent_framework_github_copilot import GitHubCopilotAgent
+    from copilot import PermissionHandler
 
     from src.services.completion_providers import get_copilot_client_pool
 
@@ -88,7 +98,7 @@ async def _create_copilot_agent(
 
     settings = get_settings()
 
-    options: GitHubCopilotOptions = {
+    options: _ExtendedCopilotOptions = {
         "model": settings.copilot_model,
         "on_permission_request": PermissionHandler.approve_all,
         "timeout": float(settings.agent_copilot_timeout_seconds),
@@ -98,7 +108,7 @@ async def _create_copilot_agent(
         options["mcp_servers"] = mcp_servers
 
     if reasoning_effort:
-        options["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
+        options["reasoning_effort"] = reasoning_effort
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

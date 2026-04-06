@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.models.board import BoardItem
+    from src.services.github_projects._protocol import _ServiceProtocol
 
 from src.constants import StatusNames
 from src.logging_utils import get_logger
@@ -18,7 +18,7 @@ from src.services.github_projects.graphql import (
 logger = get_logger(__name__)
 
 
-class BoardMixin:
+class BoardMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Kanban board view — project board data with columns and items."""
 
     # ──────────────────────────────────────────────────────────────────

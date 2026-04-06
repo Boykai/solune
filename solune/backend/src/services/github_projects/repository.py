@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import base64
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from src.exceptions import GitHubAPIError
 from src.logging_utils import get_logger
@@ -11,10 +10,13 @@ from src.services.github_projects.graphql import (
     GET_REPOSITORY_INFO_QUERY,
 )
 
+if TYPE_CHECKING:
+    from src.services.github_projects._protocol import _ServiceProtocol
+
 logger = get_logger(__name__)
 
 
-class RepositoryMixin:
+class RepositoryMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Repository info, file/directory contents, and commit operations."""
 
     async def create_repository(

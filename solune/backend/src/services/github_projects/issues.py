@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import asyncio
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from githubkit.exception import RequestFailed
 
@@ -15,10 +14,13 @@ from src.services.github_projects.graphql import (
     VERIFY_ITEM_ON_PROJECT_QUERY,
 )
 
+if TYPE_CHECKING:
+    from src.services.github_projects._protocol import _ServiceProtocol
+
 logger = get_logger(__name__)
 
 
-class IssuesMixin:
+class IssuesMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Issue CRUD, sub-issues, comments, assignment, and project attachment."""
 
     # ──────────────────────────────────────────────────────────────────

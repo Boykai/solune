@@ -63,7 +63,7 @@ class CopilotClientPool:
             if key in self._clients:
                 return self._clients[key]
 
-            from copilot import CopilotClient  # type: ignore[reportMissingImports]
+            from copilot import CopilotClient
             from copilot.types import CopilotClientOptions
 
             options = CopilotClientOptions(github_token=github_token, auto_start=False)
@@ -173,10 +173,10 @@ class CopilotCompletionProvider(CompletionProvider):
 
         client = await self._pool.get_or_create(github_token)
 
-        from copilot.generated.session_events import (  # type: ignore[reportMissingImports]
+        from copilot.generated.session_events import (
             SessionEventType,
         )
-        from copilot.types import (  # type: ignore[reportMissingImports]
+        from copilot.types import (
             PermissionHandler,
             SessionConfig,
         )
@@ -193,12 +193,12 @@ class CopilotCompletionProvider(CompletionProvider):
         # Build SessionConfig (SDK 0.1.0 requires a typed config dict)
         config: SessionConfig = {
             "model": self._model,
-            "on_permission_request": PermissionHandler.approve_all,  # pyright: ignore[reportAttributeAccessIssue]
+            "on_permission_request": PermissionHandler.approve_all,
         }
         if system_content:
             config["system_message"] = {"mode": "replace", "content": system_content}
         if reasoning_effort:
-            config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
+            config["reasoning_effort"] = reasoning_effort
 
         # Create session, send prompt, wait for response
         session = await client.create_session(config)

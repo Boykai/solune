@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import asyncio
+from typing import TYPE_CHECKING
 
 from src.constants import DEFAULT_STATUS_BACKLOG, StatusNames
 from src.logging_utils import get_logger
@@ -31,6 +31,9 @@ from src.services.github_projects.graphql import (
 )
 from src.utils import utcnow
 
+if TYPE_CHECKING:
+    from src.services.github_projects._protocol import _ServiceProtocol
+
 # Configurable delay (seconds) before status/assignment updates.
 API_ACTION_DELAY_SECONDS: float = 2.0
 
@@ -47,7 +50,7 @@ _SOLUNE_STATUS_OPTIONS = [
 ]
 
 
-class ProjectsMixin:
+class ProjectsMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Project listing, items, fields, status management, and change detection."""
 
     # ------------------------------------------------------------------

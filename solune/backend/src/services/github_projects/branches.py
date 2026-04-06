@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
+from typing import TYPE_CHECKING
+
 from src.logging_utils import get_logger
 from src.services.github_projects.graphql import (
     CREATE_BRANCH_MUTATION,
     GET_BRANCH_HEAD_QUERY,
 )
 
+if TYPE_CHECKING:
+    from src.services.github_projects._protocol import _ServiceProtocol
+
 logger = get_logger(__name__)
 
 
-class BranchesMixin:
+class BranchesMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Branch creation, deletion, and HEAD lookup."""
 
     async def delete_branch(

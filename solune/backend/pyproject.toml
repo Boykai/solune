@@ -123,6 +123,7 @@ pythonVersion = "3.13"
 typeCheckingMode = "standard"
 include = ["src"]
 exclude = ["**/__pycache__", "htmlcov"]
+stubPath = "src/typestubs"
 reportMissingTypeStubs = false
 reportMissingImports = "warning"
 

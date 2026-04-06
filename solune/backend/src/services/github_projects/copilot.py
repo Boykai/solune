@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from src.logging_utils import get_logger
 from src.services.github_projects.graphql import (
@@ -11,13 +11,16 @@ from src.services.github_projects.graphql import (
     REQUEST_COPILOT_REVIEW_MUTATION,
 )
 
+if TYPE_CHECKING:
+    from src.services.github_projects._protocol import _ServiceProtocol
+
 # Configurable delay (seconds) before status/assignment updates.
 API_ACTION_DELAY_SECONDS: float = 2.0
 
 logger = get_logger(__name__)
 
 
-class CopilotMixin:
+class CopilotMixin(_ServiceProtocol if TYPE_CHECKING else object):
     """Copilot assignment, review, polling, and session error detection."""
 
     async def get_copilot_bot_id(
