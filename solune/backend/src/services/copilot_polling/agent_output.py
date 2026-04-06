@@ -11,6 +11,7 @@ from src.logging_utils import get_logger
 from .state import (
     _claimed_child_prs,
     _polling_state,
+    _polling_state_lock,
     _posted_agent_outputs,
     _system_marked_ready_prs,
 )
@@ -1052,7 +1053,8 @@ async def post_agent_outputs_from_pr(
 
     except Exception as e:
         logger.error("Error posting agent outputs from PRs: %s", e, exc_info=True)
-        _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        async with _polling_state_lock:
+            _polling_state.errors_count += 1
+            _polling_state.last_error = type(e).__name__
 
     return results

@@ -1574,6 +1574,11 @@ class TestExtractAgentPreview:
         assert preview.description == ""
         assert preview.tools == []
 
+    def test_non_list_tools_returns_none(self):
+        """Regression: tools="read" (string, not list) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": "read"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
 
 # ── _coerce_agent_status ─────────────────────────────────────────────────
 

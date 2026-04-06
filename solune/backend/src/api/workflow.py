@@ -932,7 +932,7 @@ async def stop_copilot_polling(
     if not status["is_running"]:
         return {"message": "Polling is not running", "status": status}
 
-    stop_polling()
+    await stop_polling()
 
     logger.info("Stopped Copilot PR polling")
 

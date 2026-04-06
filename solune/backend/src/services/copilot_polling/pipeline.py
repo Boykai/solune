@@ -19,6 +19,7 @@ from .state import (
     _merge_failure_counts,
     _pending_agent_assignments,
     _polling_state,
+    _polling_state_lock,
     _processed_issue_prs,
     _system_marked_ready_prs,
 )
@@ -1006,8 +1007,9 @@ async def check_backlog_issues(
 
     except Exception as e:
         logger.error("Error checking backlog issues: %s", e, exc_info=True)
-        _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        async with _polling_state_lock:
+            _polling_state.errors_count += 1
+            _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -1099,8 +1101,9 @@ async def check_ready_issues(
 
     except Exception as e:
         logger.error("Error checking ready issues: %s", e, exc_info=True)
-        _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        async with _polling_state_lock:
+            _polling_state.errors_count += 1
+            _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -3281,8 +3284,9 @@ async def check_in_review_issues(
 
     except Exception as e:
         logger.error("Error checking in-review issues: %s", e, exc_info=True)
-        _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        async with _polling_state_lock:
+            _polling_state.errors_count += 1
+            _polling_state.last_error = type(e).__name__
 
     return results
 
@@ -3461,8 +3465,9 @@ async def check_in_progress_issues(
 
     except Exception as e:
         logger.error("Error checking in-progress issues: %s", e, exc_info=True)
-        _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        async with _polling_state_lock:
+            _polling_state.errors_count += 1
+            _polling_state.last_error = type(e).__name__
 
     return results
 

@@ -38,7 +38,6 @@ async def test_bounded_polling_collections_stay_within_capacity(
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="polling task start is not synchronized")
 async def test_concurrent_start_attempts_should_never_create_duplicate_polling_tasks(
     isolated_polling_globals,
 ) -> None:
@@ -46,12 +45,13 @@ async def test_concurrent_start_attempts_should_never_create_duplicate_polling_t
     gate = asyncio.Event()
 
     async def start_attempt() -> None:
-        if polling_state_module._polling_task is None:
-            await gate.wait()
-            task = asyncio.create_task(asyncio.sleep(60))
-            created_tasks.append(task)
-            polling_state_module._polling_task = task
-            polling_state_module._polling_state.is_running = True
+        await gate.wait()
+        async with polling_state_module._polling_startup_lock:
+            if polling_state_module._polling_task is None:
+                task = asyncio.create_task(asyncio.sleep(60))
+                created_tasks.append(task)
+                polling_state_module._polling_task = task
+                polling_state_module._polling_state.is_running = True
 
     try:
         starters = [asyncio.create_task(start_attempt()) for _ in range(2)]

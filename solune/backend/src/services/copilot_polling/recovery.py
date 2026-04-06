@@ -21,6 +21,7 @@ from .state import (
     RECOVERY_COOLDOWN_SECONDS,
     _pending_agent_assignments,
     _polling_state,
+    _polling_state_lock,
     _recovery_last_attempt,
 )
 
@@ -925,8 +926,9 @@ async def recover_stalled_issues(
 
     except Exception as e:
         logger.error("Error in recovery check: %s", e, exc_info=True)
-        _polling_state.errors_count += 1
-        _polling_state.last_error = type(e).__name__
+        async with _polling_state_lock:
+            _polling_state.errors_count += 1
+            _polling_state.last_error = type(e).__name__
 
     return results
 

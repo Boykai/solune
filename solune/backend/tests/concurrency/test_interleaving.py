@@ -8,34 +8,30 @@ from src.services.copilot_polling import state as polling_state_module
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="module-level polling state allows stale writes")
 async def test_forced_interleaving_should_preserve_latest_error(
     isolated_polling_globals,
     fresh_polling_state,
 ) -> None:
     fresh_polling_state.last_error = "initial"
 
-    async def first_writer(resume: asyncio.Event, other_resumed: asyncio.Event) -> None:
-        observed = fresh_polling_state.last_error
-        other_resumed.set()
-        await resume.wait()
-        polling_state_module._polling_state.last_error = f"{observed}-stale"
+    gate = asyncio.Event()
 
-    async def second_writer(resume: asyncio.Event, other_resumed: asyncio.Event) -> None:
-        await resume.wait()
-        polling_state_module._polling_state.last_error = "newest"
-        other_resumed.set()
+    async def first_writer() -> None:
+        await gate.wait()
+        async with polling_state_module._polling_state_lock:
+            observed = fresh_polling_state.last_error
+            polling_state_module._polling_state.last_error = f"{observed}-stale"
 
-    first_can_resume = asyncio.Event()
-    second_can_resume = asyncio.Event()
+    async def second_writer() -> None:
+        await gate.wait()
+        async with polling_state_module._polling_state_lock:
+            polling_state_module._polling_state.last_error = "newest"
 
-    first_task = asyncio.create_task(first_writer(first_can_resume, second_can_resume))
-    second_task = asyncio.create_task(second_writer(second_can_resume, first_can_resume))
+    first_task = asyncio.create_task(first_writer())
+    second_task = asyncio.create_task(second_writer())
 
     await asyncio.sleep(0)
-    second_can_resume.set()
-    await asyncio.sleep(0)
-    first_can_resume.set()
+    gate.set()
 
     await asyncio.gather(first_task, second_task)
 
