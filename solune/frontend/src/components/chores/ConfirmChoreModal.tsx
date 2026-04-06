@@ -24,16 +24,32 @@ export function ConfirmChoreModal({
   onConfirm,
   onCancel,
 }: ConfirmChoreModalProps) {
-  const [step, setStep] = useState<1 | 2>(1);
-
-  // Reset to step 1 when modal reopens
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-  if (isOpen !== prevIsOpen) {
-    setPrevIsOpen(isOpen);
-    if (isOpen) setStep(1);
-  }
-
   if (!isOpen) return null;
+
+  return (
+    <ConfirmChoreModalContent
+      choreName={choreName}
+      isLoading={isLoading}
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  );
+}
+
+interface ConfirmChoreModalContentProps {
+  choreName: string;
+  isLoading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmChoreModalContent({
+  choreName,
+  isLoading,
+  onConfirm,
+  onCancel,
+}: ConfirmChoreModalContentProps) {
+  const [step, setStep] = useState<1 | 2>(1);
 
   return (
     <div className="fixed inset-0 z-[var(--z-modal-backdrop)] flex items-center justify-center">
