@@ -169,13 +169,13 @@ class GitHubTokenVerifier:
         for k in expired:
             del self._cache[k]
         # If still over limit, remove oldest entries
-        while len(self._cache) > self._max_cache_size:
+        while len(self._cache) >= self._max_cache_size:
             oldest_key = min(self._cache, key=lambda k: self._cache[k].expires_at)
             del self._cache[oldest_key]
 
     def _evict_stale_rate_limits(self, now: float) -> None:
         """Remove rate-limit entries with no recent attempts."""
-        if len(self._rate_limits) <= self._max_rate_limit_entries:
+        if len(self._rate_limits) < self._max_rate_limit_entries:
             return
         cutoff = now - self._rate_limit_window
         stale = [

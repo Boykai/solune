@@ -252,4 +252,23 @@ describe('AddChoreModal', () => {
     // Should NOT show chat flow
     expect(screen.queryByText(/Build Template/)).not.toBeInTheDocument();
   });
+
+  it('uses the latest onClose callback when Escape is pressed after rerender', () => {
+    const firstOnClose = vi.fn();
+    const secondOnClose = vi.fn();
+
+    const { rerender } = render(
+      <AddChoreModal projectId="PVT_1" isOpen={true} onClose={firstOnClose} />,
+      {
+        wrapper: createWrapper(),
+      }
+    );
+
+    rerender(<AddChoreModal projectId="PVT_1" isOpen={true} onClose={secondOnClose} />);
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(firstOnClose).not.toHaveBeenCalled();
+    expect(secondOnClose).toHaveBeenCalledOnce();
+  });
 });

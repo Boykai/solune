@@ -3,7 +3,7 @@
  * selecting MCP tools to assign to an agent.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Search, Wrench } from '@/lib/icons';
 import { useToolsList } from '@/hooks/useTools';
 import { cn } from '@/lib/utils';
@@ -26,21 +26,27 @@ export function ToolSelectorModal({
   const { tools, isLoading } = useToolsList(projectId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
-
-  // Sync initial selection
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const initialIdsKey = initialSelectedIds.join(',');
-  const [prevInitialIdsKey, setPrevInitialIdsKey] = useState(initialIdsKey);
-  if (isOpen && (isOpen !== prevIsOpen || initialIdsKey !== prevInitialIdsKey)) {
-    setPrevIsOpen(true);
-    setPrevInitialIdsKey(initialIdsKey);
-    setSelectedIds(new Set(initialSelectedIds));
-    setSearch('');
-  } else if (!isOpen && prevIsOpen) {
-    setPrevIsOpen(false);
-  } else if (initialIdsKey !== prevInitialIdsKey) {
-    setPrevInitialIdsKey(initialIdsKey);
-  }
+  const prevIsOpenRef = useRef(false);
+  const prevInitialIdsKeyRef = useRef('');
+
+  useEffect(() => {
+    const wasOpen = prevIsOpenRef.current;
+    const prevInitialIdsKey = prevInitialIdsKeyRef.current;
+
+    if (isOpen && (!wasOpen || initialIdsKey !== prevInitialIdsKey)) {
+      const frameId = requestAnimationFrame(() => {
+        setSelectedIds(new Set(initialSelectedIds));
+        setSearch('');
+      });
+      prevIsOpenRef.current = isOpen;
+      prevInitialIdsKeyRef.current = initialIdsKey;
+      return () => cancelAnimationFrame(frameId);
+    }
+
+    prevIsOpenRef.current = isOpen;
+    prevInitialIdsKeyRef.current = initialIdsKey;
+  }, [initialIdsKey, initialSelectedIds, isOpen]);
 
   // Escape key handler
   useEffect(() => {

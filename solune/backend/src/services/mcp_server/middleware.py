@@ -9,6 +9,7 @@ helpers can retrieve it without depending on the MCP lifespan dict.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -30,7 +31,7 @@ class McpAuthMiddleware:
         self.verifier = verifier
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] not in ("http", "websocket"):
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
@@ -42,12 +43,37 @@ class McpAuthMiddleware:
         if auth_value.lower().startswith("bearer "):
             token = auth_value[7:].strip()
             if token:
-                access_token = await self.verifier.verify_token(token)
+                try:
+                    access_token = await self.verifier.verify_token(token)
+                except Exception as exc:
+                    logger.warning("MCP token verification failed: %s", exc, exc_info=True)
+                    await self._send_unauthorized(send)
+                    return
+
                 if access_token:
                     mcp_ctx = self.verifier.get_context_for_token(token)
+
+        if mcp_ctx is None:
+            await self._send_unauthorized(send)
+            return
 
         set_current_mcp_context(mcp_ctx)
         try:
             await self.app(scope, receive, send)
         finally:
             set_current_mcp_context(None)
+
+    async def _send_unauthorized(self, send: Send) -> None:
+        body = json.dumps({"error": "Unauthorized"}).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                    (b"www-authenticate", b"Bearer"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})

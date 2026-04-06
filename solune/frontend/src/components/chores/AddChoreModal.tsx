@@ -7,7 +7,7 @@ import { ScrollText, Sparkles, X } from '@/lib/icons';
  * Pipeline selector, sparse vs. rich input detection, and double-confirmation flow.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCreateChoreWithAutoMerge, useChoreTemplates } from '@/hooks/useChores';
 import { ChoreChatFlow } from './ChoreChatFlow';
 import { ConfirmChoreModal } from './ConfirmChoreModal';
@@ -56,6 +56,7 @@ function isSparseInput(text: string): boolean {
 export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: AddChoreModalProps) {
   const nameRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const onCloseRef = useRef(onClose);
   const [name, setName] = useState('');
   const [templateContent, setTemplateContent] = useState('');
   const [nameError, setNameError] = useState<string | null>(null);
@@ -82,10 +83,32 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
   // Apply initialTemplate when modal opens with one pre-selected
   useEffect(() => {
     if (isOpen && initialTemplate) {
-      setName(initialTemplate.name);
-      setTemplateContent(initialTemplate.content);
+      const frameId = requestAnimationFrame(() => {
+        setName(initialTemplate.name);
+        setTemplateContent(initialTemplate.content);
+      });
+      return () => cancelAnimationFrame(frameId);
     }
   }, [isOpen, initialTemplate]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  const resetAndClose = useCallback(() => {
+    setName('');
+    setTemplateContent('');
+    setNameError(null);
+    setContentError(null);
+    setGeneralError(null);
+    setShowChatFlow(false);
+    setSparseContent('');
+    setAiEnhance(true);
+    setAgentPipelineId('');
+    setShowConfirm(false);
+    setPendingContent('');
+    onCloseRef.current();
+  }, []);
 
   // Close modal and reset all state on Escape key (document-level listener)
   useEffect(() => {
@@ -97,8 +120,7 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, onClose]);
+  }, [isOpen, resetAndClose]);
 
   if (!isOpen) return null;
 
@@ -124,21 +146,6 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
       setGeneralError(message);
       setShowConfirm(false);
     }
-  };
-
-  const resetAndClose = () => {
-    setName('');
-    setTemplateContent('');
-    setNameError(null);
-    setContentError(null);
-    setGeneralError(null);
-    setShowChatFlow(false);
-    setSparseContent('');
-    setAiEnhance(true);
-    setAgentPipelineId('');
-    setShowConfirm(false);
-    setPendingContent('');
-    onClose();
   };
 
   const validateName = (value: string): string | null => {
