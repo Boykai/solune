@@ -54,7 +54,8 @@ async def _dequeue_next_pipeline(
     """Dequeue the next waiting pipeline for a project when queue mode is active.
 
     Finds the oldest queued pipeline by started_at (FIFO) and starts it by
-    assigning the first agent for its status.
+    assigning the first agent for its status.  Pipelines with unmet
+    prerequisite_issues are skipped until their prerequisites have merged.
 
     Args:
         access_token: GitHub access token for API calls
@@ -85,7 +86,43 @@ async def _dequeue_next_pipeline(
             if not queued:
                 return
 
-            next_pipeline = queued[0]
+            # Find the first queued pipeline whose prerequisites are all met.
+            # Pipelines with prerequisite_issues require all listed issues to
+            # have their PRs merged to main before they can start.
+            next_pipeline = None
+            for candidate in queued:
+                prereqs = getattr(candidate, "prerequisite_issues", [])
+                if not prereqs:
+                    next_pipeline = candidate
+                    break
+                # Check if all prerequisite issues have completed pipelines.
+                # A None state means the pipeline completed, merged, and was
+                # cleaned up — treat as prerequisite met.
+                all_met = True
+                for prereq_issue in prereqs:
+                    prereq_state = _cp.get_pipeline_state(prereq_issue)
+                    if prereq_state is None:
+                        # State removed after successful merge — prerequisite met
+                        continue
+                    if prereq_state.queued or not prereq_state.is_complete:
+                        all_met = False
+                        break
+                if all_met:
+                    next_pipeline = candidate
+                    break
+                logger.debug(
+                    "Skipping pipeline #%d — unmet prerequisites: %s",
+                    candidate.issue_number,
+                    prereqs,
+                )
+
+            if next_pipeline is None:
+                logger.debug(
+                    "No queued pipeline with met prerequisites for project %s",
+                    project_id,
+                )
+                return
+
             logger.info(
                 "Dequeuing pipeline for issue #%d (trigger: %s, project: %s, queue depth: %d)",
                 next_pipeline.issue_number,

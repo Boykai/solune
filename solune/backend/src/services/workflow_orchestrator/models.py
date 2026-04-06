@@ -187,6 +187,8 @@ class PipelineState:
     current_agent_index_in_group: int = 0
     # Queue mode: True when pipeline is waiting for another to complete
     queued: bool = False
+    # Prerequisite issues that must have their PRs merged before this pipeline can dequeue
+    prerequisite_issues: list[int] = field(default_factory=list)
     # Phase 8: Concurrent pipeline execution tracking
     concurrent_group_id: str | None = None  # Links concurrent sibling executions
     is_isolated: bool = True  # Fault isolation flag for concurrent pipelines
