@@ -35,10 +35,10 @@ components:
             format: uuid
           status:
             type: string
-            enum: [planning, speckit_running, parsing_phases, creating_issues, launching_pipelines, active]
-          detail:
+            enum: [planning, speckit_running, parsing_phases, creating_issues, launching_pipelines, active, failed]
+          error:
             type: string
-            description: Human-readable description of current step
+            description: Error message when the current status is failed
 
     PlanPhaseCreated:
       payload:

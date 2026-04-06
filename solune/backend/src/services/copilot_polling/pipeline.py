@@ -95,16 +95,16 @@ async def _dequeue_next_pipeline(
                 if not prereqs:
                     next_pipeline = candidate
                     break
-                # Check if all prerequisite issues have completed pipelines
+                # Check if all prerequisite issues have completed pipelines.
+                # A None state means the pipeline completed, merged, and was
+                # cleaned up — treat as prerequisite met.
                 all_met = True
                 for prereq_issue in prereqs:
                     prereq_state = _cp.get_pipeline_state(prereq_issue)
-                    if prereq_state is None or prereq_state.queued:
-                        all_met = False
-                        break
-                    # A prerequisite is met if its pipeline completed (is_complete)
-                    # and it's no longer queued or active
-                    if not prereq_state.is_complete:
+                    if prereq_state is None:
+                        # State removed after successful merge — prerequisite met
+                        continue
+                    if prereq_state.queued or not prereq_state.is_complete:
                         all_met = False
                         break
                 if all_met:

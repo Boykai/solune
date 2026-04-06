@@ -4,7 +4,7 @@
 
 ## Prerequisites
 
-- Python 3.11+ with `uv` package manager
+- Python 3.12+ with `uv` package manager
 - Node.js 18+ with npm
 - SQLite (bundled with Python)
 - GitHub Copilot access (for speckit.plan agent)
