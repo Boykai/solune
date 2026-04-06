@@ -693,7 +693,7 @@ async def _auto_merge_retry_loop(
         _pending_auto_merge_retries,
     )
 
-    _state_removed = False
+    pipeline_state_removed = False
     try:
         for attempt in range(1, MAX_AUTO_MERGE_RETRIES + 1):
             delay = AUTO_MERGE_RETRY_BASE_DELAY * (2 ** (attempt - 1))
@@ -785,7 +785,7 @@ async def _auto_merge_retry_loop(
                 )
                 _pending_auto_merge_retries.pop(issue_number, None)
                 _cp.remove_pipeline_state(issue_number)
-                _state_removed = True
+                pipeline_state_removed = True
                 return
 
             if retry_result.status == "devops_needed":
@@ -809,7 +809,7 @@ async def _auto_merge_retry_loop(
                 )
                 _pending_auto_merge_retries.pop(issue_number, None)
                 _cp.remove_pipeline_state(issue_number)
-                _state_removed = True
+                pipeline_state_removed = True
                 return
 
             if retry_result.status == "merge_failed":
@@ -830,7 +830,7 @@ async def _auto_merge_retry_loop(
                 )
                 _pending_auto_merge_retries.pop(issue_number, None)
                 _cp.remove_pipeline_state(issue_number)
-                _state_removed = True
+                pipeline_state_removed = True
                 return
 
             # retry_later again → continue to next attempt
@@ -857,11 +857,11 @@ async def _auto_merge_retry_loop(
         )
         _pending_auto_merge_retries.pop(issue_number, None)
         _cp.remove_pipeline_state(issue_number)
-        _state_removed = True
+        pipeline_state_removed = True
     finally:
         # Safety net: ensure pipeline state is always cleaned up, even on
         # unexpected exceptions, to prevent state leaks.
-        if not _state_removed:
+        if not pipeline_state_removed:
             try:
                 _cp.remove_pipeline_state(issue_number)
             except Exception:
