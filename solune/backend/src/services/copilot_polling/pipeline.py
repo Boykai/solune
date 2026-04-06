@@ -2520,7 +2520,7 @@ async def _transition_after_pipeline_complete(
 
                 unregister_project(project_id)
         except Exception:
-            logger.debug("Failed to auto-unregister project %s: %s", project_id, exc_info=True)
+            logger.debug("Failed to auto-unregister project %s", project_id, exc_info=True)
 
     # Dequeue the next waiting pipeline if queue mode is active.
     # Only release the queue when the pipeline reaches a terminal-ish status

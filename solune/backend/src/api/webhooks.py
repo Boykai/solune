@@ -77,6 +77,7 @@ async def _get_auto_merge_pipeline(
             }
 
         # Step B: L2 SQLite fallback (recovers from L1 eviction / restart)
+        l2_pipeline = None
         if pipeline is None:
             try:
                 from src.services.pipeline_state_store import get_pipeline_state_async
@@ -98,18 +99,13 @@ async def _get_auto_merge_pipeline(
         # Step C: Project-level fallback (state already removed, but project has auto-merge)
         try:
             from src.services.database import get_db
-            from src.services.pipeline_state_store import get_pipeline_state_async as _get_ps_async
             from src.services.settings_store import is_auto_merge_enabled
 
             project_id: str | None = None
 
-            # Try to resolve project_id from L2 state
-            try:
-                l2_state = await _get_ps_async(issue_number)
-                if l2_state:
-                    project_id = getattr(l2_state, "project_id", None)
-            except Exception:
-                pass
+            # Try to resolve project_id from L2 state (reuse result from Step B)
+            if l2_pipeline:
+                project_id = getattr(l2_pipeline, "project_id", None)
 
             # Try to resolve project_id from _issue_main_branches
             if not project_id:
