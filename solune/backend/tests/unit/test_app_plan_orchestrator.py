@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.services.app_plan_orchestrator import AppPlanOrchestrator, OrchestrationResult
 from src.services.plan_parser import PlanPhase
-
 
 # ── Sample plan.md for testing ──────────────────────────────────────────
 
@@ -530,3 +528,291 @@ class TestLaunchPhasePipelines:
             assert first_call.kwargs.get("auto_merge") is True
             prereqs = first_call.kwargs.get("prerequisite_issues")
             assert prereqs is None  # No deps means None
+
+
+# ── Tests for diamond dependency prerequisite mapping ───────────────────
+
+
+DIAMOND_PLAN_MD = """\
+## Implementation Phases
+
+### Phase 1 — Foundation
+
+**Depends on**: Nothing
+
+**Step 1.1**: Base setup
+
+### Phase 2 — Backend
+
+**Depends on**: Phase 1
+
+**Step 2.1**: API
+
+### Phase 3 — Frontend
+
+**Depends on**: Phase 1
+
+**Step 3.1**: UI
+
+### Phase 4 — Integration
+
+**Depends on**: Phase 2, Phase 3
+
+**Step 4.1**: Wire up
+"""
+
+
+class TestDiamondDependencyPrerequisites:
+    """Tests for diamond-shaped dependency graphs in pipeline launching."""
+
+    @pytest.mark.asyncio
+    async def test_diamond_deps_prerequisites_set_correctly(self) -> None:
+        """Phase 4 (depends on 2+3) maps to both their issue numbers as prereqs."""
+        github_service = AsyncMock()
+        issue_counter = {"count": 0}
+
+        async def mock_create_issue(**kwargs: object) -> dict:
+            issue_counter["count"] += 1
+            return {
+                "number": issue_counter["count"] * 10,
+                "node_id": f"node_{issue_counter['count']}",
+                "html_url": f"url/{issue_counter['count']}",
+            }
+
+        github_service.create_issue = AsyncMock(side_effect=mock_create_issue)
+        github_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+        github_service.check_agent_completion_comment = AsyncMock(return_value=True)
+        github_service.get_file_content_from_ref = AsyncMock(return_value=DIAMOND_PLAN_MD)
+        github_service.close_issue = AsyncMock()
+        github_service.list_pull_requests_for_issue = AsyncMock(
+            return_value=[{"head": {"ref": "test-branch"}}]
+        )
+        github_service.add_issue_to_project = AsyncMock(return_value="item-1")
+
+        orchestrator = _make_orchestrator(github_service=github_service)
+
+        with (
+            patch.object(
+                orchestrator,
+                "_run_plan_agent",
+                new_callable=AsyncMock,
+                return_value="Plan summary",
+            ),
+            patch("src.api.pipelines.execute_pipeline_launch") as mock_launch,
+        ):
+            mock_launch.return_value = MagicMock(success=True)
+
+            result = await orchestrator.orchestrate_app_creation(
+                app_name="diamond-app",
+                description="Diamond deps",
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                orchestration_id="orch-diamond",
+                poll_interval=0,
+            )
+
+        assert result.success is True
+        assert result.phase_count == 4
+        assert mock_launch.call_count == 4
+
+        # Phase 1 (issue #20): no prerequisites
+        p1_call = mock_launch.call_args_list[0]
+        assert p1_call.kwargs.get("prerequisite_issues") is None
+
+        # Phase 2 (issue #30, depends on Phase 1 → issue #20): prereqs=[20]
+        p2_call = mock_launch.call_args_list[1]
+        assert p2_call.kwargs.get("prerequisite_issues") == [20]
+
+        # Phase 3 (issue #40, depends on Phase 1 → issue #20): prereqs=[20]
+        p3_call = mock_launch.call_args_list[2]
+        assert p3_call.kwargs.get("prerequisite_issues") == [20]
+
+        # Phase 4 (issue #50, depends on Phase 2+3 → issues #30, #40): prereqs=[30, 40]
+        p4_call = mock_launch.call_args_list[3]
+        p4_prereqs = p4_call.kwargs.get("prerequisite_issues")
+        assert sorted(p4_prereqs) == [30, 40]
+
+
+class TestPipelineLaunchFailureHandling:
+    """Tests for resilience when individual pipeline launches fail."""
+
+    @pytest.mark.asyncio
+    async def test_launch_failure_does_not_block_other_phases(self) -> None:
+        """If one phase's pipeline launch fails, remaining phases still launch."""
+        orchestrator = _make_orchestrator()
+
+        phases = [
+            PlanPhase(index=1, title="A"),
+            PlanPhase(index=2, title="B"),
+            PlanPhase(index=3, title="C"),
+        ]
+
+        call_count = {"n": 0}
+
+        async def mock_launch(**kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 2:
+                raise RuntimeError("Launch failed for Phase 2")
+            return MagicMock(success=True)
+
+        with patch("src.api.pipelines.execute_pipeline_launch", side_effect=mock_launch):
+            # Should not raise — errors are logged but execution continues
+            await orchestrator._launch_phase_pipelines(
+                phases=phases,
+                phase_issue_numbers=[10, 20, 30],
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+            )
+
+        # All 3 phases attempted even though #2 failed
+        assert call_count["n"] == 3
+
+
+class TestOrchestrationDbPersistence:
+    """Tests for database persistence of orchestration state."""
+
+    @pytest.mark.asyncio
+    async def test_success_saves_orchestration_to_db(self) -> None:
+        """Successful orchestration calls _save_orchestration with active status."""
+        db = AsyncMock()
+        db.execute = AsyncMock()
+        db.commit = AsyncMock()
+
+        orchestrator = _make_orchestrator(db=db)
+
+        with patch.object(
+            orchestrator,
+            "_run_plan_agent",
+            new_callable=AsyncMock,
+            return_value="Plan summary",
+        ):
+            result = await orchestrator.orchestrate_app_creation(
+                app_name="persist-app",
+                description="Test persistence",
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                orchestration_id="orch-persist",
+                poll_interval=0,
+            )
+
+        assert result.success is True
+        assert result.status == "active"
+
+        # Verify db.execute was called (for both status updates and final save)
+        assert db.execute.call_count > 0
+        # The final save should include "active" status
+        final_save_calls = [
+            c
+            for c in db.execute.call_args_list
+            if len(c[0]) > 1 and isinstance(c[0][1], tuple) and "active" in c[0][1]
+        ]
+        assert len(final_save_calls) > 0
+
+    @pytest.mark.asyncio
+    async def test_failure_saves_error_to_db(self) -> None:
+        """Failed orchestration persists error_message to database."""
+        db = AsyncMock()
+        db.execute = AsyncMock()
+        db.commit = AsyncMock()
+
+        github_service = AsyncMock()
+        github_service.create_issue = AsyncMock(
+            return_value={"number": 1, "node_id": "n1", "html_url": "url"}
+        )
+        github_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+        github_service.check_agent_completion_comment = AsyncMock(return_value=True)
+        github_service.get_file_content_from_ref = AsyncMock(return_value="No phases")
+        github_service.close_issue = AsyncMock()
+        github_service.list_pull_requests_for_issue = AsyncMock(
+            return_value=[{"head": {"ref": "branch"}}]
+        )
+
+        orchestrator = _make_orchestrator(github_service=github_service, db=db)
+
+        with patch.object(
+            orchestrator,
+            "_run_plan_agent",
+            new_callable=AsyncMock,
+            return_value="Plan",
+        ):
+            result = await orchestrator.orchestrate_app_creation(
+                app_name="fail-app",
+                description="Will fail",
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                orchestration_id="orch-fail",
+                poll_interval=0,
+            )
+
+        assert result.success is False
+        assert result.status == "failed"
+        assert result.error_message is not None
+
+        # Verify "failed" status was saved
+        failed_save_calls = [
+            c
+            for c in db.execute.call_args_list
+            if len(c[0]) > 1 and isinstance(c[0][1], tuple) and "failed" in c[0][1]
+        ]
+        assert len(failed_save_calls) > 0
+
+
+class TestOrchestrationResultFields:
+    """Tests for OrchestrationResult completeness."""
+
+    @pytest.mark.asyncio
+    async def test_result_includes_all_phase_issue_numbers(self) -> None:
+        """OrchestrationResult tracks the exact issue numbers created."""
+        github_service = AsyncMock()
+        expected_issues = [101, 102, 103]
+        call_idx = {"i": 0}
+
+        async def mock_create_issue(**kwargs: object) -> dict:
+            num = expected_issues[call_idx["i"]] if call_idx["i"] < len(expected_issues) else 999
+            call_idx["i"] += 1
+            return {"number": num, "node_id": f"n{num}", "html_url": f"url/{num}"}
+
+        github_service.create_issue = AsyncMock(side_effect=mock_create_issue)
+        github_service.assign_copilot_to_issue = AsyncMock(return_value=True)
+        github_service.check_agent_completion_comment = AsyncMock(return_value=True)
+        github_service.get_file_content_from_ref = AsyncMock(return_value=SAMPLE_PLAN_MD)
+        github_service.close_issue = AsyncMock()
+        github_service.list_pull_requests_for_issue = AsyncMock(
+            return_value=[{"head": {"ref": "test-branch"}}]
+        )
+        github_service.add_issue_to_project = AsyncMock(return_value="item-1")
+
+        orchestrator = _make_orchestrator(github_service=github_service)
+
+        with patch.object(
+            orchestrator,
+            "_run_plan_agent",
+            new_callable=AsyncMock,
+            return_value="Plan",
+        ):
+            result = await orchestrator.orchestrate_app_creation(
+                app_name="track-app",
+                description="Track issues",
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                orchestration_id="orch-track",
+                poll_interval=0,
+            )
+
+        assert result.success is True
+        # First issue created is the planning issue; phase issues are calls 2-4
+        assert result.phase_issue_numbers is not None
+        assert len(result.phase_issue_numbers) == 3  # 3 phases in SAMPLE_PLAN_MD
