@@ -1,4 +1,5 @@
 from typing import Any, Generic, TypeVar
+
 from typing_extensions import TypedDict
 
 class GitHubCopilotOptions(TypedDict, total=False):
