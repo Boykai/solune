@@ -47,7 +47,9 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
     return None
 
 
-async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str) -> dict[str, Any] | None:
+async def _get_auto_merge_pipeline(
+    issue_number: int, owner: str, repo: str
+) -> dict[str, Any] | None:
     """Get pipeline metadata for an issue if it's in an auto-merge-eligible state.
 
     Uses a 3-tier fallback strategy:
@@ -80,7 +82,11 @@ async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str) -> 
                 from src.services.pipeline_state_store import get_pipeline_state_async
 
                 l2_pipeline = await get_pipeline_state_async(issue_number)
-                if l2_pipeline and l2_pipeline.is_complete and getattr(l2_pipeline, "auto_merge", False):
+                if (
+                    l2_pipeline
+                    and l2_pipeline.is_complete
+                    and getattr(l2_pipeline, "auto_merge", False)
+                ):
                     return {
                         "project_id": getattr(l2_pipeline, "project_id", ""),
                         "devops_attempts": 0,
