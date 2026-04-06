@@ -576,14 +576,14 @@ class TestColumnTransformEdgeCases:
     def test_single_column_with_no_items_still_creates_board_project(self):
         """A column with a valid field_id/option_id produces a BoardProject."""
         from src.api.board import _to_board_projects
-        from src.models.project import GitHubProject, StatusColumn
+        from src.models.project import GitHubProject, ProjectType, StatusColumn
 
         project = GitHubProject(
             project_id="PVT_single",
             owner_id="O_single",
             owner_login="testuser",
             name="One Column",
-            type="user",
+            type=ProjectType.USER,
             url="https://github.com/users/testuser/projects/10",
             status_columns=[
                 StatusColumn(
@@ -638,16 +638,26 @@ class TestRateLimitRecovery:
 
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limited")
-        exc.retry_after = timedelta(seconds=42)  # type: ignore[attr-defined]  # simulating GitHub exception attribute
+        class _RateLimitError(Exception):
+            def __init__(self, msg: str, retry_after: timedelta | int) -> None:
+                super().__init__(msg)
+                self.retry_after = retry_after
+
+        exc = _RateLimitError("rate limited", retry_after=timedelta(seconds=42))
         assert _retry_after_seconds(exc) == 42
 
     def test_retry_after_seconds_from_int(self):
         """_retry_after_seconds returns the integer directly."""
+        from datetime import timedelta
+
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limited")
-        exc.retry_after = 30  # type: ignore[attr-defined]  # simulating GitHub exception attribute
+        class _RateLimitError(Exception):
+            def __init__(self, msg: str, retry_after: timedelta | int) -> None:
+                super().__init__(msg)
+                self.retry_after = retry_after
+
+        exc = _RateLimitError("rate limited", retry_after=30)
         assert _retry_after_seconds(exc) == 30
 
     def test_retry_after_seconds_defaults_to_60(self):
@@ -1044,27 +1054,29 @@ class TestNormalizeStatusColor:
 
 
 class TestRetryAfterSeconds:
+    class _RateLimitError(Exception):
+        def __init__(self, msg: str, retry_after: object = None) -> None:
+            super().__init__(msg)
+            self.retry_after = retry_after
+
     def test_timedelta(self):
         from datetime import timedelta
 
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limit")
-        exc.retry_after = timedelta(seconds=30)
+        exc = self._RateLimitError("rate limit", retry_after=timedelta(seconds=30))
         assert _retry_after_seconds(exc) == 30
 
     def test_integer(self):
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limit")
-        exc.retry_after = 45
+        exc = self._RateLimitError("rate limit", retry_after=45)
         assert _retry_after_seconds(exc) == 45
 
     def test_negative_clamped_to_one(self):
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limit")
-        exc.retry_after = -5
+        exc = self._RateLimitError("rate limit", retry_after=-5)
         assert _retry_after_seconds(exc) == 1
 
     def test_no_retry_after_defaults_to_60(self):
