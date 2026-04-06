@@ -385,7 +385,7 @@ class TestClassificationResult:
     def test_immutable(self):
         result = ClassificationResult(labels=["bug"])
         with pytest.raises(AttributeError):
-            setattr(result, "priority", IssuePriority.P0)
+            setattr(result, "priority", IssuePriority.P0)  # noqa: B010
 
 
 # ── _parse_labels_and_priority_response ─────────────────────────────────────

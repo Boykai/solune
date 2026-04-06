@@ -1,8 +1,6 @@
-from typing import Any, Generic, TypeVar
+from typing import Any
 
-T = TypeVar("T")
-
-class Response(Generic[T]):
+class Response[T]:
     """Typed githubkit Response enabling attribute access on parsed_data."""
     parsed_data: T
     status_code: int

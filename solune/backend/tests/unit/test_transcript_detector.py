@@ -250,4 +250,4 @@ class TestEdgeCases:
     def test_transcript_detection_result_is_frozen(self):
         result = detect_transcript("test.vtt", "content")
         with pytest.raises(AttributeError):
-            setattr(result, "is_transcript", False)
+            setattr(result, "is_transcript", False)  # noqa: B010

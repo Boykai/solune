@@ -38,7 +38,7 @@ class TestPollStep:
 
         step = PollStep(name="test", execute=noop)
         with pytest.raises(AttributeError):
-            setattr(step, "name", "other")
+            setattr(step, "name", "other")  # noqa: B010
 
 
 class TestPollSteps:

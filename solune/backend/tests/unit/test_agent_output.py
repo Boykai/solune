@@ -1,6 +1,5 @@
 """Tests for agent_output.py dataclasses, helpers, and _post_markdown_outputs (T098)."""
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -34,7 +33,7 @@ class TestCommentScanResult:
     def test_frozen(self):
         result = CommentScanResult(has_done_marker=True)
         with pytest.raises(AttributeError):
-            setattr(result, "has_done_marker", False)
+            setattr(result, "has_done_marker", False)  # noqa: B010
 
     def test_equality(self):
         a = CommentScanResult(has_done_marker=True, done_comment_id="IC_1")
