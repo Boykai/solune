@@ -350,10 +350,13 @@ class TestPipelineDelayExecution:
 
     def test_delay_validation_rejects_non_integer(self):
         """delay_seconds validation rejects non-integer values."""
-        for raw_delay in ["abc", None, "", []]:
+        from typing import Any
+
+        raw_values: list[Any] = ["abc", None, "", []]
+        for raw_delay in raw_values:
             delay_seconds = None
             try:
-                val = int(raw_delay)  # type: ignore[arg-type]
+                val = int(raw_delay)
                 if 1 <= val <= 86400:
                     delay_seconds = val
             except (TypeError, ValueError):

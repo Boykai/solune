@@ -32,7 +32,7 @@ async def test_set_pipeline_state_skips_l1_update_when_sqlite_execute_fails(mock
             raise aiosqlite.OperationalError("simulated write failure")
         return await original_execute(*args, **kwargs)
 
-    mock_db.execute = failing_execute  # type: ignore[method-assign]  # test mock override
+    setattr(mock_db, "execute", failing_execute)
 
     await pipeline_state_store.set_pipeline_state(issue_number, state)
 
@@ -53,7 +53,7 @@ async def test_set_pipeline_state_skips_l1_update_when_commit_is_cancelled(mock_
         started_at=datetime.now(UTC),
     )
 
-    mock_db.commit = AsyncMock(side_effect=asyncio.CancelledError())  # type: ignore[method-assign]  # test mock override
+    setattr(mock_db, "commit", AsyncMock(side_effect=asyncio.CancelledError()))
 
     with pytest.raises(asyncio.CancelledError):
         await pipeline_state_store.set_pipeline_state(issue_number, state)
