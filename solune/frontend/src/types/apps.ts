@@ -95,3 +95,82 @@ export interface DeleteAppResult {
   db_deleted: boolean;
   errors: string[];
 }
+
+/* ── Plan-Driven App Creation Types ─────────────────────────────────── */
+
+export type PlanOrchestrationStatus =
+  | 'planning'
+  | 'speckit_running'
+  | 'parsing_phases'
+  | 'creating_issues'
+  | 'launching_pipelines'
+  | 'active'
+  | 'failed';
+
+export interface AppCreateWithPlanRequest {
+  app_name: string;
+  display_name: string;
+  description: string;
+  pipeline_id: string;
+  project_id: string;
+}
+
+export interface AppCreateWithPlanResponse {
+  app_name: string;
+  plan_status: PlanOrchestrationStatus;
+  orchestration_id: string;
+  message: string;
+}
+
+export interface PhaseIssueInfo {
+  phase_index: number;
+  issue_number: number;
+  issue_url: string | null;
+  title: string | null;
+}
+
+export interface AppPlanStatusResponse {
+  orchestration_id: string;
+  app_name: string;
+  status: PlanOrchestrationStatus;
+  phase_count: number | null;
+  phase_issues: PhaseIssueInfo[];
+  error_message: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+/* ── WebSocket Event Payloads ───────────────────────────────────────── */
+
+export interface PlanStatusUpdateEvent {
+  type: 'plan_status_update';
+  orchestration_id: string;
+  status: PlanOrchestrationStatus;
+  error?: string;
+}
+
+export interface PlanPhaseCreatedEvent {
+  type: 'plan_phase_created';
+  phase_index: number;
+  phase_total: number;
+  phase_title: string;
+  issue_number: number;
+}
+
+export interface PlanOrchestrationCompleteEvent {
+  type: 'plan_orchestration_complete';
+  orchestration_id: string;
+  phase_count: number;
+}
+
+export interface PlanOrchestrationFailedEvent {
+  type: 'plan_orchestration_failed';
+  orchestration_id: string;
+  error: string;
+}
+
+export type PlanWebSocketEvent =
+  | PlanStatusUpdateEvent
+  | PlanPhaseCreatedEvent
+  | PlanOrchestrationCompleteEvent
+  | PlanOrchestrationFailedEvent;

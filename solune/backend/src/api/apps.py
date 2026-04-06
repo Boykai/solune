@@ -350,6 +350,47 @@ class IterateResponse(BaseModel):
     message: str
 
 
+class CreateWithPlanRequest(BaseModel):
+    """Request body for plan-driven app creation."""
+
+    app_name: str = Field(..., min_length=2, max_length=64, pattern=r"^[a-z0-9][a-z0-9-]*[a-z0-9]$")
+    display_name: str = Field(..., min_length=1, max_length=128)
+    description: str = Field(..., min_length=1)
+    pipeline_id: str
+    project_id: str
+
+
+class CreateWithPlanResponse(BaseModel):
+    """Response for plan-driven app creation (returned immediately)."""
+
+    app_name: str
+    plan_status: str = "planning"
+    orchestration_id: str
+    message: str
+
+
+class PhaseIssueInfo(BaseModel):
+    """Info about a phase's GitHub issue."""
+
+    phase_index: int
+    issue_number: int
+    issue_url: str | None = None
+    title: str | None = None
+
+
+class PlanStatusResponse(BaseModel):
+    """Response for plan orchestration status polling."""
+
+    orchestration_id: str
+    app_name: str
+    status: str
+    phase_count: int | None = None
+    phase_issues: list[PhaseIssueInfo] = Field(default_factory=list)
+    error_message: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 @router.post("/import", response_model=ImportAppResponse, status_code=201)
 @limiter.limit("10/minute")
 async def import_app_endpoint(
@@ -487,3 +528,130 @@ async def iterate_app_endpoint(
     return IterateResponse(
         message=f"Iteration started for '{app_name}': {payload.change_description[:100]}",
     )
+
+
+@router.post("/create-with-plan", response_model=CreateWithPlanResponse, status_code=202)
+@limiter.limit("5/minute")
+async def create_with_plan_endpoint(
+    request: Request,
+    payload: CreateWithPlanRequest,
+    session: _SessionDep,
+) -> CreateWithPlanResponse:
+    """Create an app with plan-driven multi-phase orchestration.
+
+    Returns immediately with orchestration ID.  The planning and phase
+    creation run asynchronously in the background.
+    """
+    import asyncio
+    import uuid
+
+    from src.services.app_plan_orchestrator import AppPlanOrchestrator
+    from src.services.websocket import connection_manager
+
+    db = get_db()
+
+    # Check for duplicate app name
+    cursor = await db.execute("SELECT name FROM apps WHERE name = ?", (payload.app_name,))
+    if await cursor.fetchone():
+        raise HTTPException(status_code=409, detail="App name already exists")
+
+    github_service = get_github_service(request)
+    owner, repo = await _resolve_repo(session.access_token, payload.project_id)
+
+    orchestration_id = str(uuid.uuid4())
+
+    # Create initial orchestration record
+    from src.utils import utcnow
+
+    now = utcnow().isoformat()
+    await db.execute(
+        """INSERT INTO app_plan_orchestrations
+           (id, app_name, project_id, status, created_at, updated_at)
+           VALUES (?, ?, ?, 'planning', ?, ?)""",
+        (orchestration_id, payload.app_name, payload.project_id, now, now),
+    )
+    await db.commit()
+
+    # Launch orchestration as background task
+    orchestrator = AppPlanOrchestrator(
+        github_service=github_service,
+        connection_manager=connection_manager,
+        db=db,
+    )
+
+    async def _run_orchestration() -> None:
+        try:
+            await orchestrator.orchestrate_app_creation(
+                app_name=payload.app_name,
+                description=payload.description,
+                project_id=payload.project_id,
+                pipeline_id=payload.pipeline_id,
+                access_token=session.access_token,
+                owner=owner,
+                repo=repo,
+                orchestration_id=orchestration_id,
+            )
+        except Exception:
+            logger.error(
+                "Background orchestration failed for %s", payload.app_name, exc_info=True
+            )
+
+    asyncio.create_task(_run_orchestration())
+
+    return CreateWithPlanResponse(
+        app_name=payload.app_name,
+        plan_status="planning",
+        orchestration_id=orchestration_id,
+        message=f"Plan-driven creation started for '{payload.app_name}'",
+    )
+
+
+@router.get("/{app_name}/plan-status", response_model=PlanStatusResponse)
+async def get_plan_status_endpoint(
+    app_name: str,
+    _session: _SessionDep,
+) -> PlanStatusResponse:
+    """Get the current status of a plan-driven app creation."""
+    import json
+
+    db = get_db()
+    cursor = await db.execute(
+        """SELECT id, app_name, status, phase_count, phase_issue_numbers,
+                  error_message, created_at, updated_at
+           FROM app_plan_orchestrations
+           WHERE app_name = ?
+           ORDER BY created_at DESC LIMIT 1""",
+        (app_name,),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="No plan orchestration found for this app")
+
+    phase_issues: list[PhaseIssueInfo] = []
+    if row["phase_issue_numbers"]:
+        try:
+            numbers = json.loads(row["phase_issue_numbers"])
+            phase_issues = [
+                PhaseIssueInfo(phase_index=i + 1, issue_number=num)
+                for i, num in enumerate(numbers)
+            ]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return PlanStatusResponse(
+        orchestration_id=row["id"],
+        app_name=row["app_name"],
+        status=row["status"],
+        phase_count=row["phase_count"],
+        phase_issues=phase_issues,
+        error_message=row["error_message"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+    )
+
+
+async def _resolve_repo(access_token: str, project_id: str) -> tuple[str, str]:
+    """Resolve repository owner and name for a project."""
+    from src.utils import resolve_repository
+
+    return await resolve_repository(access_token, project_id)
