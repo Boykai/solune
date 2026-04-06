@@ -1715,6 +1715,9 @@ import type {
   Owner,
   CreateProjectRequest,
   CreateProjectResponse,
+  AppCreateWithPlanRequest,
+  AppCreateWithPlanResponse,
+  AppPlanStatusResponse,
 } from '@/types/apps';
 
 export const appsApi = {
@@ -1774,6 +1777,17 @@ export const appsApi = {
 
   owners(): Promise<Owner[]> {
     return request<Owner[]>('/apps/owners');
+  },
+
+  createWithPlan(data: AppCreateWithPlanRequest): Promise<AppCreateWithPlanResponse> {
+    return request<AppCreateWithPlanResponse>('/apps/create-with-plan', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  planStatus(appName: string): Promise<AppPlanStatusResponse> {
+    return request<AppPlanStatusResponse>(`/apps/${appName}/plan-status`);
   },
 };
 

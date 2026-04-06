@@ -202,6 +202,268 @@ class TestDequeueNextPipeline:
 
 
 # ---------------------------------------------------------------------------
+# T026b - _dequeue_next_pipeline with prerequisite_issues
+# ---------------------------------------------------------------------------
+
+
+class TestDequeuePrerequisites:
+    """Tests for prerequisite-aware dequeue logic in _dequeue_next_pipeline."""
+
+    async def test_dequeue_skips_pipeline_with_unmet_prerequisites(self):
+        """Pipeline with incomplete prerequisite is skipped; nothing dequeued."""
+        from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
+
+        # Pipeline that depends on issue #10 which is still running
+        mock_pipeline = AsyncMock()
+        mock_pipeline.issue_number = 42
+        mock_pipeline.queued = True
+        mock_pipeline.prerequisite_issues = [10]
+
+        # Prerequisite pipeline #10 is still active (not complete)
+        prereq_state = AsyncMock()
+        prereq_state.queued = False
+        prereq_state.is_complete = False
+
+        with (
+            patch("src.services.database.get_db", return_value=AsyncMock()),
+            patch(
+                "src.services.settings_store.is_queue_mode_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_project_launch_lock",
+                return_value=asyncio.Lock(),
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_state,
+            ),
+            patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
+        ):
+            mock_cp.count_active_pipelines_for_project.return_value = 0
+            mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
+
+            await _dequeue_next_pipeline("token", "PVT_1", "test")
+            mock_cp.set_pipeline_state.assert_not_called()
+
+    async def test_dequeue_skips_pipeline_with_queued_prerequisite(self):
+        """Pipeline is skipped when its prerequisite is still queued."""
+        from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
+
+        mock_pipeline = AsyncMock()
+        mock_pipeline.issue_number = 42
+        mock_pipeline.queued = True
+        mock_pipeline.prerequisite_issues = [10]
+
+        # Prerequisite pipeline #10 is still queued
+        prereq_state = AsyncMock()
+        prereq_state.queued = True
+        prereq_state.is_complete = False
+
+        with (
+            patch("src.services.database.get_db", return_value=AsyncMock()),
+            patch(
+                "src.services.settings_store.is_queue_mode_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_project_launch_lock",
+                return_value=asyncio.Lock(),
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_state,
+            ),
+            patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
+        ):
+            mock_cp.count_active_pipelines_for_project.return_value = 0
+            mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
+
+            await _dequeue_next_pipeline("token", "PVT_1", "test")
+            mock_cp.set_pipeline_state.assert_not_called()
+
+    async def test_dequeue_proceeds_when_prerequisite_state_is_none(self):
+        """Pipeline dequeues when a prerequisite's state is None (removed after merge)."""
+        from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
+
+        mock_pipeline = AsyncMock()
+        mock_pipeline.issue_number = 42
+        mock_pipeline.queued = True
+        mock_pipeline.prerequisite_issues = [10]
+
+        mock_config = AsyncMock()
+
+        with (
+            patch("src.services.database.get_db", return_value=AsyncMock()),
+            patch(
+                "src.services.settings_store.is_queue_mode_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_project_launch_lock",
+                return_value=asyncio.Lock(),
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
+        ):
+            mock_cp.count_active_pipelines_for_project.return_value = 0
+            mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
+            mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
+
+            await _dequeue_next_pipeline("token", "PVT_1", "test")
+            # Pipeline should be marked as no longer queued (dequeued)
+            mock_cp.set_pipeline_state.assert_called_once()
+
+    async def test_dequeue_proceeds_when_all_prerequisites_complete(self):
+        """Pipeline dequeues when all prerequisite pipelines are complete."""
+        from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
+
+        mock_pipeline = AsyncMock()
+        mock_pipeline.issue_number = 42
+        mock_pipeline.queued = True
+        mock_pipeline.prerequisite_issues = [10, 20]
+
+        # Both prerequisites are complete
+        prereq_complete = AsyncMock()
+        prereq_complete.queued = False
+        prereq_complete.is_complete = True
+
+        mock_config = AsyncMock()
+
+        with (
+            patch("src.services.database.get_db", return_value=AsyncMock()),
+            patch(
+                "src.services.settings_store.is_queue_mode_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_project_launch_lock",
+                return_value=asyncio.Lock(),
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_complete,
+            ),
+            patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
+        ):
+            mock_cp.count_active_pipelines_for_project.return_value = 0
+            mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
+            mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
+            mock_cp.get_workflow_orchestrator.return_value = AsyncMock()
+            mock_cp.WorkflowContext = lambda **kw: AsyncMock(**kw)
+
+            await _dequeue_next_pipeline("token", "PVT_1", "test")
+            assert mock_pipeline.queued is False
+            mock_cp.set_pipeline_state.assert_called_once_with(42, mock_pipeline)
+
+    async def test_dequeue_skips_first_and_takes_second_candidate(self):
+        """First pipeline has unmet prereqs; second (no prereqs) gets dequeued."""
+        from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
+
+        # First candidate: has unmet prerequisites
+        blocked = AsyncMock()
+        blocked.issue_number = 42
+        blocked.queued = True
+        blocked.prerequisite_issues = [10]
+
+        # Second candidate: no prerequisites at all
+        ready = AsyncMock()
+        ready.issue_number = 55
+        ready.queued = True
+        ready.prerequisite_issues = []
+
+        prereq_incomplete = AsyncMock()
+        prereq_incomplete.queued = False
+        prereq_incomplete.is_complete = False
+
+        mock_config = AsyncMock()
+
+        with (
+            patch("src.services.database.get_db", return_value=AsyncMock()),
+            patch(
+                "src.services.settings_store.is_queue_mode_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_project_launch_lock",
+                return_value=asyncio.Lock(),
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=prereq_incomplete,
+            ),
+            patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
+        ):
+            mock_cp.count_active_pipelines_for_project.return_value = 0
+            mock_cp.get_queued_pipelines_for_project.return_value = [blocked, ready]
+            mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
+            mock_cp.get_workflow_orchestrator.return_value = AsyncMock()
+            mock_cp.WorkflowContext = lambda **kw: AsyncMock(**kw)
+
+            await _dequeue_next_pipeline("token", "PVT_1", "test")
+            assert ready.queued is False
+            mock_cp.set_pipeline_state.assert_called_once_with(55, ready)
+
+    async def test_dequeue_mixed_prereqs_one_met_one_not(self):
+        """Pipeline with two prereqs (one met, one not) is skipped."""
+        from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
+
+        mock_pipeline = AsyncMock()
+        mock_pipeline.issue_number = 42
+        mock_pipeline.queued = True
+        mock_pipeline.prerequisite_issues = [10, 20]
+
+        prereq_complete = AsyncMock()
+        prereq_complete.queued = False
+        prereq_complete.is_complete = True
+
+        prereq_incomplete = AsyncMock()
+        prereq_incomplete.queued = False
+        prereq_incomplete.is_complete = False
+
+        async def get_prereq_state(issue_num):
+            if issue_num == 10:
+                return prereq_complete
+            return prereq_incomplete
+
+        with (
+            patch("src.services.database.get_db", return_value=AsyncMock()),
+            patch(
+                "src.services.settings_store.is_queue_mode_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_project_launch_lock",
+                return_value=asyncio.Lock(),
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline.get_pipeline_state_async",
+                side_effect=get_prereq_state,
+            ),
+            patch("src.services.copilot_polling.pipeline._cp") as mock_cp,
+        ):
+            mock_cp.count_active_pipelines_for_project.return_value = 0
+            mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
+
+            await _dequeue_next_pipeline("token", "PVT_1", "test")
+            mock_cp.set_pipeline_state.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # T027 - Grace period
 # ---------------------------------------------------------------------------
 

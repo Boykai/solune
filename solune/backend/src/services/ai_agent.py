@@ -444,7 +444,7 @@ class AIAgentService:
         if "ai-generated" not in validated_labels:
             validated_labels.insert(0, "ai-generated")
 
-        # If no type label was selected, default to "feature"
+        # If no type label was selected, default to "enhancement"
         type_labels = [
             "feature",
             "bug",
@@ -456,7 +456,7 @@ class AIAgentService:
         ]
         has_type = any(lbl in validated_labels for lbl in type_labels)
         if not has_type:
-            validated_labels.append("feature")
+            validated_labels.append("enhancement")
 
         return IssueMetadata(
             priority=priority,
