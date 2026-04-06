@@ -32,7 +32,9 @@ class _FakeMCP:
 
 
 def _ctx(mcp_ctx: McpContext | None) -> SimpleNamespace:
-    return SimpleNamespace(request_context=SimpleNamespace(lifespan_context={"mcp_context": mcp_ctx}))
+    return SimpleNamespace(
+        request_context=SimpleNamespace(lifespan_context={"mcp_context": mcp_ctx})
+    )
 
 
 @pytest.fixture

@@ -146,4 +146,27 @@ describe('AddAgentModal', () => {
       });
     });
   });
+
+  it('preserves in-progress edits across rerenders while the same agent stays open', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} editAgent={createAgent()} />
+    );
+
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Reviewer Draft');
+    expect(nameInput).toHaveValue('Reviewer Draft');
+
+    rerender(
+      <AddAgentModal
+        projectId="PVT_1"
+        isOpen={true}
+        onClose={vi.fn()}
+        editAgent={createAgent({ description: 'Updated metadata only' })}
+      />
+    );
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Reviewer Draft');
+  });
 });
