@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from datetime import datetime
 
 from src.logging_utils import get_logger
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     ASSIGN_COPILOT_MUTATION,
     GET_PULL_REQUEST_QUERY,
@@ -17,7 +17,7 @@ API_ACTION_DELAY_SECONDS: float = 2.0
 logger = get_logger(__name__)
 
 
-class CopilotMixin:
+class CopilotMixin(_ServiceMixin):
     """Copilot assignment, review, polling, and session error detection."""
 
     async def get_copilot_bot_id(

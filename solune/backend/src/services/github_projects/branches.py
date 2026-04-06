@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from src.logging_utils import get_logger
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     CREATE_BRANCH_MUTATION,
     GET_BRANCH_HEAD_QUERY,
@@ -10,7 +10,7 @@ from src.services.github_projects.graphql import (
 logger = get_logger(__name__)
 
 
-class BranchesMixin:
+class BranchesMixin(_ServiceMixin):
     """Branch creation, deletion, and HEAD lookup."""
 
     async def delete_branch(

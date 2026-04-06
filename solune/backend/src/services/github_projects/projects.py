@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import asyncio
 
 from src.constants import DEFAULT_STATUS_BACKLOG, StatusNames
@@ -8,6 +7,7 @@ from src.logging_utils import get_logger
 from src.models.project import GitHubProject, ProjectType, StatusColumn
 from src.models.task import Task
 from src.services.done_items_store import save_done_items
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     CREATE_DRAFT_ITEM_MUTATION,
     CREATE_PROJECT_V2_MUTATION,
@@ -47,7 +47,7 @@ _SOLUNE_STATUS_OPTIONS = [
 ]
 
 
-class ProjectsMixin:
+class ProjectsMixin(_ServiceMixin):
     """Project listing, items, fields, status management, and change detection."""
 
     # ------------------------------------------------------------------
