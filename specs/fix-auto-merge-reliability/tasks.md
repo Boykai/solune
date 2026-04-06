@@ -77,7 +77,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Change `_get_auto_merge_pipeline()` signature from `def _get_auto_merge_pipeline(issue_number: int)` to `async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str)` in `solune/backend/src/api/webhooks.py` (lines ~49-72)
+- [ ] T012 [US2] Change `_get_auto_merge_pipeline()` signature from `def _get_auto_merge_pipeline(issue_number: int)` to `async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str)` in `solune/backend/src/api/webhooks.py` (lines ~49-72). Only two callers exist (T015, T016 below) — confirmed via research.md R6
 - [ ] T013 [US2] Add Step B (L2 fallback) — on L1 miss, call `get_pipeline_state_async(issue_number)` from `pipeline_state_store` to recover `auto_merge` from SQLite metadata JSON in `solune/backend/src/api/webhooks.py`
 - [ ] T014 [US2] Add Step C (project-level fallback) — on L1+L2 miss, resolve `project_id` from `_issue_main_branches` or L2 state, then call `is_auto_merge_enabled(db, project_id)` in `solune/backend/src/api/webhooks.py`
 - [ ] T015 [US2] Update caller at line ~823 in `handle_check_run_event` to use `await _get_auto_merge_pipeline(issue_number, owner, repo)` in `solune/backend/src/api/webhooks.py`
