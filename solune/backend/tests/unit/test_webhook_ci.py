@@ -923,7 +923,8 @@ class TestWebhookHelpers:
             result = _resolve_issue_for_pr(42)
             assert result is None
 
-    def test_get_auto_merge_pipeline_complete(self):
+    @pytest.mark.asyncio
+    async def test_get_auto_merge_pipeline_complete(self):
         """Should return pipeline metadata for complete auto-merge pipelines."""
         from unittest.mock import MagicMock, patch
 
@@ -938,14 +939,15 @@ class TestWebhookHelpers:
             "src.services.copilot_polling.get_pipeline_state",
             return_value=pipeline,
         ):
-            result = _get_auto_merge_pipeline(10)
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
             assert result is not None
             assert result["devops_attempts"] == 0
             assert result["devops_active"] is False
 
-    def test_get_auto_merge_pipeline_complete_no_auto_merge(self):
+    @pytest.mark.asyncio
+    async def test_get_auto_merge_pipeline_complete_no_auto_merge(self):
         """Should return None for complete pipelines without auto_merge enabled."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.api.webhooks import _get_auto_merge_pipeline
 
@@ -954,38 +956,100 @@ class TestWebhookHelpers:
         pipeline.auto_merge = False
         pipeline.project_id = "PVT_123"
 
-        with patch(
-            "src.services.copilot_polling.get_pipeline_state",
-            return_value=pipeline,
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=pipeline,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.services.database.get_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.services.settings_store.is_auto_merge_enabled",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "src.services.workflow_orchestrator.transitions._issue_main_branches",
+                {},
+            ),
         ):
-            result = _get_auto_merge_pipeline(10)
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
             assert result is None
 
-    def test_get_auto_merge_pipeline_incomplete(self):
+    @pytest.mark.asyncio
+    async def test_get_auto_merge_pipeline_incomplete(self):
         """Should return None for incomplete pipelines."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.api.webhooks import _get_auto_merge_pipeline
 
         pipeline = MagicMock()
         pipeline.is_complete = False
 
-        with patch(
-            "src.services.copilot_polling.get_pipeline_state",
-            return_value=pipeline,
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=pipeline,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.services.database.get_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.services.settings_store.is_auto_merge_enabled",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "src.services.workflow_orchestrator.transitions._issue_main_branches",
+                {},
+            ),
         ):
-            result = _get_auto_merge_pipeline(10)
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
             assert result is None
 
-    def test_get_auto_merge_pipeline_no_pipeline(self):
+    @pytest.mark.asyncio
+    async def test_get_auto_merge_pipeline_no_pipeline(self):
         """Should return None when no pipeline state exists."""
-        from unittest.mock import patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from src.api.webhooks import _get_auto_merge_pipeline
 
-        with patch(
-            "src.services.copilot_polling.get_pipeline_state",
-            return_value=None,
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=None,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.services.database.get_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.services.settings_store.is_auto_merge_enabled",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "src.services.workflow_orchestrator.transitions._issue_main_branches",
+                {},
+            ),
         ):
-            result = _get_auto_merge_pipeline(10)
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
             assert result is None

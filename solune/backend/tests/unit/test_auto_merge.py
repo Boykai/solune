@@ -17,6 +17,10 @@ from src.services.copilot_polling.auto_merge import (
     schedule_auto_merge_retry,
     schedule_post_devops_merge_retry,
 )
+from src.services.copilot_polling.state import (
+    AUTO_MERGE_RETRY_BASE_DELAY,
+    MAX_AUTO_MERGE_RETRIES,
+)
 
 
 @pytest.fixture()
@@ -531,10 +535,10 @@ class TestAutoMergeRetryLoop:
             )
 
             assert mock_attempt.await_count == 2
-            # First delay = 60s, second delay = 120s
+            # First delay = 45s, second delay = 90s
             assert mock_sleep.await_count == 2
-            assert mock_sleep.await_args_list[0][0][0] == 60.0
-            assert mock_sleep.await_args_list[1][0][0] == 120.0
+            assert mock_sleep.await_args_list[0][0][0] == 45.0
+            assert mock_sleep.await_args_list[1][0][0] == 90.0
             # Should have broadcast auto_merge_completed
             broadcast_calls = mock_ws.broadcast_to_project.call_args_list
             completed_events = [
@@ -1290,3 +1294,345 @@ class TestDispatchDevopsAgentEdgeCases:
         call_kwargs = mock_service.assign_copilot_to_issue.call_args[1]
         assert "CI Failures" in call_kwargs["custom_instructions"]
         assert "**build**: failure" in call_kwargs["custom_instructions"]
+
+
+class TestRetryWindowConstants:
+    """Tests for auto-merge retry window constants (Phase 1)."""
+
+    def test_max_auto_merge_retries_is_five(self):
+        """MAX_AUTO_MERGE_RETRIES should be 5 to cover slow CI."""
+        assert MAX_AUTO_MERGE_RETRIES == 5
+
+    def test_auto_merge_retry_base_delay_is_45(self):
+        """AUTO_MERGE_RETRY_BASE_DELAY should be 45.0 for faster first retry."""
+        assert AUTO_MERGE_RETRY_BASE_DELAY == 45.0
+
+    def test_total_backoff_covers_slow_ci(self):
+        """Total exponential backoff should cover at least 15 minutes (900s)."""
+        total = sum(AUTO_MERGE_RETRY_BASE_DELAY * (2**i) for i in range(MAX_AUTO_MERGE_RETRIES))
+        assert total >= 900  # At least 15 minutes
+
+
+class TestWebhookL2Fallback:
+    """Tests for _get_auto_merge_pipeline() L2 and project-level fallback."""
+
+    @pytest.mark.asyncio
+    async def test_l1_miss_l2_hit_returns_pipeline(self):
+        """L1 cache miss + L2 SQLite hit → returns pipeline metadata."""
+        from src.api.webhooks import _get_auto_merge_pipeline
+
+        l2_pipeline = MagicMock()
+        l2_pipeline.is_complete = True
+        l2_pipeline.auto_merge = True
+        l2_pipeline.project_id = "PVT_123"
+
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=None,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=l2_pipeline,
+            ),
+        ):
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
+            assert result is not None
+            assert result["project_id"] == "PVT_123"
+            assert result["devops_attempts"] == 0
+            assert result["devops_active"] is False
+
+    @pytest.mark.asyncio
+    async def test_l1_l2_miss_project_auto_merge_returns_metadata(self):
+        """L1+L2 miss but project auto-merge enabled → returns metadata."""
+        from src.api.webhooks import _get_auto_merge_pipeline
+
+        # L2 returns a state with project_id (but not auto_merge)
+        l2_state = MagicMock()
+        l2_state.is_complete = False
+        l2_state.auto_merge = False
+        l2_state.project_id = "PVT_456"
+
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=None,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=l2_state,
+            ),
+            patch(
+                "src.services.database.get_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.services.settings_store.is_auto_merge_enabled",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
+            assert result is not None
+            assert result["project_id"] == "PVT_456"
+            assert result["devops_attempts"] == 0
+
+    @pytest.mark.asyncio
+    async def test_all_miss_returns_none(self):
+        """L1, L2, and project-level all miss → returns None."""
+        from src.api.webhooks import _get_auto_merge_pipeline
+
+        with (
+            patch(
+                "src.services.copilot_polling.get_pipeline_state",
+                return_value=None,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_pipeline_state_async",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.services.database.get_db",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "src.services.settings_store.is_auto_merge_enabled",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+            patch(
+                "src.services.workflow_orchestrator.transitions._issue_main_branches",
+                {},
+            ),
+        ):
+            result = await _get_auto_merge_pipeline(10, "owner", "repo")
+            assert result is None
+
+
+class TestDeferredRemoval:
+    """Tests for deferred pipeline state removal during auto-merge retry."""
+
+    @pytest.mark.asyncio
+    async def test_state_not_removed_on_retry_later(self, mock_ws):
+        """Pipeline state should NOT be removed when merge returns retry_later."""
+        mock_remove = MagicMock()
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                return_value=AutoMergeResult(
+                    status="retry_later",
+                    pr_number=42,
+                    context={"reason": "checks_pending"},
+                ),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.copilot_polling.remove_pipeline_state",
+                mock_remove,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            # remove_pipeline_state is called once at exhaust (or in finally),
+            # but never during the retry_later iterations.
+            # After exhaustion, it should be called exactly once.
+            assert mock_remove.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_state_removed_after_retry_succeeds(self, mock_ws):
+        """Pipeline state should be removed after retry succeeds with 'merged'."""
+        results = iter(
+            [
+                AutoMergeResult(
+                    status="retry_later",
+                    pr_number=42,
+                    context={"reason": "checks_pending"},
+                ),
+                AutoMergeResult(
+                    status="merged",
+                    pr_number=42,
+                    merge_commit="abc123",
+                ),
+            ]
+        )
+        mock_remove = MagicMock()
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                side_effect=lambda **_: next(results),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.copilot_polling.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch(
+                "src.services.copilot_polling.remove_pipeline_state",
+                mock_remove,
+            ),
+        ):
+            svc.update_item_status_by_name = AsyncMock()
+            svc.update_issue_state = AsyncMock()
+
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            mock_remove.assert_called_once_with(42)
+
+    @pytest.mark.asyncio
+    async def test_state_removed_after_retries_exhausted(self, mock_ws):
+        """Pipeline state should be removed after all retries are exhausted."""
+        mock_remove = MagicMock()
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                return_value=AutoMergeResult(
+                    status="retry_later",
+                    pr_number=42,
+                    context={"reason": "checks_pending"},
+                ),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.copilot_polling.remove_pipeline_state",
+                mock_remove,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            mock_remove.assert_called_once_with(42)
+
+    @pytest.mark.asyncio
+    async def test_state_removed_on_merge_failed(self, mock_ws):
+        """Pipeline state should be removed immediately on merge_failed."""
+        results = iter(
+            [
+                AutoMergeResult(
+                    status="merge_failed",
+                    pr_number=42,
+                    error="merge conflict",
+                ),
+            ]
+        )
+        mock_remove = MagicMock()
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                side_effect=lambda **_: next(results),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.copilot_polling.remove_pipeline_state",
+                mock_remove,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            await _auto_merge_retry_loop(
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                issue_number=42,
+                project_id="PVT_123",
+                item_id="ITEM_1",
+                task_title="Test",
+            )
+
+            mock_remove.assert_called_once_with(42)
+
+    @pytest.mark.asyncio
+    async def test_finally_safety_net_removes_state(self, mock_ws):
+        """Finally block should remove state if not already removed (on exception)."""
+        mock_remove = MagicMock()
+        with (
+            patch(
+                "src.services.copilot_polling.auto_merge._attempt_auto_merge",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("unexpected"),
+            ),
+            patch(
+                "src.services.copilot_polling.auto_merge.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.copilot_polling.remove_pipeline_state",
+                mock_remove,
+            ),
+        ):
+            from src.services.copilot_polling.state import _pending_auto_merge_retries
+
+            _pending_auto_merge_retries.pop(42, None)
+
+            # The function will raise due to the unexpected error, but the
+            # finally block should still clean up pipeline state.
+            with pytest.raises(RuntimeError, match="unexpected"):
+                await _auto_merge_retry_loop(
+                    access_token="token",
+                    owner="owner",
+                    repo="repo",
+                    issue_number=42,
+                    project_id="PVT_123",
+                    item_id="ITEM_1",
+                    task_title="Test",
+                )
+
+            # The finally safety net should have called remove_pipeline_state
+            mock_remove.assert_called_once_with(42)

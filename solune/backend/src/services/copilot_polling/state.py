@@ -205,8 +205,8 @@ MAX_MERGE_RETRIES: int = 3
 _pending_auto_merge_retries: BoundedDict[int, int] = BoundedDict(
     maxlen=200
 )  # issue_number -> attempt count so far
-MAX_AUTO_MERGE_RETRIES: int = 3
-AUTO_MERGE_RETRY_BASE_DELAY: float = 60.0  # seconds; doubles each attempt
+MAX_AUTO_MERGE_RETRIES: int = 5
+AUTO_MERGE_RETRY_BASE_DELAY: float = 45.0  # seconds; doubles each attempt
 
 # Post-DevOps merge retry: after DevOps agent is dispatched, poll for the
 # "Done!" completion marker and re-attempt auto-merge.

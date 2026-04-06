@@ -22,8 +22,8 @@
 
 **Purpose**: Verify existing project structure, dependencies, and test infrastructure before making changes
 
-- [ ] T001 Verify existing test suite passes by running `uv run pytest tests/unit/test_auto_merge.py -v` in `solune/backend/`
-- [ ] T002 Verify linting and type checking pass by running `uv run ruff check src/ tests/` and `uv run pyright src/` in `solune/backend/`
+- [x] T001 Verify existing test suite passes by running `uv run pytest tests/unit/test_auto_merge.py -v` in `solune/backend/`
+- [x] T002 Verify linting and type checking pass by running `uv run ruff check src/ tests/` and `uv run pyright src/` in `solune/backend/`
 
 ---
 
@@ -47,15 +47,15 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T003 [P] [US1] Add `TestRetryWindowConstants.test_max_auto_merge_retries_is_five` asserting `MAX_AUTO_MERGE_RETRIES == 5` in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T004 [P] [US1] Add `TestRetryWindowConstants.test_auto_merge_retry_base_delay_is_45` asserting `AUTO_MERGE_RETRY_BASE_DELAY == 45.0` in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T005 [P] [US1] Add `TestRetryWindowConstants.test_total_backoff_covers_slow_ci` asserting total exponential backoff `sum(45 * 2**i for i in range(5))` ≥ 900 seconds in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T003 [P] [US1] Add `TestRetryWindowConstants.test_max_auto_merge_retries_is_five` asserting `MAX_AUTO_MERGE_RETRIES == 5` in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T004 [P] [US1] Add `TestRetryWindowConstants.test_auto_merge_retry_base_delay_is_45` asserting `AUTO_MERGE_RETRY_BASE_DELAY == 45.0` in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T005 [P] [US1] Add `TestRetryWindowConstants.test_total_backoff_covers_slow_ci` asserting total exponential backoff `sum(45 * 2**i for i in range(5))` ≥ 900 seconds in `solune/backend/tests/unit/test_auto_merge.py`
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Update `MAX_AUTO_MERGE_RETRIES` from `3` to `5` at line ~209 in `solune/backend/src/services/copilot_polling/state.py`
-- [ ] T007 [US1] Update `AUTO_MERGE_RETRY_BASE_DELAY` from `60.0` to `45.0` at line ~210 in `solune/backend/src/services/copilot_polling/state.py`
-- [ ] T008 [US1] Run `uv run pytest tests/unit/test_auto_merge.py -v -k TestRetryWindowConstants` in `solune/backend/` to verify new tests pass
+- [x] T006 [US1] Update `MAX_AUTO_MERGE_RETRIES` from `3` to `5` at line ~209 in `solune/backend/src/services/copilot_polling/state.py`
+- [x] T007 [US1] Update `AUTO_MERGE_RETRY_BASE_DELAY` from `60.0` to `45.0` at line ~210 in `solune/backend/src/services/copilot_polling/state.py`
+- [x] T008 [US1] Run `uv run pytest tests/unit/test_auto_merge.py -v -k TestRetryWindowConstants` in `solune/backend/` to verify new tests pass
 
 **Checkpoint**: Retry window extended to ~23 minutes. Fast CI still merges quickly. US1 is fully functional and independently testable.
 
@@ -71,18 +71,18 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T009 [P] [US2] Add `TestWebhookL2Fallback.test_l1_miss_l2_hit_returns_pipeline` — mock `get_pipeline_state()` returning `None`, mock `get_pipeline_state_async()` returning `PipelineState` with `auto_merge=True`, assert function returns metadata dict in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T010 [P] [US2] Add `TestWebhookL2Fallback.test_l1_l2_miss_project_auto_merge_returns_metadata` — mock both L1 and L2 returning `None`, mock `is_auto_merge_enabled()` returning `True`, assert function returns metadata dict with `project_id` in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T011 [P] [US2] Add `TestWebhookL2Fallback.test_all_miss_returns_none` — mock L1, L2, and project-level all returning `None`/`False`, assert function returns `None` in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T009 [P] [US2] Add `TestWebhookL2Fallback.test_l1_miss_l2_hit_returns_pipeline` — mock `get_pipeline_state()` returning `None`, mock `get_pipeline_state_async()` returning `PipelineState` with `auto_merge=True`, assert function returns metadata dict in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T010 [P] [US2] Add `TestWebhookL2Fallback.test_l1_l2_miss_project_auto_merge_returns_metadata` — mock both L1 and L2 returning `None`, mock `is_auto_merge_enabled()` returning `True`, assert function returns metadata dict with `project_id` in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T011 [P] [US2] Add `TestWebhookL2Fallback.test_all_miss_returns_none` — mock L1, L2, and project-level all returning `None`/`False`, assert function returns `None` in `solune/backend/tests/unit/test_auto_merge.py`
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Change `_get_auto_merge_pipeline()` signature from `def _get_auto_merge_pipeline(issue_number: int)` to `async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str)` in `solune/backend/src/api/webhooks.py` (lines ~49-72). Only two callers exist (T015, T016 below) — confirmed via research.md R6
-- [ ] T013 [US2] Add Step B (L2 fallback) — on L1 miss, call `get_pipeline_state_async(issue_number)` from `pipeline_state_store` to recover `auto_merge` from SQLite metadata JSON in `solune/backend/src/api/webhooks.py`
-- [ ] T014 [US2] Add Step C (project-level fallback) — on L1+L2 miss, resolve `project_id` from `_issue_main_branches` or L2 state, then call `is_auto_merge_enabled(db, project_id)` in `solune/backend/src/api/webhooks.py`
-- [ ] T015 [US2] Update caller at line ~823 in `handle_check_run_event` to use `await _get_auto_merge_pipeline(issue_number, owner, repo)` in `solune/backend/src/api/webhooks.py`
-- [ ] T016 [US2] Update caller at line ~917 in `handle_check_suite_event` to use `await _get_auto_merge_pipeline(issue_number, owner, repo)` in `solune/backend/src/api/webhooks.py`
-- [ ] T017 [US2] Run `uv run pytest tests/unit/test_auto_merge.py -v -k TestWebhookL2Fallback` in `solune/backend/` to verify new tests pass
+- [x] T012 [US2] Change `_get_auto_merge_pipeline()` signature from `def _get_auto_merge_pipeline(issue_number: int)` to `async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str)` in `solune/backend/src/api/webhooks.py` (lines ~49-72). Only two callers exist (T015, T016 below) — confirmed via research.md R6
+- [x] T013 [US2] Add Step B (L2 fallback) — on L1 miss, call `get_pipeline_state_async(issue_number)` from `pipeline_state_store` to recover `auto_merge` from SQLite metadata JSON in `solune/backend/src/api/webhooks.py`
+- [x] T014 [US2] Add Step C (project-level fallback) — on L1+L2 miss, resolve `project_id` from `_issue_main_branches` or L2 state, then call `is_auto_merge_enabled(db, project_id)` in `solune/backend/src/api/webhooks.py`
+- [x] T015 [US2] Update caller at line ~823 in `handle_check_run_event` to use `await _get_auto_merge_pipeline(issue_number, owner, repo)` in `solune/backend/src/api/webhooks.py`
+- [x] T016 [US2] Update caller at line ~917 in `handle_check_suite_event` to use `await _get_auto_merge_pipeline(issue_number, owner, repo)` in `solune/backend/src/api/webhooks.py`
+- [x] T017 [US2] Run `uv run pytest tests/unit/test_auto_merge.py -v -k TestWebhookL2Fallback` in `solune/backend/` to verify new tests pass
 
 **Checkpoint**: Webhook recovers auto-merge intent from L2 SQLite and project-level settings. L1 cache misses no longer cause silent merge failures.
 
@@ -98,26 +98,26 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T018 [P] [US3] Add `TestDeferredRemoval.test_state_not_removed_on_retry_later` — verify pipeline state remains in L1 after `_transition_after_pipeline_complete` returns `retry_later` in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T019 [P] [US3] Add `TestDeferredRemoval.test_state_removed_after_retry_succeeds` — verify pipeline state is removed from L1 after retry loop completes with `merged` in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T020 [P] [US3] Add `TestDeferredRemoval.test_state_removed_after_retries_exhausted` — verify pipeline state is removed from L1 after all retries are exhausted in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T021 [P] [US3] Add `TestDeferredRemoval.test_state_removed_on_merge_failed` — verify pipeline state is removed immediately on `merge_failed` outcome in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T022 [P] [US3] Add `TestDeferredRemoval.test_finally_safety_net_removes_state` — verify `finally` block in retry loop removes state if not already removed in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T018 [P] [US3] Add `TestDeferredRemoval.test_state_not_removed_on_retry_later` — verify pipeline state remains in L1 after `_transition_after_pipeline_complete` returns `retry_later` in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T019 [P] [US3] Add `TestDeferredRemoval.test_state_removed_after_retry_succeeds` — verify pipeline state is removed from L1 after retry loop completes with `merged` in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T020 [P] [US3] Add `TestDeferredRemoval.test_state_removed_after_retries_exhausted` — verify pipeline state is removed from L1 after all retries are exhausted in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T021 [P] [US3] Add `TestDeferredRemoval.test_state_removed_on_merge_failed` — verify pipeline state is removed immediately on `merge_failed` outcome in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T022 [P] [US3] Add `TestDeferredRemoval.test_finally_safety_net_removes_state` — verify `finally` block in retry loop removes state if not already removed in `solune/backend/tests/unit/test_auto_merge.py`
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Remove unconditional `_cp.remove_pipeline_state(issue_number)` call at line ~2507 in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T024 [US3] Add immediate `remove_pipeline_state()` when `auto_merge_active is False` (unchanged behavior) in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T025 [US3] Add `remove_pipeline_state()` to `merged` outcome branch (after Done transition) in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T026 [US3] Add `remove_pipeline_state()` to `devops_needed` outcome branch (after DevOps dispatch) in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T027 [US3] Add `remove_pipeline_state()` to `merge_failed` outcome branch in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T028 [US3] Skip `remove_pipeline_state()` and auto-unregister block for `retry_later` outcome — let retry loop handle cleanup in `solune/backend/src/services/copilot_polling/pipeline.py`
-- [ ] T029 [US3] Add `_cp.remove_pipeline_state(issue_number)` after `merged` terminal (after Done transition) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
-- [ ] T030 [US3] Add `_cp.remove_pipeline_state(issue_number)` after `devops_needed` terminal (after DevOps dispatch) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
-- [ ] T031 [US3] Add `_cp.remove_pipeline_state(issue_number)` after `merge_failed` terminal (after failure broadcast) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
-- [ ] T032 [US3] Add `_cp.remove_pipeline_state(issue_number)` after retries-exhausted terminal (after exhaustion broadcast) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
-- [ ] T033 [US3] Add `finally` safety net at end of `_auto_merge_retry_loop()` to call `_cp.remove_pipeline_state(issue_number)` if not already removed in `solune/backend/src/services/copilot_polling/auto_merge.py`
-- [ ] T034 [US3] Run `uv run pytest tests/unit/test_auto_merge.py -v -k TestDeferredRemoval` in `solune/backend/` to verify new tests pass
+- [x] T023 [US3] Remove unconditional `_cp.remove_pipeline_state(issue_number)` call at line ~2507 in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T024 [US3] Add immediate `remove_pipeline_state()` when `auto_merge_active is False` (unchanged behavior) in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T025 [US3] Add `remove_pipeline_state()` to `merged` outcome branch (after Done transition) in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T026 [US3] Add `remove_pipeline_state()` to `devops_needed` outcome branch (after DevOps dispatch) in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T027 [US3] Add `remove_pipeline_state()` to `merge_failed` outcome branch in `_transition_after_pipeline_complete()` in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T028 [US3] Skip `remove_pipeline_state()` and auto-unregister block for `retry_later` outcome — let retry loop handle cleanup in `solune/backend/src/services/copilot_polling/pipeline.py`
+- [x] T029 [US3] Add `_cp.remove_pipeline_state(issue_number)` after `merged` terminal (after Done transition) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
+- [x] T030 [US3] Add `_cp.remove_pipeline_state(issue_number)` after `devops_needed` terminal (after DevOps dispatch) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
+- [x] T031 [US3] Add `_cp.remove_pipeline_state(issue_number)` after `merge_failed` terminal (after failure broadcast) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
+- [x] T032 [US3] Add `_cp.remove_pipeline_state(issue_number)` after retries-exhausted terminal (after exhaustion broadcast) in `_auto_merge_retry_loop()` in `solune/backend/src/services/copilot_polling/auto_merge.py`
+- [x] T033 [US3] Add `finally` safety net at end of `_auto_merge_retry_loop()` to call `_cp.remove_pipeline_state(issue_number)` if not already removed in `solune/backend/src/services/copilot_polling/auto_merge.py`
+- [x] T034 [US3] Run `uv run pytest tests/unit/test_auto_merge.py -v -k TestDeferredRemoval` in `solune/backend/` to verify new tests pass
 
 **Checkpoint**: Pipeline state persists during retry_later — retry loop and webhooks can find it. State is cleaned up at all terminal outcomes. No state leaks.
 
@@ -131,10 +131,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Update existing `TestAutoMergeRetryLoop.test_retry_succeeds_on_second_attempt` if delay assertions change from 60/120 to 45/90 in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T036 [US4] Update existing `TestAutoMergeRetryLoop.test_retry_exhausted_broadcasts_failure` if retry count assertions change from 3 to 5 in `solune/backend/tests/unit/test_auto_merge.py`
-- [ ] T037 [US4] Run `uv run pytest tests/unit/test_auto_merge.py -v` in `solune/backend/` — all existing + new tests must pass
-- [ ] T038 [US4] Run `uv run pytest tests/unit/ -v --tb=short` in `solune/backend/` — full backend suite (4941+ tests) must pass
+- [x] T035 [US4] Update existing `TestAutoMergeRetryLoop.test_retry_succeeds_on_second_attempt` if delay assertions change from 60/120 to 45/90 in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T036 [US4] Update existing `TestAutoMergeRetryLoop.test_retry_exhausted_broadcasts_failure` if retry count assertions change from 3 to 5 in `solune/backend/tests/unit/test_auto_merge.py`
+- [x] T037 [US4] Run `uv run pytest tests/unit/test_auto_merge.py -v` in `solune/backend/` — all existing + new tests must pass
+- [x] T038 [US4] Run `uv run pytest tests/unit/ -v --tb=short` in `solune/backend/` — full backend suite (4941+ tests) must pass
 
 **Checkpoint**: All existing behavior preserved. No regressions in fast CI merges, disabled auto-merge, or manual override workflows.
 
@@ -144,11 +144,11 @@
 
 **Purpose**: Final verification, linting, type checking, and cleanup across all changed files
 
-- [ ] T039 Run `uv run ruff check src/ tests/` in `solune/backend/` — no lint errors
-- [ ] T040 Run `uv run ruff format --check src/ tests/` in `solune/backend/` — formatting clean
-- [ ] T041 Run `uv run pyright src/` in `solune/backend/` — no type errors
-- [ ] T042 Review all changed files for consistency: `state.py`, `webhooks.py`, `pipeline.py`, `auto_merge.py`, `test_auto_merge.py`
-- [ ] T043 Run quickstart.md validation — execute all verification commands from `specs/fix-auto-merge-reliability/quickstart.md`
+- [x] T039 Run `uv run ruff check src/ tests/` in `solune/backend/` — no lint errors
+- [x] T040 Run `uv run ruff format --check src/ tests/` in `solune/backend/` — formatting clean
+- [x] T041 Run `uv run pyright src/` in `solune/backend/` — no type errors
+- [x] T042 Review all changed files for consistency: `state.py`, `webhooks.py`, `pipeline.py`, `auto_merge.py`, `test_auto_merge.py`
+- [x] T043 Run quickstart.md validation — execute all verification commands from `specs/fix-auto-merge-reliability/quickstart.md`
 
 ---
 
