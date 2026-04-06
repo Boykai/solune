@@ -16,6 +16,9 @@ ALLOWLIST: set[tuple[str, str]] = {
     # services → api: MCP launch_pipeline delegates to the shared pipeline
     # orchestrator in api/pipelines.py — planned refactor to service layer.
     ("src/services/mcp_server/tools/pipelines.py", "src.api.pipelines"),
+    # services → api: plan orchestrator delegates to the shared pipeline
+    # launch helper in api/pipelines.py — planned refactor to service layer.
+    ("src/services/app_plan_orchestrator.py", "src.api.pipelines"),
 }
 
 
