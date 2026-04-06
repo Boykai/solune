@@ -183,8 +183,8 @@
 - [ ] T025 [P] [US9] Add chores grid interaction coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoresGrid.test.tsx`
 - [ ] T026 [P] [US9] Expand schedule configuration coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoreScheduleConfig.test.tsx`
 - [ ] T027 [P] [US9] Expand install confirmation coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/InstallConfirmDialog.test.tsx`
-- [ ] T028 [P] [US9] Add search persistence and selection regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolSelectorModal.test.tsx`
-- [ ] T029 [P] [US9] Add focus-trap regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/command-palette/CommandPalette.test.tsx`
+- [ ] T028 [P] [US9] Add search persistence and selection regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolSelectorModal.test.tsx`
+- [ ] T029 [P] [US9] Add focus-trap regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/command-palette/__tests__/CommandPalette.test.tsx`
 
 ### Implementation for User Story 9
 
@@ -296,8 +296,8 @@ T024 /home/runner/work/solune/solune/solune/frontend/src/components/chores/__tes
 T025 /home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoresGrid.test.tsx
 T026 /home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoreScheduleConfig.test.tsx
 T027 /home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/InstallConfirmDialog.test.tsx
-T028 /home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolSelectorModal.test.tsx
-T029 /home/runner/work/solune/solune/solune/frontend/src/components/command-palette/CommandPalette.test.tsx
+T028 /home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolSelectorModal.test.tsx
+T029 /home/runner/work/solune/solune/solune/frontend/src/components/command-palette/__tests__/CommandPalette.test.tsx
 ```
 
 ---
