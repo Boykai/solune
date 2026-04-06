@@ -43,7 +43,7 @@ Recommended focused reruns while implementing:
 
 ```bash
 cd /home/runner/work/solune/solune/solune/frontend
-npm run test -- src/hooks/useCountdown.test.ts src/hooks/useFirstErrorFocus.test.ts src/components/tools/ToolSelectorModal.test.tsx src/components/command-palette/CommandPalette.test.tsx
+npm run test -- src/hooks/useCountdown.test.ts src/hooks/useFirstErrorFocus.test.tsx src/components/tools/__tests__/ToolSelectorModal.test.tsx src/components/command-palette/__tests__/CommandPalette.test.tsx
 ```
 
 Expected outcomes:
