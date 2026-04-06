@@ -135,34 +135,64 @@ Produce a compact decision summary with one row per unique recommendation:
 
 Post the outcome back to the PR being evaluated.
 
-Posting rules:
+Thread resolution rules:
 
-- Reply on the relevant review thread when the recommendation maps cleanly to a specific inline comment.
-- Use one summary PR comment for grouped duplicates, broad architectural comments, or comments that share the same root cause.
-- Every actionable recommendation must be reflected on the PR unless it is an exact duplicate already covered by another posted response.
-- For `ADOPT`, state that the change was adopted, summarize the implemented fix, and mention the targeted validation that was run when applicable.
-- For `REJECT`, state that the recommendation was not adopted and give a concise code-based reason.
-- For `ALREADY_ADDRESSED`, point to the existing behavior or current branch state that already resolves the concern.
-- For `NEEDS_CLARIFICATION`, state the ambiguity and the missing detail needed to proceed.
+- After replying on a review thread, **resolve the conversation** so it is marked as addressed on the PR.
+- For `ADOPT`: reply with what was changed. Resolve the thread.
+- For `REJECT`: reply with a concise code-based reason why the recommendation was not adopted. Resolve the thread.
+- For `ALREADY_ADDRESSED`: reply pointing to the existing behavior or current branch state that resolves the concern. Resolve the thread.
+- For `NEEDS_CLARIFICATION`: reply stating the ambiguity and the missing detail needed to proceed. **Do NOT resolve** — leave the thread open so the reviewer can respond.
+- Every actionable recommendation must have a reply posted on its thread unless it is an exact duplicate already covered by another response.
+- Use one consolidated reply for grouped duplicates or comments that share the same root cause, then resolve each thread.
 - Prefer short, factual responses. Do not post internal deliberation, uncertainty dumps, or long restatements of the code.
-- After handling the actionable recommendations, post or include a concise PR-level summary of the work performed and the reasoning behind the final dispositions so the PR reflects both the actions taken and why they were justified.
 
-Suggested response shapes:
+PR summary comment:
+
+- After resolving all threads, post a single **PR-level summary comment** on the pull request.
+- The summary must include:
+  - A table of all dispositions (adopted, rejected, already addressed, needs clarification) with the file, line or thread reference, and one-line rationale for each.
+  - A brief description of any code changes made and targeted validation that was run.
+  - A count of total recommendations evaluated, adopted, rejected, already addressed, and deferred.
+- This summary is the primary record of Judge decisions for the PR author and reviewers.
+
+Suggested thread reply shapes:
 
 ```text
 Adopted. Updated <file or symbol> to <change>. Validation: <targeted check>.
+[Resolving — change applied]
 ```
 
 ```text
 Not adopted. The current implementation already <behavior>, so this change would <risk or unnecessary churn>.
+[Resolving — no change needed]
 ```
 
 ```text
 Already addressed. The branch already handles this in <file or symbol> by <behavior>.
+[Resolving — already handled]
 ```
 
 ```text
 Needs clarification. I can act on this once it is clear whether <decision point>.
+[Leaving open for reviewer response]
+```
+
+Suggested PR summary comment shape:
+
+```markdown
+## Judge Review Summary
+
+**Evaluated X review recommendations** | Adopted: N | Rejected: N | Already addressed: N | Needs clarification: N
+
+| # | File | Disposition | Rationale |
+|---|------|-------------|----------|
+| 1 | `path/file.ts:L42` | ADOPT | <one-line reason and change made> |
+| 2 | `path/file.py:L15` | REJECT | <one-line reason> |
+| 3 | `path/file.ts:L88` | ALREADY_ADDRESSED | <one-line evidence> |
+
+### Changes made
+- <brief description of code changes>
+- Validation: <targeted checks run>
 ```
 
 ### 7. Commit Only Real Follow-Up Work

@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { ChevronDown, FileUp, Sparkles } from '@/lib/icons';
-import type { AppCreate, Owner, RepoType } from '@/types/apps';
+import type { AppCreate, Owner, PlanOrchestrationStatus, RepoType } from '@/types/apps';
 import type { PipelineConfigSummary } from '@/types';
 import { CharacterCounter } from '@/components/ui/character-counter';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -721,5 +721,117 @@ export function CreateAppDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ── Plan-Driven Creation Progress View ─────────────────────────────── */
+
+const PLAN_STAGES: { key: PlanOrchestrationStatus; label: string }[] = [
+  { key: 'planning', label: 'Plan Generation' },
+  { key: 'speckit_running', label: 'Agent Running' },
+  { key: 'parsing_phases', label: 'Parsing Phases' },
+  { key: 'creating_issues', label: 'Creating Issues' },
+  { key: 'launching_pipelines', label: 'Launching Pipelines' },
+  { key: 'active', label: 'Active' },
+];
+
+interface PlanningProgressProps {
+  status: PlanOrchestrationStatus;
+  phaseIssues?: { phase_index: number; issue_number: number; issue_url?: string | null }[];
+  error?: string | null;
+  onRetry?: () => void;
+  onClose?: () => void;
+}
+
+export function PlanningProgress({
+  status,
+  phaseIssues,
+  error,
+  onRetry,
+  onClose,
+}: PlanningProgressProps) {
+  const currentIdx = PLAN_STAGES.findIndex((s) => s.key === status);
+  const isFailed = status === 'failed';
+
+  return (
+    <div className="space-y-4 p-4">
+      <h3 className="text-sm font-semibold text-zinc-200">Planning Progress</h3>
+
+      {/* Stepper */}
+      <ol className="space-y-2">
+        {PLAN_STAGES.map((stage, idx) => {
+          const isComplete = !isFailed && idx < currentIdx;
+          const isCurrent = idx === currentIdx && !isFailed;
+          return (
+            <li key={stage.key} className="flex items-center gap-2 text-sm">
+              <span
+                className={
+                  isComplete
+                    ? 'text-emerald-400'
+                    : isCurrent
+                      ? 'text-blue-400 animate-pulse'
+                      : 'text-zinc-500'
+                }
+              >
+                {isComplete ? '✓' : isCurrent ? '●' : '○'}
+              </span>
+              <span className={isComplete ? 'text-zinc-300' : isCurrent ? 'text-zinc-100' : 'text-zinc-500'}>
+                {stage.label}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Phase issue links */}
+      {phaseIssues && phaseIssues.length > 0 && (
+        <div className="mt-3 space-y-1">
+          <h4 className="text-xs font-medium text-zinc-400">Phase Issues</h4>
+          {phaseIssues.map((pi) => (
+            <div key={pi.phase_index} className="text-xs text-zinc-300">
+              Phase {pi.phase_index}: #{pi.issue_number}
+              {pi.issue_url && (
+                <a
+                  href={pi.issue_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 text-blue-400 hover:underline"
+                >
+                  View
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Error state */}
+      {isFailed && error && (
+        <div className="rounded-md bg-red-900/30 p-3 text-sm text-red-300">
+          <p className="font-medium">Orchestration failed</p>
+          <p className="mt-1 text-xs">{error}</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-2 rounded bg-red-700 px-3 py-1 text-xs text-white hover:bg-red-600"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Close button for terminal states */}
+      {(status === 'active' || isFailed) && onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 rounded-lg bg-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-600"
+        >
+          Close
+        </button>
+      )}
+    </div>
   );
 }
