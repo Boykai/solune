@@ -12,10 +12,13 @@ in the ``github-copilot-sdk`` public preview.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from src.logging_utils import get_logger
 from src.prompts.plan_instructions import PLAN_SYSTEM_INSTRUCTIONS
+
+if TYPE_CHECKING:
+    from copilot.types import ReasoningEffort
 
 logger = get_logger(__name__)
 
@@ -167,7 +170,7 @@ async def create_plan_session(
     Returns:
         Configured agent session.
     """
-    from copilot.types import (  # type: ignore[reportMissingImports]
+    from copilot.types import (
         PermissionHandler,
         SessionConfig,
     )
@@ -185,7 +188,7 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
+        config["reasoning_effort"] = cast("ReasoningEffort", reasoning_effort)
 
     session = await client.create_session(config)
     logger.info(

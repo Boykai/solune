@@ -739,11 +739,17 @@ def create_app() -> FastAPI:
     # Rate limiting — slowapi state + exception handler
     from slowapi import _rate_limit_exceeded_handler
     from slowapi.errors import RateLimitExceeded
+    from starlette.responses import Response as StarletteResponse
 
     from src.middleware.rate_limit import RateLimitKeyMiddleware, limiter
 
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]  # slowapi handler signature mismatch
+
+    def _handle_rate_limit(request: Request, exc: Exception) -> StarletteResponse:
+        assert isinstance(exc, RateLimitExceeded)
+        return _rate_limit_exceeded_handler(request, exc)
+
+    app.add_exception_handler(RateLimitExceeded, _handle_rate_limit)
     app.add_middleware(RateLimitKeyMiddleware)
 
     # Exception handlers

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 from src.logging_utils import get_logger
 from src.services.github_projects.graphql import (
     CREATE_PULL_REQUEST_MUTATION,
