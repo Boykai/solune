@@ -23,8 +23,8 @@
 
 **Purpose**: Lock the implementation inputs, validation commands, and file targets before source changes begin.
 
-- [ ] T001 Review `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/plan.md`, `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/spec.md`, `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/research.md`, `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/data-model.md`, and `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` and capture the backend/frontend workstreams for execution
-- [ ] T002 Review `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/contracts/mcp-http-auth-contract.md`, `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/tools/__init__.py`, `/home/runner/work/solune/solune/solune/frontend/package.json`, and `/home/runner/work/solune/solune/solune/frontend/vitest.config.ts` before changing auth or coverage-sensitive files
+- [X] T001 Review `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/plan.md`, `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/spec.md`, `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/research.md`, `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/data-model.md`, and `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` and capture the backend/frontend workstreams for execution
+- [X] T002 Review `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/contracts/mcp-http-auth-contract.md`, `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/tools/__init__.py`, `/home/runner/work/solune/solune/solune/frontend/package.json`, and `/home/runner/work/solune/solune/solune/frontend/vitest.config.ts` before changing auth or coverage-sensitive files
 
 ---
 
@@ -34,8 +34,8 @@
 
 **⚠️ CRITICAL**: Complete this phase before parallel story work so every change reuses the same auth pattern and validation flow.
 
-- [ ] T003 [P] Verify the MCP authorization pattern in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/tools/__init__.py` matches the resource URIs documented in `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/contracts/mcp-http-auth-contract.md`
-- [ ] T004 [P] Verify shared frontend test utilities in `/home/runner/work/solune/solune/solune/frontend/src/test/test-utils.tsx` and the coverage gates in `/home/runner/work/solune/solune/solune/frontend/vitest.config.ts` before adding modal, hook, and keyboard regression suites
+- [X] T003 [P] Verify the MCP authorization pattern in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/tools/__init__.py` matches the resource URIs documented in `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/contracts/mcp-http-auth-contract.md`
+- [X] T004 [P] Verify shared frontend test utilities in `/home/runner/work/solune/solune/solune/frontend/src/test/test-utils.tsx` and the coverage gates in `/home/runner/work/solune/solune/solune/frontend/vitest.config.ts` before adding modal, hook, and keyboard regression suites
 
 **Checkpoint**: Shared auth/test conventions are fixed, so user-story work can proceed without re-deciding patterns.
 
@@ -49,7 +49,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Add `get_mcp_context()` and `verify_mcp_project_access()` enforcement to every resource handler in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/resources.py`
+- [X] T005 [US1] Add `get_mcp_context()` and `verify_mcp_project_access()` enforcement to every resource handler in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/resources.py`
 
 **Checkpoint**: MCP resources reject unauthorized callers consistently with the existing tool-handler auth flow.
 
@@ -63,7 +63,7 @@
 
 ### Implementation for User Story 2
 
-- [ ] T006 [US2] Return a 401 ASGI response on failed token verification in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/middleware.py`
+- [X] T006 [US2] Return a 401 ASGI response on failed token verification in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/middleware.py`
 
 **Checkpoint**: Invalid MCP HTTP auth is blocked at the middleware boundary instead of reaching handlers with a null context.
 
@@ -77,7 +77,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T007 [US3] Correct exact-bound cache eviction in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/auth.py`
+- [X] T007 [US3] Correct exact-bound cache eviction in `/home/runner/work/solune/solune/solune/backend/src/services/mcp_server/auth.py`
 
 **Checkpoint**: Cache growth remains predictable and capped at the configured size.
 
@@ -91,7 +91,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T008 [US4] Add graceful OTel startup fallback in `/home/runner/work/solune/solune/solune/backend/src/services/otel_setup.py` and update `/home/runner/work/solune/solune/solune/backend/src/main.py` only if the call site needs to preserve the no-op path
+- [X] T008 [US4] Add graceful OTel startup fallback in `/home/runner/work/solune/solune/solune/backend/src/services/otel_setup.py` and update `/home/runner/work/solune/solune/solune/backend/src/main.py` only if the call site needs to preserve the no-op path
 
 **Checkpoint**: Telemetry outages no longer crash application startup.
 
@@ -105,8 +105,8 @@
 
 ### Implementation for User Story 5
 
-- [ ] T009 [P] [US5] Move AddAgentModal render-time error clearing into an effect in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/AddAgentModal.tsx`
-- [ ] T010 [P] [US5] Move ToolSelectorModal render-time search/state initialization into an effect in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolSelectorModal.tsx`
+- [X] T009 [P] [US5] Move AddAgentModal render-time error clearing into an effect in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/AddAgentModal.tsx`
+- [X] T010 [P] [US5] Move ToolSelectorModal render-time search/state initialization into an effect in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolSelectorModal.tsx`
 
 **Checkpoint**: AddAgentModal and ToolSelectorModal stop resetting user-visible state during render.
 
@@ -120,8 +120,8 @@
 
 ### Implementation for User Story 6
 
-- [ ] T011 [P] [US6] Store the close callback in a ref so the Escape listener stays stable in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/AddChoreModal.tsx`
-- [ ] T012 [P] [US6] Cancel pending animation frames during cleanup in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/ChoreCard.tsx`
+- [X] T011 [P] [US6] Store the close callback in a ref so the Escape listener stays stable in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/AddChoreModal.tsx`
+- [X] T012 [P] [US6] Cancel pending animation frames during cleanup in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/ChoreCard.tsx`
 
 **Checkpoint**: Chore modal and card cleanup behavior is stable across re-renders and unmounts.
 
@@ -135,7 +135,7 @@
 
 ### Implementation for User Story 7
 
-- [ ] T013 [US7] Prevent default Tab behavior when no focusable elements are present in `/home/runner/work/solune/solune/solune/frontend/src/components/command-palette/CommandPalette.tsx`
+- [X] T013 [US7] Prevent default Tab behavior when no focusable elements are present in `/home/runner/work/solune/solune/solune/frontend/src/components/command-palette/CommandPalette.tsx`
 
 **Checkpoint**: CommandPalette honors keyboard-trap expectations for both empty and populated states.
 
@@ -151,14 +151,14 @@
 
 > **NOTE: Write these tests before or alongside the corresponding fixes and confirm they fail against the current buggy behavior first.**
 
-- [ ] T014 [P] [US8] Add middleware auth regression coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_middleware.py`
-- [ ] T015 [P] [US8] Add resource authorization and serialization coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_resources.py`
-- [ ] T016 [P] [US8] Extend cache-limit, rate-limit, timeout, and GitHub API error coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_auth.py`
-- [ ] T017 [P] [US8] Extend graceful-degradation and `RequestIDSpanProcessor` coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_otel_config.py`
+- [X] T014 [P] [US8] Add middleware auth regression coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_middleware.py`
+- [X] T015 [P] [US8] Add resource authorization and serialization coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_resources.py`
+- [X] T016 [P] [US8] Extend cache-limit, rate-limit, timeout, and GitHub API error coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_auth.py`
+- [X] T017 [P] [US8] Extend graceful-degradation and `RequestIDSpanProcessor` coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_otel_config.py`
 
 ### Implementation for User Story 8
 
-- [ ] T018 [US8] Run `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` backend verification commands against `/home/runner/work/solune/solune/solune/backend/src` and `/home/runner/work/solune/solune/solune/backend/tests` until coverage is ≥ 75%
+- [X] T018 [US8] Run `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` backend verification commands against `/home/runner/work/solune/solune/solune/backend/src` and `/home/runner/work/solune/solune/solune/backend/tests` until coverage is ≥ 75%
 
 **Checkpoint**: Backend fixes are regression-protected and the backend coverage gate is satisfied.
 
@@ -174,21 +174,21 @@
 
 > **NOTE: Write these tests before or alongside the corresponding fixes and confirm they expose the existing bug or coverage gap first.**
 
-- [ ] T019 [P] [US9] Add countdown decrement, reset, expiry, cleanup, and formatter coverage in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useCountdown.test.ts`
-- [ ] T020 [P] [US9] Add first-error focus ordering and no-op coverage in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useFirstErrorFocus.test.tsx`
-- [ ] T021 [P] [US9] Expand create/edit/validation/dirty-state regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AddAgentModal.test.tsx`
-- [ ] T022 [P] [US9] Expand form, validation, Escape, and template coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/AddChoreModal.test.tsx`
-- [ ] T023 [P] [US9] Add unmount cleanup regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoreCard.test.tsx`
-- [ ] T024 [P] [US9] Add confirmation-flow coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ConfirmChoreModal.test.tsx`
-- [ ] T025 [P] [US9] Add chores grid interaction coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoresGrid.test.tsx`
-- [ ] T026 [P] [US9] Expand schedule configuration coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoreScheduleConfig.test.tsx`
-- [ ] T027 [P] [US9] Expand install confirmation coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/InstallConfirmDialog.test.tsx`
-- [ ] T028 [P] [US9] Add search persistence and selection regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolSelectorModal.test.tsx`
-- [ ] T029 [P] [US9] Add focus-trap regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/command-palette/__tests__/CommandPalette.test.tsx`
+- [X] T019 [P] [US9] Add countdown decrement, reset, expiry, cleanup, and formatter coverage in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useCountdown.test.ts`
+- [X] T020 [P] [US9] Add first-error focus ordering and no-op coverage in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useFirstErrorFocus.test.tsx`
+- [X] T021 [P] [US9] Expand create/edit/validation/dirty-state regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/AddAgentModal.test.tsx`
+- [X] T022 [P] [US9] Expand form, validation, Escape, and template coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/AddChoreModal.test.tsx`
+- [X] T023 [P] [US9] Add unmount cleanup regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoreCard.test.tsx`
+- [X] T024 [P] [US9] Add confirmation-flow coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ConfirmChoreModal.test.tsx`
+- [X] T025 [P] [US9] Add chores grid interaction coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoresGrid.test.tsx`
+- [X] T026 [P] [US9] Expand schedule configuration coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/chores/__tests__/ChoreScheduleConfig.test.tsx`
+- [X] T027 [P] [US9] Expand install confirmation coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/agents/__tests__/InstallConfirmDialog.test.tsx`
+- [X] T028 [P] [US9] Add search persistence and selection regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolSelectorModal.test.tsx`
+- [X] T029 [P] [US9] Add focus-trap regression coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/command-palette/__tests__/CommandPalette.test.tsx`
 
 ### Implementation for User Story 9
 
-- [ ] T030 [US9] Run the frontend verification commands from `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` and `/home/runner/work/solune/solune/solune/frontend/package.json` until coverage, lint, type-check, and build all pass
+- [X] T030 [US9] Run the frontend verification commands from `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` and `/home/runner/work/solune/solune/solune/frontend/package.json` until coverage, lint, type-check, and build all pass
 
 **Checkpoint**: Frontend bug fixes are regression-protected and the frontend CI coverage gates are satisfied.
 
@@ -198,9 +198,9 @@
 
 **Purpose**: Finish validation, confirm security expectations, and clean up any execution drift across stories.
 
-- [ ] T031 [P] Re-run the backend and frontend verification checklist in `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` after all story work completes
-- [ ] T032 [P] Manually review unauthorized-access assertions in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_resources.py` and the frontend coverage thresholds in `/home/runner/work/solune/solune/solune/frontend/vitest.config.ts`
-- [ ] T033 Update `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` or `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/plan.md` only if the implemented validation flow or file targets changed during execution
+- [X] T031 [P] Re-run the backend and frontend verification checklist in `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` after all story work completes
+- [X] T032 [P] Manually review unauthorized-access assertions in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_mcp_server/test_resources.py` and the frontend coverage thresholds in `/home/runner/work/solune/solune/solune/frontend/vitest.config.ts`
+- [X] T033 Update `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/quickstart.md` or `/home/runner/work/solune/solune/specs/001-test-coverage-bugfixes/plan.md` only if the implemented validation flow or file targets changed during execution
 
 ---
 

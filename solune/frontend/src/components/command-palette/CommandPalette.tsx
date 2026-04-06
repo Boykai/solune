@@ -116,7 +116,10 @@ export function CommandPalette({ isOpen, onClose, projectId }: CommandPalettePro
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
           'button:not([disabled]), [tabindex]:not([tabindex="-1"]), a[href], input, select, textarea',
         );
-        if (focusable.length === 0) return;
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
 

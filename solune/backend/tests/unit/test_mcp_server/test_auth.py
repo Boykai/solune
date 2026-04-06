@@ -10,11 +10,13 @@ Covers:
 - GitHub API unreachability returns None (no cache of failures)
 """
 
-from unittest.mock import AsyncMock, patch
+from collections import deque
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
-from src.services.mcp_server.auth import GitHubTokenVerifier, _hash_token
+from src.services.mcp_server.auth import GitHubTokenVerifier, RateLimitEntry, _hash_token
 from src.services.mcp_server.context import McpContext
 
 # ── McpContext Tests ────────────────────────────────────────────────
@@ -171,3 +173,55 @@ class TestVerifyToken:
         verifier = GitHubTokenVerifier()
         ctx = verifier.get_context_for_token("ghp_unknown")
         assert ctx is None
+
+    async def test_cache_never_exceeds_configured_limit(self):
+        verifier = GitHubTokenVerifier(max_cache_size=1)
+
+        with patch.object(verifier, "_fetch_github_user", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = [
+                {"id": 1, "login": "first"},
+                {"id": 2, "login": "second"},
+            ]
+
+            await verifier.verify_token("ghp_first")
+            await verifier.verify_token("ghp_second")
+
+        assert len(verifier._cache) == 1
+        assert verifier.get_context_for_token("ghp_first") is None
+        assert verifier.get_context_for_token("ghp_second") is not None
+
+    def test_record_attempt_evicts_stale_rate_limit_entries(self):
+        verifier = GitHubTokenVerifier(rate_limit_window=10, max_rate_limit_entries=1)
+        stale_hash = _hash_token("ghp_stale")
+        fresh_hash = _hash_token("ghp_fresh")
+        verifier._rate_limits[stale_hash] = RateLimitEntry(deque([0.0]))
+
+        verifier._record_attempt(fresh_hash, now=20.0)
+
+        assert stale_hash not in verifier._rate_limits
+        assert fresh_hash in verifier._rate_limits
+
+
+class TestFetchGitHubUser:
+    async def test_timeout_returns_none(self):
+        verifier = GitHubTokenVerifier()
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = httpx.ReadTimeout("timeout")
+
+        with patch("src.services.mcp_server.auth.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__.return_value = mock_client
+            result = await verifier._fetch_github_user("ghp_timeout")
+
+        assert result is None
+
+    async def test_non_200_response_returns_none(self):
+        verifier = GitHubTokenVerifier()
+        response = MagicMock(status_code=500)
+        mock_client = AsyncMock()
+        mock_client.get.return_value = response
+
+        with patch("src.services.mcp_server.auth.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__.return_value = mock_client
+            result = await verifier._fetch_github_user("ghp_error")
+
+        assert result is None

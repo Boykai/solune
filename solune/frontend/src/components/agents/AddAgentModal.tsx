@@ -73,11 +73,6 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     return selectedToolIds.some((id, index) => id !== snapshot.tools[index]);
   }, [isEditMode, name, selectedIconName, selectedToolIds, snapshot, systemPrompt]);
 
-  // Clear tools error when tools are selected (render-time adjustment)
-  if (selectedToolIds.length > 0 && toolsError) {
-    setToolsError(null);
-  }
-
   const resetAndClose = useCallback(() => {
     setName('');
     setSystemPrompt('');
@@ -488,7 +483,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               {isEditMode ? (
                 <ToolsEditor
                   tools={selectedToolIds}
-                  onToolsChange={setSelectedToolIds}
+                  onToolsChange={(toolIds) => {
+                    setSelectedToolIds(toolIds);
+                    if (toolsError) setToolsError(null);
+                  }}
                   error={toolsError ?? undefined}
                   projectId={projectId}
                   onSelectorOpenChange={setShowEditToolSelector}
@@ -496,9 +494,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               ) : (
                 <ToolChips
                   tools={selectedTools}
-                  onRemove={(id) =>
-                    setSelectedToolIds((previous) => previous.filter((toolId) => toolId !== id))
-                  }
+                  onRemove={(id) => {
+                    setSelectedToolIds((previous) => previous.filter((toolId) => toolId !== id));
+                    if (toolsError) setToolsError(null);
+                  }}
                   onAddClick={() => setShowToolSelector(true)}
                 />
               )}
@@ -566,7 +565,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
           <ToolSelectorModal
             isOpen={showToolSelector}
             onClose={() => setShowToolSelector(false)}
-            onConfirm={(ids) => setSelectedToolIds(ids)}
+            onConfirm={(ids) => {
+              setSelectedToolIds(ids);
+              if (toolsError) setToolsError(null);
+            }}
             initialSelectedIds={selectedToolIds}
             projectId={projectId}
           />
