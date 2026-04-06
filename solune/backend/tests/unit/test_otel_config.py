@@ -7,6 +7,8 @@ Covers:
 - Config fields respect environment variables
 """
 
+from unittest.mock import MagicMock, patch
+
 
 class TestOtelSetupNoOp:
     """Tests for no-op behavior when OTel is not initialised."""
@@ -29,6 +31,40 @@ class TestOtelSetupNoOp:
 
         meter = otel_mod.get_meter()
         assert isinstance(meter, otel_mod._NoOpMeter)
+
+    def test_request_id_span_processor_adds_request_id_attribute(self):
+        import src.services.otel_setup as otel_mod
+        from src.middleware.request_id import request_id_var
+
+        span = MagicMock()
+        token = request_id_var.set("req-123")
+        try:
+            otel_mod._RequestIDSpanProcessor().on_start(span)
+        finally:
+            request_id_var.reset(token)
+
+        span.set_attribute.assert_called_once_with("request.id", "req-123")
+
+    def test_init_otel_gracefully_falls_back_when_exporter_setup_fails(self):
+        import src.services.otel_setup as otel_mod
+
+        otel_mod._tracer = None
+        otel_mod._meter = None
+
+        with (
+            patch(
+                "opentelemetry.exporter.otlp.proto.grpc.trace_exporter.OTLPSpanExporter",
+                side_effect=RuntimeError("boom"),
+            ),
+            patch.object(otel_mod.logger, "warning") as mock_warning,
+        ):
+            tracer, meter = otel_mod.init_otel("solune-backend", "http://localhost:4317")
+
+        assert isinstance(tracer, otel_mod._NoOpTracer)
+        assert isinstance(meter, otel_mod._NoOpMeter)
+        assert otel_mod._tracer is None
+        assert otel_mod._meter is None
+        mock_warning.assert_called_once()
 
 
 class TestObservabilityConfigDefaults:

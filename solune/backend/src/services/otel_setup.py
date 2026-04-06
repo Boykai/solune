@@ -60,35 +60,45 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-    resource = Resource.create({"service.name": service_name})
+    try:
+        resource = Resource.create({"service.name": service_name})
 
-    # ── Tracing ──
-    tracer_provider = TracerProvider(resource=resource)
-    span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
-    tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
-    tracer_provider.add_span_processor(_RequestIDSpanProcessor())  # type: ignore[arg-type]  # implements SpanProcessor protocol
-    trace.set_tracer_provider(tracer_provider)
+        # ── Tracing ──
+        tracer_provider = TracerProvider(resource=resource)
+        span_exporter = OTLPSpanExporter(endpoint=endpoint, insecure=True)
+        tracer_provider.add_span_processor(BatchSpanProcessor(span_exporter))
+        tracer_provider.add_span_processor(_RequestIDSpanProcessor())  # type: ignore[arg-type]  # implements SpanProcessor protocol
+        trace.set_tracer_provider(tracer_provider)
 
-    # ── Metrics ──
-    metric_exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
-    metric_reader = PeriodicExportingMetricReader(metric_exporter)
-    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-    metrics.set_meter_provider(meter_provider)
+        # ── Metrics ──
+        metric_exporter = OTLPMetricExporter(endpoint=endpoint, insecure=True)
+        metric_reader = PeriodicExportingMetricReader(metric_exporter)
+        meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
+        metrics.set_meter_provider(meter_provider)
 
-    # ── Auto-instrumentation ──
-    FastAPIInstrumentor.instrument()  # type: ignore[call-arg]  # OTel classmethod
-    HTTPXClientInstrumentor().instrument()
-    SQLite3Instrumentor().instrument()
+        # ── Auto-instrumentation ──
+        FastAPIInstrumentor.instrument()  # type: ignore[call-arg]  # OTel classmethod
+        HTTPXClientInstrumentor().instrument()
+        SQLite3Instrumentor().instrument()
 
-    _tracer = trace.get_tracer(service_name)
-    _meter = metrics.get_meter(service_name)
+        _tracer = trace.get_tracer(service_name)
+        _meter = metrics.get_meter(service_name)
 
-    logger.info(
-        "OpenTelemetry initialised: service=%s endpoint=%s",
-        service_name,
-        endpoint,
-    )
-    return _tracer, _meter
+        logger.info(
+            "OpenTelemetry initialised: service=%s endpoint=%s",
+            service_name,
+            endpoint,
+        )
+        return _tracer, _meter
+    except Exception as exc:
+        _tracer = None
+        _meter = None
+        logger.warning(
+            "OpenTelemetry initialisation failed; continuing without telemetry: %s",
+            exc,
+            exc_info=True,
+        )
+        return get_tracer(), get_meter()
 
 
 class _NoOpSpan:

@@ -31,20 +31,44 @@ interface AddAgentModalProps {
 const MAX_PROMPT_LENGTH = 30000;
 
 export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgentModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <AddAgentModalContent
+      key={editAgent?.id ?? '__create__'}
+      projectId={projectId}
+      onClose={onClose}
+      editAgent={editAgent}
+    />
+  );
+}
+
+interface AddAgentModalContentProps {
+  projectId: string;
+  onClose: () => void;
+  editAgent?: AgentConfig | null;
+}
+
+function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalContentProps) {
   const isEditMode = !!editAgent;
+  const initialToolIds = [...(editAgent?.tools ?? [])];
+  const initialIconName =
+    editAgent && isCelestialIconName(editAgent.icon_name) ? editAgent.icon_name : null;
 
   const nameRef = useRef<HTMLInputElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
-  const [name, setName] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [name, setName] = useState(() => editAgent?.name ?? '');
+  const [systemPrompt, setSystemPrompt] = useState(() => editAgent?.system_prompt || '');
   const [aiEnhance, setAiEnhance] = useState(true);
   const [nameError, setNameError] = useState<string | null>(null);
   const [promptError, setPromptError] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [toolsError, setToolsError] = useState<string | null>(null);
   const [successPrUrl, setSuccessPrUrl] = useState<string | null>(null);
-  const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
-  const [selectedIconName, setSelectedIconName] = useState<CelestialIconName | null>(null);
+  const [selectedToolIds, setSelectedToolIds] = useState<string[]>(() => initialToolIds);
+  const [selectedIconName, setSelectedIconName] = useState<CelestialIconName | null>(
+    () => initialIconName
+  );
   const [showToolSelector, setShowToolSelector] = useState(false);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showEditToolSelector, setShowEditToolSelector] = useState(false);
@@ -62,7 +86,16 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     systemPrompt: string;
     tools: string[];
     iconName: CelestialIconName | null;
-  } | null>(null);
+  } | null>(() =>
+    editAgent
+      ? {
+          name: editAgent.name,
+          systemPrompt: editAgent.system_prompt || '',
+          tools: initialToolIds,
+          iconName: initialIconName,
+        }
+      : null
+  );
 
   const isDirty = useMemo(() => {
     if (!isEditMode || !snapshot) return false;
@@ -72,11 +105,6 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     if (selectedToolIds.length !== snapshot.tools.length) return true;
     return selectedToolIds.some((id, index) => id !== snapshot.tools[index]);
   }, [isEditMode, name, selectedIconName, selectedToolIds, snapshot, systemPrompt]);
-
-  // Clear tools error when tools are selected (render-time adjustment)
-  if (selectedToolIds.length > 0 && toolsError) {
-    setToolsError(null);
-  }
 
   const resetAndClose = useCallback(() => {
     setName('');
@@ -95,49 +123,6 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     setShowEditToolSelector(false);
     onClose();
   }, [onClose]);
-
-  const [prevIsOpen, setPrevIsOpen] = useState(false);
-  const [prevEditAgentId, setPrevEditAgentId] = useState<string | undefined>(undefined);
-  const editAgentId = editAgent?.id;
-  if (isOpen && (!prevIsOpen || editAgentId !== prevEditAgentId)) {
-    setPrevIsOpen(true);
-    setPrevEditAgentId(editAgentId);
-    setNameError(null);
-    setPromptError(null);
-    setGeneralError(null);
-    setToolsError(null);
-    setSuccessPrUrl(null);
-    setShowCloseConfirm(false);
-    setShowToolSelector(false);
-    setShowEditToolSelector(false);
-
-    if (editAgent) {
-      const nextIcon = isCelestialIconName(editAgent.icon_name) ? editAgent.icon_name : null;
-      const nextTools = [...(editAgent.tools ?? [])];
-      setName(editAgent.name);
-      setSystemPrompt(editAgent.system_prompt || '');
-      setSelectedToolIds(nextTools);
-      setSelectedIconName(nextIcon);
-      setSnapshot({
-        name: editAgent.name,
-        systemPrompt: editAgent.system_prompt || '',
-        tools: nextTools,
-        iconName: nextIcon,
-      });
-    } else {
-      setName('');
-      setSystemPrompt('');
-      setAiEnhance(true);
-      setSelectedToolIds([]);
-      setSelectedIconName(null);
-      setSnapshot(null);
-    }
-  } else if (!isOpen && prevIsOpen) {
-    setPrevIsOpen(false);
-    setPrevEditAgentId(undefined);
-  } else if (editAgentId !== prevEditAgentId) {
-    setPrevEditAgentId(editAgentId);
-  }
 
   const validateName = useCallback((value: string): string | null => {
     const trimmed = value.trim();
@@ -229,8 +214,6 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
   }, [isDirty, resetAndClose]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       if (event.defaultPrevented || showToolSelector || showEditToolSelector || showCloseConfirm) {
@@ -241,7 +224,7 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleRequestClose, isOpen, showCloseConfirm, showEditToolSelector, showToolSelector]);
+  }, [handleRequestClose, showCloseConfirm, showEditToolSelector, showToolSelector]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -254,8 +237,6 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
-
-  if (!isOpen) return null;
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -488,7 +469,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               {isEditMode ? (
                 <ToolsEditor
                   tools={selectedToolIds}
-                  onToolsChange={setSelectedToolIds}
+                  onToolsChange={(toolIds) => {
+                    setSelectedToolIds(toolIds);
+                    if (toolsError) setToolsError(null);
+                  }}
                   error={toolsError ?? undefined}
                   projectId={projectId}
                   onSelectorOpenChange={setShowEditToolSelector}
@@ -496,9 +480,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
               ) : (
                 <ToolChips
                   tools={selectedTools}
-                  onRemove={(id) =>
-                    setSelectedToolIds((previous) => previous.filter((toolId) => toolId !== id))
-                  }
+                  onRemove={(id) => {
+                    setSelectedToolIds((previous) => previous.filter((toolId) => toolId !== id));
+                    if (toolsError) setToolsError(null);
+                  }}
                   onAddClick={() => setShowToolSelector(true)}
                 />
               )}
@@ -566,7 +551,10 @@ export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgen
           <ToolSelectorModal
             isOpen={showToolSelector}
             onClose={() => setShowToolSelector(false)}
-            onConfirm={(ids) => setSelectedToolIds(ids)}
+            onConfirm={(ids) => {
+              setSelectedToolIds(ids);
+              if (toolsError) setToolsError(null);
+            }}
             initialSelectedIds={selectedToolIds}
             projectId={projectId}
           />
