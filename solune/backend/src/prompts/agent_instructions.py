@@ -100,10 +100,6 @@ creating any external resources, even when autonomous creation is enabled.
 6. **Launch pipeline** — Call `launch_pipeline()` to start pipeline execution.
 7. **Report back** — Summarize what was created with links and next steps.
 
-When autonomous creation is disabled, present a detailed proposal after step 3 \
-instead of creating resources. Include the assessed difficulty, selected preset, \
-and recommended next steps.
-
 ### App Builder Workflow
 
 When the user wants to **build a new application** (phrases like "build me an app", \

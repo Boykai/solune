@@ -1,12 +1,13 @@
 """Tests for polling_loop.py — PollStep, stop_polling, get_polling_status (T103)."""
 
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.services.copilot_polling.polling_loop import (
     POLL_STEPS,
     PollStep,
     get_polling_status,
+    poll_app_pipeline,
     stop_polling,
 )
 
@@ -152,3 +153,154 @@ class TestGetPollingStatus:
             assert status["last_error"] == "timeout"
             assert status["processed_issues_count"] == 2
             assert status["rate_limit"]["remaining"] == 4500
+
+
+class TestPollAppPipeline:
+    """Tests for the scoped poll_app_pipeline() function."""
+
+    async def test_runs_all_steps_including_expensive(self):
+        """When rate-limit budget is healthy, expensive steps should execute."""
+        executed_steps: list[str] = []
+
+        async def _fake_execute(_at, _pid, _o, _r, _tasks, *, _name=""):
+            executed_steps.append(_name)
+            return []
+
+        fake_steps = [
+            PollStep(
+                name=f"step-{i}",
+                execute=lambda at, pid, o, r, t, n=f"step-{i}": _fake_execute(
+                    at, pid, o, r, t, _name=n
+                ),
+                is_expensive=(i in (0, 5)),
+            )
+            for i in range(7)
+        ]
+
+        # First call: state not complete; second call: is_complete=True (exit)
+        mock_state_active = MagicMock(is_complete=False)
+        mock_state_done = MagicMock(is_complete=True)
+
+        with (
+            patch(
+                "src.services.copilot_polling.polling_loop.POLL_STEPS",
+                fake_steps,
+            ),
+            patch("src.services.copilot_polling.polling_loop._cp") as mock_cp,
+            patch(
+                "src.services.copilot_polling.polling_loop._check_rate_limit_budget",
+                new_callable=AsyncMock,
+                return_value=(5000, None),  # plenty of budget
+            ),
+            patch(
+                "src.services.copilot_polling.polling_loop.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_cp.get_pipeline_state.side_effect = [
+                mock_state_active,  # pre-steps check
+                mock_state_done,  # post-steps re-check
+            ]
+            mock_cp.github_projects_service.get_project_items = AsyncMock(return_value=[])
+            mock_cp.github_projects_service.clear_cycle_cache = MagicMock()
+
+            await poll_app_pipeline("tok", "proj", "owner", "repo", 42)
+
+        # All 7 steps (including expensive 0 and 5) should have run
+        assert len(executed_steps) == 7
+        assert "step-0" in executed_steps
+        assert "step-5" in executed_steps
+
+    async def test_skips_expensive_when_rate_limit_low(self):
+        """Expensive steps are skipped when rate-limit budget is low."""
+        executed_steps: list[str] = []
+
+        async def _fake_execute(_at, _pid, _o, _r, _tasks, *, _name=""):
+            executed_steps.append(_name)
+            return []
+
+        fake_steps = [
+            PollStep(
+                name=f"step-{i}",
+                execute=lambda at, pid, o, r, t, n=f"step-{i}": _fake_execute(
+                    at, pid, o, r, t, _name=n
+                ),
+                is_expensive=(i in (0, 5)),
+            )
+            for i in range(7)
+        ]
+
+        mock_state_active = MagicMock(is_complete=False)
+        mock_state_done = MagicMock(is_complete=True)
+
+        with (
+            patch(
+                "src.services.copilot_polling.polling_loop.POLL_STEPS",
+                fake_steps,
+            ),
+            patch("src.services.copilot_polling.polling_loop._cp") as mock_cp,
+            patch(
+                "src.services.copilot_polling.polling_loop._check_rate_limit_budget",
+                new_callable=AsyncMock,
+                return_value=(10, None),  # very low budget (below 100 threshold)
+            ),
+            patch(
+                "src.services.copilot_polling.polling_loop.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_cp.get_pipeline_state.side_effect = [
+                mock_state_active,
+                mock_state_done,
+            ]
+            mock_cp.github_projects_service.get_project_items = AsyncMock(return_value=[])
+            mock_cp.github_projects_service.clear_cycle_cache = MagicMock()
+
+            await poll_app_pipeline("tok", "proj", "owner", "repo", 42)
+
+        # Only non-expensive steps should have run (5 out of 7)
+        assert len(executed_steps) == 5
+        assert "step-0" not in executed_steps
+        assert "step-5" not in executed_steps
+
+    async def test_survives_missing_state_up_to_three_cycles(self):
+        """Pipeline state being None should not immediately kill the loop."""
+
+        async def _noop(*_args, **_kwargs):
+            return []
+
+        fake_steps = [PollStep(name="noop", execute=_noop)]
+
+        with (
+            patch(
+                "src.services.copilot_polling.polling_loop.POLL_STEPS",
+                fake_steps,
+            ),
+            patch("src.services.copilot_polling.polling_loop._cp") as mock_cp,
+            patch(
+                "src.services.copilot_polling.polling_loop._check_rate_limit_budget",
+                new_callable=AsyncMock,
+                return_value=(5000, None),
+            ),
+            patch(
+                "src.services.copilot_polling.polling_loop.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+        ):
+            # Return non-complete state for pre-check, None for post-check
+            # This simulates state being transiently unavailable.
+            mock_cp.get_pipeline_state.side_effect = [
+                MagicMock(is_complete=False),  # cycle 1 pre
+                None,  # cycle 1 post → missing (1/3)
+                MagicMock(is_complete=False),  # cycle 2 pre
+                None,  # cycle 2 post → missing (2/3)
+                MagicMock(is_complete=False),  # cycle 3 pre
+                None,  # cycle 3 post → missing (3/3) → break
+            ]
+            mock_cp.github_projects_service.get_project_items = AsyncMock(return_value=[])
+            mock_cp.github_projects_service.clear_cycle_cache = MagicMock()
+
+            await poll_app_pipeline("tok", "proj", "owner", "repo", 42)
+
+        # Should have slept twice (after cycles 1 and 2) then exited on cycle 3
+        assert mock_sleep.call_count == 2

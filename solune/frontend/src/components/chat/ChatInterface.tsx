@@ -601,7 +601,7 @@ export function ChatInterface({
           />
         )}
 
-        {isSending && (
+        {(isSending || (isStreaming && !streamingContent)) && (
           thinkingPhase ? (
             <ThinkingIndicator phase={thinkingPhase} detail={thinkingDetail} />
           ) : (

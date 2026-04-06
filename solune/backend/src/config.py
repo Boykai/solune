@@ -122,8 +122,8 @@ class Settings(BaseSettings):
     agent_copilot_timeout_seconds: int = 120
 
     # Allow the chat agent to autonomously create GitHub issues and launch
-    # pipelines.  When False (default), the agent presents a proposal instead.
-    chat_auto_create_enabled: bool = False
+    # pipelines.
+    chat_auto_create_enabled: bool = True
 
     # ── Observability (Phase 5) — all opt-in with safe defaults ──
 

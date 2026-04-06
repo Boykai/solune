@@ -26,7 +26,10 @@ export function CleanUpSummary({ result, error, onDismiss, onViewHistory }: Clea
     [onDismiss]
   );
 
-  useScrollLock(Boolean(result || error));
+  const isVisible = Boolean(result || error);
+
+  // Lock scroll only while there is modal content to display.
+  useScrollLock(isVisible);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);

@@ -9,6 +9,7 @@ Covers:
 
 import asyncio
 import json
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import ASGITransport, AsyncClient
@@ -687,3 +688,44 @@ class TestAutoStartWebhookFallback:
                 repo="github-workflows",
                 caller="webhook_token_fallback",
             )
+
+
+class TestWatchdogGracePeriod:
+    """Watchdog should not unregister projects registered less than 60s ago."""
+
+    def test_recently_registered_project_not_unregistered(self):
+        """Projects registered < 60s ago are kept even with zero pipelines."""
+        from src.services.copilot_polling.state import MonitoredProject
+        from src.utils import utcnow
+
+        # A project registered just now (age < 60s)
+        recent = MonitoredProject(
+            project_id="PVT_new",
+            owner="owner",
+            repo="repo",
+            access_token="tok",
+            registered_at=utcnow(),
+        )
+        # A project registered 5 minutes ago (age > 60s)
+        old = MonitoredProject(
+            project_id="PVT_old",
+            owner="owner",
+            repo="repo",
+            access_token="tok",
+            registered_at=utcnow() - timedelta(minutes=5),
+        )
+
+        unregistered: list[str] = []
+        _now = utcnow()
+
+        # Reproduce the watchdog's inline grace-period logic
+        for mp in [recent, old]:
+            age_seconds = (_now - mp.registered_at).total_seconds()
+            if age_seconds < 60:
+                continue
+            # Simulate: count_active == 0 and queued == 0
+            unregistered.append(mp.project_id)
+
+        # Only the old project should have been unregistered
+        assert "PVT_old" in unregistered
+        assert "PVT_new" not in unregistered

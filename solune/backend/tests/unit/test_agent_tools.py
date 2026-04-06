@@ -417,15 +417,14 @@ class TestSelectPipelinePreset:
 
 class TestCreateProjectIssue:
     @patch("src.services.agent_tools.get_settings")
-    async def test_auto_create_disabled_returns_proposal(self, mock_settings):
-        mock_settings.return_value = MagicMock(chat_auto_create_enabled=False)
-        ctx = _make_context(selected_preset_id="medium")
+    async def test_no_token_returns_auth_error(self, mock_settings):
+        mock_settings.return_value = MagicMock(chat_auto_create_enabled=True)
+        ctx = _make_context()  # no github_token
         result = await create_project_issue(
             ctx, title="Stock Tracker", body="Build a stock tracking app"
         )
         assert result["action_type"] is None
-        assert "proposal" in result["content"].lower()
-        assert "CHAT_AUTO_CREATE_ENABLED" in result["content"]
+        assert "authentication" in result["content"].lower()
 
     @patch("src.services.agent_tools.get_settings")
     async def test_auto_create_enabled_calls_github_api(self, mock_settings):
