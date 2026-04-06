@@ -2493,7 +2493,7 @@ async def _transition_after_pipeline_complete(
             "error": f"Failed to update status to {to_status}",
         }
 
-    # Capture pipeline-level auto_merge BEFORE removing state.
+    # Capture pipeline-level auto_merge BEFORE any potential removal.
     # Callers may have already removed it, so this is best-effort.
     _pipeline_auto_merge = False
     try:
@@ -2503,27 +2503,24 @@ async def _transition_after_pipeline_complete(
     except Exception:
         pass
 
-    # Remove any old pipeline state for this issue
-    _cp.remove_pipeline_state(issue_number)
+    # Helper to remove pipeline state and auto-unregister when no pipelines remain.
+    def _remove_state_and_unregister() -> None:
+        _cp.remove_pipeline_state(issue_number)
+        try:
+            from src.services.pipeline_state_store import (
+                count_active_pipelines_for_project,
+                get_queued_pipelines_for_project,
+            )
 
-    # Auto-unregister the project from multi-project monitoring when no
-    # active or queued pipelines remain.  This prevents polling empty projects
-    # while keeping projects with queued pipelines monitored until dequeue.
-    try:
-        from src.services.pipeline_state_store import (
-            count_active_pipelines_for_project,
-            get_queued_pipelines_for_project,
-        )
+            if (
+                count_active_pipelines_for_project(project_id) == 0
+                and len(get_queued_pipelines_for_project(project_id)) == 0
+            ):
+                from src.services.copilot_polling.state import unregister_project
 
-        if (
-            count_active_pipelines_for_project(project_id) == 0
-            and len(get_queued_pipelines_for_project(project_id)) == 0
-        ):
-            from src.services.copilot_polling.state import unregister_project
-
-            unregister_project(project_id)
-    except Exception:
-        logger.debug("Failed to auto-unregister project %s: %s", project_id, exc_info=True)
+                unregister_project(project_id)
+        except Exception:
+            logger.debug("Failed to auto-unregister project %s: %s", project_id, exc_info=True)
 
     # Dequeue the next waiting pipeline if queue mode is active.
     # Only release the queue when the pipeline reaches a terminal-ish status
@@ -2536,12 +2533,13 @@ async def _transition_after_pipeline_complete(
             trigger=f"pipeline_complete(issue=#{issue_number}, to={to_status})",
         )
 
-    # ── Auto Merge Check ──
-    # When auto_merge is active (project-level OR pipeline-level), attempt
-    # to squash-merge the parent PR automatically instead of waiting for
-    # human intervention.  Uses lazy check at merge decision point to
-    # support retroactive toggle activation.
+    # ── Pipeline State Removal & Auto Merge Check ──
+    # Deferred removal: state is kept during retry_later so the retry loop
+    # and incoming webhook events can still find the pipeline.  For all
+    # other outcomes, state is removed in the corresponding branch below.
+    _auto_merge_handled = False
     if to_status.lower() == "in review":
+        _auto_merge_handled = True
         from .auto_merge import _attempt_auto_merge
 
         # Use pipeline-level auto_merge captured BEFORE state removal above.
@@ -2561,6 +2559,10 @@ async def _transition_after_pipeline_complete(
             )
 
         auto_merge_active = pipeline_auto_merge or project_auto_merge
+
+        if not auto_merge_active:
+            # Auto-merge not active — remove state immediately (unchanged behavior).
+            _remove_state_and_unregister()
 
         if auto_merge_active:
             logger.info(
@@ -2648,6 +2650,7 @@ async def _transition_after_pipeline_complete(
                     merge_result.pr_number,
                     done_status,
                 )
+                _remove_state_and_unregister()
                 return {
                     "status": "auto_merged",
                     "issue_number": issue_number,
@@ -2657,8 +2660,9 @@ async def _transition_after_pipeline_complete(
             elif merge_result.status == "devops_needed":
                 from .auto_merge import dispatch_devops_agent
 
-                # Pipeline state was already removed above; start fresh
+                # Remove pipeline state before DevOps dispatch; start fresh
                 # metadata for DevOps retry tracking.
+                _remove_state_and_unregister()
                 pipeline_metadata: dict[str, Any] = {
                     "devops_attempts": 0,
                     "devops_active": False,
@@ -2684,6 +2688,7 @@ async def _transition_after_pipeline_complete(
                         },
                     )
             elif merge_result.status == "merge_failed":
+                _remove_state_and_unregister()
                 await _cp.connection_manager.broadcast_to_project(
                     project_id,
                     {
@@ -2814,6 +2819,7 @@ async def _transition_after_pipeline_complete(
         pass
 
     if to_status.lower() == _done_status_name:
+        _auto_merge_handled = True
         _done_auto_merge_active = False
         try:
             from src.services.database import get_db
@@ -2825,6 +2831,9 @@ async def _transition_after_pipeline_complete(
             pass
         # Also honour pipeline-level auto-merge (captured before state removal).
         _done_auto_merge_active = _done_auto_merge_active or _pipeline_auto_merge
+
+        if not _done_auto_merge_active:
+            _remove_state_and_unregister()
 
         if _done_auto_merge_active:
             from .auto_merge import _attempt_auto_merge
@@ -2876,9 +2885,11 @@ async def _transition_after_pipeline_complete(
                     issue_number,
                     done_merge_result.pr_number,
                 )
+                _remove_state_and_unregister()
             elif done_merge_result.status == "devops_needed":
                 from .auto_merge import dispatch_devops_agent
 
+                _remove_state_and_unregister()
                 done_pipeline_metadata: dict[str, Any] = {
                     "devops_attempts": 0,
                     "devops_active": False,
@@ -2893,6 +2904,7 @@ async def _transition_after_pipeline_complete(
                     merge_result_context=done_merge_result.context,
                 )
             elif done_merge_result.status == "merge_failed":
+                _remove_state_and_unregister()
                 logger.warning(
                     "Auto-merge (Done) failed for issue #%d: %s",
                     issue_number,
@@ -2910,6 +2922,11 @@ async def _transition_after_pipeline_complete(
                     item_id=item_id,
                     task_title=task_title,
                 )
+
+    # For transitions that did not enter any auto-merge block (e.g. other
+    # statuses), remove pipeline state immediately.
+    if not _auto_merge_handled:
+        _remove_state_and_unregister()
 
     # Send status transition WebSocket notification
     await _cp.connection_manager.broadcast_to_project(

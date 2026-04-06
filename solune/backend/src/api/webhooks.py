@@ -47,8 +47,13 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
     return None
 
 
-def _get_auto_merge_pipeline(issue_number: int) -> dict[str, Any] | None:
+async def _get_auto_merge_pipeline(issue_number: int, owner: str, repo: str) -> dict[str, Any] | None:
     """Get pipeline metadata for an issue if it's in an auto-merge-eligible state.
+
+    Uses a 3-tier fallback strategy:
+      Step A: L1 cache — ``get_pipeline_state(issue_number)``
+      Step B: L2 SQLite — ``get_pipeline_state_async(issue_number)``
+      Step C: Project-level — ``is_auto_merge_enabled(db, project_id)``
 
     Note: ``devops_attempts`` and ``devops_active`` are tracked in-memory via
     the ``pipeline_metadata`` dict passed to ``dispatch_devops_agent``; they
@@ -60,6 +65,7 @@ def _get_auto_merge_pipeline(issue_number: int) -> dict[str, Any] | None:
     try:
         import src.services.copilot_polling as _cp
 
+        # Step A: L1 cache (fast, synchronous)
         pipeline = _cp.get_pipeline_state(issue_number)
         if pipeline and pipeline.is_complete and getattr(pipeline, "auto_merge", False):
             return {
@@ -67,6 +73,61 @@ def _get_auto_merge_pipeline(issue_number: int) -> dict[str, Any] | None:
                 "devops_attempts": 0,
                 "devops_active": False,
             }
+
+        # Step B: L2 SQLite fallback (recovers from L1 eviction / restart)
+        if pipeline is None:
+            try:
+                from src.services.pipeline_state_store import get_pipeline_state_async
+
+                l2_pipeline = await get_pipeline_state_async(issue_number)
+                if l2_pipeline and l2_pipeline.is_complete and getattr(l2_pipeline, "auto_merge", False):
+                    return {
+                        "project_id": getattr(l2_pipeline, "project_id", ""),
+                        "devops_attempts": 0,
+                        "devops_active": False,
+                    }
+            except Exception:
+                pass
+
+        # Step C: Project-level fallback (state already removed, but project has auto-merge)
+        try:
+            from src.services.database import get_db
+            from src.services.pipeline_state_store import get_pipeline_state_async as _get_ps_async
+            from src.services.settings_store import is_auto_merge_enabled
+
+            project_id: str | None = None
+
+            # Try to resolve project_id from L2 state
+            try:
+                l2_state = await _get_ps_async(issue_number)
+                if l2_state:
+                    project_id = getattr(l2_state, "project_id", None)
+            except Exception:
+                pass
+
+            # Try to resolve project_id from _issue_main_branches
+            if not project_id:
+                try:
+                    from src.services.workflow_orchestrator.transitions import (
+                        _issue_main_branches,
+                    )
+
+                    branch_info = _issue_main_branches.get(issue_number)
+                    if branch_info and isinstance(branch_info, dict):
+                        project_id = branch_info.get("project_id")
+                except Exception:
+                    pass
+
+            if project_id:
+                db = get_db()
+                if await is_auto_merge_enabled(db, project_id):
+                    return {
+                        "project_id": project_id,
+                        "devops_attempts": 0,
+                        "devops_active": False,
+                    }
+        except Exception:
+            pass
     except Exception:
         pass
     return None
@@ -820,7 +881,7 @@ async def handle_check_run_event(payload: CheckRunEvent) -> dict[str, Any]:
         if issue_number is None:
             continue
 
-        pipeline = _get_auto_merge_pipeline(issue_number)
+        pipeline = await _get_auto_merge_pipeline(issue_number, owner, repo_name)
         if pipeline is None:
             continue
 
@@ -914,7 +975,7 @@ async def handle_check_suite_event(payload: CheckSuiteEvent) -> dict[str, Any]:
             if issue_number is None:
                 continue
 
-            pipeline = _get_auto_merge_pipeline(issue_number)
+            pipeline = await _get_auto_merge_pipeline(issue_number, owner, repo_name)
             if pipeline is None:
                 continue
 
