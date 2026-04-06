@@ -409,6 +409,48 @@ class TestPipelineStateCRUD:
         assert recovered.original_status == "Todo"
         assert recovered.target_status == "In Review"
 
+    async def test_set_preserves_prerequisite_issues(self, db):
+        """prerequisite_issues list round-trips through SQLite correctly."""
+        await store.init_pipeline_state_store(db)
+        state = _make_pipeline_state(
+            issue_number=100,
+            prerequisite_issues=[10, 20, 30],
+            queued=True,
+        )
+        await store.set_pipeline_state(100, state)
+
+        # Clear L1 and recover from SQLite
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(100)
+        assert recovered is not None
+        assert recovered.prerequisite_issues == [10, 20, 30]
+        assert recovered.queued is True
+
+    async def test_set_preserves_empty_prerequisite_issues(self, db):
+        """Empty prerequisite_issues defaults correctly on round-trip."""
+        await store.init_pipeline_state_store(db)
+        state = _make_pipeline_state(issue_number=100)
+        await store.set_pipeline_state(100, state)
+
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(100)
+        assert recovered is not None
+        assert recovered.prerequisite_issues == []
+
+    async def test_set_preserves_auto_merge_flag(self, db):
+        """auto_merge flag round-trips through SQLite correctly."""
+        await store.init_pipeline_state_store(db)
+        state = _make_pipeline_state(
+            issue_number=100,
+            auto_merge=True,
+        )
+        await store.set_pipeline_state(100, state)
+
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(100)
+        assert recovered is not None
+        assert recovered.auto_merge is True
+
 
 # ══════════════════════════════════════════════════════════════════
 # Main Branch CRUD

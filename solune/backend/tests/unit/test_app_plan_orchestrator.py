@@ -10,7 +10,6 @@ import pytest
 from src.services.app_plan_orchestrator import AppPlanOrchestrator, OrchestrationResult
 from src.services.plan_parser import PlanPhase
 
-
 # ── Sample plan.md for testing ──────────────────────────────────────────
 
 SAMPLE_PLAN_MD = """\
@@ -530,3 +529,263 @@ class TestLaunchPhasePipelines:
             assert first_call.kwargs.get("auto_merge") is True
             prereqs = first_call.kwargs.get("prerequisite_issues")
             assert prereqs is None  # No deps means None
+
+    @pytest.mark.asyncio
+    async def test_three_wave_pipeline_launch(self) -> None:
+        """3-wave launch: wave 1 (no deps), wave 2 (depends on 1), wave 3 (depends on 2,3)."""
+        orchestrator = _make_orchestrator()
+
+        phases = [
+            PlanPhase(index=1, title="A"),
+            PlanPhase(index=2, title="B", depends_on_phases=[1]),
+            PlanPhase(index=3, title="C", depends_on_phases=[1]),
+            PlanPhase(index=4, title="D", depends_on_phases=[2, 3]),
+        ]
+
+        with patch("src.api.pipelines.execute_pipeline_launch") as mock_launch:
+            mock_launch.return_value = MagicMock(success=True)
+
+            await orchestrator._launch_phase_pipelines(
+                phases=phases,
+                phase_issue_numbers=[10, 20, 30, 40],
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+            )
+
+            assert mock_launch.call_count == 4
+
+            # Phase 1 (wave 1): no prereqs
+            assert mock_launch.call_args_list[0].kwargs.get("prerequisite_issues") is None
+            # Phase 2 (wave 2): depends on Phase 1 → issue #10
+            assert mock_launch.call_args_list[1].kwargs.get("prerequisite_issues") == [10]
+            # Phase 3 (wave 2): depends on Phase 1 → issue #10
+            assert mock_launch.call_args_list[2].kwargs.get("prerequisite_issues") == [10]
+            # Phase 4 (wave 3): depends on Phase 2, 3 → issues #20, #30
+            prereqs_4 = mock_launch.call_args_list[3].kwargs.get("prerequisite_issues")
+            assert sorted(prereqs_4) == [20, 30]
+
+    @pytest.mark.asyncio
+    async def test_pipeline_launch_failure_does_not_abort_other_phases(self) -> None:
+        """If one phase pipeline launch fails, other phases still launch."""
+        orchestrator = _make_orchestrator()
+
+        phases = [
+            PlanPhase(index=1, title="A"),
+            PlanPhase(index=2, title="B"),
+        ]
+
+        call_count = {"n": 0}
+
+        async def _failing_then_success(**kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise RuntimeError("launch failed")
+            return MagicMock(success=True)
+
+        with patch("src.api.pipelines.execute_pipeline_launch", side_effect=_failing_then_success):
+            # Should not raise — error is caught internally
+            await orchestrator._launch_phase_pipelines(
+                phases=phases,
+                phase_issue_numbers=[10, 20],
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+            )
+
+        assert call_count["n"] == 2
+
+
+# ── Tests for _discover_pr_branch ───────────────────────────────────────
+
+
+class TestDiscoverPrBranch:
+    """Tests for PR branch discovery fallback behavior."""
+
+    @pytest.mark.asyncio
+    async def test_returns_branch_from_pr(self) -> None:
+        github_service = AsyncMock()
+        github_service.list_pull_requests_for_issue = AsyncMock(
+            return_value=[{"head": {"ref": "copilot/feature-branch"}}]
+        )
+        orchestrator = _make_orchestrator(github_service=github_service)
+
+        branch = await orchestrator._discover_pr_branch(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=1,
+        )
+        assert branch == "copilot/feature-branch"
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_main_when_no_prs(self) -> None:
+        github_service = AsyncMock()
+        github_service.list_pull_requests_for_issue = AsyncMock(return_value=[])
+        orchestrator = _make_orchestrator(github_service=github_service)
+
+        branch = await orchestrator._discover_pr_branch(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=1,
+        )
+        assert branch == "main"
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_main_on_exception(self) -> None:
+        github_service = AsyncMock()
+        github_service.list_pull_requests_for_issue = AsyncMock(
+            side_effect=RuntimeError("API error")
+        )
+        orchestrator = _make_orchestrator(github_service=github_service)
+
+        branch = await orchestrator._discover_pr_branch(
+            access_token="token",
+            owner="owner",
+            repo="repo",
+            issue_number=1,
+        )
+        assert branch == "main"
+
+
+# ── Tests for _save_orchestration ───────────────────────────────────────
+
+
+class TestSaveOrchestration:
+    """Tests for DB persistence of orchestration state."""
+
+    @pytest.mark.asyncio
+    async def test_save_calls_db_execute_and_commit(self) -> None:
+        db = AsyncMock()
+        db.execute = AsyncMock()
+        db.commit = AsyncMock()
+        orchestrator = _make_orchestrator(db=db)
+
+        await orchestrator._save_orchestration(
+            "orch-1",
+            app_name="test-app",
+            project_id="proj-1",
+            status="active",
+            phase_count=3,
+            phase_issue_numbers=[10, 20, 30],
+        )
+
+        db.execute.assert_called_once()
+        db.commit.assert_called_once()
+        # Verify the SQL includes the orchestration_id
+        sql = db.execute.call_args[0][0]
+        assert "app_plan_orchestrations" in sql
+
+    @pytest.mark.asyncio
+    async def test_save_serializes_phase_issue_numbers_as_json(self) -> None:
+        db = AsyncMock()
+        db.execute = AsyncMock()
+        db.commit = AsyncMock()
+        orchestrator = _make_orchestrator(db=db)
+
+        await orchestrator._save_orchestration(
+            "orch-1",
+            app_name="test-app",
+            project_id="proj-1",
+            status="active",
+            phase_count=2,
+            phase_issue_numbers=[10, 20],
+        )
+
+        params = db.execute.call_args[0][1]
+        # Find the JSON-serialized phase_issue_numbers in the params tuple
+        json_param = [p for p in params if isinstance(p, str) and p.startswith("[")]
+        assert len(json_param) == 1
+        assert json.loads(json_param[0]) == [10, 20]
+
+    @pytest.mark.asyncio
+    async def test_save_skips_when_no_db(self) -> None:
+        """When db is None, _save_orchestration should not raise."""
+        orchestrator = _make_orchestrator(db=None)
+        # Should not raise
+        await orchestrator._save_orchestration(
+            "orch-1",
+            app_name="test-app",
+            project_id="proj-1",
+            status="active",
+        )
+
+    @pytest.mark.asyncio
+    async def test_save_handles_db_error_gracefully(self) -> None:
+        """DB errors during save should be swallowed (logged, not raised)."""
+        db = AsyncMock()
+        db.execute = AsyncMock(side_effect=RuntimeError("DB write failed"))
+        orchestrator = _make_orchestrator(db=db)
+
+        # Should not raise
+        await orchestrator._save_orchestration(
+            "orch-1",
+            app_name="test-app",
+            project_id="proj-1",
+            status="active",
+        )
+
+
+# ── Tests for plan agent failure ────────────────────────────────────────
+
+
+class TestPlanAgentFailure:
+    """Tests for _run_plan_agent failure propagation."""
+
+    @pytest.mark.asyncio
+    async def test_plan_agent_exception_returns_failed(self) -> None:
+        """If the chat plan agent raises, orchestration returns failed."""
+        orchestrator = _make_orchestrator()
+
+        with patch.object(
+            orchestrator,
+            "_run_plan_agent",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Plan agent crashed"),
+        ):
+            result = await orchestrator.orchestrate_app_creation(
+                app_name="test-app",
+                description="Test",
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+                owner="owner",
+                repo="repo",
+                orchestration_id="orch-1",
+                poll_interval=0,
+            )
+
+        assert result.success is False
+        assert result.status == "failed"
+        assert (
+            "plan agent" in result.error_message.lower()
+            or "crashed" in result.error_message.lower()
+        )
+
+
+# ── Tests for OrchestrationResult ───────────────────────────────────────
+
+
+class TestOrchestrationResult:
+    """Tests for the OrchestrationResult dataclass."""
+
+    def test_defaults(self) -> None:
+        result = OrchestrationResult(
+            success=True,
+            orchestration_id="orch-1",
+            status="active",
+        )
+        assert result.phase_count == 0
+        assert result.phase_issue_numbers is None
+        assert result.error_message is None
+
+    def test_failed_result(self) -> None:
+        result = OrchestrationResult(
+            success=False,
+            orchestration_id="orch-2",
+            status="failed",
+            error_message="Something went wrong",
+        )
+        assert result.success is False
+        assert result.error_message == "Something went wrong"
