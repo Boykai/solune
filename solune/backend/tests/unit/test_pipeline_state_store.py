@@ -409,6 +409,81 @@ class TestPipelineStateCRUD:
         assert recovered.original_status == "Todo"
         assert recovered.target_status == "In Review"
 
+    async def test_set_preserves_prerequisite_issues(self, db):
+        """prerequisite_issues list round-trips through SQLite correctly."""
+        await store.init_pipeline_state_store(db)
+        state = _make_pipeline_state(
+            issue_number=200,
+            prerequisite_issues=[10, 20, 30],
+            auto_merge=True,
+        )
+        await store.set_pipeline_state(200, state)
+
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(200)
+        assert recovered is not None
+        assert recovered.prerequisite_issues == [10, 20, 30]
+        assert recovered.auto_merge is True
+
+    async def test_empty_prerequisite_issues_defaults_to_empty_list(self, db):
+        """PipelineState with no prerequisite_issues deserializes as empty list."""
+        await store.init_pipeline_state_store(db)
+        state = _make_pipeline_state(issue_number=201)
+        await store.set_pipeline_state(201, state)
+
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(201)
+        assert recovered is not None
+        assert recovered.prerequisite_issues == []
+        assert recovered.auto_merge is False
+
+    async def test_prerequisite_issues_from_legacy_row_without_field(self, db):
+        """Legacy SQLite rows without prerequisite_issues get the default."""
+        await store.init_pipeline_state_store(db)
+        now = datetime(2026, 3, 12, 9, 0, 0, tzinfo=UTC).isoformat()
+        # Metadata JSON that lacks prerequisite_issues (simulating legacy data)
+        metadata = json.dumps(
+            {
+                "agents": ["speckit.specify"],
+                "current_agent_index": 0,
+                "completed_agents": [],
+                "started_at": now,
+                "error": None,
+                "agent_assigned_sha": "sha1",
+                "original_status": None,
+                "target_status": None,
+                "execution_mode": "sequential",
+                "parallel_agent_statuses": {},
+                "failed_agents": [],
+            }
+        )
+        await db.execute(
+            """INSERT INTO pipeline_states
+               (issue_number, project_id, status, agent_name, agent_instance_id,
+                pr_number, pr_url, sub_issues, metadata, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                202,
+                "PVT_proj1",
+                "In Progress",
+                "speckit.specify",
+                None,
+                None,
+                None,
+                None,
+                metadata,
+                now,
+                now,
+            ),
+        )
+        await db.commit()
+
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(202)
+        assert recovered is not None
+        assert recovered.prerequisite_issues == []
+        assert recovered.auto_merge is False
+
 
 # ══════════════════════════════════════════════════════════════════
 # Main Branch CRUD
