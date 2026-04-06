@@ -192,4 +192,13 @@ describe('CleanUpSummary', () => {
     );
     expect(screen.getByText('Issues Deleted')).toBeInTheDocument();
   });
+
+  it('calls useScrollLock with true on mount', async () => {
+    const { useScrollLock } = await import('@/hooks/useScrollLock');
+    vi.mocked(useScrollLock).mockClear();
+    render(
+      <CleanUpSummary result={makeResponse()} error={null} onDismiss={vi.fn()} />
+    );
+    expect(useScrollLock).toHaveBeenCalledWith(true);
+  });
 });
