@@ -6,7 +6,6 @@ import pytest
 
 from src.services.plan_parser import PlanPhase, group_into_waves, parse_plan
 
-
 # ── Sample plan.md content ──────────────────────────────────────────────
 
 
@@ -307,3 +306,155 @@ class TestPlanPhase:
         assert len(phase.steps) == 2
         assert phase.depends_on_phases == [1]
         assert phase.execution_mode == "parallel"
+
+
+# ── Additional parse_plan edge cases ────────────────────────────────────
+
+
+class TestParsePlanEdgeCases:
+    """Additional edge cases for parse_plan."""
+
+    def test_comma_separated_dependencies(self) -> None:
+        """Phases with multiple comma-separated dependencies are parsed."""
+        plan = """\
+## Implementation Phases
+
+### Phase 1 — Base
+
+Foundation work.
+
+### Phase 2 — Mid
+
+Build on base.
+
+### Phase 3 — Final
+
+**Depends on**: Phase 1, Phase 2
+"""
+        phases = parse_plan(plan)
+        assert len(phases) == 3
+        assert sorted(phases[2].depends_on_phases) == [1, 2]
+
+    def test_bullet_list_steps(self) -> None:
+        """Steps as bullet list items (- or *) are extracted."""
+        plan = """\
+## Implementation Phases
+
+### Phase 1 — Bullet Steps
+
+Some description.
+
+- Create the database schema
+- Implement the API endpoints
+* Deploy the service
+"""
+        phases = parse_plan(plan)
+        assert len(phases[0].steps) == 3
+
+    def test_phase_with_only_description(self) -> None:
+        """Phase with a description but no explicit steps."""
+        plan = """\
+## Implementation Phases
+
+### Phase 1 — Simple
+
+This phase just has a description with no step markers.
+"""
+        phases = parse_plan(plan)
+        assert len(phases) == 1
+        assert "description" in phases[0].description.lower()
+        assert phases[0].steps == []
+
+    def test_self_dependency_raises_circular_error(self) -> None:
+        """Phase that depends on itself should raise circular dependency."""
+        plan = """\
+## Implementation Phases
+
+### Phase 1 — Self Ref
+
+**Depends on**: Phase 1
+"""
+        with pytest.raises(ValueError, match="Circular dependency detected"):
+            parse_plan(plan)
+
+    def test_five_phase_deep_dependency_chain(self) -> None:
+        """Linear chain of 5 phases with increasing dependencies."""
+        plan = """\
+## Implementation Phases
+
+### Phase 1 — A
+Base.
+
+### Phase 2 — B
+**Depends on**: Phase 1
+
+### Phase 3 — C
+**Depends on**: Phase 2
+
+### Phase 4 — D
+**Depends on**: Phase 3
+
+### Phase 5 — E
+**Depends on**: Phase 4
+"""
+        phases = parse_plan(plan)
+        assert len(phases) == 5
+        waves = group_into_waves(phases)
+        assert len(waves) == 5
+        for i, wave in enumerate(waves):
+            assert len(wave) == 1
+            assert wave[0].index == i + 1
+
+    def test_phases_without_implementation_header_still_parse(self) -> None:
+        """Phases can be parsed even when they appear before ## Implementation Phases."""
+        plan = """\
+### Phase 1 — Direct
+
+No header above this phase.
+
+**Step 1.1**: Do it
+"""
+        phases = parse_plan(plan)
+        assert len(phases) == 1
+        assert phases[0].title == "Direct"
+
+    def test_verification_section_stops_phase_parsing(self) -> None:
+        """Parsing stops at ## Verification section."""
+        plan = """\
+## Implementation Phases
+
+### Phase 1 — Before
+
+**Step 1.1**: Do something
+
+## Verification
+
+### Phase 2 — After Verification
+
+This should NOT be parsed as a phase.
+"""
+        phases = parse_plan(plan)
+        assert len(phases) == 1
+        assert phases[0].title == "Before"
+
+
+# ── Additional group_into_waves edge cases ──────────────────────────────
+
+
+class TestGroupIntoWavesEdgeCases:
+    """Additional edge cases for group_into_waves."""
+
+    def test_unresolvable_phases_raises_error(self) -> None:
+        """Phases with unresolvable (non-existent) deps in waves raise error."""
+        phases = [
+            PlanPhase(index=1, title="A", depends_on_phases=[99]),
+        ]
+        with pytest.raises(ValueError, match="Cannot resolve wave ordering"):
+            group_into_waves(phases)
+
+    def test_large_parallel_wave(self) -> None:
+        """Many independent phases all land in wave 1."""
+        phases = [PlanPhase(index=i, title=f"P{i}") for i in range(1, 11)]
+        waves = group_into_waves(phases)
+        assert len(waves) == 1
+        assert len(waves[0]) == 10
