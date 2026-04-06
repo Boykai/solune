@@ -11,7 +11,7 @@ The technical approach reuses existing infrastructure: `assign_copilot_to_issue(
 
 ## Technical Context
 
-**Language/Version**: Python 3.11 (backend), TypeScript 5.x (frontend)
+**Language/Version**: Python >=3.12 (backend), TypeScript 5.x (frontend)
 **Primary Dependencies**: FastAPI, Starlette (BackgroundTask), aiosqlite, React 18, Copilot SDK
 **Storage**: SQLite (existing — new `app_plan_orchestrations` table, metadata JSON for `prerequisite_issues`)
 **Testing**: pytest (backend), Vitest (frontend)

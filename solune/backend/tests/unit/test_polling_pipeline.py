@@ -278,14 +278,16 @@ class TestDequeuePrerequisites:
             await _dequeue_next_pipeline("token", "PVT_1", "test")
             mock_cp.set_pipeline_state.assert_not_called()
 
-    async def test_dequeue_skips_pipeline_with_missing_prerequisite_state(self):
-        """Pipeline is skipped when a prerequisite's state is None (removed)."""
+    async def test_dequeue_proceeds_when_prerequisite_state_is_none(self):
+        """Pipeline dequeues when a prerequisite's state is None (removed after merge)."""
         from src.services.copilot_polling.pipeline import _dequeue_next_pipeline
 
         mock_pipeline = AsyncMock()
         mock_pipeline.issue_number = 42
         mock_pipeline.queued = True
         mock_pipeline.prerequisite_issues = [10]
+
+        mock_config = AsyncMock()
 
         with (
             patch("src.services.database.get_db", return_value=AsyncMock()),
@@ -302,10 +304,12 @@ class TestDequeuePrerequisites:
         ):
             mock_cp.count_active_pipelines_for_project.return_value = 0
             mock_cp.get_queued_pipelines_for_project.return_value = [mock_pipeline]
-            mock_cp.get_pipeline_state.return_value = None  # State removed
+            mock_cp.get_pipeline_state.return_value = None  # State removed after merge
+            mock_cp.get_workflow_config = AsyncMock(return_value=mock_config)
 
             await _dequeue_next_pipeline("token", "PVT_1", "test")
-            mock_cp.set_pipeline_state.assert_not_called()
+            # Pipeline should be marked as no longer queued (dequeued)
+            mock_cp.set_pipeline_state.assert_called_once()
 
     async def test_dequeue_proceeds_when_all_prerequisites_complete(self):
         """Pipeline dequeues when all prerequisite pipelines are complete."""

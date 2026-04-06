@@ -95,11 +95,11 @@ class AppPlanOrchestrator:
 
         try:
             # Step 1: planning — generate structured plan via chat agent
-            await self._update_status(orch_id, project_id, "planning")
+            await self._update_status(orch_id, project_id, "planning", app_name=app_name)
             plan_summary = await self._run_plan_agent(description, project_id, access_token)
 
             # Step 2: speckit_running — launch speckit.plan on a temporary issue
-            await self._update_status(orch_id, project_id, "speckit_running")
+            await self._update_status(orch_id, project_id, "speckit_running", app_name=app_name)
             plan_md_content = await self._run_speckit_plan(
                 plan_summary=plan_summary,
                 app_name=app_name,
@@ -112,14 +112,14 @@ class AppPlanOrchestrator:
             )
 
             # Step 3: parsing_phases — parse plan.md into PlanPhase objects
-            await self._update_status(orch_id, project_id, "parsing_phases")
+            await self._update_status(orch_id, project_id, "parsing_phases", app_name=app_name)
             phases = parse_plan(plan_md_content)
             if not phases:
                 msg = "No phases found in plan.md"
                 raise ValueError(msg)
 
             # Step 4: creating_issues — create GitHub parent issues per phase
-            await self._update_status(orch_id, project_id, "creating_issues")
+            await self._update_status(orch_id, project_id, "creating_issues", app_name=app_name)
             phase_issue_numbers = await self._create_phase_issues(
                 phases=phases,
                 app_name=app_name,
@@ -131,7 +131,7 @@ class AppPlanOrchestrator:
             )
 
             # Step 5: launching_pipelines — launch with wave-based queuing
-            await self._update_status(orch_id, project_id, "launching_pipelines")
+            await self._update_status(orch_id, project_id, "launching_pipelines", app_name=app_name)
             await self._launch_phase_pipelines(
                 phases=phases,
                 phase_issue_numbers=phase_issue_numbers,
@@ -141,7 +141,7 @@ class AppPlanOrchestrator:
             )
 
             # Step 6: active — orchestration complete
-            await self._update_status(orch_id, project_id, "active")
+            await self._update_status(orch_id, project_id, "active", app_name=app_name)
 
             # Persist final state
             await self._save_orchestration(
@@ -170,7 +170,9 @@ class AppPlanOrchestrator:
                 exc,
                 exc_info=True,
             )
-            await self._update_status(orch_id, project_id, "failed", error=str(exc))
+            await self._update_status(
+                orch_id, project_id, "failed", app_name=app_name, error=str(exc)
+            )
             await self._save_orchestration(
                 orch_id,
                 app_name=app_name,
@@ -397,7 +399,7 @@ class AppPlanOrchestrator:
                         access_token=access_token,
                         project_id=project_id,
                         issue_node_id=issue_node_id,
-                        issue_database_id=issue_number,
+                        issue_database_id=issue.get("id"),
                     )
             except Exception:
                 logger.warning(
@@ -419,10 +421,12 @@ class AppPlanOrchestrator:
                 project_id,
                 {
                     "type": "plan_phase_created",
+                    "app_name": app_name,
                     "phase_index": phase.index,
                     "phase_total": total,
                     "phase_title": phase.title,
                     "issue_number": issue_number,
+                    "issue_url": issue.get("html_url", ""),
                 },
             )
 
@@ -502,6 +506,7 @@ class AppPlanOrchestrator:
         project_id: str,
         status: str,
         *,
+        app_name: str | None = None,
         error: str | None = None,
     ) -> None:
         """Update orchestration status and broadcast via WebSocket."""
@@ -526,6 +531,8 @@ class AppPlanOrchestrator:
             "orchestration_id": orchestration_id,
             "status": status,
         }
+        if app_name:
+            payload["app_name"] = app_name
         if error:
             payload["error"] = error
 

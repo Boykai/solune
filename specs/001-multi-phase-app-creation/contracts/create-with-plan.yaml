@@ -78,10 +78,18 @@ components:
     AppCreateWithPlan:
       type: object
       required:
+        - app_name
         - display_name
         - description
         - pipeline_id
+        - project_id
       properties:
+        app_name:
+          type: string
+          description: URL-safe app identifier
+          minLength: 2
+          maxLength: 64
+          pattern: "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
         display_name:
           type: string
           description: Human-readable app name
@@ -94,6 +102,9 @@ components:
         pipeline_id:
           type: string
           description: Pipeline config ID to use for each phase
+        project_id:
+          type: string
+          description: GitHub Project V2 node ID for issue tracking
         repo_type:
           type: string
           enum: [same-repo, new-repo, external-repo]

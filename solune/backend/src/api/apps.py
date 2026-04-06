@@ -553,6 +553,11 @@ async def create_with_plan_endpoint(
 
     db = get_db()
 
+    # Verify the user has access to the target project
+    from src.dependencies import verify_project_access
+
+    await verify_project_access(request, payload.project_id, session)
+
     # Check for duplicate app name
     cursor = await db.execute("SELECT name FROM apps WHERE name = ?", (payload.app_name,))
     if await cursor.fetchone():
