@@ -108,6 +108,10 @@ def get_monitored_projects() -> list[MonitoredProject]:
 # Global polling state
 _polling_state = PollingState()
 
+# Synchronization locks for concurrent state access
+_polling_state_lock: asyncio.Lock = asyncio.Lock()
+_polling_startup_lock: asyncio.Lock = asyncio.Lock()
+
 # Reference to the current polling asyncio.Task so we can cancel it
 # before starting a new one (prevents concurrent loops).
 _polling_task: asyncio.Task | None = None

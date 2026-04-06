@@ -15,6 +15,7 @@ from .state import (
     RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD,
     RATE_LIMIT_SLOW_THRESHOLD,
     _polling_state,
+    _polling_state_lock,
     _processed_issue_prs,
 )
 
@@ -313,14 +314,16 @@ async def poll_for_copilot_completion(
         interval_seconds,
     )
 
-    _polling_state.is_running = True
+    async with _polling_state_lock:
+        _polling_state.is_running = True
 
     try:
         await _poll_loop(access_token, project_id, owner, repo, interval_seconds)
     except asyncio.CancelledError:
         logger.info("Copilot PR completion polling cancelled")
     finally:
-        _polling_state.is_running = False
+        async with _polling_state_lock:
+            _polling_state.is_running = False
 
 
 async def _poll_single_project(
@@ -401,8 +404,9 @@ async def _poll_loop(
     while _polling_state.is_running:
         step_results: dict[str, list] = {}
         try:
-            _polling_state.last_poll_time = utcnow()
-            _polling_state.poll_count += 1
+            async with _polling_state_lock:
+                _polling_state.last_poll_time = utcnow()
+                _polling_state.poll_count += 1
 
             # Clear per-cycle cache so each iteration starts with fresh data.
             _cp.github_projects_service.clear_cycle_cache()
@@ -491,8 +495,9 @@ async def _poll_loop(
 
         except Exception as e:
             logger.error("Error in polling loop: %s", e, exc_info=True)
-            _polling_state.errors_count += 1
-            _polling_state.last_error = type(e).__name__
+            async with _polling_state_lock:
+                _polling_state.errors_count += 1
+                _polling_state.last_error = type(e).__name__
 
             # If the error came from a rate-limit 403, the cached headers
             # may show remaining=0 with a reset_at that is already past
@@ -614,7 +619,8 @@ async def _poll_loop(
         await asyncio.sleep(effective_interval)
 
     logger.info("Copilot PR completion polling stopped")
-    _polling_state.is_running = False
+    async with _polling_state_lock:
+        _polling_state.is_running = False
 
 
 # ── Scoped App Pipeline Polling ─────────────────────────────────────────────
