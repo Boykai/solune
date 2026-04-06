@@ -58,9 +58,7 @@ async def test_get_metadata_returns_model_dump(MockMetadataService):
         "repo": "solune",
         "labels": ["bug", "feature"],
     }
-    MockMetadataService.return_value.get_or_fetch = AsyncMock(
-        return_value=mock_result
-    )
+    MockMetadataService.return_value.get_or_fetch = AsyncMock(return_value=mock_result)
 
     result = await get_metadata(_make_ctx(), "octocat", "solune")
 
