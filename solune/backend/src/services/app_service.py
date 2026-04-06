@@ -421,6 +421,11 @@ async def create_app_with_new_repo(
     else:
         repo_description = description
 
+    # GitHub rejects control characters (tabs, newlines, etc.) in repo
+    # descriptions — strip them and collapse whitespace.
+    repo_description = re.sub(r"[\x00-\x1f\x7f]+", " ", repo_description).strip()
+    repo_description = re.sub(r"  +", " ", repo_description)
+
     # GitHub limits repo descriptions to 350 characters
     if len(repo_description) > 350:
         repo_description = repo_description[:347] + "..."

@@ -195,6 +195,37 @@ class TestCreateAppWithNewRepo:
                     mock_db, payload, access_token="tok", github_service=github_svc
                 )
 
+    @pytest.mark.asyncio
+    async def test_description_control_chars_stripped(self, mock_db) -> None:
+        """Tabs, newlines, and other control chars in description must be
+        stripped before reaching the GitHub API (which rejects them)."""
+        from src.services.app_service import create_app_with_new_repo
+
+        github_svc = _mock_github_service()
+        payload = _new_repo_payload(
+            description="Has\ttabs\nand\nnewlines\r\nand\x00nulls",
+        )
+
+        with patch(
+            "src.services.template_files.build_template_files", new_callable=AsyncMock
+        ) as mock_templates:
+            mock_templates.return_value = ([], [])
+            await create_app_with_new_repo(
+                mock_db, payload, access_token="tok", github_service=github_svc
+            )
+
+        # The description passed to GitHub must not contain control characters
+        call_kwargs = github_svc.create_repository.call_args
+        sent_description = call_kwargs.kwargs.get(
+            "description", call_kwargs[0][2] if len(call_kwargs[0]) > 2 else ""
+        )
+        # No control chars remain (0x00-0x1f, 0x7f)
+        import re
+
+        assert not re.search(r"[\x00-\x1f\x7f]", sent_description), (
+            f"Control characters found in repo description: {sent_description!r}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Tests — create_standalone_project
