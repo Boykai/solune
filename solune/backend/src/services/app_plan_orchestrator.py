@@ -469,9 +469,7 @@ class AppPlanOrchestrator:
 
                 # Compute prerequisite issue numbers from dependency graph
                 prereq_issues = [
-                    phase_to_issue[dep]
-                    for dep in phase.depends_on_phases
-                    if dep in phase_to_issue
+                    phase_to_issue[dep] for dep in phase.depends_on_phases if dep in phase_to_issue
                 ]
 
                 try:

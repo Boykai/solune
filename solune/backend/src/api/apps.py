@@ -595,9 +595,7 @@ async def create_with_plan_endpoint(
                 orchestration_id=orchestration_id,
             )
         except Exception:
-            logger.error(
-                "Background orchestration failed for %s", payload.app_name, exc_info=True
-            )
+            logger.error("Background orchestration failed for %s", payload.app_name, exc_info=True)
 
     task = asyncio.create_task(_run_orchestration())
     _background_tasks.add(task)
@@ -637,8 +635,7 @@ async def get_plan_status_endpoint(
         try:
             numbers = json.loads(row["phase_issue_numbers"])
             phase_issues = [
-                PhaseIssueInfo(phase_index=i + 1, issue_number=num)
-                for i, num in enumerate(numbers)
+                PhaseIssueInfo(phase_index=i + 1, issue_number=num) for i, num in enumerate(numbers)
             ]
         except (json.JSONDecodeError, TypeError):
             pass
