@@ -154,7 +154,9 @@ class TestGetPollingStatus:
             assert status["errors_count"] == 1
             assert status["last_error"] == "timeout"
             assert status["processed_issues_count"] == 2
-            assert status["rate_limit"]["remaining"] == 4500
+            rate_limit = status["rate_limit"]
+            assert rate_limit is not None
+            assert rate_limit.get("remaining") == 4500
 
 
 class TestPollAppPipeline:

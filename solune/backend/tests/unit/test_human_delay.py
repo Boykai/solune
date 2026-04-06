@@ -1425,6 +1425,7 @@ class TestLoadPipelineNodeConfigMerge:
             config={**config_dict, "model_id": model_id, "model_name": model_name},
         )
 
+        assert assignment.config is not None
         assert assignment.config["delay_seconds"] == 60
         assert assignment.config["model_id"] == "gpt-4"
         assert assignment.config["model_name"] == "GPT-4"

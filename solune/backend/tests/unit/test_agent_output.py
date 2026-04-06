@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.services.copilot_polling.agent_output import CommentScanResult
+from src.services.workflow_orchestrator.models import PipelineState
 
 
 class TestCommentScanResult:
@@ -63,8 +64,12 @@ def mock_gps():
 
 
 def _make_pipeline(agent_name, sub_issue_number=99):
-    """Create a minimal pipeline-like object with agent_sub_issues."""
-    return SimpleNamespace(
+    """Create a minimal PipelineState with agent_sub_issues."""
+    return PipelineState(
+        issue_number=1,
+        project_id="PVT_test",
+        status="running",
+        agents=[agent_name],
         agent_sub_issues={agent_name: {"number": sub_issue_number}},
     )
 
@@ -191,7 +196,13 @@ class TestPostMarkdownOutputs:
                 _post_markdown_outputs,
             )
 
-            pipeline = SimpleNamespace(agent_sub_issues={})
+            pipeline = PipelineState(
+                issue_number=1,
+                project_id="PVT_test",
+                status="running",
+                agents=["speckit.specify"],
+                agent_sub_issues={},
+            )
             result = await _post_markdown_outputs(
                 access_token="tok",
                 owner="o",
