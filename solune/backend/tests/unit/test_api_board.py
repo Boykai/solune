@@ -635,19 +635,20 @@ class TestRateLimitRecovery:
     def test_retry_after_seconds_from_timedelta(self):
         """_retry_after_seconds extracts seconds from a timedelta attribute."""
         from datetime import timedelta
+        from unittest.mock import MagicMock
 
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limited")
-        exc.retry_after = timedelta(seconds=42)  # type: ignore[attr-defined]  # simulating GitHub exception attribute
+        exc = MagicMock(spec=Exception, retry_after=timedelta(seconds=42))
         assert _retry_after_seconds(exc) == 42
 
     def test_retry_after_seconds_from_int(self):
         """_retry_after_seconds returns the integer directly."""
+        from unittest.mock import MagicMock
+
         from src.api.board import _retry_after_seconds
 
-        exc = Exception("rate limited")
-        exc.retry_after = 30  # type: ignore[attr-defined]  # simulating GitHub exception attribute
+        exc = MagicMock(spec=Exception, retry_after=30)
         assert _retry_after_seconds(exc) == 30
 
     def test_retry_after_seconds_defaults_to_60(self):
