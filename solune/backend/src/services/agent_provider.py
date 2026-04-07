@@ -10,7 +10,7 @@ Supported providers:
 
 from __future__ import annotations
 
-from typing import Any, Literal, cast
+from typing import Any
 
 from src.config import get_settings
 from src.logging_utils import get_logger
@@ -98,9 +98,7 @@ async def _create_copilot_agent(
         options["mcp_servers"] = mcp_servers
 
     if reasoning_effort:
-        options["reasoning_effort"] = cast(  # type: ignore[reportGeneralTypeIssues]
-            Literal["low", "medium", "high", "xhigh"], reasoning_effort
-        )
+        options["reasoning_effort"] = reasoning_effort  # type: ignore[reportGeneralTypeIssues]
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

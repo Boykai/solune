@@ -12,7 +12,7 @@ Provides a unified interface for different AI backends:
 import asyncio
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Any, Literal, cast
+from typing import Any
 
 from src.config import get_settings
 from src.logging_utils import get_logger
@@ -198,9 +198,7 @@ class CopilotCompletionProvider(CompletionProvider):
         if system_content:
             config["system_message"] = {"mode": "replace", "content": system_content}
         if reasoning_effort:
-            config["reasoning_effort"] = cast(  # type: ignore[reportGeneralTypeIssues]
-                Literal["low", "medium", "high", "xhigh"], reasoning_effort
-            )
+            config["reasoning_effort"] = reasoning_effort  # type: ignore[reportGeneralTypeIssues]
 
         # Create session, send prompt, wait for response
         session = await client.create_session(config)
