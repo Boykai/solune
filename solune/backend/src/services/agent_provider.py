@@ -76,7 +76,7 @@ async def _create_copilot_agent(
     only one CLI server process exists per GitHub token.
     """
     from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
-    from copilot import PermissionHandler  # type: ignore[reportMissingImports]
+    from copilot import PermissionHandler
 
     from src.services.completion_providers import get_copilot_client_pool
 
@@ -98,7 +98,9 @@ async def _create_copilot_agent(
         options["mcp_servers"] = mcp_servers
 
     if reasoning_effort:
-        options["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
+        # reasoning_effort is a pass-through to the Copilot SDK; it's not
+        # declared in GitHubCopilotOptions but is forwarded by the adapter.
+        options["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]  # forwarded to SDK
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import asyncio
 
 from src.constants import DEFAULT_STATUS_BACKLOG, StatusNames

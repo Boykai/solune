@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import re
 from typing import ClassVar
 

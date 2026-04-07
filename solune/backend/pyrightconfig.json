@@ -1,0 +1,14 @@
+{
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "standard",
+  "include": ["src"],
+  "exclude": ["**/__pycache__", "htmlcov"],
+  "reportMissingTypeStubs": false,
+  "reportMissingImports": "warning",
+  "executionEnvironments": [
+    {
+      "root": "src/services/github_projects",
+      "reportAttributeAccessIssue": false
+    }
+  ]
+}
