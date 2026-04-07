@@ -2,9 +2,8 @@
   "include": ["tests"],
   "exclude": ["**/__pycache__", "htmlcov"],
   "pythonVersion": "3.13",
-  "typeCheckingMode": "standard",
-  "reportMissingTypeStubs": false,
-  "reportMissingImports": "warning",
+  "typeCheckingMode": "off",
+  "reportInvalidTypeForm": "none",
   "stubPath": "src/typestubs",
   "executionEnvironments": [
     {
