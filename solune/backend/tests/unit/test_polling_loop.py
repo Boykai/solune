@@ -246,7 +246,10 @@ class TestPollAppPipeline:
             patch(
                 "src.services.copilot_polling.polling_loop._check_rate_limit_budget",
                 new_callable=AsyncMock,
-                return_value=(10, None),  # very low budget (below 100 threshold)
+                return_value=(
+                    60,
+                    None,
+                ),  # above pause threshold (50) but below skip threshold (100)
             ),
             patch(
                 "src.services.copilot_polling.polling_loop.asyncio.sleep",
