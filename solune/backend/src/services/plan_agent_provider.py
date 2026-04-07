@@ -185,7 +185,7 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort
+        config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-item]
 
     session = await client.create_session(config)
     logger.info(

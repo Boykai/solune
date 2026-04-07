@@ -18,10 +18,12 @@ from .label_manager import ParsedLabel
 from .pipeline import _wait_if_rate_limited
 from .state import (
     ASSIGNMENT_GRACE_PERIOD_SECONDS,
+    MAX_RECOVERY_RETRIES,
     RECOVERY_COOLDOWN_SECONDS,
     _pending_agent_assignments,
     _polling_state,
     _polling_state_lock,
+    _recovery_attempt_counts,
     _recovery_last_attempt,
 )
 
@@ -147,7 +149,18 @@ async def _should_skip_recovery(
     task_repo: str,
     now: Any,
 ) -> bool:
-    """Check if recovery should be skipped for this issue (cooldown)."""
+    """Check if recovery should be skipped for this issue (cooldown or max retries)."""
+    # Max retries check
+    attempts = _recovery_attempt_counts.get(issue_number, 0)
+    if attempts >= MAX_RECOVERY_RETRIES:
+        logger.debug(
+            "Recovery: issue #%d exceeded max retries (%d/%d) — skipping",
+            issue_number,
+            attempts,
+            MAX_RECOVERY_RETRIES,
+        )
+        return True
+
     # Cooldown check
     last_attempt = _recovery_last_attempt.get(issue_number)
     if last_attempt:
@@ -242,6 +255,7 @@ async def _attempt_reassignment(
         return None
 
     _recovery_last_attempt[issue_number] = now
+    _recovery_attempt_counts[issue_number] = _recovery_attempt_counts.get(issue_number, 0) + 1
 
     if assigned:
         pending_key = f"{issue_number}:{agent_name}"

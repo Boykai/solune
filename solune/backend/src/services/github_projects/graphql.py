@@ -982,8 +982,8 @@ mutation(
 # ---------------------------------------------------------------------------
 
 CREATE_PROJECT_V2_MUTATION = """
-mutation($ownerId: ID!, $title: String!) {
-  createProjectV2(input: {ownerId: $ownerId, title: $title}) {
+mutation($ownerId: ID!, $title: String!, $repositoryId: ID) {
+  createProjectV2(input: {ownerId: $ownerId, title: $title, repositoryId: $repositoryId}) {
     projectV2 {
       id
       number
@@ -1003,15 +1003,9 @@ mutation($projectId: ID!, $repositoryId: ID!) {
 }
 """
 
-SET_PROJECT_DEFAULT_REPOSITORY_MUTATION = """
-mutation($projectId: ID!, $repositoryId: ID!) {
-  updateProjectV2(input: {projectId: $projectId, repositoryId: $repositoryId}) {
-    projectV2 {
-      id
-    }
-  }
-}
-"""
+# SET_PROJECT_DEFAULT_REPOSITORY_MUTATION removed — UpdateProjectV2Input does
+# not accept repositoryId.  The default repo is set via the repositoryId
+# parameter on CreateProjectV2Input instead.
 
 UPDATE_PROJECT_V2_SINGLE_SELECT_FIELD_MUTATION = """
 mutation($fieldId: ID!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
