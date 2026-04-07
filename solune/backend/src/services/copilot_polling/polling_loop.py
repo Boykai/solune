@@ -632,13 +632,18 @@ async def poll_app_pipeline(
     owner: str,
     repo: str,
     parent_issue_number: int,
-    interval_seconds: int = 15,
+    interval_seconds: int = 60,
 ) -> None:
     """Scoped polling loop for a new-repo / external-repo app pipeline.
 
     Monitors only the parent issue and its sub-issues on the app's project
     board.  Automatically stops when the pipeline is complete (all agents
     done) or the parent issue is closed.
+
+    Uses the same adaptive interval logic as the main polling loop:
+    - Pre-cycle rate-limit pause when budget is critically low
+    - Interval doubling when budget <= RATE_LIMIT_SLOW_THRESHOLD
+    - Activity-based backoff (idle polls → exponential interval increase)
     """
     from .helpers import is_sub_issue
     from .state import _app_polling_tasks
@@ -652,11 +657,17 @@ async def poll_app_pipeline(
     )
 
     consecutive_missing_state = 0
+    consecutive_idle_polls = 0
 
     try:
         while True:
+            had_activity = False
             try:
                 _cp.github_projects_service.clear_cycle_cache()
+
+                # ── Pre-cycle rate-limit pause (matches main loop) ──
+                if await _pause_if_rate_limited("scoped-pre-cycle"):
+                    continue  # restart the while loop
 
                 # Check whether the pipeline is still active.
                 pipeline_state = _cp.get_pipeline_state(parent_issue_number)
@@ -681,6 +692,7 @@ async def poll_app_pipeline(
                     and remaining_pre <= RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD
                 )
 
+                step_results: dict[str, list] = {}
                 for step in POLL_STEPS:
                     if step.is_expensive and skip_expensive:
                         logger.debug(
@@ -688,8 +700,13 @@ async def poll_app_pipeline(
                             parent_issue_number,
                             step.name,
                         )
+                        step_results[step.name] = []
                         continue
-                    await step.execute(access_token, project_id, owner, repo, parent_tasks)
+                    step_results[step.name] = await step.execute(
+                        access_token, project_id, owner, repo, parent_tasks
+                    )
+
+                had_activity = any(step_results.values())
 
                 # Re-check after processing — pipeline may have just completed.
                 pipeline_state = _cp.get_pipeline_state(parent_issue_number)
@@ -726,7 +743,53 @@ async def poll_app_pipeline(
                     exc,
                 )
 
-            await asyncio.sleep(interval_seconds)
+            # ── Dynamic interval based on remaining rate-limit budget ──
+            remaining, _ = await _check_rate_limit_budget()
+            if remaining is not None and remaining <= RATE_LIMIT_SLOW_THRESHOLD:
+                effective_interval = interval_seconds * 2
+                logger.info(
+                    "Scoped poll (issue #%d): Rate limit budget low (remaining=%d). "
+                    "Doubling poll interval to %ds.",
+                    parent_issue_number,
+                    remaining,
+                    effective_interval,
+                )
+            else:
+                effective_interval = interval_seconds
+
+            # ── Activity-based adaptive polling (matches main loop) ──
+            if had_activity:
+                if consecutive_idle_polls:
+                    logger.info(
+                        "Scoped poll (issue #%d): activity detected, "
+                        "resetting idle counter from %d to 0",
+                        parent_issue_number,
+                        consecutive_idle_polls,
+                    )
+                consecutive_idle_polls = 0
+            else:
+                consecutive_idle_polls += 1
+
+            # Only apply adaptive backoff when rate-limit doubling is NOT
+            # already active — avoid stacking both multipliers.
+            if consecutive_idle_polls > 0 and effective_interval == interval_seconds:
+                max_doublings = 3  # 60 → 120 → 240 → 300 (capped)
+                idle_multiplier = 2 ** min(consecutive_idle_polls, max_doublings)
+                adaptive_interval = min(
+                    interval_seconds * idle_multiplier,
+                    MAX_POLL_INTERVAL_SECONDS,
+                )
+                if adaptive_interval > effective_interval:
+                    logger.info(
+                        "Scoped poll (issue #%d): %d consecutive idle polls, interval %ds → %ds",
+                        parent_issue_number,
+                        consecutive_idle_polls,
+                        effective_interval,
+                        adaptive_interval,
+                    )
+                    effective_interval = adaptive_interval
+
+            await asyncio.sleep(effective_interval)
 
     except asyncio.CancelledError:
         logger.info("Scoped app-pipeline polling cancelled for issue #%d", parent_issue_number)
