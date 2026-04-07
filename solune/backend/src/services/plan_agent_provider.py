@@ -12,7 +12,7 @@ in the ``github-copilot-sdk`` public preview.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Literal, cast
 
 from src.logging_utils import get_logger
 from src.prompts.plan_instructions import PLAN_SYSTEM_INSTRUCTIONS
@@ -185,7 +185,9 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort
+        config["reasoning_effort"] = cast(  # type: ignore[reportGeneralTypeIssues]
+            Literal["low", "medium", "high", "xhigh"], reasoning_effort
+        )
 
     session = await client.create_session(config)
     logger.info(

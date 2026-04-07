@@ -760,7 +760,7 @@ class TestDeployWorkflow:
             assert secret in self.content, f"Workflow should reference secret '{secret}'"
 
     def test_checkout_step(self):
-        assert "actions/checkout@v4" in self.content
+        assert "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd" in self.content
 
 
 # ---------------------------------------------------------------------------
