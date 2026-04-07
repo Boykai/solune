@@ -128,6 +128,7 @@ from .recovery import (
 # ──────────────────────────────────────────────────────────────────────────────
 from .state import (  # noqa: F401
     ASSIGNMENT_GRACE_PERIOD_SECONDS,
+    MAX_RECOVERY_RETRIES,
     POST_ACTION_DELAY_SECONDS,
     RATE_LIMIT_PAUSE_THRESHOLD,
     RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD,
@@ -143,6 +144,7 @@ from .state import (  # noqa: F401
     _polling_task,
     _posted_agent_outputs,
     _processed_issue_prs,
+    _recovery_attempt_counts,
     _recovery_last_attempt,
     _review_requested_cache,
     _system_marked_ready_prs,
@@ -158,6 +160,7 @@ from .state import (  # noqa: F401
 __all__ = [
     "AGENT_OUTPUT_FILES",
     "ASSIGNMENT_GRACE_PERIOD_SECONDS",
+    "MAX_RECOVERY_RETRIES",
     "RECOVERY_COOLDOWN_SECONDS",
     "STATE_ACTIVE",
     "STATE_DONE",
