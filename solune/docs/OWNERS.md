@@ -36,7 +36,7 @@ Each doc file has a designated owner responsible for keeping it accurate. Owners
 
 ## Doc-to-Source Mapping
 
-> Used during the Librarian refresh process (Phase 4) to verify each documentation file against its source of truth. See [the Librarian issue template](../../.github/ISSUE_TEMPLATE/chore-librarian.md#phase-4-update-documentation-files) for execution guidance.
+> Used during the Librarian refresh process (Phase 4) to verify each documentation file against its source of truth.
 
 | Doc File | Source Type | Source Paths | Diff Method |
 |----------|-------------|--------------|-------------|

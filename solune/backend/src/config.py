@@ -315,7 +315,7 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()  # type: ignore[call-arg]  # pydantic-settings loads from env
+    return Settings.model_validate({})
 
 
 def clear_settings_cache() -> None:

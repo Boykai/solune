@@ -4,6 +4,7 @@
   "pythonVersion": "3.13",
   "typeCheckingMode": "off",
   "reportInvalidTypeForm": "none",
+  "stubPath": "src/typestubs",
   "executionEnvironments": [
     {
       "root": ".",

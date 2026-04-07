@@ -1,0 +1,26 @@
+from typing import Any
+
+class Response[T]:
+    """Typed githubkit Response enabling attribute access on parsed_data."""
+
+    parsed_data: T
+    status_code: int
+    headers: dict[str, str]
+    url: str
+    content: bytes
+
+class GitHub:
+    """GitHub API client."""
+    def __init__(self, auth: Any = ..., **kwargs: Any) -> None: ...
+    @property
+    def rest(self) -> Any: ...
+    @property
+    def graphql(self) -> Any: ...
+    async def arequest(self, method: str, url: str, **kwargs: Any) -> Any: ...
+    async def async_graphql(self, query: str, **kwargs: Any) -> Any: ...
+    async def __aenter__(self) -> GitHub: ...
+    async def __aexit__(self, *args: Any) -> None: ...
+
+class TokenAuthStrategy:
+    """Token-based authentication strategy."""
+    def __init__(self, token: str) -> None: ...

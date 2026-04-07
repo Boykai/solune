@@ -1,0 +1,3 @@
+class LocalThrottler:
+    """Local request throttler for githubkit."""
+    def __init__(self, max_concurrency: int = ..., **kwargs: object) -> None: ...
