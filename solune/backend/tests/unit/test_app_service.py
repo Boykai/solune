@@ -426,7 +426,7 @@ class TestExternalRepoProjectAutoCreation:
         assert app.github_project_id == "PVT_ext_proj"
         assert app.github_project_url == "https://github.com/users/ext-owner/projects/1"
         github_service.create_project_v2.assert_awaited_once_with(
-            "token", owner="ext-owner", title="Ext Proj App"
+            "token", owner="ext-owner", title="Ext Proj App", repository_id="R_ext123"
         )
         github_service.link_project_to_repository.assert_awaited_once()
 
