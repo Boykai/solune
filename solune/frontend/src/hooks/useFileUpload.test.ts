@@ -6,7 +6,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useFileUpload } from './useFileUpload';
 
@@ -31,6 +31,10 @@ function makeOversizedFile(name: string): File {
 describe('useFileUpload — error timer cleanup', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('clears error timer on unmount to prevent state update on unmounted component', () => {
