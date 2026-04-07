@@ -3,19 +3,25 @@
  */
 import '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { vi, type Mock } from 'vitest';
+import { vi, beforeEach, type Mock } from 'vitest';
 
 // ─── crypto.randomUUID stub ──────────────────────────────────────────────
 // happy-dom may not implement crypto.randomUUID; stub once globally.
+// _counter is at module scope so beforeEach can reset it to 0, ensuring
+// UUID values are deterministic regardless of test execution order.
+let _counter = 0;
 if (typeof globalThis.crypto === 'undefined') {
   // @ts-expect-error - partial crypto shim for test environments
   globalThis.crypto = {};
 }
 if (typeof globalThis.crypto.randomUUID !== 'function') {
-  let _counter = 0;
   globalThis.crypto.randomUUID = () =>
     `00000000-0000-4000-8000-${String(++_counter).padStart(12, '0')}` as `${string}-${string}-${string}-${string}-${string}`;
 }
+
+beforeEach(() => {
+  _counter = 0;
+});
 
 // ─── Mock WebSocket ──────────────────────────────────────────────────────
 

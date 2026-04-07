@@ -244,27 +244,148 @@ def _configure_sync_websocket_manager_methods(mock: AsyncMock) -> None:
 
 @pytest.fixture(autouse=True)
 def _clear_test_caches():
-    """Clear **all** global caches between tests.
+    """Clear **all** module-level mutable globals between tests.
 
-    Unit and integration suites both exercise endpoints that reuse shared cache
-    entries such as ``projects:*`` and ``board_projects:*``. Clearing the cache
-    before and after each test prevents cross-suite contamination while still
-    allowing individual tests to verify cache reuse within a single request flow.
+    Prevents cross-test state leaks by resetting every known module-level
+    cache, collection, singleton, and lazy-init lock before and after each
+    test.  The integration conftest's ``_reset_integration_state`` is kept
+    as defense-in-depth.
 
-    Also clears the ``get_settings()`` ``@lru_cache`` to avoid leaking
-    ``MagicMock``-patched values across test boundaries (BUG-002).
+    Event-loop-bound locks are reinitialized for each test so they are bound
+    to the active test loop/context.  Lazy-init locks (``_ws_lock``,
+    ``_store_lock``) are reset to ``None`` for first-use recreation, while
+    polling locks (``_polling_state_lock``, ``_polling_startup_lock``) are
+    replaced with fresh ``asyncio.Lock()`` instances because they are used
+    directly without a lazy getter.
     """
-    from src.config import clear_settings_cache
-    from src.services.cache import cache as _cache
-    from src.services.copilot_polling.state import _system_marked_ready_prs
+    import asyncio
 
-    _cache.clear()
-    _system_marked_ready_prs.clear()
-    clear_settings_cache()
+    import src.services.agents.service as agents_service_mod
+    import src.services.app_templates.registry as registry_mod
+    import src.services.copilot_polling as copilot_polling_pkg
+    import src.services.copilot_polling.state as polling_state_mod
+    import src.services.done_items_store as done_items_mod
+    import src.services.pipeline_state_store as pss_mod
+    import src.services.session_store as session_store_mod
+    import src.services.template_files as template_files_mod
+    import src.services.websocket as ws_mod
+    import src.services.workflow_orchestrator.config as wf_config_mod
+    import src.services.workflow_orchestrator.orchestrator as orch_mod
+    from src.api.chat import _locks, _messages, _proposals, _recommendations
+    from src.config import clear_settings_cache
+    from src.services.agent_creator import _agent_sessions
+    from src.services.cache import cache as _cache
+    from src.services.chores.chat import _conversations
+    from src.services.github_auth import _oauth_states
+    from src.services.settings_store import _auto_merge_cache, _queue_mode_cache
+    from src.services.signal_chat import _signal_pending
+
+    def _reset() -> None:
+        # ── General caches ──
+        _cache.clear()
+        clear_settings_cache()
+
+        # ── api/chat.py ──
+        _messages.clear()
+        _proposals.clear()
+        _recommendations.clear()
+        _locks.clear()
+
+        # ── pipeline_state_store.py — collections ──
+        pss_mod._pipeline_states.clear()
+        pss_mod._issue_main_branches.clear()
+        pss_mod._issue_sub_issue_map.clear()
+        pss_mod._agent_trigger_inflight.clear()
+        pss_mod._project_launch_locks.clear()  # BUG FIX: never cleared anywhere
+
+        # ── pipeline_state_store.py — lock + singleton ──
+        pss_mod._store_lock = None
+        pss_mod._db = None
+
+        # ── workflow_orchestrator ──
+        wf_config_mod._transitions.clear()
+        wf_config_mod._workflow_configs.clear()
+        orch_mod._tracking_table_cache.clear()
+        orch_mod._orchestrator_instance = None
+
+        # ── copilot_polling/state.py — collections ──
+        polling_state_mod._monitored_projects.clear()
+        polling_state_mod._processed_issue_prs.clear()
+        polling_state_mod._review_requested_cache.clear()
+        polling_state_mod._posted_agent_outputs.clear()
+        polling_state_mod._claimed_child_prs.clear()
+        polling_state_mod._pending_agent_assignments.clear()
+        polling_state_mod._system_marked_ready_prs.clear()
+        polling_state_mod._copilot_review_first_detected.clear()
+        polling_state_mod._copilot_review_requested_at.clear()
+        polling_state_mod._recovery_last_attempt.clear()
+        polling_state_mod._merge_failure_counts.clear()
+        polling_state_mod._pending_auto_merge_retries.clear()
+        polling_state_mod._pending_post_devops_retries.clear()
+        polling_state_mod._background_tasks.clear()
+        polling_state_mod._app_polling_tasks.clear()
+        polling_state_mod._activity_window.clear()
+
+        # ── copilot_polling/state.py — scalars ──
+        polling_state_mod._polling_task = None
+        # Also reset the package-level _polling_task which is rebound by
+        # start_copilot_polling() via ``_self._polling_task = task``.
+        copilot_polling_pkg._polling_task = None
+        polling_state_mod._polling_state = polling_state_mod.PollingState()
+        polling_state_mod._consecutive_idle_polls = 0
+        polling_state_mod._adaptive_tier = "medium"
+        polling_state_mod._consecutive_poll_failures = 0
+
+        # ── copilot_polling/state.py — event-loop-bound locks ──
+        # _polling_state_lock and _polling_startup_lock are used directly
+        # (not via lazy getters), so reset to fresh Lock instances.
+        # In Python ≥3.10 Lock no longer takes an explicit loop argument, but
+        # it can still become bound to the event loop that first uses it.
+        # Replacing these module-level locks here avoids reusing a lock across
+        # pytest-asyncio test loops; each test gets a fresh lock instance that
+        # is only used within its own event loop.
+        polling_state_mod._polling_state_lock = asyncio.Lock()
+        polling_state_mod._polling_startup_lock = asyncio.Lock()
+
+        # ── websocket.py — event-loop-bound lock ──
+        ws_mod._ws_lock = None
+
+        # ── settings_store.py ──
+        _queue_mode_cache.clear()
+        _auto_merge_cache.clear()
+
+        # ── signal_chat.py ──
+        _signal_pending.clear()
+
+        # ── github_auth.py ──
+        _oauth_states.clear()
+
+        # ── agent_creator.py ──
+        _agent_sessions.clear()
+
+        # ── agents/service.py ──
+        agents_service_mod._chat_sessions.clear()
+        agents_service_mod._chat_session_timestamps.clear()
+
+        # ── chores/chat.py ──
+        _conversations.clear()
+
+        # ── template_files.py ──
+        template_files_mod._cached_files = None
+        template_files_mod._cached_warnings = None
+
+        # ── app_templates/registry.py ──
+        registry_mod._cache = None
+
+        # ── done_items_store.py ──
+        done_items_mod._db = None
+
+        # ── session_store.py ──
+        session_store_mod._encryption_service = None
+
+    _reset()
     yield
-    _cache.clear()
-    _system_marked_ready_prs.clear()
-    clear_settings_cache()
+    _reset()
 
 
 # =============================================================================
