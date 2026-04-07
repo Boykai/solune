@@ -105,7 +105,7 @@ A developer writing frontend tests uses properly-typed mock factories instead of
 ### Measurable Outcomes
 
 - **SC-001**: Zero type suppression comments remain in backend source files (currently 15 `# type: ignore` + 9 `# pyright:` directives = 24 total).
-- **SC-002**: Zero type suppression comments remain in backend test files (currently 15 `# type: ignore` comments).
+- **SC-002**: Zero type suppression comments remain in backend test files (currently 19 `# type: ignore` comments).
 - **SC-003**: Zero type assertion workarounds remain in frontend source files (currently 2 `@ts-expect-error` + 1 `as any` + 2 `eslint-disable` + 1 `as unknown as` = 6 total).
 - **SC-004**: Zero unsafe type casts remain in frontend test files (currently 55 `as unknown as` casts).
 - **SC-005**: Backend test type checker operates under standard strictness mode instead of being disabled.

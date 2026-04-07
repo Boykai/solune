@@ -116,7 +116,7 @@ solune/
 | 1 | OTel protocol implementations | 4 (`otel_setup.py`) | Add explicit protocol inheritance guarded by `TYPE_CHECKING` |
 | 2 | Pydantic Settings() call-arg | 2 (`config.py`, `main.py`) | Use `Settings.model_validate({})` |
 | 3 | Copilot SDK missing imports | 6 (`agent_provider.py`, `completion_providers.py`, `plan_agent_provider.py`) | Create `src/typestubs/copilot/` stubs; add `stubPath` to pyright config |
-| 4 | TypedDict reasoning_effort | 3 (same files as Step 3) | Declare `ExtendedGitHubCopilotOptions(GitHubCopilotOptions, total=False)` |
+| 4 | TypedDict reasoning_effort | 3 (same files as Step 3) | Include `reasoning_effort` directly in project-local stubs (no separate extension TypedDict needed) |
 | 5 | slowapi + FastAPIInstrumentor | 2 (`main.py`, `otel_setup.py`) | Typed adapter wrapper; OTel resolves after Step 1 |
 | 6 | githubkit reportAttributeAccessIssue | 9 (8 files + 1 inline) | Create `src/typestubs/githubkit/` stubs; remove all directives |
 
@@ -130,12 +130,12 @@ solune/
 | 10 | Remaining test ignores | 3+3 | Type annotations, `getattr()`, runtime bug investigation |
 | 11 | Upgrade test pyright mode | config change | `"off"` → `"standard"`, remove `reportInvalidTypeForm: "none"` |
 
-### Phase 3 — Frontend Source Suppressions (7 suppressions)
+### Phase 3 — Frontend Source Suppressions (6 suppressions)
 
 | Step | Target | Suppressions | Fix Strategy |
 |------|--------|-------------|--------------|
 | 12 | useVoiceInput.ts | 2 (`as any` + eslint-disable) | Declare `SpeechRecognitionWindow` interface |
-| 13 | lazyWithRetry.ts | 2 (`ComponentType<any>` + eslint-disable) | Proper generic constraint `ComponentType<Record<string, unknown>>` |
+| 13 | lazyWithRetry.ts | 1 (eslint-disable for `ComponentType<any>`) | Proper generic constraint `ComponentType<Record<string, unknown>>` |
 | 14 | api.ts | 1 (`as unknown as ThinkingEvent`) | Type guard or Zod parse |
 | 15 | test/setup.ts | 2 (`@ts-expect-error`) | Typed shim interfaces for crypto and WebSocket |
 

@@ -102,7 +102,7 @@
 
 ### Step 11: Upgrade Test Pyright Mode
 
-- [ ] T015 [US2] Change `typeCheckingMode` from `"off"` to `"standard"` in `solune/backend/pyrightconfig.tests.json`, remove `reportInvalidTypeForm: "none"`, add `reportMissingTypeStubs: false` and `reportMissingImports: "warning"`, add `"src/typestubs"` to `extraPaths`. Fix any new pyright errors surfaced by the strictness upgrade.
+- [ ] T015 [US2] Change `typeCheckingMode` from `"off"` to `"standard"` in `solune/backend/pyrightconfig.tests.json`, remove `reportInvalidTypeForm: "none"`, add `reportMissingTypeStubs: false`, `reportMissingImports: "warning"`, and `stubPath: "src/typestubs"`. Fix any new pyright errors surfaced by the strictness upgrade.
 
 **Checkpoint**: Backend tests type-checked under standard mode — `uv run pyright -p pyrightconfig.tests.json` passes with 0 errors. All tests pass.
 
@@ -233,8 +233,8 @@ Task T009: "githubkit stub in solune/backend/src/typestubs/githubkit/__init__.py
 Task T006: "Remove copilot import ignores in agent_provider.py, completion_providers.py, plan_agent_provider.py"
 Task T010: "Remove githubkit pyright directives in github_projects/*.py and completion_providers.py"
 
-# After imports are clean, add extended types:
-Task T007: "ExtendedGitHubCopilotOptions in agent_provider.py, completion_providers.py, plan_agent_provider.py"
+# After imports are clean, stubs already include reasoning_effort:
+Task T007: "Verify reasoning_effort in stubs resolves typeddict-unknown-key in agent_provider.py, completion_providers.py, plan_agent_provider.py"
 
 # After protocols + settings are fixed:
 Task T008: "slowapi + FastAPIInstrumentor in main.py and otel_setup.py"
@@ -267,7 +267,7 @@ Task T019: "Typed shims in solune/frontend/src/test/setup.ts"
 1. Complete Setup → Infrastructure ready
 2. Add User Story 1 (backend source) → Test independently → **MVP!** (24 suppressions removed)
 3. Add User Story 2 (backend tests) → Test independently → Backend fully type-safe (15+ more suppressions removed, pyright upgraded to standard)
-4. Add User Story 3 (frontend source) → Test independently → Frontend source type-safe (7 suppressions removed)
+4. Add User Story 3 (frontend source) → Test independently → Frontend source type-safe (6 suppressions removed)
 5. Add User Story 4 (frontend tests) → Test independently → All suppressions eliminated (55 casts removed)
 6. Each story adds value without breaking previous stories
 
@@ -299,7 +299,7 @@ With multiple developers:
 | **US4 tasks (P3)** | 2 (T020–T021) |
 | **Polish tasks** | 3 (T022–T024) |
 | **Parallel opportunities** | 14 tasks marked [P] |
-| **Suppressions resolved** | ~104 total (24 backend source + 15+ backend test + 7 frontend source + 55 frontend test) |
+| **Suppressions resolved** | ~103 total (24 backend source + 19 backend test + 6 frontend source + 55 frontend test) |
 | **Latent bugs fixed** | ≥1 (missing `add()` on `_NoOpInstrument`) |
 | **MVP scope** | Setup + User Story 1 = 10 tasks |
 

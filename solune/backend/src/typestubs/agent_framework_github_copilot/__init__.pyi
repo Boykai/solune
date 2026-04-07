@@ -4,6 +4,7 @@ from typing_extensions import TypedDict
 
 class GitHubCopilotOptions(TypedDict, total=False):
     """GitHub Copilot-specific options."""
+
     system_message: dict[str, str]
     cli_path: str
     model: str

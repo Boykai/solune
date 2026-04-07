@@ -196,11 +196,11 @@ function isThinkingEvent(parsed: unknown): parsed is ThinkingEvent {
 +  "typeCheckingMode": "standard",
 +  "reportMissingTypeStubs": false,
 +  "reportMissingImports": "warning",
++  "stubPath": "src/typestubs",
    "executionEnvironments": [
      {
        "root": ".",
--      "extraPaths": ["src"]
-+      "extraPaths": ["src", "src/typestubs"]
+       "extraPaths": ["src"]
      }
    ]
  }

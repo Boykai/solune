@@ -66,7 +66,7 @@ cd solune/frontend && npm run test
        pass
    ```
 
-5. Remove the 4 `# type: ignore` comments on lines 70, 80, 148, 155.
+5. Remove all `# type: ignore` comments (search: `grep -n "# type: ignore" src/services/otel_setup.py`).
 
 **Verify**: `uv run pyright src` passes with 0 errors.
 
@@ -106,17 +106,11 @@ cd solune/frontend && npm run test
 
 **Verify**: `uv run pyright src` passes.
 
-### Step 4: ExtendedGitHubCopilotOptions (3 suppressions)
+### Step 4: reasoning_effort in Type Stubs (3 suppressions)
 
-1. Create shared type or declare locally in each file:
-   ```python
-   class ExtendedGitHubCopilotOptions(GitHubCopilotOptions, total=False):
-       reasoning_effort: str
-   ```
+1. In the copilot SDK stubs created in Step 3, include `reasoning_effort: str` directly in the `SessionConfig` TypedDict (`src/typestubs/copilot/types.pyi`) and `GitHubCopilotOptions` TypedDict (`src/typestubs/agent_framework_github_copilot/__init__.pyi`). No separate `ExtendedGitHubCopilotOptions` needed — since we control the stubs, we declare the full surface used by the codebase.
 
-2. Update type annotations where `GitHubCopilotOptions` dicts are constructed with `reasoning_effort`.
-
-3. Remove 3 `# type: ignore[typeddict-unknown-key]` comments.
+2. Remove 3 `# type: ignore[typeddict-unknown-key]` comments from the copilot provider files.
 
 **Verify**: `uv run pyright src` passes.
 
@@ -196,11 +190,12 @@ Apply same fix as Step 2: `Settings.model_validate({})`.
 {
   "typeCheckingMode": "standard",
   "reportMissingTypeStubs": false,
-  "reportMissingImports": "warning"
+  "reportMissingImports": "warning",
+  "stubPath": "src/typestubs"
 }
 ```
 
-Remove `reportInvalidTypeForm: "none"`.
+Remove `reportInvalidTypeForm: "none"`. The `stubPath` setting ensures the test pyright config resolves the same project-local stubs as the source config.
 
 **Verify**: `uv run pyright -p pyrightconfig.tests.json` passes.
 

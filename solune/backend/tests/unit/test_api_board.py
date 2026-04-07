@@ -632,32 +632,25 @@ class TestColumnTransformEdgeCases:
 class TestRateLimitRecovery:
     """Tests for rate-limit detection, retry-after extraction, and cached header info."""
 
+    class _RateLimitError(Exception):
+        def __init__(self, msg: str, retry_after: object = None) -> None:
+            super().__init__(msg)
+            self.retry_after = retry_after
+
     def test_retry_after_seconds_from_timedelta(self):
         """_retry_after_seconds extracts seconds from a timedelta attribute."""
         from datetime import timedelta
 
         from src.api.board import _retry_after_seconds
 
-        class _RateLimitError(Exception):
-            def __init__(self, msg: str, retry_after: timedelta | int) -> None:
-                super().__init__(msg)
-                self.retry_after = retry_after
-
-        exc = _RateLimitError("rate limited", retry_after=timedelta(seconds=42))
+        exc = self._RateLimitError("rate limited", retry_after=timedelta(seconds=42))
         assert _retry_after_seconds(exc) == 42
 
     def test_retry_after_seconds_from_int(self):
         """_retry_after_seconds returns the integer directly."""
-        from datetime import timedelta
-
         from src.api.board import _retry_after_seconds
 
-        class _RateLimitError(Exception):
-            def __init__(self, msg: str, retry_after: timedelta | int) -> None:
-                super().__init__(msg)
-                self.retry_after = retry_after
-
-        exc = _RateLimitError("rate limited", retry_after=30)
+        exc = self._RateLimitError("rate limited", retry_after=30)
         assert _retry_after_seconds(exc) == 30
 
     def test_retry_after_seconds_defaults_to_60(self):

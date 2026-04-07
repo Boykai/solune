@@ -48,16 +48,16 @@
 2. `copilot/types.pyi` — `GitHubCopilotOptions` TypedDict, `PermissionHandler`
 3. `copilot/generated/session_events.pyi` — `SessionEventType` enum
 
-## R4: TypedDict Extension for reasoning_effort
+## R4: reasoning_effort in Project-Local Type Stubs
 
 **Context**: `GitHubCopilotOptions` TypedDict doesn't include `reasoning_effort` key. 3 `# type: ignore[typeddict-unknown-key]` across the copilot provider files.
 
-**Decision**: Declare a local `ExtendedGitHubCopilotOptions(GitHubCopilotOptions, total=False)` TypedDict that adds `reasoning_effort: str`.
+**Decision**: Include `reasoning_effort: str` directly in the project-local `SessionConfig` stub (`src/typestubs/copilot/types.pyi`) and `GitHubCopilotOptions` stub (`src/typestubs/agent_framework_github_copilot/__init__.pyi`). No separate `ExtendedGitHubCopilotOptions` TypedDict is needed since the stubs are project-local and we control their type surface.
 
-**Rationale**: TypedDict extension is the correct typing pattern for adding optional keys to a third-party TypedDict. Using `total=False` makes the new key optional, matching the runtime behavior where it's conditionally set.
+**Rationale**: Since we author the stubs ourselves (R3), we can declare the full surface used by the codebase — including `reasoning_effort`. This is simpler than a TypedDict extension and avoids an extra type that consumers would need to track.
 
 **Alternatives considered**:
-- Add `reasoning_effort` to the copilot stubs directly: Rejected — misrepresents what the library actually ships; if the SDK adds this key later, there could be conflicts
+- Declare `ExtendedGitHubCopilotOptions(GitHubCopilotOptions, total=False)`: Rejected — unnecessary indirection since we control the stubs; adding the key directly is simpler and more maintainable
 - Use `dict[str, Any]` instead of TypedDict: Rejected — loses type safety for all other keys
 - `cast()` the dict: Rejected — no better than `type: ignore`
 
@@ -100,7 +100,7 @@
 
 ## R8: Frontend `as any` / `as unknown as` in Production
 
-**Context**: `useVoiceInput.ts` uses `window as any` (2 suppressions); `lazyWithRetry.ts` uses `ComponentType<any>` (2 suppressions); `api.ts` uses `as unknown as ThinkingEvent` (1 suppression).
+**Context**: `useVoiceInput.ts` uses `window as any` with an `eslint-disable` (2 suppressions); `lazyWithRetry.ts` uses `ComponentType<any>` with an `eslint-disable` (1 suppression — the `eslint-disable` is the only directive, `ComponentType<any>` is the code it protects); `api.ts` uses `as unknown as ThinkingEvent` (1 suppression). Total: 4 production code suppressions (+ 2 `@ts-expect-error` in test/setup.ts covered by Step 15 = 6 frontend source total per SC-003).
 
 **Decision**:
 - **useVoiceInput.ts**: Declare `SpeechRecognitionWindow` interface extending `Window` with optional `SpeechRecognition` and `webkitSpeechRecognition` constructors
