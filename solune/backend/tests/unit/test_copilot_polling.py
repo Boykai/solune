@@ -28,6 +28,7 @@ from src.services.copilot_polling import (
     _processed_issue_prs,
     _reconstruct_pipeline_state,
     _reconstruct_sub_issue_mappings,
+    _recovery_attempt_counts,
     _recovery_last_attempt,
     _self_heal_tracking_table,
     _transition_after_pipeline_complete,
@@ -3933,9 +3934,11 @@ class TestRecoverStalledIssues:
     def clear_recovery_state(self):
         """Clear global recovery state before each test."""
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
         yield
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
     @pytest.fixture
@@ -4980,6 +4983,7 @@ class TestValidateAndReconcileTrackingTable:
         task.status = "In Progress"
 
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
         with (
@@ -5014,6 +5018,7 @@ class TestValidateAndReconcileTrackingTable:
         assert kwargs["agent_index"] == 3
 
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
 
@@ -8739,9 +8744,11 @@ class TestRecoveryForcedTransition:
     @pytest.fixture(autouse=True)
     def clear_recovery_state(self):
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
         yield
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
     @pytest.fixture
@@ -11178,9 +11185,11 @@ class TestRecoveryIncludesInReview:
     @pytest.fixture(autouse=True)
     def _clear(self):
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
         yield
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
     @pytest.fixture
@@ -11288,9 +11297,11 @@ class TestRecoverySelfHealTracking:
     @pytest.fixture(autouse=True)
     def _clear(self):
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
         yield
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
     @pytest.fixture

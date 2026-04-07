@@ -195,6 +195,14 @@ _recovery_last_attempt: BoundedDict[int, datetime] = BoundedDict(
 )  # issue_number -> last attempt time
 RECOVERY_COOLDOWN_SECONDS = 300  # 5 minutes between recovery attempts per issue
 
+# Recovery attempt counter: stops re-assigning an agent after MAX_RECOVERY_RETRIES
+# consecutive failures for the same issue, preventing infinite retry loops when
+# the agent is persistently unavailable (e.g. GitHub Copilot service outage).
+_recovery_attempt_counts: BoundedDict[int, int] = BoundedDict(
+    maxlen=200
+)  # issue_number -> consecutive recovery attempts
+MAX_RECOVERY_RETRIES: int = 5
+
 # Merge failure counter: tracks consecutive merge failures per issue.
 # When the count exceeds MAX_MERGE_RETRIES the pipeline skips the merge
 # and advances, posting a warning comment on the issue.
