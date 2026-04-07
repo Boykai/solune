@@ -251,8 +251,12 @@ def _clear_test_caches():
     test.  The integration conftest's ``_reset_integration_state`` is kept
     as defense-in-depth.
 
-    Event-loop-bound locks (``asyncio.Lock``) are reset to ``None`` so they
-    are re-created inside the correct event loop on first use.
+    Event-loop-bound locks are reinitialized for each test so they are bound
+    to the active test loop/context.  Lazy-init locks (``_ws_lock``,
+    ``_store_lock``) are reset to ``None`` for first-use recreation, while
+    polling locks (``_polling_state_lock``, ``_polling_startup_lock``) are
+    replaced with fresh ``asyncio.Lock()`` instances because they are used
+    directly without a lazy getter.
     """
     import asyncio
 
@@ -331,7 +335,11 @@ def _clear_test_caches():
         # ── copilot_polling/state.py — event-loop-bound locks ──
         # _polling_state_lock and _polling_startup_lock are used directly
         # (not via lazy getters), so reset to fresh Lock instances.
-        # In Python ≥3.10 locks are not bound to a specific event loop.
+        # In Python ≥3.10 Lock no longer takes an explicit loop argument, but
+        # it can still become bound to the event loop that first uses it.
+        # Replacing these module-level locks here avoids reusing a lock across
+        # pytest-asyncio test loops; each test gets a fresh lock instance that
+        # is only used within its own event loop.
         polling_state_mod._polling_state_lock = asyncio.Lock()
         polling_state_mod._polling_startup_lock = asyncio.Lock()
 

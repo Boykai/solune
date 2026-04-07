@@ -195,7 +195,7 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - Python >=3.12 (backend runtime, pyright configured for 3.13) and TypeScript ~6.0 with React 19.2 (frontend) + FastAPI, Starlette, MCP Python SDK, httpx, OpenTelemetry, uv, pytest, pytest-cov, ruff, pyright; React 19, Vite 8, Vitest 4, eslint, React Testing Library, react-hook-form (001-test-coverage-bugfixes)
 - SQLite-backed backend services plus in-memory MCP auth cache/rate-limit state and pipeline state store; frontend browser state only (001-test-coverage-bugfixes)
 - `018-type-checking-strictness-upgrade`: backend state uses SQLite via `aiosqlite`; use the Canonical Sources above for exact backend/frontend runtimes and dependency versions.
-- Python >=3.12 (backend), TypeScript 6.0 (frontend) + FastAPI, pytest, pytest-asyncio, pytest-randomly (NEW), Vitest, React 18 (019-test-isolation-remediation)
+- Python >=3.12 (backend), TypeScript 6.0 (frontend) + FastAPI, pytest, pytest-asyncio, pytest-randomly (NEW), Vitest, React 19.2 (019-test-isolation-remediation)
 - SQLite via aiosqlite (existing — `_db` globals in `pipeline_state_store.py`, `done_items_store.py` need clearing) (019-test-isolation-remediation)
 
 ## Recent Changes

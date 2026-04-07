@@ -60,11 +60,11 @@
 - [ ] T012 [US1] Add clearing of `_oauth_states` from `src.services.github_auth` in `solune/backend/tests/conftest.py`
 - [ ] T013 [US1] Add clearing of `_agent_sessions` from `src.services.agent_creator` in `solune/backend/tests/conftest.py`
 
-#### Step 1.2 — Reset event-loop-bound lazy-init locks to `None`
+#### Step 1.2 — Reset event-loop-bound locks
 
 - [ ] T014 [US1] Reset `_store_lock` to `None` on `src.services.pipeline_state_store` in `solune/backend/tests/conftest.py`
 - [ ] T015 [US1] Reset `_ws_lock` to `None` on `src.services.websocket` in `solune/backend/tests/conftest.py`
-- [ ] T016 [US1] Reset `_polling_state_lock` and `_polling_startup_lock` to `None` on `src.services.copilot_polling.state` in `solune/backend/tests/conftest.py`
+- [ ] T016 [US1] Reset `_polling_state_lock` and `_polling_startup_lock` to fresh `asyncio.Lock()` instances on `src.services.copilot_polling.state` in `solune/backend/tests/conftest.py`
 
 #### Step 1.3 — Reset Optional/singleton values to `None`
 

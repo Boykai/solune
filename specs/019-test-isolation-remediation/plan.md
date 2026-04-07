@@ -12,7 +12,7 @@ The fix expands the central autouse fixture to clear ALL discovered module-level
 ## Technical Context
 
 **Language/Version**: Python >=3.12 (backend), TypeScript 6.0 (frontend)
-**Primary Dependencies**: FastAPI, pytest, pytest-asyncio, pytest-randomly (NEW), Vitest, React 18
+**Primary Dependencies**: FastAPI, pytest, pytest-asyncio, pytest-randomly (NEW), Vitest, React 19.2.0
 **Storage**: SQLite via aiosqlite (existing — `_db` globals in `pipeline_state_store.py`, `done_items_store.py` need clearing)
 **Testing**: pytest (backend), Vitest + Testing Library (frontend)
 **Target Platform**: Linux server (backend), Modern browsers (frontend)

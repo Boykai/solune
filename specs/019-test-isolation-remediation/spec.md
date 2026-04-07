@@ -87,7 +87,7 @@ As a developer, I need the existing integration test fixtures to remain intact a
 ### Functional Requirements
 
 - **FR-001**: The central autouse fixture MUST clear ALL module-level mutable globals (dictionaries, BoundedDicts, BoundedSets, sets, lists, deques) to their empty/default state before and after every test.
-- **FR-002**: The central autouse fixture MUST reset all lazy-initialized asyncio locks (`_ws_lock`, `_store_lock`, `_polling_state_lock`, `_polling_startup_lock`) to `None` — not to a new `asyncio.Lock()` instance.
+- **FR-002**: The central autouse fixture MUST reset lazy-initialized asyncio locks that use a getter pattern (`_ws_lock`, `_store_lock`) to `None` so they are recreated on demand in the correct event loop. Polling locks that are used directly without a lazy getter (`_polling_state_lock`, `_polling_startup_lock`) MUST be reset to fresh `asyncio.Lock()` instances.
 - **FR-003**: The central autouse fixture MUST reset scalar state variables (`_consecutive_idle_polls`, `_adaptive_tier`, `_consecutive_poll_failures`, `_polling_task`) to their default values.
 - **FR-004**: The central autouse fixture MUST reset `Optional` singletons (`_orchestrator_instance`, `_cached_files`, `_cached_warnings`, `_cache`, `_db`, `_encryption_service`) to `None`.
 - **FR-005**: The fixture MUST clear `_project_launch_locks` — a confirmed bug where this dictionary is never cleared anywhere in the codebase.
