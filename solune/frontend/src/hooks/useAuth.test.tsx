@@ -65,7 +65,7 @@ describe('useAuth', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('should return null user when not authenticated', async () => {
