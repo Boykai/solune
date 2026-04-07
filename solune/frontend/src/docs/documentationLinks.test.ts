@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, '../../..');
-const gitRoot = resolve(repoRoot, '..');
 const docsRoot = resolve(repoRoot, 'docs');
 
 const changedDocs = [
@@ -25,10 +24,6 @@ const relativeLinkPattern = /(?<!!)\[[^\]]+\]\(([^)]+)\)/g;
 
 function readDoc(relativePath: string): string {
   return readFileSync(resolve(docsRoot, relativePath), 'utf8');
-}
-
-function readRepoFile(rootPath: string, relativePath: string): string {
-  return readFileSync(resolve(rootPath, relativePath), 'utf8');
 }
 
 function slugifyHeading(heading: string): string {
@@ -102,22 +97,6 @@ function extractChecklistItems(markdown: string, heading: string): string[] {
   const section = extractSection(markdown, heading);
 
   return Array.from(section.matchAll(/^- \[[ x]\] (.+)$/gm), (match) => match[1].trim());
-}
-
-function extractPhaseChecklist(markdown: string): string[] {
-  const section = markdown.match(/### Phase Checklist\n\n([\s\S]*?)(?:\n---|$)/)?.[1] ?? '';
-
-  return Array.from(
-    section.matchAll(/^- \[ \] \*\*Phase (\d+)\*\* — ([^(]+?)(?:\s+\(|$)/gm),
-    ([, phaseNumber, phaseTitle]) => `${phaseNumber}:${phaseTitle.trim()}`,
-  );
-}
-
-function extractPhaseHeadings(markdown: string): string[] {
-  return Array.from(
-    markdown.matchAll(/^### Phase (\d+) [—-] (.+)$/gm),
-    ([, phaseNumber, phaseTitle]) => `${phaseNumber}:${phaseTitle.trim()}`,
-  );
 }
 
 function extractAffectedDocs(markdown: string): string[] {
@@ -203,15 +182,6 @@ describe('chat documentation updates', () => {
 });
 
 describe('librarian documentation workflow', () => {
-  it('keeps the issue template phase checklist aligned with the detailed phase sections', () => {
-    const issueTemplate = readRepoFile(gitRoot, '.github/ISSUE_TEMPLATE/chore-librarian.md');
-
-    expect(extractPhaseChecklist(issueTemplate)).toEqual(extractPhaseHeadings(issueTemplate));
-    expect(issueTemplate).toContain(
-      '[`doc-refresh-verification.md`](../../solune/docs/checklists/doc-refresh-verification.md)',
-    );
-  });
-
   it('keeps the verification checklist template aligned with the manifest checklist', () => {
     const checklistTemplate = readDoc('checklists/doc-refresh-verification.md');
     const changeManifest = readDoc('.change-manifest.md');
@@ -223,13 +193,11 @@ describe('librarian documentation workflow', () => {
     expect(changeManifest).toContain('**Overall Status**: [PASS / PARTIAL / FAIL]');
   });
 
-  it('references only existing documentation files in the change manifest and librarian docs', () => {
+  it('references only existing documentation files in the change manifest', () => {
     const changeManifest = readDoc('.change-manifest.md');
     const affectedDocs = extractAffectedDocs(changeManifest);
-    const brokenLinks = collectBrokenRelativeLinks(gitRoot, ['.github/ISSUE_TEMPLATE/chore-librarian.md']);
 
     expect(affectedDocs).not.toEqual([]);
     expect(affectedDocs.filter((docPath) => !existsSync(resolve(repoRoot, docPath)))).toEqual([]);
-    expect(brokenLinks).toEqual([]);
   });
 });

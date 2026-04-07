@@ -50,14 +50,12 @@ def _make_pipeline_state(**overrides) -> PipelineState:
     return PipelineState(**defaults)
 
 
-def _make_main_branch_info(**overrides: object) -> MainBranchInfo:
-    result: dict[str, object] = {
-        "branch": "copilot/issue-100",
-        "pr_number": 42,
-        "head_sha": "deadbeef",
-    }
-    result.update(overrides)
-    return result  # type: ignore[return-value]  # factory helper for tests
+def _make_main_branch_info(
+    branch: str = "copilot/issue-100",
+    pr_number: int = 42,
+    head_sha: str = "deadbeef",
+) -> MainBranchInfo:
+    return MainBranchInfo(branch=branch, pr_number=pr_number, head_sha=head_sha)
 
 
 # ── Schema helper ────────────────────────────────────────────────

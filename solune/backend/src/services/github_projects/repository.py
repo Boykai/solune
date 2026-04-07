@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-# pyright: reportAttributeAccessIssue=false
 import base64
 from typing import cast
 
 from src.exceptions import GitHubAPIError
 from src.logging_utils import get_logger
+from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     CREATE_COMMIT_ON_BRANCH_MUTATION,
     GET_REPOSITORY_INFO_QUERY,
@@ -14,7 +14,7 @@ from src.services.github_projects.graphql import (
 logger = get_logger(__name__)
 
 
-class RepositoryMixin:
+class RepositoryMixin(_ServiceMixin):
     """Repository info, file/directory contents, and commit operations."""
 
     async def create_repository(

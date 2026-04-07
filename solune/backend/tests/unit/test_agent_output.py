@@ -1,11 +1,11 @@
 """Tests for agent_output.py dataclasses, helpers, and _post_markdown_outputs (T098)."""
 
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.services.copilot_polling.agent_output import CommentScanResult
+from src.services.workflow_orchestrator.models import PipelineState
 
 
 class TestCommentScanResult:
@@ -32,11 +32,8 @@ class TestCommentScanResult:
 
     def test_frozen(self):
         result = CommentScanResult(has_done_marker=True)
-        try:
-            result.has_done_marker = False  # type: ignore[misc]  # testing frozen dataclass
-            raise AssertionError("Expected FrozenInstanceError")
-        except AttributeError:
-            pass
+        with pytest.raises(AttributeError):
+            setattr(result, "has_done_marker", False)  # noqa: B010
 
     def test_equality(self):
         a = CommentScanResult(has_done_marker=True, done_comment_id="IC_1")
@@ -66,8 +63,12 @@ def mock_gps():
 
 
 def _make_pipeline(agent_name, sub_issue_number=99):
-    """Create a minimal pipeline-like object with agent_sub_issues."""
-    return SimpleNamespace(
+    """Create a minimal PipelineState with agent_sub_issues."""
+    return PipelineState(
+        issue_number=1,
+        project_id="PVT_test",
+        status="running",
+        agents=[agent_name],
         agent_sub_issues={agent_name: {"number": sub_issue_number}},
     )
 
@@ -194,7 +195,13 @@ class TestPostMarkdownOutputs:
                 _post_markdown_outputs,
             )
 
-            pipeline = SimpleNamespace(agent_sub_issues={})
+            pipeline = PipelineState(
+                issue_number=1,
+                project_id="PVT_test",
+                status="running",
+                agents=["speckit.specify"],
+                agent_sub_issues={},
+            )
             result = await _post_markdown_outputs(
                 access_token="tok",
                 owner="o",
