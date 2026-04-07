@@ -28,6 +28,7 @@ from src.services.copilot_polling import (
     _processed_issue_prs,
     _reconstruct_pipeline_state,
     _reconstruct_sub_issue_mappings,
+    _recovery_attempt_counts,
     _recovery_last_attempt,
     _self_heal_tracking_table,
     _transition_after_pipeline_complete,
@@ -3933,9 +3934,11 @@ class TestRecoverStalledIssues:
     def clear_recovery_state(self):
         """Clear global recovery state before each test."""
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
         yield
         _recovery_last_attempt.clear()
+        _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
 
     @pytest.fixture
@@ -4193,6 +4196,35 @@ class TestRecoverStalledIssues:
         assert results[0]["agent_name"] == "speckit.specify"
         assert "Copilot errored/stopped on PR #50" in results[0]["missing"]
         mock_orchestrator.assign_agent_for_status.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling.get_issue_main_branch")
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
+    async def test_respects_max_recovery_retries(
+        self, mock_config, mock_service, mock_get_branch, mock_backlog_task
+    ):
+        """Should skip issues that have exceeded MAX_RECOVERY_RETRIES."""
+        from src.services.copilot_polling.state import MAX_RECOVERY_RETRIES
+
+        mock_config.return_value = MagicMock(
+            status_in_review="In Review",
+            agent_mappings={"Backlog": ["speckit.specify"]},
+        )
+
+        # Simulate having hit the max retry limit
+        _recovery_attempt_counts[100] = MAX_RECOVERY_RETRIES
+
+        results = await recover_stalled_issues(
+            access_token="token",
+            project_id="PVT_1",
+            owner="owner",
+            repo="repo",
+            tasks=[mock_backlog_task],
+        )
+
+        assert results == []
+        mock_service.get_issue_with_comments.assert_not_called()
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")

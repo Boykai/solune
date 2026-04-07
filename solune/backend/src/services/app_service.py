@@ -203,7 +203,12 @@ async def _enhance_app_descriptions(
                 repo_desc = repo_desc[:347] + "..."
             return repo_desc, full_desc
     except Exception as exc:
-        logger.warning("AI enhancement failed for app '%s', using original: %s", display_name, exc)
+        logger.warning(
+            "AI enhancement failed for app '%s', using original: %s",
+            display_name,
+            exc,
+            exc_info=True,
+        )
 
     return description, description
 
@@ -293,29 +298,25 @@ async def create_app(
 
     if payload.repo_type == RepoType.EXTERNAL_REPO and payload.pipeline_id:
         try:
+            repo_info = await github_service.get_repository_info(access_token, owner, repo)
+            repository_id = repo_info.get("node_id")
+
             project = await github_service.create_project_v2(
                 access_token,
                 owner=owner,
                 title=payload.display_name,
+                repository_id=repository_id,
             )
             github_project_id = project.get("id")
             github_project_url = project.get("url")
 
-            if github_project_id:
+            if github_project_id and repository_id:
                 try:
-                    repo_info = await github_service.get_repository_info(access_token, owner, repo)
-                    repository_id = repo_info.get("node_id")
-                    if repository_id:
-                        await github_service.link_project_to_repository(
-                            access_token,
-                            project_id=github_project_id,
-                            repository_id=repository_id,
-                        )
-                        await github_service.set_project_default_repository(
-                            access_token,
-                            project_id=github_project_id,
-                            repository_id=repository_id,
-                        )
+                    await github_service.link_project_to_repository(
+                        access_token,
+                        project_id=github_project_id,
+                        repository_id=repository_id,
+                    )
                 except Exception as exc:
                     logger.warning("Non-blocking: could not link project to repo: %s", exc)
         except Exception as exc:
@@ -535,19 +536,16 @@ async def create_app_with_new_repo(
                 access_token,
                 owner=repo_owner,
                 title=payload.display_name,
+                repository_id=repo_data.get("node_id"),
             )
             github_project_id = project.get("id")
             github_project_url = project.get("url")
 
-            # Link project to repository and set as default
+            # Link project to repository (belt-and-suspenders; the
+            # repositoryId on createProjectV2 already links it).
             if github_project_id and repo_data.get("node_id"):
                 try:
                     await github_service.link_project_to_repository(
-                        access_token,
-                        project_id=github_project_id,
-                        repository_id=repo_data["node_id"],
-                    )
-                    await github_service.set_project_default_repository(
                         access_token,
                         project_id=github_project_id,
                         repository_id=repo_data["node_id"],

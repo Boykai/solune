@@ -279,14 +279,18 @@ async def _restore_app_pipeline_polling() -> int:
     db = get_db()
     token: str | None = None
     try:
+        from src.services.session_store import get_session
+
         cursor = await db.execute(
-            "SELECT access_token FROM user_sessions "
+            "SELECT session_id FROM user_sessions "
             "WHERE selected_project_id IS NOT NULL "
             "ORDER BY updated_at DESC LIMIT 1",
         )
         row = await cursor.fetchone()
         if row:
-            token = row["access_token"]
+            session = await get_session(db, row["session_id"])
+            if session:
+                token = session.access_token
     except Exception:
         pass
 
