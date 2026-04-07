@@ -141,9 +141,11 @@ def _clear_test_caches():
         poll_state._pending_post_devops_retries.clear()
         poll_state._background_tasks.clear()
         poll_state._app_polling_tasks.clear()
-        # copilot_polling/state — locks (reset to None for event-loop safety)
-        poll_state._polling_state_lock = None
-        poll_state._polling_startup_lock = None
+        # copilot_polling/state — locks
+        # Lazy-init locks (_ws_lock, _store_lock) → None (recreated on demand)
+        # Direct-use polling locks → fresh asyncio.Lock() (no lazy getter)
+        poll_state._polling_state_lock = asyncio.Lock()
+        poll_state._polling_startup_lock = asyncio.Lock()
         # copilot_polling/state — scalars
         poll_state._polling_task = None
         poll_state._polling_state = poll_state.PollingState()

@@ -63,7 +63,7 @@
 | `_background_tasks` | `set[asyncio.Task[None]]` | `set()` | 226 |
 | `_app_polling_tasks` | `dict[str, asyncio.Task]` | `{}` | 122 |
 
-**Locks (reset to `None`):**
+**Locks (direct-use — reset to fresh `asyncio.Lock()`):**
 
 | Variable | Type | Default | Line |
 |----------|------|---------|------|

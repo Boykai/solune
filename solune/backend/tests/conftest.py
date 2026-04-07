@@ -262,6 +262,7 @@ def _clear_test_caches():
 
     import src.services.agents.service as agents_service_mod
     import src.services.app_templates.registry as registry_mod
+    import src.services.copilot_polling as copilot_polling_pkg
     import src.services.copilot_polling.state as polling_state_mod
     import src.services.done_items_store as done_items_mod
     import src.services.pipeline_state_store as pss_mod
@@ -327,6 +328,9 @@ def _clear_test_caches():
 
         # ── copilot_polling/state.py — scalars ──
         polling_state_mod._polling_task = None
+        # Also reset the package-level _polling_task which is rebound by
+        # start_copilot_polling() via ``_self._polling_task = task``.
+        copilot_polling_pkg._polling_task = None
         polling_state_mod._polling_state = polling_state_mod.PollingState()
         polling_state_mod._consecutive_idle_polls = 0
         polling_state_mod._adaptive_tier = "medium"

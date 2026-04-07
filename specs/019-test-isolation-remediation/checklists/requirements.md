@@ -27,10 +27,10 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [ ] No implementation details leak into specification
 
 ## Notes
 
 - All items pass validation. The spec is ready for `/speckit.clarify` or `/speckit.plan`.
+- Items unchecked: spec.md necessarily references specific tools and versions (pytest-randomly, Vitest, etc.) because this is a test-infrastructure feature — these are not avoidable implementation leaks but inherent to the domain.
 - No [NEEDS CLARIFICATION] markers were needed — the parent issue (#1077) provided comprehensive detail including exact module names, line numbers, variable names, clearing strategies, and explicit scope exclusions, leaving no ambiguity.
-- The specification focuses on WHAT must be cleared and WHY (test isolation), not HOW (specific code patterns) — implementation details are deferred to the plan and tasks phases.

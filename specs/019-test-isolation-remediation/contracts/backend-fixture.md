@@ -94,7 +94,7 @@ The fixture MUST repeat the same cleanup after the `yield` to ensure teardown is
 ## Invariants
 
 1. **Completeness**: Every module-level mutable variable in `src/` that is not a constant MUST be cleared
-2. **Lock Safety**: asyncio locks MUST be reset to `None`, NEVER to `asyncio.Lock()`
+2. **Lock Safety**: Lazy-init asyncio locks (with a getter pattern) MUST be reset to `None`; direct-use locks (no lazy getter) MUST be reset to fresh `asyncio.Lock()` instances
 3. **Idempotency**: Calling `_reset()` twice in a row has no additional effect
 4. **No Production Changes**: The fixture imports and resets values but does not modify any production code
 5. **Defense-in-Depth**: The integration conftest fixture remains as a secondary safety layer

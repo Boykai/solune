@@ -111,7 +111,7 @@ solune/
 | 1.1l | `app_templates/registry.py:13` | `_cache=None` | Never cleared |
 | 1.1m | `done_items_store.py:27` | `_db=None` | Never cleared |
 | 1.1n | `session_store.py:18` | `_encryption_service=None` | Never cleared |
-| 1.2 | Event-loop locks | Reset `_ws_lock`, `_store_lock`, `_polling_state_lock`, `_polling_startup_lock` to `None` | Locks created in wrong event loop |
+| 1.2 | Event-loop locks | Reset lazy-init `_ws_lock`, `_store_lock` to `None`; reset direct-use `_polling_state_lock`, `_polling_startup_lock` to fresh `asyncio.Lock()` | Locks created in wrong event loop |
 | 1.3 | Integration conftest | Keep `_reset_integration_state` as defense-in-depth | No changes needed |
 
 ### Phase 2 — Backend: Add pytest-randomly (HIGH)

@@ -269,6 +269,6 @@ With multiple developers:
 - [Story] label maps task to specific user story for traceability
 - US1 tasks (T003–T024) should be implemented as a single atomic edit to `conftest.py` — they are split into individual tasks for traceability and review, not for separate implementation
 - The `_project_launch_locks` bug fix (T005) is a confirmed bug from issue #1077 — it is the highest-value individual fix
-- Lock resets (T014–T016) MUST use `= None`, NEVER `= asyncio.Lock()` — see research.md R1
+- Lock resets: lazy-init locks (T014–T015) MUST use `= None`; direct-use polling locks (T016) MUST use `= asyncio.Lock()` — see research.md R1
 - `useAdaptivePolling.test.ts` already has correct cleanup — no changes needed (verified in contracts/frontend-cleanup.md)
 - Scope excludes: pytest-xdist parallelization, refactoring globals into DI (architectural), adding new tests
