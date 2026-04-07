@@ -36,6 +36,7 @@ from .models import (
     get_status_order,
 )
 from .transitions import (
+    clear_issue_main_branch,
     get_issue_main_branch,
     get_issue_sub_issues,
     get_pipeline_state,
@@ -1016,6 +1017,31 @@ class WorkflowOrchestrator:
 
         if main_branch_info:
             # Subsequent agent — create a child branch from the main branch.
+            main_branch = str(main_branch_info["branch"])
+            main_pr_number = main_branch_info["pr_number"]
+
+            pr_details = await self.github.get_pull_request(
+                access_token=ctx.access_token,
+                owner=ctx.repository_owner,
+                repo=ctx.repository_name,
+                pr_number=main_pr_number,
+            )
+
+            if not pr_details:
+                # Stored PR no longer exists (repo recreated, PR deleted, etc.).
+                # Clear stale entry and fall through to first-agent path.
+                logger.warning(
+                    "Stored main branch PR #%d for issue #%d no longer exists in %s/%s — "
+                    "clearing stale entry",
+                    main_pr_number,
+                    ctx.issue_number,
+                    ctx.repository_owner,
+                    ctx.repository_name,
+                )
+                clear_issue_main_branch(ctx.issue_number)
+                main_branch_info = None
+
+        if main_branch_info:
             main_branch = str(main_branch_info["branch"])
             main_pr_number = main_branch_info["pr_number"]
 

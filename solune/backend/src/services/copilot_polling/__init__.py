@@ -362,7 +362,7 @@ async def ensure_app_pipeline_polling(
     owner: str,
     repo: str,
     parent_issue_number: int,
-    interval_seconds: int = 15,
+    interval_seconds: int = 60,
 ) -> bool:
     """Start a scoped polling loop for a new-repo / external-repo app pipeline.
 
