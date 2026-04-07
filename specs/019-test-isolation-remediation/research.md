@@ -6,12 +6,13 @@
 
 **Context**: Several modules use lazy-initialized `asyncio.Lock()` at module level (`_ws_lock`, `_store_lock`, `_polling_state_lock`, `_polling_startup_lock`). These locks bind to the event loop active at creation time. Since `pytest-asyncio` creates a fresh event loop per test by default, a lock created in one test's event loop becomes invalid in the next test.
 
-**Decision**: Reset all lazy-init locks to `None` in the autouse fixture, never to `asyncio.Lock()`.
+**Decision**: For lazy-init locks (`_ws_lock`, `_store_lock`) that use a `_get_*_lock()` getter pattern (`if _lock is None: _lock = asyncio.Lock()`), reset to `None` in the autouse fixture so the lock is recreated on demand in the correct event loop. For polling locks (`_polling_state_lock`, `_polling_startup_lock`) that are used directly without a lazy getter, reset to fresh `asyncio.Lock()` instances in the autouse fixture.
 
-**Rationale**: When set to `None`, the application code's lazy-init pattern (`if _lock is None: _lock = asyncio.Lock()`) creates the lock in the correct event loop for each test. Creating a new `asyncio.Lock()` in the fixture would bind it to the fixture's event loop context, which may differ from the test's event loop — causing `RuntimeError: Task got Future attached to a different loop`.
+**Rationale**: Lazy-init locks benefit from `None` reset because the production code recreates them in the correct event loop context on first use. Polling locks lack lazy-init getters and are referenced directly via `async with _polling_state_lock:`, so they must be replaced with fresh instances. The autouse fixture runs synchronously before each test, so the fresh `asyncio.Lock()` is not yet bound to any event loop until the test's async code first acquires it.
 
 **Alternatives considered**:
-- Reset to `asyncio.Lock()` in fixture: Rejected — the fixture runs in a different async context than the test; lock would be bound to wrong loop
+- Blanket reset all locks to `None`: Rejected — polling locks don't have lazy-init getters, so `None` would cause `AttributeError` on first use
+- Blanket reset all locks to `asyncio.Lock()`: Rejected — lazy-init locks should follow their existing `None` → create-on-demand pattern
 - Use `asyncio.Lock()` with explicit loop parameter: Rejected — `loop` parameter deprecated since Python 3.8, removed in 3.10
 - Refactor to dependency injection: Rejected — architectural change, out of scope per issue #1077
 

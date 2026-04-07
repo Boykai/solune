@@ -47,10 +47,10 @@ The fixture MUST clear ALL of the following before each test:
 
 | Module | Variable | Reason |
 |--------|----------|--------|
-| `src.services.pipeline_state_store` | `_store_lock` | Event-loop binding |
-| `src.services.websocket` | `_ws_lock` | Event-loop binding |
-| `src.services.copilot_polling.state` | `_polling_state_lock` | Event-loop binding |
-| `src.services.copilot_polling.state` | `_polling_startup_lock` | Event-loop binding |
+| `src.services.pipeline_state_store` | `_store_lock` | Lazy-init — reset to `None` |
+| `src.services.websocket` | `_ws_lock` | Lazy-init — reset to `None` |
+| `src.services.copilot_polling.state` | `_polling_state_lock` | Direct use — reset to `asyncio.Lock()` |
+| `src.services.copilot_polling.state` | `_polling_startup_lock` | Direct use — reset to `asyncio.Lock()` |
 
 #### Optional/Singleton Values (reset to `None`)
 
