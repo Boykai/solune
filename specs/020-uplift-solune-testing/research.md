@@ -96,9 +96,9 @@ jest-dom is already configured via setup.ts. jest-axe availability depends on wh
 
 ## R5: Coverage Threshold Strategy
 
-**Context**: Issue specifies `--cov-fail-under=70` for backend CI. Current CI command does not include `--cov-fail-under`.
+**Context**: Issue specifies `--cov-fail-under=70` for backend CI. However, the backend already has `fail_under = 75` in `pyproject.toml` under `[tool.coverage.report]`, which exceeds the issue's 70% minimum.
 
-**Decision**: Add `--cov-fail-under=70` to the backend CI test command. Frontend thresholds are already enforced in vitest.config.ts.
+**Decision**: Preserve the existing `fail_under = 75` in `pyproject.toml`. No CI command changes needed since the pyproject.toml setting is already enforced. Frontend thresholds are already enforced in vitest.config.ts.
 
 **Rationale**: The current CI command is:
 
@@ -106,18 +106,11 @@ jest-dom is already configured via setup.ts. jest-axe availability depends on wh
 run: uv run pytest --cov=src --cov-report=term-missing --cov-report=xml --cov-report=html --durations=20 --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
 ```
 
-Adding `--cov-fail-under=70` will fail the build if backend coverage drops below 70%. This is already supported by the `pyproject.toml` coverage config (`[tool.coverage.report]` section).
-
-Alternatively, this can be configured in `pyproject.toml` under `[tool.coverage.report]`:
-
-```toml
-[tool.coverage.report]
-fail_under = 70
-```
+The existing `fail_under = 75` in `pyproject.toml` is automatically enforced when pytest-cov generates coverage reports, which already happens in CI. This threshold exceeds issue #1149's 70% minimum.
 
 **Alternatives considered**:
 
-- 75% threshold: Matches spec 019 but 70% is specified in issue #1149 — use what the issue says
+- Lowering to 70%: Would reduce the existing quality bar from 75% to 70% — rejected
 - 80% threshold: Too aggressive for initial enforcement; can be raised after coverage gains
 
 ## R6: Best Practices for Resolving Skipped Test Underlying Bugs
@@ -191,7 +184,7 @@ The issue's Step 4 is pre-emptive — it assumes unconditional skips masking bug
 - Frontend E2E: Playwright chromium (continue-on-error)
 - Docs: markdownlint, link check
 
-The main gap is `--cov-fail-under=70` not being in the CI command.
+Coverage enforcement is already handled by `fail_under = 75` in `pyproject.toml`. No CI command changes needed.
 
 **Alternatives considered**:
 

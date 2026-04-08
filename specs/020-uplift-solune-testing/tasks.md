@@ -253,7 +253,7 @@ Task: "T040 [US5] Skip marker audit"
 1. Complete Phase 1: Setup (audit skip markers)
 2. Complete Phase 2: Foundational (verify infrastructure)
 3. Complete Phase 3: US1 — Verify backend skips are all conditional
-4. Complete Phase 4: US2 — Add `fail_under = 70` coverage enforcement
+4. Complete Phase 4: US2 — Verify existing `fail_under = 75` coverage enforcement
 5. Complete Phase 5: US3 — Verify frontend Vitest infrastructure
 6. **STOP and VALIDATE**: All P1 stories independently verified
 
