@@ -18,6 +18,7 @@ import { useProjectBoard } from '@/hooks/useProjectBoard';
 import { useRecentParentIssues } from '@/hooks/useRecentParentIssues';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useSelectedPipeline } from '@/hooks/useSelectedPipeline';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { ChatPopup } from '@/components/chat/ChatPopup';
@@ -81,6 +82,8 @@ export function AppLayout() {
     isLoading: projectsLoading,
     selectProject,
   } = useProjects(user?.selected_project_id);
+
+  const { pipelineId: assignedPipelineId } = useSelectedPipeline(selectedProject?.project_id ?? null);
 
   // Board data for recent interactions
   const { boardData } = useProjectBoard({ selectedProjectId: selectedProject?.project_id ?? null });
@@ -291,6 +294,7 @@ export function AppLayout() {
           approvedPlanData={approveMutation.data ?? null}
           isApprovingPlan={approveMutation.isPending}
           approvePlanError={approvePlanError}
+          activePipelineId={assignedPipelineId || undefined}
         />
         <SpotlightTour
           isSidebarCollapsed={isCollapsed}

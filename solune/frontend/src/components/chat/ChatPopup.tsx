@@ -77,6 +77,8 @@ interface ChatPopupProps {
   approvedPlanData?: PlanApprovalResponse | null;
   isApprovingPlan?: boolean;
   approvePlanError?: string | null;
+  /** Fallback pipeline ID from the project's assignment (used when no @mention). */
+  activePipelineId?: string;
 }
 
 export function ChatPopup({
@@ -106,6 +108,7 @@ export function ChatPopup({
   approvedPlanData,
   isApprovingPlan,
   approvePlanError,
+  activePipelineId,
 }: ChatPopupProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState(loadSize);
@@ -302,6 +305,7 @@ export function ChatPopup({
           approvedPlanData={approvedPlanData}
           isApprovingPlan={isApprovingPlan}
           approvePlanError={approvePlanError}
+          activePipelineId={activePipelineId}
         />
       </div>
     </>

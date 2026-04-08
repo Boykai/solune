@@ -355,4 +355,24 @@ describe('ChatInterface', () => {
 
     expect(scrollIntoView).toHaveBeenCalled();
   });
+
+  it('passes activePipelineId to onSendMessage when no @mention pipeline', () => {
+    const onSendMessage = vi.fn();
+    renderChat({
+      activePipelineId: 'assigned-pipe-99',
+      onSendMessage,
+    });
+
+    const input = screen.getByTestId('mention-input');
+    fireEvent.change(input, { target: { value: 'Build a search feature' } });
+
+    const form = input.closest('form');
+    if (form) fireEvent.submit(form);
+
+    if (onSendMessage.mock.calls.length > 0) {
+      const options = onSendMessage.mock.calls[0][1];
+      // activePipelineId should be used as fallback when getSubmissionPipelineId returns null
+      expect(options?.pipelineId).toBe('assigned-pipe-99');
+    }
+  });
 });

@@ -1282,6 +1282,16 @@ async def _post_process_agent_response(
     if not message.action_data or not message.action_type:
         return message
 
+    # Auto-resolve the project's assigned pipeline when the caller didn't
+    # provide one (e.g. no @mention).  This ensures proposals and
+    # recommendations reference the existing saved pipeline instead of
+    # leaving the field empty.
+    effective_pipeline_id = pipeline_id
+    if not effective_pipeline_id and selected_project_id:
+        from src.services.workflow_orchestrator.config import resolve_assigned_pipeline_id
+
+        effective_pipeline_id = await resolve_assigned_pipeline_id(selected_project_id)
+
     action_data = message.action_data
 
     if message.action_type == ActionType.TASK_CREATE:
@@ -1294,7 +1304,7 @@ async def _post_process_agent_response(
             original_input=user_content or proposed_description,
             proposed_title=action_data.get("proposed_title", "Untitled"),
             proposed_description=proposed_description,
-            selected_pipeline_id=pipeline_id or None,
+            selected_pipeline_id=effective_pipeline_id or None,
         )
         await store_proposal(proposal)
         action_data["proposed_description"] = proposed_description
@@ -1313,13 +1323,13 @@ async def _post_process_agent_response(
             functional_requirements=action_data.get("functional_requirements", []),
             technical_notes=action_data.get("technical_notes", ""),
         )
-        recommendation.selected_pipeline_id = pipeline_id or None
+        recommendation.selected_pipeline_id = effective_pipeline_id or None
         recommendation.file_urls = file_urls or []
         await store_recommendation(recommendation)
         action_data["recommendation_id"] = str(recommendation.recommendation_id)
         action_data["status"] = RecommendationStatus.PENDING.value
         action_data["file_urls"] = file_urls
-        action_data["pipeline_id"] = pipeline_id
+        action_data["pipeline_id"] = effective_pipeline_id
         message.action_data = action_data
 
     elif message.action_type == ActionType.STATUS_UPDATE:

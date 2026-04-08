@@ -6,6 +6,7 @@ from src.models.pipeline import PipelineAgentNode, PipelineConfig, PipelineStage
 from src.services.workflow_orchestrator.config import (
     PipelineResolutionResult,
     load_pipeline_as_agent_mappings,
+    resolve_assigned_pipeline_id,
     resolve_project_pipeline_mappings,
 )
 
@@ -236,3 +237,72 @@ class TestResolveProjectPipelineMappings:
             ("__workflow__", "project-1"),
         )
         assert cleanup_connection.committed is True
+
+
+# ── resolve_assigned_pipeline_id tests ───────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_resolve_assigned_pipeline_id_returns_id():
+    """Returns the assigned pipeline ID when one is set."""
+    fake_conn = FakeConnection(rows=[{"assigned_pipeline_id": "pipe-abc"}])
+
+    with (
+        patch("src.config.get_settings") as mock_settings,
+        patch("aiosqlite.connect") as mock_connect,
+    ):
+        mock_settings.return_value.database_path = ":memory:"
+        mock_connect.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
+        mock_connect.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        result = await resolve_assigned_pipeline_id("project-1")
+
+    assert result == "pipe-abc"
+
+
+@pytest.mark.asyncio
+async def test_resolve_assigned_pipeline_id_returns_none_when_empty():
+    """Returns None when the assigned pipeline ID is empty."""
+    fake_conn = FakeConnection(rows=[{"assigned_pipeline_id": ""}])
+
+    with (
+        patch("src.config.get_settings") as mock_settings,
+        patch("aiosqlite.connect") as mock_connect,
+    ):
+        mock_settings.return_value.database_path = ":memory:"
+        mock_connect.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
+        mock_connect.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        result = await resolve_assigned_pipeline_id("project-1")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_assigned_pipeline_id_returns_none_when_no_row():
+    """Returns None when no project_settings row exists."""
+    fake_conn = FakeConnection(rows=[])
+
+    with (
+        patch("src.config.get_settings") as mock_settings,
+        patch("aiosqlite.connect") as mock_connect,
+    ):
+        mock_settings.return_value.database_path = ":memory:"
+        mock_connect.return_value.__aenter__ = AsyncMock(return_value=fake_conn)
+        mock_connect.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        result = await resolve_assigned_pipeline_id("project-1")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_assigned_pipeline_id_returns_none_on_error():
+    """Returns None instead of raising when the DB lookup fails."""
+    with patch(
+        "src.config.get_settings",
+        side_effect=RuntimeError("no settings"),
+    ):
+        result = await resolve_assigned_pipeline_id("project-1")
+
+    assert result is None

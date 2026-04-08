@@ -1572,6 +1572,89 @@ class TestPostProcessAgentResponse:
             "Investigate why login redirects loop forever"
         )
 
+    async def test_task_create_auto_resolves_assigned_pipeline(self, mock_session):
+        """When no pipeline_id is provided, the project's assigned pipeline is auto-resolved."""
+        from src.api.chat import _post_process_agent_response
+        from src.models.chat import ActionType, ChatMessage, SenderType
+
+        captured: dict[str, AITaskProposal] = {}
+
+        async def capture(proposal: AITaskProposal) -> None:
+            captured["proposal"] = proposal
+
+        message = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="Drafted a task proposal.",
+            action_type=ActionType.TASK_CREATE,
+            action_data={
+                "proposed_title": "Add search",
+                "proposed_description": "Implement full-text search",
+            },
+        )
+
+        with (
+            patch("src.api.chat.store_proposal", new=AsyncMock(side_effect=capture)),
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_assigned_pipeline_id",
+                new_callable=AsyncMock,
+                return_value="assigned-pipe-42",
+            ) as mock_resolve,
+        ):
+            await _post_process_agent_response(
+                session=mock_session,
+                message=message,
+                project_name="Roadmap",
+                pipeline_id=None,
+                file_urls=None,
+                cached_projects=None,
+                selected_project_id="PVT_1",
+            )
+
+        mock_resolve.assert_awaited_once_with("PVT_1")
+        assert captured["proposal"].selected_pipeline_id == "assigned-pipe-42"
+
+    async def test_task_create_skips_resolution_when_pipeline_provided(self, mock_session):
+        """When pipeline_id is already provided, no auto-resolution occurs."""
+        from src.api.chat import _post_process_agent_response
+        from src.models.chat import ActionType, ChatMessage, SenderType
+
+        captured: dict[str, AITaskProposal] = {}
+
+        async def capture(proposal: AITaskProposal) -> None:
+            captured["proposal"] = proposal
+
+        message = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="Drafted a task proposal.",
+            action_type=ActionType.TASK_CREATE,
+            action_data={
+                "proposed_title": "Add search",
+                "proposed_description": "Implement search",
+            },
+        )
+
+        with (
+            patch("src.api.chat.store_proposal", new=AsyncMock(side_effect=capture)),
+            patch(
+                "src.services.workflow_orchestrator.config.resolve_assigned_pipeline_id",
+                new_callable=AsyncMock,
+            ) as mock_resolve,
+        ):
+            await _post_process_agent_response(
+                session=mock_session,
+                message=message,
+                project_name="Roadmap",
+                pipeline_id="explicit-pipe",
+                file_urls=None,
+                cached_projects=None,
+                selected_project_id="PVT_1",
+            )
+
+        mock_resolve.assert_not_awaited()
+        assert captured["proposal"].selected_pipeline_id == "explicit-pipe"
+
 
 # ── cancel_proposal (direct unit tests) ─────────────────────────────────────
 

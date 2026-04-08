@@ -89,6 +89,8 @@ interface ChatInterfaceProps {
   approvedPlanData?: PlanApprovalResponse | null;
   isApprovingPlan?: boolean;
   approvePlanError?: string | null;
+  /** Fallback pipeline ID from the project's assignment (used when no @mention). */
+  activePipelineId?: string;
 }
 
 export function ChatInterface({
@@ -118,6 +120,7 @@ export function ChatInterface({
   approvedPlanData,
   isApprovingPlan,
   approvePlanError,
+  activePipelineId,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(true);
@@ -301,7 +304,7 @@ export function ChatInterface({
       onSendMessage(content, {
         isCommand: commandInput,
         fileUrls,
-        pipelineId: pipelineId ?? undefined,
+        pipelineId: pipelineId ?? activePipelineId ?? undefined,
       });
       // Always clear input after submission
       setInput('');

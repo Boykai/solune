@@ -423,6 +423,36 @@ async def load_pipeline_as_agent_mappings(
         return None
 
 
+async def resolve_assigned_pipeline_id(project_id: str) -> str | None:
+    """Return the project's assigned pipeline ID, or ``None`` if unset.
+
+    This is a lightweight lookup that avoids loading the full pipeline
+    configuration — use it when you only need to know *which* pipeline is
+    assigned (e.g. to pre-populate a plan's ``selected_pipeline_id``).
+    """
+    try:
+        from src.config import get_settings
+
+        db_path = get_settings().database_path
+        async with aiosqlite.connect(db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT assigned_pipeline_id FROM project_settings "
+                "WHERE github_user_id = ? AND project_id = ? LIMIT 1",
+                ("__workflow__", project_id),
+            )
+            row = await cursor.fetchone()
+            assigned_id = (row["assigned_pipeline_id"] or "") if row else ""
+            return assigned_id or None
+    except Exception:
+        logger.warning(
+            "Failed to look up assigned pipeline for project %s",
+            project_id,
+            exc_info=True,
+        )
+        return None
+
+
 async def resolve_project_pipeline_mappings(
     project_id: str,
     github_user_id: str,

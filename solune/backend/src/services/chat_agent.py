@@ -607,6 +607,16 @@ class ChatAgentService:
             "selected_pipeline_id"
         )
 
+        # Auto-resolve the project's assigned pipeline when none was
+        # explicitly selected (e.g. no @mention).  This ensures the plan
+        # references the existing saved pipeline instead of leaving the
+        # field empty and resolving a potentially different pipeline at
+        # approval time.
+        if not effective_pipeline_id and project_id:
+            from src.services.workflow_orchestrator.config import resolve_assigned_pipeline_id
+
+            effective_pipeline_id = await resolve_assigned_pipeline_id(project_id)
+
         # Inject plan-mode context
         agent_session.state.update(
             {
@@ -699,6 +709,13 @@ class ChatAgentService:
         effective_pipeline_id = selected_pipeline_id or agent_session.state.get(
             "selected_pipeline_id"
         )
+
+        # Auto-resolve the project's assigned pipeline when none was
+        # explicitly selected (e.g. no @mention).
+        if not effective_pipeline_id and project_id:
+            from src.services.workflow_orchestrator.config import resolve_assigned_pipeline_id
+
+            effective_pipeline_id = await resolve_assigned_pipeline_id(project_id)
 
         # Inject plan-mode context
         agent_session.state.update(

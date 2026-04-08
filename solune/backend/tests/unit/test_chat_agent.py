@@ -415,6 +415,45 @@ class TestChatAgentServiceRun:
         mock_load_mcp_tools.assert_awaited_once_with("PVT_1", fake_db)
         assert mock_create_agent.call_args.kwargs["mcp_servers"] == mock_load_mcp_tools.return_value
 
+    @patch("src.services.chat_agent.create_agent")
+    @patch(
+        "src.services.workflow_orchestrator.config.resolve_assigned_pipeline_id",
+        new_callable=AsyncMock,
+        return_value="auto-resolved-pipe",
+    )
+    async def test_run_plan_auto_resolves_assigned_pipeline(
+        self,
+        mock_resolve_assigned,
+        mock_create_agent,
+    ):
+        """When no pipeline is explicitly selected, run_plan resolves the project's assigned pipeline."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = "Plan drafted."
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        session_id = uuid4()
+
+        await service.run_plan(
+            message="plan a fix",
+            session_id=session_id,
+            github_token="test-token",
+            project_name="Roadmap",
+            project_id="PVT_1",
+            repo_owner="octocat",
+            repo_name="hello-world",
+            # No selected_pipeline_id — should auto-resolve
+        )
+
+        mock_resolve_assigned.assert_awaited_once_with("PVT_1")
+        session = await service._session_mapping.get_or_create(str(session_id))
+        assert session.state["selected_pipeline_id"] == "auto-resolved-pipe"
+
 
 # ── ChatAgentService.run_stream() tests ─────────────────────────────────
 
