@@ -231,11 +231,63 @@ async def confirm_recommendation(
         if not config.copilot_assignee:
             config.copilot_assignee = settings.default_assignee
 
-    config = await _apply_selected_pipeline(
-        config,
-        project_id,
-        recommendation.selected_pipeline_id,
+    # Apply explicitly selected pipeline first, then project/user/default fallback
+    from src.services.workflow_orchestrator.config import (
+        PipelineResolutionResult,
+        load_pipeline_as_agent_mappings,
+        resolve_project_pipeline_mappings,
     )
+
+    resolved_pipeline_id = recommendation.selected_pipeline_id
+    if recommendation.selected_pipeline_id:
+        selected_pipeline = await load_pipeline_as_agent_mappings(
+            project_id,
+            recommendation.selected_pipeline_id,
+            github_user_id=session.github_user_id,
+        )
+        if selected_pipeline is not None:
+            (
+                selected_mappings,
+                selected_pipeline_name,
+                selected_exec_modes,
+                selected_grp_mappings,
+            ) = selected_pipeline
+            pipeline_result = PipelineResolutionResult(
+                agent_mappings=selected_mappings,
+                source="pipeline",
+                pipeline_name=selected_pipeline_name,
+                pipeline_id=recommendation.selected_pipeline_id,
+                stage_execution_modes=selected_exec_modes,
+                group_mappings=selected_grp_mappings,
+            )
+        else:
+            logger.warning(
+                "Selected pipeline %s not found for recommendation %s on project %s; falling back",
+                recommendation.selected_pipeline_id,
+                recommendation_id,
+                project_id,
+            )
+            pipeline_result = await resolve_project_pipeline_mappings(
+                project_id, session.github_user_id
+            )
+            resolved_pipeline_id = pipeline_result.pipeline_id
+    else:
+        pipeline_result = await resolve_project_pipeline_mappings(
+            project_id, session.github_user_id
+        )
+        resolved_pipeline_id = pipeline_result.pipeline_id
+
+    if pipeline_result.agent_mappings:
+        logger.info(
+            "Applying %s agent pipeline mappings for project=%s (pipeline=%s)",
+            pipeline_result.source,
+            project_id,
+            pipeline_result.pipeline_name or "N/A",
+        )
+        config.agent_mappings = pipeline_result.agent_mappings
+        config.stage_execution_modes = pipeline_result.stage_execution_modes
+        config.group_mappings = pipeline_result.group_mappings
+        await set_workflow_config(project_id, config)
 
     # Resolve user's effective AI model for the model-precedence chain
     try:
@@ -262,7 +314,7 @@ async def confirm_recommendation(
         repository_owner=config.repository_owner,
         repository_name=config.repository_name,
         recommendation_id=recommendation_id,
-        selected_pipeline_id=recommendation.selected_pipeline_id,
+        selected_pipeline_id=resolved_pipeline_id,
         config=config,
         user_chat_model=user_chat_model,
         user_agent_model=user_agent_model,

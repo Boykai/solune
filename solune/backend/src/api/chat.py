@@ -1442,6 +1442,8 @@ async def send_message_stream(
             project_id=selected_project_id,
             available_tasks=current_tasks,
             available_statuses=project_columns,
+            pipeline_id=chat_request.pipeline_id,
+            file_urls=chat_request.file_urls,
             db=get_db(),
         ):
             if event.get("event") == "done":
