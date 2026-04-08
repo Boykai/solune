@@ -1,25 +1,25 @@
-# Implementation Plan: Test Isolation & State-Leak Remediation
+# Implementation Plan: Uplift Solune Testing — Remove Skips, Fix Bugs, Apply Modern Best Practices
 
-**Branch**: `copilot/speckit-plan-test-isolation-remediation` | **Date**: 2026-04-07 | **Spec**: [#1077](https://github.com/Boykai/solune/issues/1077)
-**Input**: Parent issue #1077 — Test Isolation & State-Leak Remediation
+**Branch**: `020-uplift-solune-testing` | **Date**: 2026-04-08 | **Spec**: [#1149](https://github.com/Boykai/solune/issues/1149)
+**Input**: Parent issue #1149 — Uplift Solune Testing: Remove Skips, Fix Bugs, Apply Modern Best Practices
 
 ## Summary
 
-The backend `_clear_test_caches` autouse fixture (conftest.py:245-267) only clears 3 of 20+ module-level mutable globals (`cache`, `_system_marked_ready_prs`, `clear_settings_cache()`), creating widespread cross-test state leaks. The frontend has a fake-timer leak in `useFileUpload.test.ts`, an ordering-dependent UUID counter in `setup.ts`, and several test files with `vi.spyOn()` but no `vi.restoreAllMocks()` cleanup.
+The Solune codebase has skipped tests in both backend (pytest) and frontend (Vitest/Playwright) suites. This plan systematically audits all skip markers, fixes test-runner infrastructure, resolves each skip by addressing the underlying cause, adds meaningful net-new coverage for critical untested paths, and validates that every suite and the CI pipeline is green.
 
-The fix expands the central autouse fixture to clear ALL discovered module-level mutable state, adds `pytest-randomly` to surface ordering regressions, and fixes frontend cleanup gaps. The integration conftest's `_reset_integration_state` is left as defense-in-depth.
+**Key finding from research (Phase 0)**: All 16 skip markers (10 backend + 6 frontend) are *conditional infrastructure guards* that skip only when external prerequisites are missing (env vars, running services, auth state). Zero unconditional `@pytest.mark.skip`, `@pytest.mark.xfail`, `.todo`, `xit`, or `xdescribe` markers exist. The pytest and Vitest configurations already follow modern best practices. The primary actionable work is: (1) verify CI coverage enforcement (already at 75%), (2) add net-new tests for untested critical paths, and (3) validate the full suite.
 
 ## Technical Context
 
 **Language/Version**: Python >=3.12 (backend), TypeScript 6.0 (frontend)
-**Primary Dependencies**: FastAPI, pytest, pytest-asyncio, pytest-randomly (NEW), Vitest, React 19.2.0
-**Storage**: SQLite via aiosqlite (existing — `_db` globals in `pipeline_state_store.py`, `done_items_store.py` need clearing)
-**Testing**: pytest (backend), Vitest + Testing Library (frontend)
+**Primary Dependencies**: FastAPI, pytest, pytest-asyncio, pytest-randomly, pytest-cov, Vitest 4.1.3, Playwright, React 19.2.0
+**Storage**: SQLite via aiosqlite (existing — test isolation handled by spec 019)
+**Testing**: pytest (backend), Vitest + Testing Library (frontend), Playwright (E2E)
 **Target Platform**: Linux server (backend), Modern browsers (frontend)
 **Project Type**: Web application (backend + frontend monorepo under `solune/`)
-**Performance Goals**: N/A — test infrastructure change, no runtime impact
-**Constraints**: Zero breaking changes to production code; all existing tests must continue passing; coverage thresholds maintained (75% backend, 50% frontend)
-**Scale/Scope**: 15+ backend modules with mutable globals; 5 frontend test files with cleanup gaps
+**Performance Goals**: N/A — test infrastructure changes, no runtime impact
+**Constraints**: Zero breaking changes to production code; all existing tests must continue passing; coverage thresholds maintained (backend >=75%, frontend >=50%)
+**Scale/Scope**: 10 backend conditional skips across 4 files; 6 frontend conditional skips across 2 E2E files; ~12 new test functions for coverage gaps
 
 ## Constitution Check
 
@@ -27,11 +27,11 @@ The fix expands the central autouse fixture to clear ALL discovered module-level
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| I. Specification-First | ✅ PASS | Parent issue #1077 provides detailed module-by-module specification with exact line numbers and clearing strategy |
-| II. Template-Driven Workflow | ✅ PASS | Using canonical plan template; all artifacts in `specs/019-test-isolation-remediation/` |
-| III. Agent-Orchestrated Execution | ✅ PASS | Plan phase produces plan.md, research.md, data-model.md, quickstart.md; handoff to tasks phase |
-| IV. Test Optionality | ✅ PASS | This feature IS about test infrastructure — verification via multiple random seeds is explicitly requested in Phase 4 |
-| V. Simplicity and DRY | ✅ PASS | Central autouse fixture is the DRY approach — impossible to forget per-file cleanup. Reset locks to `None` (not `new Lock()`) is the simplest correct approach for asyncio |
+| I. Specification-First | ✅ PASS | Parent issue #1149 provides 7-step implementation plan with detailed acceptance criteria |
+| II. Template-Driven Workflow | ✅ PASS | Using canonical plan template; all artifacts in `specs/020-uplift-solune-testing/` |
+| III. Agent-Orchestrated Execution | ✅ PASS | Plan phase produces plan.md, research.md, data-model.md, quickstart.md, contracts/; handoff to tasks phase |
+| IV. Test Optionality | ✅ PASS | This feature IS about testing — tests are the primary deliverable |
+| V. Simplicity and DRY | ✅ PASS | Leverages existing infrastructure where already correct; adds only what's missing (new tests) |
 
 **Gate Result**: ✅ ALL PASS — proceed to Phase 0
 
@@ -40,14 +40,14 @@ The fix expands the central autouse fixture to clear ALL discovered module-level
 ### Documentation (this feature)
 
 ```text
-specs/019-test-isolation-remediation/
+specs/020-uplift-solune-testing/
 ├── plan.md              # This file
-├── research.md          # Phase 0: asyncio lock lifecycle, pytest-randomly config, vitest cleanup
-├── data-model.md        # Phase 1: fixture structure and global state inventory
+├── research.md          # Phase 0: skip classification, infrastructure audit, coverage strategy
+├── data-model.md        # Phase 1: skip inventory, config model, coverage targets
 ├── quickstart.md        # Phase 1: step-by-step developer guide
 ├── contracts/
-│   ├── backend-fixture.md   # Contract for expanded _clear_test_caches fixture
-│   └── frontend-cleanup.md  # Contract for frontend test cleanup patterns
+│   ├── backend-testing.md   # Contract for backend test patterns and coverage
+│   └── frontend-testing.md  # Contract for frontend test patterns and E2E skips
 └── tasks.md             # Phase 2 output (created by /speckit.tasks)
 ```
 
@@ -56,116 +56,175 @@ specs/019-test-isolation-remediation/
 ```text
 solune/
 ├── backend/
-│   ├── pyproject.toml                              # Phase 2: add pytest-randomly to dev deps
+│   ├── pyproject.toml                              # Step 2: verify existing fail_under = 75
 │   ├── tests/
-│   │   ├── conftest.py                             # Phase 1: expand _clear_test_caches (lines 245-267)
-│   │   └── integration/
-│   │       └── conftest.py                         # Phase 1: keep _reset_integration_state as defense-in-depth
+│   │   ├── conftest.py                             # Reference — expanded by spec 019
+│   │   ├── unit/
+│   │   │   ├── test_resolve_repository.py          # Step 6: NEW — resolve_repository() tests
+│   │   │   ├── test_webhooks.py                    # Step 6: NEW/EXTEND — HMAC validation tests
+│   │   │   ├── test_presets.py                     # Step 6: NEW — preset catalog tests
+│   │   │   └── test_encryption.py                  # Step 6: NEW/EXTEND — Fernet roundtrip tests
+│   │   ├── integration/
+│   │   │   └── test_custom_agent_assignment.py     # Step 4: verified — conditional skip OK
+│   │   ├── architecture/
+│   │   │   └── test_import_rules.py                # Step 4: verified — conditional skip OK
+│   │   ├── performance/
+│   │   │   └── test_board_load_time.py             # Step 4: verified — conditional skip OK
+│   │   └── unit/
+│   │       └── test_run_mutmut_shard.py            # Step 4: verified — conditional skipif OK
 │   └── src/
-│       └── services/                               # Reference only — globals defined here, cleared in fixture
-│           ├── pipeline_state_store.py              # _pipeline_states, _issue_main_branches, etc.
-│           ├── copilot_polling/
-│           │   ├── state.py                         # 20+ collections, locks, scalars
-│           │   └── chat.py                          # _conversations (if exists)
-│           ├── websocket.py                         # _ws_lock
-│           ├── settings_store.py                    # _queue_mode_cache, _auto_merge_cache
-│           ├── signal_chat.py                       # _signal_pending
-│           ├── github_auth.py                       # _oauth_states
-│           ├── agent_creator.py                     # _agent_sessions
-│           ├── template_files.py                    # _cached_files, _cached_warnings
-│           ├── app_templates/registry.py            # _cache
-│           └── done_items_store.py                  # _db
+│       ├── utils.py                                # Step 6: resolve_repository() — test target
+│       ├── api/webhooks.py                         # Step 6: HMAC validation — test target
+│       ├── services/tools/presets.py               # Step 6: preset catalog — test target
+│       ├── services/encryption.py                  # Step 6: Fernet encryption — test target
+│       └── services/pipeline_state_store.py        # Step 6: restart survivability — test target
 │
-└── frontend/
-    └── src/
-        ├── test/setup.ts                            # Phase 3: reset UUID counter via beforeEach
-        └── hooks/
-            └── useFileUpload.test.ts                # Phase 3: add afterEach vi.useRealTimers()
-        ├── layout/
-        │   ├── TopBar.test.tsx                      # Phase 3: add afterEach vi.restoreAllMocks()
-        │   └── AuthGate.test.tsx                    # Phase 3: add afterEach vi.restoreAllMocks()
-        └── hooks/
-            ├── useAuth.test.tsx                     # Phase 3: add afterEach vi.restoreAllMocks()
-            └── useAdaptivePolling.test.ts            # Already correct — has vi.restoreAllMocks()
+├── frontend/
+│   ├── vitest.config.ts                            # Step 3: verified — already correct
+│   ├── src/
+│   │   ├── test/setup.ts                           # Step 3: verified — UUID stub, mocks present
+│   │   ├── services/api.ts                         # Step 6: test target
+│   │   ├── services/api.test.ts                    # Step 6: EXTEND — auth, retry tests
+│   │   └── pages/                                  # Step 6: axe assertions in page tests
+│   └── e2e/
+│       ├── integration.spec.ts                     # Step 5: verified — conditional skip OK
+│       └── project-load-performance.spec.ts        # Step 5: verified — conditional skip OK
+│
+└── CHANGELOG.md                                    # Step 7: add Fixed entries
 ```
 
-**Structure Decision**: Web application (Option 2). This feature modifies test infrastructure across `solune/backend/tests/` and `solune/frontend/src/` — no new directories.
+**Structure Decision**: Web application (Option 2). Changes span `solune/backend/` (config, new tests) and `solune/frontend/` (possible new tests). No new directories required.
 
-## Execution Phases (from Issue #1077)
+## Execution Phases (from Issue #1149)
 
-### Phase 1 — Backend: Expand Central Autouse Fixture (CRITICAL)
+### Step 1 — Audit All Skip Markers (DONE in Phase 0 Research)
 
-| Step | Target | What to Clear | Current Status |
-|------|--------|--------------|----------------|
-| 1.1a | `api/chat.py:92-95` | `_messages`, `_proposals`, `_recommendations`, `_locks` | Only in integration conftest |
-| 1.1b | `pipeline_state_store.py:28-41` | `_pipeline_states`, `_issue_main_branches`, `_issue_sub_issue_map`, `_agent_trigger_inflight`, `_project_launch_locks`, `_store_lock=None`, `_db=None` | `_project_launch_locks` never cleared (BUG) |
-| 1.1c | `workflow_orchestrator/orchestrator.py` | `_orchestrator_instance=None`, `_tracking_table_cache` | Only in integration conftest |
-| 1.1d | `workflow_orchestrator/config.py:38-41` | `_transitions`, `_workflow_configs` | Only in integration conftest |
-| 1.1e | `copilot_polling/state.py:47-274` | 20+ collections, BoundedSet/Dict clears, scalar resets | Only `_system_marked_ready_prs` cleared |
-| 1.1f | `websocket.py:12` | `_ws_lock=None` | Only in integration conftest |
-| 1.1g | `settings_store.py:506,543` | `_queue_mode_cache`, `_auto_merge_cache` | Manual per-test only |
-| 1.1h | `signal_chat.py:33` | `_signal_pending` | Never cleared |
-| 1.1i | `github_auth.py:35` | `_oauth_states` | Never cleared |
-| 1.1j | `agent_creator.py:107` | `_agent_sessions` | Never cleared |
-| 1.1k | `template_files.py:49-50` | `_cached_files=None`, `_cached_warnings=None` | Never cleared |
-| 1.1l | `app_templates/registry.py:13` | `_cache=None` | Never cleared |
-| 1.1m | `done_items_store.py:27` | `_db=None` | Never cleared |
-| 1.1n | `session_store.py:18` | `_encryption_service=None` | Never cleared |
-| 1.2 | Event-loop locks | Reset lazy-init `_ws_lock`, `_store_lock` to `None`; reset direct-use `_polling_state_lock`, `_polling_startup_lock` to fresh `asyncio.Lock()` | Locks created in wrong event loop |
-| 1.3 | Integration conftest | Keep `_reset_integration_state` as defense-in-depth | No changes needed |
+**Status**: ✅ Complete — documented in `research.md` and `data-model.md`
 
-### Phase 2 — Backend: Add pytest-randomly (HIGH)
+**Findings**:
 
-| Step | Target | Action |
-|------|--------|--------|
-| 2.1 | `pyproject.toml` dev deps | Add `pytest-randomly>=3.16.0` |
-| 2.2 | Verification | Run 3x with `--randomly-seed` values 12345, 99999, 42 |
+| Area | Skip Count | Unconditional | Conditional (Infrastructure) |
+|------|-----------|---------------|------------------------------|
+| Backend | 10 | 0 | 10 |
+| Frontend Unit | 0 | 0 | 0 |
+| Frontend E2E | 6 | 0 | 6 |
+| **Total** | **16** | **0** | **16** |
 
-### Phase 3 — Frontend: Fix Timer & UUID Leaks (HIGH)
+useAuth.test.tsx has no skip markers. All 18 tests run fully. The `result.current.skip()` calls are test hook method invocations (onboarding skip), not test skip markers.
 
-| Step | Target | Action |
-|------|--------|--------|
-| 3.1 | `useFileUpload.test.ts:33` | Add `afterEach(() => { vi.useRealTimers(); })` |
-| 3.2 | `setup.ts:10-18` | Reset `_counter = 0` in a `beforeEach` hook |
-| 3.3a | `TopBar.test.tsx` | Add `afterEach(() => { vi.restoreAllMocks(); })` |
-| 3.3b | `AuthGate.test.tsx` | Add `afterEach(() => { vi.restoreAllMocks(); })` |
-| 3.3c | `useAuth.test.tsx` | Add `afterEach(() => { vi.restoreAllMocks(); })` |
+### Step 2 — Fix Backend pytest Infrastructure
 
-### Phase 4 — Verification
+| Step | Target | Action | Status |
+|------|--------|--------|--------|
+| 2.1 | `pyproject.toml` asyncio config | Verify `asyncio_mode = "auto"`, `asyncio_default_fixture_loop_scope = "function"` | ✅ Already correct |
+| 2.2 | `pyproject.toml` coverage | Verify existing `fail_under = 75` (exceeds issue #1149's 70% min) | ✅ Already correct |
+| 2.3 | CI workflow | No change needed — `fail_under = 75` already enforced | ✅ Already correct |
+| 2.4 | filterwarnings | Verify only intentional deprecation suppressions | ✅ Already correct |
+| 2.5 | Loop fixtures in `tests/helpers/` | Verify no deprecated `loop` parameter usage | ✅ Already using modern patterns |
 
-| Step | Verification | Expected |
-|------|-------------|----------|
-| 4.1 | Backend: `pytest --randomly-seed=12345` | All pass |
-| 4.2 | Backend: `pytest --randomly-seed=99999` | All pass |
-| 4.3 | Backend: `pytest --randomly-seed=42` | All pass |
-| 4.4 | Frontend: `npx vitest run --reporter=verbose` | No regressions |
-| 4.5 | Coverage: backend ≥75%, frontend ≥50% | Thresholds met |
-| 4.6 | Integration/concurrency tests | Pass with expanded fixture layering |
+**Acceptance**: `pytest tests/` runs cleanly with zero asyncio warnings.
+
+### Step 3 — Fix Frontend Vitest Infrastructure
+
+| Step | Target | Action | Status |
+|------|--------|--------|--------|
+| 3.1 | `vitest.config.ts` environment | Verify `environment = 'happy-dom'` | ✅ Already correct |
+| 3.2 | `vitest.config.ts` globals | Verify `globals = true` | ✅ Already correct |
+| 3.3 | `vitest.config.ts` coverage | Verify `coverage.provider = 'v8'`, `statements >= 50` | ✅ Already correct |
+| 3.4 | `vitest.config.ts` setupFiles | Verify points to `src/test/setup.ts` | ✅ Already correct |
+| 3.5 | `src/test/setup.ts` | Verify jest-dom configured | ✅ Already correct |
+| 3.6 | jest-axe | Per-test import — add to `package.json` if missing | ⚠️ Verify availability |
+| 3.7 | `test.exclude` | Verify no accidental exclusions | ✅ Already correct |
+
+**Acceptance**: `npm run test` runs without configuration warnings and jest-axe matchers available.
+
+### Step 4 — Resolve Backend Skipped Tests
+
+| Step | Target | Action | Status |
+|------|--------|--------|--------|
+| 4.1 | `test_run_mutmut_shard.py:138` | `@pytest.mark.skipif` for missing CI workflow — appropriate | ✅ No change |
+| 4.2 | `test_import_rules.py:54,93,116` | `pytest.skip()` for missing directories — appropriate | ✅ No change |
+| 4.3 | `test_board_load_time.py:40-71` | `pytest.skip()` for missing credentials/backend — appropriate | ✅ No change |
+| 4.4 | `test_custom_agent_assignment.py:45` | `pytest.skip()` for missing GITHUB_TOKEN — appropriate | ✅ No change |
+
+**Result**: Zero unconditional skips to remove. All skips are infrastructure guards.
+**Acceptance**: Zero unconditional `@pytest.mark.skip` or `@pytest.mark.xfail` in backend tests.
+
+### Step 5 — Resolve Frontend Skipped Tests and Verify useAuth.test.tsx
+
+| Step | Target | Action | Status |
+|------|--------|--------|--------|
+| 5.1 | `integration.spec.ts:62,73` | `test.skip()` in catch block — appropriate | ✅ No change |
+| 5.2 | `project-load-performance.spec.ts:47,50,65,114` | `test.skip()` for missing prereqs — appropriate | ✅ No change |
+| 5.3 | `useAuth.test.tsx` | Verify all 18 tests pass with `--pool=forks` and `--pool=threads` | ⚠️ TODO |
+| 5.4 | Frontend cleanup | Verify spec 019 mock restoration patterns are in place | ⚠️ Verify |
+
+**Result**: Zero unconditional skips to remove. Verify useAuth stability.
+**Acceptance**: Zero unconditional `.skip`/`xit`/`xdescribe` in frontend. useAuth passes reliably.
+
+### Step 6 — Add Net-New Coverage for Critical Untested Paths
+
+| Step | Target | Module | Test Count | Priority |
+|------|--------|--------|-----------|----------|
+| 6.1 | `resolve_repository()` | `src/utils.py:209` | 3+ tests | HIGH |
+| 6.2 | HMAC webhook validation | `src/api/webhooks.py` | 3+ tests | HIGH |
+| 6.3 | Preset catalog | `src/services/tools/presets.py` | 2+ tests | MEDIUM |
+| 6.4 | Fernet encryption | `src/services/encryption.py` | 2+ tests | MEDIUM |
+| 6.5 | Pipeline restart | `src/services/pipeline_state_store.py` | 2+ tests | MEDIUM |
+| 6.6 | api.ts auth + retry | `frontend/src/services/api.ts` | 3+ tests | MEDIUM |
+| 6.7 | axe accessibility | Multiple page components | 1+ per page | LOW |
+
+**Test Design Principles**:
+
+- Assert behavior, not implementation
+- Happy path + at least one error/edge case
+- Use existing test helpers from `tests/helpers/`
+- Follow existing naming conventions
+
+**Acceptance**: Coverage up >=10 percentage points from baseline in targeted modules; no new `.skip`.
+
+### Step 7 — Validate Full Suite and Ensure CI Green
+
+| Step | Command | Expected |
+|------|---------|----------|
+| 7.1 | `ruff check src/ tests/` | Zero lint errors |
+| 7.2 | `ruff format --check src/ tests/` | Zero format violations |
+| 7.3 | `pyright src/` | Zero type errors |
+| 7.4 | `pytest tests/ --cov=src --cov-fail-under=75 -q` | All pass, coverage >=75% |
+| 7.5 | `npm run lint` | Zero lint errors |
+| 7.6 | `npm run type-check` | Zero type errors |
+| 7.7 | `npm run test -- --pool=forks` | All pass |
+| 7.8 | `npm run build` | Build succeeds |
+| 7.9 | `npx playwright test --project=chromium` | Pass (with continue-on-error) |
+| 7.10 | Update CHANGELOG.md | Fixed entries for bugs found |
+
+**Acceptance**: All suites exit 0; CI green; zero unconditional skip markers remain.
 
 ## Design Decisions
 
 | Decision | Rationale | Alternatives Rejected |
 |----------|-----------|----------------------|
-| Central autouse fixture over per-file cleanup | DRY — impossible to forget; single point of maintenance | Per-file fixtures: error-prone, easy to forget new modules |
-| Reset lazy-init locks to `None` (not `new Lock()`) | Avoids creating asyncio.Lock in wrong event loop; lock recreated on first use | `asyncio.Lock()`: binds to fixture's event loop, fails in test's loop |
-| `_project_launch_locks` confirmed bug — cleared in fixture | Never cleared anywhere in codebase | Leave as-is: perpetual leak across tests |
-| Scope excludes pytest-xdist, DI refactoring, new tests | Focused remediation; DI is architectural change | Full DI migration: too large, different issue |
+| Keep all 16 conditional skips as infrastructure guards | They correctly detect missing prerequisites at runtime; removing them would cause CI failures when infrastructure is absent | Force-remove: tests would fail without credentials. Replace with markers: can't evaluate HTTP health at decoration time. |
+| Preserve existing `fail_under = 75` in pyproject.toml | Already exceeds issue #1149's 70% minimum; works both locally and in CI; developers see coverage failures before pushing | Lower to 70: would reduce existing quality bar. CI-only flag: developers wouldn't see failures locally until CI runs |
+| Spec 019 handles test isolation; this spec handles skip removal and coverage | Separation of concerns — isolation (fixtures, state leaks) is a different problem from coverage and skip removal | Merge into one spec: too large, different acceptance criteria, different implementation teams |
+| Per-test jest-axe import (not global setup) | Not all tests need axe; global setup would add unnecessary overhead | Global setup.ts: would slow down all tests with axe initialization |
+| Coverage target 75% backend, 50% frontend | Backend already at 75% (exceeding issue #1149's 70% requirement); frontend at 50% — achievable without major refactoring | 80%+: too aggressive for initial enforcement, would block merges |
 
 ## Constitution Re-Check (Post Phase 1 Design)
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| I. Specification-First | ✅ PASS | Issue #1077 serves as detailed specification |
-| II. Template-Driven Workflow | ✅ PASS | All artifacts follow canonical templates |
-| III. Agent-Orchestrated Execution | ✅ PASS | Single-responsibility plan phase output |
-| IV. Test Optionality | ✅ PASS | Test infrastructure is the feature |
-| V. Simplicity and DRY | ✅ PASS | Central fixture is maximally DRY; no new abstractions |
+| I. Specification-First | ✅ PASS | Issue #1149 with 7 steps, detailed acceptance criteria for each |
+| II. Template-Driven Workflow | ✅ PASS | All artifacts follow canonical templates in `specs/020-uplift-solune-testing/` |
+| III. Agent-Orchestrated Execution | ✅ PASS | Plan phase complete; handoff to tasks phase for implementation |
+| IV. Test Optionality | ✅ PASS | Testing IS the feature — tests are explicitly requested |
+| V. Simplicity and DRY | ✅ PASS | Leverages existing correct configuration; adds only coverage threshold and new tests |
 
 **Gate Result**: ✅ ALL PASS — proceed to tasks phase
 
 ## Complexity Tracking
 
-> No violations — all approaches use the simplest correct pattern.
+> No violations — the plan leverages existing correct infrastructure and adds only what's missing.
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|

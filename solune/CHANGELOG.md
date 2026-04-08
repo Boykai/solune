@@ -7,6 +7,8 @@
 ### Added
 
 - Shared Radix dialog and alert-dialog primitives for frontend modal workflows, including reusable character-count and first-error-focus helpers.
+- Test skip marker inventory documenting all 16 conditional infrastructure guards across backend and frontend suites.
+- Unit tests for `useUndoRedo` hook covering push, undo, redo, redo-stack clearing, and empty-stack edge cases.
 
 ### Fixed
 
