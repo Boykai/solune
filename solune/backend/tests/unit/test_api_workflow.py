@@ -27,7 +27,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from src.api.workflow import _check_duplicate, _recent_requests
-from src.models.agent import AgentSource, AvailableAgent
+from src.models.agent import AgentAssignment, AgentSource, AvailableAgent
 from src.models.chat import (
     IssueRecommendation,
     RecommendationStatus,
@@ -35,7 +35,6 @@ from src.models.chat import (
     WorkflowResult,
     WorkflowTransition,
 )
-from src.models.pipeline import PipelineAgentNode, PipelineConfig, PipelineStage
 from src.utils import utcnow
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -580,53 +579,6 @@ class TestConfirmRecommendation:
         )
         rec_id = str(rec.recommendation_id)
 
-        selected_pipeline = PipelineConfig(
-            id="pipeline-123",
-            project_id=TEST_PROJECT_ID,
-            name="Saved Pipeline",
-            description="",
-            stages=[
-                PipelineStage(
-                    id="stage-1",
-                    name="Backlog",
-                    order=0,
-                    agents=[
-                        PipelineAgentNode(
-                            id="agent-1",
-                            agent_slug="speckit.specify",
-                            agent_display_name="Spec Writer",
-                            model_id="",
-                            model_name="",
-                            tool_ids=[],
-                            tool_count=0,
-                            config={},
-                        )
-                    ],
-                ),
-                PipelineStage(
-                    id="stage-2",
-                    name="Ready",
-                    order=1,
-                    agents=[
-                        PipelineAgentNode(
-                            id="agent-2",
-                            agent_slug="speckit.plan",
-                            agent_display_name="Planner",
-                            model_id="",
-                            model_name="",
-                            tool_ids=[],
-                            tool_count=0,
-                            config={},
-                        )
-                    ],
-                ),
-            ],
-            is_preset=False,
-            preset_id="",
-            created_at="2024-01-01T00:00:00Z",
-            updated_at="2024-01-01T00:00:00Z",
-        )
-
         mock_github_service.get_project_repository.return_value = ("testowner", "testrepo")
         wf_result = WorkflowResult(
             success=True,
@@ -639,8 +591,17 @@ class TestConfirmRecommendation:
         )
         mock_orchestrator = AsyncMock()
         mock_orchestrator.execute_full_workflow.return_value = wf_result
-        mock_pipeline_service = MagicMock()
-        mock_pipeline_service.get_pipeline = AsyncMock(return_value=selected_pipeline)
+
+        # Build the agent_mappings dict that load_pipeline_as_agent_mappings returns
+        pipeline_agent_mappings = {
+            "Backlog": [AgentAssignment(slug="speckit.specify", display_name="Spec Writer")],
+            "Ready": [AgentAssignment(slug="speckit.plan", display_name="Planner")],
+            "In Progress": [],
+            "In Review": [],
+        }
+        mock_load_pipeline = AsyncMock(
+            return_value=(pipeline_agent_mappings, "Saved Pipeline", {}, {})
+        )
 
         with (
             patch("src.api.chat._recommendations", {rec_id: rec}),
@@ -651,13 +612,16 @@ class TestConfirmRecommendation:
                 return_value=_workflow_config(),
             ),
             patch(f"{WF}.set_workflow_config", new_callable=AsyncMock),
-            patch(f"{WF}.PipelineService", return_value=mock_pipeline_service),
             patch(f"{WF}.get_workflow_orchestrator", return_value=mock_orchestrator),
             patch(f"{WF}.get_agent_slugs", return_value=["speckit.specify"]),
             patch(
                 "src.services.copilot_polling.get_polling_status", return_value={"is_running": True}
             ),
             patch("src.config.get_settings") as mock_settings,
+            patch(
+                "src.services.workflow_orchestrator.config.load_pipeline_as_agent_mappings",
+                mock_load_pipeline,
+            ),
         ):
             mock_settings.return_value = MagicMock(
                 default_assignee="copilot",
