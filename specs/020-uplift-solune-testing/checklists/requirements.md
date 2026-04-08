@@ -48,6 +48,6 @@
 ## Notes
 
 - All 15 checklist items pass validation.
-- The spec correctly identifies that all 10 backend skip markers and 6 frontend E2E skip markers are conditional infrastructure guards, not unconditional skips.
+- The spec correctly identifies that all 10 backend skip markers and 6 frontend E2E skip markers (16 total) are conditional infrastructure guards, not unconditional skips.
 - The spec's relationship to spec 019-test-isolation-remediation is clearly documented in assumptions, avoiding scope overlap.
 - Spec is ready for `/speckit.clarify` or `/speckit.plan`.

@@ -49,7 +49,7 @@ cd solune/backend
 grep -rn "pytest.mark.skip\|pytest.mark.xfail\|pytest.skip\|skipIf\|unittest.skip" tests/
 ```
 
-**Expected Result**: 8 matches — all conditional infrastructure guards. Zero unconditional skips.
+**Expected Result**: 10 matches — all conditional infrastructure guards. Zero unconditional skips.
 
 ### 1.2: Run Frontend Skip Audit
 

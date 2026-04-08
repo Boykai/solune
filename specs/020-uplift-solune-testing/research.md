@@ -4,17 +4,23 @@
 
 ## R1: Backend Skip Marker Classification
 
-**Context**: The backend has 8 skip markers across 4 test files. The issue requires removing ALL skips, but the actual markers are all *conditional* — they skip only when external infrastructure is missing (CI workflow file, directories, environment variables, running backend).
+**Context**: The backend has 10 skip markers across 4 test files. The issue requires removing ALL skips, but the actual markers are all *conditional* — they skip only when external infrastructure is missing (CI workflow file, directories, environment variables, running backend).
 
-**Decision**: Classify each skip as either **removable** (unconditional / no longer needed) or **infrastructure guard** (conditional, appropriate). All 8 backend skips are infrastructure guards that run when prerequisites are met.
+**Decision**: Classify each skip as either **removable** (unconditional / no longer needed) or **infrastructure guard** (conditional, appropriate). All 10 backend skips are infrastructure guards that run when prerequisites are met.
 
 **Rationale**: The issue states "remove all test skips" but the actual markers are:
 
 | File | Marker | Type | Verdict |
 |------|--------|------|---------|
 | `test_run_mutmut_shard.py:138` | `@pytest.mark.skipif` (CI workflow missing) | Infrastructure guard | Keep — shallow clone protection |
-| `test_import_rules.py:54,93,116` | `pytest.skip()` (directory not found) | Infrastructure guard | Keep — graceful degradation |
-| `test_board_load_time.py:40-71` | `pytest.skip()` (env vars / backend unavailable) | Infrastructure guard | Keep — perf test prerequisites |
+| `test_import_rules.py:54` | `pytest.skip()` (`services/` directory not found) | Infrastructure guard | Keep — graceful degradation |
+| `test_import_rules.py:93` | `pytest.skip()` (`api/` directory not found) | Infrastructure guard | Keep — graceful degradation |
+| `test_import_rules.py:116` | `pytest.skip()` (`models/` directory not found) | Infrastructure guard | Keep — graceful degradation |
+| `test_board_load_time.py:40` | `pytest.skip()` (`PERF_GITHUB_TOKEN` not set) | Infrastructure guard | Keep — perf test prerequisites |
+| `test_board_load_time.py:42` | `pytest.skip()` (`PERF_PROJECT_ID` not set) | Infrastructure guard | Keep — perf test prerequisites |
+| `test_board_load_time.py:49` | `pytest.skip()` (backend unhealthy) | Infrastructure guard | Keep — perf test prerequisites |
+| `test_board_load_time.py:51` | `pytest.skip()` (backend not reachable) | Infrastructure guard | Keep — perf test prerequisites |
+| `test_board_load_time.py:68` | `pytest.skip()` (dev-login auth failure) | Infrastructure guard | Keep — perf test prerequisites |
 | `test_custom_agent_assignment.py:45` | `pytest.skip()` (GITHUB_TOKEN missing) | Infrastructure guard | Keep — live integration test |
 
 No unconditional `@pytest.mark.skip` or `@pytest.mark.xfail` markers exist in the backend. The backend skip audit is already clean.

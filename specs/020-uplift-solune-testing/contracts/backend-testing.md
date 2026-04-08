@@ -10,24 +10,24 @@ Defines the contract for backend test infrastructure configuration, coverage enf
 
 ### Current State
 
-The CI command runs pytest with coverage reporting but does not enforce a minimum threshold:
+The CI command runs pytest with coverage reporting, and `pyproject.toml` already enforces a minimum threshold of 75%:
 
 ```yaml
 run: uv run pytest --cov=src --cov-report=term-missing --cov-report=xml --cov-report=html --durations=20 --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
 ```
 
-### Required State
-
-Add `--cov-fail-under=70` to the CI command OR set `fail_under = 70` in `pyproject.toml`:
-
 ```toml
 [tool.coverage.report]
-fail_under = 70
+fail_under = 75
 ```
+
+### Required State
+
+Preserve the existing `fail_under = 75` in `pyproject.toml`, which already exceeds issue #1149's 70% minimum. No changes needed.
 
 ### Behavior
 
-- CI MUST fail if backend coverage drops below 70%
+- CI MUST fail if backend coverage drops below 75% (the existing threshold)
 - The threshold applies to line coverage across `src/`
 - Tests in `tests/property`, `tests/fuzz`, `tests/chaos`, `tests/concurrency` are excluded from the main CI run
 

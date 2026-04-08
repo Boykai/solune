@@ -25,7 +25,7 @@
 - [x] T001 Search backend tests for all skip markers (`pytest.mark.skip`, `pytest.mark.xfail`, `skipIf`, `unittest.skip`, `pytest.skip`) in `solune/backend/tests/` and record file, line, marker, and reason
 - [x] T002 Search frontend source and E2E tests for all skip markers (`test.skip`, `it.skip`, `describe.skip`, `.todo`, `xit`, `xdescribe`) in `solune/frontend/src/` and `solune/frontend/e2e/` and record file, line, marker, and reason
 - [x] T003 Classify each marker as unconditional (removable) or conditional infrastructure guard (acceptable) per contracts in `specs/020-uplift-solune-testing/contracts/backend-testing.md` and `specs/020-uplift-solune-testing/contracts/frontend-testing.md`
-- [x] T004 Commit the skip inventory to `.specify/memory/test-skip-inventory.md` with a table of all 14 markers, their classification, and verdicts
+- [x] T004 Commit the skip inventory to `.specify/memory/test-skip-inventory.md` with a table of all 16 markers (10 backend + 6 frontend E2E), their classification, and verdicts
 
 ---
 
@@ -69,17 +69,17 @@
 
 ## Phase 4: User Story 2 — Fix Backend pytest Infrastructure (Priority: P1)
 
-**Goal**: Add coverage enforcement threshold and confirm pytest runs with zero asyncio deprecation warnings
+**Goal**: Confirm the existing backend coverage enforcement threshold remains at 75% (which already exceeds issue #1149's 70% minimum) and verify pytest runs with zero asyncio deprecation warnings
 
-**Independent Test**: Run `uv run pytest tests/ --cov=src --cov-fail-under=70 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and confirm coverage >= 70% is enforced
+**Independent Test**: Run `uv run pytest tests/ --cov=src --cov-fail-under=75 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and confirm coverage >= 75% is enforced
 
 ### Implementation for User Story 2
 
-- [x] T019 [US2] Add `fail_under = 70` to `[tool.coverage.report]` section in `solune/backend/pyproject.toml`
-- [x] T020 [US2] Run `uv run pytest tests/ --cov=src --cov-fail-under=70 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and confirm coverage threshold is enforced
-- [x] T021 [US2] Run `uv run pytest tests/ -W error::DeprecationWarning -x -q` from `solune/backend/` and confirm zero asyncio deprecation warnings
+- [ ] T019 [US2] Verify `[tool.coverage.report] fail_under = 75` remains in `solune/backend/pyproject.toml`, noting that it already satisfies and exceeds issue #1149's 70% minimum
+- [ ] T020 [US2] Run `uv run pytest tests/ --cov=src --cov-fail-under=75 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and confirm coverage threshold is enforced
+- [ ] T021 [US2] Run `uv run pytest tests/ -W error::DeprecationWarning -x -q` from `solune/backend/` and confirm zero asyncio deprecation warnings
 
-**Checkpoint**: US2 complete — backend coverage enforcement active, zero deprecation warnings
+**Checkpoint**: US2 complete — existing 75% backend coverage enforcement preserved, zero deprecation warnings
 
 ---
 
@@ -91,8 +91,8 @@
 
 ### Implementation for User Story 3
 
-- [x] T022 [US3] Run `npx vitest run --reporter=verbose` from `solune/frontend/` and confirm zero configuration warnings
-- [x] T023 [US3] Verify jest-axe can be imported in a test file by checking `solune/frontend/package.json` for `jest-axe` dependency or adding it if missing (per-test import pattern, not global setup)
+- [ ] T022 [US3] Run `npx vitest run --reporter=verbose` from `solune/frontend/` and confirm zero configuration warnings
+- [ ] T023 [US3] Verify jest-axe can be imported in a test file by checking `solune/frontend/package.json` for `jest-axe` dependency or adding it if missing (per-test import pattern, not global setup)
 
 **Checkpoint**: US3 complete — Vitest infrastructure verified, jest-axe available
 
@@ -109,9 +109,9 @@
 - [x] T024 [US4] Verify `solune/frontend/e2e/integration.spec.ts:62,73` uses `test.skip()` inside catch blocks for unreachable backend — confirm conditional infrastructure guards, no removal needed
 - [x] T025 [US4] Verify `solune/frontend/e2e/project-load-performance.spec.ts:47,50,65,114` uses `test.skip()` for missing auth state, env vars, and unreachable frontend — confirm conditional infrastructure guards, no removal needed
 - [x] T026 [US4] Run `grep -rn "\.skip\|\.todo\|xit\b\|xdescribe" solune/frontend/src/` and confirm zero unconditional skip markers in unit tests
-- [x] T027 [US4] Run `npx vitest run src/hooks/useAuth.test.tsx` from `solune/frontend/` and confirm all 18 tests pass
-- [x] T028 [US4] Run `npx vitest run --pool=forks src/hooks/useAuth.test.tsx` from `solune/frontend/` and confirm all 18 tests pass in process isolation mode
-- [x] T029 [US4] Run `npx vitest run --pool=threads src/hooks/useAuth.test.tsx` from `solune/frontend/` and confirm all 18 tests pass in thread isolation mode
+- [ ] T027 [US4] Run `npx vitest run src/hooks/useAuth.test.tsx` from `solune/frontend/` and confirm all 18 tests pass
+- [ ] T028 [US4] Run `npx vitest run --pool=forks src/hooks/useAuth.test.tsx` from `solune/frontend/` and confirm all 18 tests pass in process isolation mode
+- [ ] T029 [US4] Run `npx vitest run --pool=threads src/hooks/useAuth.test.tsx` from `solune/frontend/` and confirm all 18 tests pass in thread isolation mode
 
 **Checkpoint**: US4 complete — zero unconditional frontend skips, useAuth.test.tsx stable in all pool modes
 
@@ -127,23 +127,23 @@
 
 > **NOTE: Write tests that assert behavior, not implementation. Cover happy path plus at least one error/edge case. Use existing helpers from `tests/helpers/`.**
 
-- [x] T030 [P] [US5] Create `solune/backend/tests/unit/test_resolve_repository.py` — test `resolve_repository()` from `solune/backend/src/utils.py`: cache hit returns cached value, GraphQL fallback when cache misses, REST fallback when GraphQL fails, error handling for all fallbacks (minimum 4 tests)
-- [x] T031 [P] [US5] Create or extend `solune/backend/tests/unit/test_webhooks.py` — test HMAC signature validation from `solune/backend/src/api/webhooks.py`: valid signature passes, invalid signature returns 401/403, missing `X-Hub-Signature-256` header handled, replay protection via `_processed_delivery_ids` (minimum 3 tests)
-- [x] T032 [P] [US5] Create `solune/backend/tests/unit/test_presets.py` — test preset catalog from `solune/backend/src/services/tools/presets.py`: `_PRESETS` tuple iteration and `McpPresetResponse` field validation, filtering by name or category (minimum 2 tests)
-- [x] T033 [P] [US5] Create or extend `solune/backend/tests/unit/test_encryption.py` — test Fernet encryption from `solune/backend/src/services/encryption.py`: encrypt-then-decrypt roundtrip preserves plaintext, invalid key raises appropriate error (minimum 2 tests)
-- [x] T034 [P] [US5] Create `solune/backend/tests/unit/test_pipeline_state_store.py` — test restart survivability from `solune/backend/src/services/pipeline_state_store.py`: SQLite persistence across simulated restart, state recovery, lock re-initialization (minimum 2 tests)
+- [ ] T030 [P] [US5] Create `solune/backend/tests/unit/test_resolve_repository.py` — test `resolve_repository()` from `solune/backend/src/utils.py`: cache hit returns cached value, GraphQL fallback when cache misses, REST fallback when GraphQL fails, error handling for all fallbacks (minimum 4 tests)
+- [ ] T031 [P] [US5] Create or extend `solune/backend/tests/unit/test_webhooks.py` — test HMAC signature validation from `solune/backend/src/api/webhooks.py`: valid signature passes, invalid signature returns 401/403, missing `X-Hub-Signature-256` header handled, replay protection via `_processed_delivery_ids` (minimum 3 tests)
+- [ ] T032 [P] [US5] Create `solune/backend/tests/unit/test_presets.py` — test preset catalog from `solune/backend/src/services/tools/presets.py`: `_PRESETS` tuple iteration and `McpPresetResponse` field validation, filtering by name or category (minimum 2 tests)
+- [ ] T033 [P] [US5] Create or extend `solune/backend/tests/unit/test_encryption.py` — test Fernet encryption from `solune/backend/src/services/encryption.py`: encrypt-then-decrypt roundtrip preserves plaintext, invalid key raises appropriate error (minimum 2 tests)
+- [ ] T034 [P] [US5] Create `solune/backend/tests/unit/test_pipeline_state_store.py` — test restart survivability from `solune/backend/src/services/pipeline_state_store.py`: SQLite persistence across simulated restart, state recovery, lock re-initialization (minimum 2 tests)
 
 ### Frontend Tests for User Story 5
 
-- [x] T035 [P] [US5] Extend `solune/frontend/src/services/api.test.ts` — test authenticated request helper: correct `Authorization` header attached, retry on 401 response, retry on network error (minimum 3 tests)
-- [x] T036 [P] [US5] Add axe accessibility assertion to at least one page-level component test in `solune/frontend/src/pages/` — import `jest-axe`, render component, assert `expect(await axe(container)).toHaveNoViolations()` (minimum 1 test per page component)
-- [x] T037 [US5] Identify hooks in `solune/frontend/src/hooks/` with zero test coverage and add basic happy-path plus error-case tests for at least one uncovered hook (minimum 2 tests per hook)
+- [ ] T035 [P] [US5] Extend `solune/frontend/src/services/api.test.ts` — test authenticated request helper: correct `Authorization` header attached, retry on 401 response, retry on network error (minimum 3 tests)
+- [ ] T036 [P] [US5] Add axe accessibility assertion to at least one page-level component test in `solune/frontend/src/pages/` — import `jest-axe`, render component, assert `expect(await axe(container)).toHaveNoViolations()` (minimum 1 test per page component)
+- [ ] T037 [US5] Identify hooks in `solune/frontend/src/hooks/` with zero test coverage and add basic happy-path plus error-case tests for at least one uncovered hook (minimum 2 tests per hook)
 
 ### Verification for User Story 5
 
-- [x] T038 [US5] Run `uv run pytest tests/ --cov=src --cov-report=term-missing -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and compare coverage to baseline — confirm >= 10pp increase in targeted modules
-- [x] T039 [US5] Run `npx vitest run --coverage` from `solune/frontend/` and confirm coverage thresholds still met with new tests
-- [x] T040 [US5] Run `grep -rn "\.skip\|\.todo\|xfail\|xit\b\|xdescribe" solune/backend/tests/ solune/frontend/src/` and confirm zero new unconditional skip markers introduced
+- [ ] T038 [US5] Run `uv run pytest tests/ --cov=src --cov-report=term-missing -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and compare coverage to baseline — confirm >= 10pp increase in targeted modules
+- [ ] T039 [US5] Run `npx vitest run --coverage` from `solune/frontend/` and confirm coverage thresholds still met with new tests
+- [ ] T040 [US5] Run `grep -rn "\.skip\|\.todo\|xfail\|xit\b\|xdescribe" solune/backend/tests/ solune/frontend/src/` and confirm zero new unconditional skip markers introduced
 
 **Checkpoint**: US5 complete — net-new coverage added, coverage increase verified, zero new skips
 
@@ -157,17 +157,17 @@
 
 ### Implementation for User Story 6
 
-- [x] T041 [US6] Run `uv run ruff check src/ tests/` from `solune/backend/` and confirm zero lint errors
-- [x] T042 [US6] Run `uv run ruff format --check src/ tests/` from `solune/backend/` and confirm zero format violations
-- [x] T043 [US6] Run `uv run pyright src/` from `solune/backend/` and confirm zero type errors
-- [x] T044 [US6] Run `uv run pytest tests/ --cov=src --cov-fail-under=70 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and confirm all pass with coverage >= 70%
-- [x] T045 [P] [US6] Run `npm run lint` from `solune/frontend/` and confirm zero lint errors
-- [x] T046 [P] [US6] Run `npm run type-check` from `solune/frontend/` and confirm zero type errors
-- [x] T047 [US6] Run `npm run test -- --pool=forks` from `solune/frontend/` and confirm all tests pass
-- [x] T048 [US6] Run `npm run build` from `solune/frontend/` and confirm build succeeds
-- [x] T049 [US6] Run `npx playwright test --project=chromium` from `solune/frontend/` — E2E tests pass (with continue-on-error for missing infrastructure)
-- [x] T050 [US6] Update `solune/CHANGELOG.md` under `[Unreleased]` with `Fixed` entries for any production bugs discovered and fixed during the uplift
-- [x] T051 [US6] Push all changes and verify CI pipeline is green — all jobs exit 0
+- [ ] T041 [US6] Run `uv run ruff check src/ tests/` from `solune/backend/` and confirm zero lint errors
+- [ ] T042 [US6] Run `uv run ruff format --check src/ tests/` from `solune/backend/` and confirm zero format violations
+- [ ] T043 [US6] Run `uv run pyright src/` from `solune/backend/` and confirm zero type errors
+- [ ] T044 [US6] Run `uv run pytest tests/ --cov=src --cov-fail-under=75 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` from `solune/backend/` and confirm all pass with coverage >= 75%
+- [ ] T045 [P] [US6] Run `npm run lint` from `solune/frontend/` and confirm zero lint errors
+- [ ] T046 [P] [US6] Run `npm run type-check` from `solune/frontend/` and confirm zero type errors
+- [ ] T047 [US6] Run `npm run test -- --pool=forks` from `solune/frontend/` and confirm all tests pass
+- [ ] T048 [US6] Run `npm run build` from `solune/frontend/` and confirm build succeeds
+- [ ] T049 [US6] Run `npx playwright test --project=chromium` from `solune/frontend/` — E2E tests pass (with continue-on-error for missing infrastructure)
+- [ ] T050 [US6] Update `solune/CHANGELOG.md` under `[Unreleased]` with `Fixed` entries for any production bugs discovered and fixed during the uplift
+- [ ] T051 [US6] Push all changes and verify CI pipeline is green — all jobs exit 0
 
 **Checkpoint**: US6 complete — full validation passed, CI green, zero unconditional skip markers
 
@@ -177,9 +177,9 @@
 
 **Purpose**: Final documentation and cleanup
 
-- [x] T052 [P] Verify `specs/020-uplift-solune-testing/data-model.md` skip inventory tables match final state of codebase
-- [x] T053 [P] Verify `.specify/memory/test-skip-inventory.md` is accurate and committed
-- [x] T054 Run `specs/020-uplift-solune-testing/quickstart.md` validation commands end-to-end to confirm the developer guide is accurate
+- [ ] T052 [P] Verify `specs/020-uplift-solune-testing/data-model.md` skip inventory tables match final state of codebase
+- [ ] T053 [P] Verify `.specify/memory/test-skip-inventory.md` is accurate and committed
+- [ ] T054 Run `specs/020-uplift-solune-testing/quickstart.md` validation commands end-to-end to confirm the developer guide is accurate
 
 ---
 
