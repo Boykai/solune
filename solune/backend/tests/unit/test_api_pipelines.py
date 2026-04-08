@@ -133,6 +133,85 @@ class TestLaunchPipelineIssue:
         assert "Issue description is required" in resp.json()["error"]
 
     @pytest.mark.anyio
+    async def test_execute_pipeline_launch_uses_default_pipeline_when_no_pipeline_id(
+        self, mock_session, mock_github_service
+    ):
+        from src.api.pipelines import execute_pipeline_launch
+        from src.models.agent import AgentAssignment
+        from src.services.label_classifier import ClassificationResult
+        from src.services.workflow_orchestrator.config import PipelineResolutionResult
+
+        mock_github_service.create_issue.return_value = {
+            "number": 47,
+            "node_id": "I_node_47",
+            "html_url": "https://github.com/owner/repo/issues/47",
+        }
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_47"
+            return "PVTI_47"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        default_resolution = PipelineResolutionResult(
+            agent_mappings={
+                "Backlog": [
+                    AgentAssignment(
+                        slug="speckit.specify",
+                        display_name="Spec Kit - Specify",
+                    )
+                ]
+            },
+            source="default",
+            pipeline_name=None,
+            pipeline_id=None,
+        )
+        mock_service = AsyncMock()
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines._get_service", return_value=mock_service),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_db", return_value=AsyncMock()),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch(
+                "src.api.pipelines.resolve_project_pipeline_mappings",
+                new_callable=AsyncMock,
+                return_value=default_resolution,
+            ),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+            patch(
+                "src.services.label_classifier.classify_labels_with_priority",
+                new_callable=AsyncMock,
+                return_value=ClassificationResult(labels=["ai-generated", "enhancement"]),
+            ),
+        ):
+            result = await execute_pipeline_launch(
+                project_id="PVT_1",
+                issue_description="# Default pipeline\n\nUse the fallback pipeline.",
+                pipeline_id=None,
+                session=mock_session,
+            )
+
+        assert result.success is True
+        assert result.issue_number == 47
+        assert "configured default pipeline" in result.message
+
+    @pytest.mark.anyio
     async def test_launch_returns_404_for_missing_pipeline(self, client):
         """Deleted or unknown pipelines fail gracefully."""
         with patch(
@@ -707,6 +786,24 @@ class TestPipelineAssignment:
     async def test_set_assignment_persists_selected_pipeline(self, client, mock_db):
         """Setting an assignment stores the selected pipeline for the project."""
         pipeline_id = await _create_pipeline(mock_db, project_id="PVT_ASSIGNMENT")
+
+        resp = await client.put(
+            "/api/v1/pipelines/PVT_ASSIGNMENT/assignment",
+            json={"pipeline_id": pipeline_id},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"project_id": "PVT_ASSIGNMENT", "pipeline_id": pipeline_id}
+
+        assignment = await PipelineService(mock_db).get_assignment("PVT_ASSIGNMENT")
+        assert assignment.pipeline_id == pipeline_id
+
+    @pytest.mark.anyio
+    async def test_set_assignment_accepts_visible_user_pipeline_from_another_project(
+        self, client, mock_db
+    ):
+        """Projects can assign any pipeline that is visible to the current user."""
+        pipeline_id = await _create_pipeline(mock_db, project_id="PVT_SOURCE")
 
         resp = await client.put(
             "/api/v1/pipelines/PVT_ASSIGNMENT/assignment",

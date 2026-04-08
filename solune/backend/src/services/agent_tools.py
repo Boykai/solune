@@ -47,6 +47,83 @@ DIFFICULTY_PRESET_MAP: dict[str, str] = {
     "XL": "expert",
 }
 
+ACTION_PAYLOAD_START = "\n\n<<SOLUNE_ACTION>>\n"
+ACTION_PAYLOAD_END = "\n<</SOLUNE_ACTION>>"
+
+
+def embed_action_payload(
+    content: str,
+    action_type: str | None,
+    action_data: dict[str, Any] | None,
+) -> str:
+    """Append a transport-safe action envelope to tool text when needed."""
+    if not action_type:
+        return content
+
+    payload = json.dumps(
+        {
+            "action_type": action_type,
+            "action_data": action_data,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return f"{content}{ACTION_PAYLOAD_START}{payload}{ACTION_PAYLOAD_END}"
+
+
+def extract_embedded_action_payload(
+    content: str | None,
+) -> tuple[str | None, str | None, dict[str, Any] | None]:
+    """Split visible tool text from an embedded action envelope."""
+    if not isinstance(content, str):
+        return content, None, None
+
+    start = content.find(ACTION_PAYLOAD_START)
+    if start == -1:
+        return content, None, None
+
+    payload_start = start + len(ACTION_PAYLOAD_START)
+    end = content.find(ACTION_PAYLOAD_END, payload_start)
+    if end == -1:
+        return content, None, None
+
+    payload_text = content[payload_start:end].strip()
+    try:
+        payload = json.loads(payload_text)
+    except (json.JSONDecodeError, TypeError):
+        return content, None, None
+
+    if not isinstance(payload, dict) or "action_type" not in payload:
+        return content, None, None
+
+    cleaned_content = content[:start] + content[end + len(ACTION_PAYLOAD_END) :]
+    action_data = payload.get("action_data")
+    if action_data is not None and not isinstance(action_data, dict):
+        action_data = None
+    return cleaned_content, payload["action_type"], action_data
+
+
+def _build_tool_result(
+    content: str,
+    *,
+    context: FunctionInvocationContext | None = None,
+    action_type: str | None = None,
+    action_data: dict[str, Any] | None = None,
+) -> ToolResult:
+    """Create a tool result and preserve action metadata in the text channel."""
+    if context and context.session and action_type:
+        context.session.state["_last_tool_action"] = {
+            "action_type": action_type,
+            "action_data": action_data,
+        }
+
+    return ToolResult(
+        content=embed_action_payload(content, action_type, action_data),
+        action_type=action_type,
+        action_data=action_data,
+    )
+
 
 # ── Tool functions ───────────────────────────────────────────────────────
 
@@ -75,8 +152,9 @@ async def create_task_proposal(
     if len(description) > 65535:
         description = description[:65532] + "..."
 
-    return ToolResult(
+    return _build_tool_result(
         content=f"I've created a task proposal:\n\n**{title}**\n\n{description[:200]}{'...' if len(description) > 200 else ''}\n\nClick confirm to create this task.",
+        context=context,
         action_type="task_create",
         action_data={
             "proposed_title": title,
@@ -117,7 +195,7 @@ async def create_issue_recommendation(
     if technical_notes:
         technical_preview = f"\n\n**Technical Notes:**\n{technical_notes[:300]}{'...' if len(technical_notes) > 300 else ''}"
 
-    return ToolResult(
+    return _build_tool_result(
         content=(
             f"I've generated a GitHub issue recommendation:\n\n"
             f"**{title}**\n\n"
@@ -127,6 +205,7 @@ async def create_issue_recommendation(
             f"{technical_preview}\n\n"
             f"Click **Confirm** to create this issue in GitHub, or **Reject** to discard."
         ),
+        context=context,
         action_type="issue_create",
         action_data={
             "proposed_title": title,
@@ -172,8 +251,9 @@ async def update_task_status(
             action_data=None,
         )
 
-    return ToolResult(
+    return _build_tool_result(
         content=f"I'll update the status of **{target_task.title}** from **{target_task.status}** to **{target_status}**.\n\nClick confirm to apply this change.",
+        context=context,
         action_type="status_update",
         action_data={
             "task_id": target_task.github_item_id,
@@ -201,12 +281,13 @@ async def analyze_transcript(
     logger.info("Tool analyze_transcript called: content_length=%d", len(transcript_content))
 
     # Return structured result — the agent will synthesize the analysis
-    return ToolResult(
+    return _build_tool_result(
         content=(
             "I've analysed the transcript. Please review the generated issue "
             "recommendation and click **Confirm** to create it in GitHub, "
             "or **Reject** to discard."
         ),
+        context=context,
         action_type="issue_create",
         action_data={
             "proposed_title": "Transcript Analysis — Issue Recommendation",
@@ -452,13 +533,14 @@ async def create_project_issue(
             labels=issue_labels,
         )
 
-        return ToolResult(
+        return _build_tool_result(
             content=(
                 f"**Issue Created**: #{issue['number']}\n\n"
                 f"**URL**: {issue['html_url']}\n"
                 f"**Pipeline Preset**: `{preset_id}`\n"
                 f"**Project**: {project_name}"
             ),
+            context=context,
             action_type="issue_create",
             action_data={
                 "issue_number": issue["number"],
@@ -512,7 +594,7 @@ async def launch_pipeline(
     if preset:
         stages = [stage["name"] for stage in preset.get("stages", [])]
 
-    return ToolResult(
+    return _build_tool_result(
         content=(
             f"**Pipeline Launched**\n\n"
             f"**Preset**: `{preset_id}`\n"
@@ -521,6 +603,7 @@ async def launch_pipeline(
             f"The pipeline configuration has been prepared. "
             f"The orchestration layer will handle execution."
         ),
+        context=context,
         action_type="pipeline_launch",
         action_data={
             "pipeline_id": effective_pipeline_id,
@@ -577,6 +660,21 @@ def _identify_target_task(task_reference: str, available_tasks: list[Any]) -> An
             best_match = task
 
     return best_match if best_score > 0 else None
+
+
+def _get_tool_db(context: FunctionInvocationContext) -> aiosqlite.Connection | None:
+    """Resolve a database connection for tools even when session state drops non-serializable values."""
+    state = context.session.state if context.session else {}
+    db: aiosqlite.Connection | None = state.get("db")
+    if db is not None:
+        return db
+
+    try:
+        from src.services.database import get_db
+
+        return get_db()
+    except RuntimeError:
+        return None
 
 
 # ── Tool registration ────────────────────────────────────────────────────
@@ -648,11 +746,19 @@ async def save_plan(
     project_name = state.get("project_name", "Unknown Project")
     repo_owner = state.get("repo_owner", "")
     repo_name = state.get("repo_name", "")
-    db = state.get("db")
+    selected_pipeline_id = state.get("selected_pipeline_id")
+    db = _get_tool_db(context)
 
-    if not session_id or not db:
+    if not session_id:
         return ToolResult(
-            content="Cannot save plan: missing session context.",
+            content="Cannot save plan: missing session ID in tool context.",
+            action_type=None,
+            action_data=None,
+        )
+
+    if db is None:
+        return ToolResult(
+            content="Cannot save plan: database connection not available.",
             action_type=None,
             action_data=None,
         )
@@ -732,6 +838,7 @@ async def save_plan(
             project_name=project_name,
             repo_owner=repo_owner,
             repo_name=repo_name,
+            selected_pipeline_id=selected_pipeline_id,
             steps=plan_steps,
             created_at=existing_created_at,
         )
@@ -769,11 +876,12 @@ async def save_plan(
         for s in plan_steps
     ]
 
-    return ToolResult(
+    return _build_tool_result(
         content=(
             f"Plan saved: **{plan.title}** with {len(plan_steps)} steps.\n\n"
             f"{plan.summary[:300]}{'…' if len(plan.summary) > 300 else ''}"
         ),
+        context=context,
         action_type="plan_create",
         action_data={
             "plan_id": plan.plan_id,
@@ -790,16 +898,20 @@ async def save_plan(
 
 
 def register_plan_tools() -> list:
-    """Return the restricted read-only toolset for plan mode plus ``save_plan``.
+    """Return the plan-mode toolset plus ``save_plan``.
+
+    Plan mode keeps the built-in chat actions available so the agent can still
+    create proposals, issue recommendations, status changes, issue/pipeline
+    actions, and app-builder intents. The capability that remains intentionally
+    absent is direct repository mutation via external MCP editing tools, which
+    are not loaded into the dedicated plan-mode agent.
 
     Returns:
         List of ``@tool``-decorated functions suitable for plan-mode agents.
     """
-    return [
-        get_project_context,
-        get_pipeline_list,
-        save_plan,
-    ]
+    tools = register_tools()
+    tools.append(save_plan)
+    return tools
 
 
 def register_plan_step_tools() -> list:
@@ -837,8 +949,7 @@ async def add_step(
     """
     from src.services import chat_store
 
-    state = context.session.state if context.session else {}
-    db: aiosqlite.Connection | None = state.get("db")
+    db = _get_tool_db(context)
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
@@ -861,8 +972,9 @@ async def add_step(
     if step is None:
         return ToolResult(content=f"Error: plan {plan_id!r} not found.")
 
-    return ToolResult(
+    return _build_tool_result(
         content=f"Added step '{title}' at position {step['position']}.",
+        context=context,
         action_type="step_add",
         action_data=step,
     )
@@ -889,8 +1001,7 @@ async def edit_step(
     """
     from src.services import chat_store
 
-    state = context.session.state if context.session else {}
-    db: aiosqlite.Connection | None = state.get("db")
+    db = _get_tool_db(context)
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
@@ -918,8 +1029,9 @@ async def edit_step(
     if step is None:
         return ToolResult(content=f"Error: step {step_id!r} not found in plan {plan_id!r}.")
 
-    return ToolResult(
+    return _build_tool_result(
         content=f"Updated step '{step['title']}'.",
+        context=context,
         action_type="step_edit",
         action_data=step,
     )
@@ -940,8 +1052,7 @@ async def delete_step(
     """
     from src.services import chat_store
 
-    state = context.session.state if context.session else {}
-    db: aiosqlite.Connection | None = state.get("db")
+    db = _get_tool_db(context)
     if db is None:
         return ToolResult(content="Error: database connection not available.")
 
@@ -953,8 +1064,9 @@ async def delete_step(
     if not deleted:
         return ToolResult(content=f"Error: step {step_id!r} not found in plan {plan_id!r}.")
 
-    return ToolResult(
+    return _build_tool_result(
         content=f"Deleted step {step_id!r}.",
+        context=context,
         action_type="step_delete",
         action_data={"step_id": step_id, "plan_id": plan_id},
     )
@@ -1085,12 +1197,13 @@ async def import_github_repo(
             action_data=None,
         )
 
-    return ToolResult(
+    return _build_tool_result(
         content=(
             f"Repository import requested for {url}.\n"
             f"Create project board: {create_project}\n"
             "Use the /api/apps/import endpoint to complete the import."
         ),
+        context=context,
         action_type="app_import",
         action_data={"url": url, "create_project": create_project},
     )
@@ -1132,7 +1245,7 @@ async def build_app(
     override = difficulty_override or None
     preset_id, include_architect = configure_pipeline_preset(template, override)
 
-    return ToolResult(
+    return _build_tool_result(
         content=(
             f"🏗️ **Building app '{app_name}'**\n\n"
             f"Template: {template.name}\n"
@@ -1141,6 +1254,7 @@ async def build_app(
             f"Description: {description or '(none)'}\n\n"
             "App creation initiated. Use the Apps page to monitor progress."
         ),
+        context=context,
         action_type="app_build",
         action_data={
             "app_name": app_name,
@@ -1170,13 +1284,14 @@ async def iterate_on_app(
     Returns:
         ToolResult with iteration status.
     """
-    return ToolResult(
+    return _build_tool_result(
         content=(
             f"📝 **Iteration requested for '{app_name}'**\n\n"
             f"Change: {change_description}\n\n"
             "An issue will be created in the app's project board and a pipeline "
             "will be launched to implement the change."
         ),
+        context=context,
         action_type="app_iterate",
         action_data={
             "app_name": app_name,

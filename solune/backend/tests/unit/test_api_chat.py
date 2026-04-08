@@ -17,6 +17,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
+from fastapi import UploadFile
+from fastapi.responses import JSONResponse
 
 from src.models.chat import (
     AITaskProposal,
@@ -56,10 +58,10 @@ def _proposal(session_id, **kw) -> AITaskProposal:
 
 def _make_upload_file(
     filename: str | None, content: bytes, content_type: str | None = "text/plain"
-):
+) -> UploadFile:
     import io
 
-    from starlette.datastructures import Headers, UploadFile
+    from starlette.datastructures import Headers
 
     headers = Headers({"content-type": content_type}) if content_type is not None else Headers()
     return UploadFile(filename=filename, file=io.BytesIO(content), headers=headers)
@@ -143,6 +145,56 @@ class TestClearMessages:
 
 
 class TestSendMessageFeatureRequest:
+    async def test_plan_command_routes_to_plan_mode_handler(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import get_user_projects_cache_key
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Backlog")]
+        cached_project.status_columns[0].name = "Backlog"
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+
+        plan_response = ChatMessage(
+            session_id=mock_session.session_id,
+            sender_type=SenderType.ASSISTANT,
+            content="Plan drafted.",
+            action_type=ActionType.PLAN_CREATE,
+            action_data={"plan_id": "plan-123", "status": "draft"},
+        )
+        mock_chat_agent_service.run_plan.return_value = plan_response
+
+        with patch(
+            "src.api.chat._resolve_repository",
+            new=AsyncMock(return_value=("octocat", "hello-world")),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages",
+                json={"content": "/plan change app title to hello world for Solune"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["action_type"] == "plan_create"
+        assert data["action_data"]["plan_id"] == "plan-123"
+        mock_chat_agent_service.run.assert_not_called()
+        mock_chat_agent_service.run_plan.assert_awaited_once()
+
+        call_kwargs = mock_chat_agent_service.run_plan.call_args.kwargs
+        assert call_kwargs["message"] == "change app title to hello world for Solune"
+        assert call_kwargs["project_name"] == "Roadmap"
+        assert call_kwargs["available_statuses"] == ["Backlog"]
+        assert call_kwargs["repo_owner"] == "octocat"
+        assert call_kwargs["repo_name"] == "hello-world"
+
     async def test_no_project_selected(self, client, mock_session):
         mock_session.selected_project_id = None
         resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
@@ -408,6 +460,68 @@ class TestSendMessageTaskGeneration:
 
 
 class TestSendMessageStream:
+    async def test_stream_plan_command_routes_to_plan_mode_stream(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        import src.api.chat as chat_mod
+        from src.models.chat import ActionType, ChatMessage, SenderType
+        from src.services.cache import get_user_projects_cache_key
+
+        mock_session.selected_project_id = "PVT_1"
+
+        cached_project = MagicMock()
+        cached_project.project_id = "PVT_1"
+        cached_project.name = "Roadmap"
+        cached_project.status_columns = [MagicMock(name="Backlog"), MagicMock(name="Done")]
+        cached_project.status_columns[0].name = "Backlog"
+        cached_project.status_columns[1].name = "Done"
+        chat_mod.cache.set(
+            get_user_projects_cache_key(mock_session.github_user_id), [cached_project]
+        )
+
+        async def stream_events():
+            yield {
+                "event": "thinking",
+                "data": json.dumps({"phase": "planning", "detail": "Drafting implementation plan"}),
+            }
+            yield {
+                "event": "done",
+                "data": ChatMessage(
+                    session_id=mock_session.session_id,
+                    sender_type=SenderType.ASSISTANT,
+                    content="Plan drafted.",
+                    action_type=ActionType.PLAN_CREATE,
+                    action_data={"plan_id": "plan-stream", "status": "draft"},
+                ).model_dump_json(),
+            }
+
+        mock_chat_agent_service.run_plan_stream = MagicMock(return_value=stream_events())
+
+        with patch(
+            "src.api.chat._resolve_repository",
+            new=AsyncMock(return_value=("octocat", "hello-world")),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages/stream",
+                json={"content": "/plan change app title to hello world for Solune"},
+            )
+
+        assert resp.status_code == 200
+        events = _parse_sse_events(resp.text)
+        done_event = next(event for event in events if event["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["action_data"]["plan_id"] == "plan-stream"
+
+        mock_chat_agent_service.run_stream.assert_not_called()
+        mock_chat_agent_service.run_plan_stream.assert_called_once()
+        call_kwargs = mock_chat_agent_service.run_plan_stream.call_args.kwargs
+        assert call_kwargs["message"] == "change app title to hello world for Solune"
+        assert call_kwargs["project_name"] == "Roadmap"
+        assert call_kwargs["available_statuses"] == ["Backlog", "Done"]
+        assert call_kwargs["repo_owner"] == "octocat"
+        assert call_kwargs["repo_name"] == "hello-world"
+
     async def test_stream_persists_post_processed_assistant_message(
         self, client, mock_session, mock_chat_agent_service
     ):
@@ -998,57 +1112,49 @@ class TestTranscriptHelpers:
         assert resp.status_code == 400
         assert resp.json()["detail"] == "Only draft plans can be updated."
 
-    async def test_approve_plan_returns_sanitized_partial_failure_payload(
+    async def test_approve_plan_launches_pipeline_with_rendered_markdown(
         self, client, mock_db, mock_session
     ):
-        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-partial")
+        from src.models.workflow import WorkflowResult
+
+        await _save_plan(
+            mock_db,
+            str(mock_session.session_id),
+            plan_id="plan-launch",
+            selected_pipeline_id="pipeline-123",
+        )
 
         with patch(
-            "src.services.plan_issue_service.create_plan_issues",
+            "src.api.pipelines.execute_pipeline_launch",
             new=AsyncMock(
-                return_value={
-                    "parent_issue_number": 101,
-                    "parent_issue_url": "https://github.com/octocat/hello-world/issues/101",
-                    "created_issues": [
-                        {
-                            "step_id": "step-1",
-                            "issue_number": 102,
-                            "issue_url": "https://github.com/octocat/hello-world/issues/102",
-                            "title": "Investigate planning mode",
-                            "error": "should not leak",
-                        }
-                    ],
-                    "failed_steps": [
-                        {
-                            "step_id": "step-2",
-                            "position": 1,
-                            "title": "Create GitHub issues",
-                            "error": "GitHub 403: secret backend details",
-                        }
-                    ],
-                }
+                return_value=WorkflowResult(
+                    success=True,
+                    issue_id="I_node_101",
+                    issue_number=101,
+                    issue_url="https://github.com/octocat/hello-world/issues/101",
+                    project_item_id="PVTI_101",
+                    current_status="Backlog",
+                    message="Issue #101 created, added to the project, and launched with the selected pipeline.",
+                )
             ),
-        ):
-            resp = await client.post("/api/v1/chat/plans/plan-partial/approve")
+        ) as mock_launch:
+            resp = await client.post("/api/v1/chat/plans/plan-launch/approve")
 
-        assert resp.status_code == 502
+        assert resp.status_code == 200
         data = resp.json()
-        assert data["error"] == "Partial issue creation failure"
-        assert data["created_issues"] == [
-            {
-                "step_id": "step-1",
-                "issue_number": 102,
-                "issue_url": "https://github.com/octocat/hello-world/issues/102",
-            }
-        ]
-        assert data["failed_steps"] == [
-            {
-                "step_id": "step-2",
-                "position": 1,
-                "title": "Create GitHub issues",
-                "error": "Issue creation failed",
-            }
-        ]
+        assert data["status"] == "completed"
+        assert data["parent_issue_number"] == 101
+        assert data["parent_issue_url"] == "https://github.com/octocat/hello-world/issues/101"
+
+        launch_call = mock_launch.await_args
+        assert launch_call is not None
+        call_kwargs = launch_call.kwargs
+        assert call_kwargs["project_id"] == "PVT_1"
+        assert call_kwargs["pipeline_id"] == "pipeline-123"
+        assert call_kwargs["session"].access_token == mock_session.access_token
+        assert call_kwargs["issue_description"].startswith("# Planning Mode")
+        assert "## Implementation Steps" in call_kwargs["issue_description"]
+        assert "### Step 1: Investigate planning mode" in call_kwargs["issue_description"]
 
     async def test_approve_plan_marks_plan_failed_when_issue_creation_raises(
         self, client, mock_db, mock_session
@@ -1058,7 +1164,7 @@ class TestTranscriptHelpers:
         await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-error")
 
         with patch(
-            "src.services.plan_issue_service.create_plan_issues",
+            "src.api.pipelines.execute_pipeline_launch",
             new=AsyncMock(side_effect=RuntimeError("GitHub 500: secret details")),
         ):
             resp = await client.post("/api/v1/chat/plans/plan-error/approve")
@@ -1071,6 +1177,76 @@ class TestTranscriptHelpers:
         updated = await get_plan(mock_db, "plan-error")
         assert updated is not None
         assert updated["status"] == "failed"
+
+    async def test_approve_plan_marks_failed_when_pipeline_launch_returns_no_issue(
+        self, client, mock_db, mock_session
+    ):
+        from src.models.workflow import WorkflowResult
+        from src.services.chat_store import get_plan
+
+        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-no-issue")
+
+        with patch(
+            "src.api.pipelines.execute_pipeline_launch",
+            new=AsyncMock(
+                return_value=WorkflowResult(
+                    success=False,
+                    issue_id=None,
+                    issue_number=None,
+                    issue_url=None,
+                    project_item_id=None,
+                    current_status="error",
+                    message="We couldn't launch the pipeline from this issue description. Please try again.",
+                )
+            ),
+        ):
+            resp = await client.post("/api/v1/chat/plans/plan-no-issue/approve")
+
+        assert resp.status_code == 502
+        data = resp.json()
+        assert data["error"] == "GitHub issue creation failed"
+        assert (
+            data["detail"]
+            == "We couldn't launch the pipeline from this issue description. Please try again."
+        )
+
+        updated = await get_plan(mock_db, "plan-no-issue")
+        assert updated is not None
+        assert updated["status"] == "failed"
+
+    async def test_approve_plan_completes_when_parent_issue_exists_but_launch_warns(
+        self, client, mock_db, mock_session
+    ):
+        from src.models.workflow import WorkflowResult
+        from src.services.chat_store import get_plan
+
+        await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-warning")
+
+        with patch(
+            "src.api.pipelines.execute_pipeline_launch",
+            new=AsyncMock(
+                return_value=WorkflowResult(
+                    success=False,
+                    issue_id="I_node_202",
+                    issue_number=202,
+                    issue_url="https://github.com/octocat/hello-world/issues/202",
+                    project_item_id="PVTI_202",
+                    current_status="Backlog",
+                    message="The parent issue was created, but the first agent could not be assigned automatically. Open the issue to continue from the board.",
+                )
+            ),
+        ):
+            resp = await client.post("/api/v1/chat/plans/plan-warning/approve")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "completed"
+        assert data["parent_issue_number"] == 202
+
+        updated = await get_plan(mock_db, "plan-warning")
+        assert updated is not None
+        assert updated["status"] == "completed"
+        assert updated["parent_issue_number"] == 202
 
     async def test_exit_plan_mode_calls_chat_agent_service(self, client, mock_db, mock_session):
         await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-exit")
@@ -1624,11 +1800,17 @@ class TestConfirmProposalEdgeCases:
             )
 
         assert resp.status_code == 200
-        mock_load_selected.assert_awaited_once_with("PVT_1", "pipe-easy")
+        mock_load_selected.assert_awaited_once_with(
+            "PVT_1",
+            "pipe-easy",
+            github_user_id=mock_session.github_user_id,
+        )
         mock_resolve_fallback.assert_not_called()
         set_config_call = mock_set_config.await_args_list[-1]
         assert set_config_call.args[1].agent_mappings == selected_mappings
-        create_subissues_ctx = mock_orch.return_value.create_all_sub_issues.await_args.args[0]
+        create_subissues_call = mock_orch.return_value.create_all_sub_issues.await_args
+        assert create_subissues_call is not None
+        create_subissues_ctx = create_subissues_call.args[0]
         assert create_subissues_ctx.selected_pipeline_id == "pipe-easy"
         assert create_subissues_ctx.config.agent_mappings == selected_mappings
         assert proposal.pipeline_name == "Easy"
@@ -2027,7 +2209,9 @@ class TestConfirmProposalFallbacks:
         assert existing_config.repository_name == "repo"
         assert existing_config.copilot_assignee == "copilot-swe-agent"
         assert mock_set_config.await_args.args[1].agent_mappings == pipeline_result.agent_mappings
-        create_ctx = mock_orch.return_value.create_all_sub_issues.await_args.args[0]
+        create_subissues_call = mock_orch.return_value.create_all_sub_issues.await_args
+        assert create_subissues_call is not None
+        create_ctx = create_subissues_call.args[0]
         assert create_ctx.user_chat_model == "gpt-4.1-mini"
         assert create_ctx.user_agent_model == "o4-mini"
         assert create_ctx.user_reasoning_effort == "high"
@@ -2093,7 +2277,11 @@ class TestConfirmProposalFallbacks:
             )
 
         assert resp.status_code == 200
-        mock_load_selected.assert_awaited_once_with("PVT_1", "pipe-missing")
+        mock_load_selected.assert_awaited_once_with(
+            "PVT_1",
+            "pipe-missing",
+            github_user_id=mock_session.github_user_id,
+        )
         mock_resolve_fallback.assert_awaited_once_with("PVT_1", mock_session.github_user_id)
         assert (
             mock_set_config.await_args_list[-1].args[1].agent_mappings
@@ -2388,6 +2576,7 @@ class TestUploadFileValidationDirect:
 
         resp = await upload_file(file=_make_upload_file(None, b"hello"), session=mock_session)
 
+        assert isinstance(resp, JSONResponse)
         assert resp.status_code == 400
         assert json.loads(resp.body) == {
             "filename": "",
@@ -2402,6 +2591,7 @@ class TestUploadFileValidationDirect:
             file=_make_upload_file("notes.xyz", b"hello"), session=mock_session
         )
 
+        assert isinstance(resp, JSONResponse)
         assert resp.status_code == 415
         assert json.loads(resp.body)["error_code"] == "unsupported_type"
 
@@ -2410,6 +2600,7 @@ class TestUploadFileValidationDirect:
 
         resp = await upload_file(file=_make_upload_file("notes.txt", b""), session=mock_session)
 
+        assert isinstance(resp, JSONResponse)
         assert resp.status_code == 400
         assert json.loads(resp.body)["error_code"] == "empty_file"
 
@@ -2422,6 +2613,7 @@ class TestUploadFileValidationDirect:
                 session=mock_session,
             )
 
+        assert isinstance(resp, JSONResponse)
         assert resp.status_code == 413
         assert json.loads(resp.body)["error_code"] == "file_too_large"
 
@@ -2433,6 +2625,7 @@ class TestUploadFileValidationDirect:
             session=mock_session,
         )
 
+        assert not isinstance(resp, JSONResponse)
         assert resp.content_type == "application/octet-stream"
         assert resp.file_size == 5
         stored_path = Path(tempfile.gettempdir()) / "chat-uploads" / Path(resp.file_url).name
@@ -2458,5 +2651,6 @@ class TestUploadFileValidationDirect:
                 session=mock_session,
             )
 
+        assert isinstance(resp, JSONResponse)
         assert resp.status_code == 400
         assert json.loads(resp.body)["error_code"] == "invalid_filename"

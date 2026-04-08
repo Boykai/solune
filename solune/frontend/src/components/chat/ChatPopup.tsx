@@ -11,6 +11,8 @@ import type {
   IssueCreateActionData,
   WorkflowResult,
   StatusChangeProposal,
+  PlanApprovalResponse,
+  ThinkingPhase,
 } from '@/types';
 import { ChatInterface } from './ChatInterface';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -66,6 +68,15 @@ interface ChatPopupProps {
   onRejectProposal: (proposalId: string) => void;
   onRejectRecommendation: (recommendationId: string) => Promise<void>;
   onNewChat: () => void;
+  thinkingPhase?: ThinkingPhase | null;
+  thinkingDetail?: string;
+  isPlanMode?: boolean;
+  planProjectName?: string;
+  onApprovePlan?: (planId: string) => Promise<PlanApprovalResponse>;
+  onExitPlanMode?: (planId: string) => Promise<void>;
+  approvedPlanData?: PlanApprovalResponse | null;
+  isApprovingPlan?: boolean;
+  approvePlanError?: string | null;
 }
 
 export function ChatPopup({
@@ -86,6 +97,15 @@ export function ChatPopup({
   onRejectProposal,
   onRejectRecommendation,
   onNewChat,
+  thinkingPhase,
+  thinkingDetail,
+  isPlanMode,
+  planProjectName,
+  onApprovePlan,
+  onExitPlanMode,
+  approvedPlanData,
+  isApprovingPlan,
+  approvePlanError,
 }: ChatPopupProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [size, setSize] = useState(loadSize);
@@ -273,6 +293,15 @@ export function ChatPopup({
           onRejectProposal={onRejectProposal}
           onRejectRecommendation={onRejectRecommendation}
           onNewChat={onNewChat}
+          thinkingPhase={thinkingPhase}
+          thinkingDetail={thinkingDetail}
+          isPlanMode={isPlanMode}
+          planProjectName={planProjectName}
+          onApprovePlan={onApprovePlan}
+          onExitPlanMode={onExitPlanMode}
+          approvedPlanData={approvedPlanData}
+          isApprovingPlan={isApprovingPlan}
+          approvePlanError={approvePlanError}
         />
       </div>
     </>

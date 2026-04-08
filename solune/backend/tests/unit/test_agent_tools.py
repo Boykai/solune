@@ -18,6 +18,7 @@ from src.services.agent_tools import (
     create_issue_recommendation,
     create_project_issue,
     create_task_proposal,
+    extract_embedded_action_payload,
     generate_app_questions,
     get_app_template,
     get_pipeline_list,
@@ -27,7 +28,9 @@ from src.services.agent_tools import (
     launch_pipeline,
     list_app_templates,
     load_mcp_tools,
+    register_plan_tools,
     register_tools,
+    save_plan,
     select_pipeline_preset,
     update_task_status,
 )
@@ -53,6 +56,26 @@ class TestCreateTaskProposal:
         assert result["action_data"]["proposed_title"] == "Fix login bug"
         assert result["action_data"]["proposed_description"] == "Fix the login flow"
         assert "confirm" in result["content"].lower()
+
+    async def test_embeds_transport_payload_in_content(self):
+        ctx = _make_context()
+        result: ToolResult = await create_task_proposal(
+            ctx,
+            title="Fix login bug",
+            description="Fix the login flow",
+        )
+
+        cleaned_content, action_type, action_data = extract_embedded_action_payload(
+            result["content"]
+        )
+
+        assert cleaned_content is not None
+        assert "Fix login bug" in cleaned_content
+        assert action_type == "task_create"
+        assert action_data == {
+            "proposed_title": "Fix login bug",
+            "proposed_description": "Fix the login flow",
+        }
 
     async def test_truncates_long_title(self):
         ctx = _make_context()
@@ -263,6 +286,62 @@ class TestRegisterTools:
         assert "build_app" in tool_names
         assert "iterate_on_app" in tool_names
         assert "generate_app_questions" in tool_names
+
+    def test_plan_tools_restore_standard_actions_and_save_plan(self):
+        tools = register_plan_tools()
+        tool_names = [t.name for t in tools]
+
+        assert len(tools) == 18
+        assert "create_task_proposal" in tool_names
+        assert "create_issue_recommendation" in tool_names
+        assert "update_task_status" in tool_names
+        assert "create_project_issue" in tool_names
+        assert "launch_pipeline" in tool_names
+        assert "import_github_repo" in tool_names
+        assert "build_app" in tool_names
+        assert "iterate_on_app" in tool_names
+        assert "generate_app_questions" in tool_names
+        assert tool_names.count("save_plan") == 1
+
+
+class TestSavePlan:
+    @patch("src.services.database.get_db")
+    @patch("src.services.chat_store.save_plan", new_callable=AsyncMock)
+    async def test_falls_back_to_global_db_when_session_state_drops_db(
+        self,
+        mock_save_plan,
+        mock_get_db,
+    ):
+        sentinel_db = object()
+        mock_get_db.return_value = sentinel_db
+
+        ctx = _make_context(
+            session_id="session-1",
+            project_id="PVT_1",
+            project_name="Roadmap",
+            repo_owner="octocat",
+            repo_name="hello-world",
+        )
+
+        result = await save_plan(
+            ctx,
+            title="Recover DB fallback",
+            summary="Ensure save_plan can persist when the provider strips db from session state.",
+            steps=[
+                {
+                    "title": "Persist draft",
+                    "description": "Save a plan step using the global DB fallback.",
+                    "dependencies": [],
+                }
+            ],
+        )
+
+        assert result["action_type"] == "plan_create"
+        assert mock_save_plan.await_count == 1
+        saved_plan = mock_save_plan.await_args.args[1]
+        assert mock_save_plan.await_args.args[0] is sentinel_db
+        assert saved_plan.session_id == "session-1"
+        assert saved_plan.project_id == "PVT_1"
 
 
 # ── app builder tools ─────────────────────────────────────────────────────

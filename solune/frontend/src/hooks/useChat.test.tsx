@@ -29,6 +29,8 @@ vi.mock('@/services/api', () => ({
     getMessages: vi.fn(),
     sendMessage: vi.fn(),
     sendMessageStream: vi.fn(),
+    sendPlanMessage: vi.fn(),
+    sendPlanMessageStream: vi.fn(),
     clearMessages: vi.fn(),
     confirmProposal: vi.fn(),
     cancelProposal: vi.fn(),
@@ -63,6 +65,8 @@ const mockChatApi = api.chatApi as unknown as {
   getMessages: ReturnType<typeof vi.fn>;
   sendMessage: ReturnType<typeof vi.fn>;
   sendMessageStream: ReturnType<typeof vi.fn>;
+  sendPlanMessage: ReturnType<typeof vi.fn>;
+  sendPlanMessageStream: ReturnType<typeof vi.fn>;
   clearMessages: ReturnType<typeof vi.fn>;
   confirmProposal: ReturnType<typeof vi.fn>;
   cancelProposal: ReturnType<typeof vi.fn>;
@@ -104,6 +108,26 @@ describe('useChat', () => {
       ) => {
         try {
           const response = await (mockChatApi.sendMessage as unknown as (data: unknown) => Promise<unknown>)(_data);
+          onDone(response);
+        } catch (err) {
+          onError(err instanceof Error ? err : new Error(String(err)));
+        }
+      },
+    );
+    mockChatApi.sendPlanMessageStream.mockImplementation(
+      async (
+        data: unknown,
+        _onToken: (content: string) => void,
+        onThinking: (event: { phase: string; detail?: string }) => void,
+        onDone: (msg: unknown) => void,
+        onError: (err: Error) => void,
+      ) => {
+        onThinking({ phase: 'planning', detail: 'Drafting implementation plan…' });
+
+        try {
+          const response = await (
+            mockChatApi.sendPlanMessage as unknown as (payload: unknown) => Promise<unknown>
+          )(data);
           onDone(response);
         } catch (err) {
           onError(err instanceof Error ? err : new Error(String(err)));
@@ -317,6 +341,105 @@ describe('useChat', () => {
       (m) => m.content === 'Bad message' && m.status === 'failed'
     );
     expect(failedMsg).toBeDefined();
+  });
+
+  it('routes slash-plan requests through the dedicated plan transport', async () => {
+    mockChatApi.getMessages.mockResolvedValue({ messages: [] });
+    mockChatApi.sendPlanMessage.mockResolvedValue({
+      message_id: 'plan-msg-1',
+      session_id: 's1',
+      sender_type: 'assistant',
+      content: 'Plan drafted.',
+      timestamp: '2024-01-01T00:00:02Z',
+      action_type: 'plan_create',
+      action_data: {
+        plan_id: 'plan-1',
+        title: 'Change app title',
+        summary: 'Update the application title to hello world.',
+        status: 'draft',
+        project_id: 'PVT_1',
+        project_name: 'Roadmap',
+        repo_owner: 'octocat',
+        repo_name: 'hello-world',
+        steps: [],
+      },
+    });
+
+    const onPlanThinking = vi.fn();
+    const clearPlanThinking = vi.fn();
+    const { result } = renderHook(
+      () => useChat({ onPlanThinking, clearPlanThinking }),
+      {
+        wrapper: createWrapper(),
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.sendMessage('/plan change app title to hello world', {
+        isCommand: true,
+      });
+    });
+
+    expect(mockChatApi.sendPlanMessageStream).toHaveBeenCalledOnce();
+    expect(mockChatApi.sendPlanMessageStream.mock.calls[0][0]).toEqual({
+      content: '/plan change app title to hello world',
+      ai_enhance: true,
+      file_urls: [],
+      pipeline_id: undefined,
+    });
+    expect(mockChatApi.sendMessageStream).not.toHaveBeenCalled();
+    expect(onPlanThinking).toHaveBeenCalledWith({
+      phase: 'planning',
+      detail: 'Drafting implementation plan…',
+    });
+  });
+
+  it('keeps plan refinements on the dedicated plan transport while plan mode is active', async () => {
+    mockChatApi.getMessages.mockResolvedValue({ messages: [] });
+    mockChatApi.sendPlanMessage.mockResolvedValue({
+      message_id: 'plan-msg-2',
+      session_id: 's1',
+      sender_type: 'assistant',
+      content: 'Plan refined.',
+      timestamp: '2024-01-01T00:00:03Z',
+      action_type: 'plan_create',
+      action_data: {
+        plan_id: 'plan-2',
+        title: 'Refine plan',
+        summary: 'Tighten the rollout steps.',
+        status: 'draft',
+        project_id: 'PVT_1',
+        project_name: 'Roadmap',
+        repo_owner: 'octocat',
+        repo_name: 'hello-world',
+        steps: [],
+      },
+    });
+
+    const { result } = renderHook(() => useChat({ isPlanMode: true }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.sendMessage('tighten the rollout sequencing');
+    });
+
+    expect(mockChatApi.sendPlanMessageStream).toHaveBeenCalledOnce();
+    expect(mockChatApi.sendPlanMessageStream.mock.calls[0][0]).toEqual({
+      content: 'tighten the rollout sequencing',
+      ai_enhance: true,
+      file_urls: [],
+      pipeline_id: undefined,
+    });
+    expect(mockChatApi.sendMessageStream).not.toHaveBeenCalled();
   });
 
   // ── Command interception tests (AI review recommendation) ────────────────

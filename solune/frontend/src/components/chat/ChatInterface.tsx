@@ -518,6 +518,8 @@ export function ChatInterface({
             const recommendation = recommendationId
               ? pendingRecommendations.get(recommendationId)
               : null;
+            const isPlanCreateMessage =
+              message.action_type === 'plan_create' && !!message.action_data;
 
             return (
               <div key={message.message_id} className="flex flex-col gap-2">
@@ -530,14 +532,16 @@ export function ChatInterface({
                     <div className="flex-1 h-px bg-border" />
                   </div>
                 )}
-                <MessageBubble
-                  message={message}
-                  onRetry={
-                    message.status === 'failed'
-                      ? () => onRetryMessage(message.message_id)
-                      : undefined
-                  }
-                />
+                {!isPlanCreateMessage && (
+                  <MessageBubble
+                    message={message}
+                    onRetry={
+                      message.status === 'failed'
+                        ? () => onRetryMessage(message.message_id)
+                        : undefined
+                    }
+                  />
+                )}
 
                 {proposal && message.action_type === 'task_create' && (
                   <TaskPreview

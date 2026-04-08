@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useChat } from '@/hooks/useChat';
+import { usePlan } from '@/hooks/usePlan';
 import { useWorkflow } from '@/hooks/useWorkflow';
 import { useSignalBanners, useDismissBanner } from '@/hooks/useSettings';
 import { useSidebarState } from '@/hooks/useSidebarState';
@@ -29,6 +30,7 @@ import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 import { KeyboardShortcutModal } from '@/components/ui/keyboard-shortcut-modal';
 import { CommandPalette } from '@/components/command-palette/CommandPalette';
 import { BreadcrumbProvider } from '@/hooks/useBreadcrumb';
+import type { Plan, PlanCreateActionData } from '@/types';
 
 /** Dismissible Signal conflict banner bar. */
 function SignalBannerBar() {
@@ -85,6 +87,20 @@ export function AppLayout() {
   const recentInteractions = useRecentParentIssues(boardData);
   const { notifications, unreadCount, markAllRead } = useNotifications();
 
+  const {
+    activePlan,
+    setActivePlan,
+    isPlanMode,
+    setIsPlanMode,
+    thinkingPhase,
+    setThinkingPhase,
+    thinkingDetail,
+    setThinkingDetail,
+    clearThinking,
+    approveMutation,
+    exitMutation,
+  } = usePlan();
+
   // Chat hooks — global so chat persists across navigation
   const {
     messages,
@@ -102,7 +118,14 @@ export function AppLayout() {
     rejectProposal,
     updateRecommendationStatus,
     clearChat,
-  } = useChat();
+  } = useChat({
+    isPlanMode,
+    onPlanThinking: (event) => {
+      setThinkingPhase(event.phase);
+      setThinkingDetail(event.detail ?? '');
+    },
+    clearPlanThinking: clearThinking,
+  });
 
   const { confirmRecommendation, rejectRecommendation } = useWorkflow();
 
@@ -120,6 +143,54 @@ export function AppLayout() {
     window.addEventListener('solune:open-command-palette', handleOpenPalette);
     return () => window.removeEventListener('solune:open-command-palette', handleOpenPalette);
   }, []);
+
+  useEffect(() => {
+    const latestMessage = messages[messages.length - 1];
+    if (!latestMessage || latestMessage.action_type !== 'plan_create' || !latestMessage.action_data) {
+      return;
+    }
+
+    const planData = latestMessage.action_data as PlanCreateActionData;
+    setActivePlan((current) => {
+      const currentPlanAssets = current?.plan_id === planData.plan_id
+        ? {
+            parent_issue_number: current.parent_issue_number,
+            parent_issue_url: current.parent_issue_url,
+            status: current.status,
+            created_at: current.created_at,
+          }
+        : null;
+
+      const nextPlan: Plan = {
+        plan_id: planData.plan_id,
+        session_id: latestMessage.session_id,
+        title: planData.title,
+        summary: planData.summary,
+        status: currentPlanAssets?.status ?? planData.status,
+        version: current?.plan_id === planData.plan_id ? current.version : 1,
+        project_id: planData.project_id,
+        project_name: planData.project_name,
+        repo_owner: planData.repo_owner,
+        repo_name: planData.repo_name,
+        parent_issue_number: currentPlanAssets?.parent_issue_number,
+        parent_issue_url: currentPlanAssets?.parent_issue_url,
+        steps: planData.steps,
+        created_at: currentPlanAssets?.created_at ?? latestMessage.timestamp,
+        updated_at: latestMessage.timestamp,
+      };
+
+      if (current && JSON.stringify(current) === JSON.stringify(nextPlan)) {
+        return current;
+      }
+
+      return nextPlan;
+    });
+    setIsPlanMode(true);
+  }, [messages, setActivePlan, setIsPlanMode]);
+
+  const approvePlanError = approveMutation.error instanceof Error
+    ? approveMutation.error.message
+    : null;
 
   return (
     <OnboardingProvider>
@@ -203,7 +274,23 @@ export function AppLayout() {
             await rejectRecommendation(recommendationId);
             updateRecommendationStatus(recommendationId, 'rejected');
           }}
-          onNewChat={clearChat}
+          onNewChat={async () => {
+            setActivePlan(null);
+            setIsPlanMode(false);
+            clearThinking();
+            await clearChat();
+          }}
+          thinkingPhase={thinkingPhase}
+          thinkingDetail={thinkingDetail}
+          isPlanMode={isPlanMode}
+          planProjectName={activePlan?.project_name}
+          onApprovePlan={(planId) => approveMutation.mutateAsync(planId)}
+          onExitPlanMode={async (planId) => {
+            await exitMutation.mutateAsync(planId);
+          }}
+          approvedPlanData={approveMutation.data ?? null}
+          isApprovingPlan={approveMutation.isPending}
+          approvePlanError={approvePlanError}
         />
         <SpotlightTour
           isSidebarCollapsed={isCollapsed}

@@ -15,7 +15,12 @@ from uuid import uuid4
 import pytest
 
 from src.models.chat import ActionType, ChatMessage, SenderType
-from src.services.chat_agent import AgentSessionMapping, ChatAgentService
+from src.services.agent_tools import embed_action_payload
+from src.services.chat_agent import (
+    PLAN_CREATE_DRAFT_MESSAGE,
+    AgentSessionMapping,
+    ChatAgentService,
+)
 
 # ── AgentSessionMapping tests ───────────────────────────────────────────
 
@@ -179,6 +184,7 @@ class TestChatAgentServiceRun:
         assert session.state["project_name"] == "My Project"
         assert session.state["project_id"] == "PVT_1"
         assert "Todo" in session.state["available_statuses"]
+        assert mock_create_agent.call_args.kwargs["tool_runtime_state"] is session.state
 
     @patch("src.services.chat_agent.create_agent")
     async def test_run_converts_pipeline_launch_action(self, mock_create_agent):
@@ -267,6 +273,115 @@ class TestChatAgentServiceRun:
         assert result.action_type == ActionType.TASK_CREATE
         assert result.action_data["proposed_title"] == "Add login tests"
         assert result.action_data["proposed_description"] == "Cover edge cases"
+
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_plan_create_uses_safe_draft_copy(self, mock_create_agent):
+        """Plan drafts should not persist raw model claims about created GitHub work."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = json.dumps(
+            {
+                "content": "Done! Created the parent issue and launched the pipeline.",
+                "action_type": "plan_create",
+                "action_data": {"plan_id": "plan-1", "status": "draft"},
+            }
+        )
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        result = await service.run_plan(
+            message="plan a fix",
+            session_id=uuid4(),
+            github_token="test-token",
+            project_name="Roadmap",
+            project_id="PVT_1",
+            repo_owner="octocat",
+            repo_name="hello-world",
+        )
+
+        assert result.action_type == ActionType.PLAN_CREATE
+        assert result.content == PLAN_CREATE_DRAFT_MESSAGE
+
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_plan_preserves_selected_pipeline_across_refinements(self, mock_create_agent):
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = json.dumps(
+            {
+                "content": "Plan drafted.",
+                "action_type": "plan_create",
+                "action_data": {"plan_id": "plan-1", "status": "draft"},
+            }
+        )
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        session_id = uuid4()
+
+        await service.run_plan(
+            message="plan a fix",
+            session_id=session_id,
+            github_token="test-token",
+            project_name="Roadmap",
+            project_id="PVT_1",
+            repo_owner="octocat",
+            repo_name="hello-world",
+            selected_pipeline_id="pipeline-123",
+        )
+
+        await service.run_plan(
+            message="tighten the rollout",
+            session_id=session_id,
+            github_token="test-token",
+            project_name="Roadmap",
+            project_id="PVT_1",
+            repo_owner="octocat",
+            repo_name="hello-world",
+        )
+
+        session = await service._session_mapping.get_or_create(str(session_id))
+        assert session.state["selected_pipeline_id"] == "pipeline-123"
+
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_plan_passes_runtime_state_to_agent_factory(self, mock_create_agent):
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = "Plan drafted."
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        session_id = uuid4()
+
+        await service.run_plan(
+            message="plan a fix",
+            session_id=session_id,
+            github_token="test-token",
+            project_name="Roadmap",
+            project_id="PVT_1",
+            repo_owner="octocat",
+            repo_name="hello-world",
+            selected_pipeline_id="pipeline-123",
+            db=object(),
+        )
+
+        runtime_state = mock_create_agent.call_args.kwargs["tool_runtime_state"]
+        assert runtime_state["session_id"] == str(session_id)
+        assert runtime_state["project_id"] == "PVT_1"
+        assert runtime_state["repo_owner"] == "octocat"
+        assert runtime_state["repo_name"] == "hello-world"
+        assert runtime_state["selected_pipeline_id"] == "pipeline-123"
 
     @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
     @patch("src.services.chat_agent.create_agent")
@@ -513,6 +628,369 @@ class TestChatAgentServiceRunStream:
 
         error_events = [e for e in events if e["event"] == "error"]
         assert len(error_events) == 1
+
+
+class TestChatAgentServiceRunPlanStream:
+    @patch("src.services.chat_agent.on_post_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.on_pre_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent._recover_saved_plan_action", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_plan_stream_normalizes_plan_create_done_copy(
+        self,
+        mock_create_agent,
+        mock_recover_saved_plan_action,
+        mock_pre_tool_use_hook,
+        mock_post_tool_use_hook,
+    ):
+        """Streaming plan drafts should emit safe final copy even if token text is misleading."""
+        mock_agent = AsyncMock()
+        mock_pre_tool_use_hook.return_value = None
+        mock_post_tool_use_hook.return_value = None
+        mock_recover_saved_plan_action.return_value = (None, None)
+
+        async def mock_stream(*args, **kwargs):
+            text_update = MagicMock(spec=["text"])
+            text_update.text = "Done! Parent issue created."
+            yield text_update
+
+            tool_update = MagicMock(spec=["text", "tool_result"])
+            tool_update.text = None
+            tool_update.tool_result = {
+                "action_type": "plan_create",
+                "action_data": {"plan_id": "plan-1", "status": "draft"},
+            }
+            yield tool_update
+
+        mock_agent.run = MagicMock(return_value=mock_stream())
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        events = [
+            event
+            async for event in service.run_plan_stream(
+                message="plan a fix",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_name="Roadmap",
+                project_id="PVT_1",
+                repo_owner="octocat",
+                repo_name="hello-world",
+            )
+        ]
+
+        done_event = next(e for e in events if e["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["content"] == PLAN_CREATE_DRAFT_MESSAGE
+
+    @patch("src.services.chat_agent.on_post_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.on_pre_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent._recover_saved_plan_action", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_plan_stream_extracts_embedded_payload_from_function_result(
+        self,
+        mock_create_agent,
+        mock_recover_saved_plan_action,
+        mock_pre_tool_use_hook,
+        mock_post_tool_use_hook,
+    ):
+        """Plan streams should recover embedded action payloads from Copilot-flattened tool results."""
+        mock_agent = AsyncMock()
+        mock_pre_tool_use_hook.return_value = None
+        mock_post_tool_use_hook.return_value = None
+        mock_recover_saved_plan_action.return_value = (None, None)
+
+        async def mock_stream(*args, **kwargs):
+            text_update = MagicMock(spec=["text"])
+            text_update.text = "The save_plan tool failed due to missing session context."
+            yield text_update
+
+            tool_update = MagicMock()
+            tool_update.text = None
+            tool_update.content = None
+            tool_update.tool_result = None
+            tool_update.additional_properties = None
+            tool_update.annotations = None
+
+            fn_result_content = MagicMock()
+            fn_result_content.type = "function_result"
+            fn_result_content.result = embed_action_payload(
+                "Plan saved: **Parity test** with 2 steps.",
+                "plan_create",
+                {
+                    "plan_id": "plan-1",
+                    "status": "draft",
+                    "steps": [],
+                },
+            )
+            tool_update.contents = [fn_result_content]
+            yield tool_update
+
+        mock_agent.run = MagicMock(return_value=mock_stream())
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        events = [
+            event
+            async for event in service.run_plan_stream(
+                message="plan a fix",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_name="Roadmap",
+                project_id="PVT_1",
+                repo_owner="octocat",
+                repo_name="hello-world",
+            )
+        ]
+
+        tool_event = next(e for e in events if e["event"] == "tool_result")
+        tool_data = json.loads(tool_event["data"])
+        assert tool_data["action_type"] == "plan_create"
+        assert tool_data["action_data"]["plan_id"] == "plan-1"
+
+        done_event = next(e for e in events if e["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["content"] == PLAN_CREATE_DRAFT_MESSAGE
+        assert done_data["action_data"]["plan_id"] == "plan-1"
+
+    @patch("src.services.chat_agent.on_post_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.on_pre_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent._recover_saved_plan_action", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_plan_stream_uses_final_response_when_updates_omit_tool_payload(
+        self,
+        mock_create_agent,
+        mock_recover_saved_plan_action,
+        mock_pre_tool_use_hook,
+        mock_post_tool_use_hook,
+    ):
+        """Plan streams should recover actions from get_final_response() when only text deltas were streamed."""
+        mock_agent = AsyncMock()
+        mock_pre_tool_use_hook.return_value = None
+        mock_post_tool_use_hook.return_value = None
+        mock_recover_saved_plan_action.return_value = (None, None)
+
+        text_update = MagicMock(spec=["text"])
+        text_update.text = "save_plan reported a session error."
+
+        tool_msg = MagicMock()
+        tool_msg.text = None
+        tool_msg.content = None
+        tool_msg.tool_result = None
+        tool_msg.additional_properties = None
+        tool_msg.annotations = None
+
+        fn_result_content = MagicMock()
+        fn_result_content.type = "function_result"
+        fn_result_content.result = embed_action_payload(
+            "Plan saved: **Parity test** with 2 steps.",
+            "plan_create",
+            {
+                "plan_id": "plan-final",
+                "status": "draft",
+                "steps": [],
+            },
+        )
+        tool_msg.contents = [fn_result_content]
+
+        assistant_msg = MagicMock()
+        assistant_msg.text = "Here is the structured smoke-test plan."
+        assistant_msg.content = None
+        assistant_msg.contents = None
+        assistant_msg.tool_result = None
+        assistant_msg.additional_properties = None
+        assistant_msg.annotations = None
+
+        final_response = MagicMock()
+        final_response.text = assistant_msg.text
+        final_response.messages = [tool_msg, assistant_msg]
+
+        class MockStream:
+            def __init__(self, updates, response):
+                self._updates = iter(updates)
+                self.get_final_response = AsyncMock(return_value=response)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return next(self._updates)
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
+
+        stream = MockStream([text_update], final_response)
+        mock_agent.run = MagicMock(return_value=stream)
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        events = [
+            event
+            async for event in service.run_plan_stream(
+                message="plan a fix",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_name="Roadmap",
+                project_id="PVT_1",
+                repo_owner="octocat",
+                repo_name="hello-world",
+            )
+        ]
+
+        done_event = next(e for e in events if e["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["content"] == PLAN_CREATE_DRAFT_MESSAGE
+        assert done_data["action_data"]["plan_id"] == "plan-final"
+
+    @patch("src.services.chat_agent.on_post_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.on_pre_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent._recover_saved_plan_action", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_plan_stream_uses_session_tool_action_when_transport_drops_metadata(
+        self,
+        mock_create_agent,
+        mock_recover_saved_plan_action,
+        mock_pre_tool_use_hook,
+        mock_post_tool_use_hook,
+    ):
+        """Plan streams should fall back to the session-side tool action when Copilot drops metadata."""
+        mock_agent = AsyncMock()
+        mock_pre_tool_use_hook.return_value = None
+        mock_post_tool_use_hook.return_value = None
+        mock_recover_saved_plan_action.return_value = (None, None)
+
+        text_update = MagicMock(spec=["text"])
+        text_update.text = "save_plan reported a session error."
+
+        final_response = MagicMock()
+        final_response.text = "Here is the structured smoke-test plan."
+        final_response.messages = []
+
+        class MockStream:
+            def __init__(self, updates, response):
+                self._updates = iter(updates)
+                self.get_final_response = AsyncMock(return_value=response)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return next(self._updates)
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
+
+        def run_side_effect(*args, **kwargs):
+            session = kwargs["session"]
+            session.state["_last_tool_action"] = {
+                "action_type": "plan_create",
+                "action_data": {
+                    "plan_id": "plan-session",
+                    "status": "draft",
+                    "steps": [],
+                },
+            }
+            return MockStream([text_update], final_response)
+
+        mock_agent.run = MagicMock(side_effect=run_side_effect)
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        events = [
+            event
+            async for event in service.run_plan_stream(
+                message="plan a fix",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_name="Roadmap",
+                project_id="PVT_1",
+                repo_owner="octocat",
+                repo_name="hello-world",
+            )
+        ]
+
+        done_event = next(e for e in events if e["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["content"] == PLAN_CREATE_DRAFT_MESSAGE
+        assert done_data["action_data"]["plan_id"] == "plan-session"
+
+    @patch("src.services.chat_agent.on_post_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.on_pre_tool_use_hook", new_callable=AsyncMock)
+    @patch("src.services.chat_agent._recover_saved_plan_action", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_plan_stream_recovers_saved_plan_from_db_when_transport_drops_metadata(
+        self,
+        mock_create_agent,
+        mock_recover_saved_plan_action,
+        mock_pre_tool_use_hook,
+        mock_post_tool_use_hook,
+    ):
+        """Plan streams should fall back to the saved draft plan when Copilot drops all action metadata."""
+        mock_agent = AsyncMock()
+        mock_pre_tool_use_hook.return_value = None
+        mock_post_tool_use_hook.return_value = None
+        mock_recover_saved_plan_action.return_value = (
+            "plan_create",
+            {
+                "plan_id": "plan-db",
+                "status": "draft",
+                "title": "Recovered plan",
+                "summary": "Recovered from persistence",
+                "project_id": "PVT_1",
+                "project_name": "Roadmap",
+                "repo_owner": "octocat",
+                "repo_name": "hello-world",
+                "steps": [],
+            },
+        )
+
+        text_update = MagicMock(spec=["text"])
+        text_update.text = "save_plan reported a session error."
+
+        class MockStream:
+            def __init__(self, updates, response):
+                self._updates = iter(updates)
+                self.get_final_response = AsyncMock(return_value=response)
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return next(self._updates)
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
+
+        stream = MockStream(
+            [text_update],
+            MagicMock(text="Assistant summary", messages=[]),
+        )
+        mock_agent.run = MagicMock(return_value=stream)
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        events = [
+            event
+            async for event in service.run_plan_stream(
+                message="plan a fix",
+                session_id=uuid4(),
+                github_token="test-token",
+                project_name="Roadmap",
+                project_id="PVT_1",
+                repo_owner="octocat",
+                repo_name="hello-world",
+                db=object(),
+            )
+        ]
+
+        done_event = next(e for e in events if e["event"] == "done")
+        done_data = json.loads(done_event["data"])
+        assert done_data["action_type"] == "plan_create"
+        assert done_data["content"] == PLAN_CREATE_DRAFT_MESSAGE
+        assert done_data["action_data"]["plan_id"] == "plan-db"
 
 
 # ── Provider factory tests ──────────────────────────────────────────────
