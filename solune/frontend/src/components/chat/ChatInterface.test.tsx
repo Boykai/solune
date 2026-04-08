@@ -149,6 +149,15 @@ vi.mock('@/hooks/useMentionAutocomplete', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useSelectedPipeline', () => ({
+  useSelectedPipeline: () => ({
+    pipelineId: '',
+    pipelineName: '',
+    isLoading: false,
+    hasAssignment: false,
+  }),
+}));
+
 // ── Helpers ──
 
 function createMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
