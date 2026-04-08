@@ -48,7 +48,7 @@ describe('useUndoRedo', () => {
       result.current.pushAction(sampleAction);
     });
 
-    let undone!: ReturnType<typeof result.current.undo>;
+    let undone: ReturnType<typeof result.current.undo> = null;
     act(() => {
       undone = result.current.undo();
     });
@@ -70,7 +70,7 @@ describe('useUndoRedo', () => {
       result.current.undo();
     });
 
-    let redone!: ReturnType<typeof result.current.redo>;
+    let redone: ReturnType<typeof result.current.redo> = null;
     act(() => {
       redone = result.current.redo();
     });
@@ -104,7 +104,7 @@ describe('useUndoRedo', () => {
   it('undo returns null when stack is empty', () => {
     const { result } = renderHook(() => useUndoRedo(), { wrapper });
 
-    let undone!: ReturnType<typeof result.current.undo>;
+    let undone: ReturnType<typeof result.current.undo> = null;
     act(() => {
       undone = result.current.undo();
     });
@@ -115,7 +115,7 @@ describe('useUndoRedo', () => {
   it('redo returns null when stack is empty', () => {
     const { result } = renderHook(() => useUndoRedo(), { wrapper });
 
-    let redone!: ReturnType<typeof result.current.redo>;
+    let redone: ReturnType<typeof result.current.redo> = null;
     act(() => {
       redone = result.current.redo();
     });
