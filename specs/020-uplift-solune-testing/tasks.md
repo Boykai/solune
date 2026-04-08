@@ -56,7 +56,7 @@
 ### Implementation for User Story 1
 
 - [ ] T012 [US1] Verify `solune/backend/tests/unit/test_run_mutmut_shard.py:138` uses `@pytest.mark.skipif` with CI workflow YAML condition — confirm conditional infrastructure guard, no removal needed
-- [ ] T013 [US1] Verify `solune/backend/tests/architecture/test_import_rules.py:54,93,116` uses `pytest.skip()` with directory-existence conditions — confirm conditional infrastructure guards, no removal needed
+- [ ] T013 [US1] Verify `solune/backend/tests/architecture/test_import_rules.py` lines 54, 93, and 116 each use `pytest.skip()` with directory-existence conditions — confirm conditional infrastructure guards, no removal needed
 - [ ] T014 [US1] Verify `solune/backend/tests/performance/test_board_load_time.py:40-71` uses `pytest.skip()` with env-var and HTTP-health conditions — confirm conditional infrastructure guards, no removal needed
 - [ ] T015 [US1] Verify `solune/backend/tests/integration/test_custom_agent_assignment.py:45` uses `pytest.skip()` with `GITHUB_TOKEN` env-var condition — confirm conditional infrastructure guard, no removal needed
 - [ ] T016 [US1] Run `uv run pytest tests/ -x -q` from `solune/backend/` and confirm all tests pass (skipped tests skip only due to missing infrastructure)
@@ -127,7 +127,7 @@
 
 > **NOTE: Write tests that assert behavior, not implementation. Cover happy path plus at least one error/edge case. Use existing helpers from `tests/helpers/`.**
 
-- [ ] T030 [P] [US5] Create `solune/backend/tests/unit/test_resolve_repository.py` — test `resolve_repository()` from `solune/backend/src/utils.py`: cache hit returns cached value, GraphQL fallback when cache misses, REST fallback when GraphQL fails, error handling for all fallbacks (minimum 3 tests)
+- [ ] T030 [P] [US5] Create `solune/backend/tests/unit/test_resolve_repository.py` — test `resolve_repository()` from `solune/backend/src/utils.py`: cache hit returns cached value, GraphQL fallback when cache misses, REST fallback when GraphQL fails, error handling for all fallbacks (minimum 4 tests)
 - [ ] T031 [P] [US5] Create or extend `solune/backend/tests/unit/test_webhooks.py` — test HMAC signature validation from `solune/backend/src/api/webhooks.py`: valid signature passes, invalid signature returns 401/403, missing `X-Hub-Signature-256` header handled, replay protection via `_processed_delivery_ids` (minimum 3 tests)
 - [ ] T032 [P] [US5] Create `solune/backend/tests/unit/test_presets.py` — test preset catalog from `solune/backend/src/services/tools/presets.py`: `_PRESETS` tuple iteration and `McpPresetResponse` field validation, filtering by name or category (minimum 2 tests)
 - [ ] T033 [P] [US5] Create or extend `solune/backend/tests/unit/test_encryption.py` — test Fernet encryption from `solune/backend/src/services/encryption.py`: encrypt-then-decrypt roundtrip preserves plaintext, invalid key raises appropriate error (minimum 2 tests)
@@ -296,7 +296,7 @@ With multiple developers:
 | **US6 — Full Validation (P3)** | 11 tasks |
 | **Phase 9 (Polish)** | 3 tasks |
 | **Parallel Opportunities** | 14 tasks marked [P] |
-| **Suggested MVP Scope** | US1 + US2 + US3 (12 tasks) |
+| **Suggested MVP Scope** | Setup + Foundational + US1 + US2 + US3 (23 tasks) |
 
 ---
 
