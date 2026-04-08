@@ -368,7 +368,7 @@ class ChatAgentService:
                 "available_statuses": available_statuses or [],
                 "github_token": github_token,
                 "session_id": str(session_id),
-                "pipeline_id": pipeline_id,
+                "pipeline_id": pipeline_id or "",
                 "file_urls": file_urls or [],
             }
         )
@@ -466,7 +466,7 @@ class ChatAgentService:
                 "available_statuses": available_statuses or [],
                 "github_token": github_token,
                 "session_id": str(session_id),
-                "pipeline_id": pipeline_id,
+                "pipeline_id": pipeline_id or "",
                 "file_urls": file_urls or [],
             }
         )
