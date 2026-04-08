@@ -31,9 +31,13 @@ def _wrap_copilot_tools_with_runtime_state(
     from agent_framework import AgentSession, FunctionInvocationContext, FunctionTool
 
     try:
-        from copilot.types import Tool as CopilotTool
+        import importlib
+
+        copilot_types = importlib.import_module("copilot.types")
     except ImportError:
         CopilotTool = None
+    else:
+        CopilotTool = getattr(copilot_types, "Tool", None)
 
     wrapped_tools: list[Any] = []
     wrapped_count = 0
