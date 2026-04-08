@@ -993,10 +993,15 @@ async def send_message(
     request: Request,
     chat_request: ChatMessageRequest,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> ChatMessage:
+) -> ChatMessage | JSONResponse:
     """Send a chat message and get AI response."""
     # Require project selection
     selected_project_id = require_selected_project(session)
+
+    # /plan must use the dedicated plan-mode toolset. Falling through to the
+    # generic chat agent strips the slash command but leaves save_plan unavailable.
+    if chat_request.content.strip().lower().startswith("/plan"):
+        return await send_plan_message(request, chat_request, session)
 
     # Validate pipeline_id if provided
     if chat_request.pipeline_id:
@@ -1006,7 +1011,9 @@ async def send_message(
             db = get_db()
             pipeline_svc = PipelineService(db)
             pipeline = await pipeline_svc.get_pipeline(
-                selected_project_id, chat_request.pipeline_id
+                selected_project_id,
+                chat_request.pipeline_id,
+                github_user_id=session.github_user_id,
             )
             if pipeline is None:
                 raise ValidationError(f"Pipeline not found: {chat_request.pipeline_id}")
@@ -1368,6 +1375,9 @@ async def send_message_stream(
 
     selected_project_id = require_selected_project(session)
 
+    if chat_request.content.strip().lower().startswith("/plan"):
+        return await send_plan_message_stream(request, chat_request, session)
+
     # Streaming requires the agent — reject unsupported options early.
     if not getattr(chat_request, "ai_enhance", True):
         return JSONResponse(
@@ -1646,7 +1656,9 @@ async def confirm_proposal(
 
             if proposal.selected_pipeline_id:
                 selected_pipeline = await load_pipeline_as_agent_mappings(
-                    project_id, proposal.selected_pipeline_id
+                    project_id,
+                    proposal.selected_pipeline_id,
+                    github_user_id=session.github_user_id,
                 )
                 if selected_pipeline is not None:
                     (
@@ -2018,6 +2030,7 @@ async def send_plan_message(
         available_statuses=project_columns,
         repo_owner=owner,
         repo_name=repo,
+        selected_pipeline_id=chat_request.pipeline_id,
         db=get_db(),
     )
     await add_message(session.session_id, result)
@@ -2091,6 +2104,7 @@ async def send_plan_message_stream(
             available_statuses=project_columns,
             repo_owner=owner,
             repo_name=repo,
+            selected_pipeline_id=chat_request.pipeline_id,
             db=get_db(),
         ):
             if event.get("event") == "done":
@@ -2227,10 +2241,11 @@ async def approve_plan_endpoint(
     plan_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
 ):
-    """Approve a plan and create GitHub issues."""
+    """Approve a plan and launch it through the shared parent-issue pipeline flow."""
+    from src.api.pipelines import execute_pipeline_launch
     from src.models.plan import PlanApprovalResponse, PlanStepResponse
     from src.services import chat_store
-    from src.services.plan_issue_service import create_plan_issues
+    from src.services.plan_issue_service import format_plan_issue_markdown
 
     db = get_db()
     plan = await chat_store.get_plan(db, plan_id)
@@ -2253,12 +2268,11 @@ async def approve_plan_endpoint(
     await chat_store.update_plan_status(db, plan_id, "approved")
 
     try:
-        result = await create_plan_issues(
-            access_token=session.access_token,
-            plan=plan,
-            owner=plan["repo_owner"],
-            repo=plan["repo_name"],
-            db=db,
+        workflow_result = await execute_pipeline_launch(
+            project_id=plan["project_id"],
+            issue_description=format_plan_issue_markdown(plan),
+            pipeline_id=plan.get("selected_pipeline_id"),
+            session=session,
         )
     except Exception:
         logger.error("Plan issue creation failed", exc_info=True)
@@ -2273,36 +2287,63 @@ async def approve_plan_endpoint(
             },
         )
 
-    if result.get("failed_steps"):
-        # Sanitize error messages from failed steps to avoid exposing internals
-        sanitized_steps = [
-            {
-                "step_id": fs["step_id"],
-                "position": fs["position"],
-                "title": fs["title"],
-                "error": "Issue creation failed",
-            }
-            for fs in result["failed_steps"]
-        ]
-        # Sanitize created_issues to only include safe fields
-        sanitized_created = [
-            {
-                "step_id": ci["step_id"],
-                "issue_number": ci["issue_number"],
-                "issue_url": ci["issue_url"],
-            }
-            for ci in result.get("created_issues", [])
-        ]
+    if workflow_result.issue_number and workflow_result.issue_url:
+        await chat_store.update_plan_parent_issue(
+            db,
+            plan_id,
+            workflow_result.issue_number,
+            workflow_result.issue_url,
+        )
+
+    if not workflow_result.issue_number:
+        await chat_store.update_plan_status(db, plan_id, "failed")
         return JSONResponse(
             status_code=502,
             content={
-                "error": "Partial issue creation failure",
+                "error": "GitHub issue creation failed",
                 "plan_id": plan_id,
                 "status": "failed",
-                "created_issues": sanitized_created,
-                "failed_steps": sanitized_steps,
+                "detail": workflow_result.message,
             },
         )
+
+    if not workflow_result.success:
+        logger.warning(
+            "Plan %s created parent issue #%s but pipeline launch returned a warning: %s",
+            plan_id,
+            workflow_result.issue_number,
+            workflow_result.message,
+        )
+
+    await chat_store.update_plan_status(db, plan_id, "completed")
+
+    if workflow_result.issue_number and workflow_result.issue_url:
+        confirmation_prefix = (
+            "✅ GitHub parent issue created for plan"
+            if workflow_result.success
+            else "⚠️ GitHub parent issue created for plan"
+        )
+        confirmation_content = (
+            f"{confirmation_prefix} **{plan['title']}** "
+            f"([#{workflow_result.issue_number}]({workflow_result.issue_url}))"
+        )
+        if not workflow_result.success and workflow_result.message:
+            confirmation_content += f"\n\n{workflow_result.message}"
+
+        confirm_message = ChatMessage(
+            session_id=session.session_id,
+            sender_type=SenderType.SYSTEM,
+            content=confirmation_content,
+            action_type=ActionType.PLAN_CREATE,
+            action_data={
+                "plan_id": plan_id,
+                "parent_issue_number": workflow_result.issue_number,
+                "parent_issue_url": workflow_result.issue_url,
+                "status": "completed",
+            },
+        )
+        await add_message(session.session_id, confirm_message)
+        _trigger_signal_delivery(session, confirm_message)
 
     # Re-fetch for accurate state
     updated_plan = await chat_store.get_plan(db, plan_id)
@@ -2321,8 +2362,8 @@ async def approve_plan_endpoint(
     return PlanApprovalResponse(
         plan_id=plan_id,
         status="completed",
-        parent_issue_number=result.get("parent_issue_number"),
-        parent_issue_url=result.get("parent_issue_url"),
+        parent_issue_number=workflow_result.issue_number,
+        parent_issue_url=workflow_result.issue_url,
         steps=steps,
     )
 

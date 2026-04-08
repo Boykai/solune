@@ -430,9 +430,10 @@ async def save_plan(
             """INSERT INTO chat_plans
                (plan_id, session_id, title, summary, status, version,
                 project_id, project_name, repo_owner, repo_name,
+                                selected_pipeline_id,
                 parent_issue_number, parent_issue_url,
                 created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
+                             VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(plan_id) DO UPDATE SET
                  session_id = excluded.session_id,
                  title = excluded.title,
@@ -442,6 +443,7 @@ async def save_plan(
                  project_name = excluded.project_name,
                  repo_owner = excluded.repo_owner,
                  repo_name = excluded.repo_name,
+                                 selected_pipeline_id = excluded.selected_pipeline_id,
                  parent_issue_number = excluded.parent_issue_number,
                  parent_issue_url = excluded.parent_issue_url,
                  updated_at = excluded.updated_at""",
@@ -455,6 +457,7 @@ async def save_plan(
                 plan.project_name,
                 plan.repo_owner,
                 plan.repo_name,
+                plan.selected_pipeline_id,
                 plan.parent_issue_number,
                 plan.parent_issue_url,
                 plan.created_at or now,
@@ -496,7 +499,7 @@ async def get_plan(
     cursor = await db.execute(
         """SELECT plan_id, session_id, title, summary, status, version,
                   project_id, project_name, repo_owner, repo_name,
-                  parent_issue_number, parent_issue_url,
+                  selected_pipeline_id, parent_issue_number, parent_issue_url,
                   created_at, updated_at
            FROM chat_plans WHERE plan_id = ?""",
         (plan_id,),
@@ -517,10 +520,11 @@ async def get_plan(
             "project_name": row[7],
             "repo_owner": row[8],
             "repo_name": row[9],
-            "parent_issue_number": row[10],
-            "parent_issue_url": row[11],
-            "created_at": row[12],
-            "updated_at": row[13],
+            "selected_pipeline_id": row[10],
+            "parent_issue_number": row[11],
+            "parent_issue_url": row[12],
+            "created_at": row[13],
+            "updated_at": row[14],
         }
     else:
         plan_dict = dict(row)
@@ -560,6 +564,40 @@ async def get_plan(
 
     plan_dict["steps"] = steps
     return plan_dict
+
+
+async def get_latest_plan_for_session(
+    db: aiosqlite.Connection,
+    session_id: str,
+    *,
+    updated_after: str | None = None,
+) -> dict | None:
+    """Return the most recently updated plan for a session."""
+    if updated_after is not None:
+        cursor = await db.execute(
+            """SELECT plan_id
+               FROM chat_plans
+               WHERE session_id = ? AND updated_at >= ?
+               ORDER BY updated_at DESC
+               LIMIT 1""",
+            (session_id, updated_after),
+        )
+    else:
+        cursor = await db.execute(
+            """SELECT plan_id
+               FROM chat_plans
+               WHERE session_id = ?
+               ORDER BY updated_at DESC
+               LIMIT 1""",
+            (session_id,),
+        )
+
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+
+    plan_id = row[0] if isinstance(row, tuple) else row["plan_id"]
+    return await get_plan(db, plan_id)
 
 
 async def update_plan(

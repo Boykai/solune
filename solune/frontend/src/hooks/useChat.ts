@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { STALE_TIME_MEDIUM, TOAST_ERROR_MS } from '@/constants';
 import { chatApi } from '@/services/api';
-import type { ChatMessage, ProposalConfirmRequest } from '@/types';
+import type { ChatMessage, ProposalConfirmRequest, ThinkingEvent } from '@/types';
 import { useCommands } from '@/hooks/useCommands';
 import { generateId } from '@/utils/generateId';
 import { useChatProposals } from './useChatProposals';
@@ -20,7 +20,19 @@ const makeLocalMsg = (sender: 'user' | 'system', content: string): ChatMessage =
   timestamp: new Date().toISOString(),
 });
 
-export function useChat() {
+const isPlanCommand = (content: string) => content.trimStart().toLowerCase().startsWith('/plan');
+
+interface UseChatOptions {
+  isPlanMode?: boolean;
+  onPlanThinking?: (event: ThinkingEvent) => void;
+  clearPlanThinking?: () => void;
+}
+
+export function useChat({
+  isPlanMode = false,
+  onPlanThinking,
+  clearPlanThinking,
+}: UseChatOptions = {}) {
   const queryClient = useQueryClient();
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [streamingContent, setStreamingContent] = useState('');
@@ -89,15 +101,102 @@ export function useChat() {
     },
   });
 
+  const clearStreamingPreview = useCallback(() => {
+    setStreamingContent('');
+    setStreamingError(null);
+    setStreamingMessageId(null);
+  }, []);
+
+  const shouldUsePlanTransport = useCallback(
+    (content: string, isCommandInput = false) => {
+      if (isPlanCommand(content)) {
+        return true;
+      }
+
+      return isPlanMode && !isCommandInput;
+    },
+    [isPlanMode],
+  );
+
+  const handleTransportSuccess = useCallback(
+    (response: ChatMessage, tempId: string, suppressPreview = false) => {
+      setIsStreaming(false);
+
+      if (suppressPreview) {
+        clearStreamingPreview();
+      } else {
+        setStreamingContent(response.content);
+        setStreamingError(null);
+        setStreamingMessageId(response.message_id);
+      }
+
+      clearPlanThinking?.();
+      setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
+      proposals.handleActionResponse(response);
+      queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+    },
+    [clearPlanThinking, clearStreamingPreview, proposals, queryClient],
+  );
+
+  const handleTransportFailure = useCallback(
+    (
+      tempId: string,
+      errorMessage: string,
+      partialContent?: string,
+      suppressPreview = false,
+    ) => {
+      setIsStreaming(false);
+
+      if (suppressPreview) {
+        clearStreamingPreview();
+      } else {
+        setStreamingContent((prev) => partialContent ?? prev);
+        setStreamingError(errorMessage);
+        setStreamingMessageId(null);
+      }
+
+      clearPlanThinking?.();
+      setLocalMessages((prev) =>
+        prev.map((m) =>
+          m.message_id === tempId ? { ...m, status: 'failed' as const } : m,
+        ),
+      );
+      toast.error(errorMessage, { duration: TOAST_ERROR_MS });
+    },
+    [clearPlanThinking, clearStreamingPreview],
+  );
+
   /** Streaming-aware send: uses SSE when ai_enhance is enabled, falls back to non-streaming. */
   const sendMessageStreaming = useCallback(
     (
       data: { content: string; ai_enhance?: boolean; file_urls?: string[]; pipeline_id?: string },
       tempId: string,
+      options?: { isCommandInput?: boolean },
     ): Promise<void> => {
       const useStreaming = data.ai_enhance !== false;
+      const usePlanTransport = shouldUsePlanTransport(
+        data.content,
+        options?.isCommandInput ?? false,
+      );
 
       if (!useStreaming) {
+        if (usePlanTransport) {
+          clearPlanThinking?.();
+
+          return chatApi
+            .sendPlanMessage(data)
+            .then((response) => {
+              handleTransportSuccess(response, tempId, response.action_type === 'plan_create');
+            })
+            .catch((error) => {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to send message — check your connection and try again.';
+              handleTransportFailure(tempId, message, undefined, true);
+            });
+        }
+
         return sendMutation.mutateAsync(data).then(() => {
           setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
         });
@@ -105,9 +204,33 @@ export function useChat() {
 
       return new Promise<void>((resolve) => {
         setIsStreaming(true);
-        setStreamingContent('');
-        setStreamingError(null);
-        setStreamingMessageId(null);
+        clearStreamingPreview();
+
+        if (usePlanTransport) {
+          clearPlanThinking?.();
+
+          chatApi.sendPlanMessageStream(
+            data,
+            () => {
+              // Suppress raw plan-mode token prose. The dedicated thinking events
+              // drive the visible plan progress indicator instead.
+            },
+            (event) => {
+              onPlanThinking?.(event);
+            },
+            (response) => {
+              handleTransportSuccess(response, tempId, response.action_type === 'plan_create');
+              resolve();
+            },
+            (error) => {
+              const message =
+                error.message || 'Failed to send message — check your connection and try again.';
+              handleTransportFailure(tempId, message, undefined, true);
+              resolve();
+            },
+          );
+          return;
+        }
 
         chatApi.sendMessageStream(
           data,
@@ -115,37 +238,29 @@ export function useChat() {
             setStreamingContent((prev) => prev + token);
           },
           (response) => {
-            setIsStreaming(false);
-            setStreamingContent(response.content);
-            setStreamingError(null);
-            setStreamingMessageId(response.message_id);
-            setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
-            proposals.handleActionResponse(response);
-            queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+            handleTransportSuccess(response, tempId);
             resolve();
           },
           (error) => {
-            setIsStreaming(false);
-            setStreamingContent((prev) => error.partialContent ?? prev);
-            setStreamingError(
-              error.message || 'Failed to send message — check your connection and try again.'
-            );
-            setStreamingMessageId(null);
-            setLocalMessages((prev) =>
-              prev.map((m) =>
-                m.message_id === tempId ? { ...m, status: 'failed' as const } : m,
-              ),
-            );
-            toast.error(
+            handleTransportFailure(
+              tempId,
               error.message || 'Failed to send message — check your connection and try again.',
-              { duration: TOAST_ERROR_MS },
+              error.partialContent,
             );
             resolve();
           },
         );
       });
     },
-    [sendMutation, proposals, queryClient],
+    [
+      clearPlanThinking,
+      clearStreamingPreview,
+      handleTransportFailure,
+      handleTransportSuccess,
+      onPlanThinking,
+      sendMutation,
+      shouldUsePlanTransport,
+    ],
   );
 
   const sendMessage = useCallback(
@@ -158,13 +273,14 @@ export function useChat() {
         pipelineId?: string;
       },
     ) => {
-      const isCmd = options?.isCommand || isCommand(content);
+      const isPlanRequest = isPlanCommand(content);
+      const isCmd = !isPlanRequest && (options?.isCommand || isCommand(content));
 
       if (isCmd) {
         try {
           const result = await executeCommand(content);
           if (result.passthrough) {
-            await sendMutation.mutateAsync({ content });
+            await sendMessageStreaming({ content }, generateId(), { isCommandInput: true });
             return;
           }
           setLocalMessages((prev) => [
@@ -225,8 +341,7 @@ export function useChat() {
       );
 
       try {
-        await sendMutation.mutateAsync({ content: msg.content });
-        setLocalMessages((prev) => prev.filter((m) => m.message_id !== messageId));
+        await sendMessageStreaming({ content: msg.content }, messageId);
       } catch {
         setLocalMessages((prev) =>
           prev.map((m) =>
@@ -235,7 +350,7 @@ export function useChat() {
         );
       }
     },
-    [localMessages, sendMutation],
+    [localMessages, sendMessageStreaming],
   );
 
   const confirmProposal = useCallback(

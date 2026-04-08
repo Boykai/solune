@@ -702,15 +702,20 @@ class PipelineService:
         self,
         project_id: str,
         pipeline_id: str,
+        github_user_id: str = "",
     ) -> ProjectPipelineAssignment:
         """Set the pipeline assignment for a project.
 
         Raises ValueError if pipeline_id is non-empty and doesn't exist.
         """
         if pipeline_id:
-            existing = await self.get_pipeline(project_id, pipeline_id)
+            existing = await self.get_pipeline(
+                project_id,
+                pipeline_id,
+                github_user_id=github_user_id,
+            )
             if existing is None:
-                raise ValueError(f"Pipeline '{pipeline_id}' not found in this project.")
+                raise ValueError(f"Pipeline '{pipeline_id}' is no longer available.")
 
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         await self._db.execute(

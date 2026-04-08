@@ -18,6 +18,116 @@ from src.logging_utils import get_logger
 logger = get_logger(__name__)
 
 
+def _wrap_copilot_tools_with_runtime_state(
+    tools: list | None,
+    tool_runtime_state: dict[str, Any] | None,
+) -> list:
+    """Wrap FunctionTools so Copilot tool calls retain Solune runtime session state."""
+    if not tools:
+        return []
+    if tool_runtime_state is None:
+        return tools
+
+    from agent_framework import AgentSession, FunctionInvocationContext, FunctionTool
+
+    try:
+        import importlib
+
+        copilot_types = importlib.import_module("copilot.types")
+    except ImportError:
+        CopilotTool = None
+    else:
+        CopilotTool = getattr(copilot_types, "Tool", None)
+
+    wrapped_tools: list[Any] = []
+    wrapped_count = 0
+
+    for tool_def in tools:
+        if not isinstance(tool_def, FunctionTool):
+            wrapped_tools.append(tool_def)
+            continue
+
+        async def handler(invocation: Any, ai_func: FunctionTool = tool_def) -> dict[str, Any]:
+            args: dict[str, Any] = invocation.arguments or {}
+            tool_call_id = getattr(invocation, "tool_call_id", "") or ""
+            provider_session_id = getattr(invocation, "session_id", "") or None
+
+            tool_session = AgentSession(
+                session_id=str(tool_runtime_state.get("session_id") or provider_session_id or ""),
+                service_session_id=provider_session_id,
+            )
+            tool_session.state = tool_runtime_state
+            try:
+                context = FunctionInvocationContext(
+                    function=ai_func,
+                    arguments=args,
+                    session=tool_session,
+                    kwargs={"tool_call_id": tool_call_id},
+                )
+            except TypeError:
+                context = FunctionInvocationContext(
+                    function=ai_func,
+                    arguments=args,
+                    kwargs={"tool_call_id": tool_call_id},
+                )
+                context.session = tool_session
+                context.kwargs = {"tool_call_id": tool_call_id}
+
+            try:
+                if ai_func.input_model:
+                    args_instance = ai_func.input_model(**args)
+                    result = await ai_func.invoke(
+                        arguments=args_instance,
+                        context=context,
+                        tool_call_id=tool_call_id,
+                    )
+                else:
+                    result = await ai_func.invoke(
+                        arguments=args,
+                        context=context,
+                        tool_call_id=tool_call_id,
+                    )
+
+                rich = [item for item in result if item.type in ("data", "uri")]
+                if rich:
+                    logger.warning(
+                        "GitHub Copilot does not support rich tool content; "
+                        "dropping %d non-text item(s) from '%s'.",
+                        len(rich),
+                        ai_func.name,
+                    )
+                text = "\n".join(item.text for item in result if item.type == "text" and item.text)
+                return {
+                    "text_result_for_llm": text or str(result),
+                    "result_type": "success",
+                }
+            except Exception as exc:
+                return {
+                    "text_result_for_llm": f"Error: {exc}",
+                    "result_type": "failure",
+                    "error": str(exc),
+                }
+
+        tool_payload = {
+            "name": tool_def.name,
+            "description": tool_def.description,
+            "handler": handler,
+            "parameters": tool_def.parameters(),
+        }
+        wrapped_tools.append(
+            CopilotTool(**tool_payload) if CopilotTool is not None else tool_payload
+        )
+        wrapped_count += 1
+
+    if wrapped_count:
+        logger.info(
+            "Wrapped %d Copilot FunctionTool(s) with runtime session state",
+            wrapped_count,
+        )
+
+    return wrapped_tools
+
+
 async def create_agent(
     *,
     instructions: str,
@@ -25,6 +135,7 @@ async def create_agent(
     github_token: str | None = None,
     mcp_servers: dict[str, Any] | None = None,
     reasoning_effort: str = "",
+    tool_runtime_state: dict[str, Any] | None = None,
 ) -> Any:
     """Create an Agent instance for the configured AI provider.
 
@@ -51,6 +162,7 @@ async def create_agent(
             github_token=github_token,
             mcp_servers=mcp_servers,
             reasoning_effort=reasoning_effort,
+            tool_runtime_state=tool_runtime_state,
         )
     elif provider == "azure_openai":
         return _create_azure_agent(
@@ -68,6 +180,7 @@ async def _create_copilot_agent(
     github_token: str | None = None,
     mcp_servers: dict[str, Any] | None = None,
     reasoning_effort: str = "",
+    tool_runtime_state: dict[str, Any] | None = None,
 ) -> Any:
     """Create an Agent using the GitHub Copilot provider.
 
@@ -75,18 +188,19 @@ async def _create_copilot_agent(
     as a MAF-compatible provider. Reuses the shared CopilotClientPool so
     only one CLI server process exists per GitHub token.
     """
-    from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
-    from copilot import PermissionHandler
-
-    from src.services.completion_providers import get_copilot_client_pool
-
     if not github_token:
         raise ValueError(
             "GitHub OAuth token required for Copilot agent provider. "
             "Ensure user is authenticated via GitHub OAuth."
         )
 
+    from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
+    from copilot import PermissionHandler
+
+    from src.services.completion_providers import get_copilot_client_pool
+
     settings = get_settings()
+    effective_tools = _wrap_copilot_tools_with_runtime_state(tools, tool_runtime_state)
 
     options: GitHubCopilotOptions = {
         "model": settings.copilot_model,
@@ -105,7 +219,7 @@ async def _create_copilot_agent(
     agent = GitHubCopilotAgent(
         name="solune-agent",
         instructions=instructions,
-        tools=tools or [],
+        tools=effective_tools,
         default_options=options,
         client=client,
     )

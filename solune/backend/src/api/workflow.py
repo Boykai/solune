@@ -14,6 +14,7 @@ from src.exceptions import AppException, NotFoundError, ValidationError
 from src.logging_utils import get_logger, handle_github_errors, handle_service_error
 from src.middleware.rate_limit import limiter
 from src.models.agent import AgentAssignment, AvailableAgentsResponse
+from src.models.chat import ActionType, ChatMessage, SenderType
 from src.models.recommendation import RecommendationStatus
 from src.models.user import UserSession
 from src.models.workflow import (
@@ -275,6 +276,40 @@ async def confirm_recommendation(
             ctx,
             recommendation,
         )
+
+        if result.issue_number and result.issue_url:
+            from src.api.chat import _trigger_signal_delivery, add_message
+
+            confirmation_prefix = (
+                "✅ GitHub parent issue created"
+                if result.success
+                else "⚠️ GitHub parent issue created with warnings"
+            )
+            confirmation_content = (
+                f"{confirmation_prefix}: **{recommendation.title}** "
+                f"([#{result.issue_number}]({result.issue_url}))"
+            )
+            if not result.success and result.message:
+                confirmation_content += f"\n\n{result.message}"
+
+            confirm_message = ChatMessage(
+                session_id=recommendation.session_id,
+                sender_type=SenderType.SYSTEM,
+                content=confirmation_content,
+                action_type=ActionType.ISSUE_CREATE,
+                action_data={
+                    "recommendation_id": recommendation_id,
+                    "issue_number": result.issue_number,
+                    "issue_url": result.issue_url,
+                    "status": (
+                        RecommendationStatus.CONFIRMED.value
+                        if result.success
+                        else recommendation.status.value
+                    ),
+                },
+            )
+            await add_message(recommendation.session_id, confirm_message)
+            _trigger_signal_delivery(session, confirm_message)
 
         if result.success:
             # Update recommendation status

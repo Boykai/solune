@@ -46,7 +46,10 @@ from src.services.workflow_orchestrator import (
     set_pipeline_state,
     set_workflow_config,
 )
-from src.services.workflow_orchestrator.config import load_pipeline_as_agent_mappings
+from src.services.workflow_orchestrator.config import (
+    load_pipeline_as_agent_mappings,
+    resolve_project_pipeline_mappings,
+)
 from src.utils import resolve_repository, utcnow
 
 if TYPE_CHECKING:
@@ -106,10 +109,11 @@ async def _prepare_workflow_config(
     project_id: str,
     owner: str,
     repo: str,
-    pipeline_id: str,
+    pipeline_id: str | None,
+    github_user_id: str | None = None,
     pipeline_project_id: str | None = None,
-) -> tuple[WorkflowConfiguration, str]:
-    """Load or create the workflow config, then override it with the selected pipeline."""
+) -> tuple[WorkflowConfiguration, str | None, str | None]:
+    """Load or create the workflow config, then resolve the active pipeline mappings."""
     settings = get_settings()
     config = await get_workflow_config(project_id)
     if config is None:
@@ -126,16 +130,28 @@ async def _prepare_workflow_config(
         if not config.copilot_assignee:
             config.copilot_assignee = settings.default_assignee
 
-    lookup_project = pipeline_project_id or project_id
-    pipeline_result = await load_pipeline_as_agent_mappings(lookup_project, pipeline_id)
-    if pipeline_result is None:
-        raise NotFoundError("Selected pipeline config is no longer available")
+    if pipeline_id:
+        lookup_project = pipeline_project_id or project_id
+        pipeline_result = await load_pipeline_as_agent_mappings(
+            lookup_project,
+            pipeline_id,
+            github_user_id=github_user_id or "",
+        )
+        if pipeline_result is None:
+            raise NotFoundError("Selected pipeline config is no longer available")
 
-    config.agent_mappings, pipeline_name, exec_modes, grp_mappings = pipeline_result
-    config.stage_execution_modes = exec_modes
-    config.group_mappings = grp_mappings
+        config.agent_mappings, pipeline_name, exec_modes, grp_mappings = pipeline_result
+        config.stage_execution_modes = exec_modes
+        config.group_mappings = grp_mappings
+        await set_workflow_config(project_id, config)
+        return config, pipeline_name, pipeline_id
+
+    resolution = await resolve_project_pipeline_mappings(project_id, github_user_id or "")
+    config.agent_mappings = resolution.agent_mappings
+    config.stage_execution_modes = resolution.stage_execution_modes
+    config.group_mappings = resolution.group_mappings
     await set_workflow_config(project_id, config)
-    return config, pipeline_name
+    return config, resolution.pipeline_name, resolution.pipeline_id
 
 
 async def _load_user_agent_model(session: UserSession) -> str:
@@ -225,7 +241,6 @@ async def seed_presets(
 )
 async def get_assignment(
     project_id: str,
-    session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> ProjectPipelineAssignment:
     """Get the current pipeline assignment for a project."""
     service = _get_service()
@@ -245,7 +260,11 @@ async def set_assignment(
     """Set the pipeline assignment for a project."""
     service = _get_service()
     try:
-        return await service.set_assignment(project_id, body.pipeline_id)
+        return await service.set_assignment(
+            project_id,
+            body.pipeline_id,
+            github_user_id=session.github_user_id,
+        )
     except ValueError as exc:
         raise NotFoundError(str(exc)) from exc
 
@@ -275,7 +294,7 @@ async def execute_pipeline_launch(
     *,
     project_id: str,
     issue_description: str,
-    pipeline_id: str,
+    pipeline_id: str | None,
     session: UserSession,
     pipeline_project_id: str | None = None,
     target_repo: tuple[str, str] | None = None,
@@ -338,19 +357,14 @@ async def execute_pipeline_launch(
             logger.warning("Transcript analysis failed, using raw description: %s", exc)
 
     service = _get_service()
-    lookup_project = pipeline_project_id or project_id
-    pipeline = await service.get_pipeline(
-        lookup_project, pipeline_id, github_user_id=session.github_user_id
-    )
-    if pipeline is None:
-        raise NotFoundError("Selected pipeline config is no longer available")
 
     try:
-        config, _pipeline_name = await _prepare_workflow_config(
+        config, _pipeline_name, resolved_pipeline_id = await _prepare_workflow_config(
             project_id=project_id,
             owner=owner,
             repo=repo,
             pipeline_id=pipeline_id,
+            github_user_id=session.github_user_id,
             pipeline_project_id=pipeline_project_id,
         )
 
@@ -398,7 +412,12 @@ async def execute_pipeline_launch(
             body=issue_body,
             labels=issue_labels,
         )
-        await service.set_assignment(lookup_project, pipeline_id)
+        if resolved_pipeline_id:
+            await service.set_assignment(
+                project_id,
+                resolved_pipeline_id,
+                github_user_id=session.github_user_id,
+            )
 
         ctx = WorkflowContext(
             session_id=str(session.session_id),
@@ -406,7 +425,7 @@ async def execute_pipeline_launch(
             access_token=session.access_token,
             repository_owner=owner,
             repository_name=repo,
-            selected_pipeline_id=pipeline_id,
+            selected_pipeline_id=resolved_pipeline_id,
             config=config,
             user_agent_model=await _load_user_agent_model(session),
             user_reasoning_effort=await _load_user_reasoning_effort(session),
@@ -418,7 +437,7 @@ async def execute_pipeline_launch(
             get_db(),
             event_type="pipeline_run",
             entity_type="pipeline",
-            entity_id=pipeline_id,
+            entity_id=resolved_pipeline_id or "default",
             project_id=project_id,
             actor=session.github_username,
             action="launched",
@@ -426,7 +445,7 @@ async def execute_pipeline_launch(
             detail={
                 "issue_number": issue["number"],
                 "issue_title": issue_title,
-                "pipeline_name": pipeline.name,
+                "pipeline_name": _pipeline_name or "Default pipeline",
                 "agent_count": len(get_agent_slugs(config, config.status_backlog)),
             },
         )
@@ -583,17 +602,17 @@ async def execute_pipeline_launch(
             get_db(),
             event_type="pipeline_run",
             entity_type="pipeline",
-            entity_id=pipeline_id,
+            entity_id=resolved_pipeline_id or "default",
             project_id=project_id,
             actor=session.github_username,
             action="launched",
             summary=(
-                f"Pipeline launched: {pipeline.name} (#{ctx.issue_number}, {agent_count} agents)"
+                f"Pipeline launched: {_pipeline_name or 'Default pipeline'} (#{ctx.issue_number}, {agent_count} agents)"
             ),
             detail={
                 "issue_number": ctx.issue_number,
                 "agent_count": agent_count,
-                "pipeline_name": pipeline.name,
+                "pipeline_name": _pipeline_name or "Default pipeline",
             },
         )
 
@@ -623,7 +642,11 @@ async def execute_pipeline_launch(
             current_status=status_name,
             message=(
                 f"Issue #{ctx.issue_number} created, added to the project, and launched "
-                "with the selected pipeline."
+                + (
+                    "with the selected pipeline."
+                    if _pipeline_name
+                    else "with the configured default pipeline."
+                )
             ),
         )
     except AppException:
