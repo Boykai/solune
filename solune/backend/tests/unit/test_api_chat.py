@@ -1115,6 +1115,7 @@ class TestTranscriptHelpers:
     async def test_approve_plan_launches_pipeline_with_rendered_markdown(
         self, client, mock_db, mock_session
     ):
+        import src.api.chat as chat_mod
         from src.models.workflow import WorkflowResult
 
         await _save_plan(
@@ -1155,6 +1156,11 @@ class TestTranscriptHelpers:
         assert call_kwargs["issue_description"].startswith("# Planning Mode")
         assert "## Implementation Steps" in call_kwargs["issue_description"]
         assert "### Step 1: Investigate planning mode" in call_kwargs["issue_description"]
+
+        messages = await chat_mod.get_session_messages(mock_session.session_id)
+        assert messages[-1].sender_type.value == "system"
+        assert "GitHub parent issue created for plan" in messages[-1].content
+        assert "https://github.com/octocat/hello-world/issues/101" in messages[-1].content
 
     async def test_approve_plan_marks_plan_failed_when_issue_creation_raises(
         self, client, mock_db, mock_session
@@ -1217,6 +1223,7 @@ class TestTranscriptHelpers:
     async def test_approve_plan_completes_when_parent_issue_exists_but_launch_warns(
         self, client, mock_db, mock_session
     ):
+        import src.api.chat as chat_mod
         from src.models.workflow import WorkflowResult
         from src.services.chat_store import get_plan
 
@@ -1247,6 +1254,11 @@ class TestTranscriptHelpers:
         assert updated is not None
         assert updated["status"] == "completed"
         assert updated["parent_issue_number"] == 202
+
+        messages = await chat_mod.get_session_messages(mock_session.session_id)
+        assert messages[-1].sender_type.value == "system"
+        assert "GitHub parent issue created for plan" in messages[-1].content
+        assert "could not be assigned automatically" in messages[-1].content
 
     async def test_exit_plan_mode_calls_chat_agent_service(self, client, mock_db, mock_session):
         await _save_plan(mock_db, str(mock_session.session_id), plan_id="plan-exit")

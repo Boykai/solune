@@ -2317,6 +2317,34 @@ async def approve_plan_endpoint(
 
     await chat_store.update_plan_status(db, plan_id, "completed")
 
+    if workflow_result.issue_number and workflow_result.issue_url:
+        confirmation_prefix = (
+            "✅ GitHub parent issue created for plan"
+            if workflow_result.success
+            else "⚠️ GitHub parent issue created for plan"
+        )
+        confirmation_content = (
+            f"{confirmation_prefix} **{plan['title']}** "
+            f"([#{workflow_result.issue_number}]({workflow_result.issue_url}))"
+        )
+        if not workflow_result.success and workflow_result.message:
+            confirmation_content += f"\n\n{workflow_result.message}"
+
+        confirm_message = ChatMessage(
+            session_id=session.session_id,
+            sender_type=SenderType.SYSTEM,
+            content=confirmation_content,
+            action_type=ActionType.PLAN_CREATE,
+            action_data={
+                "plan_id": plan_id,
+                "parent_issue_number": workflow_result.issue_number,
+                "parent_issue_url": workflow_result.issue_url,
+                "status": "completed",
+            },
+        )
+        await add_message(session.session_id, confirm_message)
+        _trigger_signal_delivery(session, confirm_message)
+
     # Re-fetch for accurate state
     updated_plan = await chat_store.get_plan(db, plan_id)
     steps = [
