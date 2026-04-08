@@ -53,7 +53,7 @@ describe('useUndoRedo', () => {
       undone = result.current.undo();
     });
 
-    expect(undone!).not.toBeNull();
+    expect(undone).not.toBeNull();
     expect(undone!.entityId).toBe('item-1');
     expect(result.current.canUndo).toBe(false);
     expect(result.current.canRedo).toBe(true);
@@ -75,7 +75,7 @@ describe('useUndoRedo', () => {
       redone = result.current.redo();
     });
 
-    expect(redone!).not.toBeNull();
+    expect(redone).not.toBeNull();
     expect(redone!.entityId).toBe('item-1');
     expect(result.current.canUndo).toBe(true);
     expect(result.current.canRedo).toBe(false);
@@ -109,7 +109,7 @@ describe('useUndoRedo', () => {
       undone = result.current.undo();
     });
 
-    expect(undone!).toBeNull();
+    expect(undone).toBeNull();
   });
 
   it('redo returns null when stack is empty', () => {
@@ -120,6 +120,6 @@ describe('useUndoRedo', () => {
       redone = result.current.redo();
     });
 
-    expect(redone!).toBeNull();
+    expect(redone).toBeNull();
   });
 });
