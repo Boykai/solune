@@ -23,7 +23,7 @@ npm ci
 cd solune/backend && PATH=$HOME/.local/bin:$PATH uv run pytest tests/ -x -q
 
 # Backend: with coverage enforcement
-cd solune/backend && PATH=$HOME/.local/bin:$PATH uv run pytest tests/ --cov=src --cov-fail-under=70 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
+cd solune/backend && PATH=$HOME/.local/bin:$PATH uv run pytest tests/ --cov=src --cov-fail-under=75 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
 
 # Backend: lint + type check
 cd solune/backend && PATH=$HOME/.local/bin:$PATH uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run pyright src/
@@ -49,7 +49,7 @@ cd solune/backend
 grep -rn "pytest.mark.skip\|pytest.mark.xfail\|pytest.skip\|skipIf\|unittest.skip" tests/
 ```
 
-**Expected Result**: 8 matches — all conditional infrastructure guards. Zero unconditional skips.
+**Expected Result**: 10 matches — all conditional infrastructure guards. Zero unconditional skips.
 
 ### 1.2: Run Frontend Skip Audit
 
@@ -79,23 +79,16 @@ grep -A5 "tool.pytest.ini_options" pyproject.toml
 
 **Expected**: `asyncio_mode = "auto"` and `asyncio_default_fixture_loop_scope = "function"` already set.
 
-### 2.2: Add Coverage Threshold
+### 2.2: Verify Existing Coverage Threshold
 
-**Option A — CI workflow** (`.github/workflows/ci.yml`):
+The backend already enforces `fail_under = 75` in `pyproject.toml` under `[tool.coverage.report]`, which exceeds issue #1149's 70% minimum. No changes needed.
 
-Add `--cov-fail-under=70` to the pytest command:
-
-```yaml
-- name: Run tests with coverage enforcement
-  run: uv run pytest --cov=src --cov-fail-under=70 --cov-report=term-missing --cov-report=xml --cov-report=html --durations=20 --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
+```bash
+cd solune/backend
+grep "fail_under" pyproject.toml
 ```
 
-**Option B — pyproject.toml** (preferred — works locally too):
-
-```toml
-[tool.coverage.report]
-fail_under = 70
-```
+**Expected**: `fail_under = 75` already set under `[tool.coverage.report]`.
 
 ### 2.3: Verify filterwarnings
 
@@ -143,7 +136,7 @@ Ensure `test.exclude` in vitest.config.ts does not accidentally exclude unit tes
 
 ### 4.1: Confirm No Unconditional Skips
 
-From the audit (Step 1), all 8 backend skips are conditional infrastructure guards. No action needed.
+From the audit (Step 1), all 10 backend skips are conditional infrastructure guards. No action needed.
 
 ### 4.2: Verify Modern Test Patterns
 
@@ -240,7 +233,7 @@ it('has no a11y violations', async () => {
 });
 ```
 
-**Verify**: `uv run pytest tests/ --cov=src --cov-fail-under=70 -q` and `npm run test:coverage`.
+**Verify**: `uv run pytest tests/ --cov=src --cov-fail-under=75 -q` and `npm run test:coverage`.
 
 ---
 
@@ -253,7 +246,7 @@ cd solune/backend
 uv run ruff check src/ tests/
 uv run ruff format --check src/ tests/
 uv run pyright src/
-uv run pytest tests/ --cov=src --cov-fail-under=70 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
+uv run pytest tests/ --cov=src --cov-fail-under=75 -q --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency
 ```
 
 ### 7.2: Frontend Full Validation

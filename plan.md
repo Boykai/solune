@@ -7,7 +7,7 @@
 
 The Solune codebase has skipped tests in both backend (pytest) and frontend (Vitest/Playwright) suites. This plan systematically audits all skip markers, fixes test-runner infrastructure, resolves each skip by addressing the underlying cause, adds meaningful net-new coverage for critical untested paths, and validates that every suite and the CI pipeline is green.
 
-**Key finding from research (Phase 0)**: All 14 skip markers (8 backend + 6 frontend) are *conditional infrastructure guards* that skip only when external prerequisites are missing (env vars, running services, auth state). Zero unconditional `@pytest.mark.skip`, `@pytest.mark.xfail`, `.todo`, `xit`, or `xdescribe` markers exist. The pytest and Vitest configurations already follow modern best practices. The primary actionable work is: (1) add CI coverage enforcement, (2) add net-new tests for untested critical paths, and (3) validate the full suite.
+**Key finding from research (Phase 0)**: All 16 skip markers (10 backend + 6 frontend) are *conditional infrastructure guards* that skip only when external prerequisites are missing (env vars, running services, auth state). Zero unconditional `@pytest.mark.skip`, `@pytest.mark.xfail`, `.todo`, `xit`, or `xdescribe` markers exist. The pytest and Vitest configurations already follow modern best practices. The primary actionable work is: (1) verify CI coverage enforcement (already at 75%), (2) add net-new tests for untested critical paths, and (3) validate the full suite.
 
 ## Technical Context
 
@@ -18,8 +18,8 @@ The Solune codebase has skipped tests in both backend (pytest) and frontend (Vit
 **Target Platform**: Linux server (backend), Modern browsers (frontend)
 **Project Type**: Web application (backend + frontend monorepo under `solune/`)
 **Performance Goals**: N/A — test infrastructure changes, no runtime impact
-**Constraints**: Zero breaking changes to production code; all existing tests must continue passing; coverage thresholds maintained (backend >=70%, frontend >=50%)
-**Scale/Scope**: 8 backend conditional skips across 4 files; 6 frontend conditional skips across 2 E2E files; ~12 new test functions for coverage gaps
+**Constraints**: Zero breaking changes to production code; all existing tests must continue passing; coverage thresholds maintained (backend >=75%, frontend >=50%)
+**Scale/Scope**: 10 backend conditional skips across 4 files; 6 frontend conditional skips across 2 E2E files; ~12 new test functions for coverage gaps
 
 ## Constitution Check
 
@@ -31,7 +31,7 @@ The Solune codebase has skipped tests in both backend (pytest) and frontend (Vit
 | II. Template-Driven Workflow | ✅ PASS | Using canonical plan template; all artifacts in `specs/020-uplift-solune-testing/` |
 | III. Agent-Orchestrated Execution | ✅ PASS | Plan phase produces plan.md, research.md, data-model.md, quickstart.md, contracts/; handoff to tasks phase |
 | IV. Test Optionality | ✅ PASS | This feature IS about testing — tests are the primary deliverable |
-| V. Simplicity and DRY | ✅ PASS | Leverages existing infrastructure where already correct; adds only what's missing (coverage threshold, new tests) |
+| V. Simplicity and DRY | ✅ PASS | Leverages existing infrastructure where already correct; adds only what's missing (new tests) |
 
 **Gate Result**: ✅ ALL PASS — proceed to Phase 0
 
@@ -56,7 +56,7 @@ specs/020-uplift-solune-testing/
 ```text
 solune/
 ├── backend/
-│   ├── pyproject.toml                              # Step 2: add fail_under = 70
+│   ├── pyproject.toml                              # Step 2: verify existing fail_under = 75
 │   ├── tests/
 │   │   ├── conftest.py                             # Reference — expanded by spec 019
 │   │   ├── unit/
@@ -105,10 +105,10 @@ solune/
 
 | Area | Skip Count | Unconditional | Conditional (Infrastructure) |
 |------|-----------|---------------|------------------------------|
-| Backend | 8 | 0 | 8 |
+| Backend | 10 | 0 | 10 |
 | Frontend Unit | 0 | 0 | 0 |
 | Frontend E2E | 6 | 0 | 6 |
-| **Total** | **14** | **0** | **14** |
+| **Total** | **16** | **0** | **16** |
 
 useAuth.test.tsx has no skip markers. All 18 tests run fully. The `result.current.skip()` calls are test hook method invocations (onboarding skip), not test skip markers.
 
@@ -117,8 +117,8 @@ useAuth.test.tsx has no skip markers. All 18 tests run fully. The `result.curren
 | Step | Target | Action | Status |
 |------|--------|--------|--------|
 | 2.1 | `pyproject.toml` asyncio config | Verify `asyncio_mode = "auto"`, `asyncio_default_fixture_loop_scope = "function"` | ✅ Already correct |
-| 2.2 | `pyproject.toml` coverage | Add `fail_under = 70` to `[tool.coverage.report]` | ⚠️ TODO |
-| 2.3 | CI workflow | Optionally add `--cov-fail-under=70` to pytest command | ⚠️ TODO (alternative to 2.2) |
+| 2.2 | `pyproject.toml` coverage | Verify existing `fail_under = 75` (exceeds issue #1149's 70% min) | ✅ Already correct |
+| 2.3 | CI workflow | No change needed — `fail_under = 75` already enforced | ✅ Already correct |
 | 2.4 | filterwarnings | Verify only intentional deprecation suppressions | ✅ Already correct |
 | 2.5 | Loop fixtures in `tests/helpers/` | Verify no deprecated `loop` parameter usage | ✅ Already using modern patterns |
 
@@ -190,7 +190,7 @@ useAuth.test.tsx has no skip markers. All 18 tests run fully. The `result.curren
 | 7.1 | `ruff check src/ tests/` | Zero lint errors |
 | 7.2 | `ruff format --check src/ tests/` | Zero format violations |
 | 7.3 | `pyright src/` | Zero type errors |
-| 7.4 | `pytest tests/ --cov=src --cov-fail-under=70 -q` | All pass, coverage >=70% |
+| 7.4 | `pytest tests/ --cov=src --cov-fail-under=75 -q` | All pass, coverage >=75% |
 | 7.5 | `npm run lint` | Zero lint errors |
 | 7.6 | `npm run type-check` | Zero type errors |
 | 7.7 | `npm run test -- --pool=forks` | All pass |
@@ -204,11 +204,11 @@ useAuth.test.tsx has no skip markers. All 18 tests run fully. The `result.curren
 
 | Decision | Rationale | Alternatives Rejected |
 |----------|-----------|----------------------|
-| Keep all 14 conditional skips as infrastructure guards | They correctly detect missing prerequisites at runtime; removing them would cause CI failures when infrastructure is absent | Force-remove: tests would fail without credentials. Replace with markers: can't evaluate HTTP health at decoration time. |
-| Add `fail_under = 70` in pyproject.toml (not CI-only) | Works both locally and in CI; developers see coverage failures before pushing | CI-only flag: developers wouldn't see failures locally until CI runs |
+| Keep all 16 conditional skips as infrastructure guards | They correctly detect missing prerequisites at runtime; removing them would cause CI failures when infrastructure is absent | Force-remove: tests would fail without credentials. Replace with markers: can't evaluate HTTP health at decoration time. |
+| Preserve existing `fail_under = 75` in pyproject.toml | Already exceeds issue #1149's 70% minimum; works both locally and in CI; developers see coverage failures before pushing | Lower to 70: would reduce existing quality bar. CI-only flag: developers wouldn't see failures locally until CI runs |
 | Spec 019 handles test isolation; this spec handles skip removal and coverage | Separation of concerns — isolation (fixtures, state leaks) is a different problem from coverage and skip removal | Merge into one spec: too large, different acceptance criteria, different implementation teams |
 | Per-test jest-axe import (not global setup) | Not all tests need axe; global setup would add unnecessary overhead | Global setup.ts: would slow down all tests with axe initialization |
-| Coverage target 70% backend, 50% frontend | Matches issue #1149 requirements; achievable without major refactoring | 80%+: too aggressive for initial enforcement, would block merges |
+| Coverage target 75% backend, 50% frontend | Backend already at 75% (exceeding issue #1149's 70% requirement); frontend at 50% — achievable without major refactoring | 80%+: too aggressive for initial enforcement, would block merges |
 
 ## Constitution Re-Check (Post Phase 1 Design)
 

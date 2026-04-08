@@ -13,7 +13,7 @@ As a backend developer, I need every skipped test to either pass or be removed, 
 
 **Why this priority**: Skipped tests hide bugs and inflate perceived coverage. Resolving them first unblocks all downstream quality work.
 
-**Independent Test**: Run `pytest tests/ -v` and confirm zero `SKIPPED` results from `pytest.mark.skip` or `pytest.mark.skipif` (conditional `pytest.skip()` for missing infrastructure is acceptable).
+**Independent Test**: Run `pytest tests/ -v` and confirm there are no unconditional `@pytest.mark.skip` or `@pytest.mark.xfail` markers; conditional `@pytest.mark.skipif` and runtime `pytest.skip()` are acceptable only when used as infrastructure/environment guards.
 
 **Acceptance Scenarios**:
 
@@ -33,7 +33,7 @@ As a backend developer, I need pytest and pytest-asyncio configured with modern 
 **Acceptance Scenarios**:
 
 1. **Given** `asyncio_mode = "auto"` and `asyncio_default_fixture_loop_scope = "function"` in pyproject.toml, **When** pytest runs, **Then** no asyncio configuration warnings appear.
-2. **Given** `--cov-fail-under=70` is set in CI, **When** coverage drops below 70%, **Then** CI fails.
+2. **Given** `fail_under = 75` is enforced in `pyproject.toml` (already exceeds issue #1149's 70% minimum), **When** coverage drops below 75%, **Then** CI fails.
 3. **Given** filterwarnings is configured, **When** tests run, **Then** only intentional deprecation suppressions are active.
 
 ---
@@ -112,7 +112,7 @@ As a team lead, I need CI to pass end-to-end with zero skip markers and all qual
 - **FR-001**: All unconditional `@pytest.mark.skip` and `@pytest.mark.xfail` markers MUST be removed from backend tests.
 - **FR-002**: All `.skip`, `.todo`, `xit`, `xdescribe` markers MUST be removed from frontend tests (conditional infrastructure skips via `test.skip()` inside test body are acceptable).
 - **FR-003**: pytest config MUST use `asyncio_mode = "auto"` and `asyncio_default_fixture_loop_scope = "function"`.
-- **FR-004**: CI MUST enforce `--cov-fail-under=70` for backend.
+- **FR-004**: CI MUST enforce backend coverage at or above the existing `fail_under = 75` threshold in `pyproject.toml`.
 - **FR-005**: Vitest config MUST use `happy-dom` environment, `globals = true`, `v8` coverage provider with `statements >= 50`.
 - **FR-006**: Frontend setup file MUST configure jest-dom and jest-axe matchers.
 - **FR-007**: Backend tests MUST use `AsyncMock` for coroutines and `httpx.AsyncClient` with `ASGITransport` for endpoint tests.
@@ -125,7 +125,7 @@ As a team lead, I need CI to pass end-to-end with zero skip markers and all qual
 
 - **Skip Marker**: A test annotation (`@pytest.mark.skip`, `test.skip()`, etc.) that causes a test to be skipped during execution. The uplift targets unconditional skips for removal and ensures conditional skips have clear justifications.
 - **Test Infrastructure**: The configuration, fixtures, setup files, and utilities that support test execution. Includes pytest config, Vitest config, conftest.py fixtures, and test setup files.
-- **Coverage Threshold**: Minimum code coverage percentage that CI enforces. Backend: 70% (CI), Frontend: 50% statements.
+- **Coverage Threshold**: Minimum code coverage percentage that CI enforces. Backend: 75% (existing in `pyproject.toml`), Frontend: 50% statements.
 - **axe Assertion**: An accessibility compliance check using jest-axe that validates DOM output against WCAG standards.
 
 ## Success Criteria *(mandatory)*
@@ -136,7 +136,7 @@ As a team lead, I need CI to pass end-to-end with zero skip markers and all qual
 - **SC-002**: Zero unconditional `.skip`, `.todo`, `xit`, `xdescribe` in frontend tests.
 - **SC-003**: Backend pytest runs with zero asyncio deprecation warnings.
 - **SC-004**: Frontend `npm run test` runs with zero configuration warnings.
-- **SC-005**: Backend coverage >= 70% in CI.
+- **SC-005**: Backend coverage >= 75% in CI (existing `fail_under = 75` in `pyproject.toml`).
 - **SC-006**: Frontend coverage statements >= 50%.
 - **SC-007**: All CI jobs exit 0.
 - **SC-008**: Coverage increase >= 10 percentage points in targeted modules.
@@ -147,7 +147,7 @@ As a team lead, I need CI to pass end-to-end with zero skip markers and all qual
 - The existing pytest-asyncio config (`asyncio_mode = "auto"`, `asyncio_default_fixture_loop_scope = "function"`) is already correct and does not need changes.
 - pytest-randomly is already installed (`>=3.16.0` in dev deps).
 - Vitest config already has `globals = true`, `environment = "happy-dom"`, and proper setup files.
-- The 8 backend skip markers are all conditional (runtime `pytest.skip()` or `@pytest.mark.skipif`) and appropriate for their context.
+- The 10 backend skip markers are all conditional (runtime `pytest.skip()` or `@pytest.mark.skipif`) and appropriate for their context.
 - The 6 frontend E2E skip markers are conditional infrastructure guards that are appropriate.
 - The spec 019-test-isolation-remediation handles state-leak and isolation concerns; this spec focuses on skip removal, bug fixes, coverage, and best practices.
 - Standard performance expectations apply — this feature has no runtime performance impact beyond CI execution time.

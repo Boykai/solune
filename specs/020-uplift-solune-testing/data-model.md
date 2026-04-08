@@ -8,7 +8,7 @@
 
 ### Entity: Conditional Skip Markers (Infrastructure Guards)
 
-All 8 backend skips are conditional runtime guards. No unconditional `@pytest.mark.skip` or `@pytest.mark.xfail` exist.
+All 10 backend skips are conditional runtime guards. No unconditional `@pytest.mark.skip` or `@pytest.mark.xfail` exist.
 
 | # | File | Line | Marker | Condition | Category |
 |---|------|------|--------|-----------|----------|
@@ -18,10 +18,12 @@ All 8 backend skips are conditional runtime guards. No unconditional `@pytest.ma
 | 4 | `tests/architecture/test_import_rules.py` | 116 | `pytest.skip()` | `models/` directory not found | Architecture |
 | 5 | `tests/performance/test_board_load_time.py` | 40 | `pytest.skip()` | `PERF_GITHUB_TOKEN` not set | Performance |
 | 6 | `tests/performance/test_board_load_time.py` | 42 | `pytest.skip()` | `PERF_PROJECT_ID` not set | Performance |
-| 7 | `tests/performance/test_board_load_time.py` | 49-71 | `pytest.skip()` | Backend unhealthy / not reachable | Performance |
-| 8 | `tests/integration/test_custom_agent_assignment.py` | 45 | `pytest.skip()` | `GITHUB_TOKEN` not set | Integration |
+| 7 | `tests/performance/test_board_load_time.py` | 49 | `pytest.skip()` | Backend unhealthy | Performance |
+| 8 | `tests/performance/test_board_load_time.py` | 51 | `pytest.skip()` | Backend not reachable | Performance |
+| 9 | `tests/performance/test_board_load_time.py` | 68 | `pytest.skip()` | Dev-login auth failure | Performance |
+| 10 | `tests/integration/test_custom_agent_assignment.py` | 45 | `pytest.skip()` | `GITHUB_TOKEN` not set | Integration |
 
-**Verdict**: All 8 are appropriate infrastructure guards. Zero removals needed.
+**Verdict**: All 10 are appropriate infrastructure guards. Zero removals needed.
 
 ## Frontend Test Skip Inventory
 
@@ -56,8 +58,8 @@ All 6 frontend skips are in E2E test files. Zero unit test skips exist.
 
 | Setting | Current Value | Required Value | Status |
 |---------|--------------|----------------|--------|
-| Backend CI `--cov-fail-under` | Not set | `70` | ⚠️ Needs adding |
-| Backend `[tool.coverage.report]` | Exists | Add `fail_under = 70` | ⚠️ Option B |
+| Backend CI `--cov-fail-under` | Not needed (pyproject.toml enforces) | N/A | ✅ Covered by `fail_under = 75` |
+| Backend `[tool.coverage.report]` | `fail_under = 75` | `fail_under = 75` (exceeds issue #1149's 70% minimum) | ✅ Already set |
 | Frontend `thresholds.statements` | `50` | `50` (min) | ✅ Correct |
 | Frontend `thresholds.branches` | `44` | `44` | ✅ Correct |
 | Frontend `thresholds.functions` | `41` | `41` | ✅ Correct |
