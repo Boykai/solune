@@ -1,0 +1,176 @@
+openapi: "3.1.0"
+info:
+  title: Agent Orchestration API
+  version: "1.0.0"
+  description: |
+    REST API for triggering and monitoring multi-agent trading sessions.
+    Agents (MarketAnalyst, RiskManager, Trader) collaborate via AutoGen GroupChat
+    to analyze stocks and make trading decisions.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/agents/run:
+    post:
+      operationId: runAgentSession
+      summary: Trigger a new multi-agent trading session
+      description: |
+        Creates a new agent session where MarketAnalyst, RiskManager, and Trader
+        collaborate to analyze a stock and make a buy/sell/hold decision.
+        The session runs asynchronously — use the returned session_id to poll
+        status or connect via WebSocket for real-time streaming.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RunAgentRequest"
+      responses:
+        "202":
+          description: Session started (runs asynchronously)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSessionSummary"
+        "400":
+          description: Invalid request (missing portfolio, invalid symbol)
+        "429":
+          description: Rate limited — too many concurrent agent sessions
+        "503":
+          description: Azure OpenAI unavailable
+
+  /api/agents/sessions/{id}:
+    get:
+      operationId: getAgentSession
+      summary: Get agent session details with conversation log
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Session details with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentSessionDetail"
+        "404":
+          description: Session not found
+
+components:
+  schemas:
+    RunAgentRequest:
+      type: object
+      required: [portfolio_id, symbol]
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+          description: Portfolio for trade execution
+        symbol:
+          type: string
+          pattern: "^[A-Z0-9.]+$"
+          maxLength: 10
+          description: Stock symbol to analyze
+          example: AAPL
+        strategy_text:
+          type: string
+          maxLength: 2000
+          default: ""
+          description: |
+            Natural language trading strategy to guide the agents.
+            Example: "Buy tech stocks showing momentum, risk no more than 5% per trade"
+        max_turns:
+          type: integer
+          minimum: 3
+          maximum: 20
+          default: 10
+          description: Maximum conversation turns before forcing a decision
+
+    AgentSessionSummary:
+      type: object
+      required: [id, portfolio_id, symbol, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        portfolio_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        strategy_text:
+          type: string
+        status:
+          type: string
+          enum: [running, completed, failed, cancelled]
+        outcome:
+          type: string
+          enum: [buy, sell, hold]
+          nullable: true
+        total_tokens:
+          type: integer
+        estimated_cost_usd:
+          type: number
+          format: double
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AgentSessionDetail:
+      allOf:
+        - $ref: "#/components/schemas/AgentSessionSummary"
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items:
+                $ref: "#/components/schemas/AgentMessage"
+
+    AgentMessage:
+      type: object
+      required: [id, session_id, agent_name, role, content, token_count, turn_number, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        agent_name:
+          type: string
+          description: Agent identifier
+          enum: [MarketAnalyst, RiskManager, Trader, Manager]
+        role:
+          type: string
+          enum: [system, assistant, function]
+        content:
+          type: string
+          description: Message content (may include reasoning, analysis, or tool results)
+        tool_calls:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              arguments:
+                type: object
+          nullable: true
+        token_count:
+          type: integer
+        turn_number:
+          type: integer
+        created_at:
+          type: string
+          format: date-time

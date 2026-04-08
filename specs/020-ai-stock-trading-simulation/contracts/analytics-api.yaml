@@ -1,0 +1,182 @@
+openapi: "3.1.0"
+info:
+  title: Analytics API
+  version: "1.0.0"
+  description: |
+    REST API for portfolio performance analytics. Computes financial metrics
+    from trade history and provides benchmark comparisons.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/analytics/summary/{portfolio_id}:
+    get:
+      operationId: getAnalyticsSummary
+      summary: Get portfolio performance analytics
+      description: |
+        Computes and returns comprehensive performance metrics for a portfolio
+        based on its trade history. Includes risk-adjusted returns, drawdown
+        analysis, and agent decision accuracy.
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Portfolio analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioAnalytics"
+        "404":
+          description: Portfolio not found
+
+  /api/analytics/export/{portfolio_id}:
+    get:
+      operationId: exportTradeLog
+      summary: Export trade history as CSV
+      description: |
+        Downloads the complete trade history for a portfolio as a CSV file.
+        Includes all executed trades with timestamps, prices, P&L, and
+        agent session references.
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'attachment; filename="trades-{portfolio_id}.csv"'
+        "404":
+          description: Portfolio not found
+
+  /api/analytics/daily-returns/{portfolio_id}:
+    get:
+      operationId: getDailyReturns
+      summary: Get daily portfolio returns for charting
+      parameters:
+        - name: portfolio_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Daily return series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DailyReturn"
+        "404":
+          description: Portfolio not found
+
+components:
+  schemas:
+    PortfolioAnalytics:
+      type: object
+      required:
+        - portfolio_id
+        - total_return_pct
+        - sharpe_ratio
+        - max_drawdown_pct
+        - win_rate_pct
+        - avg_trade_pnl
+        - agent_accuracy_pct
+        - total_trades
+        - buy_hold_return_pct
+        - period_start
+        - period_end
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+        total_return_pct:
+          type: number
+          format: double
+          description: "Total portfolio return percentage"
+          example: 12.5
+        sharpe_ratio:
+          type: number
+          format: double
+          description: "Risk-adjusted return (annualized)"
+          example: 1.45
+        max_drawdown_pct:
+          type: number
+          format: double
+          description: "Maximum peak-to-trough decline percentage"
+          example: -8.3
+        win_rate_pct:
+          type: number
+          format: double
+          description: "Percentage of profitable closed trades"
+          example: 62.5
+        avg_trade_pnl:
+          type: number
+          format: double
+          description: "Average P&L per closed trade (USD)"
+          example: 234.50
+        agent_accuracy_pct:
+          type: number
+          format: double
+          description: "Percentage of agent-initiated trades that were profitable"
+          example: 70.0
+        total_trades:
+          type: integer
+          description: "Total number of executed trades"
+          example: 48
+        buy_hold_return_pct:
+          type: number
+          format: double
+          description: "Buy-and-hold benchmark return for comparison"
+          example: 8.2
+        period_start:
+          type: string
+          format: date-time
+          description: "Start of the analysis period (first trade)"
+        period_end:
+          type: string
+          format: date-time
+          description: "End of the analysis period (latest trade or now)"
+
+    DailyReturn:
+      type: object
+      required: [date, portfolio_value, daily_return_pct, cumulative_return_pct, benchmark_value]
+      properties:
+        date:
+          type: string
+          format: date
+        portfolio_value:
+          type: number
+          format: double
+          description: "Portfolio total value at end of day"
+        daily_return_pct:
+          type: number
+          format: double
+          description: "Daily return percentage"
+        cumulative_return_pct:
+          type: number
+          format: double
+          description: "Cumulative return since inception"
+        benchmark_value:
+          type: number
+          format: double
+          description: "Buy-and-hold benchmark value at end of day"

@@ -1,0 +1,370 @@
+openapi: "3.1.0"
+info:
+  title: Trading API
+  version: "1.0.0"
+  description: |
+    REST API for portfolio management, order submission, and trade history.
+    All trades are simulated — no real money is exchanged.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/portfolio:
+    post:
+      operationId: createPortfolio
+      summary: Create a new virtual portfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioRequest"
+      responses:
+        "201":
+          description: Portfolio created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Portfolio"
+        "422":
+          description: Validation error
+
+  /api/portfolio/{id}:
+    get:
+      operationId: getPortfolio
+      summary: Get portfolio with current holdings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Portfolio with holdings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortfolioWithHoldings"
+        "404":
+          description: Portfolio not found
+
+  /api/orders:
+    post:
+      operationId: submitOrder
+      summary: Submit a buy or sell order
+      description: |
+        Submits an order for execution. Market orders execute immediately
+        with slippage simulation. Limit orders execute when the market price
+        crosses the limit price.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitOrderRequest"
+      responses:
+        "201":
+          description: Order submitted (may be filled immediately for market orders)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "400":
+          description: Invalid order (insufficient funds, invalid symbol, etc.)
+        "422":
+          description: Validation error
+
+    get:
+      operationId: listOrders
+      summary: List orders for a portfolio
+      parameters:
+        - name: portfolio_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, filled, cancelled, rejected]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orders, total]
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Order"
+                  total:
+                    type: integer
+
+  /api/trades:
+    get:
+      operationId: listTrades
+      summary: List executed trades for a portfolio
+      parameters:
+        - name: portfolio_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: List of trades
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [trades, total]
+                properties:
+                  trades:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Trade"
+                  total:
+                    type: integer
+
+components:
+  schemas:
+    CreatePortfolioRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "My Trading Portfolio"
+        initial_cash:
+          type: number
+          format: double
+          minimum: 1000
+          maximum: 10000000
+          default: 100000
+          example: 100000
+
+    Portfolio:
+      type: object
+      required: [id, name, initial_cash, cash_balance, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        initial_cash:
+          type: number
+          format: double
+        cash_balance:
+          type: number
+          format: double
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PortfolioWithHoldings:
+      allOf:
+        - $ref: "#/components/schemas/Portfolio"
+        - type: object
+          required: [holdings, total_value, total_pnl, total_pnl_percent]
+          properties:
+            holdings:
+              type: array
+              items:
+                $ref: "#/components/schemas/Holding"
+            total_value:
+              type: number
+              format: double
+              description: Cash + market value of all holdings
+            total_pnl:
+              type: number
+              format: double
+              description: Total P&L (total_value - initial_cash)
+            total_pnl_percent:
+              type: number
+              format: double
+              description: Total P&L as percentage
+
+    Holding:
+      type: object
+      required: [id, portfolio_id, symbol, quantity, avg_cost_basis, market_value, unrealized_pnl]
+      properties:
+        id:
+          type: string
+          format: uuid
+        portfolio_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        avg_cost_basis:
+          type: number
+          format: double
+        market_value:
+          type: number
+          format: double
+        unrealized_pnl:
+          type: number
+          format: double
+        updated_at:
+          type: string
+          format: date-time
+
+    SubmitOrderRequest:
+      type: object
+      required: [portfolio_id, symbol, side, order_type, quantity]
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+          pattern: "^[A-Z0-9.]+$"
+          maxLength: 10
+        side:
+          type: string
+          enum: [buy, sell]
+        order_type:
+          type: string
+          enum: [market, limit]
+        quantity:
+          type: integer
+          minimum: 1
+        limit_price:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Required when order_type is "limit"
+
+    Order:
+      type: object
+      required: [id, portfolio_id, symbol, side, order_type, quantity, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        portfolio_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        order_type:
+          type: string
+          enum: [market, limit]
+        quantity:
+          type: integer
+        limit_price:
+          type: number
+          format: double
+          nullable: true
+        status:
+          type: string
+          enum: [pending, filled, cancelled, rejected]
+        reject_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        filled_at:
+          type: string
+          format: date-time
+          nullable: true
+        agent_session_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    Trade:
+      type: object
+      required: [id, order_id, portfolio_id, symbol, side, quantity, price, slippage, total_cost, executed_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        portfolio_id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: integer
+        price:
+          type: number
+          format: double
+        slippage:
+          type: number
+          format: double
+        total_cost:
+          type: number
+          format: double
+        realized_pnl:
+          type: number
+          format: double
+          nullable: true
+        executed_at:
+          type: string
+          format: date-time

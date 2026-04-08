@@ -1,0 +1,229 @@
+asyncapi: "3.0.0"
+info:
+  title: Trading Simulation WebSocket Events
+  version: "1.0.0"
+  description: |
+    WebSocket events for real-time market data streaming and agent conversation
+    broadcasting. Two separate WebSocket endpoints serve different purposes:
+    market ticks for all symbols, and agent messages scoped to individual sessions.
+
+servers:
+  development:
+    host: localhost:8000
+    protocol: ws
+    description: Local development WebSocket server
+
+channels:
+  market:
+    address: /ws/market
+    description: |
+      Real-time market price tick stream. Broadcasts updates for all watchlist
+      symbols at a configurable interval (default: 3 seconds).
+      Connect without parameters to receive all symbol updates.
+    messages:
+      marketTick:
+        $ref: "#/components/messages/MarketTick"
+      marketSnapshot:
+        $ref: "#/components/messages/MarketSnapshot"
+      heartbeat:
+        $ref: "#/components/messages/Heartbeat"
+
+  agentSession:
+    address: /ws/agents/{session_id}
+    description: |
+      Real-time stream of agent conversation messages for a specific trading session.
+      Connect with a session_id to receive messages as agents discuss and make decisions.
+    parameters:
+      session_id:
+        description: UUID of the agent session to stream
+    messages:
+      agentTurn:
+        $ref: "#/components/messages/AgentTurn"
+      agentToolCall:
+        $ref: "#/components/messages/AgentToolCall"
+      sessionComplete:
+        $ref: "#/components/messages/SessionComplete"
+      sessionError:
+        $ref: "#/components/messages/SessionError"
+
+components:
+  messages:
+    MarketTick:
+      name: market_tick
+      summary: Real-time price update for a single symbol
+      payload:
+        type: object
+        required: [type, symbol, price, change_percent, volume, timestamp]
+        properties:
+          type:
+            type: string
+            const: market_tick
+          symbol:
+            type: string
+            example: AAPL
+          price:
+            type: number
+            format: double
+            example: 178.52
+          change_percent:
+            type: number
+            format: double
+            example: 1.33
+          volume:
+            type: integer
+            example: 54321000
+          timestamp:
+            type: string
+            format: date-time
+
+    MarketSnapshot:
+      name: market_snapshot
+      summary: Full market snapshot sent on initial connection
+      payload:
+        type: object
+        required: [type, quotes, timestamp]
+        properties:
+          type:
+            type: string
+            const: market_snapshot
+          quotes:
+            type: array
+            items:
+              type: object
+              required: [symbol, price, change_percent, volume]
+              properties:
+                symbol:
+                  type: string
+                price:
+                  type: number
+                  format: double
+                change_percent:
+                  type: number
+                  format: double
+                volume:
+                  type: integer
+          timestamp:
+            type: string
+            format: date-time
+
+    Heartbeat:
+      name: heartbeat
+      summary: Keep-alive message sent every 30 seconds
+      payload:
+        type: object
+        required: [type, timestamp]
+        properties:
+          type:
+            type: string
+            const: heartbeat
+          timestamp:
+            type: string
+            format: date-time
+
+    AgentTurn:
+      name: agent_turn
+      summary: A single agent message in the conversation
+      payload:
+        type: object
+        required: [type, session_id, agent_name, role, content, turn_number, timestamp]
+        properties:
+          type:
+            type: string
+            const: agent_turn
+          session_id:
+            type: string
+            format: uuid
+          agent_name:
+            type: string
+            enum: [MarketAnalyst, RiskManager, Trader, Manager]
+          role:
+            type: string
+            enum: [system, assistant, function]
+          content:
+            type: string
+            description: Message content (reasoning, analysis, or decision)
+          turn_number:
+            type: integer
+          token_count:
+            type: integer
+          timestamp:
+            type: string
+            format: date-time
+
+    AgentToolCall:
+      name: agent_tool_call
+      summary: An agent invoking a tool (e.g., get_quote, submit_order)
+      payload:
+        type: object
+        required: [type, session_id, agent_name, tool_name, arguments, timestamp]
+        properties:
+          type:
+            type: string
+            const: agent_tool_call
+          session_id:
+            type: string
+            format: uuid
+          agent_name:
+            type: string
+          tool_name:
+            type: string
+            description: "Tool being called (e.g., get_quote, get_history, submit_order)"
+          arguments:
+            type: object
+            description: Tool call arguments
+          result:
+            type: string
+            description: Tool call result (populated after execution)
+            nullable: true
+          timestamp:
+            type: string
+            format: date-time
+
+    SessionComplete:
+      name: session_complete
+      summary: Agent session has completed with a final decision
+      payload:
+        type: object
+        required: [type, session_id, outcome, total_tokens, estimated_cost_usd, timestamp]
+        properties:
+          type:
+            type: string
+            const: session_complete
+          session_id:
+            type: string
+            format: uuid
+          outcome:
+            type: string
+            enum: [buy, sell, hold]
+            description: Final trading decision
+          summary:
+            type: string
+            description: Human-readable summary of the session
+          total_tokens:
+            type: integer
+          estimated_cost_usd:
+            type: number
+            format: double
+          timestamp:
+            type: string
+            format: date-time
+
+    SessionError:
+      name: session_error
+      summary: Agent session encountered an error
+      payload:
+        type: object
+        required: [type, session_id, error, timestamp]
+        properties:
+          type:
+            type: string
+            const: session_error
+          session_id:
+            type: string
+            format: uuid
+          error:
+            type: string
+            description: Error message (sanitized, no sensitive details)
+          timestamp:
+            type: string
+            format: date-time

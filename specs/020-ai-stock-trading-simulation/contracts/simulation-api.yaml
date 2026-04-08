@@ -1,0 +1,208 @@
+openapi: "3.1.0"
+info:
+  title: Simulation Control API
+  version: "1.0.0"
+  description: |
+    REST API for controlling trading simulations. Users can start, stop, pause,
+    resume, and reset simulations with configurable speed and risk parameters.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/simulation/start:
+    post:
+      operationId: startSimulation
+      summary: Start or resume a trading simulation
+      description: |
+        Starts a new simulation or resumes a paused one. The simulation advances
+        market time at the configured speed multiplier and triggers agent sessions
+        at regular intervals.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartSimulationRequest"
+      responses:
+        "200":
+          description: Simulation started/resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+        "400":
+          description: Invalid request (e.g., simulation already running)
+        "404":
+          description: Portfolio not found
+
+  /api/simulation/stop:
+    post:
+      operationId: stopSimulation
+      summary: Stop or pause a running simulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StopSimulationRequest"
+      responses:
+        "200":
+          description: Simulation stopped/paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+        "400":
+          description: Simulation not running
+
+  /api/simulation/reset:
+    post:
+      operationId: resetSimulation
+      summary: Reset simulation to initial state
+      description: |
+        Resets the simulation to idle state. Optionally clears portfolio
+        (resets cash, removes holdings, clears trade history).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetSimulationRequest"
+      responses:
+        "200":
+          description: Simulation reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+
+  /api/simulation/status:
+    get:
+      operationId: getSimulationStatus
+      summary: Get current simulation state
+      parameters:
+        - name: portfolio_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Simulation state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationState"
+        "404":
+          description: No simulation found for portfolio
+
+components:
+  schemas:
+    StartSimulationRequest:
+      type: object
+      required: [portfolio_id, watchlist]
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+        strategy_text:
+          type: string
+          maxLength: 2000
+          default: ""
+          description: Natural language trading strategy
+          example: "Buy tech stocks showing momentum, risk no more than 5% per trade"
+        watchlist:
+          type: array
+          items:
+            type: string
+            pattern: "^[A-Z0-9.]+$"
+          minItems: 1
+          maxItems: 50
+          example: ["AAPL", "MSFT", "GOOGL"]
+        speed_multiplier:
+          type: number
+          format: double
+          minimum: 1.0
+          maximum: 100.0
+          default: 1.0
+          description: "1.0 = real-time, 10.0 = 10x speed, 100.0 = 100x speed"
+        max_position_pct:
+          type: number
+          format: double
+          minimum: 1.0
+          maximum: 100.0
+          default: 5.0
+          description: Maximum portfolio percentage per position
+        daily_loss_limit_pct:
+          type: number
+          format: double
+          minimum: 1.0
+          maximum: 100.0
+          default: 10.0
+          description: Maximum daily loss percentage before auto-stop
+
+    StopSimulationRequest:
+      type: object
+      required: [portfolio_id]
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+        pause:
+          type: boolean
+          default: false
+          description: If true, pauses instead of stopping (can be resumed)
+
+    ResetSimulationRequest:
+      type: object
+      required: [portfolio_id]
+      properties:
+        portfolio_id:
+          type: string
+          format: uuid
+        clear_portfolio:
+          type: boolean
+          default: false
+          description: If true, resets portfolio cash and clears all holdings/trades
+
+    SimulationState:
+      type: object
+      required: [id, portfolio_id, status, simulated_time, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        portfolio_id:
+          type: string
+          format: uuid
+        strategy_text:
+          type: string
+        watchlist:
+          type: array
+          items:
+            type: string
+        speed_multiplier:
+          type: number
+          format: double
+        max_position_pct:
+          type: number
+          format: double
+        daily_loss_limit_pct:
+          type: number
+          format: double
+        status:
+          type: string
+          enum: [idle, running, paused, stopped]
+        simulated_time:
+          type: string
+          format: date-time
+          description: Current simulated market time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

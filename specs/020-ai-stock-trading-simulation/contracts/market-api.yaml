@@ -1,0 +1,174 @@
+openapi: "3.1.0"
+info:
+  title: Market Data API
+  version: "1.0.0"
+  description: |
+    REST API for stock market data — real-time quotes, historical OHLCV data,
+    and watchlist symbol management. Supports synthetic (Geometric Brownian Motion)
+    and Yahoo Finance (delayed) data sources.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /api/market/quote/{symbol}:
+    get:
+      operationId: getQuote
+      summary: Get current stock quote
+      description: |
+        Returns the current (or most recent simulated) price quote for a symbol.
+        Falls back to synthetic data if the configured provider is unavailable.
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z0-9.]+$"
+            maxLength: 10
+          example: AAPL
+      responses:
+        "200":
+          description: Stock quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quote"
+        "404":
+          description: Symbol not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/market/history/{symbol}:
+    get:
+      operationId: getHistory
+      summary: Get historical OHLCV data
+      description: |
+        Returns historical Open-High-Low-Close-Volume bars for a symbol.
+        Default period is 30 trading days.
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z0-9.]+$"
+            maxLength: 10
+          example: AAPL
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 365
+            default: 30
+          description: Number of trading days of history
+      responses:
+        "200":
+          description: Historical OHLCV data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OHLCV"
+        "404":
+          description: Symbol not found
+
+  /api/market/symbols:
+    get:
+      operationId: getSymbols
+      summary: Get watchlist symbols
+      description: |
+        Returns the list of available symbols for the simulation.
+        Includes preset symbols (AAPL, MSFT, GOOGL, TSLA, AMZN) plus
+        any user-added symbols.
+      responses:
+        "200":
+          description: Symbol list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SymbolInfo"
+
+components:
+  schemas:
+    Quote:
+      type: object
+      required: [symbol, price, change, change_percent, volume, timestamp, source]
+      properties:
+        symbol:
+          type: string
+          example: AAPL
+        price:
+          type: number
+          format: double
+          example: 178.52
+        change:
+          type: number
+          format: double
+          example: 2.34
+        change_percent:
+          type: number
+          format: double
+          example: 1.33
+        volume:
+          type: integer
+          example: 54321000
+        timestamp:
+          type: string
+          format: date-time
+        source:
+          type: string
+          enum: [synthetic, yahoo]
+
+    OHLCV:
+      type: object
+      required: [symbol, date, open, high, low, close, volume]
+      properties:
+        symbol:
+          type: string
+        date:
+          type: string
+          format: date
+        open:
+          type: number
+          format: double
+        high:
+          type: number
+          format: double
+        low:
+          type: number
+          format: double
+        close:
+          type: number
+          format: double
+        volume:
+          type: integer
+
+    SymbolInfo:
+      type: object
+      required: [symbol, name, sector]
+      properties:
+        symbol:
+          type: string
+          example: AAPL
+        name:
+          type: string
+          example: Apple Inc.
+        sector:
+          type: string
+          example: Technology
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string

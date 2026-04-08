@@ -197,6 +197,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - `018-type-checking-strictness-upgrade`: backend state uses SQLite via `aiosqlite`; use the Canonical Sources above for exact backend/frontend runtimes and dependency versions.
 - Python >=3.12 (backend), TypeScript 6.0 (frontend) + FastAPI, pytest, pytest-asyncio, pytest-randomly (NEW), Vitest, React 19.2 (019-test-isolation-remediation)
 - SQLite via aiosqlite (existing — `_db` globals in `pipeline_state_store.py`, `done_items_store.py` need clearing) (019-test-isolation-remediation)
+- Python >=3.12 (backend), TypeScript 6.0 (frontend) + FastAPI, aiosqlite, openai SDK, pyautogen / autogen-agentchat, yfinance (optional), React 19, Tailwind v4, recharts, @tanstack/react-query, Vite (020-ai-stock-trading-simulation)
+- SQLite via aiosqlite (existing pattern — WAL mode); new tables: `portfolios`, `holdings`, `orders`, `trades`, `agent_sessions`, `agent_messages`, `simulations` (020-ai-stock-trading-simulation)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
