@@ -36,6 +36,7 @@ import { useCyclingPlaceholder } from '@/hooks/useCyclingPlaceholder';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { useMentionAutocomplete } from '@/hooks/useMentionAutocomplete';
+import { useSelectedPipeline } from '@/hooks/useSelectedPipeline';
 import type { CommandDefinition } from '@/lib/commands/types';
 import { History, ListChecks, Mic } from '@/lib/icons';
 
@@ -171,6 +172,9 @@ export function ChatInterface({
     projectId: projectId ?? '',
     inputRef: mentionInputRef,
   });
+
+  // Project's assigned pipeline (used as fallback when no @mention)
+  const { pipelineId: assignedPipelineId } = useSelectedPipeline(projectId ?? null);
   const {
     isAutocompleteOpen,
     clearTokens,
@@ -281,12 +285,17 @@ export function ChatInterface({
       setMentionValidationError(null);
 
       // Validate mention tokens before submit
-      const pipelineId = mention.getSubmissionPipelineId();
+      const mentionPipelineId = mention.getSubmissionPipelineId();
       if (mention.mentionTokens.length > 0 && !mention.validateTokens()) {
         // All tokens are invalid
         setMentionValidationError('Pipeline not found — please select a valid pipeline');
         return;
       }
+
+      // Use @mentioned pipeline if provided, otherwise fall back to
+      // the project's assigned pipeline so chat-created issues use the
+      // saved pipeline configuration instead of creating a copy.
+      const pipelineId = mentionPipelineId ?? (assignedPipelineId || undefined);
 
       addToHistory(content);
       resetNavigation();
@@ -301,7 +310,7 @@ export function ChatInterface({
       onSendMessage(content, {
         isCommand: commandInput,
         fileUrls,
-        pipelineId: pipelineId ?? undefined,
+        pipelineId,
       });
       // Always clear input after submission
       setInput('');

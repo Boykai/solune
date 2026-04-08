@@ -368,7 +368,7 @@ class ChatAgentService:
                 "available_statuses": available_statuses or [],
                 "github_token": github_token,
                 "session_id": str(session_id),
-                "pipeline_id": pipeline_id,
+                "pipeline_id": pipeline_id or "",
                 "file_urls": file_urls or [],
             }
         )
@@ -439,6 +439,8 @@ class ChatAgentService:
         project_id: str = "",
         available_tasks: list[Any] | None = None,
         available_statuses: list[str] | None = None,
+        pipeline_id: str | None = None,
+        file_urls: list[str] | None = None,
         db: Any | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Run the agent in streaming mode, yielding SSE-compatible events.
@@ -464,6 +466,8 @@ class ChatAgentService:
                 "available_statuses": available_statuses or [],
                 "github_token": github_token,
                 "session_id": str(session_id),
+                "pipeline_id": pipeline_id or "",
+                "file_urls": file_urls or [],
             }
         )
 
