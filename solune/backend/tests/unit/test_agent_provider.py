@@ -236,3 +236,81 @@ class TestCreateAgentToolsAndInstructions:
         call_kwargs = mock_copilot_agent.call_args
         tools_arg = call_kwargs.kwargs.get("tools", call_kwargs[1].get("tools"))
         assert tools_arg == []
+
+    @pytest.mark.asyncio
+    @patch("src.services.agent_provider.get_settings")
+    async def test_wraps_function_tools_with_runtime_state(self, mock_settings):
+        """Copilot tools should receive the caller's runtime session state."""
+        mock_settings.return_value = _make_settings(ai_provider="copilot")
+
+        mock_copilot_agent = MagicMock()
+        mock_permission_handler = MagicMock()
+        mock_permission_handler.approve_all = MagicMock()
+        mock_pool = MagicMock()
+        mock_pool.get_or_create = AsyncMock(return_value=MagicMock())
+        runtime_state = {"session_id": "solune-session"}
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {
+                    "agent_framework_github_copilot": MagicMock(
+                        GitHubCopilotAgent=mock_copilot_agent,
+                        GitHubCopilotOptions=dict,
+                    ),
+                    "copilot": MagicMock(
+                        CopilotClient=MagicMock(return_value=MagicMock()),
+                        PermissionHandler=mock_permission_handler,
+                    ),
+                },
+            ),
+            patch(
+                "src.services.completion_providers.get_copilot_client_pool",
+                return_value=mock_pool,
+            ),
+        ):
+            from agent_framework import Content, FunctionTool
+            from pydantic import BaseModel
+
+            from src.services.agent_provider import create_agent
+
+            class EmptyInput(BaseModel):
+                pass
+
+            class RuntimeAwareTool(FunctionTool):
+                async def invoke(self, *, arguments=None, context=None, tool_call_id=None):
+                    assert context is not None
+                    context.session.state["tool_invoked"] = True
+                    return [Content.from_text(context.session.state["session_id"])]
+
+            read_runtime_tool = RuntimeAwareTool(
+                name="read_runtime_session",
+                description="Read runtime session state",
+                func=lambda: None,
+                input_model=EmptyInput,
+            )
+
+            await create_agent(
+                instructions="test",
+                tools=[read_runtime_tool],
+                github_token="gho_token",
+                tool_runtime_state=runtime_state,
+            )
+
+        call_kwargs = mock_copilot_agent.call_args
+        tools_arg = call_kwargs.kwargs.get("tools", call_kwargs[1].get("tools"))
+        wrapped_tool = tools_arg[0]
+        handler = (
+            wrapped_tool["handler"] if isinstance(wrapped_tool, dict) else wrapped_tool.handler
+        )
+        result = await handler(
+            SimpleNamespace(
+                arguments={},
+                session_id="copilot-session",
+                tool_call_id="call-1",
+            )
+        )
+
+        assert result["result_type"] == "success"
+        assert result["text_result_for_llm"] == "solune-session"
+        assert runtime_state["tool_invoked"] is True

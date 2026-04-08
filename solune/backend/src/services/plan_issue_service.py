@@ -1,141 +1,82 @@
-"""Plan → GitHub Issues service.
+"""Plan approval helpers.
 
-On approval, creates a parent GitHub issue (checklist body) plus one
-sub-issue per ``PlanStep``.  Updates the plan record with issue
-numbers and URLs.
+Renders chat-generated plans into the same markdown shape used when a user
+copies a plan into Parent Issue Intake before launching the shared pipeline.
 """
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-
-from src.logging_utils import get_logger
-
-logger = get_logger(__name__)
+from collections.abc import Mapping
 
 
-async def create_plan_issues(
-    access_token: str,
-    plan: dict,
-    owner: str,
-    repo: str,
-    db: Any,
-) -> dict:
-    """Create a parent GitHub issue and sub-issues for each plan step.
-
-    Args:
-        access_token: GitHub OAuth token with repo write access.
-        plan: Plan dict as returned by ``chat_store.get_plan()``.
-        owner: Repository owner (e.g. ``octocat``).
-        repo: Repository name (e.g. ``my-app``).
-        db: aiosqlite database connection.
-
-    Returns:
-        Dict with:
-            - ``parent_issue_number``: The number of the parent issue.
-            - ``parent_issue_url``: The HTML URL of the parent issue.
-            - ``created_issues``: List of successfully created sub-issue
-              dicts (one per plan step).
-            - ``failed_steps``: List of plan steps for which issue
-              creation failed.
-
-    Raises:
-        RuntimeError: If the parent issue creation fails outright.
-    """
-    from src.services import chat_store
-    from src.services.github_projects.service import GitHubProjectsService
-
-    service = GitHubProjectsService()
-    steps = plan.get("steps", [])
-
-    # ── 1. Build parent issue body with step checklist ────────────────
-    checklist_lines = [f"- [ ] **Step {step['position'] + 1}**: {step['title']}" for step in steps]
-
-    parent_body = f"{plan['summary']}\n\n## Implementation Steps\n\n" + "\n".join(checklist_lines)
-
-    # ── 2. Create parent issue ────────────────────────────────────────
-    parent_issue = await service.create_issue(
-        access_token=access_token,
-        owner=owner,
-        repo=repo,
-        title=plan["title"],
-        body=parent_body,
-    )
-    parent_number = parent_issue["number"]
-    parent_url = parent_issue["html_url"]
-
-    await chat_store.update_plan_parent_issue(db, plan["plan_id"], parent_number, parent_url)
-
-    # ── 3. Create sub-issues sequentially ─────────────────────────────
-    created_issues: list[dict] = []
-    failed_steps: list[dict] = []
-    step_issue_map: dict[str, int] = {}  # step_id → issue_number
-
-    for step in steps:
-        # Build dependency references
-        dep_refs = []
-        for dep_id in step.get("dependencies", []):
-            dep_number = step_issue_map.get(dep_id)
-            if dep_number:
-                dep_refs.append(f"Depends on #{dep_number}")
-
-        step_body_parts = [step["description"]]
-        if dep_refs:
-            step_body_parts.append("\n### Dependencies\n" + "\n".join(f"- {r}" for r in dep_refs))
-        step_body_parts.append(f"\nPart of #{parent_number}")
-        step_body = "\n".join(step_body_parts)
-
+def _coerce_step_position(value: object) -> int:
+    """Convert persisted step positions to a safe integer for markdown labels."""
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
         try:
-            issue = await service.create_issue(
-                access_token=access_token,
-                owner=owner,
-                repo=repo,
-                title=step["title"],
-                body=step_body,
-            )
-            step_issue_map[step["step_id"]] = issue["number"]
-            await chat_store.update_plan_step_issue(
-                db, step["step_id"], issue["number"], issue["html_url"]
-            )
-            created_issues.append(
-                {
-                    "step_id": step["step_id"],
-                    "position": step["position"],
-                    "title": step["title"],
-                    "issue_number": issue["number"],
-                    "issue_url": issue["html_url"],
-                }
-            )
+            return int(value)
+        except ValueError:
+            return 0
+    return 0
 
-            # Small delay to respect GitHub rate limits
-            await asyncio.sleep(0.1)
 
-        except Exception as e:
-            logger.error(
-                "Failed to create issue for step %s: %s",
-                step["step_id"],
-                e,
-                exc_info=True,
-            )
-            failed_steps.append(
-                {
-                    "step_id": step["step_id"],
-                    "position": step["position"],
-                    "title": step["title"],
-                    "error": "Issue creation failed",
-                }
-            )
+def _step_dependency_labels(
+    step_lookup: dict[str, Mapping[str, object]],
+    dependencies: object,
+) -> list[str]:
+    if not isinstance(dependencies, list):
+        return []
 
-    # ── 4. Update plan status ─────────────────────────────────────────
-    if failed_steps:
-        await chat_store.update_plan_status(db, plan["plan_id"], "failed")
-    else:
-        await chat_store.update_plan_status(db, plan["plan_id"], "completed")
+    labels: list[str] = []
+    for dep_id in dependencies:
+        dep_key = str(dep_id)
+        dep_step = step_lookup.get(dep_key)
+        if dep_step is None:
+            labels.append(dep_key)
+            continue
 
-    return {
-        "parent_issue_number": parent_number,
-        "parent_issue_url": parent_url,
-        "created_issues": created_issues,
-        "failed_steps": failed_steps,
+        dep_position = _coerce_step_position(dep_step.get("position", 0)) + 1
+        dep_title = str(dep_step.get("title") or dep_key).strip() or dep_key
+        labels.append(f"Step {dep_position}: {dep_title}")
+    return labels
+
+
+def format_plan_issue_markdown(plan: Mapping[str, object]) -> str:
+    """Render a saved plan into parent-issue markdown for pipeline launch."""
+    title = str(plan.get("title") or "Implementation Plan").strip() or "Implementation Plan"
+    summary = str(plan.get("summary") or "").strip()
+    raw_steps = plan.get("steps")
+    steps = raw_steps if isinstance(raw_steps, list) else []
+    step_lookup = {
+        str(step.get("step_id")): step
+        for step in steps
+        if isinstance(step, Mapping) and step.get("step_id") is not None
     }
+
+    lines = [f"# {title}", ""]
+    if summary:
+        lines.extend([summary, ""])
+
+    if steps:
+        lines.extend(["## Implementation Steps", ""])
+
+    for index, raw_step in enumerate(steps, start=1):
+        if not isinstance(raw_step, Mapping):
+            continue
+
+        step_title = str(raw_step.get("title") or f"Step {index}").strip() or f"Step {index}"
+        step_description = str(raw_step.get("description") or "").strip()
+        dependency_labels = _step_dependency_labels(step_lookup, raw_step.get("dependencies"))
+
+        lines.append(f"### Step {index}: {step_title}")
+        lines.append("")
+        if step_description:
+            lines.extend(step_description.splitlines())
+            lines.append("")
+        if dependency_labels:
+            lines.append("Dependencies:")
+            lines.extend(f"- {label}" for label in dependency_labels)
+            lines.append("")
+
+    return "\n".join(lines).strip()

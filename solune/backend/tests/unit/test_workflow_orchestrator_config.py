@@ -148,7 +148,11 @@ class TestResolveProjectPipelineMappings:
         assert result.pipeline_id == "pipeline-1"
         assert result.pipeline_name == "Full Review Pipeline"
         assert result.agent_mappings == {"Backlog": []}
-        mock_load_pipeline.assert_awaited_once_with("project-1", "pipeline-1")
+        mock_load_pipeline.assert_awaited_once_with(
+            "project-1",
+            "pipeline-1",
+            github_user_id="user-1",
+        )
         mock_load_user.assert_not_awaited()
 
     @pytest.mark.asyncio

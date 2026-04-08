@@ -22,6 +22,9 @@ class TestAgentProfiles:
     def test_plan_agent_profile_structure(self):
         assert PLAN_AGENT_PROFILE["name"] == "solune-plan"
         assert "save_plan" in PLAN_AGENT_PROFILE["tool_whitelist"]
+        assert "create_project_issue" in PLAN_AGENT_PROFILE["tool_whitelist"]
+        assert "launch_pipeline" in PLAN_AGENT_PROFILE["tool_whitelist"]
+        assert "iterate_on_app" in PLAN_AGENT_PROFILE["tool_whitelist"]
         assert "get_project_context" in PLAN_AGENT_PROFILE["tool_whitelist"]
         assert "get_pipeline_list" in PLAN_AGENT_PROFILE["tool_whitelist"]
         assert PLAN_AGENT_PROFILE["permission"] == "read_only"

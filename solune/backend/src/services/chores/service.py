@@ -519,7 +519,9 @@ class ChoresService:
                     )
 
                     chore_pipeline = await load_pipeline_as_agent_mappings(
-                        project_id, chore.agent_pipeline_id
+                        project_id,
+                        chore.agent_pipeline_id,
+                        github_user_id=github_user_id or "",
                     )
                     if chore_pipeline is not None:
                         effective_mappings, _, _, _ = chore_pipeline
@@ -597,7 +599,9 @@ class ChoresService:
                         )
 
                         _chore_pipeline = await load_pipeline_as_agent_mappings(
-                            project_id, chore.agent_pipeline_id
+                            project_id,
+                            chore.agent_pipeline_id,
+                            github_user_id=github_user_id or "",
                         )
                         if _chore_pipeline is not None:
                             config.agent_mappings, _, _, _ = _chore_pipeline

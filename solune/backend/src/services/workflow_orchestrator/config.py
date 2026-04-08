@@ -330,6 +330,7 @@ async def _persist_workflow_config_to_db(
 async def load_pipeline_as_agent_mappings(
     project_id: str,
     pipeline_id: str,
+    github_user_id: str = "",
 ) -> (
     tuple[
         dict[str, list[AgentAssignment]],
@@ -351,7 +352,11 @@ async def load_pipeline_as_agent_mappings(
 
         db = get_db()
         service = PipelineService(db)
-        config = await service.get_pipeline(project_id, pipeline_id)
+        config = await service.get_pipeline(
+            project_id,
+            pipeline_id,
+            github_user_id=github_user_id,
+        )
         if config is None:
             return None
 
@@ -450,7 +455,11 @@ async def resolve_project_pipeline_mappings(
             assigned_id = (row["assigned_pipeline_id"] or "") if row else ""
 
         if assigned_id:
-            result = await load_pipeline_as_agent_mappings(project_id, assigned_id)
+            result = await load_pipeline_as_agent_mappings(
+                project_id,
+                assigned_id,
+                github_user_id=github_user_id,
+            )
             if result is not None:
                 mappings, pipeline_name, exec_modes, grp_mappings = result
                 logger.info(

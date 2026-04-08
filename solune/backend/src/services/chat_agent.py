@@ -28,29 +28,42 @@ from src.models.chat import ActionType, ChatMessage, SenderType
 from src.prompts.agent_instructions import build_system_instructions
 from src.prompts.plan_instructions import build_plan_instructions
 from src.services.agent_provider import create_agent
-from src.services.agent_tools import load_mcp_tools, register_plan_tools, register_tools
+from src.services.agent_tools import (
+    extract_embedded_action_payload,
+    load_mcp_tools,
+    register_plan_tools,
+    register_tools,
+)
 from src.services.plan_agent_provider import on_post_tool_use_hook, on_pre_tool_use_hook
 from src.utils import utcnow
 
 logger = get_logger(__name__)
+
+PLAN_CREATE_DRAFT_MESSAGE = (
+    "Plan drafted. Review the Plan Preview and approve it to create GitHub issues."
+)
 
 
 def _extract_text(value: Any) -> str:
     """Extract text content from framework messages/updates or test doubles."""
     text = getattr(value, "text", None)
     if isinstance(text, str):
-        return text
+        cleaned_text, _, _ = extract_embedded_action_payload(text)
+        return cleaned_text or ""
 
     content = getattr(value, "content", None)
     if isinstance(content, str):
-        return content
+        cleaned_content, _, _ = extract_embedded_action_payload(content)
+        return cleaned_content or ""
     if isinstance(content, list):
         parts: list[str] = []
         for part in content:
             part_text = getattr(part, "text", None)
             if isinstance(part_text, str):
                 parts.append(part_text)
-        return "".join(parts)
+        joined = "".join(parts)
+        cleaned_joined, _, _ = extract_embedded_action_payload(joined)
+        return cleaned_joined or ""
 
     return ""
 
@@ -74,6 +87,30 @@ def _extract_action_payload(value: Any) -> tuple[str | None, dict[str, Any] | No
             if isinstance(data, dict) and "action_type" in data:
                 return data["action_type"], data.get("action_data")
 
+    text = getattr(value, "text", None)
+    if isinstance(text, str):
+        _, embedded_action_type, embedded_action_data = extract_embedded_action_payload(text)
+        if embedded_action_type:
+            return embedded_action_type, embedded_action_data
+
+    content = getattr(value, "content", None)
+    if isinstance(content, str):
+        _, embedded_action_type, embedded_action_data = extract_embedded_action_payload(content)
+        if embedded_action_type:
+            return embedded_action_type, embedded_action_data
+    elif isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            part_text = getattr(part, "text", None)
+            if isinstance(part_text, str):
+                parts.append(part_text)
+        if parts:
+            _, embedded_action_type, embedded_action_data = extract_embedded_action_payload(
+                "".join(parts)
+            )
+            if embedded_action_type:
+                return embedded_action_type, embedded_action_data
+
     # Check Message.contents for function_result Content items.
     # The Agent Framework stores tool return values as Content objects
     # of type "function_result" whose ``result`` field is a JSON string.
@@ -90,11 +127,89 @@ def _extract_action_payload(value: Any) -> tuple[str | None, dict[str, Any] | No
                 try:
                     parsed = json.loads(raw)
                 except (json.JSONDecodeError, TypeError):
+                    _, embedded_action_type, embedded_action_data = extract_embedded_action_payload(
+                        raw
+                    )
+                    if embedded_action_type:
+                        return embedded_action_type, embedded_action_data
                     continue
             if isinstance(parsed, dict) and "action_type" in parsed:
                 return parsed["action_type"], parsed.get("action_data")
 
     return None, None
+
+
+def _normalize_assistant_content(content: str, action_type: Any) -> str:
+    """Replace misleading tool narration for plan drafts with stable UI copy."""
+    if action_type in {ActionType.PLAN_CREATE, ActionType.PLAN_CREATE.value, "plan_create"}:
+        return PLAN_CREATE_DRAFT_MESSAGE
+    return content
+
+
+def _consume_session_tool_action(
+    agent_session: AgentSession,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Read and clear the last tool action captured in session state."""
+    payload = agent_session.state.pop("_last_tool_action", None)
+    if not isinstance(payload, dict):
+        return None, None
+
+    action_type = payload.get("action_type")
+    action_data = payload.get("action_data")
+    if not isinstance(action_type, str):
+        return None, None
+    if action_data is not None and not isinstance(action_data, dict):
+        action_data = None
+    return action_type, action_data
+
+
+def _build_plan_action_data(plan_record: dict[str, Any]) -> dict[str, Any]:
+    """Normalize persisted plan records into the plan_create action payload shape."""
+    step_summaries = [
+        {
+            "step_id": step["step_id"],
+            "position": step["position"],
+            "title": step["title"],
+            "description": step["description"],
+            "dependencies": step.get("dependencies", []),
+        }
+        for step in plan_record.get("steps", [])
+    ]
+
+    return {
+        "plan_id": plan_record["plan_id"],
+        "title": plan_record["title"],
+        "summary": plan_record["summary"],
+        "status": plan_record["status"],
+        "project_id": plan_record["project_id"],
+        "project_name": plan_record["project_name"],
+        "repo_owner": plan_record["repo_owner"],
+        "repo_name": plan_record["repo_name"],
+        "steps": step_summaries,
+    }
+
+
+async def _recover_saved_plan_action(
+    db: Any | None,
+    session_id: UUID,
+    *,
+    updated_after: str,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Recover plan_create from the persisted draft when transport metadata is lost."""
+    if db is None:
+        return None, None
+
+    from src.services import chat_store
+
+    plan_record = await chat_store.get_latest_plan_for_session(
+        db,
+        str(session_id),
+        updated_after=updated_after,
+    )
+    if not isinstance(plan_record, dict):
+        return None, None
+
+    return "plan_create", _build_plan_action_data(plan_record)
 
 
 # ── Session mapping ──────────────────────────────────────────────────────
@@ -242,23 +357,6 @@ class ChatAgentService:
             ChatMessage with the agent's response, including action_type and
             action_data when the agent invoked an action tool.
         """
-        instructions = build_system_instructions(
-            project_name=project_name,
-            available_statuses=available_statuses,
-        )
-
-        # Load MCP tools if a database connection and project_id are available
-        mcp_servers = None
-        if db and project_id:
-            mcp_servers = await load_mcp_tools(project_id, db) or None
-
-        agent = await create_agent(
-            instructions=instructions,
-            tools=self._tools,
-            github_token=github_token,
-            mcp_servers=mcp_servers,
-        )
-
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
         # Inject runtime context into session state for tool access
@@ -289,13 +387,37 @@ class ChatAgentService:
                 db=db,
             )
 
+        instructions = build_system_instructions(
+            project_name=project_name,
+            available_statuses=available_statuses,
+        )
+
+        # Load MCP tools if a database connection and project_id are available
+        mcp_servers = None
+        if db and project_id:
+            mcp_servers = await load_mcp_tools(project_id, db) or None
+
+        agent = await create_agent(
+            instructions=instructions,
+            tools=self._tools,
+            github_token=github_token,
+            mcp_servers=mcp_servers,
+            tool_runtime_state=agent_session.state,
+        )
+
         sid = str(session_id)
         try:
             response: AgentResponse = await agent.run(
                 message,
                 session=agent_session,
             )
-            return self._convert_response(response, session_id)
+            result = self._convert_response(response, session_id)
+            session_action_type, session_action_data = _consume_session_tool_action(agent_session)
+            if result.action_type is None and session_action_type:
+                result.action_type = ActionType(session_action_type)
+                result.action_data = session_action_data
+                result.content = _normalize_assistant_content(result.content, session_action_type)
+            return result
         except Exception as e:
             logger.error("Agent run failed: %s", e, exc_info=True)
             # Invalidate the session so the next attempt gets a fresh one
@@ -331,22 +453,6 @@ class ChatAgentService:
         Yields:
             Dicts with ``event`` and ``data`` keys for SSE serialization.
         """
-        instructions = build_system_instructions(
-            project_name=project_name,
-            available_statuses=available_statuses,
-        )
-
-        mcp_servers = None
-        if db and project_id:
-            mcp_servers = await load_mcp_tools(project_id, db) or None
-
-        agent = await create_agent(
-            instructions=instructions,
-            tools=self._tools,
-            github_token=github_token,
-            mcp_servers=mcp_servers,
-        )
-
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
         # Inject runtime context into session state for tool access
@@ -377,10 +483,28 @@ class ChatAgentService:
                 yield event
             return
 
+        instructions = build_system_instructions(
+            project_name=project_name,
+            available_statuses=available_statuses,
+        )
+
+        mcp_servers = None
+        if db and project_id:
+            mcp_servers = await load_mcp_tools(project_id, db) or None
+
+        agent = await create_agent(
+            instructions=instructions,
+            tools=self._tools,
+            github_token=github_token,
+            mcp_servers=mcp_servers,
+            tool_runtime_state=agent_session.state,
+        )
+
         try:
             accumulated_text = ""
             action_type = None
             action_data = None
+            final_response: AgentResponse | None = None
 
             stream = agent.run(
                 message,
@@ -409,8 +533,21 @@ class ChatAgentService:
 
             if hasattr(stream, "get_final_response"):
                 final_response = await stream.get_final_response()
-                if not accumulated_text:
+                if final_response is not None and not accumulated_text:
                     accumulated_text = final_response.text
+
+            if final_response is not None and action_type is None:
+                final_message = self._convert_response(final_response, session_id)
+                if final_message.action_type is not None:
+                    action_type = final_message.action_type.value
+                    action_data = final_message.action_data
+                    if not accumulated_text:
+                        accumulated_text = final_message.content
+
+            session_action_type, session_action_data = _consume_session_tool_action(agent_session)
+            if action_type is None and session_action_type:
+                action_type = session_action_type
+                action_data = session_action_data
 
             # Fallback: try to extract tool result from accumulated text (JSON)
             if action_type is None and accumulated_text:
@@ -457,6 +594,7 @@ class ChatAgentService:
         available_statuses: list[str] | None = None,
         repo_owner: str = "",
         repo_name: str = "",
+        selected_pipeline_id: str | None = None,
         db: Any | None = None,
     ) -> ChatMessage:
         """Run the plan-mode agent (non-streaming).
@@ -464,21 +602,10 @@ class ChatAgentService:
         Sets ``is_plan_mode=True`` and ``repo_owner``/``repo_name`` in
         session state so follow-up messages auto-delegate.
         """
-        instructions = build_plan_instructions(
-            project_name=project_name,
-            project_id=project_id,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-            available_statuses=available_statuses,
-        )
-
-        agent = await create_agent(
-            instructions=instructions,
-            tools=self._plan_tools,
-            github_token=github_token,
-        )
-
         agent_session = await self._session_mapping.get_or_create(str(session_id))
+        effective_pipeline_id = selected_pipeline_id or agent_session.state.get(
+            "selected_pipeline_id"
+        )
 
         # Inject plan-mode context
         agent_session.state.update(
@@ -491,17 +618,53 @@ class ChatAgentService:
                 "is_plan_mode": True,
                 "repo_owner": repo_owner,
                 "repo_name": repo_name,
+                "selected_pipeline_id": effective_pipeline_id,
                 "db": db,
             }
         )
 
+        instructions = build_plan_instructions(
+            project_name=project_name,
+            project_id=project_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            available_statuses=available_statuses,
+        )
+
+        agent = await create_agent(
+            instructions=instructions,
+            tools=self._plan_tools,
+            github_token=github_token,
+            tool_runtime_state=agent_session.state,
+        )
+
         sid = str(session_id)
+        plan_request_started_at = utcnow().isoformat()
         try:
             response: AgentResponse = await agent.run(
                 message,
                 session=agent_session,
             )
-            return self._convert_response(response, session_id)
+            result = self._convert_response(response, session_id)
+            session_action_type, session_action_data = _consume_session_tool_action(agent_session)
+            if result.action_type is None and session_action_type:
+                result.action_type = ActionType(session_action_type)
+                result.action_data = session_action_data
+                result.content = _normalize_assistant_content(result.content, session_action_type)
+            if result.action_type is None:
+                recovered_action_type, recovered_action_data = await _recover_saved_plan_action(
+                    db,
+                    session_id,
+                    updated_after=plan_request_started_at,
+                )
+                if recovered_action_type:
+                    result.action_type = ActionType(recovered_action_type)
+                    result.action_data = recovered_action_data
+                    result.content = _normalize_assistant_content(
+                        result.content,
+                        recovered_action_type,
+                    )
+            return result
         except Exception as e:
             logger.error("Plan agent run failed: %s", e, exc_info=True)
             await self._session_mapping.invalidate(sid)
@@ -522,30 +685,20 @@ class ChatAgentService:
         available_statuses: list[str] | None = None,
         repo_owner: str = "",
         repo_name: str = "",
+        selected_pipeline_id: str | None = None,
         db: Any | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Run the plan-mode agent in streaming mode with thinking events.
 
         Yields SSE events including ``thinking`` events for phase-aware UI.
         """
-        instructions = build_plan_instructions(
-            project_name=project_name,
-            project_id=project_id,
-            repo_owner=repo_owner,
-            repo_name=repo_name,
-            available_statuses=available_statuses,
-        )
-
-        agent = await create_agent(
-            instructions=instructions,
-            tools=self._plan_tools,
-            github_token=github_token,
-        )
-
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
         # Determine thinking phase based on whether we are refining
         is_refining = agent_session.state.get("active_plan_id") is not None
+        effective_pipeline_id = selected_pipeline_id or agent_session.state.get(
+            "selected_pipeline_id"
+        )
 
         # Inject plan-mode context
         agent_session.state.update(
@@ -558,8 +711,24 @@ class ChatAgentService:
                 "is_plan_mode": True,
                 "repo_owner": repo_owner,
                 "repo_name": repo_name,
+                "selected_pipeline_id": effective_pipeline_id,
                 "db": db,
             }
+        )
+
+        instructions = build_plan_instructions(
+            project_name=project_name,
+            project_id=project_id,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
+            available_statuses=available_statuses,
+        )
+
+        agent = await create_agent(
+            instructions=instructions,
+            tools=self._plan_tools,
+            github_token=github_token,
+            tool_runtime_state=agent_session.state,
         )
 
         try:
@@ -589,6 +758,8 @@ class ChatAgentService:
             action_type = None
             action_data = None
             planning_event_emitted = False
+            final_response: AgentResponse | None = None
+            plan_request_started_at = utcnow().isoformat()
 
             stream = agent.run(
                 message,
@@ -645,8 +816,31 @@ class ChatAgentService:
 
             if hasattr(stream, "get_final_response"):
                 final_response = await stream.get_final_response()
-                if not accumulated_text:
+                if final_response is not None and not accumulated_text:
                     accumulated_text = final_response.text
+
+            if final_response is not None and action_type is None:
+                final_message = self._convert_response(final_response, session_id)
+                if final_message.action_type is not None:
+                    action_type = final_message.action_type.value
+                    action_data = final_message.action_data
+                    if not accumulated_text:
+                        accumulated_text = final_message.content
+
+            session_action_type, session_action_data = _consume_session_tool_action(agent_session)
+            if action_type is None and session_action_type:
+                action_type = session_action_type
+                action_data = session_action_data
+
+            if action_type is None:
+                recovered_action_type, recovered_action_data = await _recover_saved_plan_action(
+                    db,
+                    session_id,
+                    updated_after=plan_request_started_at,
+                )
+                if recovered_action_type:
+                    action_type = recovered_action_type
+                    action_data = recovered_action_data
 
             # Fallback: extract tool result from accumulated text
             if action_type is None and accumulated_text:
@@ -662,7 +856,10 @@ class ChatAgentService:
             final_msg = ChatMessage(
                 session_id=session_id,
                 sender_type=SenderType.ASSISTANT,
-                content=accumulated_text or "I processed your plan request.",
+                content=_normalize_assistant_content(
+                    accumulated_text or "I processed your plan request.",
+                    action_type,
+                ),
                 action_type=ActionType(action_type) if action_type else None,
                 action_data=action_data,
             )
@@ -726,7 +923,7 @@ class ChatAgentService:
         return ChatMessage(
             session_id=session_id,
             sender_type=SenderType.ASSISTANT,
-            content=content,
+            content=_normalize_assistant_content(content, action_type),
             action_type=ActionType(action_type) if action_type else None,
             action_data=action_data,
             timestamp=utcnow(),

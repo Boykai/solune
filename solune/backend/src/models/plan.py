@@ -75,6 +75,10 @@ class Plan(BaseModel):
     project_name: str = Field(..., min_length=1, description="Project display name")
     repo_owner: str = Field(..., min_length=1, description="GitHub repository owner")
     repo_name: str = Field(..., min_length=1, description="GitHub repository name")
+    selected_pipeline_id: str | None = Field(
+        default=None,
+        description="Optional pipeline selected when the plan was created",
+    )
     parent_issue_number: int | None = Field(
         default=None, description="Parent issue number (post-approval)"
     )

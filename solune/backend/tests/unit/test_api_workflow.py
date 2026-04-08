@@ -481,10 +481,65 @@ class TestConfirmRecommendation:
         data = resp.json()
         assert data["success"] is True
         assert data["issue_number"] == 99
+        messages = await chat_mod.get_session_messages(mock_session.session_id)
+        assert messages[-1].sender_type.value == "system"
+        assert "GitHub parent issue created" in messages[-1].content
+        assert "https://github.com/testowner/testrepo/issues/99" in messages[-1].content
         chat_mod._recommendations.pop(rec_id, None)
         reloaded = await chat_mod.get_recommendation(rec_id)
         assert reloaded is not None
         assert reloaded.status == RecommendationStatus.CONFIRMED
+
+    async def test_confirm_partial_success_still_adds_parent_issue_message(
+        self, client, mock_session, mock_github_service, mock_websocket_manager
+    ):
+        import src.api.chat as chat_mod
+
+        mock_session.selected_project_id = TEST_PROJECT_ID
+        rec = _recommendation(session_id=mock_session.session_id)
+        rec_id = str(rec.recommendation_id)
+        await chat_mod.store_recommendation(rec)
+
+        mock_github_service.get_project_repository.return_value = ("testowner", "testrepo")
+
+        wf_result = WorkflowResult(
+            success=False,
+            issue_id="I_199",
+            issue_number=199,
+            issue_url="https://github.com/testowner/testrepo/issues/199",
+            project_item_id="PVTI_199",
+            current_status="Backlog",
+            message="The parent issue was created, but the first agent could not be assigned automatically.",
+        )
+        mock_orchestrator = AsyncMock()
+        mock_orchestrator.execute_full_workflow.return_value = wf_result
+
+        with (
+            patch("src.api.chat._recommendations", {rec_id: rec}),
+            patch(f"{WF}._recent_requests", {}),
+            patch(f"{WF}.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(f"{WF}.set_workflow_config", new_callable=AsyncMock),
+            patch(f"{WF}.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch(f"{WF}.get_agent_slugs", return_value=[]),
+            patch("src.config.get_settings") as mock_settings,
+        ):
+            mock_settings.return_value = MagicMock(
+                default_assignee="copilot",
+                default_repo_owner="testowner",
+                default_repo_name="testrepo",
+                database_path=":memory:",
+            )
+            resp = await client.post(f"/api/v1/workflow/recommendations/{rec_id}/confirm")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["success"] is False
+        assert data["issue_number"] == 199
+        messages = await chat_mod.get_session_messages(mock_session.session_id)
+        assert messages[-1].sender_type.value == "system"
+        assert "GitHub parent issue created with warnings" in messages[-1].content
+        assert "https://github.com/testowner/testrepo/issues/199" in messages[-1].content
+        assert "could not be assigned automatically" in messages[-1].content
 
     async def test_confirm_workflow_failure(
         self, client, mock_session, mock_github_service, mock_websocket_manager

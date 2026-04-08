@@ -67,6 +67,10 @@ vi.mock('./IssueRecommendationPreview', () => ({
   IssueRecommendationPreview: () => <div data-testid="issue-recommendation-preview" />,
 }));
 
+vi.mock('./PlanPreview', () => ({
+  PlanPreview: () => <div data-testid="plan-preview" />,
+}));
+
 vi.mock('./ChatToolbar', () => ({
   ChatToolbar: () => <div data-testid="chat-toolbar" />,
 }));
@@ -211,6 +215,35 @@ describe('ChatInterface', () => {
     renderChat();
 
     expect(screen.getByText('Start a conversation')).toBeInTheDocument();
+  });
+
+  it('renders a plan preview without duplicating the raw assistant bubble', () => {
+    renderChat({
+      messages: [
+        createMessage({
+          sender_type: 'assistant',
+          content: 'Done! I created the parent issue and launched the pipeline.',
+          action_type: 'plan_create',
+          action_data: {
+            plan_id: 'plan-1',
+            title: 'Plan title',
+            summary: 'Plan summary',
+            status: 'draft',
+            project_id: 'PVT_1',
+            project_name: 'Roadmap',
+            repo_owner: 'octocat',
+            repo_name: 'hello-world',
+            steps: [],
+          },
+        }),
+      ],
+    });
+
+    expect(screen.getByTestId('plan-preview')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Done! I created the parent issue and launched the pipeline.')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('message-bubble')).not.toBeInTheDocument();
   });
 
   it('calls onNewChat when the New Chat button is clicked', () => {
