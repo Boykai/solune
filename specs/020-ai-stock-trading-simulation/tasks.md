@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/020-ai-stock-trading-simulation/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/, quickstart.md
 
-**Tests**: Step 9 of the parent issue (#1116) explicitly mandates tests — pytest for backend (trade engine, market service, agent tool calls, analytics, simulation) and vitest for frontend (TradingDashboard, StrategyConfig, Analytics, useSimulation hook, price formatting). Test tasks are included in Phase 10 (Polish).
+**Tests**: Step 9 of the parent issue (#1116) explicitly mandates tests — pytest for backend (trade engine, market service, agent tool calls, analytics, simulation) and vitest for frontend (TradingDashboard, StrategyConfig, Analytics, useSimulation hook, price formatting). Test tasks are included in Phase 9 (Polish).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -25,7 +25,7 @@
 
 **Purpose**: Project initialization — database migrations, dependencies, service directory scaffolding, and router registration
 
-- [ ] T001 Create database migration files for trading simulation tables in solune/backend/src/migrations/050_portfolios.sql through 055_simulations.sql per data-model.md SQLite schema
+- [ ] T001 Create 6 database migration files per data-model.md SQLite schema: solune/backend/src/migrations/050_portfolios.sql, 051_holdings.sql, 052_orders.sql, 053_trades.sql, 054_agent_sessions.sql (sessions + messages tables), 055_simulations.sql
 - [ ] T002 Add `pyautogen>=0.2.35,<0.3` dependency to solune/backend/pyproject.toml under [project.dependencies]
 - [ ] T003 [P] Add `recharts` dependency to solune/frontend via `npm install recharts` in solune/frontend/
 - [ ] T004 [P] Create `__init__.py` files for new service directories: solune/backend/src/services/market/__init__.py, solune/backend/src/services/trading/__init__.py, solune/backend/src/services/ai/__init__.py, solune/backend/src/services/agents/__init__.py, solune/backend/src/services/simulation/__init__.py, solune/backend/src/services/analytics/__init__.py
