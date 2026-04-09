@@ -1,9 +1,9 @@
-# Tasks: Multi-Phase App Creation with Auto-Merge Pipeline Orchestration
+# Tasks: Increase Test Coverage with Meaningful Tests Using Modern Best Practices
 
-**Input**: Design documents from `/specs/001-multi-phase-app-creation/` and `/specs/002-auto-merge-pipeline-orchestration/`
-**Prerequisites**: plan.md ✅, spec.md ✅, data-model.md ✅, contracts/ ✅, research.md ✅, quickstart.md ✅
+**Input**: Design documents from `/specs/001-increase-test-coverage/`
+**Prerequisites**: plan.md (required), spec.md (required for user stories)
 
-**Tests**: Explicitly requested in Phase 4 of the parent issue and plan.md — included below.
+**Tests**: Tests ARE the primary deliverable for this feature. All tasks generate test files or fix the bounded-locks bug.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -15,154 +15,157 @@
 
 ## Path Conventions
 
-- **Web app**: `solune/backend/src/`, `solune/frontend/src/`
-- **Tests**: `solune/backend/tests/unit/`, `solune/frontend/src/**/*.test.*`
-
----
+- **Web app**: `solune/backend/src/`, `solune/backend/tests/`, `solune/frontend/src/`
+- Backend tests: `solune/backend/tests/unit/test_<module>.py`
+- Frontend tests: colocated `<Component>.test.tsx` or `__tests__/<Component>.test.tsx`
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Database migration and shared data models needed by all user stories
+**Purpose**: Verify existing test infrastructure is ready; no new tooling needed
 
-- [x] T001 Create database migration for orchestration tracking table in solune/backend/src/migrations/042_app_plan_orchestrations.sql
-- [x] T002 Add `prerequisite_issues: list[int]` field to PipelineState dataclass in solune/backend/src/services/workflow_orchestrator/models.py
-- [x] T003 [P] Serialize `prerequisite_issues` in `_pipeline_state_to_row()` metadata JSON in solune/backend/src/services/pipeline_state_store.py
-- [x] T004 [P] Deserialize `prerequisite_issues` in `_row_to_pipeline_state()` with default `[]` in solune/backend/src/services/pipeline_state_store.py
+- [ ] T001 Verify backend test suite passes with `cd solune/backend && python -m pytest tests/ --cov=src --cov-fail-under=75 -q`
+- [ ] T002 Verify frontend test suite passes with `cd solune/frontend && npm run test`
+- [ ] T003 [P] Verify backend linting passes with `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/`
+- [ ] T004 [P] Verify frontend linting and type-check passes with `cd solune/frontend && npm run lint && npm run type-check`
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Core parser service and orchestrator skeleton that ALL user stories depend on
+**Purpose**: No foundational infrastructure changes are needed. The existing test infrastructure (pytest-asyncio auto mode, Vitest + happy-dom, jest-axe, @fast-check/vitest) is already modern and correct. Phase 2 is a no-op checkpoint.
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+**⚠️ CRITICAL**: Confirm all Phase 1 verification tasks pass before proceeding to user stories.
 
-- [x] T005 Create PlanPhase dataclass (index, title, description, steps, depends_on_phases, execution_mode) in solune/backend/src/services/plan_parser.py
-- [x] T006 Implement `parse_plan(plan_md_content: str) -> list[PlanPhase]` — extract `## Implementation Phases` section, parse `### Phase N — Title` blocks via regex `r"### Phase (\d+)\s*[—–-]\s*(.+)"`, extract description, steps, dependency markers, and execution mode in solune/backend/src/services/plan_parser.py
-- [x] T007 Implement `group_into_waves(phases: list[PlanPhase]) -> list[list[PlanPhase]]` — Wave 1: no deps, Wave N: deps all in prior waves in solune/backend/src/services/plan_parser.py
-- [x] T008 Add circular dependency detection in `parse_plan()` that raises ValueError when cycles are found in solune/backend/src/services/plan_parser.py
-- [x] T009 Create AppPlanOrchestrator class skeleton with `__init__`, `_update_status()`, and status state machine constants in solune/backend/src/services/app_plan_orchestrator.py
-
-**Checkpoint**: Foundation ready — parser and orchestrator skeleton available for all user stories
+**Checkpoint**: Foundation verified — user story implementation can now begin in parallel
 
 ---
 
-## Phase 3: User Story 1 — Plan-Driven App Creation (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — Close Critical Frontend Test Gaps (Priority: P1) 🎯 MVP
 
-**Goal**: User submits an app description → system generates a plan, parses phases, creates GitHub issues per phase, and launches Phase 1 pipeline — all without further user input.
+**Goal**: Add meaningful tests for all untested frontend chores components, tools components, agents components, settings components, UI primitives, and remaining pipeline/chat gaps. Every new test must exercise rendering, user interaction, and core behavior — not just import verification.
 
-**Independent Test**: Submit an app description via `POST /apps/create-with-plan`; verify (a) plan.md is generated, (b) phases are parsed into PlanPhase objects, (c) corresponding parent issues appear on the project board, (d) first wave of pipelines launches.
-
-### Tests for User Story 1
-
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
-
-- [x] T010 [P] [US1] Unit tests for `parse_plan()` — valid plan.md → correct PlanPhase objects, dependency detection, parallel detection, edge cases (single phase, no phases error) in solune/backend/tests/unit/test_plan_parser.py
-- [x] T011 [P] [US1] Unit tests for `group_into_waves()` — correct wave grouping by dependency depth, single wave when no deps in solune/backend/tests/unit/test_plan_parser.py
-- [x] T012 [P] [US1] Unit test for circular dependency detection — raises ValueError with cycle info in solune/backend/tests/unit/test_plan_parser.py
-- [x] T013 [P] [US1] Unit tests for `orchestrate_app_creation()` happy path with mocked services — verifies status transitions: planning → speckit_running → parsing_phases → creating_issues → launching_pipelines → active in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [x] T014 [P] [US1] Unit tests for error handling in orchestration — speckit.plan timeout, plan.md fetch failure, parse failure (zero phases) in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [x] T015 [P] [US1] Unit tests for phase issue creation — correct titles (Phase N/M: Title — AppName), correct body content, tracking table appended, added to project board in solune/backend/tests/unit/test_app_plan_orchestrator.py
+**Independent Test**: Run `cd solune/frontend && npx vitest run --coverage` and verify chores, tools, agents, settings, and UI directories show meaningful coverage improvements. All new tests must pass.
 
 ### Implementation for User Story 1
 
-- [x] T016 [US1] Implement `orchestrate_app_creation()` main flow in AppPlanOrchestrator — call `chat_agent_svc.run_plan()`, create planning issue, assign speckit.plan, poll for Done!, fetch plan.md, parse phases, create issues, launch pipelines in solune/backend/src/services/app_plan_orchestrator.py
-- [x] T017 [US1] Implement `_create_phase_issues()` — for each PlanPhase create a GitHub Parent Issue with title `Phase {N}/{M}: {title} — {app_name}`, body with app overview + phase steps + tracking table, add to project board at Backlog status in solune/backend/src/services/app_plan_orchestrator.py
-- [x] T018 [US1] Implement `_launch_phase_pipelines()` — call `group_into_waves()`, launch Wave 1 with `auto_merge=True` and no prerequisites, queue Wave 2+ with prerequisite_issues in solune/backend/src/services/app_plan_orchestrator.py
-- [x] T019 [US1] Implement error handling in `orchestrate_app_creation()` — configurable timeout for speckit.plan (default 20min), catch parse failures, update status to `failed` with error_message, broadcast failure via WebSocket in solune/backend/src/services/app_plan_orchestrator.py
-- [x] T020 [US1] Create `POST /apps/create-with-plan` endpoint — validate request body per OpenAPI contract, create App record, create AppPlanOrchestration record, start orchestration as BackgroundTask, return 202 with orchestration_id in solune/backend/src/api/apps.py
-- [x] T021 [US1] Create `GET /apps/{app_name}/plan-status` endpoint — read AppPlanOrchestration from DB, return status, phase_count, phase_issues array with issue numbers/URLs/pipeline status, error_message in solune/backend/src/api/apps.py
+#### Chores Components (6 untested)
 
-**Checkpoint**: User Story 1 fully functional — plan-driven app creation works end-to-end via API
+- [ ] T005 [P] [US1] Create test for ChoreChatFlow in `solune/frontend/src/components/chores/__tests__/ChoreChatFlow.test.tsx` — render with mock props, verify chat flow UI renders, test user message submission
+- [ ] T006 [P] [US1] Create test for ChoreInlineEditor in `solune/frontend/src/components/chores/__tests__/ChoreInlineEditor.test.tsx` — render in edit mode, verify input fields, test save/cancel interactions
+- [ ] T007 [P] [US1] Create test for ChoresSaveAllBar in `solune/frontend/src/components/chores/__tests__/ChoresSaveAllBar.test.tsx` — render with pending changes, verify save-all button, test click handler
+- [ ] T008 [P] [US1] Create test for ChoresSpotlight in `solune/frontend/src/components/chores/__tests__/ChoresSpotlight.test.tsx` — render spotlight view, verify featured chore display, test navigation
+- [ ] T009 [P] [US1] Create test for ChoresToolbar in `solune/frontend/src/components/chores/__tests__/ChoresToolbar.test.tsx` — render toolbar, verify filter/sort controls, test toolbar actions
+- [ ] T010 [P] [US1] Create test for PipelineSelector in `solune/frontend/src/components/chores/__tests__/PipelineSelector.test.tsx` — render with pipeline options, verify selection behavior, test change handler
+
+#### Tools Components (8 untested)
+
+- [ ] T011 [P] [US1] Create test for ToolCard in `solune/frontend/src/components/tools/__tests__/ToolCard.test.tsx` — render with tool data, verify name/description display, test click interaction
+- [ ] T012 [P] [US1] Create test for ToolsPanel in `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` — render panel with mock tools list, verify tool cards render, test add/remove flow
+- [ ] T013 [P] [US1] Create test for ToolChips in `solune/frontend/src/components/tools/__tests__/ToolChips.test.tsx` — render chips with tool names, verify chip display, test removal interaction
+- [ ] T014 [P] [US1] Create test for McpPresetsGallery in `solune/frontend/src/components/tools/__tests__/McpPresetsGallery.test.tsx` — render gallery with presets, verify preset cards, test selection
+- [ ] T015 [P] [US1] Create test for RepoConfigPanel in `solune/frontend/src/components/tools/__tests__/RepoConfigPanel.test.tsx` — render config panel, verify form fields, test configuration changes
+- [ ] T016 [P] [US1] Create test for EditRepoMcpModal in `solune/frontend/src/components/tools/__tests__/EditRepoMcpModal.test.tsx` — render modal open state, verify form inputs, test save/cancel
+- [ ] T017 [P] [US1] Create test for UploadMcpModal in `solune/frontend/src/components/tools/__tests__/UploadMcpModal.test.tsx` — render upload modal, verify file input area, test upload flow
+- [ ] T018 [P] [US1] Create test for GitHubMcpConfigGenerator in `solune/frontend/src/components/tools/__tests__/GitHubMcpConfigGenerator.test.tsx` — render config generator, verify output preview, test generate action
+
+#### Agents Components (5 untested)
+
+- [ ] T019 [P] [US1] Create test for AgentCard in `solune/frontend/src/components/agents/__tests__/AgentCard.test.tsx` — render with agent data, verify name/avatar/status display, test click handler
+- [ ] T020 [P] [US1] Create test for AgentInlineEditor in `solune/frontend/src/components/agents/__tests__/AgentInlineEditor.test.tsx` — render in edit mode, verify form fields, test save/cancel
+- [ ] T021 [P] [US1] Create test for AgentIconCatalog in `solune/frontend/src/components/agents/__tests__/AgentIconCatalog.test.tsx` — render icon catalog, verify icon grid display, test icon selection
+- [ ] T022 [P] [US1] Create test for AgentIconPickerModal in `solune/frontend/src/components/agents/__tests__/AgentIconPickerModal.test.tsx` — render picker modal, verify search/filter, test icon pick
+- [ ] T023 [P] [US1] Create test for BulkModelUpdateDialog in `solune/frontend/src/components/agents/__tests__/BulkModelUpdateDialog.test.tsx` — render dialog with agents, verify model selection, test confirm/cancel
+
+#### Settings Components (4 untested)
+
+- [ ] T024 [P] [US1] Create test for ProjectSettings in `solune/frontend/src/components/settings/__tests__/ProjectSettings.test.tsx` — render settings form, verify input fields, test save interaction
+- [ ] T025 [P] [US1] Create test for AIPreferences in `solune/frontend/src/components/settings/__tests__/AIPreferences.test.tsx` — render preferences panel, verify toggle/select controls, test preference changes
+- [ ] T026 [P] [US1] Create test for PrimarySettings in `solune/frontend/src/components/settings/__tests__/PrimarySettings.test.tsx` — render primary settings, verify key settings display, test edit flow
+- [ ] T027 [P] [US1] Create test for SignalConnection in `solune/frontend/src/components/settings/__tests__/SignalConnection.test.tsx` — render connection status, verify indicator display, test reconnect action
+
+#### UI Primitives (6 untested — non-trivial ones only)
+
+- [ ] T028 [P] [US1] Create test for copy-button in `solune/frontend/src/components/ui/__tests__/copy-button.test.tsx` — render with content, verify clipboard copy on click, test copied-state feedback
+- [ ] T029 [P] [US1] Create test for character-counter in `solune/frontend/src/components/ui/__tests__/character-counter.test.tsx` — render with limits, verify count display, test near-limit and over-limit styling
+- [ ] T030 [P] [US1] Create test for keyboard-shortcut-modal in `solune/frontend/src/components/ui/__tests__/keyboard-shortcut-modal.test.tsx` — render modal, verify shortcut list display, test close interaction
+
+#### Remaining Component Gaps (Pipeline, Chat — lower priority within P1)
+
+- [ ] T031 [P] [US1] Create test for ModelSelector in `solune/frontend/src/components/pipeline/__tests__/ModelSelector.test.tsx` — render with model options, verify dropdown, test selection change
+- [ ] T032 [P] [US1] Create test for PipelineStagesOverview in `solune/frontend/src/components/pipeline/__tests__/PipelineStagesOverview.test.tsx` — render with stages data, verify stage cards, test stage navigation
+- [ ] T033 [P] [US1] Create test for ParallelStageGroup in `solune/frontend/src/components/pipeline/__tests__/ParallelStageGroup.test.tsx` — render with parallel stages, verify group layout, test expand/collapse
+- [ ] T034 [P] [US1] Create test for MentionAutocomplete in `solune/frontend/src/components/chat/__tests__/MentionAutocomplete.test.tsx` — render with suggestions, verify dropdown display, test selection
+- [ ] T035 [P] [US1] Create test for PlanDependencyGraph in `solune/frontend/src/components/chat/__tests__/PlanDependencyGraph.test.tsx` — render with graph data, verify node rendering, test node interaction
+- [ ] T036 [P] [US1] Create test for PipelineIndicator in `solune/frontend/src/components/chat/__tests__/PipelineIndicator.test.tsx` — render with status, verify indicator display, test status changes
+- [ ] T037 [P] [US1] Create test for ChatMessageSkeleton in `solune/frontend/src/components/chat/__tests__/ChatMessageSkeleton.test.tsx` — render skeleton, verify placeholder structure
+
+**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. Run `cd solune/frontend && npx vitest run` to confirm all new + existing tests pass.
 
 ---
 
-## Phase 4: User Story 2 — Sequential Phase Execution with Auto-Merge (Priority: P2)
+## Phase 4: User Story 2 — Close Backend Test Gaps (Priority: P2)
 
-**Goal**: After Phase 1's pipeline completes and its PR is merged to main, the system automatically starts Phase 2 from the updated main branch. This continues sequentially until all phases are complete.
+**Goal**: Add meaningful tests for untested backend prompt modules and the `otel_setup.py` service. Each test must verify actual behavior — output structure, variable substitution, edge cases.
 
-**Independent Test**: Simulate two sequential phases; verify Phase 2's pipeline only starts after Phase 1's PR has been merged, and Phase 2 branches from updated main.
-
-### Tests for User Story 2
-
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
-
-- [ ] T022 [P] [US2] Unit tests for `_dequeue_next_pipeline()` skipping pipelines with unmet prerequisite_issues in solune/backend/tests/unit/test_copilot_polling.py
-- [ ] T023 [P] [US2] Unit tests for `_dequeue_next_pipeline()` proceeding when all prerequisite_issues have merged PRs in solune/backend/tests/unit/test_copilot_polling.py
-- [ ] T024 [P] [US2] Unit test for backward compatibility — pipeline with empty prerequisite_issues dequeues normally in solune/backend/tests/unit/test_copilot_polling.py
-- [ ] T025 [P] [US2] Unit tests for `PipelineState` serialization round-trip — prerequisite_issues survives `_pipeline_state_to_row()` → `_row_to_pipeline_state()` in solune/backend/tests/unit/test_copilot_polling.py
+**Independent Test**: Run `cd solune/backend && python -m pytest tests/ --cov=src --cov-fail-under=75 -q` and verify newly tested modules appear in the coverage report.
 
 ### Implementation for User Story 2
 
-- [x] T026 [US2] Extend `execute_pipeline_launch()` with `auto_merge: bool = False` and `prerequisite_issues: list[int] | None = None` params — pass both to PipelineState constructor in queue and non-queue branches in solune/backend/src/api/pipelines.py
-- [x] T027 [US2] Extend `_dequeue_next_pipeline()` with prerequisite checking — before dequeuing, verify all prerequisite_issues have merged PRs; skip pipelines with unmet prerequisites and try next queued one in solune/backend/src/services/copilot_polling/pipeline.py
-- [x] T028 [US2] Verify auto-merge → dequeue trigger exists — confirm `_dequeue_next_pipeline()` is called after successful auto-merge (already at ~line 2641 in pipeline.py); add comment documenting the prerequisite-aware flow in solune/backend/src/services/copilot_polling/pipeline.py
+#### Prompt Module Tests (3 untested)
 
-**Checkpoint**: Sequential phase execution works — Phase N+1 starts only after Phase N's PR is merged to main
+- [ ] T038 [P] [US2] Create test for agent_instructions prompt in `solune/backend/tests/unit/test_agent_instructions_prompt.py` — verify output structure contains required sections, test variable substitution with real project data, test edge cases (empty inputs, special characters, long inputs)
+- [ ] T039 [P] [US2] Create test for issue_generation prompt in `solune/backend/tests/unit/test_issue_generation_prompt.py` — verify output structure contains required issue fields, test variable substitution, test edge cases (empty title, missing context, special characters)
+- [ ] T040 [P] [US2] Create test for task_generation prompt in `solune/backend/tests/unit/test_task_generation_prompt.py` — verify output structure contains task list format, test variable substitution, test edge cases (empty plan, no user stories)
+
+#### Observability Service Test (1 untested)
+
+- [ ] T041 [P] [US2] Create test for otel_setup service in `solune/backend/tests/unit/test_otel_setup.py` — verify setup initialization creates expected providers, test no-op fallback behavior when OTel is disabled, test cleanup/shutdown sequence
+
+**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. Run backend tests to confirm.
 
 ---
 
-## Phase 5: User Story 3 — Real-Time Planning Progress Visibility (Priority: P3)
+## Phase 5: User Story 3 — Fix Discovered Bugs (Priority: P2)
 
-**Goal**: While the system is planning and orchestrating, the user sees a live progress view showing each stage with links to created issues as they appear.
+**Goal**: Fix the unbounded `_project_launch_locks` dictionary in `pipeline_state_store.py` by replacing it with a bounded data structure (using the existing `BoundedDict` from `solune/backend/src/utils.py`). Add regression test to prevent recurrence.
 
-**Independent Test**: Initiate app creation and verify the progress view updates through each state transition (planning → speckit_running → parsing_phases → creating_issues → launching_pipelines → active) and displays correct links.
+**Independent Test**: Write a unit test that creates locks for more entries than the maximum capacity and verifies the dictionary does not grow beyond its bound.
 
 ### Implementation for User Story 3
 
-- [x] T029 [US3] Implement WebSocket broadcasts on status transitions in `_update_status()` — emit `plan_status_update`, `plan_phase_created`, `plan_orchestration_complete`, `plan_orchestration_failed` payloads per AsyncAPI contract via `connection_manager.broadcast_to_project()` in solune/backend/src/services/app_plan_orchestrator.py
-- [x] T030 [P] [US3] Add TypeScript interfaces for `AppCreateWithPlanResponse`, `AppPlanStatusResponse`, `PhaseIssueInfo`, and WebSocket event payloads in solune/frontend/src/types/apps.ts
-- [x] T031 [P] [US3] Add `useCreateAppWithPlan()` mutation hook — calls `POST /apps/create-with-plan` in solune/frontend/src/hooks/useApps.ts
-- [x] T032 [P] [US3] Add `useAppPlanStatus(appName)` query hook — polls `GET /apps/{app_name}/plan-status` with fallback when WebSocket is unavailable in solune/frontend/src/hooks/useApps.ts
-- [x] T033 [US3] Extend CreateAppDialog.tsx — after form submission, transition to Planning Progress view with stepper showing stages (Plan Generation → Agent Running → Parsing → Creating Issues → Launching → Active), listen for WebSocket events to update step status, show links to created phase issues, handle error state with retry option in solune/frontend/src/components/apps/CreateAppDialog.tsx
+- [ ] T042 [US3] Fix unbounded `_project_launch_locks` in `solune/backend/src/services/pipeline_state_store.py` — replace `dict[str, asyncio.Lock]` with `BoundedDict[str, asyncio.Lock]` using a sensible max size, import `BoundedDict` from `src.utils`
+- [ ] T043 [US3] Add bounded-locks regression test in `solune/backend/tests/unit/test_pipeline_state_store.py` — verify lock count stays bounded after accessing more than max unique project IDs, verify existing locks work correctly, verify eviction of oldest entries
+- [ ] T044 [US3] Update conftest cleanup if needed in `solune/backend/tests/conftest.py` — verify existing `_project_launch_locks.clear()` cleanup still works with `BoundedDict`, adjust if the clear API differs
 
-**Checkpoint**: Users see real-time progress of plan orchestration with clickable links to phase issues
+**Checkpoint**: All existing `pipeline_state_store` tests still pass, plus the new bounded-locks regression test passes. Run `cd solune/backend && python -m pytest tests/unit/test_pipeline_state_store.py -v`.
 
 ---
 
-## Phase 6: User Story 4 — Dependency-Aware Wave Execution (Priority: P3)
+## Phase 6: User Story 4 — Raise Coverage Thresholds (Priority: P3)
 
-**Goal**: Phases are grouped into waves based on dependency relationships. Independent phases execute in parallel within a wave. Dependent phases only start after their specific prerequisites are merged.
+**Goal**: After all new tests are in place, raise CI coverage thresholds to prevent future regressions. The new thresholds codify the coverage gains from US1–US3.
 
-**Independent Test**: Create a plan with 3 phases where Phase 1 and Phase 2 are independent (Wave 1) and Phase 3 depends on both. Verify Phases 1 and 2 launch in parallel and Phase 3 starts only after both are merged.
-
-### Tests for User Story 4
-
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
-
-- [ ] T034 [P] [US4] Unit test for wave grouping with complex dependency graph — 3+ waves, mixed parallel/sequential phases in solune/backend/tests/unit/test_plan_parser.py
-- [ ] T035 [P] [US4] Unit test for `_launch_phase_pipelines()` — Wave 1 phases launched with no prerequisites, Wave 2 phases queued with correct prerequisite_issues in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [ ] T036 [P] [US4] Unit test for partial wave failure — when one phase in a wave fails, only its direct dependents are halted, unrelated phases continue in solune/backend/tests/unit/test_copilot_polling.py
+**Independent Test**: Temporarily lower a coverage value below the new threshold and verify that the CI job fails with a clear error message.
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Ensure `_launch_phase_pipelines()` handles multi-wave plans — Wave 1 pipelines launch immediately in parallel, Wave 2+ pipelines are queued with prerequisite_issues pointing to prior wave issue numbers in solune/backend/src/services/app_plan_orchestrator.py
-- [ ] T038 [US4] Handle partial wave failure in `_dequeue_next_pipeline()` — when evaluating prerequisites, skip pipelines whose specific prerequisite phases failed while allowing unrelated queued pipelines to proceed in solune/backend/src/services/copilot_polling/pipeline.py
+- [ ] T045 [US4] Measure new frontend coverage baseline by running `cd solune/frontend && npx vitest run --coverage` and recording statements/branches/functions/lines percentages
+- [ ] T046 [US4] Raise frontend coverage thresholds in `solune/frontend/vitest.config.ts` — update `coverage.thresholds` to new baseline (target: ≥65% lines, ≥55% branches, ≥55% functions, ≥65% statements), set values 2–3% below measured to allow normal fluctuation
+- [ ] T047 [US4] Measure new backend coverage baseline by running `cd solune/backend && python -m pytest tests/ --cov=src -q` and recording overall percentage
+- [ ] T048 [US4] Raise backend coverage threshold if warranted in `solune/backend/pyproject.toml` — if overall coverage now exceeds 80%, raise `fail_under` from 75 to match new baseline minus 2–3%
 
-**Checkpoint**: Wave-based parallel execution works — independent phases run simultaneously, dependent phases respect merge gates
-
----
-
-## Phase 7: Tests — Integration & Cross-Cutting
-
-**Purpose**: End-to-end integration test and additional edge case coverage
-
-- [ ] T039 [P] Integration test for full orchestration flow with mocked GitHub API and Copilot SDK — create app → run plan agent → parse phases → create issues → launch pipelines → auto-merge Wave 1 → dequeue Wave 2 in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [ ] T040 [P] Unit test for `POST /apps/create-with-plan` endpoint — validates request body, returns 202, creates records, starts background task in solune/backend/tests/unit/test_app_plan_orchestrator.py
-- [ ] T041 [P] Unit test for `GET /apps/{app_name}/plan-status` endpoint — returns correct status response, handles 404 for unknown apps in solune/backend/tests/unit/test_app_plan_orchestrator.py
+**Checkpoint**: Both test suites pass with the raised thresholds. Verify by running full suites with coverage enforcement.
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 7: Polish & Cross-Cutting Concerns
 
-**Purpose**: Improvements that affect multiple user stories
+**Purpose**: Final validation across all user stories
 
-- [x] T042 [P] Add logging throughout AppPlanOrchestrator — log each status transition, phase issue creation, pipeline launch, and errors in solune/backend/src/services/app_plan_orchestrator.py
-- [x] T043 [P] Add logging for prerequisite checking in `_dequeue_next_pipeline()` — log skip reasons and proceed decisions in solune/backend/src/services/copilot_polling/pipeline.py
-- [ ] T044 Run quickstart.md validation — verify all commands from quickstart.md execute successfully against implemented code
-- [ ] T045 Run full backend lint and type check — `ruff check src tests && ruff format --check src tests && pyright src` in solune/backend/
-- [ ] T046 Run full frontend lint and type check — `npm run lint && npm run type-check && npm run build` in solune/frontend/
-- [ ] T047 Run full test suites — `uv run pytest tests/unit/ -v --tb=short` (backend) and `npm run test:coverage` (frontend)
+- [ ] T049 Run full backend validation: `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/ && pyright src/ && python -m pytest tests/ --cov=src --cov-fail-under=75 -q`
+- [ ] T050 Run full frontend validation: `cd solune/frontend && npm run lint && npm run type-check && npm run test && npm run build`
+- [ ] T051 Verify zero pre-existing test failures introduced — compare test counts before and after
+- [ ] T052 Verify all new test files follow repository naming conventions (`test_<module>.py` for backend, `<Component>.test.tsx` or `__tests__/<Component>.test.tsx` for frontend)
 
 ---
 
@@ -171,71 +174,65 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies — can start immediately
-- **Foundational (Phase 2)**: Depends on Setup (Phase 1) — BLOCKS all user stories
-- **US1 (Phase 3)**: Depends on Foundational (Phase 2) — MVP, implement first
-- **US2 (Phase 4)**: Depends on Foundational (Phase 2) and US1 (Phase 3) — requires pipeline infrastructure from US1
-- **US3 (Phase 5)**: Depends on Foundational (Phase 2) and US1 (Phase 3) — requires API endpoints and WebSocket from US1
-- **US4 (Phase 6)**: Depends on US2 (Phase 4) — extends prerequisite checking with wave-aware logic
-- **Tests — Integration (Phase 7)**: Depends on US1, US2, US3, US4 — full-flow validation
-- **Polish (Phase 8)**: Depends on all user stories being complete
+- **Foundational (Phase 2)**: Depends on Setup passing — BLOCKS all user stories
+- **User Story 1 (Phase 3)**: Depends on Phase 2 verification — frontend tests only
+- **User Story 2 (Phase 4)**: Depends on Phase 2 verification — backend tests only
+- **User Story 3 (Phase 5)**: Depends on Phase 2 verification — backend bug fix
+- **User Story 4 (Phase 6)**: Depends on Phases 3, 4, and 5 completion (needs all new tests in place before raising thresholds)
+- **Polish (Phase 7)**: Depends on all user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Can start after Foundational (Phase 2) — no dependencies on other stories
-- **User Story 2 (P2)**: Depends on US1 infrastructure (PipelineState extensions, execute_pipeline_launch params)
-- **User Story 3 (P3)**: Depends on US1 API endpoints — adds frontend progress view on top
-- **User Story 4 (P3)**: Depends on US2 prerequisite checking — adds wave-aware parallel execution
+- **User Story 1 (P1)**: Can start after Phase 2 — independent of backend work
+- **User Story 2 (P2)**: Can start after Phase 2 — independent of frontend work. Can run in parallel with US1
+- **User Story 3 (P2)**: Can start after Phase 2 — independent of US1/US2. Can run in parallel with US1 and US2
+- **User Story 4 (P3)**: MUST wait for US1, US2, and US3 to complete — thresholds depend on actual coverage gains
 
 ### Within Each User Story
 
-- Tests MUST be written and FAIL before implementation
-- Models/dataclasses before services
-- Services before endpoints/UI
-- Core implementation before integration
-- Story complete before moving to next priority
+- All tasks marked [P] within a story can run in parallel (different files, no dependencies)
+- US3 tasks are sequential: fix (T042) → test (T043) → cleanup (T044)
+- US4 tasks are sequential: measure (T045) → raise (T046) → measure (T047) → raise (T048)
 
 ### Parallel Opportunities
 
-- **Setup**: T003 and T004 can run in parallel (different functions in same file)
-- **US1 Tests**: T010–T015 can all run in parallel (different test files)
-- **US2 Tests**: T022–T025 can all run in parallel (same test file, independent test cases)
-- **US3 Frontend**: T030, T031, T032 can run in parallel (different files)
-- **US4 Tests**: T034–T036 can all run in parallel (different test files)
-- **Integration Tests**: T039, T040, T041 can run in parallel (independent test scenarios)
-- **Polish**: T042, T043 can run in parallel (different files)
+- **Phase 3 (US1)**: All 33 frontend component test tasks (T005–T037) can run in parallel — each creates a separate test file
+- **Phase 4 (US2)**: All 4 backend test tasks (T038–T041) can run in parallel — each creates a separate test file
+- **Phase 5 (US3)**: T042 must complete before T043; T043 before T044 (sequential)
+- **US1, US2, US3**: Can all run in parallel (frontend, backend tests, backend fix are independent)
 
 ---
 
 ## Parallel Example: User Story 1
 
-```bash
-# Launch all tests for User Story 1 together (6 parallel tasks):
-Task T010: "Unit tests for parse_plan() in tests/unit/test_plan_parser.py"
-Task T011: "Unit tests for group_into_waves() in tests/unit/test_plan_parser.py"
-Task T012: "Unit test for circular dependency detection in tests/unit/test_plan_parser.py"
-Task T013: "Unit tests for orchestrate_app_creation() in tests/unit/test_app_plan_orchestrator.py"
-Task T014: "Unit tests for error handling in tests/unit/test_app_plan_orchestrator.py"
-Task T015: "Unit tests for phase issue creation in tests/unit/test_app_plan_orchestrator.py"
+```text
+# Launch all chores tests together (all [P]):
+Task T005: "Create test for ChoreChatFlow in solune/frontend/src/components/chores/__tests__/ChoreChatFlow.test.tsx"
+Task T006: "Create test for ChoreInlineEditor in solune/frontend/src/components/chores/__tests__/ChoreInlineEditor.test.tsx"
+Task T007: "Create test for ChoresSaveAllBar in solune/frontend/src/components/chores/__tests__/ChoresSaveAllBar.test.tsx"
+Task T008: "Create test for ChoresSpotlight in solune/frontend/src/components/chores/__tests__/ChoresSpotlight.test.tsx"
+Task T009: "Create test for ChoresToolbar in solune/frontend/src/components/chores/__tests__/ChoresToolbar.test.tsx"
+Task T010: "Create test for PipelineSelector in solune/frontend/src/components/chores/__tests__/PipelineSelector.test.tsx"
 
-# Then implement sequentially within US1:
-Task T016: "Implement orchestrate_app_creation() main flow"
-Task T017: "Implement _create_phase_issues()"
-Task T018: "Implement _launch_phase_pipelines()"
-Task T019: "Implement error handling"
-Task T020: "Create POST /apps/create-with-plan endpoint"
-Task T021: "Create GET /apps/{app_name}/plan-status endpoint"
+# Launch all tools tests together (all [P]):
+Task T011: "Create test for ToolCard in solune/frontend/src/components/tools/__tests__/ToolCard.test.tsx"
+Task T012: "Create test for ToolsPanel in solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx"
+Task T013: "Create test for ToolChips in solune/frontend/src/components/tools/__tests__/ToolChips.test.tsx"
+Task T014: "Create test for McpPresetsGallery in solune/frontend/src/components/tools/__tests__/McpPresetsGallery.test.tsx"
+Task T015: "Create test for RepoConfigPanel in solune/frontend/src/components/tools/__tests__/RepoConfigPanel.test.tsx"
+Task T016: "Create test for EditRepoMcpModal in solune/frontend/src/components/tools/__tests__/EditRepoMcpModal.test.tsx"
+Task T017: "Create test for UploadMcpModal in solune/frontend/src/components/tools/__tests__/UploadMcpModal.test.tsx"
+Task T018: "Create test for GitHubMcpConfigGenerator in solune/frontend/src/components/tools/__tests__/GitHubMcpConfigGenerator.test.tsx"
 ```
 
-## Parallel Example: User Story 3 (Frontend)
+## Parallel Example: User Story 2
 
-```bash
-# Launch all frontend tasks together (3 parallel tasks):
-Task T030: "Add TypeScript interfaces in types/apps.ts"
-Task T031: "Add useCreateAppWithPlan() hook in hooks/useApps.ts"
-Task T032: "Add useAppPlanStatus() hook in hooks/useApps.ts"
-
-# Then implement the dialog (depends on hooks and types):
-Task T033: "Extend CreateAppDialog.tsx with progress view"
+```text
+# Launch all backend prompt tests together (all [P]):
+Task T038: "Create test for agent_instructions prompt in solune/backend/tests/unit/test_agent_instructions_prompt.py"
+Task T039: "Create test for issue_generation prompt in solune/backend/tests/unit/test_issue_generation_prompt.py"
+Task T040: "Create test for task_generation prompt in solune/backend/tests/unit/test_task_generation_prompt.py"
+Task T041: "Create test for otel_setup service in solune/backend/tests/unit/test_otel_setup.py"
 ```
 
 ---
@@ -244,34 +241,32 @@ Task T033: "Extend CreateAppDialog.tsx with progress view"
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Setup (T001–T004)
-2. Complete Phase 2: Foundational (T005–T009)
-3. Complete Phase 3: User Story 1 (T010–T021)
-4. **STOP and VALIDATE**: Test US1 independently — submit app description, verify phases parsed and issues created
-5. Deploy/demo if ready
+1. Complete Phase 1: Verify test infrastructure
+2. Complete Phase 2: Confirm foundation (no-op for this feature)
+3. Complete Phase 3: User Story 1 — Frontend test gaps
+4. **STOP and VALIDATE**: Run `cd solune/frontend && npx vitest run --coverage` — all new tests pass, coverage improves
+5. Deploy/demo if ready — frontend has regression detection for chores, tools, agents, settings, UI
 
 ### Incremental Delivery
 
-1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Sequential execution works
-4. Add User Story 3 → Test independently → Users see progress
-5. Add User Story 4 → Test independently → Wave-based parallelism optimized
-6. Integration tests + Polish → Production-ready
+1. Complete Setup + Foundation → Infrastructure verified
+2. Add US1 (Frontend tests) → Test independently → ~33 new test files (MVP!)
+3. Add US2 (Backend tests) → Test independently → ~4 new test files
+4. Add US3 (Bug fix) → Test independently → 1 fix + 1 regression test
+5. Add US4 (Thresholds) → Test independently → Config changes only
+6. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy
 
 With multiple developers:
 
-1. Team completes Setup + Foundational together
-2. Once Foundational is done:
-   - Developer A: User Story 1 (P1 — MVP)
-3. Once US1 is done:
-   - Developer A: User Story 2 (P2 — depends on US1)
-   - Developer B: User Story 3 (P3 — depends on US1 API)
-4. Once US2 is done:
-   - Developer A: User Story 4 (P3 — depends on US2)
-5. Integration tests + Polish
+1. Team completes Setup + Foundation verification together
+2. Once Foundation is verified:
+   - Developer A: User Story 1 (Frontend tests — largest scope)
+   - Developer B: User Story 2 (Backend prompt/otel tests)
+   - Developer C: User Story 3 (Bug fix — smallest scope, highest risk)
+3. All three stories complete independently
+4. Team raises thresholds together (US4) after US1–US3 merge
 
 ---
 
@@ -279,28 +274,27 @@ With multiple developers:
 
 | Metric | Value |
 |--------|-------|
-| **Total tasks** | 47 |
-| **Setup tasks** | 4 (T001–T004) |
-| **Foundational tasks** | 5 (T005–T009) |
-| **US1 tasks** | 12 (T010–T021) — 6 tests, 6 implementation |
-| **US2 tasks** | 7 (T022–T028) — 4 tests, 3 implementation |
-| **US3 tasks** | 5 (T029–T033) — 0 tests, 5 implementation |
-| **US4 tasks** | 5 (T034–T038) — 3 tests, 2 implementation |
-| **Integration test tasks** | 3 (T039–T041) |
-| **Polish tasks** | 6 (T042–T047) |
-| **Parallel opportunities** | 7 groups identified |
-| **Suggested MVP scope** | Setup + Foundational + US1 (21 tasks) |
-
----
+| Total tasks | 52 (T001–T052) |
+| Phase 1 (Setup) | 4 tasks |
+| Phase 2 (Foundation) | 0 tasks (verification only) |
+| Phase 3 (US1 — Frontend) | 33 tasks |
+| Phase 4 (US2 — Backend) | 4 tasks |
+| Phase 5 (US3 — Bug fix) | 3 tasks |
+| Phase 6 (US4 — Thresholds) | 4 tasks |
+| Phase 7 (Polish) | 4 tasks |
+| Parallel opportunities | 37 of 52 tasks are parallelizable |
+| Suggested MVP scope | User Story 1 (Phase 3) |
+| Independent test criteria | Each story validates with its own test runner command |
 
 ## Notes
 
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
-- Tests explicitly requested in plan.md Phase 4 — included for US1, US2, US4
-- US3 (frontend progress) has no dedicated tests because frontend testing is via existing Vitest coverage
-- Verify tests fail before implementing
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
+- All new tests must be meaningful — test actual behavior, not just imports or trivial renders
+- Use existing test patterns: `vi.mock()` + `vi.hoisted()` for frontend mocks, `unittest.mock.patch` for backend mocks
+- Use accessible queries (`getByRole`, `getByText`, `getByLabelText`) for frontend tests
+- Use `async def test_*` directly for backend async tests (asyncio_mode = "auto")
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
