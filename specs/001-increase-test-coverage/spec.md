@@ -35,8 +35,7 @@ A developer changes a prompt template or a backend service that previously had n
 **Acceptance Scenarios**:
 
 1. **Given** untested prompt modules (`agent_instructions.py`, `issue_generation.py`, `task_generation.py`), **When** dedicated tests are written, **Then** each prompt module has tests verifying prompt output structure, variable substitution, and edge cases (empty inputs, special characters).
-2. ~~**Given** an untested `encryption.py` service, **When** dedicated tests are added, **Then** the tests verify encryption round-trips (encrypt then decrypt returns original), key handling, and error behavior for invalid inputs.~~ *(Removed: encryption is already covered by `test_token_encryption.py` and `test_encryption_helpers.py`.)*
-3. **Given** an untested `otel_setup.py` service, **When** tests are added, **Then** the tests verify setup initialization, no-op fallback behavior, and cleanup.
+2. **Given** an untested `otel_setup.py` service, **When** tests are added, **Then** the tests verify setup initialization, no-op fallback behavior, and cleanup.
 
 ---
 

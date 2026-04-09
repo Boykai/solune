@@ -65,9 +65,9 @@ def get_project_launch_lock(project_id: str) -> asyncio.Lock:
     if project_id not in _project_launch_locks:
         _project_launch_locks[project_id] = asyncio.Lock()
     else:
-        # Re-set the existing lock to refresh its position in the
-        # eviction order (BoundedDict.__setitem__ calls move_to_end).
-        _project_launch_locks[project_id] = _project_launch_locks[project_id]
+        # Refresh the entry so active projects are not evicted before
+        # idle ones (LRU-like behaviour).
+        _project_launch_locks.touch(project_id)
     return _project_launch_locks[project_id]
 
 
