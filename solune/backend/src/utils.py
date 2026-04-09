@@ -121,6 +121,13 @@ class BoundedDict[K, V]:
     def __contains__(self, key: object) -> bool:
         return key in self._data
 
+    def touch(self, key: K) -> None:
+        """Move *key* to the end of the eviction order (LRU refresh).
+
+        Raises ``KeyError`` if *key* is not present.
+        """
+        self._data.move_to_end(key)
+
     def __len__(self) -> int:
         return len(self._data)
 

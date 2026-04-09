@@ -35,7 +35,9 @@ _store_lock: asyncio.Lock | None = None
 
 # Per-project launch locks — serialises the queue-gate check-and-register
 # sequence so concurrent launches for the same project cannot race.
-_project_launch_locks: dict[str, asyncio.Lock] = {}
+# Uses BoundedDict (like the other caches above) to prevent unbounded
+# memory growth in long-running instances.
+_project_launch_locks: BoundedDict[str, asyncio.Lock] = BoundedDict(maxlen=10_000)
 
 # Module-level DB reference (set during init)
 _db: aiosqlite.Connection | None = None
@@ -55,9 +57,17 @@ def get_project_launch_lock(project_id: str) -> asyncio.Lock:
     Serialises the queue-gate decision so that concurrent pipeline
     launches for the same project cannot both see ``active_count == 0``
     and bypass the queue.
+
+    Re-setting an existing entry refreshes it to the end of the
+    eviction order (LRU-like), so actively-used projects are not
+    evicted before idle ones.
     """
     if project_id not in _project_launch_locks:
         _project_launch_locks[project_id] = asyncio.Lock()
+    else:
+        # Refresh the entry so active projects are not evicted before
+        # idle ones (LRU-like behaviour).
+        _project_launch_locks.touch(project_id)
     return _project_launch_locks[project_id]
 
 

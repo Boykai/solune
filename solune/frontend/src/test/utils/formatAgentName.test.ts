@@ -69,4 +69,22 @@ describe('formatAgentName', () => {
       'Tasks To Issues (Spec Kit)'
     );
   });
+
+  it('formats speckit.analyze slug correctly', () => {
+    expect(formatAgentName('speckit.analyze')).toBe('Spec Kit - Analyze');
+  });
+
+  it('formats speckit.analyze with suffix style', () => {
+    expect(formatAgentName('speckit.analyze', undefined, { specKitStyle: 'suffix' })).toBe(
+      'Analyze (Spec Kit)'
+    );
+  });
+
+  it('returns "Spec Kit" for bare speckit slug with suffix style', () => {
+    expect(formatAgentName('speckit', undefined, { specKitStyle: 'suffix' })).toBe('Spec Kit');
+  });
+
+  it('formats undefined displayName by falling back to slug', () => {
+    expect(formatAgentName('speckit.analyze', undefined)).toBe('Spec Kit - Analyze');
+  });
 });

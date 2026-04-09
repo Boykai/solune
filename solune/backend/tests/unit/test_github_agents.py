@@ -292,6 +292,19 @@ class TestTailorBodyForAgent:
         assert "strictly read-only" in result
         assert "analysis report" in result
 
+    def test_speckit_analyze_does_not_include_commit_language(self, service):
+        """speckit.analyze body must never contain commit/implement instructions."""
+        result = service.tailor_body_for_agent(
+            parent_body="Analyze the artifacts.",
+            agent_name="speckit.analyze",
+            parent_issue_number=22,
+            parent_title="Analyze Artifacts",
+        )
+
+        assert "commit" not in result.lower()
+        assert "implement" not in result.lower()
+        assert "write production" not in result.lower()
+
     def test_unknown_agent_fallback(self, service):
         """Unknown agents should get a generic fallback description."""
         result = service.tailor_body_for_agent(
@@ -357,6 +370,63 @@ class TestTailorBodyForAgent:
         )
 
         assert "see parent issue #77" in result
+
+    def test_copilot_review_agent(self, service):
+        """copilot-review should describe review-only pipeline tracking work."""
+        result = service.tailor_body_for_agent(
+            parent_body="Review the PR.",
+            agent_name="copilot-review",
+            parent_issue_number=80,
+            parent_title="Code Review",
+        )
+
+        assert "`copilot-review`" in result
+        assert "Copilot code review" in result
+        assert "pipeline tracking issue" in result
+
+    def test_human_agent_with_delay(self, service):
+        """Human agent with delay_seconds should show auto-merge timer."""
+        result = service.tailor_body_for_agent(
+            parent_body="Manual check.",
+            agent_name="human",
+            parent_issue_number=90,
+            parent_title="Manual Review",
+            delay_seconds=3600,
+        )
+
+        assert "manual human task" in result
+        assert "Auto-merge" in result
+
+    def test_human_agent_without_delay(self, service):
+        """Human agent without delay should not show auto-merge timer."""
+        result = service.tailor_body_for_agent(
+            parent_body="Manual check.",
+            agent_name="human",
+            parent_issue_number=91,
+            parent_title="Manual Review",
+        )
+
+        assert "manual human task" in result
+        assert "Auto-merge" not in result
+
+    def test_strips_agents_pipelines_plural_table(self, service):
+        """Should also strip tables with 'Agents Pipelines' (plural) heading."""
+        parent_body = (
+            "Feature description\n"
+            "\n---\n\n"
+            "## 🤖 Agents Pipelines\n"
+            "| Agent | Status |\n"
+            "| copilot | ✅ Done |"
+        )
+        result = service.tailor_body_for_agent(
+            parent_body=parent_body,
+            agent_name="speckit.analyze",
+            parent_issue_number=100,
+            parent_title="Multi-Pipeline Feature",
+        )
+
+        assert "Feature description" in result
+        assert "Agents Pipelines" not in result
 
 
 # =====================================================================
@@ -525,3 +595,84 @@ class TestListAvailableAgents:
         repo_agent = next(a for a in result if a.source == AgentSource.REPOSITORY)
         assert repo_agent.slug == "broken"
         assert repo_agent.display_name == "Broken"
+
+    @pytest.mark.asyncio
+    async def test_agent_without_download_url(self, service):
+        """Agent file entry without download_url should still produce an agent with defaults."""
+        dir_contents = [
+            {
+                "name": "no-url.agent.md",
+                "type": "file",
+                # no "download_url" key
+            },
+        ]
+
+        with patch.object(service, "_rest", new_callable=AsyncMock, return_value=dir_contents):
+            result = await service.list_available_agents(OWNER, REPO, TOKEN)
+
+        repo_agent = next(a for a in result if a.source == AgentSource.REPOSITORY)
+        assert repo_agent.slug == "no-url"
+        assert repo_agent.display_name == "No Url"
+        assert repo_agent.description is None
+
+    @pytest.mark.asyncio
+    async def test_agent_with_invalid_yaml_frontmatter(self, service):
+        """Invalid YAML frontmatter should fall back to slug-derived display name."""
+        dir_contents = [
+            {
+                "name": "bad-yaml.agent.md",
+                "type": "file",
+                "download_url": "https://raw.example.com/bad-yaml.agent.md",
+            },
+        ]
+        raw_content = "---\n[invalid: yaml: {{\n---\nInstructions here."
+        mock_response = SimpleNamespace(text=raw_content)
+
+        with (
+            patch.object(service, "_rest", new_callable=AsyncMock, return_value=dir_contents),
+            patch.object(
+                service, "_rest_response", new_callable=AsyncMock, return_value=mock_response
+            ),
+        ):
+            result = await service.list_available_agents(OWNER, REPO, TOKEN)
+
+        repo_agent = next(a for a in result if a.source == AgentSource.REPOSITORY)
+        assert repo_agent.slug == "bad-yaml"
+        assert repo_agent.display_name == "Bad Yaml"
+        assert repo_agent.description is None
+
+    @pytest.mark.asyncio
+    async def test_agent_with_non_dict_frontmatter(self, service):
+        """YAML frontmatter that parses to non-dict should fall back to slug defaults."""
+        dir_contents = [
+            {
+                "name": "list-fm.agent.md",
+                "type": "file",
+                "download_url": "https://raw.example.com/list-fm.agent.md",
+            },
+        ]
+        raw_content = "---\n- item1\n- item2\n---\nInstructions."
+        mock_response = SimpleNamespace(text=raw_content)
+
+        with (
+            patch.object(service, "_rest", new_callable=AsyncMock, return_value=dir_contents),
+            patch.object(
+                service, "_rest_response", new_callable=AsyncMock, return_value=mock_response
+            ),
+        ):
+            result = await service.list_available_agents(OWNER, REPO, TOKEN)
+
+        repo_agent = next(a for a in result if a.source == AgentSource.REPOSITORY)
+        assert repo_agent.slug == "list-fm"
+        # display_name falls back to slug-derived since frontmatter is not a dict
+        assert repo_agent.display_name == "List Fm"
+        assert repo_agent.description is None
+
+    @pytest.mark.asyncio
+    async def test_speckit_analyze_in_builtin_has_correct_metadata(self, service):
+        """Verify the speckit.analyze built-in agent has correct display attributes."""
+        analyze = next(a for a in AgentsMixin.BUILTIN_AGENTS if a.slug == "speckit.analyze")
+        assert analyze.display_name == "Spec Kit - Analyze"
+        assert "read-only" in analyze.description.lower()
+        assert analyze.source == AgentSource.BUILTIN
+        assert analyze.avatar_url is None

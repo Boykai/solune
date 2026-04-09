@@ -324,7 +324,7 @@ export function useChat({
         );
       }
     },
-    [sendMutation, sendMessageStreaming, isCommand, executeCommand],
+    [sendMessageStreaming, isCommand, executeCommand],
   );
 
   const retryMessage = useCallback(
