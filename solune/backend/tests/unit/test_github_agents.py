@@ -666,6 +666,7 @@ class TestListAvailableAgents:
         assert repo_agent.slug == "list-fm"
         # display_name falls back to slug-derived since frontmatter is not a dict
         assert repo_agent.display_name == "List Fm"
+        assert repo_agent.description is None
 
     @pytest.mark.asyncio
     async def test_speckit_analyze_in_builtin_has_correct_metadata(self, service):

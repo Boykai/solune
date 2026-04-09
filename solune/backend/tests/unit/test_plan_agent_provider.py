@@ -63,7 +63,9 @@ class TestAgentProfiles:
         """Analyze profile metadata should be correct."""
         profile = SPECKIT_AGENT_PROFILES["solune-analyze"]
         assert profile["name"] == "solune-analyze"
-        assert "analysis" in profile["description"].lower()
+        assert profile["description"] == (
+            "Analysis agent — performs cross-artifact consistency and quality analysis."
+        )
 
     def test_all_profiles_have_required_keys(self):
         """Every profile must have name, description, tool_whitelist, permission."""
@@ -138,7 +140,7 @@ class TestPreToolUseHook:
 
     @pytest.mark.anyio
     async def test_snapshot_returns_none_still_succeeds(self):
-        """When snapshot_plan_version returns None, hook should still complete."""
+        """When snapshot_plan_version returns None, hook should still complete without error."""
         mock_db = MagicMock()
         context = {"db": mock_db, "active_plan_id": "plan-1"}
 
@@ -146,8 +148,9 @@ class TestPreToolUseHook:
             "src.services.chat_store.snapshot_plan_version",
             new_callable=AsyncMock,
             return_value=None,
-        ):
+        ) as mock_snapshot:
             await on_pre_tool_use_hook("save_plan", {}, context)
+            mock_snapshot.assert_awaited_once_with(mock_db, "plan-1")
 
 
 class TestPostToolUseHook:
