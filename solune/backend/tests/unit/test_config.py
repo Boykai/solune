@@ -278,6 +278,16 @@ class TestConstants:
         assert AGENT_DISPLAY_NAMES["speckit.specify"] == "Spec Kit - Specify"
         assert AGENT_DISPLAY_NAMES["speckit.analyze"] == "Spec Kit - Analyze"
 
+    def test_analyze_not_in_agent_output_files(self):
+        """speckit.analyze is read-only and must not appear in AGENT_OUTPUT_FILES."""
+        assert "speckit.analyze" not in AGENT_OUTPUT_FILES
+
+    def test_all_display_name_agents_have_values(self):
+        """Every agent in AGENT_DISPLAY_NAMES should have a non-empty display name."""
+        for slug, name in AGENT_DISPLAY_NAMES.items():
+            assert name, f"Agent {slug!r} has an empty display name"
+            assert isinstance(name, str)
+
 
 class TestCacheKeyHelpers:
     def test_cache_key_issue_pr(self):
