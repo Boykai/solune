@@ -152,7 +152,7 @@
 - [ ] T045 [US4] Measure new frontend coverage baseline by running `cd solune/frontend && npx vitest run --coverage` and recording statements/branches/functions/lines percentages
 - [ ] T046 [US4] Raise frontend coverage thresholds in `solune/frontend/vitest.config.ts` — update `coverage.thresholds` to new baseline (target: ≥65% lines, ≥55% branches, ≥55% functions, ≥65% statements), set values 2–3% below measured to allow normal fluctuation
 - [ ] T047 [US4] Measure new backend coverage baseline by running `cd solune/backend && python -m pytest tests/ --cov=src -q` and recording overall percentage
-- [ ] T048 [US4] Raise backend coverage threshold if warranted in `solune/backend/pyproject.toml` — if overall coverage now exceeds 80%, raise `fail_under` from 75 to match new baseline minus 2–3%
+- [ ] T048 [US4] Raise backend coverage threshold in `solune/backend/pyproject.toml` — raise `fail_under` to the new measured baseline minus 2–3% (e.g., if coverage is 82%, set to 79; if coverage is 76%, set to 75 i.e., no change needed)
 
 **Checkpoint**: Both test suites pass with the raised thresholds. Verify by running full suites with coverage enforcement.
 
