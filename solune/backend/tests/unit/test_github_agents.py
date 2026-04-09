@@ -671,9 +671,7 @@ class TestListAvailableAgents:
     @pytest.mark.asyncio
     async def test_speckit_analyze_in_builtin_has_correct_metadata(self, service):
         """Verify the speckit.analyze built-in agent has correct display attributes."""
-        analyze = next(
-            a for a in AgentsMixin.BUILTIN_AGENTS if a.slug == "speckit.analyze"
-        )
+        analyze = next(a for a in AgentsMixin.BUILTIN_AGENTS if a.slug == "speckit.analyze")
         assert analyze.display_name == "Spec Kit - Analyze"
         assert "read-only" in analyze.description.lower()
         assert analyze.source == AgentSource.BUILTIN

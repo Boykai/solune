@@ -35,7 +35,9 @@ _store_lock: asyncio.Lock | None = None
 
 # Per-project launch locks — serialises the queue-gate check-and-register
 # sequence so concurrent launches for the same project cannot race.
-_project_launch_locks: dict[str, asyncio.Lock] = {}
+# Uses BoundedDict (like the other caches above) to prevent unbounded
+# memory growth in long-running instances.
+_project_launch_locks: BoundedDict[str, asyncio.Lock] = BoundedDict(maxlen=10_000)
 
 # Module-level DB reference (set during init)
 _db: aiosqlite.Connection | None = None

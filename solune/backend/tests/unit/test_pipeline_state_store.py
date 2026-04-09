@@ -9,6 +9,7 @@ Covers:
 - L1-miss → SQLite fallback behaviour
 - Graceful handling when tables don't exist
 - Write-through atomicity (L1 only updated on successful SQLite write)
+- Bounded project launch locks (regression test for memory leak fix)
 """
 
 from __future__ import annotations
@@ -786,3 +787,54 @@ class TestRowConversionCorruptTimestamp:
         # Must not crash; started_at should gracefully fall back to None
         assert state.started_at is None
         assert state.issue_number == 999
+
+
+# ── Bounded project launch locks ────────────────────────────────
+
+
+class TestProjectLaunchLocksBounded:
+    """Regression tests: _project_launch_locks must stay bounded."""
+
+    def setup_method(self):
+        store._project_launch_locks.clear()
+
+    def teardown_method(self):
+        store._project_launch_locks.clear()
+
+    def test_lock_dict_is_bounded(self):
+        """_project_launch_locks must be a BoundedDict, not a plain dict."""
+        from src.utils import BoundedDict
+
+        assert isinstance(store._project_launch_locks, BoundedDict)
+
+    def test_returns_same_lock_for_same_project(self):
+        """Repeated calls for the same project_id return the same Lock."""
+        lock1 = store.get_project_launch_lock("proj-A")
+        lock2 = store.get_project_launch_lock("proj-A")
+        assert lock1 is lock2
+
+    def test_returns_different_locks_for_different_projects(self):
+        """Different project_ids get independent Locks."""
+        lock_a = store.get_project_launch_lock("proj-A")
+        lock_b = store.get_project_launch_lock("proj-B")
+        assert lock_a is not lock_b
+
+    def test_lock_count_stays_bounded(self):
+        """Creating locks for more projects than maxlen must not exceed capacity."""
+        maxlen = store._project_launch_locks.maxlen
+        # Create locks for many more projects than the maximum
+        for i in range(maxlen + 100):
+            store.get_project_launch_lock(f"proj-{i}")
+        assert len(store._project_launch_locks) <= maxlen
+
+    def test_eviction_does_not_corrupt_remaining_locks(self):
+        """After eviction, remaining locks are still valid asyncio.Lock instances."""
+        import asyncio
+
+        maxlen = store._project_launch_locks.maxlen
+        # Fill to capacity + some
+        for i in range(maxlen + 50):
+            store.get_project_launch_lock(f"proj-{i}")
+        # The most recent locks should still be valid
+        last_lock = store.get_project_launch_lock(f"proj-{maxlen + 49}")
+        assert isinstance(last_lock, asyncio.Lock)
