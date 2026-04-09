@@ -57,9 +57,17 @@ def get_project_launch_lock(project_id: str) -> asyncio.Lock:
     Serialises the queue-gate decision so that concurrent pipeline
     launches for the same project cannot both see ``active_count == 0``
     and bypass the queue.
+
+    Re-setting an existing entry refreshes it to the end of the
+    eviction order (LRU-like), so actively-used projects are not
+    evicted before idle ones.
     """
     if project_id not in _project_launch_locks:
         _project_launch_locks[project_id] = asyncio.Lock()
+    else:
+        # Refresh the entry so active projects are not evicted before
+        # idle ones (LRU-like behaviour).
+        _project_launch_locks.touch(project_id)
     return _project_launch_locks[project_id]
 
 

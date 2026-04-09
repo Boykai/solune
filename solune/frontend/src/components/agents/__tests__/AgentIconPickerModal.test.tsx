@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/test-utils';
 import { AgentIconPickerModal } from '../AgentIconPickerModal';
 
-vi.mock('./AgentIconCatalog', () => ({
+vi.mock('../AgentIconCatalog', () => ({
   AgentIconCatalog: ({ onSelect }: { onSelect: (v: string | null) => void }) => (
     <div data-testid="icon-catalog">
       <button type="button" onClick={() => onSelect('sun-halo')}>

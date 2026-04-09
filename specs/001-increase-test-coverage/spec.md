@@ -28,15 +28,14 @@ A developer opens a pull request that modifies chores, tools, or hooks code. The
 
 A developer changes a prompt template or a backend service that previously had no tests. The CI pipeline catches the regression because new backend tests cover these modules.
 
-**Why this priority**: Backend coverage is generally strong (75%+ enforced) but specific modules — 3 prompt files, encryption service, and observability setup — lack dedicated tests. These are lower-risk than frontend gaps but still represent blind spots.
+**Why this priority**: Backend coverage is generally strong (75%+ enforced) but specific modules — 3 prompt files and the observability setup — lack dedicated tests. These are lower-risk than frontend gaps but still represent blind spots. (Note: `encryption.py` already has dedicated tests in `test_token_encryption.py` and `test_encryption_helpers.py`.)
 
 **Independent Test**: Can be tested by running `pytest --cov=src` in the backend project and verifying that the newly tested modules appear in the coverage report with meaningful line coverage.
 
 **Acceptance Scenarios**:
 
 1. **Given** untested prompt modules (`agent_instructions.py`, `issue_generation.py`, `task_generation.py`), **When** dedicated tests are written, **Then** each prompt module has tests verifying prompt output structure, variable substitution, and edge cases (empty inputs, special characters).
-2. **Given** an untested `encryption.py` service, **When** dedicated tests are added, **Then** the tests verify encryption round-trips (encrypt then decrypt returns original), key handling, and error behavior for invalid inputs.
-3. **Given** an untested `otel_setup.py` service, **When** tests are added, **Then** the tests verify setup initialization, no-op fallback behavior, and cleanup.
+2. **Given** an untested `otel_setup.py` service, **When** tests are added, **Then** the tests verify setup initialization, no-op fallback behavior, and cleanup.
 
 ---
 
@@ -86,7 +85,7 @@ After the new tests are added, the team raises CI coverage thresholds to prevent
 - **FR-001**: Every frontend component directory with 0% test coverage MUST have at least one test file per component covering primary rendering and user interaction.
 - **FR-002**: Every frontend custom hook MUST have a dedicated test file validating its core state management, side effects, error handling, and cleanup behavior.
 - **FR-003**: Every untested backend prompt module MUST have tests verifying output structure, template variable substitution, and edge-case inputs.
-- **FR-004**: The `encryption.py` service MUST have tests verifying encrypt/decrypt round-trips, key management, and error handling for malformed inputs.
+- **FR-004**: ~~The `encryption.py` service MUST have tests verifying encrypt/decrypt round-trips, key management, and error handling for malformed inputs.~~ *(Already covered: `test_token_encryption.py` and `test_encryption_helpers.py` exist.)*
 - **FR-005**: The `otel_setup.py` service MUST have tests verifying initialization, no-op fallback, and teardown behavior.
 - **FR-006**: The `_project_launch_locks` dictionary in `pipeline_state_store.py` MUST use a bounded data structure to prevent unbounded memory growth.
 - **FR-007**: All new tests MUST follow existing test patterns and conventions in the repository (e.g., file naming, directory structure, assertion style).
@@ -108,7 +107,7 @@ After the new tests are added, the team raises CI coverage thresholds to prevent
 - **SC-002**: At least 80% of frontend custom hooks (47 of 58) have dedicated test files with meaningful assertions.
 - **SC-003**: All 13 chores components, all 9 tools components, and the command-palette component have at least one test file each.
 - **SC-004**: All 3 untested backend prompt modules (`agent_instructions.py`, `issue_generation.py`, `task_generation.py`) have dedicated test files.
-- **SC-005**: Backend services `encryption.py` and `otel_setup.py` each have at least one dedicated test file.
+- **SC-005**: Backend service `otel_setup.py` has at least one dedicated test file. (`encryption.py` is already covered by existing tests `test_token_encryption.py` and `test_encryption_helpers.py`.)
 - **SC-006**: The `_project_launch_locks` memory leak is fixed and validated by a test that confirms bounded behavior.
 - **SC-007**: Backend coverage remains at or above 75%; frontend coverage thresholds are raised to at least 65% lines, 55% branches, 55% functions.
 - **SC-008**: Zero pre-existing test failures are introduced by the changes.

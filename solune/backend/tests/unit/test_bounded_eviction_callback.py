@@ -112,3 +112,34 @@ class TestBoundedDictPopNoneDefault:
         result = bd.pop("a", None)
         assert result == 42
         assert "a" not in bd
+
+
+class TestBoundedDictTouch:
+    """Tests for the touch() LRU-refresh method."""
+
+    def test_touch_moves_key_to_end(self):
+        bd = BoundedDict(maxlen=3)
+        bd["a"] = 1
+        bd["b"] = 2
+        bd["c"] = 3
+        bd.touch("a")  # move "a" to end; order is now b, c, a
+        assert list(bd.keys()) == ["b", "c", "a"]
+
+    def test_touch_prevents_eviction_of_active_key(self):
+        evicted_keys: list[str] = []
+        bd = BoundedDict(maxlen=3, on_evict=lambda k, v: evicted_keys.append(k))
+        bd["a"] = 1
+        bd["b"] = 2
+        bd["c"] = 3
+        bd.touch("a")  # refresh "a"; order is now b, c, a
+        bd["d"] = 4  # evicts "b" (oldest), not "a"
+
+        assert evicted_keys == ["b"]
+        assert "a" in bd
+
+    def test_touch_missing_key_raises(self):
+        bd = BoundedDict(maxlen=3)
+        import pytest
+
+        with pytest.raises(KeyError):
+            bd.touch("missing")
