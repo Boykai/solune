@@ -6,9 +6,9 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
+- [ ] No implementation details (languages, frameworks, APIs)
 - [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
+- [ ] Written for non-technical stakeholders
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
@@ -27,11 +27,11 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [ ] No implementation details leak into specification
 
 ## Notes
 
-- All items pass validation. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
-- The spec references specific module names (e.g., `encryption.py`, `pipeline_state_store.py`) to precisely scope the work — these are domain entities, not implementation prescriptions.
+- Not all items pass validation. Checklist items for "no implementation details" and "non-technical stakeholders" are unchecked because the spec references specific module names (e.g., `encryption.py`, `pipeline_state_store.py`), tooling commands, and numeric coverage thresholds.
+- The spec references specific module names to precisely scope the work — these are domain entities that also constitute implementation details.
 - Coverage percentage targets (65% frontend, 75% backend) are stated as measurable success criteria, not as implementation mandates.
 - The `BoundedDict` reference in Assumptions documents an existing codebase resource, not a technology choice.

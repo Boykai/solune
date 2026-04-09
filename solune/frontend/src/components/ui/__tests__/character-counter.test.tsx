@@ -10,9 +10,8 @@ describe('CharacterCounter', () => {
 
   it('formats large numbers with locale separators', () => {
     render(<CharacterCounter current={1500} max={10000} />);
-    const text = screen.getByText(/chars/);
-    // toLocaleString adds commas in en-US
-    expect(text).toBeInTheDocument();
+    const expected = `${(1500).toLocaleString()} / ${(10000).toLocaleString()} chars`;
+    expect(screen.getByText(expected)).toBeInTheDocument();
   });
 
   it('applies warning style when over 80% of max', () => {
