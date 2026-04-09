@@ -11,17 +11,19 @@ Covers:
 - create_mcp — per-user MCP limit enforcement
 - list_mcps  — listing user-scoped MCPs
 - delete_mcp — ownership-scoped deletion
+- update_mcp — optimistic concurrency with collision detection
 """
 
 import pytest
 
 from src.exceptions import McpLimitExceededError, McpValidationError
-from src.models.mcp import McpConfigurationCreate
+from src.models.mcp import McpConfigurationCreate, McpConfigurationUpdate
 from src.services.mcp_store import (
     MAX_MCPS_PER_USER,
     create_mcp,
     delete_mcp,
     list_mcps,
+    update_mcp,
     validate_url_not_ssrf,
 )
 
@@ -264,3 +266,132 @@ class TestDeleteMcp:
         # MCP still exists for user-1
         result = await list_mcps(mock_db, "user-1")
         assert result.count == 1
+
+
+# ── update_mcp — Optimistic Concurrency ──────────────────────────────────
+
+
+class TestUpdateMcp:
+    """Tests for the update_mcp service function (optimistic concurrency)."""
+
+    async def _create_test_mcp(self, mock_db, user="user-1", name="Test MCP"):
+        """Helper: create a base MCP for update tests."""
+        return await create_mcp(
+            mock_db,
+            user,
+            McpConfigurationCreate(name=name, endpoint_url="https://example.com/mcp"),
+        )
+
+    async def test_update_success_no_conflict(self, mock_db):
+        """A matching expected_version updates the MCP cleanly."""
+        created = await self._create_test_mcp(mock_db)
+        data = McpConfigurationUpdate(
+            name="Updated MCP",
+            endpoint_url="https://example.com/v2",
+            expected_version=created.version,
+        )
+        result, collision = await update_mcp(mock_db, "user-1", created.id, data)
+
+        assert result is not None
+        assert collision is None
+        assert result.name == "Updated MCP"
+        assert result.endpoint_url == "https://example.com/v2"
+        assert result.version == created.version + 1
+
+    async def test_update_not_found_returns_none(self, mock_db):
+        """Updating a non-existent MCP returns (None, None)."""
+        data = McpConfigurationUpdate(
+            name="Ghost", endpoint_url="https://example.com/x", expected_version=1
+        )
+        result, collision = await update_mcp(mock_db, "user-1", "nonexistent-id", data)
+        assert result is None
+        assert collision is None
+
+    async def test_update_wrong_user_returns_none(self, mock_db):
+        """User-2 cannot update user-1's MCP — treated as not found."""
+        created = await self._create_test_mcp(mock_db, user="user-1")
+        data = McpConfigurationUpdate(
+            name="Hijack",
+            endpoint_url="https://example.com/evil",
+            expected_version=created.version,
+        )
+        result, collision = await update_mcp(mock_db, "user-2", created.id, data)
+        assert result is None
+        assert collision is None
+
+    async def test_update_ssrf_rejected(self, mock_db):
+        """Updating with a private-IP URL raises McpValidationError."""
+        created = await self._create_test_mcp(mock_db)
+        data = McpConfigurationUpdate(
+            name="Bad URL",
+            endpoint_url="http://192.168.1.1/api",
+            expected_version=created.version,
+        )
+        with pytest.raises(McpValidationError, match="private or reserved"):
+            await update_mcp(mock_db, "user-1", created.id, data)
+
+    async def test_update_increments_version(self, mock_db):
+        """Successive updates increment the version number correctly."""
+        created = await self._create_test_mcp(mock_db)
+        data_v2 = McpConfigurationUpdate(
+            name="V2", endpoint_url="https://example.com/v2", expected_version=1
+        )
+        result_v2, _ = await update_mcp(mock_db, "user-1", created.id, data_v2)
+        assert result_v2 is not None
+        assert result_v2.version == 2
+
+        data_v3 = McpConfigurationUpdate(
+            name="V3", endpoint_url="https://example.com/v3", expected_version=2
+        )
+        result_v3, _ = await update_mcp(mock_db, "user-1", created.id, data_v3)
+        assert result_v3 is not None
+        assert result_v3.version == 3
+
+    async def test_update_with_version_mismatch_triggers_collision(self, mock_db):
+        """A stale expected_version triggers collision detection.
+
+        For user-initiated updates (default), the collision resolver applies
+        "user_priority" — the incoming user operation (operation_b) wins over
+        the synthetic automation-side operation (operation_a). So the update
+        should still succeed with a collision event attached.
+        """
+        created = await self._create_test_mcp(mock_db)
+        # Update once to advance version to 2
+        data_v2 = McpConfigurationUpdate(
+            name="V2", endpoint_url="https://example.com/v2", expected_version=1
+        )
+        await update_mcp(mock_db, "user-1", created.id, data_v2)
+
+        # Now attempt an update with the stale version 1
+        stale_data = McpConfigurationUpdate(
+            name="Stale Update",
+            endpoint_url="https://example.com/stale",
+            expected_version=1,
+        )
+        result, collision = await update_mcp(mock_db, "user-1", created.id, stale_data)
+
+        # The collision event should be present
+        assert collision is not None
+        assert collision.target_entity_type == "mcp_config"
+        assert collision.target_entity_id == created.id
+
+        # User-initiated wins (operation_b) — update should still succeed
+        assert result is not None
+        assert result.name == "Stale Update"
+        assert result.version == 3
+
+    async def test_update_persists_to_database(self, mock_db):
+        """Updated values are persisted and visible via list_mcps."""
+        created = await self._create_test_mcp(mock_db)
+        data = McpConfigurationUpdate(
+            name="Persisted",
+            endpoint_url="https://example.com/persisted",
+            expected_version=created.version,
+        )
+        await update_mcp(mock_db, "user-1", created.id, data)
+
+        # Verify via list
+        listing = await list_mcps(mock_db, "user-1")
+        assert listing.count == 1
+        assert listing.mcps[0].name == "Persisted"
+        assert listing.mcps[0].endpoint_url == "https://example.com/persisted"
