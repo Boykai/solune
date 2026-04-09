@@ -143,4 +143,135 @@ describe('AgentInlineEditor', () => {
     );
     expect(screen.getByText('Celestial Icon')).toBeInTheDocument();
   });
+
+  it('notifies dirty state when name is changed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'New Agent Name');
+    // onDirtyChange should have been called with true at some point
+    expect(onDirtyChange).toHaveBeenCalledWith(true);
+  });
+
+  it('shows Unsaved changes badge when form is dirty', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Different Name');
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+  });
+
+  it('shows validation error when saving with empty name', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.click(screen.getByText('Save Changes'));
+    expect(screen.getByText('Name is required')).toBeInTheDocument();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('shows validation error when saving with empty system prompt', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    const promptInput = screen.getByLabelText(/system prompt/i);
+    await user.clear(promptInput);
+    await user.click(screen.getByText('Save Changes'));
+    expect(screen.getByText('System prompt is required')).toBeInTheDocument();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('calls mutateAsync with correct data on successful save', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    await user.click(screen.getByText('Save Changes'));
+    expect(mockMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: 'a-1',
+        data: expect.objectContaining({
+          name: 'Code Reviewer',
+          system_prompt: 'You review code.',
+        }),
+      }),
+    );
+    expect(onSaved).toHaveBeenCalledWith('https://github.com/pr/1', 'Code Reviewer');
+  });
+
+  it('displays error when save fails', async () => {
+    mockMutateAsync.mockRejectedValueOnce(new Error('Network error'));
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    await user.click(screen.getByText('Save Changes'));
+    expect(screen.getByText('Network error')).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('resets fields when Discard is clicked after making changes', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <AgentInlineEditor
+        agent={createAgent()}
+        projectId="proj-1"
+        onDirtyChange={onDirtyChange}
+        onCancel={onCancel}
+        onSaved={onSaved}
+      />,
+    );
+    const nameInput = screen.getByLabelText('Name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Different Name');
+    // Discard should now be enabled
+    await user.click(screen.getByText('Discard'));
+    expect(nameInput).toHaveValue('Code Reviewer');
+  });
 });

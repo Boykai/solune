@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { fireEvent } from '@testing-library/react';
 
 import { render, screen } from '@/test/test-utils';
-import { UploadMcpModal } from '../UploadMcpModal';
+import { UploadMcpModal, validateMcpJson } from '../UploadMcpModal';
 
 describe('UploadMcpModal', () => {
   const onClose = vi.fn();
@@ -219,5 +220,141 @@ describe('UploadMcpModal', () => {
       />,
     );
     expect(screen.getByLabelText('Name')).toHaveValue('Draft Tool');
+  });
+
+  it('calls onUpload with trimmed form data on valid submit', async () => {
+    const user = userEvent.setup();
+    const validConfig =
+      '{"mcpServers":{"sentry":{"type":"http","url":"https://mcp.sentry.io"}}}';
+    render(
+      <UploadMcpModal
+        isOpen={true}
+        onClose={onClose}
+        onUpload={onUpload}
+        onUpdate={onUpdate}
+        isSubmitting={false}
+        submitError={null}
+      />,
+    );
+    await user.type(screen.getByLabelText('Name'), '  My Tool  ');
+    await user.type(screen.getByLabelText(/description/i), '  Desc  ');
+    // Use fireEvent for JSON content since user.type interprets braces as special keys
+    const configField = screen.getByLabelText(/mcp configuration/i);
+    fireEvent.change(configField, { target: { value: validConfig } });
+    await user.click(screen.getByRole('button', { name: /upload$/i }));
+    expect(onUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'My Tool', description: 'Desc' }),
+    );
+  });
+
+  it('validates config JSON before submitting', async () => {
+    const user = userEvent.setup();
+    render(
+      <UploadMcpModal
+        isOpen={true}
+        onClose={onClose}
+        onUpload={onUpload}
+        onUpdate={onUpdate}
+        isSubmitting={false}
+        submitError={null}
+      />,
+    );
+    await user.type(screen.getByLabelText('Name'), 'My Tool');
+    const configField = screen.getByLabelText(/mcp configuration/i);
+    fireEvent.change(configField, { target: { value: 'not valid json' } });
+    await user.click(screen.getByRole('button', { name: /upload$/i }));
+    expect(screen.getByText('Invalid JSON syntax')).toBeInTheDocument();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+});
+
+describe('validateMcpJson', () => {
+  it('returns error for empty content', () => {
+    expect(validateMcpJson('')).toBe('Configuration content is required');
+    expect(validateMcpJson('   ')).toBe('Configuration content is required');
+  });
+
+  it('returns error for invalid JSON syntax', () => {
+    expect(validateMcpJson('{not json')).toBe('Invalid JSON syntax');
+  });
+
+  it('returns error for non-object JSON (array)', () => {
+    expect(validateMcpJson('[1,2,3]')).toBe('Configuration must be a JSON object');
+  });
+
+  it('returns error for non-object JSON (string)', () => {
+    expect(validateMcpJson('"hello"')).toBe('Configuration must be a JSON object');
+  });
+
+  it('returns error when mcpServers is missing', () => {
+    expect(validateMcpJson('{"other": true}')).toBe(
+      "Configuration must contain a 'mcpServers' object",
+    );
+  });
+
+  it('returns error when mcpServers is an array', () => {
+    expect(validateMcpJson('{"mcpServers": []}')).toBe(
+      "Configuration must contain a 'mcpServers' object",
+    );
+  });
+
+  it('returns error when mcpServers is empty', () => {
+    expect(validateMcpJson('{"mcpServers": {}}')).toBe(
+      "'mcpServers' must contain at least one server entry",
+    );
+  });
+
+  it('returns error when server entry is not an object', () => {
+    expect(validateMcpJson('{"mcpServers": {"s": "invalid"}}')).toBe(
+      "Server 's' must be an object",
+    );
+  });
+
+  it('returns error for unknown server type without command or url', () => {
+    expect(validateMcpJson('{"mcpServers": {"s": {"type": "unknown"}}}')).toContain(
+      "must have 'type'",
+    );
+  });
+
+  it('returns error when http server lacks url', () => {
+    expect(validateMcpJson('{"mcpServers": {"s": {"type": "http"}}}')).toBe(
+      "Server 's' must have a 'url' field",
+    );
+  });
+
+  it('returns error when stdio server lacks command', () => {
+    expect(validateMcpJson('{"mcpServers": {"s": {"type": "stdio"}}}')).toBe(
+      "Server 's' must have a 'command' field",
+    );
+  });
+
+  it('accepts valid http server config', () => {
+    const config = '{"mcpServers":{"sentry":{"type":"http","url":"https://mcp.sentry.io"}}}';
+    expect(validateMcpJson(config)).toBeNull();
+  });
+
+  it('accepts valid stdio server config', () => {
+    const config = '{"mcpServers":{"local":{"type":"stdio","command":"node","args":["server.js"]}}}';
+    expect(validateMcpJson(config)).toBeNull();
+  });
+
+  it('infers http type from url field when type is absent', () => {
+    const config = '{"mcpServers":{"s":{"url":"https://example.com"}}}';
+    expect(validateMcpJson(config)).toBeNull();
+  });
+
+  it('infers stdio type from command field when type is absent', () => {
+    const config = '{"mcpServers":{"s":{"command":"node"}}}';
+    expect(validateMcpJson(config)).toBeNull();
+  });
+
+  it('accepts sse server type with url', () => {
+    const config = '{"mcpServers":{"s":{"type":"sse","url":"https://example.com/sse"}}}';
+    expect(validateMcpJson(config)).toBeNull();
+  });
+
+  it('accepts local server type with command', () => {
+    const config = '{"mcpServers":{"s":{"type":"local","command":"python3"}}}';
+    expect(validateMcpJson(config)).toBeNull();
   });
 });
