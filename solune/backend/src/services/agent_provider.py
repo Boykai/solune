@@ -33,11 +33,11 @@ def _wrap_copilot_tools_with_runtime_state(
     try:
         import importlib
 
-        copilot_types = importlib.import_module("copilot.types")
+        copilot_tools_mod = importlib.import_module("copilot.tools")
     except ImportError:
         CopilotTool = None
     else:
-        CopilotTool = getattr(copilot_types, "Tool", None)
+        CopilotTool = getattr(copilot_tools_mod, "Tool", None)
 
     wrapped_tools: list[Any] = []
     wrapped_count = 0

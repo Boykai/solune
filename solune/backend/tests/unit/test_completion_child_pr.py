@@ -49,7 +49,7 @@ def _make_pr_details(
 
 def _patches(mock_gps, linked_prs):
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, lambda: mock_gps))
     stack.enter_context(patch(_GET_LINKED, AsyncMock(return_value=linked_prs)))
     return stack
 
@@ -338,4 +338,3 @@ class TestExceptionHandling:
             )
 
         assert result is None
-

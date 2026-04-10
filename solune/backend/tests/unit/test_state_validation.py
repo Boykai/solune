@@ -151,4 +151,3 @@ class TestValidatePipelineLabels:
         ok, msgs = await self._call(labels=labels, tracking_steps=steps)
         assert ok is True
         assert any("Failed" in m for m in msgs)
-

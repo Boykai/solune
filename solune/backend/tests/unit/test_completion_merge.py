@@ -37,7 +37,7 @@ def _make_pr_details(*, base_ref="copilot/branch", is_draft=False, head_ref="chi
 def _patches(mock_gps, linked_prs):
     """Stack context managers for gps + _get_linked_prs + update_sha."""
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, lambda: mock_gps))
     stack.enter_context(patch(_GET_LINKED, AsyncMock(return_value=linked_prs)))
     stack.enter_context(patch(_UPDATE_SHA, MagicMock()))
     return stack
@@ -292,4 +292,3 @@ class TestMergeFailure:
             )
 
         assert result is None
-

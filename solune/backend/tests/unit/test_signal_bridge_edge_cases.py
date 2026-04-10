@@ -530,11 +530,10 @@ class TestSignalBridgeListenerAndInboundRouting:
         )
         monkeypatch.setattr(
             "src.services.github_projects.get_github_service",
-            github_projects_service,
+            lambda: github_projects_service,
         )
 
         result = await signal_bridge._list_user_projects("user-1")
 
         assert result == [("Alpha", "p1")]
         cache.set.assert_called_once_with("projects:user-1", fetched)
-
