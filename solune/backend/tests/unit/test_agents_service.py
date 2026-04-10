@@ -597,7 +597,9 @@ class TestAgentsServiceUpdate:
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=_workflow_result(pr_number=95, issue_number=70)),
