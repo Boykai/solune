@@ -355,7 +355,7 @@ class TestResolveRepository:
         mock_service.get_project_repository.return_value = ("owner1", "repo1")
 
         with patch(
-            "src.services.github_projects.github_projects_service",
+            "src.services.github_projects.get_github_service",
             mock_service,
         ):
             result = await resolve_repository("token", "proj-id")
@@ -371,7 +371,7 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
+                "src.services.github_projects.get_github_service",
                 mock_service,
             ),
             patch(
@@ -401,7 +401,7 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
+                "src.services.github_projects.get_github_service",
                 mock_service,
             ),
             patch(
@@ -429,7 +429,7 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
+                "src.services.github_projects.get_github_service",
                 mock_service,
             ),
             patch(
@@ -461,7 +461,7 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
+                "src.services.github_projects.get_github_service",
                 mock_service,
             ),
             patch(
@@ -532,3 +532,4 @@ class TestParseGithubUrl:
     def test_not_a_url_raises(self) -> None:
         with pytest.raises(ValidationError, match=r"only github\.com"):
             parse_github_url("not-a-url")
+

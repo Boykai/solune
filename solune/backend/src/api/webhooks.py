@@ -22,7 +22,7 @@ from src.logging_utils import get_logger
 from src.services.activity_logger import log_event
 from src.services.cache import cache, get_repo_agents_cache_key
 from src.services.database import get_db
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.utils import BoundedSet
 
 logger = get_logger(__name__)
@@ -307,7 +307,7 @@ async def handle_copilot_pr_ready(
         # which handles looking up the status field
 
         # Get linked PRs to find the project item
-        linked_prs = await github_projects_service.get_linked_pull_requests(
+        linked_prs = await get_github_service().get_linked_pull_requests(
             access_token=access_token,
             owner=repo_owner,
             repo=repo_name,
@@ -686,7 +686,7 @@ async def update_issue_status_for_copilot_pr(
     try:
         # Try to find the project for this repository
         # First, list user's projects to find the matching one
-        projects_response = await github_projects_service.rest_request(
+        projects_response = await get_github_service().rest_request(
             settings.github_webhook_token,
             "GET",
             "/user",
@@ -704,7 +704,7 @@ async def update_issue_status_for_copilot_pr(
         # Get projects for the repository owner
         webhook_user = projects_response.json()
         webhook_username: str = webhook_user.get("login", repo_owner)
-        projects = await github_projects_service.list_user_projects(
+        projects = await get_github_service().list_user_projects(
             settings.github_webhook_token, webhook_username
         )
 
@@ -715,7 +715,7 @@ async def update_issue_status_for_copilot_pr(
         for project in projects:
             # Get project items to find our issue
             try:
-                items = await github_projects_service.get_project_items(
+                items = await get_github_service().get_project_items(
                     settings.github_webhook_token,
                     project.project_id,
                 )
@@ -796,7 +796,7 @@ async def update_issue_status_for_copilot_pr(
             target_project.project_id,
         )
 
-        success = await github_projects_service.update_item_status_by_name(
+        success = await get_github_service().update_item_status_by_name(
             access_token=settings.github_webhook_token,
             project_id=target_project.project_id,
             item_id=target_item_id,

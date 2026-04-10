@@ -73,7 +73,7 @@ class TestCommitWorkflowSuccess:
 
     async def test_full_workflow_without_issue(self, mock_svc):
         """Branch → commit → PR succeeds when no issue is requested."""
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is True
@@ -92,7 +92,7 @@ class TestCommitWorkflowSuccess:
 
     async def test_full_workflow_with_issue_and_project(self, mock_svc):
         """All 6 steps complete: issue → branch → commit → PR → board."""
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(
                 **COMMON_KWARGS,
                 issue_title="Tracking issue",
@@ -117,7 +117,7 @@ class TestCommitWorkflowSuccess:
 
     async def test_workflow_with_delete_files(self, mock_svc):
         """Deletion paths are forwarded to commit_files."""
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(
                 **COMMON_KWARGS,
                 delete_files=["old-file.txt"],
@@ -138,7 +138,7 @@ class TestStep1RepositoryInfoFailure:
         """Workflow aborts immediately if repo info cannot be fetched."""
         mock_svc.get_repository_info.side_effect = RuntimeError("API unreachable")
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -156,7 +156,7 @@ class TestStep2CreateIssueFailure:
         """Issue creation failure does not block the rest of the workflow."""
         mock_svc.create_issue.side_effect = RuntimeError("Rate limited")
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(
                 **COMMON_KWARGS,
                 issue_title="Track this",
@@ -184,7 +184,7 @@ class TestStep3CreateBranchFailure:
         """Workflow aborts if branch creation raises."""
         mock_svc.create_branch.side_effect = RuntimeError("Branch exists")
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -195,7 +195,7 @@ class TestStep3CreateBranchFailure:
         """Workflow aborts if create_branch returns None."""
         mock_svc.create_branch.return_value = None
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -212,7 +212,7 @@ class TestStep4CommitFilesFailure:
         """Workflow aborts if commit raises."""
         mock_svc.commit_files.side_effect = RuntimeError("Conflict")
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -223,7 +223,7 @@ class TestStep4CommitFilesFailure:
         """Workflow aborts if commit_files returns None."""
         mock_svc.commit_files.return_value = None
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -240,7 +240,7 @@ class TestStep5PullRequestFailure:
         """Workflow aborts if PR creation raises."""
         mock_svc.create_pull_request.side_effect = RuntimeError("Server error")
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -250,7 +250,7 @@ class TestStep5PullRequestFailure:
         """Workflow aborts if create_pull_request returns None."""
         mock_svc.create_pull_request.return_value = None
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(**COMMON_KWARGS)
 
         assert result.success is False
@@ -267,7 +267,7 @@ class TestStep6ProjectBoardFailure:
         """Board integration failure does not mark workflow as failed."""
         mock_svc.add_issue_to_project.side_effect = RuntimeError("Project not found")
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(
                 **COMMON_KWARGS,
                 issue_title="Track",
@@ -281,7 +281,7 @@ class TestStep6ProjectBoardFailure:
 
     async def test_board_skipped_without_project_id(self, mock_svc):
         """Board step is skipped entirely when project_id is not provided."""
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(
                 **COMMON_KWARGS,
                 issue_title="Track",
@@ -295,7 +295,7 @@ class TestStep6ProjectBoardFailure:
         """Status update is skipped when add_issue_to_project returns None."""
         mock_svc.add_issue_to_project.return_value = None
 
-        with patch("src.services.github_commit_workflow.github_projects_service", mock_svc):
+        with patch("src.services.github_commit_workflow.get_github_service", return_value=mock_svc):
             result = await commit_files_workflow(
                 **COMMON_KWARGS,
                 issue_title="Track",
@@ -331,3 +331,4 @@ class TestCommitWorkflowResult:
         r = CommitWorkflowResult(branch_name="feat/x")
         assert r.branch_name == "feat/x"
         assert r.success is False
+

@@ -25,7 +25,7 @@ from src.models.workflow import (
 from src.services.agents.service import AgentsService
 from src.services.copilot_polling.polling_loop import PollingStatus
 from src.services.database import get_db
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
 from src.services.websocket import connection_manager
@@ -547,7 +547,7 @@ async def retry_pipeline(
 
     # Get issue info
     try:
-        issue_data = await github_projects_service.get_issue_with_comments(
+        issue_data = await get_github_service().get_issue_with_comments(
             access_token=session.access_token,
             owner=owner,
             repo=repo,
@@ -730,7 +730,7 @@ async def list_agents(
 
     agents_service = AgentsService(get_db())
 
-    agents = await github_projects_service.list_available_agents(
+    agents = await get_github_service().list_available_agents(
         owner=resolved_owner or "",
         repo=resolved_repo or "",
         access_token=session.access_token,

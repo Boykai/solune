@@ -591,10 +591,10 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         await init_done_items_store(db)
 
         # Register singleton services on app.state for DI (see dependencies.py)
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
         from src.services.websocket import connection_manager
 
-        _app.state.github_service = github_projects_service
+        _app.state.github_service = get_github_service()
         _app.state.connection_manager = connection_manager
 
         # ── Observability: Alert dispatcher (Phase 5) ──
