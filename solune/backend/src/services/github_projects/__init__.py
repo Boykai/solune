@@ -1,5 +1,7 @@
 """GitHub Projects V2 GraphQL service."""
 
+from __future__ import annotations
+
 import asyncio
 import hashlib
 
@@ -59,11 +61,27 @@ class GitHubClientFactory:
 
 from src.services.github_projects.service import (  # noqa: E402
     GitHubProjectsService,
-    github_projects_service,
 )
+
+# ── Lazy singleton accessor ──────────────────────────────────────────────
+_service_instance: GitHubProjectsService | None = None
+
+
+def get_github_service() -> GitHubProjectsService:
+    """Return the shared :class:`GitHubProjectsService` instance.
+
+    The instance is created lazily on first access.  All consumer code
+    (API handlers, background tasks, signal bridges, orchestrators) should
+    call this function instead of importing a module-level singleton.
+    """
+    global _service_instance
+    if _service_instance is None:
+        _service_instance = GitHubProjectsService()
+    return _service_instance
+
 
 __all__ = [
     "GitHubClientFactory",
     "GitHubProjectsService",
-    "github_projects_service",
+    "get_github_service",
 ]

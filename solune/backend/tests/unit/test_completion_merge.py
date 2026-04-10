@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 _GET_LINKED = "src.services.copilot_polling._get_linked_prs_including_sub_issues"
 _UPDATE_SHA = "src.services.copilot_polling.update_issue_main_branch_sha"
 
@@ -37,7 +37,7 @@ def _make_pr_details(*, base_ref="copilot/branch", is_draft=False, head_ref="chi
 def _patches(mock_gps, linked_prs):
     """Stack context managers for gps + _get_linked_prs + update_sha."""
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, return_value=mock_gps))
     stack.enter_context(patch(_GET_LINKED, AsyncMock(return_value=linked_prs)))
     stack.enter_context(patch(_UPDATE_SHA, MagicMock()))
     return stack
@@ -274,7 +274,7 @@ class TestMergeFailure:
     @pytest.mark.asyncio
     async def test_exception_returns_none(self, mock_gps):
         with (
-            patch(_GPS, mock_gps),
+            patch(_GPS, return_value=mock_gps),
             patch(_GET_LINKED, AsyncMock(side_effect=RuntimeError("API error"))),
         ):
             from src.services.copilot_polling.completion import (

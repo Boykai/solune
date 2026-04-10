@@ -38,7 +38,7 @@ from src.services.cache import (
     get_user_projects_cache_key,
 )
 from src.services.done_items_store import get_done_items
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 
 
 def _is_github_auth_error(exc: Exception) -> bool:
@@ -194,7 +194,7 @@ def _to_board_projects(projects: list[GitHubProject]) -> list[BoardProject]:
 
 def _get_rate_limit_info() -> RateLimitInfo | None:
     """Build RateLimitInfo from the last GitHub API response headers."""
-    rl = github_projects_service.get_last_rate_limit()
+    rl = get_github_service().get_last_rate_limit()
     if not isinstance(rl, dict):
         return None
     try:
@@ -240,7 +240,7 @@ async def list_board_projects(
     logger.info("Fetching board projects for user %s", session.github_username)
 
     try:
-        projects = await github_projects_service.list_board_projects(
+        projects = await get_github_service().list_board_projects(
             session.access_token, session.github_username
         )
     except Exception as e:
@@ -401,7 +401,7 @@ async def get_board_data(
     logger.info("Fetching board data for project %s", project_id)
 
     try:
-        board_data = await github_projects_service.get_board_data(session.access_token, project_id)
+        board_data = await get_github_service().get_board_data(session.access_token, project_id)
     except ValueError as e:
         logger.warning("Project not found: %s - %s", project_id, e)
         raise NotFoundError("Project not found") from e
@@ -512,7 +512,7 @@ async def update_board_item_status(
     )
 
     try:
-        success = await github_projects_service.update_item_status_by_name(
+        success = await get_github_service().update_item_status_by_name(
             access_token=session.access_token,
             project_id=project_id,
             item_id=item_id,

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 _MOD = "src.services.copilot_polling.label_manager"
-_GH = "src.services.github_projects.github_projects_service"
+_GH = "src.services.github_projects.get_github_service"
 
 
 def _response(status_code: int, parsed_data=None):
@@ -26,7 +26,7 @@ def _patches(rest_mock: AsyncMock):
     """Patch the github_projects_service at its source so lazy imports pick it up."""
     stack = ExitStack()
     mock_gps = SimpleNamespace(rest_request=rest_mock)
-    stack.enter_context(patch(_GH, mock_gps))
+    stack.enter_context(patch(_GH, return_value=mock_gps))
     return stack
 
 
