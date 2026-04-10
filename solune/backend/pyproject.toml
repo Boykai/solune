@@ -12,15 +12,15 @@ dependencies = [
     "pydantic-settings>=2.13.0,<3",
     "python-multipart>=0.0.22,<1",
     "pyyaml>=6.0.3,<7",
-    # GitHub Copilot SDK (current: v0.x; v2 upgrade to copilot-sdk>=1.0.17 planned)
-    "github-copilot-sdk>=0.1.30,<1",
+    # GitHub Copilot SDK
+    "github-copilot-sdk>=0.2.1,<1",
     # Azure OpenAI (optional fallback provider)
     "openai>=2.26.0,<3",
     "azure-ai-inference>=1.0.0b9,<2",
-    # Microsoft Agent Framework (v0.2.0 — intelligent chat agent)
-    "agent-framework-core>=1.0.0b1",
-    "agent-framework-azure-ai>=1.0.0b1",
-    "agent-framework-github-copilot>=1.0.0b1",
+    # Microsoft Agent Framework (intelligent chat agent)
+    "agent-framework-core>=1.0.1",
+    "agent-framework-azure-ai>=1.0.0rc6",
+    "agent-framework-github-copilot>=1.0.0b260409",
     # SSE streaming for real-time agent responses
     "sse-starlette>=3.0.0,<4",
     # SQLite async (durable settings/session storage)
@@ -37,9 +37,9 @@ dependencies = [
     # OpenTelemetry — opt-in distributed tracing and metrics (Phase 5)
     "opentelemetry-api>=1.33.0,<2",
     "opentelemetry-sdk>=1.33.0,<2",
-    "opentelemetry-instrumentation-fastapi>=0.54b0,<1",
-    "opentelemetry-instrumentation-httpx>=0.54b0,<1",
-    "opentelemetry-instrumentation-sqlite3>=0.54b0,<1",
+    "opentelemetry-instrumentation-fastapi>=0.62b0,<1",
+    "opentelemetry-instrumentation-httpx>=0.62b0,<1",
+    "opentelemetry-instrumentation-sqlite3>=0.62b0,<1",
     "opentelemetry-exporter-otlp>=1.33.0,<2",
     # Sentry — opt-in error tracking (Phase 5)
     "sentry-sdk[fastapi]>=2.22.0,<3",
@@ -69,8 +69,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-# Allow prereleases for azure-ai-inference (1.0.0b9) and
-# opentelemetry-instrumentation-* (0.54b0) preview packages.
+# Allow prereleases for azure-ai-inference (1.0.0b9),
+# agent-framework-* (rc/beta), and opentelemetry-instrumentation-* (0.62b0).
 prerelease = "allow"
 required-version = ">=0.10.9"
 

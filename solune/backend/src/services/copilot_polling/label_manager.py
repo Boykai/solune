@@ -65,9 +65,9 @@ async def create_pipeline_label(
     """
     label_name = build_label_name(run_id, stage_id, status)
     try:
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
-        response = await github_projects_service.rest_request(
+        response = await get_github_service().rest_request(
             access_token,
             "POST",
             f"/repos/{owner}/{repo}/labels",
@@ -123,9 +123,9 @@ async def delete_pipeline_label(
 ) -> bool:
     """Delete a pipeline state label from the repository."""
     try:
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
-        await github_projects_service.rest_request(
+        await get_github_service().rest_request(
             access_token,
             "DELETE",
             f"/repos/{owner}/{repo}/labels/{quote(label_name, safe='')}",
@@ -149,11 +149,11 @@ async def query_pipeline_labels(
     """
     labels: list[ParsedLabel] = []
     try:
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
         page = 1
         while True:
-            response = await github_projects_service.rest_request(
+            response = await get_github_service().rest_request(
                 access_token,
                 "GET",
                 f"/repos/{owner}/{repo}/labels",

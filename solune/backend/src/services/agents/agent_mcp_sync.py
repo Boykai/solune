@@ -143,9 +143,9 @@ async def _discover_agent_files(
     Returns a list of dicts with keys: ``path``, ``sha``, ``download_url``.
     """
     if github_service is None:
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
-        github_service = github_projects_service
+        github_service = get_github_service()
 
     path = f"/repos/{owner}/{repo}/contents/.github/agents"
     try:
@@ -271,9 +271,9 @@ async def sync_agent_mcps(
         AgentMcpSyncResult with counts and any warnings/errors.
     """
     if github_service is None:
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
-        github_service = github_projects_service
+        github_service = get_github_service()
 
     result = AgentMcpSyncResult()
 

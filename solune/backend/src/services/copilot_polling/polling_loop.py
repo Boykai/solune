@@ -60,7 +60,7 @@ async def _check_rate_limit_budget() -> tuple[int | None, int | None]:
 
     Returns (None, None) when no rate-limit data is available yet.
     """
-    rl = _cp.github_projects_service.get_last_rate_limit()
+    rl = _cp.get_github_service().get_last_rate_limit()
     if rl is None:
         return None, None
     return rl.get("remaining"), rl.get("reset_at")
@@ -100,7 +100,7 @@ async def _pause_if_rate_limited(step_name: str) -> bool:
             # Clear both request-scoped contextvar and instance-level
             # caches so get_last_rate_limit() returns None on the next
             # call, allowing the cycle to proceed with a fresh API request.
-            _cp.github_projects_service.clear_last_rate_limit()
+            _cp.get_github_service().clear_last_rate_limit()
             return False  # allow the cycle to proceed
 
         wait = max((reset_at or now_ts) - now_ts, 10)
@@ -339,7 +339,7 @@ async def _poll_single_project(
     """
     from .helpers import is_sub_issue
 
-    all_tasks = await _cp.github_projects_service.get_project_items(access_token, project_id)
+    all_tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
 
     parent_tasks = [t for t in all_tasks if not is_sub_issue(t)]
     sub_count = len(all_tasks) - len(parent_tasks)
@@ -409,7 +409,7 @@ async def _poll_loop(
                 _polling_state.poll_count += 1
 
             # Clear per-cycle cache so each iteration starts with fresh data.
-            _cp.github_projects_service.clear_cycle_cache()
+            _cp.get_github_service().clear_cycle_cache()
 
             # ── Build project list: primary project first, then others ──
             from .state import MonitoredProject, get_monitored_projects
@@ -443,7 +443,7 @@ async def _poll_loop(
                 from src.config import get_settings as _get_settings
 
                 _settings = _get_settings()
-                rl_info = _cp.github_projects_service.get_last_rate_limit()
+                rl_info = _cp.get_github_service().get_last_rate_limit()
                 if (
                     rl_info
                     and rl_info.get("remaining") is not None
@@ -514,7 +514,7 @@ async def _poll_loop(
                         err_reset,
                         now_err,
                     )
-                    _cp.github_projects_service.clear_last_rate_limit()
+                    _cp.get_github_service().clear_last_rate_limit()
 
         # ── OTel metrics emission (Phase 5) ──
         try:
@@ -526,7 +526,7 @@ async def _poll_loop(
             active_gauge.set(len(get_all_pipeline_states()))
 
             rl_gauge = _cycle_meter.create_gauge("github.api_remaining")
-            _rl_data = _cp.github_projects_service.get_last_rate_limit()
+            _rl_data = _cp.get_github_service().get_last_rate_limit()
             if _rl_data and _rl_data.get("remaining") is not None:
                 rl_gauge.set(_rl_data["remaining"])
         except Exception:
@@ -536,7 +536,7 @@ async def _poll_loop(
         try:
             from src.services.rate_limit_tracker import get_tracker
 
-            _rl_snap = _cp.github_projects_service.get_last_rate_limit()
+            _rl_snap = _cp.get_github_service().get_last_rate_limit()
             if (
                 _rl_snap
                 and _rl_snap.get("remaining") is not None
@@ -663,7 +663,7 @@ async def poll_app_pipeline(
         while True:
             had_activity = False
             try:
-                _cp.github_projects_service.clear_cycle_cache()
+                _cp.get_github_service().clear_cycle_cache()
 
                 # ── Pre-cycle rate-limit pause (matches main loop) ──
                 if await _pause_if_rate_limited("scoped-pre-cycle"):
@@ -679,7 +679,7 @@ async def poll_app_pipeline(
                     break
 
                 # Fetch all board items and run the standard polling steps.
-                all_tasks = await _cp.github_projects_service.get_project_items(
+                all_tasks = await _cp.get_github_service().get_project_items(
                     access_token, project_id
                 )
                 parent_tasks = [t for t in all_tasks if not is_sub_issue(t)]
@@ -822,7 +822,7 @@ async def stop_polling() -> None:
 
 def get_polling_status() -> PollingStatus:
     """Get current polling status."""
-    rl = _cp.github_projects_service.get_last_rate_limit()
+    rl = _cp.get_github_service().get_last_rate_limit()
     rate_limit_info: RateLimitInfo | None = None
     if rl:
         rate_limit_info = RateLimitInfo(
