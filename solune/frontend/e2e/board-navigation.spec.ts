@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './authenticated-fixtures';
 
 test.describe('Board Navigation', () => {
@@ -33,5 +34,16 @@ test.describe('Board Navigation', () => {
     await expect(page.getByRole('button', { name: '#1 Set up CI/CD pipeline', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '#2 Implement auth flow', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Select a project' })).toHaveCount(0);
+  });
+
+  test('board page passes WCAG 2.1 AA accessibility audit', async ({ page }) => {
+    await page.goto('/projects');
+    await expect(page.getByRole('button', { name: '#1 Set up CI/CD pipeline', exact: true })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
   });
 });

@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './authenticated-fixtures';
 
 test.describe('Chat Interaction', () => {
@@ -35,5 +36,19 @@ test.describe('Chat Interaction', () => {
     await page.getByRole('button', { name: 'New Chat' }).click();
 
     await expect(page.getByText('Start a conversation')).toBeVisible();
+  });
+
+  test('chat view passes WCAG 2.1 AA accessibility audit', async ({ page }) => {
+    await page.goto('/projects');
+    await page.getByRole('button', { name: 'Open chat' }).click();
+    await expect(page.getByLabel(
+      'Chat input — ask questions, describe tasks, use slash commands, or mention pipelines',
+    )).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
   });
 });

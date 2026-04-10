@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './fixtures';
 
 test.describe('Authentication', () => {
@@ -28,5 +29,16 @@ test.describe('Authentication', () => {
     await page.getByRole('button', { name: /Login with GitHub/i }).click();
 
     await expect(page).toHaveURL(/\/api\/v1\/auth\/github$/);
+  });
+
+  test('login page passes WCAG 2.1 AA accessibility audit', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page.getByRole('heading', { name: 'Solune' })).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
   });
 });
