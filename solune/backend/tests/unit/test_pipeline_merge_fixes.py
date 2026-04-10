@@ -57,7 +57,7 @@ class TestMergeAndClaimChildPrContinuesOnFailure:
             )
             stack.enter_context(patch(f"{_CP}._merge_child_pr_if_applicable", merge_mock))
             stack.enter_context(patch(f"{_CP}.POST_ACTION_DELAY_SECONDS", 0))
-            stack.enter_context(patch(f"{_CP}.github_projects_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
             stack.enter_context(patch(f"{_AO}._claimed_child_prs", set()))
 
             from src.services.copilot_polling.agent_output import (
@@ -91,7 +91,7 @@ class TestMergeAndClaimChildPrContinuesOnFailure:
             )
             stack.enter_context(patch(f"{_CP}._merge_child_pr_if_applicable", merge_mock))
             stack.enter_context(patch(f"{_CP}.POST_ACTION_DELAY_SECONDS", 0))
-            stack.enter_context(patch(f"{_CP}.github_projects_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
             stack.enter_context(patch(f"{_AO}._claimed_child_prs", set()))
 
             from src.services.copilot_polling.agent_output import (
@@ -179,7 +179,7 @@ class TestRecoveryGuardOpenCompletedChildPR:
         )
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.github_projects_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
             stack.enter_context(patch(f"{_CP}.get_workflow_config", AsyncMock(return_value=config)))
             stack.enter_context(
                 patch(f"{_REC}._should_skip_recovery", AsyncMock(return_value=False))
@@ -402,3 +402,4 @@ class TestMergeRetryLimit:
 
         assert MAX_MERGE_RETRIES == 3
         assert _merge_failure_counts is not None
+

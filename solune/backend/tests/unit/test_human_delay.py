@@ -515,7 +515,7 @@ def _base_pipeline_patches(mock_gps=None, mock_conn_mgr=None):
         mock_conn_mgr.broadcast_to_project = AsyncMock()
 
     stack = ExitStack()
-    stack.enter_context(patch(f"{_CP}.github_projects_service", mock_gps))
+    stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
     stack.enter_context(patch(f"{_CP}.connection_manager", mock_conn_mgr))
     stack.enter_context(patch(f"{_CP}.set_pipeline_state"))
     stack.enter_context(patch(f"{_CP}.remove_pipeline_state"))
@@ -1502,3 +1502,4 @@ class TestOrchestratorDelayPropagation:
         result = get_agent_configs(config)
         # The last status iteration should win
         assert result["human"]["delay_seconds"] in (60, 300)  # depends on dict ordering
+
