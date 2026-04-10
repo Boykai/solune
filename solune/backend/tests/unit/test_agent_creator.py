@@ -990,9 +990,10 @@ class TestCreationPipeline:
         return patcher, svc
 
     def _gps_mock(self):
-        """Return a patched github_projects_service mock with all pipeline methods."""
+        """Return a patched get_github_service mock with all pipeline methods."""
         patcher = patch("src.services.agent_creator.get_github_service")
-        mock_gps = patcher.start()
+        mock_fn = patcher.start()
+        mock_gps = mock_fn.return_value
         mock_gps.create_issue = AsyncMock(
             return_value={
                 "number": 42,
@@ -1986,7 +1987,8 @@ class TestFullPipelineSuccess:
 
     def _gps_mock(self):
         patcher = patch("src.services.agent_creator.get_github_service")
-        mock_gps = patcher.start()
+        mock_fn = patcher.start()
+        mock_gps = mock_fn.return_value
         mock_gps.create_issue = AsyncMock(
             return_value={
                 "number": 42,

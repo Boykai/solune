@@ -518,6 +518,7 @@ class TestAutoMergeRetryLoop:
             ),
             patch("src.services.copilot_polling.get_github_service") as svc,
         ):
+            svc = svc.return_value
             svc.update_item_status_by_name = AsyncMock()
             svc.update_issue_state = AsyncMock()
 
@@ -1536,6 +1537,7 @@ class TestDeferredRemoval:
                 mock_remove,
             ),
         ):
+            svc = svc.return_value
             svc.update_item_status_by_name = AsyncMock()
             svc.update_issue_state = AsyncMock()
 

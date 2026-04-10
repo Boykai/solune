@@ -27,7 +27,7 @@ class TestGetRateLimitRemaining:
         """Parses remaining and reset_at from cached rate-limit dict."""
         rl = {"remaining": 500, "reset_at": 1700000000}
         with patch("src.services.copilot_polling.pipeline._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = rl
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = rl
             remaining, reset_at = _get_rate_limit_remaining()
         assert remaining == 500
         assert reset_at == 1700000000
@@ -35,7 +35,7 @@ class TestGetRateLimitRemaining:
     def test_returns_none_when_no_data(self):
         """Returns (None, None) when no rate-limit data is cached."""
         with patch("src.services.copilot_polling.pipeline._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = None
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = None
             remaining, reset_at = _get_rate_limit_remaining()
         assert remaining is None
         assert reset_at is None
@@ -44,7 +44,7 @@ class TestGetRateLimitRemaining:
         """Returns (None, None) when values are not convertible to int."""
         rl = {"remaining": "invalid", "reset_at": "bad"}
         with patch("src.services.copilot_polling.pipeline._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = rl
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = rl
             remaining, reset_at = _get_rate_limit_remaining()
         # "invalid" can't be converted to int
         assert remaining is None
@@ -54,7 +54,7 @@ class TestGetRateLimitRemaining:
         """Handles remaining=None in the rate-limit dict."""
         rl = {"remaining": None, "reset_at": 1700000000}
         with patch("src.services.copilot_polling.pipeline._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = rl
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = rl
             remaining, reset_at = _get_rate_limit_remaining()
         assert remaining is None
         assert reset_at == 1700000000
@@ -63,7 +63,7 @@ class TestGetRateLimitRemaining:
         """String numeric values are coerced to int."""
         rl = {"remaining": "100", "reset_at": "1700000000"}
         with patch("src.services.copilot_polling.pipeline._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = rl
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = rl
             remaining, reset_at = _get_rate_limit_remaining()
         assert remaining == 100
         assert reset_at == 1700000000

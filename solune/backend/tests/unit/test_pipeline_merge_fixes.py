@@ -57,7 +57,7 @@ class TestMergeAndClaimChildPrContinuesOnFailure:
             )
             stack.enter_context(patch(f"{_CP}._merge_child_pr_if_applicable", merge_mock))
             stack.enter_context(patch(f"{_CP}.POST_ACTION_DELAY_SECONDS", 0))
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             stack.enter_context(patch(f"{_AO}._claimed_child_prs", set()))
 
             from src.services.copilot_polling.agent_output import (
@@ -91,7 +91,7 @@ class TestMergeAndClaimChildPrContinuesOnFailure:
             )
             stack.enter_context(patch(f"{_CP}._merge_child_pr_if_applicable", merge_mock))
             stack.enter_context(patch(f"{_CP}.POST_ACTION_DELAY_SECONDS", 0))
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             stack.enter_context(patch(f"{_AO}._claimed_child_prs", set()))
 
             from src.services.copilot_polling.agent_output import (
@@ -179,7 +179,7 @@ class TestRecoveryGuardOpenCompletedChildPR:
         )
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             stack.enter_context(patch(f"{_CP}.get_workflow_config", AsyncMock(return_value=config)))
             stack.enter_context(
                 patch(f"{_REC}._should_skip_recovery", AsyncMock(return_value=False))
@@ -325,9 +325,9 @@ class TestMergeRetryLimit:
         mock_cp.set_pipeline_state = MagicMock()
         mock_cp.remove_pipeline_state = MagicMock()
         mock_cp.POST_ACTION_DELAY_SECONDS = 0
-        mock_cp.github_projects_service = AsyncMock()
-        mock_cp.github_projects_service.create_issue_comment = AsyncMock(return_value={"id": "C1"})
-        mock_cp.github_projects_service.get_pull_request = AsyncMock(return_value=None)
+        mock_cp.get_github_service.return_value = AsyncMock()
+        mock_cp.get_github_service.return_value.create_issue_comment = AsyncMock(return_value={"id": "C1"})
+        mock_cp.get_github_service.return_value.get_pull_request = AsyncMock(return_value=None)
         mock_cp._update_issue_tracking = AsyncMock()
         mock_cp.connection_manager = AsyncMock()
         mock_cp.connection_manager.broadcast_to_project = AsyncMock()
@@ -371,7 +371,7 @@ class TestMergeRetryLimit:
             )
 
         # Warning comment must have been posted.
-        mock_cp.github_projects_service.create_issue_comment.assert_awaited()
+        mock_cp.get_github_service.return_value.create_issue_comment.assert_awaited()
         # Failure counter must be cleared after skip.
         assert _merge_failure_counts.get(10) is None
         # Pipeline must NOT be blocked.
