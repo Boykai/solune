@@ -542,10 +542,10 @@ async def get_agent_tools(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> AgentToolsResponse:
     """List MCP tools assigned to a specific agent."""
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
     from src.services.tools.service import ToolsService
 
-    service = ToolsService(get_db(), github_service=github_projects_service)
+    service = ToolsService(get_db(), github_service=get_github_service())
     return await service.get_agent_tools(
         agent_id=agent_id,
         project_id=project_id,
@@ -565,10 +565,10 @@ async def update_agent_tools(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> AgentToolsResponse:
     """Set the MCP tools for an agent (replace all)."""
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
     from src.services.tools.service import ToolsService
 
-    service = ToolsService(get_db(), github_service=github_projects_service)
+    service = ToolsService(get_db(), github_service=get_github_service())
 
     try:
         return await service.update_agent_tools(

@@ -132,7 +132,7 @@ class TestClaimedChildPrsSnapshotIteration:
 # ── Bug 4: _track_main_branch_if_needed exception blocks Done! marker ──
 
 
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 
 
 class TestTrackMainBranchFailureDoesNotBlockDone:
@@ -186,7 +186,7 @@ class TestLabelManagerURLEncoding:
         mock_rest = AsyncMock(return_value=SimpleNamespace(status_code=204))
         mock_gps = SimpleNamespace(rest_request=mock_rest)
 
-        with patch("src.services.github_projects.github_projects_service", mock_gps):
+        with patch("src.services.github_projects.get_github_service", return_value=mock_gps):
             from src.services.copilot_polling.label_manager import delete_pipeline_label
 
             label_name = "solune:pipeline:1:stage:build:running"
@@ -211,7 +211,7 @@ class TestLabelManagerURLEncoding:
         mock_rest = AsyncMock(return_value=SimpleNamespace(status_code=204))
         mock_gps = SimpleNamespace(rest_request=mock_rest)
 
-        with patch("src.services.github_projects.github_projects_service", mock_gps):
+        with patch("src.services.github_projects.get_github_service", return_value=mock_gps):
             from src.services.copilot_polling.label_manager import delete_pipeline_label
 
             label_name = "solune:pipeline:99:stage:my stage:failed"

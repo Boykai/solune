@@ -64,10 +64,10 @@ class CopilotClientPool:
                 return self._clients[key]
 
             from copilot import CopilotClient
-            from copilot.types import CopilotClientOptions
+            from copilot.client import SubprocessConfig
 
-            options = CopilotClientOptions(github_token=github_token, auto_start=False)
-            client = CopilotClient(options=options)
+            config = SubprocessConfig(github_token=github_token)
+            client = CopilotClient(config=config)
             await client.start()
             self._clients[key] = client
             logger.info(
@@ -176,7 +176,7 @@ class CopilotCompletionProvider(CompletionProvider):
         from copilot.generated.session_events import (
             SessionEventType,
         )
-        from copilot.types import (
+        from copilot.session import (
             PermissionHandler,
             SessionConfig,
         )

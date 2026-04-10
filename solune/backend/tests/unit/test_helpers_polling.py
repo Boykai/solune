@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── Patch targets ──────────────────────────────────────────────────
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 _GET_SUB_ISSUES = "src.services.copilot_polling.get_issue_sub_issues"
 _SET_SUB_ISSUES = "src.services.copilot_polling.set_issue_sub_issues"
 _MARK_ACTIVE = "src.services.copilot_polling.mark_agent_active"
@@ -169,7 +169,7 @@ class TestGetSubIssueNumbersForIssue:
 def _base_patches(mock_gps):
     """Stack patches for _cp.github_projects_service and common deps."""
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, lambda: mock_gps))
     return stack
 
 
