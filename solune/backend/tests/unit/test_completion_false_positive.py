@@ -30,7 +30,7 @@ def _patch_gps(mock):
     """Return context manager that patches the service on the _cp module."""
     return patch(
         "src.services.copilot_polling.get_github_service",
-        mock,
+        return_value=mock,
     )
 
 
