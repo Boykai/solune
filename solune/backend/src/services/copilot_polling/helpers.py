@@ -111,7 +111,7 @@ async def _record_copilot_review_request_timestamp(
         )
 
     try:
-        issue_data = await _cp.github_projects_service.get_issue_with_comments(
+        issue_data = await _cp.get_github_service().get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -120,7 +120,7 @@ async def _record_copilot_review_request_timestamp(
         body = issue_data.get("body", "")
         updated_body = _upsert_copilot_review_request_metadata(body, effective_requested_at)
         if updated_body != body:
-            await _cp.github_projects_service.update_issue_body(
+            await _cp.get_github_service().update_issue_body(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -219,7 +219,7 @@ async def _check_agent_done_on_sub_or_parent(
         )
 
     # Check parent issue first (new canonical location for Done! markers)
-    done = await _cp.github_projects_service.check_agent_completion_comment(
+    done = await _cp.get_github_service().check_agent_completion_comment(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -232,7 +232,7 @@ async def _check_agent_done_on_sub_or_parent(
     # Fall back to sub-issue for backward compat (old issues had Done! on sub-issue)
     sub_number = _get_sub_issue_number(pipeline, agent_name, parent_issue_number)
     if sub_number != parent_issue_number:
-        return await _cp.github_projects_service.check_agent_completion_comment(
+        return await _cp.get_github_service().check_agent_completion_comment(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -310,7 +310,7 @@ async def _check_copilot_review_done(
     # opened, producing a stale Done! marker that predates the pipeline
     # agents.  We validate the marker timestamp against the latest
     # non-copilot-review agent Done! comment.
-    issue_data = await _cp.github_projects_service.get_issue_with_comments(
+    issue_data = await _cp.get_github_service().get_issue_with_comments(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -401,7 +401,7 @@ async def _check_copilot_review_done(
             db_id = copilot_review_marker.get("database_id")
             if db_id:
                 try:
-                    await _cp.github_projects_service.delete_issue_comment(
+                    await _cp.get_github_service().delete_issue_comment(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -442,7 +442,7 @@ async def _check_copilot_review_done(
         return False
 
     pr_number = discovered["pr_number"]
-    pr_details = await _cp.github_projects_service.get_pull_request(
+    pr_details = await _cp.get_github_service().get_pull_request(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -459,7 +459,7 @@ async def _check_copilot_review_done(
                 pr_number,
                 parent_issue_number,
             )
-            mark_ok = await _cp.github_projects_service.mark_pr_ready_for_review(
+            mark_ok = await _cp.get_github_service().mark_pr_ready_for_review(
                 access_token=access_token,
                 pr_node_id=str(pr_node_id),
             )
@@ -500,13 +500,13 @@ async def _check_copilot_review_done(
                 # Dismiss any pre-existing auto-triggered reviews so they
                 # cannot satisfy the completion check after we record our
                 # request timestamp.
-                await _cp.github_projects_service.dismiss_copilot_reviews(
+                await _cp.get_github_service().dismiss_copilot_reviews(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     pr_number=pr_number,
                 )
-                req_ok = await _cp.github_projects_service.request_copilot_review(
+                req_ok = await _cp.get_github_service().request_copilot_review(
                     access_token=access_token,
                     pr_node_id=str(pr_node_id),
                     pr_number=pr_number,
@@ -536,7 +536,7 @@ async def _check_copilot_review_done(
     from datetime import timedelta
 
     min_after = request_ts + timedelta(seconds=COPILOT_REVIEW_REQUEST_BUFFER_SECONDS)
-    reviewed = await _cp.github_projects_service.has_copilot_reviewed_pr(
+    reviewed = await _cp.get_github_service().has_copilot_reviewed_pr(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -555,7 +555,7 @@ async def _check_copilot_review_done(
                 pr_number,
                 parent_issue_number,
             )
-            await _cp.github_projects_service.request_copilot_review(
+            await _cp.get_github_service().request_copilot_review(
                 access_token=access_token,
                 pr_node_id=str(pr_node_id),
                 pr_number=pr_number,
@@ -613,7 +613,7 @@ async def _check_copilot_review_done(
     # even after a server restart (without the in-memory state).
     try:
         marker_requested_at = request_ts or now
-        await _cp.github_projects_service.create_issue_comment(
+        await _cp.get_github_service().create_issue_comment(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -658,7 +658,7 @@ async def _check_human_agent_done(
     # Signal 1: Check if the Human sub-issue has been closed
     if sub_number != parent_issue_number:
         try:
-            closed = await _cp.github_projects_service.check_issue_closed(
+            closed = await _cp.get_github_service().check_issue_closed(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -676,7 +676,7 @@ async def _check_human_agent_done(
 
     # Signal 2: Check if the assigned user commented exactly 'Done!' on the parent issue
     try:
-        parent_data = await _cp.github_projects_service.get_issue_with_comments(
+        parent_data = await _cp.get_github_service().get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -769,7 +769,7 @@ async def _check_agent_done_on_parent(
     agent_name: str,
 ) -> bool:
     """Check if an agent's Done! marker exists on the parent issue only."""
-    return await _cp.github_projects_service.check_agent_completion_comment(
+    return await _cp.get_github_service().check_agent_completion_comment(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -803,7 +803,7 @@ async def _update_issue_tracking(
         True if update succeeded
     """
     try:
-        issue_data = await _cp.github_projects_service.get_issue_with_comments(
+        issue_data = await _cp.get_github_service().get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -823,7 +823,7 @@ async def _update_issue_tracking(
         if updated_body == body:
             return True  # No change needed
 
-        success = await _cp.github_projects_service.update_issue_body(
+        success = await _cp.get_github_service().update_issue_body(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -855,7 +855,7 @@ async def _get_tracking_state_from_issue(
     Returns:
         Tuple of (body, comments)
     """
-    issue_data = await _cp.github_projects_service.get_issue_with_comments(
+    issue_data = await _cp.get_github_service().get_issue_with_comments(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -897,7 +897,7 @@ async def _discover_main_pr_for_review(
     main_branch_info = _cp.get_issue_main_branch(parent_issue_number)
     if main_branch_info:
         pr_number = main_branch_info["pr_number"]
-        pr_details = await _cp.github_projects_service.get_pull_request(
+        pr_details = await _cp.get_github_service().get_pull_request(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -913,7 +913,7 @@ async def _discover_main_pr_for_review(
 
     # ── Strategy 2: find_existing_pr_for_issue on parent issue ──
     try:
-        found_pr = await _cp.github_projects_service.find_existing_pr_for_issue(
+        found_pr = await _cp.get_github_service().find_existing_pr_for_issue(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -922,7 +922,7 @@ async def _discover_main_pr_for_review(
         if found_pr:
             pr_number = found_pr["number"]
             head_ref = found_pr.get("head_ref", "")
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -935,7 +935,7 @@ async def _discover_main_pr_for_review(
                 _cp.set_issue_main_branch(parent_issue_number, head_ref, pr_number, h_sha)
                 # Link the PR to the parent issue in Development sidebar
                 try:
-                    await _cp.github_projects_service.link_pull_request_to_issue(
+                    await _cp.get_github_service().link_pull_request_to_issue(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -991,7 +991,7 @@ async def _discover_main_pr_for_review(
             if not sub_number:
                 continue
 
-            sub_prs = await _cp.github_projects_service.get_linked_pull_requests(
+            sub_prs = await _cp.get_github_service().get_linked_pull_requests(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1006,7 +1006,7 @@ async def _discover_main_pr_for_review(
                     continue
 
                 # Get full PR details to check base_ref
-                pr_det = await _cp.github_projects_service.get_pull_request(
+                pr_det = await _cp.get_github_service().get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -1020,7 +1020,7 @@ async def _discover_main_pr_for_review(
                 # The main PR targets the default branch (e.g. "main"),
                 # NOT another feature branch.  Child PRs target the
                 # main feature branch, so skip those.
-                repo_info = await _cp.github_projects_service.get_repository_info(
+                repo_info = await _cp.get_github_service().get_repository_info(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -1076,14 +1076,14 @@ async def _discover_main_pr_for_review(
     # the parent issue.
     if not candidate_branch:
         try:
-            rest_prs = await _cp.github_projects_service._search_open_prs_for_issue_rest(
+            rest_prs = await _cp.get_github_service()._search_open_prs_for_issue_rest(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
                 issue_number=parent_issue_number,
             )
             if rest_prs:
-                repo_info = await _cp.github_projects_service.get_repository_info(
+                repo_info = await _cp.get_github_service().get_repository_info(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -1096,7 +1096,7 @@ async def _discover_main_pr_for_review(
                     if not pr_num:
                         continue
 
-                    pr_det = await _cp.github_projects_service.get_pull_request(
+                    pr_det = await _cp.get_github_service().get_pull_request(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -1117,7 +1117,7 @@ async def _discover_main_pr_for_review(
 
                     # Link the PR to the parent issue in Development sidebar
                     try:
-                        await _cp.github_projects_service.link_pull_request_to_issue(
+                        await _cp.get_github_service().link_pull_request_to_issue(
                             access_token=access_token,
                             owner=owner,
                             repo=repo,
@@ -1161,7 +1161,7 @@ async def _discover_main_pr_for_review(
             candidate_branch,
         )
         try:
-            repo_info = await _cp.github_projects_service.get_repository_info(
+            repo_info = await _cp.get_github_service().get_repository_info(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1170,7 +1170,7 @@ async def _discover_main_pr_for_review(
             default_branch = repo_info.get("default_branch", "main")
 
             # Fetch parent issue title/body for the PR
-            issue_data = await _cp.github_projects_service.get_issue_with_comments(
+            issue_data = await _cp.get_github_service().get_issue_with_comments(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1178,7 +1178,7 @@ async def _discover_main_pr_for_review(
             )
             issue_title = issue_data.get("title", f"Issue #{parent_issue_number}")
 
-            new_pr = await _cp.github_projects_service.create_pull_request(
+            new_pr = await _cp.get_github_service().create_pull_request(
                 access_token=access_token,
                 repository_id=repository_id,
                 title=issue_title,
@@ -1276,7 +1276,7 @@ async def _get_linked_prs_including_sub_issues(
         Deduplicated list of PR dicts (same shape as ``get_linked_pull_requests``).
     """
     # Step 1: Check the parent issue's timeline
-    parent_prs = await _cp.github_projects_service.get_linked_pull_requests(
+    parent_prs = await _cp.get_github_service().get_linked_pull_requests(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -1306,7 +1306,7 @@ async def _get_linked_prs_including_sub_issues(
     if current_agent:
         priority_sub = _get_sub_issue_number(pipeline, current_agent, parent_issue_number)
         if priority_sub and priority_sub != parent_issue_number:
-            sub_prs = await _cp.github_projects_service.get_linked_pull_requests(
+            sub_prs = await _cp.get_github_service().get_linked_pull_requests(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1323,7 +1323,7 @@ async def _get_linked_prs_including_sub_issues(
     for sub_num in sub_numbers:
         if sub_num == priority_sub:
             continue  # Already checked above
-        sub_prs = await _cp.github_projects_service.get_linked_pull_requests(
+        sub_prs = await _cp.get_github_service().get_linked_pull_requests(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -1367,7 +1367,7 @@ async def _link_prs_to_parent(
         if not pr_num:
             continue
         try:
-            await _cp.github_projects_service.link_pull_request_to_issue(
+            await _cp.get_github_service().link_pull_request_to_issue(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1400,7 +1400,7 @@ async def _reconstruct_sub_issue_mappings(
     the agent name from the bracketed prefix.
     """
     try:
-        raw_subs = await _cp.github_projects_service.get_sub_issues(
+        raw_subs = await _cp.get_github_service().get_sub_issues(
             access_token=access_token,
             owner=owner,
             repo=repo,

@@ -990,9 +990,10 @@ class TestCreationPipeline:
         return patcher, svc
 
     def _gps_mock(self):
-        """Return a patched github_projects_service mock with all pipeline methods."""
-        patcher = patch("src.services.agent_creator.github_projects_service")
-        mock_gps = patcher.start()
+        """Return a patched get_github_service mock with all pipeline methods."""
+        patcher = patch("src.services.agent_creator.get_github_service")
+        mock_fn = patcher.start()
+        mock_gps = mock_fn.return_value
         mock_gps.create_issue = AsyncMock(
             return_value={
                 "number": 42,
@@ -1985,8 +1986,9 @@ class TestFullPipelineSuccess:
         return patcher, svc
 
     def _gps_mock(self):
-        patcher = patch("src.services.agent_creator.github_projects_service")
-        mock_gps = patcher.start()
+        patcher = patch("src.services.agent_creator.get_github_service")
+        mock_fn = patcher.start()
+        mock_gps = mock_fn.return_value
         mock_gps.create_issue = AsyncMock(
             return_value={
                 "number": 42,
@@ -2518,3 +2520,4 @@ class TestNormalizeStatus:
         from src.services.agent_creator import _normalize_status
 
         assert _normalize_status("") == ""
+

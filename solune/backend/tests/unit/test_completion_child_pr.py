@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 _GET_LINKED = "src.services.copilot_polling._get_linked_prs_including_sub_issues"
 
 
@@ -338,3 +338,4 @@ class TestExceptionHandling:
             )
 
         assert result is None
+

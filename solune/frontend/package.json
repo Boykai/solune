@@ -25,10 +25,10 @@
     "audit:theme-colors": "node scripts/audit-theme-colors.mjs",
     "audit:theme-contrast": "node scripts/check-theme-contrast.mjs",
     "test:mutate": "stryker run",
-    "test:mutate:hooks-board": "stryker run -c stryker-hooks-board.config.mjs",
-    "test:mutate:hooks-data": "stryker run -c stryker-hooks-data.config.mjs",
-    "test:mutate:hooks-general": "stryker run -c stryker-hooks-general.config.mjs",
-    "test:mutate:lib": "stryker run -c stryker-lib.config.mjs"
+    "test:mutate:hooks-board": "STRYKER_SHARD=hooks-board stryker run",
+    "test:mutate:hooks-data": "STRYKER_SHARD=hooks-data stryker run",
+    "test:mutate:hooks-general": "STRYKER_SHARD=hooks-general stryker run",
+    "test:mutate:lib": "STRYKER_SHARD=lib stryker run"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
