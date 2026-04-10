@@ -2,11 +2,12 @@
  * Tests for ProjectSettings component.
  *
  * Covers: project selector rendering, empty projects state,
- * board display options when project selected, and pipeline mappings textarea.
+ * board display options when project selected, pipeline mappings textarea,
+ * project selection interaction, and placeholder option.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { render, screen, fireEvent } from '@/test/test-utils';
 import { ProjectSettings } from './ProjectSettings';
 
 vi.mock('@/hooks/useSettings', () => ({
@@ -33,6 +34,13 @@ describe('ProjectSettings', () => {
     expect(options).toContain('Project Beta');
   });
 
+  it('shows placeholder option in project selector', () => {
+    render(<ProjectSettings projects={projects} />);
+    const select = screen.getByLabelText('Project') as HTMLSelectElement;
+    expect(select.value).toBe('');
+    expect(Array.from(select.options).map((o) => o.textContent)).toContain('Select a project...');
+  });
+
   it('shows "No projects available" when no projects', () => {
     render(<ProjectSettings projects={[]} />);
     expect(
@@ -40,7 +48,7 @@ describe('ProjectSettings', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows board display options when project is selected', async () => {
+  it('shows board display options when project is selected', () => {
     render(<ProjectSettings projects={projects} selectedProjectId="proj-1" />);
 
     // With a selected project, board display heading should appear
@@ -54,5 +62,18 @@ describe('ProjectSettings', () => {
     render(<ProjectSettings projects={projects} selectedProjectId="proj-1" />);
     expect(screen.getByText('Pipeline Mappings')).toBeInTheDocument();
     expect(screen.getByLabelText('JSON (status → agent list)')).toBeInTheDocument();
+  });
+
+  it('shows board display after selecting a project from the dropdown', () => {
+    render(<ProjectSettings projects={projects} />);
+    const select = screen.getByLabelText('Project') as HTMLSelectElement;
+
+    // Initially no project selected — board display hidden
+    expect(screen.queryByText('Board Display')).not.toBeInTheDocument();
+
+    // Select a project
+    fireEvent.change(select, { target: { value: 'proj-1' } });
+    expect(screen.getByText('Board Display')).toBeInTheDocument();
+    expect(screen.getByText('Pipeline Mappings')).toBeInTheDocument();
   });
 });
