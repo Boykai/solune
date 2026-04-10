@@ -316,6 +316,46 @@ class TestBoundedDict:
         assert list(bd.keys()) == ["c", "a", "d"]
         assert bd["a"] == 99
 
+    def test_on_evict_callback_fires(self):
+        """on_evict callback should be called with (key, value) when an entry is evicted."""
+        evicted: list[tuple] = []
+        bd = BoundedDict(maxlen=2, on_evict=lambda k, v: evicted.append((k, v)))
+        bd["a"] = 1
+        bd["b"] = 2
+        bd["c"] = 3  # evicts "a"
+
+        assert evicted == [("a", 1)]
+
+    def test_on_evict_callback_failure_does_not_break_dict(self):
+        """A failing on_evict callback should be swallowed so the dict remains usable."""
+
+        def bad_callback(k, v):
+            raise RuntimeError("boom")
+
+        bd = BoundedDict(maxlen=2, on_evict=bad_callback)
+        bd["a"] = 1
+        bd["b"] = 2
+        bd["c"] = 3  # evicts "a" — callback raises, but dict should still work
+
+        assert "c" in bd
+        assert "b" in bd
+        assert "a" not in bd
+        assert len(bd) == 2
+
+    def test_touch_missing_key_raises(self):
+        """touch() on a missing key should raise KeyError."""
+        bd = BoundedDict(maxlen=3)
+        bd["a"] = 1
+
+        with pytest.raises(KeyError):
+            bd.touch("missing")
+
+    def test_pop_none_default(self):
+        """pop() with default=None should return None for missing key."""
+        bd = BoundedDict(maxlen=3)
+
+        assert bd.pop("missing", None) is None
+
 
 # =============================================================================
 # utcnow
