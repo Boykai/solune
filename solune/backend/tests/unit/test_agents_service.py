@@ -562,6 +562,71 @@ class TestAgentsServiceUpdate:
         assert row["branch_name"] == "agent/update-reviewer"
         assert row["tools"] == '["read", "write"]'
 
+    async def test_update_repo_agent_with_existing_local_row_sets_pending_pr(self, mock_db):
+        """Regression: updating a repo-sourced agent that has an existing local agent
+        row should UPDATE (not INSERT) that row and set lifecycle_status to PENDING_PR.
+
+        This exercises the branch at service.py lines ~1256-1282.
+        """
+        # Pre-insert a local row for slug "reviewer" (simulating a previous update)
+        await _insert_agent_row_with_prefs(
+            mock_db,
+            agent_id="local-rev-existing",
+            slug="reviewer",
+            lifecycle_status=AgentStatus.ACTIVE.value,
+        )
+
+        service = AgentsService(mock_db)
+        mock_github_service = AsyncMock()
+        mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
+
+        with (
+            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch(
+                "src.services.agents.service.commit_files_workflow",
+                AsyncMock(return_value=_workflow_result(pr_number=95, issue_number=70)),
+            ),
+        ):
+            result = await service.update_agent(
+                project_id=PROJECT_ID,
+                owner=OWNER,
+                repo=REPO,
+                agent_id="repo:reviewer",
+                body=SimpleNamespace(
+                    name="Reviewer",
+                    description="Updated via repo path",
+                    icon_name=None,
+                    system_prompt="Updated prompt",
+                    tools=["read"],
+                    default_model_id=None,
+                    default_model_name=None,
+                ),
+                access_token=ACCESS_TOKEN,
+                github_user_id=GITHUB_USER_ID,
+            )
+
+        assert result.agent.status == AgentStatus.PENDING_PR
+        assert result.agent.source == AgentSource.LOCAL
+
+        # Verify the existing local row was UPDATED (not a new INSERT)
+        cursor = await mock_db.execute(
+            "SELECT id, lifecycle_status, github_pr_number, tools FROM agent_configs WHERE id = ?",
+            ("local-rev-existing",),
+        )
+        row = await cursor.fetchone()
+        assert row is not None, "existing local row should be updated, not deleted"
+        assert row["lifecycle_status"] == AgentStatus.PENDING_PR.value
+        assert row["github_pr_number"] == 95
+        assert row["tools"] == '["read"]'
+
+        # Verify no duplicate row was inserted
+        cursor2 = await mock_db.execute(
+            "SELECT COUNT(*) as cnt FROM agent_configs WHERE slug = ?",
+            ("reviewer",),
+        )
+        count_row = await cursor2.fetchone()
+        assert count_row["cnt"] == 1
+
     async def test_update_agent_syncs_mcps_when_workflow_returns_no_pr(self, mock_db):
         service = AgentsService(mock_db)
         mock_github_service = AsyncMock()
@@ -1577,6 +1642,91 @@ class TestExtractAgentPreview:
     def test_non_list_tools_returns_none(self):
         """Regression: tools="read" (string, not list) → returns None."""
         text = '```agent-config\n{"name": "Bot", "tools": "read"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_non_string_tools_elements_returns_none(self):
+        """Regression: tools=[123, null, {}] (non-string elements) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": [123, null, {}]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_mixed_valid_invalid_tools_returns_none(self):
+        """Regression: tools=["read", 123, "write"] (mixed) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": ["read", 123, "write"]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_empty_string_tool_returns_none(self):
+        """Regression: tools=["read", "", "write"] (empty string) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": ["read", "", "write"]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_whitespace_only_name_returns_none(self):
+        """Regression: name="   " (whitespace-only) → returns None."""
+        text = '```agent-config\n{"name": "   ", "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_non_dict_top_level_returns_none(self):
+        """Regression: top-level JSON is a list, not a dict → returns None."""
+        text = '```agent-config\n[{"name": "Bot"}]\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_non_string_name_returns_none(self):
+        """Regression: name=123 (non-string) → returns None, not AttributeError."""
+        text = '```agent-config\n{"name": 123, "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_boolean_name_returns_none(self):
+        """Regression: name=true (boolean) → returns None."""
+        text = '```agent-config\n{"name": true, "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_whitespace_only_tool_returns_none(self):
+        """Regression: tools=["read", "   "] (whitespace-only tool) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": ["read", "   "]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_null_name_returns_none(self):
+        """Regression: name=null (JSON null) → returns None, not TypeError."""
+        text = '```agent-config\n{"name": null, "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_tools_null_returns_none(self):
+        """Regression: tools=null (JSON null) → isinstance(None, list) is False → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": null}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_multiple_config_blocks_extracts_first(self):
+        """When multiple agent-config blocks exist, the first one is used."""
+        text = (
+            '```agent-config\n{"name": "First Bot", "tools": ["read"]}\n```\n'
+            "Some text\n"
+            '```agent-config\n{"name": "Second Bot", "tools": ["write"]}\n```'
+        )
+        preview = AgentsService._extract_agent_preview(text)
+        assert preview is not None
+        assert preview.name == "First Bot"
+        assert preview.tools == ["read"]
+
+    def test_valid_config_populates_all_fields(self):
+        """A fully-populated agent config should map all fields correctly."""
+        text = (
+            "```agent-config\n"
+            '{"name": "Full Bot", "description": "A full bot", '
+            '"system_prompt": "Do everything.", '
+            '"status_column": "In Progress", '
+            '"tools": ["read", "write", "search"]}\n```'
+        )
+        preview = AgentsService._extract_agent_preview(text)
+        assert preview is not None
+        assert preview.name == "Full Bot"
+        assert preview.slug == "full-bot"
+        assert preview.description == "A full bot"
+        assert preview.system_prompt == "Do everything."
+        assert preview.status_column == "In Progress"
+        assert preview.tools == ["read", "write", "search"]
+
+    def test_tools_boolean_element_returns_none(self):
+        """Regression: tools=[true] (boolean element) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": [true]}\n```'
         assert AgentsService._extract_agent_preview(text) is None
 
 
