@@ -142,8 +142,7 @@ class TestCopilotCompletionProvider:
                 "sys.modules",
                 {
                     "copilot": MagicMock(),
-                    "copilot.types": MagicMock(PermissionHandler=mock_permission_handler),
-                    "copilot.session": MagicMock(),
+                    "copilot.session": MagicMock(PermissionHandler=mock_permission_handler),
                     "copilot.generated": MagicMock(),
                     "copilot.generated.session_events": MagicMock(SessionEventType=mock_event_type),
                 },
