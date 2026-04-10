@@ -75,7 +75,7 @@ class TestLabelMissing:
             patch(
                 "src.services.copilot_polling.state_validation.find_agent_label", return_value=None
             ),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps
@@ -97,7 +97,7 @@ class TestLabelMissing:
             patch(
                 "src.services.copilot_polling.state_validation.find_agent_label", return_value=None
             ),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps
@@ -121,7 +121,7 @@ class TestStaleLabel:
                 "src.services.copilot_polling.state_validation.find_agent_label",
                 return_value="old-agent",
             ),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps
@@ -146,7 +146,7 @@ class TestLabelTableDisagree:
                 "src.services.copilot_polling.state_validation.find_agent_label",
                 return_value="wrong-agent",
             ),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps
@@ -174,7 +174,7 @@ class TestApiFailures:
             patch(
                 "src.services.copilot_polling.state_validation.find_agent_label", return_value=None
             ),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps
@@ -192,7 +192,7 @@ class TestApiFailures:
         mock_gps.update_issue_state.side_effect = RuntimeError("Network error")
         with (
             patch("src.constants.find_agent_label", return_value="wrong"),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps
@@ -210,7 +210,7 @@ class TestApiFailures:
         mock_gps.update_issue_state.side_effect = Exception("rate limited")
         with (
             patch("src.constants.find_agent_label", return_value="stale"),
-            patch(_GPS, mock_gps),
+            patch(_GPS, lambda: mock_gps),
         ):
             changed, corrections = await validate_pipeline_labels(
                 **_BASE_KWARGS, labels=labels, tracking_steps=steps

@@ -169,7 +169,7 @@ class TestGetSubIssueNumbersForIssue:
 def _base_patches(mock_gps):
     """Stack patches for _cp.github_projects_service and common deps."""
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, lambda: mock_gps))
     return stack
 
 
