@@ -83,7 +83,7 @@ async def _attempt_auto_merge(
     # Step 2: Mark draft PR ready-for-review
     if is_draft and pr_id:
         logger.info("Auto-merge: converting PR #%d from draft to ready", pr_number)
-        mark_success = await _cp.get_github_service().mark_pr_ready_for_review(
+        mark_success = await _cp.github_service.mark_pr_ready_for_review(
             access_token=access_token,
             pr_node_id=str(pr_id),
         )
@@ -105,7 +105,7 @@ async def _attempt_auto_merge(
             context={"reason": "ci_status_unavailable", "details": "Missing head_ref"},
         )
 
-    check_runs = await _cp.get_github_service().get_check_runs_for_ref(
+    check_runs = await _cp.github_service.get_check_runs_for_ref(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -164,7 +164,7 @@ async def _attempt_auto_merge(
         )
 
     # Step 4: Check mergeability
-    mergeable_state = await _cp.get_github_service().get_pr_mergeable_state(
+    mergeable_state = await _cp.github_service.get_pr_mergeable_state(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -190,7 +190,7 @@ async def _attempt_auto_merge(
     # Step 5: Squash merge
     if not pr_id:
         # Fetch full PR details to get node ID
-        pr_details = await _cp.get_github_service().get_pull_request(
+        pr_details = await _cp.github_service.get_pull_request(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -207,7 +207,7 @@ async def _attempt_auto_merge(
         )
 
     try:
-        merge_result = await _cp.get_github_service().merge_pull_request(
+        merge_result = await _cp.github_service.merge_pull_request(
             access_token=access_token,
             pr_node_id=str(pr_id),
             pr_number=pr_number,
@@ -350,7 +350,7 @@ async def dispatch_devops_agent(
     # Resolve issue node ID for Copilot assignment
     issue_node_id: str | None = None
     try:
-        issue_node_id, _ = await _cp.get_github_service().get_issue_node_and_project_item(
+        issue_node_id, _ = await _cp.github_service.get_issue_node_and_project_item(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -387,7 +387,7 @@ async def dispatch_devops_agent(
     )
 
     try:
-        assigned = await _cp.get_github_service().assign_copilot_to_issue(
+        assigned = await _cp.github_service.assign_copilot_to_issue(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -454,7 +454,7 @@ async def _check_devops_done_comment(
     import src.services.copilot_polling as _cp
 
     try:
-        issue_data = await _cp.get_github_service().get_issue_with_comments(
+        issue_data = await _cp.github_service.get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -728,7 +728,7 @@ async def _auto_merge_retry_loop(
                     pass
 
                 try:
-                    await _cp.get_github_service().update_item_status_by_name(
+                    await _cp.github_service.update_item_status_by_name(
                         access_token=access_token,
                         project_id=project_id,
                         item_id=item_id,
@@ -743,7 +743,7 @@ async def _auto_merge_retry_loop(
                     )
 
                 try:
-                    await _cp.get_github_service().update_issue_state(
+                    await _cp.github_service.update_issue_state(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-_GPS = "src.services.copilot_polling.get_github_service"
+_GPS = "src.services.copilot_polling.github_service"
 _GET_LINKED = "src.services.copilot_polling._get_linked_prs_including_sub_issues"
 _UPDATE_SHA = "src.services.copilot_polling.update_issue_main_branch_sha"
 

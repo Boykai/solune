@@ -339,14 +339,12 @@ class TestRateLimitDetection:
     def test_primary_rate_limit_exceeded(self):
         exc = PrimaryRateLimitExceeded.__new__(PrimaryRateLimitExceeded)
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
 
     def test_request_failed_429(self):
         exc = _make_request_failed(429)
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
 
@@ -354,7 +352,6 @@ class TestRateLimitDetection:
         """T008: 403 + X-RateLimit-Remaining: '0' → True."""
         exc = _make_request_failed(403, {"X-RateLimit-Remaining": "0"})
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
 
@@ -362,14 +359,12 @@ class TestRateLimitDetection:
         """T009: 403 with no remaining header and empty rl dict → False."""
         exc = _make_request_failed(403, {})
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = {}
             assert _is_github_rate_limit_error(exc) is False
 
     def test_403_with_nonzero_remaining(self):
         exc = _make_request_failed(403, {"X-RateLimit-Remaining": "100"})
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is False
 
@@ -377,14 +372,12 @@ class TestRateLimitDetection:
         """Falls back to get_last_rate_limit() → remaining == 0 → True."""
         exc = RuntimeError("network")
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = {"remaining": 0}
             assert _is_github_rate_limit_error(exc) is True
 
     def test_generic_error_with_no_rate_limit_info(self):
         exc = RuntimeError("network")
         with patch("src.api.projects.get_github_service") as _svc_patch:
-            svc = _svc_patch.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is False
 
@@ -738,7 +731,6 @@ class TestRateLimitDetails:
 
         rl = {"limit": 5000, "remaining": 100, "reset_at": "2025-01-01T00:00:00Z", "used": 4900}
         with patch("src.api.projects.get_github_service") as _mock_gps_patch:
-            mock_gps = _mock_gps_patch.return_value
             mock_gps.get_last_rate_limit.return_value = rl
             result = _rate_limit_details()
         assert result == {"rate_limit": rl}
@@ -747,7 +739,6 @@ class TestRateLimitDetails:
         from src.api.projects import _rate_limit_details
 
         with patch("src.api.projects.get_github_service") as _mock_gps_patch:
-            mock_gps = _mock_gps_patch.return_value
             mock_gps.get_last_rate_limit.return_value = None
             assert _rate_limit_details() == {}
 
@@ -755,7 +746,6 @@ class TestRateLimitDetails:
         from src.api.projects import _rate_limit_details
 
         with patch("src.api.projects.get_github_service") as _mock_gps_patch:
-            mock_gps = _mock_gps_patch.return_value
             mock_gps.get_last_rate_limit.return_value = {"limit": 5000}
             assert _rate_limit_details() == {}
 

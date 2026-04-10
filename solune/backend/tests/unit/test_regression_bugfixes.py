@@ -132,7 +132,7 @@ class TestClaimedChildPrsSnapshotIteration:
 # ── Bug 4: _track_main_branch_if_needed exception blocks Done! marker ──
 
 
-_GPS = "src.services.copilot_polling.get_github_service"
+_GPS = "src.services.copilot_polling.github_service"
 
 
 class TestTrackMainBranchFailureDoesNotBlockDone:

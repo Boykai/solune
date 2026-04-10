@@ -56,7 +56,7 @@ class TestAttemptReassignment:
 
         with ExitStack() as stack:
             stack.enter_context(patch(f"{_CP}.get_agent_slugs", return_value=["builder"]))
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(
                 patch(f"{_CP}.get_workflow_orchestrator", return_value=mock_orchestrator)
             )
@@ -95,7 +95,7 @@ class TestAttemptReassignment:
 
         with ExitStack() as stack:
             stack.enter_context(patch(f"{_CP}.get_agent_slugs", return_value=["builder"]))
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(
                 patch(f"{_CP}.get_workflow_orchestrator", return_value=mock_orchestrator)
             )
@@ -133,7 +133,7 @@ class TestAttemptReassignment:
 
         with ExitStack() as stack:
             stack.enter_context(patch(f"{_CP}.get_agent_slugs", return_value=["builder"]))
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(
                 patch(f"{_CP}.get_workflow_orchestrator", return_value=mock_orchestrator)
             )
@@ -179,7 +179,7 @@ class TestAttemptReassignment:
 
         with ExitStack() as stack:
             stack.enter_context(patch(f"{_CP}.get_agent_slugs", return_value=["builder"]))
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(
                 patch(f"{_CP}.get_workflow_orchestrator", return_value=mock_orchestrator)
             )
@@ -219,7 +219,7 @@ class TestDetectStalledIssueEdgeCases:
         )
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(patch(f"{_REC}._get_sub_issue_number", return_value=42))
             stack.enter_context(
                 patch(
@@ -246,7 +246,7 @@ class TestRecoverStalledIssues:
         mock_github.get_project_items = AsyncMock(return_value=[])
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(patch(f"{_CP}.get_workflow_config", AsyncMock(return_value=None)))
             stack.enter_context(
                 patch(
@@ -281,7 +281,7 @@ class TestRecoverStalledIssues:
         config = SimpleNamespace(status_done="Done")
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_github))
+            stack.enter_context(patch(f"{_CP}.github_service", mock_github))
             stack.enter_context(patch(f"{_CP}.get_workflow_config", AsyncMock(return_value=config)))
             stack.enter_context(
                 patch(f"{_REC}._should_skip_recovery", AsyncMock(return_value=False))

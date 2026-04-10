@@ -45,7 +45,7 @@ class TestDevopsRecoveryFallback:
         )
 
         with (
-            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
+            patch("src.services.copilot_polling.github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -72,7 +72,6 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
-            svc = _svc_patch.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.state import _pending_post_devops_retries
@@ -121,7 +120,7 @@ class TestDevopsRecoveryFallback:
         mock_attempt_merge = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
+            patch("src.services.copilot_polling.github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -148,7 +147,6 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
-            svc = _svc_patch.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.pipeline import check_in_review_issues
@@ -187,7 +185,7 @@ class TestDevopsRecoveryFallback:
         mock_check_done = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
+            patch("src.services.copilot_polling.github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -205,7 +203,6 @@ class TestDevopsRecoveryFallback:
                 return_value=None,
             ),
         ):
-            svc = _svc_patch.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.pipeline import check_in_review_issues
@@ -244,7 +241,7 @@ class TestDevopsRecoveryFallback:
         mock_check_done = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
+            patch("src.services.copilot_polling.github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -267,7 +264,6 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
-            svc = _svc_patch.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.state import _pending_post_devops_retries
@@ -314,7 +310,7 @@ class TestDevopsRecoveryFallback:
         mock_check_done = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
+            patch("src.services.copilot_polling.github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -337,7 +333,6 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
-            svc = _svc_patch.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.state import _pending_post_devops_retries

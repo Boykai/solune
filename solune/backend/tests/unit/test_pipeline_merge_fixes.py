@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -325,9 +325,9 @@ class TestMergeRetryLimit:
         mock_cp.set_pipeline_state = MagicMock()
         mock_cp.remove_pipeline_state = MagicMock()
         mock_cp.POST_ACTION_DELAY_SECONDS = 0
-        mock_cp.get_github_service = Mock(return_value=AsyncMock())
-        mock_cp.get_github_service.return_value.create_issue_comment = AsyncMock(return_value={"id": "C1"})
-        mock_cp.get_github_service.return_value.get_pull_request = AsyncMock(return_value=None)
+        mock_cp.github_service = AsyncMock()
+        mock_cp.github_service.create_issue_comment = AsyncMock(return_value={"id": "C1"})
+        mock_cp.github_service.get_pull_request = AsyncMock(return_value=None)
         mock_cp._update_issue_tracking = AsyncMock()
         mock_cp.connection_manager = AsyncMock()
         mock_cp.connection_manager.broadcast_to_project = AsyncMock()
@@ -371,7 +371,7 @@ class TestMergeRetryLimit:
             )
 
         # Warning comment must have been posted.
-        mock_cp.get_github_service.return_value.create_issue_comment.assert_awaited()
+        mock_cp.github_service.create_issue_comment.assert_awaited()
         # Failure counter must be cleared after skip.
         assert _merge_failure_counts.get(10) is None
         # Pipeline must NOT be blocked.

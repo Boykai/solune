@@ -172,7 +172,7 @@ def _get_rate_limit_remaining() -> tuple[int | None, int | None]:
 
     Returns (None, None) when no rate-limit data is available.
     """
-    rl = _cp.get_github_service().get_last_rate_limit()
+    rl = _cp.github_service.get_last_rate_limit()
     if rl is None:
         return None, None
     try:
@@ -199,7 +199,7 @@ async def _wait_if_rate_limited(context: str) -> bool:
     if remaining <= RATE_LIMIT_PAUSE_THRESHOLD:
         now_ts = int(utcnow().timestamp())
         if reset_at is not None and reset_at <= now_ts:
-            _cp.get_github_service().clear_last_rate_limit()
+            _cp.github_service.clear_last_rate_limit()
             return False
         wait = max((reset_at or now_ts) - now_ts, 10)
         wait = min(wait, 900)
@@ -249,7 +249,7 @@ async def _self_heal_tracking_table(
     if not config:
         return None
 
-    sub_issues = await _cp.get_github_service().get_sub_issues(
+    sub_issues = await _cp.github_service.get_sub_issues(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -298,7 +298,7 @@ async def _self_heal_tracking_table(
     new_body = body.rstrip() + "\n" + tracking_md
 
     try:
-        await _cp.get_github_service().update_issue_body(
+        await _cp.github_service.update_issue_body(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -448,7 +448,7 @@ async def _get_or_reconstruct_pipeline(
     # jumped to "In Review"), reconstruct for THAT status so the pending
     # agents aren't silently skipped.
     try:
-        issue_data = await _cp.get_github_service().get_issue_with_comments(
+        issue_data = await _cp.github_service.get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -629,7 +629,7 @@ async def _process_pipeline_completion(
         # Batch into a single fetch→modify→push to avoid N round-trips.
         if pipeline.completed_agents:
             try:
-                issue_data = await _cp.get_github_service().get_issue_with_comments(
+                issue_data = await _cp.github_service.get_issue_with_comments(
                     access_token=access_token,
                     owner=task_owner,
                     repo=task_repo,
@@ -641,7 +641,7 @@ async def _process_pipeline_completion(
                     for agent_name in pipeline.completed_agents:
                         updated_body = _cp.mark_agent_done(updated_body, agent_name)
                     if updated_body != body:
-                        await _cp.get_github_service().update_issue_body(
+                        await _cp.github_service.update_issue_body(
                             access_token=access_token,
                             owner=task_owner,
                             repo=task_repo,
@@ -666,7 +666,7 @@ async def _process_pipeline_completion(
             elif pipeline.current_agent:
                 labels_to_remove.append(build_agent_label(pipeline.current_agent))
             if labels_to_remove:
-                await _cp.get_github_service().update_issue_state(
+                await _cp.github_service.update_issue_state(
                     access_token=access_token,
                     owner=task_owner,
                     repo=task_repo,
@@ -678,7 +678,7 @@ async def _process_pipeline_completion(
             if last_agent:
                 last_sub = pipeline.agent_sub_issues.get(last_agent, {}).get("number")
                 if last_sub:
-                    await _cp.get_github_service().update_issue_state(
+                    await _cp.github_service.update_issue_state(
                         access_token=access_token,
                         owner=task_owner,
                         repo=task_repo,
@@ -983,7 +983,7 @@ async def check_backlog_issues(
 
     try:
         if tasks is None:
-            tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
+            tasks = await _cp.github_service.get_project_items(access_token, project_id)
 
         config = await _cp.get_workflow_config(project_id)
         if not config:
@@ -1078,7 +1078,7 @@ async def check_ready_issues(
 
     try:
         if tasks is None:
-            tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
+            tasks = await _cp.github_service.get_project_items(access_token, project_id)
 
         config = await _cp.get_workflow_config(project_id)
         if not config:
@@ -1165,7 +1165,7 @@ async def _claim_merged_child_prs_for_pipeline(
     if not main_branch or not main_pr_number:
         return
 
-    linked_prs = await _cp.get_github_service().get_linked_pull_requests(
+    linked_prs = await _cp.github_service.get_linked_pull_requests(
         access_token=access_token,
         owner=owner,
         repo=repo,
@@ -1176,7 +1176,7 @@ async def _claim_merged_child_prs_for_pipeline(
         pr_state = pr.get("state", "").upper()
         if not pr_number or pr_state != "MERGED" or pr_number == main_pr_number:
             continue
-        pr_details = await _cp.get_github_service().get_pull_request(
+        pr_details = await _cp.github_service.get_pull_request(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -1271,7 +1271,7 @@ async def _reconstruct_pipeline_state(
     last_done_timestamp: str | None = None
 
     try:
-        issue_data = await _cp.get_github_service().get_issue_with_comments(
+        issue_data = await _cp.github_service.get_issue_with_comments(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -1320,14 +1320,14 @@ async def _reconstruct_pipeline_state(
     # it to branch from the default branch instead of the issue's main branch.
     if not _cp.get_issue_main_branch(issue_number):
         try:
-            existing_pr = await _cp.get_github_service().find_existing_pr_for_issue(
+            existing_pr = await _cp.github_service.find_existing_pr_for_issue(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
                 issue_number=issue_number,
             )
             if existing_pr:
-                pr_det = await _cp.get_github_service().get_pull_request(
+                pr_det = await _cp.github_service.get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -1343,7 +1343,7 @@ async def _reconstruct_pipeline_state(
                 # Ensure the PR is linked to the parent issue so it appears
                 # in the Development sidebar on GitHub.
                 try:
-                    await _cp.get_github_service().link_pull_request_to_issue(
+                    await _cp.github_service.link_pull_request_to_issue(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -1376,7 +1376,7 @@ async def _reconstruct_pipeline_state(
     main_branch_info = _cp.get_issue_main_branch(issue_number)
     if main_branch_info and main_branch_info.get("pr_number"):
         try:
-            pr_details = await _cp.get_github_service().get_pull_request(
+            pr_details = await _cp.github_service.get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1528,7 +1528,7 @@ async def _close_completed_sub_issues(
             continue
 
         try:
-            await _cp.get_github_service().update_issue_state(
+            await _cp.github_service.update_issue_state(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1555,7 +1555,7 @@ async def _close_completed_sub_issues(
         sub_node_id = sub_info.get("node_id", "")
         if sub_node_id:
             try:
-                await _cp.get_github_service().update_sub_issue_project_status(
+                await _cp.github_service.update_sub_issue_project_status(
                     access_token=access_token,
                     project_id=project_id,
                     sub_issue_node_id=sub_node_id,
@@ -1677,14 +1677,14 @@ async def _advance_pipeline(
     if not main_branch_info:
         # Reconstruct main branch info (may have been lost on restart)
         try:
-            existing_pr = await _cp.get_github_service().find_existing_pr_for_issue(
+            existing_pr = await _cp.github_service.find_existing_pr_for_issue(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
                 issue_number=issue_number,
             )
             if existing_pr:
-                pr_det = await _cp.get_github_service().get_pull_request(
+                pr_det = await _cp.github_service.get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -1699,7 +1699,7 @@ async def _advance_pipeline(
                 )
                 # Ensure the PR is linked to the parent issue
                 try:
-                    await _cp.get_github_service().link_pull_request_to_issue(
+                    await _cp.github_service.link_pull_request_to_issue(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -1767,7 +1767,7 @@ async def _advance_pipeline(
                 _merge_failure_counts.pop(issue_number, None)
                 # Post a warning comment so users know the merge was skipped.
                 try:
-                    await _cp.get_github_service().create_issue_comment(
+                    await _cp.github_service.create_issue_comment(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -1867,7 +1867,7 @@ async def _advance_pipeline(
         # Refresh HEAD SHA so the next agent / next status branches
         # from the absolute latest (post-merge) state.
         try:
-            pr_det = await _cp.get_github_service().get_pull_request(
+            pr_det = await _cp.github_service.get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1921,7 +1921,7 @@ async def _advance_pipeline(
         advance_pr_number = main_branch_info["pr_number"]
         if advance_pr_number not in _system_marked_ready_prs:
             try:
-                pr_check = await _cp.get_github_service().get_pull_request(
+                pr_check = await _cp.github_service.get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -2057,7 +2057,7 @@ async def _advance_pipeline(
             sub_number = human_sub.get("number") if human_sub else None
             if sub_number:
                 try:
-                    await _cp.get_github_service().create_issue_comment(
+                    await _cp.github_service.create_issue_comment(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -2147,14 +2147,14 @@ async def _advance_pipeline(
             # Close sub-issue with completion comment
             if sub_number:
                 try:
-                    await _cp.get_github_service().create_issue_comment(
+                    await _cp.github_service.create_issue_comment(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
                         issue_number=sub_number,
                         body="✅ Delay completed — auto-merge triggered",
                     )
-                    await _cp.get_github_service().update_issue_state(
+                    await _cp.github_service.update_issue_state(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -2245,14 +2245,14 @@ async def _advance_pipeline(
                         sub_number = human_sub.get("number")
                         if sub_number:
                             try:
-                                await _cp.get_github_service().create_issue_comment(
+                                await _cp.github_service.create_issue_comment(
                                     access_token=access_token,
                                     owner=owner,
                                     repo=repo,
                                     issue_number=sub_number,
                                     body="Skipped — Auto Merge enabled",
                                 )
-                                await _cp.get_github_service().update_issue_state(
+                                await _cp.github_service.update_issue_state(
                                     access_token=access_token,
                                     owner=owner,
                                     repo=repo,
@@ -2512,7 +2512,7 @@ async def _transition_after_pipeline_complete(
     )
 
     # Transition the status
-    success = await _cp.get_github_service().update_item_status_by_name(
+    success = await _cp.github_service.update_item_status_by_name(
         access_token=access_token,
         project_id=project_id,
         item_id=item_id,
@@ -2627,7 +2627,7 @@ async def _transition_after_pipeline_complete(
                 except Exception:
                     pass
 
-                await _cp.get_github_service().update_item_status_by_name(
+                await _cp.github_service.update_item_status_by_name(
                     access_token=access_token,
                     project_id=project_id,
                     item_id=item_id,
@@ -2636,7 +2636,7 @@ async def _transition_after_pipeline_complete(
 
                 # Close the parent issue
                 try:
-                    await _cp.get_github_service().update_issue_state(
+                    await _cp.github_service.update_issue_state(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -2776,7 +2776,7 @@ async def _transition_after_pipeline_complete(
 
             # If the GraphQL node ID is missing, fetch full PR details
             if not main_pr_id and main_pr_number:
-                main_pr_details = await _cp.get_github_service().get_pull_request(
+                main_pr_details = await _cp.github_service.get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -2792,7 +2792,7 @@ async def _transition_after_pipeline_complete(
                     "Converting main PR #%d from draft to ready for review",
                     main_pr_number,
                 )
-                mark_ready_success = await _cp.get_github_service().mark_pr_ready_for_review(
+                mark_ready_success = await _cp.github_service.mark_pr_ready_for_review(
                     access_token=access_token,
                     pr_node_id=str(main_pr_id),
                 )
@@ -2810,7 +2810,7 @@ async def _transition_after_pipeline_complete(
 
             # Request Copilot code review
             if main_pr_id:
-                review_requested = await _cp.get_github_service().request_copilot_review(
+                review_requested = await _cp.github_service.request_copilot_review(
                     access_token=access_token,
                     pr_node_id=str(main_pr_id),
                     pr_number=main_pr_number,
@@ -2892,7 +2892,7 @@ async def _transition_after_pipeline_complete(
             if done_merge_result.status == "merged":
                 # Close the parent issue
                 try:
-                    await _cp.get_github_service().update_issue_state(
+                    await _cp.github_service.update_issue_state(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -2996,7 +2996,7 @@ async def _transition_after_pipeline_complete(
                 issue_number,
                 next_actionable,
             )
-            pt_success = await _cp.get_github_service().update_item_status_by_name(
+            pt_success = await _cp.github_service.update_item_status_by_name(
                 access_token=access_token,
                 project_id=project_id,
                 item_id=item_id,
@@ -3026,7 +3026,7 @@ async def _transition_after_pipeline_complete(
             # Refresh HEAD SHA so the first agent of the new status branches
             # from the absolute latest (post-merge) state.
             try:
-                pr_details = await _cp.get_github_service().get_pull_request(
+                pr_details = await _cp.github_service.get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -3042,7 +3042,7 @@ async def _transition_after_pipeline_complete(
                 "No main branch cached for issue #%d, attempting to discover from linked PRs",
                 issue_number,
             )
-            existing_pr = await _cp.get_github_service().find_existing_pr_for_issue(
+            existing_pr = await _cp.github_service.find_existing_pr_for_issue(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -3050,7 +3050,7 @@ async def _transition_after_pipeline_complete(
             )
             if existing_pr:
                 # Fetch PR details to get commit SHA
-                pr_details = await _cp.get_github_service().get_pull_request(
+                pr_details = await _cp.github_service.get_pull_request(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -3067,7 +3067,7 @@ async def _transition_after_pipeline_complete(
                 )
                 # Ensure the PR is linked to the parent issue
                 try:
-                    await _cp.get_github_service().link_pull_request_to_issue(
+                    await _cp.github_service.link_pull_request_to_issue(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -3150,7 +3150,7 @@ async def check_in_review_issues(
 
     try:
         if tasks is None:
-            tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
+            tasks = await _cp.github_service.get_project_items(access_token, project_id)
 
         config = await _cp.get_workflow_config(project_id)
         if not config:
@@ -3374,7 +3374,7 @@ async def check_in_progress_issues(
 
     try:
         if tasks is None:
-            tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
+            tasks = await _cp.github_service.get_project_items(access_token, project_id)
 
         config = await _cp.get_workflow_config(project_id)
         in_progress_label = config.status_in_progress.lower() if config else "in progress"
@@ -3583,7 +3583,7 @@ async def process_in_progress_issue(
 
         # Fallback: Check for PR completion without active pipeline
         # This handles legacy cases or issues without agent pipelines
-        finished_pr = await _cp.get_github_service().check_copilot_pr_completion(
+        finished_pr = await _cp.github_service.check_copilot_pr_completion(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -3637,7 +3637,7 @@ async def process_in_progress_issue(
                 pr_number,
             )
 
-            success = await _cp.get_github_service().mark_pr_ready_for_review(
+            success = await _cp.github_service.mark_pr_ready_for_review(
                 access_token=access_token,
                 pr_node_id=pr_id,
             )
@@ -3685,7 +3685,7 @@ async def process_in_progress_issue(
         # Add delay before status update (matching existing behavior)
         await asyncio.sleep(_cp.POST_ACTION_DELAY_SECONDS)
 
-        success = await _cp.get_github_service().update_item_status_by_name(
+        success = await _cp.github_service.update_item_status_by_name(
             access_token=access_token,
             project_id=project_id,
             item_id=item_id,
@@ -3709,7 +3709,7 @@ async def process_in_progress_issue(
                     pr_number,
                 )
 
-                review_requested = await _cp.get_github_service().request_copilot_review(
+                review_requested = await _cp.github_service.request_copilot_review(
                     access_token=access_token,
                     pr_node_id=pr_id,
                     pr_number=pr_number,

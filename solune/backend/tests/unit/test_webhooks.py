@@ -303,7 +303,7 @@ class TestHandleCopilotPrReady:
     @pytest.mark.asyncio
     @patch("src.api.webhooks.get_github_service")
     async def test_linked_issue_found(self, mock_gps):
-        mock_gps.get_linked_pull_requests = AsyncMock(return_value=[])
+        mock_gps.return_value.get_linked_pull_requests = AsyncMock(return_value=[])
         pr_data = {
             "number": 5,
             "user": {"login": "copilot"},
@@ -317,7 +317,7 @@ class TestHandleCopilotPrReady:
     @pytest.mark.asyncio
     @patch("src.api.webhooks.get_github_service")
     async def test_error_handling(self, mock_gps):
-        mock_gps.get_linked_pull_requests = AsyncMock(side_effect=Exception("API fail"))
+        mock_gps.return_value.get_linked_pull_requests = AsyncMock(side_effect=Exception("API fail"))
         pr_data = {
             "number": 5,
             "user": {"login": "copilot"},
@@ -355,7 +355,7 @@ class TestUpdateIssueStatusForCopilotPr:
         """Webhook token present but auth fails."""
         mock_settings.return_value.github_webhook_token = "bad-token"
         mock_resp = MagicMock(status_code=401, json=lambda: {})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["status"] == "error"
@@ -368,11 +368,11 @@ class TestUpdateIssueStatusForCopilotPr:
         """Token works but issue not found in any project."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         mock_item = MagicMock(github_item_id="999", title="Unrelated")
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["action"] == "issue_not_in_project"
@@ -384,12 +384,12 @@ class TestUpdateIssueStatusForCopilotPr:
         """Full happy path - issue found and status updated."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         mock_item = MagicMock(github_item_id="5", title="Issue #5")
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
-        mock_gps.update_item_status_by_name = AsyncMock(return_value=True)
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.update_item_status_by_name = AsyncMock(return_value=True)
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["status"] == "success"
@@ -402,12 +402,12 @@ class TestUpdateIssueStatusForCopilotPr:
         """Issue found but update_item_status_by_name returns False."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         mock_item = MagicMock(github_item_id="5", title="Issue #5")
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
-        mock_gps.update_item_status_by_name = AsyncMock(return_value=False)
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.update_item_status_by_name = AsyncMock(return_value=False)
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["status"] == "error"
@@ -419,7 +419,7 @@ class TestUpdateIssueStatusForCopilotPr:
     async def test_exception_during_project_lookup(self, mock_settings, mock_gps):
         """Exception raised during the whole project lookup flow."""
         mock_settings.return_value.github_webhook_token = "tok"
-        mock_gps.rest_request = AsyncMock(side_effect=Exception("Network error"))
+        mock_gps.return_value.rest_request = AsyncMock(side_effect=Exception("Network error"))
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["status"] == "error"
@@ -431,13 +431,13 @@ class TestUpdateIssueStatusForCopilotPr:
         """When get_project_items fails for one project, continues to next."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         proj1 = MagicMock(project_id="proj-1")
         proj2 = MagicMock(project_id="proj-2")
-        mock_gps.list_user_projects = AsyncMock(return_value=[proj1, proj2])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[proj1, proj2])
         mock_item = MagicMock(github_item_id="5", title="Issue #5")
-        mock_gps.get_project_items = AsyncMock(side_effect=[Exception("fail"), [mock_item]])
-        mock_gps.update_item_status_by_name = AsyncMock(return_value=True)
+        mock_gps.return_value.get_project_items = AsyncMock(side_effect=[Exception("fail"), [mock_item]])
+        mock_gps.return_value.update_item_status_by_name = AsyncMock(return_value=True)
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["status"] == "success"
@@ -449,13 +449,13 @@ class TestUpdateIssueStatusForCopilotPr:
         """Issue matched by title containing '#N'."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         # github_item_id doesn't contain "5" but title does
         mock_item = MagicMock(github_item_id="ITEM_999", title="Bug fix #5 - typo")
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
-        mock_gps.update_item_status_by_name = AsyncMock(return_value=True)
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.update_item_status_by_name = AsyncMock(return_value=True)
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
         result = await update_issue_status_for_copilot_pr(pr_data, "o", "r", 1, "copilot")
         assert result["status"] == "success"
@@ -470,11 +470,11 @@ class TestUpdateIssueStatusForCopilotPr:
         """Pipeline exists with current_agent != 'copilot-review' → skip status move."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         mock_item = MagicMock(github_item_id="5", title="Issue #5", issue_number=5)
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
         # Pipeline says current agent is speckit.implement — NOT copilot-review
         mock_get_pipeline.return_value = SimpleNamespace(current_agent="speckit.implement")
 
@@ -497,12 +497,12 @@ class TestUpdateIssueStatusForCopilotPr:
         """Pipeline exists with current_agent == 'copilot-review' → proceed normally."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         mock_item = MagicMock(github_item_id="5", title="Issue #5", issue_number=5)
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
-        mock_gps.update_item_status_by_name = AsyncMock(return_value=True)
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.update_item_status_by_name = AsyncMock(return_value=True)
         mock_get_pipeline.return_value = SimpleNamespace(current_agent="copilot-review")
 
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
@@ -521,12 +521,12 @@ class TestUpdateIssueStatusForCopilotPr:
         """No pipeline for issue → proceed normally (backward compat)."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
-        mock_gps.rest_request = AsyncMock(return_value=mock_resp)
+        mock_gps.return_value.rest_request = AsyncMock(return_value=mock_resp)
         mock_project = MagicMock(project_id="proj-1")
-        mock_gps.list_user_projects = AsyncMock(return_value=[mock_project])
+        mock_gps.return_value.list_user_projects = AsyncMock(return_value=[mock_project])
         mock_item = MagicMock(github_item_id="5", title="Issue #5", issue_number=5)
-        mock_gps.get_project_items = AsyncMock(return_value=[mock_item])
-        mock_gps.update_item_status_by_name = AsyncMock(return_value=True)
+        mock_gps.return_value.get_project_items = AsyncMock(return_value=[mock_item])
+        mock_gps.return_value.update_item_status_by_name = AsyncMock(return_value=True)
         mock_get_pipeline.return_value = None
 
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
