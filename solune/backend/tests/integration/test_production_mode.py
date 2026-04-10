@@ -6,12 +6,22 @@ import pytest
 
 from src.config import Settings, clear_settings_cache
 
+_ORIGINAL_ENV_FILE = Settings.model_config.get("env_file")
+
 
 @pytest.fixture(autouse=True)
 def _clear_cache():
-    """Ensure settings cache is cleared between tests."""
+    """Ensure settings cache is cleared and .env file reading is disabled.
+
+    Pydantic-settings reads env_file independently of os.environ, so a
+    local ``solune/.env`` on disk can inject values (e.g.
+    ADMIN_GITHUB_USER_ID) that defeat ``patch.dict(clear=True)``.
+    Disabling env_file ensures tests depend only on explicitly set vars.
+    """
     clear_settings_cache()
+    Settings.model_config["env_file"] = ()
     yield
+    Settings.model_config["env_file"] = _ORIGINAL_ENV_FILE
     clear_settings_cache()
 
 
