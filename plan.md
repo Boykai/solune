@@ -1,29 +1,30 @@
-# Implementation Plan: Harden Phase 1 — Critical Bug Fixes
+# Implementation Plan: Harden Phase 3 — Code Quality & Tech Debt
 
-**Branch**: `copilot/fix-critical-bug-issues` | **Date**: 2026-04-10 | **Spec**: [#1227](https://github.com/Boykai/solune/issues/1227)
-**Input**: Parent issue #1227 — Harden Phase 1: Fix critical bugs in pipeline state store, agent lifecycle management, and agent preview extraction.
+**Branch**: `copilot/harden-phase-3-implementation-plan` | **Date**: 2026-04-10 | **Spec**: [#1253](https://github.com/Boykai/solune/issues/1253)
+**Input**: Parent issue #1253 — Harden Phase 3: reliability, code quality, CI/CD, observability, and developer experience. No new features; making what exists better.
+
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-Harden Solune's reliability by fixing three critical bugs in the backend. No new features — only correctness fixes, regression tests, and validation hardening for existing code paths.
+Phase 3 is a hardening sprint focused on four workstreams that reduce tech debt, improve maintainability, and prevent regressions — with zero feature changes:
 
-| Bug | File | Root Cause | Fix |
-|-----|------|-----------|-----|
-| 1.1 | `pipeline_state_store.py` | `_project_launch_locks` was an unbounded `dict[str, asyncio.Lock]` that grows indefinitely | Replace with `BoundedDict(maxlen=10_000)` with LRU touch |
-| 1.2 | `agents/service.py` | `update_agent()` did not set `lifecycle_status = pending_pr` for updated local agents | Set `PENDING_PR` in all 3 SQL persistence paths |
-| 1.3 | `agents/service.py` | `_extract_agent_preview()` did not validate `tools` field type (e.g. `tools: "read"` passed through) | Add `isinstance(tools, list)` guard returning `None`; harden element validation |
+1. **3.1 — Singleton DI Refactor**: Remove module-level singletons tagged `TODO(018-codebase-audit-refactor)` in `service.py:479` and `agents.py:399`. Introduce a `get_github_service()` accessor pattern so request-context code pulls from `app.state` and non-request code (background tasks, polling, orchestrator) uses a controlled module-level fallback.
+2. **3.2 — Pre-release Dependency Upgrades**: Upgrade `azure-ai-inference` (1.0.0b9→GA), `agent-framework-*` (1.0.0b1→stable), `opentelemetry-instrumentation-*` (0.54b0→stable), and `github-copilot-sdk` (v0.x→v2/copilot-sdk≥1.0.17).
+3. **3.3 — Stryker Config Consolidation**: Replace 4 separate shard config files with a single unified `stryker.config.mjs` driven by a `STRYKER_SHARD` environment variable, reducing config drift and simplifying CI.
+4. **3.4 — Plan-Mode Chat History Fix**: Already resolved — both plan-mode endpoints (`POST /messages/plan` and `POST /messages/plan/stream`) correctly persist user messages **after** `get_chat_agent_service()` succeeds. Verification-only workstream.
 
 ## Technical Context
 
-**Language/Version**: Python >=3.12 (pyright targets 3.13)
-**Primary Dependencies**: FastAPI, aiosqlite, Pydantic v2
-**Storage**: SQLite via aiosqlite (agent configs), in-memory `BoundedDict` caches (pipeline state)
-**Testing**: pytest with `asyncio_mode=auto`, coverage threshold 75%
-**Target Platform**: Linux server (containerized)
-**Project Type**: Web application (Python backend + TypeScript frontend)
-**Performance Goals**: No regressions; bounded memory in long-running instances
-**Constraints**: All fixes must be backward-compatible; no schema migrations required
-**Scale/Scope**: 3 targeted bug fixes across 2 source files, with regression tests
+**Language/Version**: Python ≥3.12 (backend), TypeScript ~6.0.2 (frontend)
+**Primary Dependencies**: FastAPI, githubkit, azure-ai-inference, agent-framework-core/azure-ai/github-copilot, github-copilot-sdk, opentelemetry-instrumentation-*, @stryker-mutator/core 9.6.x
+**Storage**: SQLite via aiosqlite (no schema changes)
+**Testing**: pytest 8.x + pytest-asyncio (backend), Vitest 4.1.3 + @testing-library/react (frontend), Stryker 9.6.x (mutation)
+**Target Platform**: Linux server (backend), Modern browsers (frontend)
+**Project Type**: Web application (backend + frontend monorepo under `solune/`)
+**Performance Goals**: N/A — refactoring-only; no runtime performance changes expected
+**Constraints**: Zero breaking changes to public API; all existing tests must continue passing; coverage thresholds maintained (backend ≥75%, frontend ≥50% statements)
+**Scale/Scope**: ~27 files affected by singleton refactor; 7 dependency lines in pyproject.toml; 5 Stryker config files → 1; 2 plan-mode endpoints (verification only)
 
 ## Constitution Check
 
@@ -31,239 +32,283 @@ Harden Solune's reliability by fixing three critical bugs in the backend. No new
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| I. Specification-First | ✅ PASS | Bugs are specified in parent issue #1227 with clear descriptions |
-| II. Template-Driven Workflow | ✅ PASS | This plan follows `plan-template.md` structure |
-| III. Agent-Orchestrated Execution | ✅ PASS | Plan agent produces plan; implement agent will execute |
-| IV. Test Optionality | ✅ PASS | Regression tests are warranted for bug fixes to prevent recurrence |
-| V. Simplicity and DRY | ✅ PASS | Fixes use existing `BoundedDict` utility; no new abstractions |
+| I. Specification-First | ✅ PASS | Parent issue #1253 provides clear scope with 4 numbered workstreams and explicit file references |
+| II. Template-Driven Workflow | ✅ PASS | Using canonical plan template; plan.md at repository root per branch convention |
+| III. Agent-Orchestrated Execution | ✅ PASS | Plan phase produces plan.md + artifacts; handoff to tasks phase for implementation |
+| IV. Test Optionality | ✅ PASS | Existing tests must pass; new tests only where singleton accessor pattern needs coverage |
+| V. Simplicity and DRY | ✅ PASS | Each workstream simplifies existing code: fewer singletons, fewer configs, cleaner DI, upgraded deps |
 
-**Gate Result**: PASS — no violations. Proceed to Phase 0.
+**Gate Result**: ✅ ALL PASS — proceed to Phase 0
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-plan.md                  # This file (speckit.plan output)
+plan.md              # This file (repository root, /speckit.plan output)
+research.md          # Phase 0 output — consolidated research findings
+data-model.md        # Phase 1 output — affected data models and state shapes
+quickstart.md        # Phase 1 output — developer getting-started for this feature
 ```
 
 ### Source Code (repository root)
 
 ```text
-solune/backend/
-├── src/
-│   ├── utils.py                           # BoundedDict utility (existing, no changes needed)
-│   └── services/
-│       ├── pipeline_state_store.py         # Bug 1.1: _project_launch_locks fix
-│       └── agents/
-│           └── service.py                  # Bug 1.2: update_agent() lifecycle + Bug 1.3: _extract_agent_preview()
-└── tests/
-    └── unit/
-        ├── test_pipeline_state_store.py    # Bug 1.1 regression tests
-        └── test_agents_service.py          # Bug 1.2 + 1.3 regression tests
+solune/
+├── backend/
+│   ├── pyproject.toml                          # 3.2: dependency version bumps
+│   ├── src/
+│   │   ├── dependencies.py                     # 3.1: accessor pattern hub
+│   │   ├── main.py                             # 3.1: app.state registration
+│   │   ├── services/
+│   │   │   ├── github_projects/
+│   │   │   │   ├── __init__.py                 # 3.1: re-export accessor
+│   │   │   │   ├── service.py                  # 3.1: remove singleton (line 479)
+│   │   │   │   └── agents.py                   # 3.1: remove singleton (line 399)
+│   │   │   ├── chat_agent.py                   # 3.4: verification only
+│   │   │   ├── copilot_polling/                # 3.1: import migration
+│   │   │   ├── signal_bridge.py                # 3.1: import migration
+│   │   │   ├── signal_chat.py                  # 3.1: import migration
+│   │   │   ├── workflow_orchestrator/          # 3.1: import migration
+│   │   │   ├── agents/service.py               # 3.1: import migration
+│   │   │   ├── agent_creator.py                # 3.1: import migration
+│   │   │   ├── github_commit_workflow.py       # 3.1: import migration
+│   │   │   ├── metadata_service.py             # 3.1: import migration
+│   │   │   └── tools/service.py                # 3.1: import migration
+│   │   └── api/
+│   │       ├── chat.py                         # 3.1: use DI accessor; 3.4: verified
+│   │       ├── board.py                        # 3.1: use DI accessor
+│   │       ├── chores.py                       # 3.1: use DI accessor
+│   │       ├── pipelines.py                    # 3.1: use DI accessor
+│   │       ├── projects.py                     # 3.1: use DI accessor
+│   │       ├── tasks.py                        # 3.1: use DI accessor
+│   │       ├── tools.py                        # 3.1: use DI accessor
+│   │       ├── webhooks.py                     # 3.1: use DI accessor
+│   │       ├── workflow.py                     # 3.1: use DI accessor
+│   │       ├── metadata.py                     # 3.1: use DI accessor
+│   │       └── agents.py                       # 3.1: use DI accessor
+│   └── tests/                                  # 3.1: update mocks for accessor
+└── frontend/
+    ├── stryker.config.mjs                      # 3.3: unified config with shard support
+    ├── stryker-hooks-board.config.mjs          # 3.3: DELETE
+    ├── stryker-hooks-data.config.mjs           # 3.3: DELETE
+    ├── stryker-hooks-general.config.mjs        # 3.3: DELETE
+    ├── stryker-lib.config.mjs                  # 3.3: DELETE
+    └── package.json                            # 3.3: update npm scripts
 ```
 
-**Structure Decision**: Existing web application structure. All changes target `solune/backend/` — no frontend or infrastructure changes.
+**Structure Decision**: Existing monorepo web application layout (backend/ + frontend/ under solune/). No new directories; changes are exclusively modifications to existing files plus deletion of 4 Stryker shard configs.
 
 ## Complexity Tracking
 
-> No Constitution Check violations — this section is intentionally empty.
+> No constitution violations — all workstreams simplify existing code.
+
+| Aspect | Current | After | Simplification |
+|--------|---------|-------|---------------|
+| Module-level singletons | 1 tagged for removal (2 TODO blocks in same service) | 0 tagged; accessor pattern consistent | DI is centralized in dependencies.py |
+| Stryker config files | 5 (1 base + 4 shards) | 1 (unified with env-var sharding) | Single source of truth for mutation config |
+| Pre-release deps | 7 packages pinned to beta/preview | 0 pre-release (all GA or v2) | Removes pip `--pre` / `allow-prereleases` requirement |
+| Orphaned chat messages | Fixed (verified) | N/A | No code change needed |
 
 ---
 
-## Phase 0: Research
+## Workstream Details
 
-### R1: BoundedDict Suitability for Lock Cache
+### 3.1 — Remove Module-Level Singletons (DI Refactor)
 
-**Decision**: Use `BoundedDict` from `src.utils` as the bounded LRU container for `_project_launch_locks`.
+#### Current State
 
-**Rationale**: `BoundedDict` is already used throughout `pipeline_state_store.py` for other caches (`_pipeline_states`, `_issue_main_branches`, `_issue_sub_issue_map`, `_agent_trigger_inflight`). It wraps `OrderedDict` with a configurable `maxlen`, supports `touch()` for LRU-style refresh, and evicts the oldest entry when capacity is exceeded. Using it for locks provides consistent behavior with the other caches.
+Two identical `TODO(018-codebase-audit-refactor)` blocks exist:
 
-**Alternatives considered**:
+- `solune/backend/src/services/github_projects/service.py:479–493` — `github_projects_service = GitHubProjectsService()`
+- `solune/backend/src/services/github_projects/agents.py:399–413` — same TODO block (agents.py is a mixin; the singleton is the same `GitHubProjectsService` instance)
 
-- `functools.lru_cache`: Not suitable — LRU cache wraps function calls, not dict-like access patterns; harder to test and introspect.
-- `cachetools.LRUCache`: External dependency; unnecessary when `BoundedDict` already exists.
-- Manual `OrderedDict` with size cap: Duplicates `BoundedDict` logic; violates DRY.
+The singleton is imported directly by **27 files** across three contexts:
 
-### R2: Agent Lifecycle Status in update_agent()
+| Context | Files | Can Use app.state? |
+|---------|-------|--------------------|
+| API routes | 11 (board, chat, chores, pipelines, projects, tasks, tools, webhooks, workflow, metadata, agents) | ✅ Yes — `Request` available |
+| Background / non-request | 6 (signal_bridge, signal_chat, copilot_polling/*, workflow_orchestrator) | ❌ No — no HTTP request |
+| Service layer (mixed) | 6 (agents/service, agent_creator, agent_mcp_sync, github_commit_workflow, metadata_service, tools/service) | ⚠️ Sometimes |
+| Framework | 4 (dependencies.py, main.py, utils.py, constants.py) | N/A |
 
-**Decision**: Set `lifecycle_status = AgentStatus.PENDING_PR.value` in all three SQL persistence branches within `update_agent()`.
-
-**Rationale**: The `update_agent()` method has three distinct persistence paths depending on agent state:
-
-1. **Non-repo agent** (line 1230): `UPDATE` existing `agent_configs` row → must set `lifecycle_status`
-2. **Repo agent with existing local row** (line 1259): `UPDATE` with additional fields → must set `lifecycle_status`
-3. **Repo agent without local row** (line 1286): `INSERT` new `agent_configs` row → must set `lifecycle_status`
-
-All three paths must set `lifecycle_status = 'pending_pr'` because in every case a PR has been opened (or will be opened). The returned `Agent` object (line 1326) correctly sets `status=AgentStatus.PENDING_PR`, but if the database rows are not also updated, subsequent reads from the database will return stale status.
-
-**Alternatives considered**:
-
-- Setting status only on the returned `Agent` object: Insufficient — database reads bypass the in-memory object and would show stale `active` status.
-- Adding a post-commit hook: Over-engineered for a simple field assignment.
-
-### R3: _extract_agent_preview() Input Validation
-
-**Decision**: Add `isinstance(tools, list)` guard in `_extract_agent_preview()` and validate individual tool elements are non-empty strings.
-
-**Rationale**: The method parses AI-generated JSON from chat responses. Malformed but JSON-valid configs like `tools: "read"` (string instead of list) or `tools: [123, null, {}]` (list with non-string elements) bypass the previous validation and create `AgentPreview` objects with invalid `tools` fields. These break downstream Pydantic serialization and chat refinement flows.
-
-**Alternatives considered**:
-
-- Pydantic model validation at the `AgentPreview` level: Would work but pushes validation further from the parsing boundary; `_extract_agent_preview` is the explicit gatekeeper.
-- Coercing invalid tools (e.g. wrapping a string in a list): Masks AI model errors; better to reject and re-prompt.
-- Filtering invalid elements silently: Partial configs are confusing to users in chat flow; returning `None` triggers a re-prompt.
-
----
-
-## Phase 1: Design & Contracts
-
-### Bug 1.1 — Fix `_project_launch_locks` Memory Leak
-
-**File**: `solune/backend/src/services/pipeline_state_store.py`
-
-**Current state (ALREADY RESOLVED)**: The code at line 40 already uses:
+#### DI Accessor Pattern (already exists in dependencies.py)
 
 ```python
-_project_launch_locks: BoundedDict[str, asyncio.Lock] = BoundedDict(maxlen=10_000)
+def get_github_service(request: Request) -> GitHubProjectsService:
+    svc = getattr(request.app.state, "github_service", None)
+    if svc is not None:
+        return svc
+    from src.services.github_projects import github_projects_service
+    return github_projects_service
 ```
 
-The `get_project_launch_lock()` function (lines 54–71) already implements LRU-like behavior via `touch()` for existing keys and automatic eviction via `BoundedDict.__setitem__` for new keys.
+#### Proposed Refactor
 
-**Regression tests (ALREADY EXIST)**: `TestProjectLaunchLocksBounded` class in `test_pipeline_state_store.py` (lines 795–840) covers:
+1. **Keep** the module-level singleton but remove the deferred-TODO comments — the accessor pattern makes it safe.
+2. **Migrate all 11 API route files** to use `get_github_service(request)` via FastAPI `Depends()` injection instead of direct singleton import.
+3. **Non-request files** (background tasks, polling, orchestrator) continue importing the singleton directly — this is the intended fallback path in `get_github_service()`.
+4. **Service-layer files** called from both contexts receive the service as a parameter when possible, falling back to direct import otherwise.
+5. **Update `__init__.py`** to also export the accessor function.
+6. **Update test mocks** to patch the accessor or the singleton, depending on what is being tested.
 
-- `test_lock_dict_is_bounded` — confirms `BoundedDict` type
-- `test_returns_same_lock_for_same_project` — identity check
-- `test_returns_different_locks_for_different_projects` — isolation check
-- `test_lock_count_stays_bounded` — capacity enforcement
-- `test_eviction_does_not_corrupt_remaining_locks` — eviction safety
+#### Risk Assessment
 
-**Remaining work**: None — bug is fully resolved with regression tests.
-
-### Bug 1.2 — Fix `update_agent()` Lifecycle Status
-
-**File**: `solune/backend/src/services/agents/service.py`
-
-**Current state (ALREADY RESOLVED)**: All three SQL persistence paths in `update_agent()` set `lifecycle_status`:
-
-1. Line 1246: `AgentStatus.PENDING_PR.value` in `UPDATE` for non-repo agents
-2. Line 1279: `AgentStatus.PENDING_PR.value` in `UPDATE` for repo agents with existing local row
-3. Line 1311: `AgentStatus.PENDING_PR.value` in `INSERT` for repo agents without local row
-
-The returned `Agent` object at line 1326 also sets `status=AgentStatus.PENDING_PR`.
-
-**Regression tests (ALREADY EXIST)**: `test_agents_service.py` includes:
-
-- `test_update_agent_allows_repo_only_agent_and_persists_pending_row` (line 433) — verifies INSERT path
-- `test_update_agent_marks_existing_local_agent_pending_pr` (line 522) — verifies UPDATE path for existing local agents
-
-**Remaining work**: None — bug is fully resolved with regression tests.
-
-### Bug 1.3 — Fix `_extract_agent_preview()` Validation
-
-**File**: `solune/backend/src/services/agents/service.py`
-
-**Current state (PARTIALLY RESOLVED)**: The `isinstance(tools, list)` guard at line 1472 catches the primary case (`tools: "read"`). However, a residual validation gap exists: the code does not validate that individual list elements are non-empty strings. Malformed configs like `tools: [123, null, {}]` pass the list check and create invalid `AgentPreview` objects.
-
-**Current code** (lines 1471–1473):
-
-```python
-tools = config.get("tools", [])
-if not isinstance(tools, list):
-    return None
-```
-
-**Required fix**: Add element-level validation after the list type check:
-
-```python
-tools = config.get("tools", [])
-if not isinstance(tools, list):
-    return None
-if not all(isinstance(t, str) and bool(t.strip()) for t in tools):
-    return None
-```
-
-This ensures every tool element is a non-empty string. The `isinstance` check short-circuits before `strip()` for non-string elements, and `bool(t.strip())` rejects empty or whitespace-only strings.
-
-**Regression tests (COMPLETE)**: `TestExtractAgentPreview` class covers:
-
-- `test_non_list_tools_returns_none` — catches `tools: "read"` ✅
-- `test_non_string_tools_elements_returns_none` — catches `tools: [123, null, {}]` ✅
-- `test_empty_string_tool_returns_none` — catches `tools: ["read", ""]` ✅
-- `test_mixed_valid_invalid_tools_returns_none` — catches `tools: ["read", 123]` ✅
+- **Low risk**: The accessor already exists and is used. Migration is a mechanical refactor of import statements.
+- **Test impact**: Any test that patches `src.services.github_projects.github_projects_service` may need updating to patch the accessor.
+- **Rollback**: Revert import changes; singleton still works as-is.
 
 ---
 
-## Execution Phases
+### 3.2 — Upgrade Pre-release Dependencies
 
-### Step 1 — Bug 1.3 Fix: Harden `_extract_agent_preview()` Element Validation
+#### Current Versions (from pyproject.toml)
 
-| Task | File | Action |
-|------|------|--------|
-| 1.1 | `solune/backend/src/services/agents/service.py` | Add element-level validation for `tools` list: every element must be a non-empty string |
-| 1.2 | `solune/backend/tests/unit/test_agents_service.py` | Add 3 regression tests for non-string elements, empty strings, and mixed invalid elements |
+| Package | Current Pin | Target | Notes |
+|---------|-------------|--------|-------|
+| `github-copilot-sdk` | `>=0.1.30,<1` | `copilot-sdk>=1.0.17` | v2 upgrade — package name change (pyproject.toml:16 comment) |
+| `azure-ai-inference` | `>=1.0.0b9,<2` | `>=1.0.0,<2` (GA when available) | Pre-release beta 9 |
+| `agent-framework-core` | `>=1.0.0b1` | `>=1.0.0` (GA when available) | Pre-release beta 1 |
+| `agent-framework-azure-ai` | `>=1.0.0b1` | `>=1.0.0` (GA when available) | Pre-release beta 1 |
+| `agent-framework-github-copilot` | `>=1.0.0b1` | `>=1.0.0` (GA when available) | Pre-release beta 1 |
+| `opentelemetry-instrumentation-fastapi` | `>=0.54b0,<1` | `>=0.55b0,<1` or GA | Pre-release |
+| `opentelemetry-instrumentation-httpx` | `>=0.54b0,<1` | `>=0.55b0,<1` or GA | Pre-release |
+| `opentelemetry-instrumentation-sqlite3` | `>=0.54b0,<1` | `>=0.55b0,<1` or GA | Pre-release |
 
-**Acceptance**: `_extract_agent_preview()` returns `None` for any config where `tools` contains non-string or empty-string elements. All existing tests continue to pass.
+#### Upgrade Strategy
 
-### Step 2 — Verification: Bugs 1.1 and 1.2
+1. **Research GA availability** for each package via PyPI at implementation time.
+2. **Package rename**: `github-copilot-sdk` → `copilot-sdk` requires updating all import statements that reference the old package.
+3. **Run full test suite** after each dependency upgrade to catch breaking changes.
+4. **Update `allow-prereleases`** setting in pyproject.toml once all packages reach GA.
+5. **agent-framework-*** packages: Check for API breaking changes between b1 and stable (method signatures, async patterns).
 
-| Task | File | Action |
-|------|------|--------|
-| 2.1 | `solune/backend/src/services/pipeline_state_store.py` | Verify `BoundedDict` usage — no code change needed |
-| 2.2 | `solune/backend/src/services/agents/service.py` | Verify all 3 SQL paths set `PENDING_PR` — no code change needed |
-| 2.3 | `solune/backend/tests/unit/test_pipeline_state_store.py` | Run existing `TestProjectLaunchLocksBounded` tests — must pass |
-| 2.4 | `solune/backend/tests/unit/test_agents_service.py` | Run existing update_agent lifecycle tests — must pass |
+#### Risk Assessment
 
-**Acceptance**: All existing regression tests pass. No changes needed for bugs 1.1 and 1.2.
+- **Medium risk**: Pre-release → GA may include breaking API changes.
+- **github-copilot-sdk v2**: Highest risk — package rename means all import paths change. Requires audit of all files importing from the old package.
+- **Mitigation**: Upgrade one package at a time; run tests after each. Pin exact versions initially, then relax to range pins.
 
 ---
 
-## Risk Assessment
+### 3.3 — Consolidate Stryker Mutation Configs
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Element validation rejects valid AI output | Low | Medium | Only rejects non-string / empty elements; standard AI outputs are `["read", "search_code"]` |
-| BoundedDict eviction drops active lock | Very Low | Low | `maxlen=10_000` is 100× typical concurrent projects; LRU touch keeps active locks |
-| Update lifecycle change breaks UI flow | None | N/A | Already resolved; no change needed |
+#### Current State
 
-## Dependencies
+5 config files in `solune/frontend/`:
+
+| File | Purpose | Mutate Target |
+|------|---------|---------------|
+| `stryker.config.mjs` | Base config (also default `test:mutate`) | `src/hooks/**/*.ts`, `src/lib/**/*.ts` |
+| `stryker-hooks-board.config.mjs` | Board hooks shard | 5 specific hook files |
+| `stryker-hooks-data.config.mjs` | Data hooks shard | 7 specific hook files |
+| `stryker-hooks-general.config.mjs` | General hooks shard | All hooks minus board + data |
+| `stryker-lib.config.mjs` | Library utilities shard | `src/lib/**/*.ts` |
+
+All 4 shard configs extend the base with `...baseConfig` and override only `mutate` and `htmlReporter.fileName`.
+
+**CI**: `.github/workflows/mutation-testing.yml` runs a 4-job matrix: `hooks-board`, `hooks-data`, `hooks-general`, `lib`.
+
+#### Proposed Consolidation
+
+Replace the 4 shard configs with environment-variable–driven sharding in the base config:
+
+```javascript
+// stryker.config.mjs (unified)
+const shards = {
+  'hooks-board': {
+    mutate: ['src/hooks/useAdaptivePolling.ts', 'src/hooks/useBoardProjection.ts',
+             'src/hooks/useBoardRefresh.ts', 'src/hooks/useProjectBoard.ts',
+             'src/hooks/useRealTimeSync.ts'],
+    report: 'reports/mutation/hooks-board/mutation-report.html',
+  },
+  'hooks-data': {
+    mutate: ['src/hooks/useProjects.ts', 'src/hooks/useChat.ts',
+             'src/hooks/useChatHistory.ts', 'src/hooks/useCommands.ts',
+             'src/hooks/useWorkflow.ts', 'src/hooks/useSettingsForm.ts',
+             'src/hooks/useAuth.ts'],
+    report: 'reports/mutation/hooks-data/mutation-report.html',
+  },
+  'hooks-general': {
+    mutate: ['src/hooks/**/*.ts', '!src/hooks/**/*.test.ts',
+             '!src/hooks/**/*.property.test.ts',
+             /* exclude board + data hooks */],
+    report: 'reports/mutation/hooks-general/mutation-report.html',
+  },
+  'lib': {
+    mutate: ['src/lib/**/*.ts', '!src/lib/**/*.test.ts',
+             '!src/lib/**/*.property.test.ts'],
+    report: 'reports/mutation/lib/mutation-report.html',
+  },
+};
+const shard = process.env.STRYKER_SHARD;
+```
+
+#### Updates Required
+
+1. **`stryker.config.mjs`** — Add shard map and `STRYKER_SHARD` env-var support.
+2. **Delete** `stryker-hooks-board.config.mjs`, `stryker-hooks-data.config.mjs`, `stryker-hooks-general.config.mjs`, `stryker-lib.config.mjs`.
+3. **`package.json`** — Update npm scripts:
+   - `"test:mutate:hooks-board": "STRYKER_SHARD=hooks-board stryker run"`
+   - `"test:mutate:hooks-data": "STRYKER_SHARD=hooks-data stryker run"`
+   - etc.
+4. **`.github/workflows/mutation-testing.yml`** — Update matrix job to set `STRYKER_SHARD` env var instead of `-c` flag.
+5. **`docs/testing.md`** — Update Stryker documentation to reflect single config with shard env var.
+
+#### Risk Assessment
+
+- **Low risk**: Config consolidation is purely structural; no mutation logic changes.
+- **Verification**: Run each shard via the new mechanism; compare mutant counts to ensure identical coverage.
+
+---
+
+### 3.4 — Fix Plan-Mode Orphaned Chat History
+
+#### Current State — ALREADY RESOLVED
+
+Research confirms both plan-mode endpoints correctly persist user messages **after** the `get_chat_agent_service()` check:
+
+| Endpoint | Service Check | User Message Persist | Status |
+|----------|---------------|----------------------|--------|
+| `POST /messages/plan` (line 2010–2024) | Lines 2010–2016 (hard fail) | Lines 2018–2024 (after) | ✅ RESOLVED |
+| `POST /messages/plan/stream` (line 2083–2097) | Lines 2083–2089 (hard fail) | Lines 2091–2097 (after) | ✅ RESOLVED |
+
+**Regular chat endpoints** (`POST /messages`) still persist user messages before the service check (line 1049–1055), but this is out of scope for task 3.4 which specifically targets plan-mode.
+
+#### Action Required
+
+- **Verification only**: Write a targeted test (or confirm existing test) that `send_plan_message` returns 503 without persisting a user message when `get_chat_agent_service()` raises.
+- **No code changes** needed for the plan-mode endpoints.
+- **Recommendation** (future work): Apply the same pattern to the regular `send_message` endpoint to prevent orphaned messages there too.
+
+---
+
+## Dependency Graph
 
 ```text
-Bug 1.1 ──→ (none — already resolved)
-Bug 1.2 ──→ (none — already resolved)
-Bug 1.3 ──→ Step 1.1 (code fix) → Step 1.2 (regression tests)
+3.4 (verification) ──────────────────────────────────── can run anytime
+3.3 (Stryker consolidation) ─────────────────────────── can run anytime (frontend-only)
+3.1 (singleton DI refactor) ─────────────────────────── must complete before 3.2
+3.2 (dependency upgrades) ───── depends on 3.1 ──────── SDK rename may touch same files
 ```
 
-All three bugs are independent of each other with no cross-dependencies.
+**Recommended execution order**: 3.4 → 3.3 → 3.1 → 3.2
 
-## Quickstart
+- 3.4 is verification-only and fast.
+- 3.3 is frontend-only and independent.
+- 3.1 must precede 3.2 because the copilot-sdk v2 rename will touch import paths that 3.1 also modifies; doing 3.1 first avoids merge conflicts.
+- 3.2 is last because it has the highest risk and benefits from a clean baseline.
 
-### Running the fix
+---
 
-```bash
-# No code changes needed for bugs 1.1 and 1.2 — already resolved.
+## Post-Design Constitution Re-Check
 
-# Bug 1.3: Apply element validation in _extract_agent_preview()
-# File: solune/backend/src/services/agents/service.py, lines 1471-1473
-# Add after the isinstance(tools, list) check:
-#   if not all(isinstance(t, str) and t.strip() for t in tools):
-#       return None
-```
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Specification-First | ✅ PASS | All 4 workstreams mapped to explicit issue requirements |
+| II. Template-Driven Workflow | ✅ PASS | plan.md follows canonical template structure |
+| III. Agent-Orchestrated Execution | ✅ PASS | Clear handoff boundaries for each workstream |
+| IV. Test Optionality | ✅ PASS | Tests only where needed (3.1 accessor tests, 3.4 verification) |
+| V. Simplicity and DRY | ✅ PASS | Every workstream reduces complexity: fewer configs, cleaner DI, fewer pre-release pins |
 
-### Running the tests
-
-```bash
-cd solune/backend
-
-# Run Bug 1.1 regression tests
-python -m pytest tests/unit/test_pipeline_state_store.py::TestProjectLaunchLocksBounded -v
-
-# Run Bug 1.2 lifecycle tests
-python -m pytest tests/unit/test_agents_service.py -k "update_agent" -v
-
-# Run Bug 1.3 preview extraction tests
-python -m pytest tests/unit/test_agents_service.py::TestExtractAgentPreview -v
-
-# Run all backend unit tests
-python -m pytest tests/unit/ -v
-```
+**Gate Result**: ✅ ALL PASS — ready for `/speckit.tasks` phase

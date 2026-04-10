@@ -279,9 +279,9 @@ class MetadataService:
         """Return the injected service or fall back to the module-level singleton."""
         if self._github_service is not None:
             return self._github_service
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
-        return github_projects_service
+        return get_github_service()
 
     async def _fetch_paginated(
         self,

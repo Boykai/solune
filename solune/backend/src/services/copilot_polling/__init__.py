@@ -13,7 +13,7 @@ This provides a fallback mechanism in addition to webhooks.
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Phase 1: Import all EXTERNAL dependencies so that mock.patch targets like
-# ``src.services.copilot_polling.github_projects_service`` resolve on THIS
+# ``src.services.copilot_polling.get_github_service()`` resolve on THIS
 # module's namespace.  Sub-modules use ``import src.services.copilot_polling
 # as _cp`` for late-bound access to these.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ from src.services.agent_tracking import (
     parse_tracking_from_body,
 )
 from src.services.database import get_db
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.services.pipeline_state_store import get_pipeline_state_async
 from src.services.settings_store import is_auto_merge_enabled
 from src.services.websocket import connection_manager
@@ -237,7 +237,7 @@ __all__ = [
     "get_status_order",
     "get_workflow_config",
     "get_workflow_orchestrator",
-    "github_projects_service",
+    "get_github_service",
     "is_auto_merge_enabled",
     "is_sub_issue",
     "mark_agent_active",

@@ -2829,11 +2829,11 @@ def get_workflow_orchestrator() -> WorkflowOrchestrator:
     global _orchestrator_instance
     if _orchestrator_instance is None:
         from src.services.ai_agent import get_ai_agent_service
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
         _orchestrator_instance = WorkflowOrchestrator(
             ai_service=get_ai_agent_service(),
-            github_service=github_projects_service,
+            github_service=get_github_service(),
         )
     return _orchestrator_instance
 
