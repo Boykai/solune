@@ -120,7 +120,7 @@ async def _validate_and_reconcile_tracking_table(
     updated_body = replace_tracking_section(body, steps)
 
     try:
-        await _cp.github_projects_service.update_issue_body(
+        await _cp.get_github_service().update_issue_body(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -220,7 +220,7 @@ async def _attempt_reassignment(
 
     # Apply stalled label before re-assignment (non-blocking)
     try:
-        await _cp.github_projects_service.update_issue_state(
+        await _cp.get_github_service().update_issue_state(
             access_token=access_token,
             owner=task_owner,
             repo=task_repo,
@@ -303,7 +303,7 @@ async def _detect_stalled_issue(
     # Try sub-issue first
     sub_issue_number = _get_sub_issue_number(recovery_pipeline, agent_name, issue_number)
     if sub_issue_number != issue_number:
-        copilot_assigned = await _cp.github_projects_service.is_copilot_assigned_to_issue(
+        copilot_assigned = await _cp.get_github_service().is_copilot_assigned_to_issue(
             access_token=access_token,
             owner=task_owner,
             repo=task_repo,
@@ -312,7 +312,7 @@ async def _detect_stalled_issue(
 
     # Fallback: check parent issue
     if not copilot_assigned:
-        copilot_assigned = await _cp.github_projects_service.is_copilot_assigned_to_issue(
+        copilot_assigned = await _cp.get_github_service().is_copilot_assigned_to_issue(
             access_token=access_token,
             owner=task_owner,
             repo=task_repo,
@@ -325,7 +325,7 @@ async def _detect_stalled_issue(
 
     main_branch_info = _cp.get_issue_main_branch(issue_number)
 
-    linked_prs = await _cp.github_projects_service.get_linked_pull_requests(
+    linked_prs = await _cp.get_github_service().get_linked_pull_requests(
         access_token=access_token,
         owner=task_owner,
         repo=task_repo,
@@ -344,7 +344,7 @@ async def _detect_stalled_issue(
             if not isinstance(pr_num, int):
                 continue
 
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=task_owner,
                 repo=task_repo,
@@ -391,7 +391,7 @@ async def _check_copilot_session_health(
     if not wip_pr_number:
         return True
     try:
-        errored = await _cp.github_projects_service.check_copilot_session_error(
+        errored = await _cp.get_github_service().check_copilot_session_error(
             access_token=access_token,
             owner=task_owner,
             repo=task_repo,
@@ -445,7 +445,7 @@ async def recover_stalled_issues(
 
     try:
         if tasks is None:
-            tasks = await _cp.github_projects_service.get_project_items(access_token, project_id)
+            tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
 
         config = await _cp.get_workflow_config(project_id)
         if not config:
@@ -513,7 +513,7 @@ async def recover_stalled_issues(
 
             # ── Read the issue body tracking table ────────────────────────
             try:
-                issue_data = await _cp.github_projects_service.get_issue_with_comments(
+                issue_data = await _cp.get_github_service().get_issue_with_comments(
                     access_token=access_token,
                     owner=task_owner,
                     repo=task_repo,
@@ -548,7 +548,7 @@ async def recover_stalled_issues(
                 # Re-read the body now that the tracking table has been
                 # embedded so downstream helpers see the updated text.
                 try:
-                    refreshed = await _cp.github_projects_service.get_issue_with_comments(
+                    refreshed = await _cp.get_github_service().get_issue_with_comments(
                         access_token=access_token,
                         owner=task_owner,
                         repo=task_repo,
@@ -830,7 +830,7 @@ async def recover_stalled_issues(
                     # detect completion via the normal comment-based path.
                     marker = f"{agent_name}: Done!"
                     try:
-                        await _cp.github_projects_service.create_issue_comment(
+                        await _cp.get_github_service().create_issue_comment(
                             access_token=access_token,
                             owner=task_owner,
                             repo=task_repo,
@@ -863,7 +863,7 @@ async def recover_stalled_issues(
                     )
                     marker = f"{agent_name}: Done!"
                     try:
-                        await _cp.github_projects_service.create_issue_comment(
+                        await _cp.get_github_service().create_issue_comment(
                             access_token=access_token,
                             owner=task_owner,
                             repo=task_repo,
@@ -1094,9 +1094,9 @@ async def recover_pipeline_states_from_labels(
     if items is None:
         # Fetch items from the board
         try:
-            from src.services.github_projects import github_projects_service
+            from src.services.github_projects import get_github_service
 
-            board_data = await github_projects_service.get_project_items(access_token, project_id)
+            board_data = await get_github_service().get_project_items(access_token, project_id)
             # get_project_items returns list[Task]; convert to list[dict] since
             # batch_parse_pipeline_labels accesses both .get() and attribute paths.
             items = (

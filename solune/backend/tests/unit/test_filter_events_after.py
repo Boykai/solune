@@ -18,7 +18,7 @@ def mock_gps():
 
 
 def _patch_gps(mock):
-    return patch("src.services.copilot_polling.github_projects_service", mock)
+    return patch("src.services.copilot_polling.get_github_service", return_value=mock)
 
 
 def _import_filter(mock_gps):
@@ -104,3 +104,4 @@ class TestFilterEventsAfter:
         cutoff = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
         result = fn([], cutoff)
         assert result == []
+

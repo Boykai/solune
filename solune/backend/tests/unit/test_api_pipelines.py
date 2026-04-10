@@ -79,7 +79,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -179,7 +179,7 @@ class TestLaunchPipelineIssue:
                 return_value=("owner", "repo"),
             ),
             patch("src.api.pipelines._get_service", return_value=mock_service),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch("src.api.pipelines.get_db", return_value=AsyncMock()),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
@@ -244,7 +244,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -301,7 +301,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -376,7 +376,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -435,7 +435,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -487,7 +487,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -545,7 +545,7 @@ class TestLaunchPipelineIssue:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
             ),
@@ -939,7 +939,7 @@ class TestQueueModeRouting:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1005,7 +1005,7 @@ class TestQueueModeRouting:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1081,7 +1081,7 @@ class TestPositionCalculation:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1205,7 +1205,7 @@ class TestSubIssueErrors:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1260,7 +1260,7 @@ class TestSubIssueErrors:
                 new_callable=AsyncMock,
                 return_value=("owner", "repo"),
             ),
-            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch("src.api.pipelines.get_github_service", return_value=mock_github_service),
             patch(
                 "src.api.pipelines.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1373,3 +1373,4 @@ class TestDeriveIssueTitle:
 
         result = _derive_issue_title("> - * ")
         assert result == "Imported Parent Issue"
+

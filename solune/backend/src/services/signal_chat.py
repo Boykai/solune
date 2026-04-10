@@ -214,7 +214,7 @@ async def _run_workflow_orchestration(
     from src.config import get_settings
     from src.models.workflow import WorkflowConfiguration
     from src.services.copilot_polling import ensure_polling_started
-    from src.services.github_projects import github_projects_service as gh
+    from src.services.github_projects import get_github_service
     from src.services.workflow_orchestrator import (
         PipelineState,
         WorkflowContext,
@@ -262,7 +262,7 @@ async def _run_workflow_orchestration(
 
         # ── Set issue status to Backlog ──
         backlog_status = config.status_backlog
-        await gh.update_item_status_by_name(
+        await get_github_service().update_item_status_by_name(
             access_token=token,
             project_id=project_id,
             item_id=item_id,
@@ -365,7 +365,7 @@ async def _handle_confirm(
 
     try:
         from src.services.cache import cache, get_project_items_cache_key
-        from src.services.github_projects import github_projects_service as gh
+        from src.services.github_projects import get_github_service
         from src.utils import resolve_repository, utcnow
 
         owner, repo = await resolve_repository(token, pid)
@@ -385,7 +385,7 @@ async def _handle_confirm(
             if rec.technical_notes:
                 body_parts.append(f"\n**Technical Notes:**\n{rec.technical_notes}")
 
-            issue = await gh.create_issue(
+            issue = await get_github_service().create_issue(
                 access_token=token,
                 owner=owner,
                 repo=repo,
@@ -393,7 +393,7 @@ async def _handle_confirm(
                 body="\n".join(body_parts),
                 labels=[],
             )
-            item_id = await gh.add_issue_to_project(
+            item_id = await get_github_service().add_issue_to_project(
                 access_token=token,
                 project_id=pid,
                 issue_node_id=issue["node_id"],
@@ -464,7 +464,7 @@ async def _handle_confirm(
                 await _reply(source_phone, "⚠️ Proposal expired. Send your request again.")
                 return
 
-            issue = await gh.create_issue(
+            issue = await get_github_service().create_issue(
                 access_token=token,
                 owner=owner,
                 repo=repo,
@@ -472,7 +472,7 @@ async def _handle_confirm(
                 body=proposal.final_description or "",
                 labels=[],
             )
-            item_id = await gh.add_issue_to_project(
+            item_id = await get_github_service().add_issue_to_project(
                 access_token=token,
                 project_id=pid,
                 issue_node_id=issue["node_id"],
@@ -543,7 +543,7 @@ async def _handle_confirm(
                 await _reply(source_phone, "⚠️ Proposal expired. Send your request again.")
                 return
 
-            await gh.update_item_status_by_name(
+            await get_github_service().update_item_status_by_name(
                 access_token=token,
                 project_id=pid,
                 item_id=pending["task_id"],

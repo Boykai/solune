@@ -74,3 +74,4 @@ class TestModuleBoundaries:
                     violations.append(f"{py_file.name}:{i}: {line.strip()}")
 
         assert not violations, "API layer accesses private attributes:\n" + "\n".join(violations)
+
