@@ -38,7 +38,7 @@
 
 **⚠️ CRITICAL**: Bug 1.3 fix must land before Phase 2 test coverage work to avoid test noise
 
-- [ ] T005 Add per-element tool validation in `_extract_agent_preview()` in `solune/backend/src/services/agents/service.py` — after the `isinstance(tools, list)` check at line ~1472, add: `if not all(isinstance(t, str) and t.strip() for t in tools): return None`
+- [ ] T005 Add per-element tool validation in `_extract_agent_preview()` in `solune/backend/src/services/agents/service.py` — after the `isinstance(tools, list)` check at line ~1472, add a guard that returns `None` if any element is not a `str` or is empty/whitespace: `if not all(isinstance(t, str) and t.strip() for t in tools): return None`
 - [ ] T006 Add unit tests for malformed tool entries (int, None, empty string, dict, whitespace-only) in `solune/backend/tests/unit/test_agents_service.py`
 - [ ] T007 Add unit test for `tools: None` edge case returning `None` in `solune/backend/tests/unit/test_agents_service.py`
 - [ ] T008 Add unit test confirming valid tool entries still produce `AgentPreview` in `solune/backend/tests/unit/test_agents_service.py`
@@ -73,7 +73,7 @@
 
 **Goal**: Cover ~30 untested backend modules and raise coverage threshold from 75% to 80%
 
-**Independent Test**: Run `python -m pytest tests/ --cov=src --cov-fail-under=80 -q` and confirm it passes
+**Independent Test**: From `solune/backend/`, run `python -m pytest tests/ --cov=src --cov-fail-under=80 -q` and confirm it passes
 
 ### Tests for User Story 2 — Prompt Templates
 
@@ -126,7 +126,7 @@
 
 **Goal**: Cover ~61 untested frontend components and raise coverage thresholds to statements 60%, branches 52%, functions 50%, lines 60%
 
-**Independent Test**: Run `npx vitest run --coverage` and confirm updated thresholds are met
+**Independent Test**: From `solune/frontend/`, run `npx vitest run --coverage` and confirm updated thresholds are met
 
 ### Tests for User Story 3 — Chores Components (13)
 
@@ -190,7 +190,7 @@
 
 **Goal**: Add property-based tests for round-trip serialization, API validation edge cases, and migration idempotency
 
-**Independent Test**: Run `python -m pytest tests/property/ -v` (backend) and `npx vitest run --reporter=verbose -- property` (frontend) to confirm all property tests pass
+**Independent Test**: From `solune/backend/`, run `python -m pytest tests/property/ -v` and from `solune/frontend/`, run `npx vitest run --reporter=verbose -- "*.property.test"` to confirm all property tests pass
 
 ### Tests for User Story 4 — Backend Property Tests
 
@@ -216,7 +216,7 @@
 
 **Goal**: Expand `@axe-core/playwright` usage from 2 E2E specs to 6+ specs covering auth, board, chat, and settings flows
 
-**Independent Test**: Run `npx playwright test` and confirm axe-core a11y assertions pass in all target specs
+**Independent Test**: From `solune/frontend/`, run `npx playwright test auth.spec.ts board-navigation.spec.ts chat-interaction.spec.ts settings-flow.spec.ts` and confirm axe-core a11y assertions pass in all target specs
 
 ### Tests for User Story 5
 
@@ -238,7 +238,7 @@
 
 **Goal**: Replace module-level singletons with accessor-function DI pattern in two service files
 
-**Independent Test**: Run full CI suite and confirm all tests pass; `grep -rn "TODO(018-codebase-audit-refactor)" solune/backend/src/` returns no results
+**Independent Test**: Run full CI suite and confirm all tests pass; `grep -rn "TODO(018-codebase-audit-refactor)" solune/backend/src/` returns no matches (exit code 1)
 
 ### Implementation for User Story 6
 
@@ -300,7 +300,7 @@
 
 **Goal**: Merge 4 specialized Stryker configs into 1 unified config with `STRYKER_TARGET` env var
 
-**Independent Test**: Run `STRYKER_TARGET=all npx stryker run` and compare results to previous separate runs
+**Independent Test**: From `solune/frontend/`, run `STRYKER_TARGET=all npx stryker run` and verify mutation score matches the combined output of the previous separate config runs
 
 ### Implementation for User Story 8
 
