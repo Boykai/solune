@@ -24,7 +24,7 @@ async def test_active_step_wins_over_pending_steps_when_resolving_label_mismatch
         patch(
             "src.services.copilot_polling.state_validation.find_agent_label", return_value="planner"
         ),
-        patch(_GPS, mock_github),
+        patch(_GPS, return_value=mock_github),
     ):
         changed, corrections = await validate_pipeline_labels(
             access_token="tok",
@@ -51,7 +51,7 @@ async def test_first_pending_step_is_used_when_no_active_step_exists():
 
     with (
         patch("src.services.copilot_polling.state_validation.find_agent_label", return_value=None),
-        patch(_GPS, mock_github),
+        patch(_GPS, return_value=mock_github),
     ):
         changed, corrections = await validate_pipeline_labels(
             access_token="tok",
@@ -78,7 +78,7 @@ async def test_invalid_state_combinations_remove_stale_label():
         patch(
             "src.services.copilot_polling.state_validation.find_agent_label", return_value="builder"
         ),
-        patch(_GPS, mock_github),
+        patch(_GPS, return_value=mock_github),
     ):
         changed, corrections = await validate_pipeline_labels(
             access_token="tok",
