@@ -805,9 +805,7 @@ class TestRunWorkflowOrchestration:
         )
         _mock_svc = AsyncMock()
         _mock_svc.update_item_status_by_name = update_item_status_by_name
-        monkeypatch.setattr(
-            "src.services.github_projects.get_github_service", lambda: _mock_svc
-        )
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: _mock_svc)
         monkeypatch.setattr(
             "src.services.workflow_orchestrator.get_workflow_config", AsyncMock(return_value=None)
         )
@@ -897,9 +895,11 @@ class TestRunWorkflowOrchestration:
         monkeypatch.setattr(
             "src.services.copilot_polling.ensure_polling_started", ensure_polling_started
         )
+        _gh_svc = AsyncMock()
+        _gh_svc.update_item_status_by_name = AsyncMock()
         monkeypatch.setattr(
-            "src.services.github_projects.github_projects_service.update_item_status_by_name",
-            AsyncMock(),
+            "src.services.github_projects.get_github_service",
+            lambda: _gh_svc,
         )
         monkeypatch.setattr(
             "src.services.workflow_orchestrator.get_workflow_config", AsyncMock(return_value=config)
@@ -1184,4 +1184,3 @@ class TestHandleConfirmExecution:
         add_message.assert_awaited_once()
         reply_with_audit.assert_awaited_once()
         cache.delete.assert_called_once_with("project-cache")
-

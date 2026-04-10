@@ -78,7 +78,7 @@ def _cp_patches(mock_gps, output_files, sub_issues=None):
     from contextlib import ExitStack
 
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, return_value=mock_gps))
     stack.enter_context(patch(_OUTPUT_FILES, output_files))
     stack.enter_context(patch(_GET_SUB_ISSUES, MagicMock(return_value=sub_issues or {})))
     return stack
@@ -293,4 +293,3 @@ class TestPostMarkdownOutputs:
             )
 
         assert result == 2
-

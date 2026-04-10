@@ -1678,4 +1678,3 @@ class TestDeferredRemoval:
 
             # The finally safety net should have called remove_pipeline_state
             mock_remove.assert_called_once_with(42)
-

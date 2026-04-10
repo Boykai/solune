@@ -304,4 +304,3 @@ class TestRecoverStalledIssues:
 
         assert result == []
         assert recovery_last_attempt[42] == now
-

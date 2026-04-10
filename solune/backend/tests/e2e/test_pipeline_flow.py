@@ -103,4 +103,3 @@ class TestPipelineCRUD:
         """Pipeline endpoints return 401 without authentication."""
         response = await unauthenticated_client.get("/api/v1/pipelines/PVT_test123")
         assert response.status_code == 401
-

@@ -130,7 +130,9 @@ class TestAgentsServiceDeletion:
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=_workflow_result(pr_number=77, issue_number=55)),
@@ -176,7 +178,9 @@ class TestAgentsServiceDeletion:
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=_workflow_result(pr_number=82, issue_number=63)),
@@ -228,7 +232,9 @@ class TestAgentsServiceDeletion:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = []
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents = await service.list_agents(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -249,7 +255,9 @@ class TestAgentsServiceDeletion:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             first = await service.list_agents(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -279,7 +287,9 @@ class TestAgentsServiceDeletion:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = []
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             pending = await service.list_pending_agents(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -304,7 +314,9 @@ class TestAgentsServiceDeletion:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             pending = await service.list_pending_agents(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -436,7 +448,9 @@ class TestAgentsServiceUpdate:
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=_workflow_result(pr_number=88, issue_number=66)),
@@ -485,7 +499,9 @@ class TestAgentsServiceUpdate:
         workflow = AsyncMock(return_value=_workflow_result(pr_number=89, issue_number=67))
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch("src.services.agents.service.commit_files_workflow", workflow),
         ):
             result = await service.update_agent(
@@ -581,7 +597,9 @@ class TestAgentsServiceUpdate:
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
         with (
-            patch("src.services.agents.service.github_projects_service", mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=_workflow_result(pr_number=95, issue_number=70)),
@@ -640,7 +658,9 @@ class TestAgentsServiceUpdate:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=workflow_result),
@@ -794,7 +814,9 @@ class TestListAgentsPreferenceOverlay:
         mock_github_service.get_directory_contents.side_effect = RuntimeError("offline")
 
         service = AgentsService(mock_db)
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents = await service.list_agents(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -811,7 +833,9 @@ class TestListAgentsPreferenceOverlay:
         mock_github_service.get_directory_contents.side_effect = RuntimeError("offline")
 
         service = AgentsService(mock_db)
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents = await service.list_agents(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -841,7 +865,9 @@ class TestYAMLFrontmatterParsing:
         ]
 
         service = AgentsService(mock_db)
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents, available = await service._list_repo_agents(
                 owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
             )
@@ -864,7 +890,9 @@ class TestYAMLFrontmatterParsing:
         ]
 
         service = AgentsService(mock_db)
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents, available = await service._list_repo_agents(
                 owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
             )
@@ -882,7 +910,9 @@ class TestYAMLFrontmatterParsing:
         ]
 
         service = AgentsService(mock_db)
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents, available = await service._list_repo_agents(
                 owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
             )
@@ -900,7 +930,9 @@ class TestYAMLFrontmatterParsing:
         ]
 
         service = AgentsService(mock_db)
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agents, available = await service._list_repo_agents(
                 owner=OWNER, repo=REPO, access_token=ACCESS_TOKEN
             )
@@ -1050,7 +1082,9 @@ class TestCreateAgent:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=_workflow_result(pr_number=100, issue_number=70)),
@@ -1086,7 +1120,9 @@ class TestCreateAgent:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch.object(
                 service, "_enhance_agent_content", AsyncMock(side_effect=RuntimeError("AI down"))
             ),
@@ -1133,7 +1169,9 @@ class TestCreateAgent:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch.object(service, "_enhance_agent_content", enhance_mock),
             patch(
                 "src.services.agents.service.commit_files_workflow",
@@ -1178,7 +1216,9 @@ class TestCreateAgent:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=workflow_result),
@@ -1826,7 +1866,9 @@ class TestResolveListedAgent:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = []
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agent = await service._resolve_listed_agent(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -1844,7 +1886,9 @@ class TestResolveListedAgent:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = [_repo_entry("reviewer")]
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agent = await service._resolve_listed_agent(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -1862,7 +1906,9 @@ class TestResolveListedAgent:
         mock_github_service = AsyncMock()
         mock_github_service.get_directory_contents.return_value = []
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             agent = await service._resolve_listed_agent(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -2412,7 +2458,9 @@ class TestCreateAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             pytest.raises(ValueError, match="already exists"),
         ):
             await service.create_agent(
@@ -2442,7 +2490,9 @@ class TestCreateAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             pytest.raises(ValueError, match="already exists in the repository"),
         ):
             await service.create_agent(
@@ -2480,7 +2530,9 @@ class TestCreateAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=wf_result),
@@ -2515,7 +2567,9 @@ class TestDeleteAgentErrors:
         mock_github_service.get_directory_contents.return_value = []
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             pytest.raises(LookupError, match="not found"),
         ):
             await service.delete_agent(
@@ -2539,7 +2593,9 @@ class TestDeleteAgentErrors:
         mock_github_service.get_directory_contents.return_value = []
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             pytest.raises(ValueError, match="already pending deletion"),
         ):
             await service.delete_agent(
@@ -2566,7 +2622,9 @@ class TestDeleteAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=wf_result),
@@ -2611,7 +2669,9 @@ class TestUpdateAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             pytest.raises(LookupError, match="not found"),
         ):
             await service.update_agent(
@@ -2646,7 +2706,9 @@ class TestUpdateAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             pytest.raises(ValueError, match="pending deletion"),
         ):
             await service.update_agent(
@@ -2676,7 +2738,9 @@ class TestUpdateAgentErrors:
             default_model_name="New Model",
         )
 
-        with patch("src.services.agents.service.get_github_service", return_value=mock_github_service):
+        with patch(
+            "src.services.agents.service.get_github_service", return_value=mock_github_service
+        ):
             result = await service.update_agent(
                 project_id=PROJECT_ID,
                 owner=OWNER,
@@ -2719,7 +2783,9 @@ class TestUpdateAgentErrors:
         )
 
         with (
-            patch("src.services.agents.service.get_github_service", return_value=mock_github_service),
+            patch(
+                "src.services.agents.service.get_github_service", return_value=mock_github_service
+            ),
             patch(
                 "src.services.agents.service.commit_files_workflow",
                 AsyncMock(return_value=wf_result),
@@ -3073,4 +3139,3 @@ class TestListRepoAgentsEdgeCases:
         assert available is True
         assert len(agents) == 1
         assert agents[0].system_prompt == ""
-

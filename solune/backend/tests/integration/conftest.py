@@ -316,10 +316,16 @@ async def thin_mock_client(
         stack.enter_context(
             patch("src.services.github_projects.get_github_service", return_value=github_service)
         )
-        stack.enter_context(patch("src.api.projects.get_github_service", return_value=github_service))
+        stack.enter_context(
+            patch("src.api.projects.get_github_service", return_value=github_service)
+        )
         stack.enter_context(patch("src.api.board.get_github_service", return_value=github_service))
-        stack.enter_context(patch("src.api.pipelines.get_github_service", return_value=github_service))
-        stack.enter_context(patch("src.api.workflow.get_github_service", return_value=github_service))
+        stack.enter_context(
+            patch("src.api.pipelines.get_github_service", return_value=github_service)
+        )
+        stack.enter_context(
+            patch("src.api.workflow.get_github_service", return_value=github_service)
+        )
         stack.enter_context(patch("src.api.chat.get_ai_agent_service", return_value=ai_service))
         stack.enter_context(patch("src.api.chat._trigger_signal_delivery", lambda *_a, **_k: None))
         stack.enter_context(
@@ -352,4 +358,3 @@ async def thin_mock_client(
             await transport.aclose()
 
     await db.close()
-

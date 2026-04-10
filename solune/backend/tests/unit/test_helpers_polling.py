@@ -167,9 +167,9 @@ class TestGetSubIssueNumbersForIssue:
 
 
 def _base_patches(mock_gps):
-    """Stack patches for _cp.github_projects_service and common deps."""
+    """Stack patches for _cp.get_github_service() and common deps."""
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, return_value=mock_gps))
     return stack
 
 
@@ -589,4 +589,3 @@ class TestCheckAgentDonePassesPipeline:
             parent_issue_number=10,
             pipeline=pipeline,
         )
-
