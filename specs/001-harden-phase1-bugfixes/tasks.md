@@ -68,7 +68,7 @@
 
 ## Phase 4: User Story 2 — Updated Local Agents Show Correct Lifecycle Status (Priority: P1)
 
-**Goal**: Ensure all SQL paths in `update_agent()` set `lifecycle_status = pending_pr` when a PR is opened, so updated agents are not incorrectly shown as "active".
+**Goal**: Ensure all SQL paths in `update_agent()` set `lifecycle_status = PENDING_PR` when a PR is opened, so updated agents are not incorrectly shown as "active".
 
 **Independent Test**: Update an existing local agent's configuration, verify the returned agent object has `status == AgentStatus.PENDING_PR`, and confirm the persisted database row reflects the same status along with the new PR number and branch name.
 
@@ -128,7 +128,7 @@
 - [ ] T033 [P] Run type checker to confirm no type errors: `cd solune/backend && pyright`
 - [ ] T034 [P] Run linter to confirm code style: `cd solune/backend && ruff check`
 - [ ] T035 Verify memory stability: review that `_project_launch_locks` maxlen of 10,000 is appropriate for production workloads and document the choice in a code comment in `solune/backend/src/services/pipeline_state_store.py`
-- [ ] T036 Verify edge case: concurrent lock creation for the same project ID returns the same lock instance (covered by T008)
+- [ ] T036 Review T008 test results to confirm edge case: concurrent lock creation for the same project ID returns the same lock instance
 - [ ] T037 Verify edge case: multiple `agent-config` code blocks — only the first match is processed (already handled by `pattern.search()` in `solune/backend/src/services/agents/service.py`)
 
 ---
