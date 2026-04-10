@@ -1604,6 +1604,21 @@ class TestExtractAgentPreview:
         text = '```agent-config\n[{"name": "Bot"}]\n```'
         assert AgentsService._extract_agent_preview(text) is None
 
+    def test_non_string_name_returns_none(self):
+        """Regression: name=123 (non-string) → returns None, not AttributeError."""
+        text = '```agent-config\n{"name": 123, "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_boolean_name_returns_none(self):
+        """Regression: name=true (boolean) → returns None."""
+        text = '```agent-config\n{"name": true, "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_whitespace_only_tool_returns_none(self):
+        """Regression: tools=["read", "   "] (whitespace-only tool) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": ["read", "   "]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
 
 # ── _coerce_agent_status ─────────────────────────────────────────────────
 
