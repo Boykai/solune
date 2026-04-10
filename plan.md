@@ -185,31 +185,12 @@ if not all(isinstance(t, str) and bool(t.strip()) for t in tools):
 
 This ensures every tool element is a non-empty string. The `isinstance` check short-circuits before `strip()` for non-string elements, and `bool(t.strip())` rejects empty or whitespace-only strings.
 
-**Regression tests (PARTIALLY EXIST)**: `TestExtractAgentPreview` class (lines 1538–1580) covers:
+**Regression tests (COMPLETE)**: `TestExtractAgentPreview` class covers:
 
 - `test_non_list_tools_returns_none` — catches `tools: "read"` ✅
-- Missing: test for `tools: [123, null, {}]` (non-string list elements)
-- Missing: test for `tools: ["read", ""]` (empty string elements)
-- Missing: test for `tools: ["read", 123]` (mixed valid/invalid elements)
-
-**Required test additions**:
-
-```python
-def test_non_string_tool_elements_returns_none(self):
-    """Regression: tools=[123, null, {}] (non-string elements) → None."""
-    text = '```agent-config\n{"name": "Bot", "tools": [123, null, {}]}\n```'
-    assert AgentsService._extract_agent_preview(text) is None
-
-def test_empty_string_tool_element_returns_none(self):
-    """Regression: tools=["read", ""] (empty string) → None."""
-    text = '```agent-config\n{"name": "Bot", "tools": ["read", ""]}\n```'
-    assert AgentsService._extract_agent_preview(text) is None
-
-def test_mixed_valid_invalid_tool_elements_returns_none(self):
-    """Regression: mixed valid/invalid elements → None."""
-    text = '```agent-config\n{"name": "Bot", "tools": ["read", 123]}\n```'
-    assert AgentsService._extract_agent_preview(text) is None
-```
+- `test_non_string_tools_elements_returns_none` — catches `tools: [123, null, {}]` ✅
+- `test_empty_string_tool_returns_none` — catches `tools: ["read", ""]` ✅
+- `test_mixed_valid_invalid_tools_returns_none` — catches `tools: ["read", 123]` ✅
 
 ---
 
