@@ -73,7 +73,7 @@ class TestValidateAndReconcileTrackingTable:
         with ExitStack() as stack:
             check_done = AsyncMock(return_value=True)
             stack.enter_context(patch(f"{_CP}._check_agent_done_on_sub_or_parent", check_done))
-            stack.enter_context(patch(f"{_CP}.get_github_service", MagicMock()))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=MagicMock()))
 
             from src.services.copilot_polling.recovery import (
                 _validate_and_reconcile_tracking_table,
@@ -103,7 +103,7 @@ class TestValidateAndReconcileTrackingTable:
             )
             mock_gps = MagicMock()
             mock_gps.update_issue_body = AsyncMock()
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
 
             from src.services.copilot_polling.recovery import (
                 _validate_and_reconcile_tracking_table,
@@ -134,7 +134,7 @@ class TestValidateAndReconcileTrackingTable:
             )
             mock_gps = MagicMock()
             mock_gps.update_issue_body = AsyncMock(side_effect=RuntimeError("API error"))
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
 
             from src.services.copilot_polling.recovery import (
                 _validate_and_reconcile_tracking_table,
@@ -155,7 +155,7 @@ class TestValidateAndReconcileTrackingTable:
         with ExitStack() as stack:
             check_done = AsyncMock(return_value=False)
             stack.enter_context(patch(f"{_CP}._check_agent_done_on_sub_or_parent", check_done))
-            stack.enter_context(patch(f"{_CP}.get_github_service", MagicMock()))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=MagicMock()))
 
             from src.services.copilot_polling.recovery import (
                 _validate_and_reconcile_tracking_table,
@@ -186,7 +186,7 @@ class TestDetectStalledIssue:
         pipeline = self._make_pipeline({"agent": {"number": 99}})
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             stack.enter_context(patch(f"{_REC}._get_sub_issue_number", return_value=99))
             stack.enter_context(patch(f"{_CP}.get_issue_main_branch", return_value=None))
 
@@ -208,7 +208,7 @@ class TestDetectStalledIssue:
         pipeline = self._make_pipeline()
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             # sub-issue same as parent → skip sub-issue check
             stack.enter_context(patch(f"{_REC}._get_sub_issue_number", return_value=42))
             stack.enter_context(patch(f"{_CP}.get_issue_main_branch", return_value=None))
@@ -236,7 +236,7 @@ class TestDetectStalledIssue:
         pipeline = self._make_pipeline()
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             stack.enter_context(patch(f"{_REC}._get_sub_issue_number", return_value=42))
             stack.enter_context(patch(f"{_CP}.get_issue_main_branch", return_value=None))
 
@@ -263,7 +263,7 @@ class TestDetectStalledIssue:
         pipeline = self._make_pipeline()
 
         with ExitStack() as stack:
-            stack.enter_context(patch(f"{_CP}.get_github_service", mock_gps))
+            stack.enter_context(patch(f"{_CP}.get_github_service", return_value=mock_gps))
             stack.enter_context(patch(f"{_REC}._get_sub_issue_number", return_value=42))
             stack.enter_context(patch(f"{_CP}.get_issue_main_branch", return_value=None))
 
@@ -291,7 +291,7 @@ class TestCheckCopilotSessionHealth:
         mock_gps = MagicMock()
         mock_gps.check_copilot_session_error = AsyncMock(return_value=False)
 
-        with patch(f"{_CP}.get_github_service", mock_gps):
+        with patch(f"{_CP}.get_github_service", return_value=mock_gps):
             from src.services.copilot_polling.recovery import _check_copilot_session_health
 
             result = await _check_copilot_session_health("tok", "o", "r", 42, "agent", 100)
@@ -301,7 +301,7 @@ class TestCheckCopilotSessionHealth:
         mock_gps = MagicMock()
         mock_gps.check_copilot_session_error = AsyncMock(return_value=True)
 
-        with patch(f"{_CP}.get_github_service", mock_gps):
+        with patch(f"{_CP}.get_github_service", return_value=mock_gps):
             from src.services.copilot_polling.recovery import _check_copilot_session_health
 
             result = await _check_copilot_session_health("tok", "o", "r", 42, "agent", 100)
@@ -312,7 +312,7 @@ class TestCheckCopilotSessionHealth:
         mock_gps = MagicMock()
         mock_gps.check_copilot_session_error = AsyncMock(side_effect=RuntimeError("err"))
 
-        with patch(f"{_CP}.get_github_service", mock_gps):
+        with patch(f"{_CP}.get_github_service", return_value=mock_gps):
             from src.services.copilot_polling.recovery import _check_copilot_session_health
 
             result = await _check_copilot_session_health("tok", "o", "r", 42, "agent", 100)

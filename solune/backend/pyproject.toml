@@ -13,7 +13,7 @@ dependencies = [
     "python-multipart>=0.0.22,<1",
     "pyyaml>=6.0.3,<7",
     # GitHub Copilot SDK
-    "github-copilot-sdk>=0.2.2,<1",
+    "github-copilot-sdk>=0.2.1,<1",
     # Azure OpenAI (optional fallback provider)
     "openai>=2.26.0,<3",
     "azure-ai-inference>=1.0.0b9,<2",

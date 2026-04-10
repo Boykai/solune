@@ -72,6 +72,7 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
+            svc = svc.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.state import _pending_post_devops_retries
@@ -147,6 +148,7 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
+            svc = svc.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.pipeline import check_in_review_issues
@@ -203,6 +205,7 @@ class TestDevopsRecoveryFallback:
                 return_value=None,
             ),
         ):
+            svc = svc.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.pipeline import check_in_review_issues
@@ -264,6 +267,7 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
+            svc = svc.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.state import _pending_post_devops_retries
@@ -333,6 +337,7 @@ class TestDevopsRecoveryFallback:
                 return_value=pipeline,
             ),
         ):
+            svc = svc.return_value
             svc.get_project_items = AsyncMock(return_value=[task])
 
             from src.services.copilot_polling.state import _pending_post_devops_retries

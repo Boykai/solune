@@ -218,7 +218,6 @@ class TestCheckInProgressIssues:
     async def test_filters_in_progress_with_issue_numbers(
         self, mock_process, mock_service, mock_task, mock_task_no_issue
     ):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that only in-progress issues with issue numbers are processed."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task, mock_task_no_issue])
@@ -239,7 +238,6 @@ class TestCheckInProgressIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_non_in_progress_issues(self, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that issues not in 'In Progress' are skipped."""
         mock_task.status = "Done"
@@ -257,7 +255,6 @@ class TestCheckInProgressIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_github_service")
     async def test_uses_task_repo_info_over_fallback(self, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that task's repository info is preferred over fallback."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task])
@@ -284,7 +281,6 @@ class TestCheckInProgressIssues:
     async def test_uses_fallback_when_task_has_no_repo_info(
         self, mock_process, mock_service, mock_task
     ):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that fallback repo info is used when task doesn't have it."""
         mock_task.repository_owner = None
@@ -306,7 +302,6 @@ class TestCheckInProgressIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_github_service")
     async def test_handles_case_insensitive_status(self, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that status comparison is case-insensitive."""
         mock_task.status = "IN PROGRESS"  # Uppercase
@@ -330,7 +325,6 @@ class TestCheckInProgressIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_github_service")
     async def test_handles_none_status_gracefully(self, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that tasks with None status are skipped."""
         mock_task.status = None
@@ -353,7 +347,6 @@ class TestCheckInProgressIssues:
     @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     async def test_collects_all_results(self, mock_process, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that results from all processed issues are collected."""
         task1 = MagicMock(
@@ -399,7 +392,6 @@ class TestCheckInProgressIssues:
     async def test_skips_issues_with_active_pipeline_for_other_status(
         self, mock_get_pipeline, mock_process, mock_service, mock_task
     ):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Issues with a pipeline for a different status should have their pipeline
         updated to 'In Progress' (accepting Copilot's status change) and then be
@@ -444,7 +436,6 @@ class TestCheckInProgressIssues:
     async def test_processes_issues_with_in_progress_pipeline(
         self, mock_get_pipeline, mock_service, mock_task
     ):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Issues with an active In Progress pipeline should use comment-based detection."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task])
@@ -487,7 +478,6 @@ class TestCheckInProgressIssues:
     async def test_processes_issues_with_completed_pipeline(
         self, mock_get_pipeline, mock_process, mock_service, mock_task
     ):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Issues with a completed pipeline (any status) should be processed normally."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task])
@@ -535,7 +525,7 @@ class TestCheckInProgressIssues:
         mock_service,
         mock_task,
     ):
-        mock_task = mock_task.return_value
+        mock_service = mock_service.return_value
         """When in-memory pipeline state is None (e.g. server restart),
         check_in_progress_issues should reconstruct from issue comments
         instead of falling through to the legacy path that skips agents."""
@@ -599,7 +589,7 @@ class TestCheckInProgressIssues:
         mock_service,
         mock_task,
     ):
-        mock_task = mock_task.return_value
+        mock_service = mock_service.return_value
         """When reconstruction shows all In Progress agents are done,
         _process_pipeline_completion should handle the transition to
         In Review (not the legacy path)."""
@@ -669,7 +659,7 @@ class TestCheckInProgressIssues:
         mock_service,
         mock_task,
     ):
-        mock_task = mock_task.return_value
+        mock_service = mock_service.return_value
         """When the issue is In Progress but pipeline tracks Backlog,
         the transition target should be Ready (not In Review)."""
         from src.models.workflow import WorkflowConfiguration
@@ -950,7 +940,6 @@ class TestCheckIssueForCopilotCompletion:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_skipped_when_not_in_progress(self, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that 'skipped' is returned when issue not in progress."""
         mock_task.status = "Backlog"
@@ -971,7 +960,6 @@ class TestCheckIssueForCopilotCompletion:
     @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.process_in_progress_issue")
     async def test_processes_in_progress_issue(self, mock_process, mock_service, mock_task):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that in-progress issues are processed."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task])
@@ -994,7 +982,6 @@ class TestCheckIssueForCopilotCompletion:
     async def test_returns_no_action_when_process_returns_none(
         self, mock_process, mock_service, mock_task
     ):
-        mock_task = mock_task.return_value
         mock_service = mock_service.return_value
         """Test that 'no_action' is returned when no completed PR found."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task])
@@ -1043,7 +1030,6 @@ class TestPostAgentOutputsFromPr:
     async def test_posts_done_marker_on_parent_only_without_sub_issue(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """Without sub-issues, only Done! marker is posted (on parent). Markdown files are skipped."""
         mock_config.return_value = MagicMock()
@@ -1102,7 +1088,6 @@ class TestPostAgentOutputsFromPr:
     async def test_posts_md_on_sub_issue_and_done_on_parent(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """With sub-issues, markdown goes to sub-issue, Done! goes to parent."""
         mock_config.return_value = MagicMock()
@@ -1177,7 +1162,6 @@ class TestPostAgentOutputsFromPr:
     async def test_posts_summary_on_sub_issue_for_linter(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """Agents without declared output files should post one concise summary."""
         mock_config.return_value = MagicMock()
@@ -1252,7 +1236,6 @@ class TestPostAgentOutputsFromPr:
     async def test_skips_when_done_marker_already_exists(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """Should skip posting if Done! marker is already present."""
         mock_config.return_value = MagicMock()
@@ -1283,7 +1266,6 @@ class TestPostAgentOutputsFromPr:
     async def test_handles_implement_agent_with_no_md_outputs(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """Should process speckit.implement and post Done! marker even with no .md outputs."""
         mock_config.return_value = MagicMock()
@@ -1325,7 +1307,6 @@ class TestPostAgentOutputsFromPr:
     async def test_skips_when_no_pr_found(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """Should skip when no completed PR is found for the issue."""
         mock_config.return_value = MagicMock()
@@ -1356,7 +1337,6 @@ class TestPostAgentOutputsFromPr:
     async def test_deduplicates_via_cache(
         self, mock_pipeline, mock_config, mock_service, mock_task_backlog
     ):
-        mock_task_backlog = mock_task_backlog.return_value
         mock_service = mock_service.return_value
         """Should not re-post outputs for the same issue/agent/PR."""
         _posted_agent_outputs.add("10:speckit.specify:5")
@@ -1395,7 +1375,6 @@ class TestPostAgentOutputsFromPr:
         mock_main_pr_check,
         mock_task_backlog,
     ):
-        mock_main_pr_check = mock_main_pr_check.return_value
         mock_service = mock_service.return_value
         """Subsequent agent should detect completion via fresh signals on the main PR."""
         # Set up: main branch already established (first agent completed)
@@ -1457,7 +1436,6 @@ class TestPostAgentOutputsFromPr:
         mock_main_pr_check,
         mock_task_backlog,
     ):
-        mock_main_pr_check = mock_main_pr_check.return_value
         mock_service = mock_service.return_value
         """Subsequent agent should NOT detect completion if no fresh signals on main PR."""
         _issue_main_branches[10] = {"branch": "copilot/feature", "pr_number": 5, "head_sha": "abc"}
@@ -1504,7 +1482,6 @@ class TestPostAgentOutputsFromPr:
         mock_main_pr_check,
         mock_task_backlog,
     ):
-        mock_find_child = mock_find_child.return_value
         mock_service = mock_service.return_value
         """Regression test for #1171: first agent in a NEW status must not be
         fooled by stale timeline events on the main PR from a previous status.
@@ -1579,7 +1556,6 @@ class TestPostAgentOutputsFromPr:
         mock_tracking,
         mock_task_backlog,
     ):
-        mock_tracking = mock_tracking.return_value
         mock_service = mock_service.return_value
         """After container restart (no in-memory pipeline), should reconstruct
         the pipeline from the durable tracking table and detect completion."""
@@ -1655,7 +1631,6 @@ class TestPostAgentOutputsFromPr:
         mock_tracking,
         mock_task_backlog,
     ):
-        mock_tracking = mock_tracking.return_value
         mock_service = mock_service.return_value
         """If tracking table has no 🔄 Active agent, reconstruction should skip."""
         mock_config.return_value = MagicMock()
@@ -2218,7 +2193,6 @@ class TestMergeChildPrIfApplicable:
     @patch("src.services.copilot_polling.completion.asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_github_service")
     async def test_waits_for_draft_pr_to_be_ready_before_merge(self, mock_service, mock_sleep):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """Draft child PRs should be marked ready and given time to propagate before merge."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -2276,7 +2250,7 @@ class TestDetectCompletionSignals:
         mock_linked_prs,
         mock_service,
     ):
-        new_callable = new_callable.return_value
+        mock_service = mock_service.return_value
         """Main PR completion must not bypass an open child PR that still needs merging."""
         pipeline = MagicMock()
         pipeline.started_at = utcnow()
@@ -2628,7 +2602,6 @@ class TestCheckBacklogIssues:
         mock_service,
         mock_backlog_task,
     ):
-        mock_backlog_task = mock_backlog_task.return_value
         mock_service = mock_service.return_value
         """Should check if current agent has completed."""
         mock_config.return_value = MagicMock(
@@ -2709,7 +2682,6 @@ class TestCheckReadyIssues:
         mock_service,
         mock_ready_task,
     ):
-        mock_ready_task = mock_ready_task.return_value
         mock_service = mock_service.return_value
         """Should reconstruct pipeline state when not in memory."""
         mock_config.return_value = MagicMock(
@@ -2819,7 +2791,6 @@ class TestTransitionAfterPipelineComplete:
     async def test_in_review_transition_uses_comprehensive_discovery(
         self, mock_remove, mock_config, mock_ws, mock_service, mock_discover
     ):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         """In Review transition should use _discover_main_pr_for_review for PR lookup."""
         mock_service.update_item_status_by_name = AsyncMock(return_value=True)
@@ -2874,7 +2845,6 @@ class TestTransitionAfterPipelineComplete:
     async def test_in_review_transition_no_pr_found_logs_warning(
         self, mock_remove, mock_config, mock_ws, mock_service, mock_discover
     ):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         """When no PR found during In Review transition, should still transition but log warning."""
         mock_service.update_item_status_by_name = AsyncMock(return_value=True)
@@ -2915,7 +2885,6 @@ class TestTransitionAfterPipelineComplete:
     async def test_dequeue_called_for_in_review(
         self, mock_remove, mock_config, mock_ws, mock_service, mock_dequeue
     ):
-        mock_dequeue = mock_dequeue.return_value
         mock_service = mock_service.return_value
         """Dequeue should fire when pipeline reaches In Review."""
         mock_service.update_item_status_by_name = AsyncMock(return_value=True)
@@ -2953,7 +2922,6 @@ class TestTransitionAfterPipelineComplete:
     async def test_dequeue_called_for_done(
         self, mock_remove, mock_config, mock_ws, mock_service, mock_dequeue
     ):
-        mock_dequeue = mock_dequeue.return_value
         mock_service = mock_service.return_value
         """Dequeue should fire when pipeline reaches Done."""
         mock_service.update_item_status_by_name = AsyncMock(return_value=True)
@@ -2992,7 +2960,6 @@ class TestTransitionAfterPipelineComplete:
     async def test_dequeue_not_called_for_intermediate_transitions(
         self, mock_remove, mock_config, mock_ws, mock_service, mock_dequeue, to_status
     ):
-        mock_dequeue = mock_dequeue.return_value
         mock_service = mock_service.return_value
         """Dequeue must NOT fire for intermediate status transitions."""
         mock_service.update_item_status_by_name = AsyncMock(return_value=True)
@@ -3047,7 +3014,6 @@ class TestAdvancePipeline:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """Should advance pipeline and assign next agent."""
         pipeline = PipelineState(
@@ -3119,7 +3085,6 @@ class TestAdvancePipeline:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """_advance_pipeline must mark the completed agent as Done in the
         issue body tracking table so users see ✅ instead of stale 🔄."""
@@ -3181,7 +3146,6 @@ class TestAdvancePipeline:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """Should block pipeline advance when child PR merge fails.
 
@@ -3257,7 +3221,7 @@ class TestAdvancePipeline:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
+        mock_service = mock_service.return_value
         """A silent None merge result must still block advancement if the child PR is open."""
         pipeline = PipelineState(
             issue_number=42,
@@ -3330,7 +3294,6 @@ class TestAdvancePipeline:
         mock_update_tracking,
         mock_sleep,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """A newly-entered parallel group must assign all agents concurrently.
 
@@ -3435,7 +3398,6 @@ class TestAdvancePipeline:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """One agent failure in a parallel group must not prevent the others."""
         from src.services.workflow_orchestrator.models import PipelineGroupInfo
@@ -3530,7 +3492,6 @@ class TestAdvancePipeline:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """An exception in one parallel agent must mark that specific agent failed."""
         from src.services.workflow_orchestrator.models import PipelineGroupInfo
@@ -4148,7 +4109,6 @@ class TestRecoverStalledIssues:
     async def test_skips_issues_with_all_agents_done(
         self, mock_config, mock_service, mock_backlog_task
     ):
-        mock_backlog_task = mock_backlog_task.return_value
         mock_service = mock_service.return_value
         """Should skip issues where all agents are ✅ Done."""
         mock_config.return_value = MagicMock(
@@ -4177,7 +4137,6 @@ class TestRecoverStalledIssues:
     async def test_recovers_when_copilot_not_assigned_and_no_wip_pr(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should re-assign agent when Copilot is not assigned and no WIP PR."""
         mock_config.return_value = MagicMock(
@@ -4218,7 +4177,6 @@ class TestRecoverStalledIssues:
     async def test_recovers_when_copilot_assigned_but_no_wip_pr(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should re-assign agent when Copilot is assigned but no WIP PR found."""
         mock_config.return_value = MagicMock(
@@ -4253,7 +4211,6 @@ class TestRecoverStalledIssues:
     async def test_no_recovery_when_agent_healthy(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should not recover when Copilot is assigned and WIP PR exists."""
         mock_config.return_value = MagicMock(
@@ -4295,7 +4252,6 @@ class TestRecoverStalledIssues:
     async def test_recovers_when_copilot_errored_on_wip_pr(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should re-assign agent when Copilot has errored/stopped on the WIP PR."""
         mock_config.return_value = MagicMock(
@@ -4347,7 +4303,6 @@ class TestRecoverStalledIssues:
     async def test_respects_max_recovery_retries(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should skip issues that have exceeded MAX_RECOVERY_RETRIES."""
         from src.services.copilot_polling.state import MAX_RECOVERY_RETRIES
@@ -4378,7 +4333,6 @@ class TestRecoverStalledIssues:
     async def test_respects_cooldown(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should skip issues within cooldown period."""
         mock_config.return_value = MagicMock(
@@ -4409,7 +4363,6 @@ class TestRecoverStalledIssues:
     async def test_sets_cooldown_after_recovery(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should set cooldown timestamp after recovery attempt."""
         mock_config.return_value = MagicMock(
@@ -4447,7 +4400,6 @@ class TestRecoverStalledIssues:
     async def test_skips_issues_without_tracking_table_after_self_heal_fails(
         self, mock_config, mock_service, mock_heal, mock_backlog_task
     ):
-        mock_heal = mock_heal.return_value
         mock_service = mock_service.return_value
         """Should skip issues without a tracking table only after self-healing also fails."""
         mock_config.return_value = MagicMock(
@@ -4501,7 +4453,6 @@ class TestRecoverStalledIssues:
     async def test_skips_recovery_when_done_marker_exists(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """Should NOT re-assign when agents are already Done in GitHub.
 
@@ -4554,7 +4505,6 @@ class TestRecoverStalledIssues:
         mock_get_branch,
         mock_get_orch,
     ):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Recovery should not resurrect earlier agents from a stale table.
 
@@ -4637,7 +4587,6 @@ class TestRecoverStalledIssues:
     async def test_skips_copilot_review_agent_stall_checks(
         self, mock_config, mock_service, mock_check_done
     ):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Recovery should skip copilot_assigned / has_wip_pr for copilot-review.
 
@@ -4699,7 +4648,6 @@ class TestRecoverStalledIssues:
     @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_human_agent_stall_checks(self, mock_config, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Recovery should skip copilot_assigned / has_wip_pr for human agent.
 
@@ -4756,7 +4704,6 @@ class TestRecoverStalledIssues:
     async def test_skips_recovery_when_merged_child_pr_exists(
         self, mock_config, mock_service, mock_find_child, mock_get_branch, mock_backlog_task
     ):
-        mock_find_child = mock_find_child.return_value
         mock_service = mock_service.return_value
         """Should NOT re-assign when a merged child PR exists without Done! marker.
 
@@ -4829,7 +4776,6 @@ class TestRecoverStalledIssues:
         mock_get_orch,
         mock_backlog_task,
     ):
-        mock_find_child = mock_find_child.return_value
         mock_service = mock_service.return_value
         """Should still re-assign when no main branch info exists (first agent).
 
@@ -4877,7 +4823,6 @@ class TestRecoverStalledIssues:
     async def test_merged_child_pr_guard_tolerates_marker_post_failure(
         self, mock_config, mock_service, mock_find_child, mock_get_branch, mock_backlog_task
     ):
-        mock_find_child = mock_find_child.return_value
         mock_service = mock_service.return_value
         """Should skip re-assignment even if posting the Done! marker fails.
 
@@ -4956,7 +4901,6 @@ class TestValidateAndReconcileTrackingTable:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_no_corrections_when_table_matches_github(self, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """No corrections when GitHub agrees with the tracking table."""
         from src.services.agent_tracking import parse_tracking_from_body
@@ -4984,7 +4928,6 @@ class TestValidateAndReconcileTrackingTable:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_corrects_active_agent_to_done(self, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Active agent corrected to Done when GitHub has Done! marker."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -5021,7 +4964,6 @@ class TestValidateAndReconcileTrackingTable:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_corrects_pending_agent_to_done(self, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Pending agent corrected to Done when GitHub has Done! marker."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -5056,7 +4998,6 @@ class TestValidateAndReconcileTrackingTable:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_corrects_multiple_agents_in_one_pass(self, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """All out-of-sync agents corrected in a single reconciliation pass."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -5088,7 +5029,6 @@ class TestValidateAndReconcileTrackingTable:
     async def test_continues_with_corrected_state_when_push_fails(
         self, mock_service, mock_check_done
     ):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """In-memory corrections survive even when pushing to GitHub fails."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -5117,7 +5057,6 @@ class TestValidateAndReconcileTrackingTable:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_already_done_agents(self, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Agents already marked Done should not be re-corrected."""
         from src.services.agent_tracking import parse_tracking_from_body
@@ -5153,7 +5092,6 @@ class TestValidateAndReconcileTrackingTable:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_end_to_end_recovery_with_stale_table(self, mock_service, mock_check_done):
-        mock_check_done = mock_check_done.return_value
         mock_service = mock_service.return_value
         """Integration: stale table gets reconciled then recovery assigns correct agent.
 
@@ -5264,7 +5202,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_no_pr_discovered_returns_none(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         mock_discover.return_value = None
         result = await ensure_copilot_review_requested("tok", "o", "r", "PVT_1", 42, "title")
@@ -5276,7 +5213,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_missing_pr_number_returns_none(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         mock_discover.return_value = {"pr_number": None, "pr_id": "PR_N", "is_draft": False}
         result = await ensure_copilot_review_requested("tok", "o", "r", "PVT_1", 42, "title")
@@ -5288,7 +5224,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_dismisses_auto_triggered_before_requesting(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         """Auto-triggered reviews are dismissed before Solune requests its own review."""
         mock_discover.return_value = {
@@ -5317,7 +5252,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_review_requested_successfully(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         mock_discover.return_value = {
             "pr_number": 10,
@@ -5343,7 +5277,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_review_request_fails(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         mock_discover.return_value = {
             "pr_number": 10,
@@ -5364,7 +5297,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_exception_returns_none(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         mock_discover.side_effect = Exception("boom")
         result = await ensure_copilot_review_requested("tok", "o", "r", "PVT_1", 42, "title")
@@ -5376,7 +5308,6 @@ class TestEnsureCopilotReviewRequested:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_draft_pr_converted_to_ready(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         """When the discovered PR is draft, it should be converted to ready before review."""
         mock_discover.return_value = {
@@ -5424,7 +5355,6 @@ class TestCheckInReviewIssues:
         mock_get_pipeline,
         mock_get_config,
     ):
-        mock_ensure = mock_ensure.return_value
         mock_service = mock_service.return_value
         task = MagicMock(status="In Progress", issue_number=1)
         mock_service.get_project_items = AsyncMock(return_value=[task])
@@ -5452,7 +5382,6 @@ class TestCheckInReviewIssues:
         mock_get_pipeline,
         mock_get_config,
     ):
-        mock_ensure = mock_ensure.return_value
         mock_service = mock_service.return_value
         task = MagicMock(
             status="In Review",
@@ -5498,7 +5427,6 @@ class TestCheckInReviewIssues:
         mock_get_pipeline,
         mock_get_config,
     ):
-        mock_ensure = mock_ensure.return_value
         mock_service = mock_service.return_value
         task = MagicMock(
             status="In Review",
@@ -5531,7 +5459,6 @@ class TestCheckInReviewIssues:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_exception_returns_empty(self, mock_service, mock_get_config):
-        mock_get_config = mock_get_config.return_value
         mock_service = mock_service.return_value
         mock_service.get_project_items = AsyncMock(side_effect=Exception("err"))
         mock_get_config.return_value = MagicMock(status_in_review="In Review")
@@ -5555,7 +5482,6 @@ class TestCheckInReviewIssues:
         mock_get_pipeline,
         mock_get_config,
     ):
-        mock_ensure = mock_ensure.return_value
         mock_service = mock_service.return_value
         task = MagicMock(status="In Review", issue_number=None)
         mock_service.get_project_items = AsyncMock(return_value=[task])
@@ -5582,7 +5508,6 @@ class TestCheckInReviewIssues:
         mock_get_pipeline,
         mock_get_config,
     ):
-        mock_ensure = mock_ensure.return_value
         mock_service = mock_service.return_value
         task = MagicMock(
             status="In Review",
@@ -5628,7 +5553,6 @@ class TestCheckInReviewIssues:
         mock_get_pipeline,
         mock_get_config,
     ):
-        mock_ensure = mock_ensure.return_value
         mock_service = mock_service.return_value
         from src.services.workflow_orchestrator.models import PipelineGroupInfo
 
@@ -5948,7 +5872,6 @@ class TestPollLoop:
         mock_review,
         mock_recover,
     ):
-        mock_output = mock_output.return_value
         mock_service = mock_service.return_value
         from src.services.copilot_polling import _polling_state
 
@@ -6060,7 +5983,6 @@ class TestRateLimitAwarePolling:
     @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_github_service")
     async def test_pause_if_rate_limited_pauses_when_exhausted(self, mock_service, mock_sleep):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """_pause_if_rate_limited should sleep and return True when remaining <= threshold."""
         from src.services.copilot_polling.polling_loop import _pause_if_rate_limited
@@ -6079,7 +6001,6 @@ class TestRateLimitAwarePolling:
     @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_github_service")
     async def test_pause_if_rate_limited_returns_false_when_healthy(self, mock_service, mock_sleep):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """_pause_if_rate_limited should return False when remaining is healthy."""
         from src.services.copilot_polling.polling_loop import _pause_if_rate_limited
@@ -6100,7 +6021,6 @@ class TestRateLimitAwarePolling:
     async def test_pause_if_rate_limited_clears_stale_when_reset_passed(
         self, mock_service, mock_sleep
     ):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """When remaining=0 but reset_at is in the past, clear stale data and return False.
 
@@ -6133,7 +6053,6 @@ class TestRateLimitAwarePolling:
     async def test_pause_if_rate_limited_sleeps_when_reset_in_future(
         self, mock_service, mock_sleep
     ):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """When remaining=0 and reset_at is in the future, should still sleep normally."""
         from src.services.copilot_polling.polling_loop import _pause_if_rate_limited
@@ -6275,7 +6194,6 @@ class TestRateLimitAwarePolling:
         mock_review,
         mock_recover,
     ):
-        mock_output = mock_output.return_value
         mock_service = mock_service.return_value
         """When rate limit is below RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD,
         Step 0 (post_agent_outputs_from_pr) should be skipped."""
@@ -6339,7 +6257,6 @@ class TestRateLimitAwarePolling:
         mock_review,
         mock_recover,
     ):
-        mock_output = mock_output.return_value
         mock_service = mock_service.return_value
         """When remaining is below RATE_LIMIT_SLOW_THRESHOLD at end of cycle,
         the sleep interval should be doubled."""
@@ -6380,7 +6297,7 @@ class TestRateLimitAwarePolling:
     def test_get_polling_status_includes_rate_limit(self):
         """get_polling_status should include rate_limit info when available."""
         with patch("src.services.copilot_polling.polling_loop._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = {
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = {
                 "limit": 5000,
                 "remaining": 3000,
                 "reset_at": 1700000000,
@@ -6408,7 +6325,6 @@ class TestPipelineRateLimitAwareness:
     @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_waits_when_budget_low(self, mock_service, mock_sleep):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """_wait_if_rate_limited should sleep and return True when budget is critically low."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6427,7 +6343,6 @@ class TestPipelineRateLimitAwareness:
     async def test_wait_if_rate_limited_proceeds_when_budget_healthy(
         self, mock_service, mock_sleep
     ):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """_wait_if_rate_limited should return False when budget is healthy."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6444,7 +6359,6 @@ class TestPipelineRateLimitAwareness:
     @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_clears_stale_data(self, mock_service, mock_sleep):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """_wait_if_rate_limited should clear stale data and continue when reset_at is past."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6462,7 +6376,6 @@ class TestPipelineRateLimitAwareness:
     @patch("asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_proceeds_when_no_data(self, mock_service, mock_sleep):
-        mock_sleep = mock_sleep.return_value
         mock_service = mock_service.return_value
         """_wait_if_rate_limited should return False when no rate limit data available."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6950,7 +6863,6 @@ class TestUpdateIssueTracking:
     @patch("src.services.copilot_polling.mark_agent_active")
     @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_true_when_no_change_needed(self, mock_service, mock_mark):
-        mock_mark = mock_mark.return_value
         mock_service = mock_service.return_value
         """Should return True without calling update_issue_body when body unchanged."""
         original_body = "| 1 | Backlog | `speckit.specify` | 🔄 Active |"
@@ -6975,7 +6887,6 @@ class TestUpdateIssueTracking:
     @patch("src.services.copilot_polling.mark_agent_active")
     @patch("src.services.copilot_polling.get_github_service")
     async def test_marks_agent_active_and_updates(self, mock_service, mock_mark):
-        mock_mark = mock_mark.return_value
         mock_service = mock_service.return_value
         """Should call mark_agent_active and push updated body when state is 'active'."""
         mock_service.get_issue_with_comments = AsyncMock(
@@ -7007,7 +6918,6 @@ class TestUpdateIssueTracking:
     @patch("src.services.copilot_polling.mark_agent_done")
     @patch("src.services.copilot_polling.get_github_service")
     async def test_marks_agent_done_and_updates(self, mock_service, mock_mark):
-        mock_mark = mock_mark.return_value
         mock_service = mock_service.return_value
         """Should call mark_agent_done and push updated body when state is 'done'."""
         mock_service.get_issue_with_comments = AsyncMock(
@@ -7263,7 +7173,6 @@ class TestAdvancePipelineClosesSubIssueFromGlobalStore:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """When pipeline.agent_sub_issues is empty but the global store has
         the mapping, _advance_pipeline should still close the sub-issue."""
@@ -7350,7 +7259,6 @@ class TestAdvancePipelineClosesSubIssueFromGlobalStore:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """When pipeline has sub-issue info, it should be used instead of global store."""
         from src.services.workflow_orchestrator import set_issue_sub_issues
@@ -7682,7 +7590,6 @@ class TestProcessPipelineCompletionClosesSubIssues:
         mock_service,
         mock_close_subs,
     ):
-        mock_close_subs = mock_close_subs.return_value
         mock_service = mock_service.return_value
         """When pipeline.is_complete, _process_pipeline_completion should
         call _close_completed_sub_issues before transitioning status."""
@@ -7956,7 +7863,6 @@ class TestProcessPipelineCompletionChecksAllParallelAgents:
         mock_check_done,
         mock_advance,
     ):
-        mock_tracking = mock_tracking.return_value
         mock_service = mock_service.return_value
         """When two parallel agents complete in the same cycle, both should
         be detected and _advance_pipeline called for each."""
@@ -8064,7 +7970,6 @@ class TestPipelineAdvancesAfterCopilotReview:
         mock_get_orch,
         mock_get_config,
     ):
-        mock_ws = mock_ws.return_value
         mock_service = mock_service.return_value
         """When pipeline is reconstructed after copilot-review Done!, judge
         must be assigned even if child PRs from prior agents exist."""
@@ -8195,7 +8100,6 @@ class TestDiscoverMainPrForReview:
     async def test_strategy3_sub_issue_discovery(
         self, mock_main_branch, mock_service, mock_get_subs
     ):
-        mock_get_subs = mock_get_subs.return_value
         mock_service = mock_service.return_value
         """Strategy 3: discovers main PR via speckit.specify sub-issue."""
         mock_main_branch.return_value = None
@@ -8236,7 +8140,6 @@ class TestDiscoverMainPrForReview:
     @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy3_skips_child_prs(self, mock_main_branch, mock_service, mock_get_subs):
-        mock_get_subs = mock_get_subs.return_value
         mock_service = mock_service.return_value
         """Strategy 3 should skip child PRs (targeting feature branch, not default)."""
         mock_main_branch.return_value = None
@@ -8273,7 +8176,6 @@ class TestDiscoverMainPrForReview:
     async def test_strategy5_rest_search_finds_pr(
         self, mock_main_branch, mock_service, mock_get_subs
     ):
-        mock_get_subs = mock_get_subs.return_value
         mock_service = mock_service.return_value
         """Strategy 5: discovers PR via REST search by branch pattern / body reference."""
         mock_main_branch.return_value = None
@@ -8320,7 +8222,6 @@ class TestDiscoverMainPrForReview:
     async def test_strategy5_skips_prs_not_targeting_default(
         self, mock_main_branch, mock_service, mock_get_subs
     ):
-        mock_get_subs = mock_get_subs.return_value
         mock_service = mock_service.return_value
         """Strategy 5 should skip PRs that don't target the default branch."""
         mock_main_branch.return_value = None
@@ -8361,7 +8262,6 @@ class TestDiscoverMainPrForReview:
     async def test_strategy6_creates_pr_from_branch(
         self, mock_main_branch, mock_service, mock_get_subs
     ):
-        mock_get_subs = mock_get_subs.return_value
         mock_service = mock_service.return_value
         """Strategy 6: creates a PR when a branch exists but no open PR."""
         mock_main_branch.return_value = None
@@ -8411,7 +8311,6 @@ class TestDiscoverMainPrForReview:
     async def test_all_strategies_fail_returns_none(
         self, mock_main_branch, mock_service, mock_get_subs
     ):
-        mock_get_subs = mock_get_subs.return_value
         mock_service = mock_service.return_value
         """When all strategies fail, returns None."""
         mock_main_branch.return_value = None
@@ -8795,7 +8694,6 @@ class TestCheckInReviewIssuesPipeline:
     @patch("src.services.copilot_polling.get_workflow_config")
     @patch("src.services.copilot_polling.get_github_service")
     async def test_no_in_review_issues_returns_empty(self, mock_service, mock_config):
-        mock_config = mock_config.return_value
         mock_service = mock_service.return_value
         """When no issues are in 'In Review', return empty list."""
         mock_config.return_value = MagicMock(
@@ -8821,7 +8719,6 @@ class TestCheckInReviewIssuesPipeline:
     @patch("src.services.copilot_polling.get_workflow_config")
     @patch("src.services.copilot_polling.get_github_service")
     async def test_no_config_returns_empty(self, mock_service, mock_config):
-        mock_config = mock_config.return_value
         mock_service = mock_service.return_value
         """When no workflow config exists, return empty list."""
         mock_config.return_value = None
@@ -9124,7 +9021,6 @@ class TestRecoveryForcedTransition:
         mock_transition,
         mock_in_progress_task,
     ):
-        mock_next_status = mock_next_status.return_value
         mock_service = mock_service.return_value
         """All agents Done + non-terminal status → _transition_after_pipeline_complete called."""
         mock_config.return_value = MagicMock(
@@ -9179,7 +9075,6 @@ class TestRecoveryForcedTransition:
         mock_transition,
         mock_in_progress_task,
     ):
-        mock_next_status = mock_next_status.return_value
         mock_service = mock_service.return_value
         """When get_next_status returns None, no transition is attempted."""
         mock_config.return_value = MagicMock(
@@ -9218,7 +9113,6 @@ class TestRecoveryForcedTransition:
         mock_transition,
         mock_in_progress_task,
     ):
-        mock_next_status = mock_next_status.return_value
         mock_service = mock_service.return_value
         """Issues on recovery cooldown should not trigger another transition attempt."""
         from datetime import UTC, datetime
@@ -9261,7 +9155,6 @@ class TestRecoveryForcedTransition:
         mock_transition,
         mock_in_progress_task,
     ):
-        mock_next_status = mock_next_status.return_value
         mock_service = mock_service.return_value
         """When _transition_after_pipeline_complete returns None, results stay empty."""
         mock_config.return_value = MagicMock(
@@ -9905,7 +9798,6 @@ class TestAdvancePipelineUsePipelineStatus:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """When the board status differs from the pipeline status (e.g. the
         board jumped to 'In Review' but the pipeline is still 'In Progress'),
@@ -10007,7 +9899,6 @@ class TestCheckInReviewPipelineStatusMismatch:
         mock_config,
         mock_process,
     ):
-        mock_config = mock_config.return_value
         mock_service = mock_service.return_value
         """When the cached pipeline is for 'In Progress' but the issue is
         on the 'In Review' column, check_in_review_issues should pass
@@ -10105,7 +9996,6 @@ class TestCopilotReviewGroupedPipelineRace:
         mock_config,
         mock_discover,
     ):
-        mock_config = mock_config.return_value
         mock_service = mock_service.return_value
         """A stale auto-triggered review must not complete a later copilot-review group."""
         from src.models.agent import AgentAssignment
@@ -10267,7 +10157,6 @@ class TestGetOrReconstructPipelineTrackingTable:
         mock_parse_tracking,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """When the tracking table shows pending agents in 'In Progress' but
         the board shows 'In Review', reconstruction should use the
@@ -10374,7 +10263,6 @@ class TestCopilotReviewChildPrFalsePositive:
     async def test_agent_output_skips_copilot_review_step0(
         self, mock_pipeline, mock_config, mock_service, mock_task_in_progress
     ):
-        mock_task_in_progress = mock_task_in_progress.return_value
         mock_service = mock_service.return_value
         """post_agent_outputs_from_pr must NOT invoke child-PR detection
         when the current agent is copilot-review.  Without the guard,
@@ -10711,7 +10599,6 @@ class TestGetOrReconstructPipelineCurrentStatusOverride:
         mock_parse_tracking,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """When the DB config only has ['speckit.implement'] for In Progress
         but the tracking table shows ['speckit.implement', 'judge', 'linter'],
@@ -10776,7 +10663,6 @@ class TestGetOrReconstructPipelineCurrentStatusOverride:
         mock_parse_tracking,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """When the tracking table agents match the DB config, no override occurs."""
         from src.services.agent_tracking import AgentStep
@@ -10825,7 +10711,6 @@ class TestGetOrReconstructPipelineCurrentStatusOverride:
         mock_service,
         mock_reconstruct,
     ):
-        mock_reconstruct = mock_reconstruct.return_value
         mock_service = mock_service.return_value
         """When there is no tracking table in the issue body, reconstruction
         uses the caller-provided agents from DB config (no crash, no override).
@@ -11098,7 +10983,6 @@ class TestGetOrReconstructPipelineLaterStatus:
         mock_parse_tracking,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """When the board says 'Backlog' but all Backlog agents are done
         and the first incomplete is at 'In Progress', reconstruction should
@@ -11168,7 +11052,6 @@ class TestGetOrReconstructPipelineLaterStatus:
         mock_parse_tracking,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """Original behavior preserved: when the board says 'In Review' but
         In Progress still has pending agents, reconstruction should use
@@ -11470,7 +11353,6 @@ class TestGetOrReconstructPipelineSelfHeal:
         mock_heal,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """When parse_tracking returns None, self-healing is attempted.
         If it produces steps, they are used for reconstruction.
@@ -11534,7 +11416,6 @@ class TestGetOrReconstructPipelineSelfHeal:
         mock_heal,
         mock_reconstruct,
     ):
-        mock_parse_tracking = mock_parse_tracking.return_value
         mock_service = mock_service.return_value
         """When self-healing returns None, reconstruction uses original agents."""
         from src.services.copilot_polling import _get_or_reconstruct_pipeline
@@ -11616,7 +11497,6 @@ class TestRecoveryIncludesInReview:
     async def test_in_review_issue_not_skipped(
         self, mock_config, mock_service, mock_get_branch, mock_in_review_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """An 'In Review' issue with a healthy active agent should be checked (not skipped)."""
         mock_config.return_value = MagicMock(
@@ -11655,7 +11535,6 @@ class TestRecoveryIncludesInReview:
     async def test_in_review_stalled_agent_gets_recovered(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_in_review_task
     ):
-        mock_get_branch = mock_get_branch.return_value
         mock_service = mock_service.return_value
         """An 'In Review' issue with unassigned/stalled coding agent should be recovered."""
         tracking_body = (
@@ -11745,7 +11624,6 @@ class TestRecoverySelfHealTracking:
         mock_get_orch,
         mock_backlog_task,
     ):
-        mock_heal = mock_heal.return_value
         mock_service = mock_service.return_value
         """When no tracking table exists, self-heal from sub-issues then recover."""
         from src.services.agent_tracking import AgentStep
@@ -11835,8 +11713,7 @@ class TestProcessPipelineCompletionFirstAgent:
         mock_config,
         mock_get_orch,
     ):
-        mock_config = mock_config.return_value
-        new_callable = new_callable.return_value
+        mock_service = mock_service.return_value
         """When completed_agents is empty and current agent is not done, it
         should still be assigned (not silently skipped)."""
         from src.services.copilot_polling import _process_pipeline_completion
@@ -11908,8 +11785,7 @@ class TestProcessPipelineCompletionFirstAgent:
         mock_service,
         mock_config,
     ):
-        mock_config = mock_config.return_value
-        new_callable = new_callable.return_value
+        mock_service = mock_service.return_value
         """First agent should NOT be assigned during grace period even with
         empty completed_agents."""
         from src.services.copilot_polling import _process_pipeline_completion
@@ -11964,8 +11840,7 @@ class TestProcessPipelineCompletionFirstAgent:
         mock_service,
         mock_config,
     ):
-        mock_config = mock_config.return_value
-        new_callable = new_callable.return_value
+        mock_service = mock_service.return_value
         """First agent with 🔄 Active in tracking table should NOT be re-assigned."""
         from src.services.copilot_polling import _process_pipeline_completion
 
@@ -12054,7 +11929,6 @@ class TestAdvancePipelineUsesOriginalStatus:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """When pipeline.original_status='Ready' but pipeline.status='In Progress'
         (because GitHub moved the issue), agent lookup must use 'Ready' so
@@ -12128,7 +12002,6 @@ class TestAdvancePipelineUsesOriginalStatus:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """When original_status is not set, pipeline.status should be used
         for agent lookup (existing behavior preserved)."""
@@ -12212,7 +12085,6 @@ class TestProcessPipelineCompletionUsesOriginalStatus:
         mock_get_orchestrator,
         mock_config,
     ):
-        mock_get_tracking = mock_get_tracking.return_value
         mock_service = mock_service.return_value
         """When pipeline.original_status='Ready' and from_status='In Progress'
         (board moved), the assign call should use 'Ready' so the correct
@@ -12313,7 +12185,6 @@ class TestProcessPipelineCompletionParallelAgents:
         mock_service,
         mock_update_tracking,
     ):
-        mock_update_tracking = mock_update_tracking.return_value
         mock_service = mock_service.return_value
         """When two out of three parallel agents complete in the same cycle,
         both should be advanced — not just the first one."""
@@ -12392,7 +12263,7 @@ class TestProcessPipelineCompletionParallelAgents:
         mock_check_done,
         mock_service,
     ):
-        new_callable = new_callable.return_value
+        mock_service = mock_service.return_value
         """Recovery path should attempt assignment for ALL unassigned agents
         in a parallel group, not just the first one."""
         from datetime import timedelta
@@ -12493,7 +12364,6 @@ class TestCopilotReviewRequestTimestamp:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_ensure_copilot_review_records_timestamp(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         """ensure_copilot_review_requested should record a timestamp in
         _copilot_review_requested_at when it successfully requests a review."""
@@ -12530,7 +12400,6 @@ class TestCopilotReviewRequestTimestamp:
     )
     @patch("src.services.copilot_polling.get_github_service")
     async def test_ensure_copilot_review_no_timestamp_on_failure(self, mock_service, mock_discover):
-        mock_discover = mock_discover.return_value
         mock_service = mock_service.return_value
         """When the review request fails, no timestamp should be recorded."""
         from src.services.copilot_polling.state import _copilot_review_requested_at
