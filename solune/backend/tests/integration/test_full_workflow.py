@@ -136,7 +136,7 @@ async def test_issue_opened_webhook_accepted():
     with (
         patch("src.config.get_settings", return_value=settings),
         patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
+        patch("src.api.webhooks.get_github_service", return_value=mock_projects),
         patch("src.api.webhooks.get_db", return_value=mock_db),
         patch("src.api.webhooks.log_event", mock_log_event),
     ):
@@ -289,7 +289,7 @@ async def test_pr_ready_for_review_webhook_updates_state():
     with (
         patch("src.config.get_settings", return_value=settings),
         patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
+        patch("src.api.webhooks.get_github_service", return_value=mock_projects),
         patch("src.api.webhooks.get_db", return_value=mock_db),
         patch("src.api.webhooks.log_event", mock_log_event),
     ):
@@ -334,7 +334,7 @@ async def test_pr_merged_webhook_accepted():
     with (
         patch("src.config.get_settings", return_value=settings),
         patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
+        patch("src.api.webhooks.get_github_service", return_value=mock_projects),
         patch("src.api.webhooks.get_db", return_value=mock_db),
         patch("src.api.webhooks.log_event", mock_log_event),
     ):
@@ -380,7 +380,7 @@ async def test_pr_lifecycle_full_flow():
     with (
         patch("src.config.get_settings", return_value=settings),
         patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
+        patch("src.api.webhooks.get_github_service", return_value=mock_projects),
         patch("src.api.webhooks.get_db", return_value=mock_db),
         patch("src.api.webhooks.log_event", mock_log_event),
     ):
@@ -411,3 +411,4 @@ async def test_pr_lifecycle_full_flow():
             assert r3.status_code == 200
 
     await transport.aclose()
+

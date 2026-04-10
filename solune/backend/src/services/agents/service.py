@@ -37,7 +37,7 @@ from src.models.agents import (
 from src.services.agent_creator import generate_config_files, generate_issue_body
 from src.services.cache import cache, get_repo_agents_cache_key
 from src.services.github_commit_workflow import commit_files_workflow
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.utils import utcnow
 
 logger = get_logger(__name__)
@@ -419,7 +419,7 @@ class AgentsService:
     ) -> tuple[list[Agent], bool]:
         """Read ``.github/agents/*.agent.md`` from the GitHub repo."""
         try:
-            tree_entries = await github_projects_service.get_directory_contents(
+            tree_entries = await get_github_service().get_directory_contents(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -440,7 +440,7 @@ class AgentsService:
             if not content:
                 # Fetch content individually
                 try:
-                    file_data = await github_projects_service.get_file_content(
+                    file_data = await get_github_service().get_file_content(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -545,7 +545,7 @@ class AgentsService:
 
         # Check for duplicates in the repo (.github/agents/<slug>.agent.md)
         try:
-            existing_file = await github_projects_service.get_file_content(
+            existing_file = await get_github_service().get_file_content(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1581,7 +1581,7 @@ class AgentsService:
     ) -> list[str]:
         """Read up to 3 existing .agent.md files from the repo as style references."""
         try:
-            entries = await github_projects_service.get_directory_contents(
+            entries = await get_github_service().get_directory_contents(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1598,7 +1598,7 @@ class AgentsService:
             if len(examples) >= 3:
                 break
             try:
-                file_data = await github_projects_service.get_file_content(
+                file_data = await get_github_service().get_file_content(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,

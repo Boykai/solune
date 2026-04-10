@@ -529,7 +529,7 @@ class TestSignalBridgeListenerAndInboundRouting:
             AsyncMock(return_value=[session]),
         )
         monkeypatch.setattr(
-            "src.services.github_projects.github_projects_service",
+            "src.services.github_projects.get_github_service",
             github_projects_service,
         )
 
@@ -537,3 +537,4 @@ class TestSignalBridgeListenerAndInboundRouting:
 
         assert result == [("Alpha", "p1")]
         cache.set.assert_called_once_with("projects:user-1", fetched)
+

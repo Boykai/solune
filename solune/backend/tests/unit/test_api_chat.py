@@ -1412,7 +1412,7 @@ class TestResolveRepository:
         )
         mock_svc = AsyncMock()
         mock_svc.get_project_repository.return_value = ("owner", "repo")
-        with patch("src.services.github_projects.github_projects_service", mock_svc):
+        with patch("src.services.github_projects.get_github_service", return_value=mock_svc):
             result = await _resolve_repository(session)
         assert result == ("owner", "repo")
 
@@ -1429,7 +1429,7 @@ class TestResolveRepository:
         mock_svc.get_project_repository.return_value = None
         mock_config = MagicMock(repository_owner="wf_owner", repository_name="wf_repo")
         with (
-            patch("src.services.github_projects.github_projects_service", mock_svc),
+            patch("src.services.github_projects.get_github_service", return_value=mock_svc),
             patch(
                 "src.services.workflow_orchestrator.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1451,7 +1451,7 @@ class TestResolveRepository:
         mock_svc = AsyncMock()
         mock_svc.get_project_repository.return_value = None
         with (
-            patch("src.services.github_projects.github_projects_service", mock_svc),
+            patch("src.services.github_projects.get_github_service", return_value=mock_svc),
             patch(
                 "src.services.workflow_orchestrator.get_workflow_config",
                 new_callable=AsyncMock,
@@ -1478,7 +1478,7 @@ class TestResolveRepository:
         mock_svc = AsyncMock()
         mock_svc.get_project_repository.return_value = None
         with (
-            patch("src.services.github_projects.github_projects_service", mock_svc),
+            patch("src.services.github_projects.get_github_service", return_value=mock_svc),
             patch(
                 "src.services.workflow_orchestrator.get_workflow_config",
                 new_callable=AsyncMock,
@@ -2666,3 +2666,4 @@ class TestUploadFileValidationDirect:
         assert isinstance(resp, JSONResponse)
         assert resp.status_code == 400
         assert json.loads(resp.body)["error_code"] == "invalid_filename"
+
