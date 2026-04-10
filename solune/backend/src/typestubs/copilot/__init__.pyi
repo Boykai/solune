@@ -1,6 +1,10 @@
 from typing import Any
 
-from copilot.types import PermissionHandler as PermissionHandler
+from copilot.session import PermissionHandler as PermissionHandler
+
+class SubprocessConfig:
+    """GitHub Copilot SDK subprocess config."""
+    def __init__(self, **kwargs: Any) -> None: ...
 
 class CopilotClient:
     """GitHub Copilot SDK client for completions."""

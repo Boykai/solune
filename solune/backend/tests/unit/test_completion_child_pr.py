@@ -49,7 +49,7 @@ def _make_pr_details(
 
 def _patches(mock_gps, linked_prs):
     stack = ExitStack()
-    stack.enter_context(patch(_GPS, mock_gps))
+    stack.enter_context(patch(_GPS, return_value=mock_gps))
     stack.enter_context(patch(_GET_LINKED, AsyncMock(return_value=linked_prs)))
     return stack
 
@@ -60,7 +60,7 @@ class TestEarlyReturns:
     @pytest.mark.asyncio
     async def test_copilot_review_returns_none(self, mock_gps):
         """copilot-review never creates child PRs."""
-        with patch(_GPS, mock_gps):
+        with patch(_GPS, return_value=mock_gps):
             from src.services.copilot_polling.completion import (
                 _find_completed_child_pr,
             )
@@ -320,7 +320,7 @@ class TestExceptionHandling:
     @pytest.mark.asyncio
     async def test_exception_returns_none(self, mock_gps):
         with (
-            patch(_GPS, mock_gps),
+            patch(_GPS, return_value=mock_gps),
             patch(_GET_LINKED, AsyncMock(side_effect=RuntimeError("API error"))),
         ):
             from src.services.copilot_polling.completion import (
@@ -338,4 +338,3 @@ class TestExceptionHandling:
             )
 
         assert result is None
-

@@ -788,4 +788,3 @@ class TestListProjectsStaleCacheOnRateLimit:
             result = await list_projects(session=mock_session, refresh=False)
 
         assert result.projects == stale_projects
-

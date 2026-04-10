@@ -434,9 +434,7 @@ async def websocket_subscribe(
                     )
                     stale_revalidation_count = 0
 
-            tasks = await get_github_service().get_project_items(
-                session.access_token, project_id
-            )
+            tasks = await get_github_service().get_project_items(session.access_token, project_id)
             # Compare fetched data against previously cached entry using
             # data_hash (FR-004 change detection).  When the data is
             # unchanged we refresh the TTL instead of storing a new entry,

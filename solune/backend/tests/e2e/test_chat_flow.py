@@ -115,4 +115,3 @@ class TestChatFlow:
             json={"content": "Hello"},
         )
         assert response.status_code == 401
-

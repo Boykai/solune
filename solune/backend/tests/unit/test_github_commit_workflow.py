@@ -331,4 +331,3 @@ class TestCommitWorkflowResult:
         r = CommitWorkflowResult(branch_name="feat/x")
         assert r.branch_name == "feat/x"
         assert r.success is False
-

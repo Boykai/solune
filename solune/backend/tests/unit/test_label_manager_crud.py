@@ -23,10 +23,10 @@ def _response(status_code: int, parsed_data=None):
 
 
 def _patches(rest_mock: AsyncMock):
-    """Patch the github_projects_service at its source so lazy imports pick it up."""
+    """Patch get_github_service so lazy imports pick it up."""
     stack = ExitStack()
     mock_gps = SimpleNamespace(rest_request=rest_mock)
-    stack.enter_context(patch(_GH, mock_gps))
+    stack.enter_context(patch(_GH, return_value=mock_gps))
     return stack
 
 
@@ -243,4 +243,3 @@ class TestQueryPipelineLabels:
             result = await query_pipeline_labels("tok", "o", "r")
 
         assert result == []
-
