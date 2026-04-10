@@ -476,7 +476,6 @@ class TestUpdateIssueStatusForCopilotPr:
     async def test_skips_status_move_when_pipeline_agent_not_copilot_review(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
-        mock_get_pipeline = mock_get_pipeline.return_value
         mock_gps = mock_gps.return_value
         """Pipeline exists with current_agent != 'copilot-review' → skip status move."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -505,7 +504,6 @@ class TestUpdateIssueStatusForCopilotPr:
     async def test_proceeds_when_pipeline_agent_is_copilot_review(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
-        mock_get_pipeline = mock_get_pipeline.return_value
         mock_gps = mock_gps.return_value
         """Pipeline exists with current_agent == 'copilot-review' → proceed normally."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -531,7 +529,6 @@ class TestUpdateIssueStatusForCopilotPr:
     async def test_proceeds_when_no_pipeline_exists(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
-        mock_get_pipeline = mock_get_pipeline.return_value
         mock_gps = mock_gps.return_value
         """No pipeline for issue → proceed normally (backward compat)."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -827,4 +824,3 @@ class TestWebhookResponseSanitization:
             )
         # Cleanup delivery ID to avoid side-effects on other tests
         _processed_delivery_ids.discard("unique-delivery-sanitize-test")
-

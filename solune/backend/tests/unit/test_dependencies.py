@@ -246,4 +246,3 @@ class TestRequireSelectedProject:
 
         with pytest.raises(ValidationError, match="No project selected"):
             require_selected_project(_session(selected_project_id=None))
-
