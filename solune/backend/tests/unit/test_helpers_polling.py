@@ -589,4 +589,3 @@ class TestCheckAgentDonePassesPipeline:
             parent_issue_number=10,
             pipeline=pipeline,
         )
-

@@ -218,4 +218,3 @@ class TestApiFailures:
 
         assert changed is True
         assert "Failed to remove" in corrections[0]
-

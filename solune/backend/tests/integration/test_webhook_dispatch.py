@@ -148,4 +148,3 @@ async def test_webhook_duplicate_delivery_short_circuits_second_dispatch():
     assert first.json()["status"] == "ignored"
     assert second.status_code == 200
     assert second.json() == {"status": "duplicate", "delivery_id": "delivery-ping-1"}
-
