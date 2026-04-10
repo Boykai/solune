@@ -113,7 +113,7 @@
 
 ### Implementation for User Story 3
 
-- [x] T030 [US3] Add guard after `isinstance(tools, list)` check to validate every element is a non-empty string: `if not all(isinstance(t, str) and t for t in tools): return None` in `solune/backend/src/services/agents/service.py` (line ~1473)
+- [x] T030 [US3] Add guard after `isinstance(tools, list)` check to validate every element is a non-empty string after trimming: `if not all(isinstance(t, str) and t.strip() for t in tools): return None` in `solune/backend/src/services/agents/service.py` (line ~1473)
 - [x] T031 [US3] Ensure `name` emptiness check rejects whitespace-only names (e.g., `name: "   "`) by using `if not name or not name.strip()` in `solune/backend/src/services/agents/service.py` (line ~1469)
 
 **Checkpoint**: All three user stories should now be independently functional — malformed configs are rejected without exceptions
