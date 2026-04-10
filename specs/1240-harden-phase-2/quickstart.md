@@ -56,7 +56,7 @@ cd solune/frontend
 npx vitest run --coverage
 
 # Run tests for a specific component
-npx vitest run src/components/chores/ChoreCard.test.tsx
+npx vitest run src/components/chores/__tests__/ChoreCard.test.tsx
 
 # Run property tests only
 npx vitest run --testPathPattern="property"

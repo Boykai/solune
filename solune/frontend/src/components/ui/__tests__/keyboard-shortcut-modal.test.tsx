@@ -2,7 +2,7 @@
  * Tests for KeyboardShortcutModal component.
  *
  * Covers: conditional rendering based on isOpen, shortcut group display,
- * Escape key closure, close button click, backdrop click,
+ * Escape key closure, close button click,
  * ARIA accessibility attributes, and aria-labelledby.
  */
 

@@ -7,7 +7,7 @@
 
 **Organization**: Tasks are grouped by user story (workstream) to enable independent implementation and testing. All four workstreams (US1–US4) are independent and can run in parallel after the foundational phase.
 
-## Format: `[ID] [P?] [Story] Description`
+## Format: `ID [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (US1, US2, US3, US4)
@@ -17,7 +17,7 @@
 
 - **Web app monorepo**: `solune/backend/` (Python 3.13, FastAPI, pytest), `solune/frontend/` (TypeScript ~6.0, React 19, Vitest, Playwright)
 - **Backend tests**: `solune/backend/tests/unit/`, `solune/backend/tests/property/`
-- **Frontend tests**: `solune/frontend/src/components/*/__tests__/`, `solune/frontend/src/lib/`
+- **Frontend tests**: `solune/frontend/src/components/**/Component.test.tsx` (co-located) and `solune/frontend/src/components/**/__tests__/` (folder-based), plus `solune/frontend/src/lib/`
 - **E2E tests**: `solune/frontend/e2e/`
 
 ---
@@ -322,7 +322,7 @@ With multiple developers after Phase 2 completes:
 
 ### Format Validation
 
-✅ All 53 tasks follow the required checklist format: `- [ ] [TaskID] [P?] [Story?] Description with file path`
+✅ All 53 tasks follow the required checklist format: `- [ ] TaskID [P?] [Story?] Description with file path`
 ✅ Setup/Foundational/Polish tasks have NO story label
 ✅ User story tasks (T007–T049) have correct [US1]/[US2]/[US3]/[US4] labels
 ✅ All tasks include specific file paths
@@ -339,4 +339,4 @@ With multiple developers after Phase 2 completes:
 - All workstreams are independent — zero cross-story dependencies
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- TypeScript 6.0 note: Use explicit initialization (`let x: T = null`) instead of definite assignment (`let x!: T`) for nullable types to avoid TS2454
+- TypeScript 6.0 note: Use explicit initialization (`let x: T | null = null`) instead of definite assignment (`let x!: T`) for nullable types to avoid TS2454

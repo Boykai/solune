@@ -2,8 +2,8 @@
  * Tests for AlertDialog component.
  *
  * Covers: trigger rendering, dialog opening, title/description display,
- * action/cancel handlers, and non-dismissal on outside click
- * (AlertDialog intentionally requires an explicit user choice).
+ * action/cancel handlers, and alertdialog role verification
+ * (role="alertdialog" semantically prevents outside-click dismissal).
  */
 
 import { describe, it, expect, vi } from 'vitest';

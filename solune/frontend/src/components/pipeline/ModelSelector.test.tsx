@@ -12,12 +12,12 @@ import { ModelSelector } from './ModelSelector';
 vi.mock('@/hooks/useModels', () => ({
   useModels: vi.fn(() => ({
     models: [
-      { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_window_size: 128000, cost_tier: 'standard', reasoning_effort: null, default_reasoning_effort: null },
-      { id: 'claude-3', name: 'Claude 3', provider: 'anthropic', context_window_size: 200000, cost_tier: 'premium', reasoning_effort: null, default_reasoning_effort: null },
+      { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_window_size: 128000, cost_tier: 'standard' },
+      { id: 'claude-3', name: 'Claude 3', provider: 'anthropic', context_window_size: 200000, cost_tier: 'premium' },
     ],
     modelsByProvider: [
-      { provider: 'openai', models: [{ id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_window_size: 128000, cost_tier: 'standard', reasoning_effort: null, default_reasoning_effort: null }] },
-      { provider: 'anthropic', models: [{ id: 'claude-3', name: 'Claude 3', provider: 'anthropic', context_window_size: 200000, cost_tier: 'premium', reasoning_effort: null, default_reasoning_effort: null }] },
+      { provider: 'openai', models: [{ id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_window_size: 128000, cost_tier: 'standard' }] },
+      { provider: 'anthropic', models: [{ id: 'claude-3', name: 'Claude 3', provider: 'anthropic', context_window_size: 200000, cost_tier: 'premium' }] },
     ],
     isLoading: false,
     isRefreshing: false,
@@ -62,7 +62,7 @@ describe('ModelSelector', () => {
     });
 
     await user.click(screen.getByText('GPT-4o'));
-    expect(onSelect).toHaveBeenCalledWith('gpt-4o', 'GPT-4o', null);
+    expect(onSelect).toHaveBeenCalledWith('gpt-4o', 'GPT-4o', undefined);
   });
 
   it('shows "No models found" when search matches nothing', async () => {
