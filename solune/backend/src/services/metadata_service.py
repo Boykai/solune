@@ -276,7 +276,7 @@ class MetadataService:
     # ──────────────────────────────────────────────────────────────────
 
     def _get_github_service(self) -> GitHubProjectsService:
-        """Return the injected service or fall back to the module-level singleton."""
+        """Return the injected service or fall back to the module-level accessor."""
         if self._github_service is not None:
             return self._github_service
         from src.services.github_projects import get_github_service

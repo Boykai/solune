@@ -1,6 +1,6 @@
 from typing import Any
 
-from copilot.types import PermissionHandler as PermissionHandler
+from copilot.session import PermissionHandler as PermissionHandler
 
 class CopilotClient:
     """GitHub Copilot SDK client for completions."""

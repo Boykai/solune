@@ -326,7 +326,9 @@ class TestMergeRetryLimit:
         mock_cp.remove_pipeline_state = MagicMock()
         mock_cp.POST_ACTION_DELAY_SECONDS = 0
         mock_cp.get_github_service.return_value = AsyncMock()
-        mock_cp.get_github_service.return_value.create_issue_comment = AsyncMock(return_value={"id": "C1"})
+        mock_cp.get_github_service.return_value.create_issue_comment = AsyncMock(
+            return_value={"id": "C1"}
+        )
         mock_cp.get_github_service.return_value.get_pull_request = AsyncMock(return_value=None)
         mock_cp._update_issue_tracking = AsyncMock()
         mock_cp.connection_manager = AsyncMock()
@@ -402,4 +404,3 @@ class TestMergeRetryLimit:
 
         assert MAX_MERGE_RETRIES == 3
         assert _merge_failure_counts is not None
-

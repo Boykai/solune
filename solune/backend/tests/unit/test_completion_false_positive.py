@@ -157,4 +157,3 @@ class TestSignal3FalsePositiveRejection:
             )
 
         assert result is False
-

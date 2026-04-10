@@ -474,6 +474,3 @@ class GitHubProjectsService(
             current = self._inflight_graphql.get(cache_key)
             if current is task:
                 self._inflight_graphql.pop(cache_key, None)
-
-
-

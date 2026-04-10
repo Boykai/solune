@@ -1502,4 +1502,3 @@ class TestOrchestratorDelayPropagation:
         result = get_agent_configs(config)
         # The last status iteration should win
         assert result["human"]["delay_seconds"] in (60, 300)  # depends on dict ordering
-
