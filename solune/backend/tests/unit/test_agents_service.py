@@ -1689,10 +1689,9 @@ class TestExtractAgentPreview:
         text = '```agent-config\n{"name": null, "description": "test"}\n```'
         assert AgentsService._extract_agent_preview(text) is None
 
-    def test_tools_null_uses_default_empty_list(self):
-        """When tools is explicitly null, the default [] should apply and succeed."""
+    def test_tools_null_returns_none(self):
+        """Regression: tools=null (JSON null) → isinstance(None, list) is False → returns None."""
         text = '```agent-config\n{"name": "Bot", "tools": null}\n```'
-        # tools=null → config.get("tools", []) returns None, isinstance(None, list) is False → None
         assert AgentsService._extract_agent_preview(text) is None
 
     def test_multiple_config_blocks_extracts_first(self):
