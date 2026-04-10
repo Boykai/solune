@@ -90,7 +90,7 @@ jobs:
 
       - name: Run mutation testing (${{ matrix.shard }})
         continue-on-error: true
-        run: npx stryker run -c stryker-${{ matrix.shard }}.config.mjs
+        run: STRYKER_SHARD=${{ matrix.shard }} npx stryker run
 
       - name: Upload mutation report
         if: always()
