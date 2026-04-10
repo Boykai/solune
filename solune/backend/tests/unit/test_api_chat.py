@@ -2666,4 +2666,3 @@ class TestUploadFileValidationDirect:
         assert isinstance(resp, JSONResponse)
         assert resp.status_code == 400
         assert json.loads(resp.body)["error_code"] == "invalid_filename"
-

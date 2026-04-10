@@ -292,4 +292,3 @@ class TestMergeFailure:
             )
 
         assert result is None
-

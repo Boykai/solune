@@ -186,7 +186,7 @@ async def create_plan_session(
     Returns:
         Configured agent session.
     """
-    from copilot.types import (
+    from copilot.session import (
         PermissionHandler,
         SessionConfig,
     )

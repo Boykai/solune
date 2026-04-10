@@ -296,4 +296,3 @@ class TestResolveRepository:
         ):
             with pytest.raises(ValidationError):
                 await resolve_repository("token", "PVT_1")
-

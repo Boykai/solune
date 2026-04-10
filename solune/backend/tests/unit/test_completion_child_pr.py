@@ -338,4 +338,3 @@ class TestExceptionHandling:
             )
 
         assert result is None
-

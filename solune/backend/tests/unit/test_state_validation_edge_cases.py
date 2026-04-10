@@ -96,4 +96,3 @@ async def test_invalid_state_combinations_remove_stale_label():
     assert corrections == [
         "Removed stale agent:builder label from #42 (no active agent in tracking table)"
     ]
-

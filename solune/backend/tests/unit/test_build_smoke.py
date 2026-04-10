@@ -3,7 +3,7 @@
 These tests catch import-time failures (missing dependencies, moved symbols,
 broken circular imports) that would cause the application to fail on startup.
 This prevents regressions like the Copilot SDK 0.1.0 import breakage where
-PermissionHandler moved from copilot.session to copilot.types.
+PermissionHandler moved from copilot.types to copilot.session in SDK v0.2.1.
 """
 
 import importlib
