@@ -838,3 +838,72 @@ class TestProjectLaunchLocksBounded:
         # The most recent locks should still be valid
         last_lock = store.get_project_launch_lock(f"proj-{maxlen + 49}")
         assert isinstance(last_lock, asyncio.Lock)
+
+    def test_touch_refreshes_active_lock(self):
+        """Accessing an existing lock refreshes it in LRU order (not evicted first)."""
+        from src.utils import BoundedDict
+
+        # Use a small BoundedDict to make eviction observable
+        small = BoundedDict[str, int](maxlen=3)
+        small["a"] = 1
+        small["b"] = 2
+        small["c"] = 3
+        # Touch "a" so it moves to the end of the eviction order
+        small.touch("a")
+        # Insert a new item — "b" (oldest untouched) should be evicted, not "a"
+        small["d"] = 4
+        assert "a" in small
+        assert "b" not in small
+        assert list(small.keys()) == ["c", "a", "d"]
+
+    def test_get_project_launch_lock_lru_refresh(self):
+        """Re-accessing an existing lock via get_project_launch_lock keeps it alive.
+
+        Regression: get_project_launch_lock calls touch() on existing keys so
+        actively-used projects are not evicted before idle ones.
+        """
+        import asyncio
+
+        from src.utils import BoundedDict
+
+        # Replace _project_launch_locks with a tiny BoundedDict for this test.
+        original = store._project_launch_locks
+        try:
+            store._project_launch_locks = BoundedDict[str, asyncio.Lock](maxlen=3)
+
+            lock_a = store.get_project_launch_lock("proj-A")
+            store.get_project_launch_lock("proj-B")
+            store.get_project_launch_lock("proj-C")
+            # Re-access proj-A — this should refresh its LRU position.
+            lock_a_again = store.get_project_launch_lock("proj-A")
+            assert lock_a is lock_a_again
+
+            # Adding a new project should evict proj-B (oldest idle), not proj-A.
+            store.get_project_launch_lock("proj-D")
+            assert "proj-A" in store._project_launch_locks
+            assert "proj-B" not in store._project_launch_locks
+        finally:
+            store._project_launch_locks = original
+
+    def test_new_lock_created_after_eviction(self):
+        """After a project's lock is evicted, requesting it again creates a new Lock."""
+        import asyncio
+
+        from src.utils import BoundedDict
+
+        original = store._project_launch_locks
+        try:
+            store._project_launch_locks = BoundedDict[str, asyncio.Lock](maxlen=2)
+
+            lock_first = store.get_project_launch_lock("proj-X")
+            store.get_project_launch_lock("proj-Y")
+            # Adding proj-Z evicts proj-X
+            store.get_project_launch_lock("proj-Z")
+            assert "proj-X" not in store._project_launch_locks
+
+            # Re-requesting proj-X should create a brand-new Lock
+            lock_second = store.get_project_launch_lock("proj-X")
+            assert isinstance(lock_second, asyncio.Lock)
+            assert lock_first is not lock_second
+        finally:
+            store._project_launch_locks = original
