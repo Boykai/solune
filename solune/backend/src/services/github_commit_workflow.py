@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.logging_utils import get_logger
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 
 logger = get_logger(__name__)
 
@@ -62,7 +62,7 @@ async def commit_files_workflow(
 
     # ── Step 1: Get repository info ──
     try:
-        repo_info = await github_projects_service.get_repository_info(
+        repo_info = await get_github_service().get_repository_info(
             access_token,
             owner,
             repo,
@@ -83,7 +83,7 @@ async def commit_files_workflow(
 
     if issue_title and issue_body:
         try:
-            issue = await github_projects_service.create_issue(
+            issue = await get_github_service().create_issue(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -105,7 +105,7 @@ async def commit_files_workflow(
 
     # ── Step 3: Create branch ──
     try:
-        ref_id = await github_projects_service.create_branch(
+        ref_id = await get_github_service().create_branch(
             access_token=access_token,
             repository_id=repo_info["repository_id"],
             branch_name=branch_name,
@@ -123,7 +123,7 @@ async def commit_files_workflow(
 
     # ── Step 4: Commit files ──
     try:
-        commit_oid = await github_projects_service.commit_files(
+        commit_oid = await get_github_service().commit_files(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -149,7 +149,7 @@ async def commit_files_workflow(
         final_pr_body = f"{pr_body}\n\nCloses #{issue_number}"
 
     try:
-        pr_info = await github_projects_service.create_pull_request(
+        pr_info = await get_github_service().create_pull_request(
             access_token=access_token,
             repository_id=repo_info["repository_id"],
             title=pr_title,
@@ -176,14 +176,14 @@ async def commit_files_workflow(
     # ── Step 6: Add issue to project board (optional) ──
     if issue_node_id and project_id and target_status:
         try:
-            item_id = await github_projects_service.add_issue_to_project(
+            item_id = await get_github_service().add_issue_to_project(
                 access_token=access_token,
                 project_id=project_id,
                 issue_node_id=issue_node_id,
                 issue_database_id=issue_database_id,
             )
             if item_id:
-                await github_projects_service.update_item_status_by_name(
+                await get_github_service().update_item_status_by_name(
                     access_token=access_token,
                     project_id=project_id,
                     item_id=item_id,

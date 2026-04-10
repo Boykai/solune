@@ -39,7 +39,7 @@ from src.services.chores.template_builder import (
     build_template,
 )
 from src.services.database import get_db
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.utils import resolve_repository
 
 logger = get_logger(__name__)
@@ -93,7 +93,7 @@ async def evaluate_triggers(
         handle_service_error(e, "resolve repository for chore triggers")
 
     result = await service.evaluate_triggers(
-        github_service=github_projects_service,
+        github_service=get_github_service(),
         access_token=session.access_token,
         owner=owner,
         repo=repo,
@@ -124,7 +124,7 @@ async def list_templates(
         )
         return []
 
-    entries = await github_projects_service.get_directory_contents(
+    entries = await get_github_service().get_directory_contents(
         session.access_token, owner, repo, ".github/ISSUE_TEMPLATE"
     )
     chore_files = [
@@ -135,7 +135,7 @@ async def list_templates(
 
     templates: list[ChoreTemplate] = []
     for entry in chore_files:
-        file_data = await github_projects_service.get_file_content(
+        file_data = await get_github_service().get_file_content(
             session.access_token, owner, repo, entry["path"]
         )
         if not file_data:
@@ -385,7 +385,7 @@ async def delete_chore(
     if existing.current_issue_number is not None:
         try:
             owner, repo = await resolve_repository(session.access_token, project_id)
-            await github_projects_service.update_issue_state(
+            await get_github_service().update_issue_state(
                 session.access_token,
                 owner,
                 repo,
@@ -439,7 +439,7 @@ async def trigger_chore(
 
     result = await service.trigger_chore(
         chore,
-        github_service=github_projects_service,
+        github_service=get_github_service(),
         access_token=session.access_token,
         owner=owner,
         repo=repo,
@@ -536,7 +536,7 @@ async def inline_update_chore(
         result = await service.inline_update_chore(
             chore_id,
             body,
-            github_service=github_projects_service,
+            github_service=get_github_service(),
             access_token=session.access_token,
             owner=owner,
             repo=repo,
@@ -586,7 +586,7 @@ async def create_chore_with_merge(
         result = await service.create_chore_with_auto_merge(
             project_id,
             body,
-            github_service=github_projects_service,
+            github_service=get_github_service(),
             access_token=session.access_token,
             owner=owner,
             repo=repo,

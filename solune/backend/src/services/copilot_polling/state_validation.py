@@ -66,7 +66,7 @@ async def validate_pipeline_labels(
         try:
             old_label = build_agent_label(label_agent)
             new_label = build_agent_label(table_agent)
-            await _cp.github_projects_service.update_issue_state(
+            await _cp.get_github_service().update_issue_state(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -90,7 +90,7 @@ async def validate_pipeline_labels(
     elif label_agent is None and table_agent is not None:
         try:
             new_label = build_agent_label(table_agent)
-            await _cp.github_projects_service.update_issue_state(
+            await _cp.get_github_service().update_issue_state(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -109,7 +109,7 @@ async def validate_pipeline_labels(
     elif label_agent is not None and table_agent is None:
         try:
             old_label = build_agent_label(label_agent)
-            await _cp.github_projects_service.update_issue_state(
+            await _cp.get_github_service().update_issue_state(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,

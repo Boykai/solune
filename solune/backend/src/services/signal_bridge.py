@@ -766,7 +766,7 @@ async def _list_user_projects(github_user_id: str) -> list[tuple[str, str]]:
 
         # Cache empty — try fetching from GitHub directly
         from src.services.database import get_db as _get_db
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
         from src.services.session_store import get_sessions_by_user
 
         db = _get_db()
@@ -778,7 +778,7 @@ async def _list_user_projects(github_user_id: str) -> list[tuple[str, str]]:
         username = session.github_username
         if not token or not username:
             return []
-        fetched = await github_projects_service.list_user_projects(token, username)
+        fetched = await get_github_service().list_user_projects(token, username)
         if fetched:
             cache.set(get_user_projects_cache_key(github_user_id), fetched)
             return [(p.name, p.project_id) for p in fetched]

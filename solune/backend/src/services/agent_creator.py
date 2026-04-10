@@ -26,7 +26,7 @@ from src.models.agent_creator import (
     PipelineStepResult,
 )
 from src.services.ai_agent import get_ai_agent_service
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.utils import BoundedDict, utcnow
 
 logger = get_logger(__name__)
@@ -727,7 +727,7 @@ async def _execute_creation_pipeline(
     # ── Step 4: Create GitHub Issue ──
     issue_body = generate_issue_body(preview)
     try:
-        issue = await github_projects_service.create_issue(
+        issue = await get_github_service().create_issue(
             access_token=access_token,
             owner=state.owner,
             repo=state.repo,
@@ -768,12 +768,12 @@ async def _execute_creation_pipeline(
 
     # ── Step 5: Create branch from default branch ──
     try:
-        repo_info = await github_projects_service.get_repository_info(
+        repo_info = await get_github_service().get_repository_info(
             access_token,
             state.owner,
             state.repo,
         )
-        ref_id = await github_projects_service.create_branch(
+        ref_id = await get_github_service().create_branch(
             access_token=access_token,
             repository_id=repo_info["repository_id"],
             branch_name=branch_name,
@@ -821,7 +821,7 @@ async def _execute_creation_pipeline(
         files = generate_config_files(preview)
         try:
             # For a newly created branch, the HEAD is the same as the source OID
-            commit_oid = await github_projects_service.commit_files(
+            commit_oid = await get_github_service().commit_files(
                 access_token=access_token,
                 owner=state.owner,
                 repo=state.repo,
@@ -880,7 +880,7 @@ async def _execute_creation_pipeline(
             f"{issue_ref}"
         )
         try:
-            pr_info = await github_projects_service.create_pull_request(
+            pr_info = await get_github_service().create_pull_request(
                 access_token=access_token,
                 repository_id=repo_info["repository_id"],
                 title=f"Add agent: {preview.name}",
@@ -936,7 +936,7 @@ async def _execute_creation_pipeline(
     if issue_node_id and state.project_id:
         try:
             # Add issue to project using public API method
-            item_id = await github_projects_service.add_issue_to_project(
+            item_id = await get_github_service().add_issue_to_project(
                 access_token=access_token,
                 project_id=state.project_id,
                 issue_node_id=issue_node_id,
@@ -952,7 +952,7 @@ async def _execute_creation_pipeline(
                     )
                 )
             else:
-                await github_projects_service.update_item_status_by_name(
+                await get_github_service().update_item_status_by_name(
                     access_token=access_token,
                     project_id=state.project_id,
                     item_id=item_id,

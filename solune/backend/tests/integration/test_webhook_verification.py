@@ -119,7 +119,7 @@ class TestWebhookVerification:
         with (
             patch("src.config.get_settings", return_value=settings),
             patch("src.api.webhooks.get_settings", return_value=settings),
-            patch("src.api.webhooks.github_projects_service", mock_gh),
+            patch("src.api.webhooks.get_github_service", return_value=mock_gh),
         ):
             transport = ASGITransport(app=app)
             try:
@@ -140,3 +140,4 @@ class TestWebhookVerification:
         assert resp.status_code == 200, (
             f"Expected 200 for signed webhook, got {resp.status_code}: {resp.text}"
         )
+
