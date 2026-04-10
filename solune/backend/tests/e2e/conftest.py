@@ -134,7 +134,7 @@ async def e2e_app(
         patch("src.api.chores.get_github_service", return_value=mock_github_projects_service),
         patch(
             "src.services.github_projects.get_github_service",
-            mock_github_projects_service,
+            return_value=mock_github_projects_service,
         ),
         # ── Auth: mock only the GitHub API call inside create_session_from_token ──
         # The real method body still runs (creates UserSession, saves to DB,
