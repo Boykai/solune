@@ -30,8 +30,8 @@ class TestValidatePipelineLabels:
     @pytest.fixture(autouse=True)
     def _patch_service(self):
         """Patch the GitHub projects service used by state_validation."""
-        with patch("src.services.copilot_polling.get_github_service") as mock_svc:
-            mock_svc = mock_svc.return_value
+        with patch("src.services.copilot_polling.get_github_service") as mock_get_svc:
+            mock_svc = mock_get_svc.return_value
             mock_svc.update_issue_state = AsyncMock()
             self.mock_svc = mock_svc
             yield
