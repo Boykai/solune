@@ -93,4 +93,3 @@ class TestProjectOperations:
         """Project endpoints return 401 without authentication."""
         response = await unauthenticated_client.get("/api/v1/projects")
         assert response.status_code == 401
-

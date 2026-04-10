@@ -195,4 +195,3 @@ async def unauthenticated_client(e2e_app):
     transport = ASGITransport(app=e2e_app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
-

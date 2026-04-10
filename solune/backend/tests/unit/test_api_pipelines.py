@@ -1373,4 +1373,3 @@ class TestDeriveIssueTitle:
 
         result = _derive_issue_title("> - * ")
         assert result == "Imported Parent Issue"
-

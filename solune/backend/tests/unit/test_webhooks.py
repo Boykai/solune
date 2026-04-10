@@ -824,4 +824,3 @@ class TestWebhookResponseSanitization:
             )
         # Cleanup delivery ID to avoid side-effects on other tests
         _processed_delivery_ids.discard("unique-delivery-sanitize-test")
-

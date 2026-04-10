@@ -537,4 +537,3 @@ class TestSignalBridgeListenerAndInboundRouting:
 
         assert result == [("Alpha", "p1")]
         cache.set.assert_called_once_with("projects:user-1", fetched)
-

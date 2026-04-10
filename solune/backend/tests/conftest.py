@@ -549,4 +549,3 @@ def make_mock_db_connection() -> MagicMock:
     mock.commit = AsyncMock()
     mock.close = AsyncMock()
     return mock
-

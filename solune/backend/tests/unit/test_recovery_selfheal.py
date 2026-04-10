@@ -317,4 +317,3 @@ class TestCheckCopilotSessionHealth:
 
             result = await _check_copilot_session_health("tok", "o", "r", 42, "agent", 100)
         assert result is True
-

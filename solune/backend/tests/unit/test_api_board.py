@@ -1085,4 +1085,3 @@ class TestRetryAfterSeconds:
 
         exc = Exception("rate limit", 15)
         assert _retry_after_seconds(exc) == 15
-

@@ -1148,13 +1148,11 @@ async def _check_main_pr_completion(
         # agent), and the unfiltered timeline contains events from prior
         # agents — causing false-positive completions.
         if not is_subsequent_agent:
-            fallback_copilot_assigned = (
-                await _cp.get_github_service().is_copilot_assigned_to_issue(
-                    access_token=access_token,
-                    owner=owner,
-                    repo=repo,
-                    issue_number=copilot_check_issue,
-                )
+            fallback_copilot_assigned = await _cp.get_github_service().is_copilot_assigned_to_issue(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=copilot_check_issue,
             )
             if not fallback_copilot_assigned:
                 all_copilot_finished = _cp.get_github_service().check_copilot_finished_events(
