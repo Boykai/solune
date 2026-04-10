@@ -29,7 +29,7 @@ from src.services.cache import (
 from src.services.database import get_db
 from src.services.done_items_store import get_done_items
 from src.services.github_auth import github_auth_service
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.services.websocket import connection_manager
 from src.utils import resolve_repository
 
@@ -50,7 +50,7 @@ def _is_github_rate_limit_error(exc: Exception) -> bool:
             headers = getattr(response, "headers", {})
             remaining = headers.get("X-RateLimit-Remaining")
             return remaining is not None and remaining.strip() == "0"
-    rl = github_projects_service.get_last_rate_limit()
+    rl = get_github_service().get_last_rate_limit()
     return isinstance(rl, dict) and rl.get("remaining") == 0
 
 
@@ -73,7 +73,7 @@ def _retry_after_seconds(exc: Exception) -> int:
 
 def _rate_limit_details() -> dict[str, object]:
     """Return serialized rate-limit details from the shared GitHub client state."""
-    rl = github_projects_service.get_last_rate_limit()
+    rl = get_github_service().get_last_rate_limit()
     if not isinstance(rl, dict):
         return {}
     expected_keys = {"limit", "remaining", "reset_at", "used"}
@@ -150,7 +150,7 @@ async def list_projects(
     logger.info("Fetching projects for user %s", session.github_username)
 
     try:
-        all_projects = await github_projects_service.list_user_projects(
+        all_projects = await get_github_service().list_user_projects(
             session.access_token, session.github_username
         )
 
@@ -228,7 +228,7 @@ async def get_project_tasks(
 
     async def _fetch():
         logger.info("Fetching tasks for project %s", project_id)
-        return await github_projects_service.get_project_items(session.access_token, project_id)
+        return await get_github_service().get_project_items(session.access_token, project_id)
 
     try:
         tasks = await cached_fetch(cache, cache_key, _fetch, refresh=refresh)
@@ -358,7 +358,7 @@ async def websocket_subscribe(
         projects = cache.get(user_projects_key)
         if projects is None:
             try:
-                projects = await github_projects_service.list_user_projects(
+                projects = await get_github_service().list_user_projects(
                     session.access_token, session.github_username
                 )
                 cache.set(user_projects_key, projects)
@@ -434,9 +434,7 @@ async def websocket_subscribe(
                     )
                     stale_revalidation_count = 0
 
-            tasks = await github_projects_service.get_project_items(
-                session.access_token, project_id
-            )
+            tasks = await get_github_service().get_project_items(session.access_token, project_id)
             # Compare fetched data against previously cached entry using
             # data_hash (FR-004 change detection).  When the data is
             # unchanged we refresh the TTL instead of storing a new entry,
@@ -560,7 +558,7 @@ async def sse_subscribe(
             while True:
                 # Poll for changes
                 try:
-                    result = await github_projects_service.poll_project_changes(
+                    result = await get_github_service().poll_project_changes(
                         session.access_token,
                         project_id,
                         cached_tasks,

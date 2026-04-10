@@ -71,7 +71,7 @@ async def _find_open_child_pr(
             if claimed_by_other:
                 continue
 
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -183,7 +183,7 @@ async def _merge_child_pr_if_applicable(
                 continue
 
             # Get full PR details to check base_ref and get node ID
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -225,7 +225,7 @@ async def _merge_child_pr_if_applicable(
                     pr_number,
                     main_branch,
                 )
-                base_updated = await _cp.github_projects_service.update_pr_base(
+                base_updated = await _cp.get_github_service().update_pr_base(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
@@ -255,7 +255,7 @@ async def _merge_child_pr_if_applicable(
                     "PR #%d is still a draft, marking ready before merge",
                     pr_number,
                 )
-                await _cp.github_projects_service.mark_pr_ready_for_review(
+                await _cp.get_github_service().mark_pr_ready_for_review(
                     access_token=access_token,
                     pr_node_id=pr_node_id,
                 )
@@ -272,7 +272,7 @@ async def _merge_child_pr_if_applicable(
                 issue_number,
             )
 
-            merge_result = await _cp.github_projects_service.merge_pull_request(
+            merge_result = await _cp.get_github_service().merge_pull_request(
                 access_token=access_token,
                 pr_node_id=pr_node_id,
                 pr_number=pr_number,
@@ -286,7 +286,7 @@ async def _merge_child_pr_if_applicable(
                 # while the child PR is still open.
                 post_merge_state = ""
                 for attempt in range(2):
-                    post_merge_details = await _cp.github_projects_service.get_pull_request(
+                    post_merge_details = await _cp.get_github_service().get_pull_request(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -348,7 +348,7 @@ async def _merge_child_pr_if_applicable(
                         "Cleaning up child branch '%s' after merge",
                         child_branch,
                     )
-                    deleted = await _cp.github_projects_service.delete_branch(
+                    deleted = await _cp.get_github_service().delete_branch(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -473,7 +473,7 @@ async def _find_completed_child_pr(
                 continue
 
             # Get full PR details to check base_ref
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -603,14 +603,14 @@ async def _find_completed_child_pr(
                     }
 
             # Check timeline events for completion signals
-            timeline_events = await _cp.github_projects_service.get_pr_timeline_events(
+            timeline_events = await _cp.get_github_service().get_pr_timeline_events(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
                 issue_number=pr_number,  # Note: PR number for timeline events
             )
 
-            copilot_finished = _cp.github_projects_service.check_copilot_finished_events(
+            copilot_finished = _cp.get_github_service().check_copilot_finished_events(
                 timeline_events
             )
 
@@ -749,7 +749,7 @@ async def _check_child_pr_completion(
                 continue
 
             # Get full PR details to check base_ref
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -802,14 +802,14 @@ async def _check_child_pr_completion(
                     )
                     return True
             # Check timeline events for completion signals
-            timeline_events = await _cp.github_projects_service.get_pr_timeline_events(
+            timeline_events = await _cp.get_github_service().get_pr_timeline_events(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
                 issue_number=pr_number,
             )
 
-            copilot_finished = _cp.github_projects_service.check_copilot_finished_events(
+            copilot_finished = _cp.get_github_service().check_copilot_finished_events(
                 timeline_events
             )
 
@@ -903,7 +903,7 @@ async def _check_main_pr_completion(
     )
     try:
         # Get main PR details
-        pr_details = await _cp.github_projects_service.get_pull_request(
+        pr_details = await _cp.get_github_service().get_pull_request(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -959,7 +959,7 @@ async def _check_main_pr_completion(
                 return True
 
         # Signal 2: Check timeline events for fresh completion signals
-        timeline_events = await _cp.github_projects_service.get_pr_timeline_events(
+        timeline_events = await _cp.get_github_service().get_pr_timeline_events(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -987,7 +987,7 @@ async def _check_main_pr_completion(
                 len(timeline_events),
             )
 
-        copilot_finished = _cp.github_projects_service.check_copilot_finished_events(fresh_events)
+        copilot_finished = _cp.get_github_service().check_copilot_finished_events(fresh_events)
 
         if copilot_finished:
             logger.info(
@@ -1029,7 +1029,7 @@ async def _check_main_pr_completion(
                 # Check if Copilot is still assigned to the sub-issue
                 # (where it was actually assigned, not the parent issue)
                 copilot_still_assigned = (
-                    await _cp.github_projects_service.is_copilot_assigned_to_issue(
+                    await _cp.get_github_service().is_copilot_assigned_to_issue(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -1065,7 +1065,7 @@ async def _check_main_pr_completion(
                 #   - The agent failed/timed out
                 #   - The assignment didn't take effect
                 copilot_still_assigned = (
-                    await _cp.github_projects_service.is_copilot_assigned_to_issue(
+                    await _cp.get_github_service().is_copilot_assigned_to_issue(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
@@ -1101,7 +1101,7 @@ async def _check_main_pr_completion(
             # a standalone signal. If Copilot is no longer assigned AND the
             # issue timeline shows the agent was previously assigned, it means
             # the agent has finished (even if we can't confirm new commits).
-            copilot_still_assigned = await _cp.github_projects_service.is_copilot_assigned_to_issue(
+            copilot_still_assigned = await _cp.get_github_service().is_copilot_assigned_to_issue(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1148,16 +1148,14 @@ async def _check_main_pr_completion(
         # agent), and the unfiltered timeline contains events from prior
         # agents — causing false-positive completions.
         if not is_subsequent_agent:
-            fallback_copilot_assigned = (
-                await _cp.github_projects_service.is_copilot_assigned_to_issue(
-                    access_token=access_token,
-                    owner=owner,
-                    repo=repo,
-                    issue_number=copilot_check_issue,
-                )
+            fallback_copilot_assigned = await _cp.get_github_service().is_copilot_assigned_to_issue(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=copilot_check_issue,
             )
             if not fallback_copilot_assigned:
-                all_copilot_finished = _cp.github_projects_service.check_copilot_finished_events(
+                all_copilot_finished = _cp.get_github_service().check_copilot_finished_events(
                     timeline_events  # ALL events, not fresh_events
                 )
                 if all_copilot_finished:
@@ -1264,7 +1262,7 @@ async def check_in_review_issues_for_copilot_review(
     try:
         # Use pre-fetched tasks when available to avoid redundant API calls
         if tasks is None:
-            tasks = await _cp.github_projects_service.get_project_items(access_token, project_id)
+            tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
 
         config = await _cp.get_workflow_config(project_id)
         if not config:
@@ -1398,7 +1396,7 @@ async def ensure_copilot_review_requested(
 
         # If the GraphQL node ID is missing, fetch full PR details.
         if not pr_id:
-            pr_details = await _cp.github_projects_service.get_pull_request(
+            pr_details = await _cp.get_github_service().get_pull_request(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1432,7 +1430,7 @@ async def ensure_copilot_review_requested(
                 pr_number,
                 issue_number,
             )
-            mark_ready_ok = await _cp.github_projects_service.mark_pr_ready_for_review(
+            mark_ready_ok = await _cp.get_github_service().mark_pr_ready_for_review(
                 access_token=access_token,
                 pr_node_id=str(pr_id),
             )
@@ -1454,7 +1452,7 @@ async def ensure_copilot_review_requested(
         # Dismiss any pre-existing auto-triggered Copilot reviews so
         # only a review triggered by our explicit request counts as
         # pipeline completion.
-        dismissed = await _cp.github_projects_service.dismiss_copilot_reviews(
+        dismissed = await _cp.get_github_service().dismiss_copilot_reviews(
             access_token=access_token,
             owner=owner,
             repo=repo,
@@ -1477,7 +1475,7 @@ async def ensure_copilot_review_requested(
             task_title,
         )
 
-        success = await _cp.github_projects_service.request_copilot_review(
+        success = await _cp.get_github_service().request_copilot_review(
             access_token=access_token,
             pr_node_id=pr_id,
             pr_number=pr_number,
@@ -1548,7 +1546,7 @@ async def check_issue_for_copilot_completion(
     """
     try:
         # Find the project item for this issue
-        tasks = await _cp.github_projects_service.get_project_items(access_token, project_id)
+        tasks = await _cp.get_github_service().get_project_items(access_token, project_id)
 
         # Find matching task by issue number
         target_task = None

@@ -239,7 +239,7 @@ async def resolve_repository(access_token: str, project_id: str) -> tuple[str, s
     """
     from src.exceptions import ValidationError
     from src.services.cache import cache
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
     from src.services.workflow_orchestrator import get_workflow_config
 
     # Check cache first to avoid repeated API calls for the same project.
@@ -253,7 +253,7 @@ async def resolve_repository(access_token: str, project_id: str) -> tuple[str, s
         return cached
 
     # 1. Try project items (GraphQL)
-    repo_info = await github_projects_service.get_project_repository(access_token, project_id)
+    repo_info = await get_github_service().get_project_repository(access_token, project_id)
     if repo_info:
         cache.set(cache_key, repo_info, ttl_seconds=300)
         return repo_info
@@ -297,10 +297,10 @@ async def _resolve_repository_rest(access_token: str, project_id: str) -> tuple[
     This provides resilience against GraphQL-specific failures (rate
     limits, schema changes) by using an independent REST code path.
     """
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
 
     try:
-        rest_info = await github_projects_service._get_project_rest_info(access_token, project_id)
+        rest_info = await get_github_service()._get_project_rest_info(access_token, project_id)
         if not rest_info:
             return None
 
@@ -312,7 +312,7 @@ async def _resolve_repository_rest(access_token: str, project_id: str) -> tuple[
         else:
             path = f"/users/{owner_login}/projectsV2/{project_number}/items"
 
-        response = await github_projects_service._rest_response(
+        response = await get_github_service()._rest_response(
             access_token, "GET", path, params={"per_page": "5"}
         )
         if response.status_code != 200:

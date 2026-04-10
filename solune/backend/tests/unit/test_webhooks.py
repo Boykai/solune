@@ -301,8 +301,9 @@ class TestHandleCopilotPrReady:
         assert result["reason"] == "no_linked_issue"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     async def test_linked_issue_found(self, mock_gps):
+        mock_gps = mock_gps.return_value
         mock_gps.get_linked_pull_requests = AsyncMock(return_value=[])
         pr_data = {
             "number": 5,
@@ -315,8 +316,9 @@ class TestHandleCopilotPrReady:
         assert result["issue_number"] == 10
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     async def test_error_handling(self, mock_gps):
+        mock_gps = mock_gps.return_value
         mock_gps.get_linked_pull_requests = AsyncMock(side_effect=Exception("API fail"))
         pr_data = {
             "number": 5,
@@ -349,9 +351,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert "action_needed" in result
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_auth_failure(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """Webhook token present but auth fails."""
         mock_settings.return_value.github_webhook_token = "bad-token"
         mock_resp = MagicMock(status_code=401, json=lambda: {})
@@ -362,9 +365,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert "authenticate" in result["error"].lower()
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_issue_not_in_any_project(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """Token works but issue not found in any project."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -378,9 +382,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["action"] == "issue_not_in_project"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_status_updated_success(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """Full happy path - issue found and status updated."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -396,9 +401,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["new_status"] == "In Review"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_status_update_fails(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """Issue found but update_item_status_by_name returns False."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -414,9 +420,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert "Failed to update" in result["error"]
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_exception_during_project_lookup(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """Exception raised during the whole project lookup flow."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_gps.rest_request = AsyncMock(side_effect=Exception("Network error"))
@@ -425,9 +432,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["status"] == "error"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_project_items_error_continues(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """When get_project_items fails for one project, continues to next."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -443,9 +451,10 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["status"] == "success"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_issue_found_by_title_match(self, mock_settings, mock_gps):
+        mock_gps = mock_gps.return_value
         """Issue matched by title containing '#N'."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -462,11 +471,12 @@ class TestUpdateIssueStatusForCopilotPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_pipeline_state")
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_skips_status_move_when_pipeline_agent_not_copilot_review(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
+        mock_gps = mock_gps.return_value
         """Pipeline exists with current_agent != 'copilot-review' → skip status move."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -489,11 +499,12 @@ class TestUpdateIssueStatusForCopilotPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_pipeline_state")
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_proceeds_when_pipeline_agent_is_copilot_review(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
+        mock_gps = mock_gps.return_value
         """Pipeline exists with current_agent == 'copilot-review' → proceed normally."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
@@ -513,11 +524,12 @@ class TestUpdateIssueStatusForCopilotPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_pipeline_state")
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.get_github_service")
     @patch("src.api.webhooks.get_settings")
     async def test_proceeds_when_no_pipeline_exists(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
+        mock_gps = mock_gps.return_value
         """No pipeline for issue → proceed normally (backward compat)."""
         mock_settings.return_value.github_webhook_token = "tok"
         mock_resp = MagicMock(status_code=200, json=lambda: {"login": "user"})
