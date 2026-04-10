@@ -515,8 +515,8 @@ class TestSignalBridgeListenerAndInboundRouting:
         cache.get.return_value = None
         session = SimpleNamespace(updated_at=2, access_token="token", github_username="octocat")
         fetched = [SimpleNamespace(name="Alpha", project_id="p1")]
-        github_projects_service = Mock()
-        github_projects_service.list_user_projects = AsyncMock(return_value=fetched)
+        github_service_mock = Mock()
+        github_service_mock.list_user_projects = AsyncMock(return_value=fetched)
 
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
@@ -529,8 +529,8 @@ class TestSignalBridgeListenerAndInboundRouting:
             AsyncMock(return_value=[session]),
         )
         monkeypatch.setattr(
-            "src.services.github_projects.github_projects_service",
-            github_projects_service,
+            "src.services.github_projects.get_github_service",
+            lambda: github_service_mock,
         )
 
         result = await signal_bridge._list_user_projects("user-1")

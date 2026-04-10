@@ -417,10 +417,10 @@ async def _handle_transcript_upload(
             metadata_context: dict | None = None
             try:
                 owner, repo = await _resolve_repository(session)
-                from src.services.github_projects import github_projects_service
+                from src.services.github_projects import get_github_service
                 from src.services.metadata_service import MetadataService
 
-                metadata_svc = MetadataService(github_service=github_projects_service)
+                metadata_svc = MetadataService(github_service=get_github_service())
                 ctx = await metadata_svc.get_or_fetch(session.access_token, owner, repo)
                 metadata_context = ctx.model_dump()
             except Exception as md_err:
@@ -529,10 +529,10 @@ async def _handle_feature_request(
         metadata_context: dict | None = None
         try:
             owner, repo = await _resolve_repository(session)
-            from src.services.github_projects import github_projects_service
+            from src.services.github_projects import get_github_service
             from src.services.metadata_service import MetadataService
 
-            metadata_svc = MetadataService(github_service=github_projects_service)
+            metadata_svc = MetadataService(github_service=get_github_service())
             ctx = await metadata_svc.get_or_fetch(session.access_token, owner, repo)
             metadata_context = ctx.model_dump()
         except Exception as md_err:
@@ -1482,7 +1482,6 @@ async def confirm_proposal(
     proposal_id: str,
     request: ProposalConfirmRequest | None,
     session: Annotated[UserSession, Depends(get_session_dep)],
-    github_projects_service=Depends(get_github_service),  # noqa: B008
     connection_manager=Depends(get_connection_manager),  # noqa: B008
 ) -> AITaskProposal:
     """Confirm an AI task proposal and create the task."""
@@ -1548,8 +1547,10 @@ async def confirm_proposal(
 
     # Create the issue in GitHub
     try:
+        from src.services.github_projects import get_github_service as _get_gh
+
         # Step 1: Create a real GitHub Issue via REST API
-        issue = await github_projects_service.create_issue(
+        issue = await _get_gh().create_issue(
             access_token=session.access_token,
             owner=owner,
             repo=repo,
@@ -1564,7 +1565,7 @@ async def confirm_proposal(
         issue_database_id = issue["id"]  # Integer database ID for REST API fallback
 
         # Step 2: Add the issue to the project
-        item_id = await github_projects_service.add_issue_to_project(
+        item_id = await _get_gh().add_issue_to_project(
             access_token=session.access_token,
             project_id=project_id,
             issue_node_id=issue_node_id,
@@ -1708,7 +1709,7 @@ async def confirm_proposal(
 
             # Set issue status to Backlog on the project
             backlog_status = config.status_backlog
-            await github_projects_service.update_item_status_by_name(
+            await _get_gh().update_item_status_by_name(
                 access_token=session.access_token,
                 project_id=project_id,
                 item_id=item_id,

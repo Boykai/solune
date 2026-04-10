@@ -9,7 +9,7 @@ import pytest
 
 from src.services.copilot_polling.state_validation import validate_pipeline_labels
 
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 
 
 def _step(agent_name: str, state: str) -> SimpleNamespace:

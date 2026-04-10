@@ -26,7 +26,8 @@ from src.services.copilot_polling.state import (
 @pytest.fixture()
 def mock_service():
     """Mock the GitHub projects service used by auto_merge."""
-    with patch("src.services.copilot_polling.github_projects_service") as svc:
+    with patch("src.services.copilot_polling.get_github_service") as _svc_patch:
+        svc = _svc_patch.return_value
         yield svc
 
 
@@ -515,8 +516,9 @@ class TestAutoMergeRetryLoop:
                 new_callable=AsyncMock,
                 return_value=None,
             ),
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
         ):
+            svc = _svc_patch.return_value
             svc.update_item_status_by_name = AsyncMock()
             svc.update_issue_state = AsyncMock()
 
@@ -1529,12 +1531,13 @@ class TestDeferredRemoval:
                 new_callable=AsyncMock,
                 return_value=None,
             ),
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as _svc_patch,
             patch(
                 "src.services.copilot_polling.remove_pipeline_state",
                 mock_remove,
             ),
         ):
+            svc = _svc_patch.return_value
             svc.update_item_status_by_name = AsyncMock()
             svc.update_issue_state = AsyncMock()
 

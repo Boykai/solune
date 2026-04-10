@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 _MOD = "src.services.copilot_polling.label_manager"
-_GH = "src.services.github_projects.github_projects_service"
+_GH = "src.services.github_projects.get_github_service"
 
 
 def _response(status_code: int, parsed_data=None):

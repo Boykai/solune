@@ -39,9 +39,9 @@ router = APIRouter()
 
 def _get_service() -> ToolsService:
     """Instantiate ToolsService with the current DB connection and GitHub service."""
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
 
-    return ToolsService(get_db(), github_service=github_projects_service)
+    return ToolsService(get_db(), github_service=get_github_service())
 
 
 @router.get("/presets", response_model=McpPresetListResponse)

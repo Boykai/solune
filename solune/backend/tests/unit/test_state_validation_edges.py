@@ -30,7 +30,7 @@ _BASE_KWARGS = {
     "issue_number": 42,
 }
 
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 
 
 class TestLabelAndTableConsistent:

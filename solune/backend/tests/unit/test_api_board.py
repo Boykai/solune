@@ -664,7 +664,8 @@ class TestRateLimitRecovery:
         from src.api.board import _get_rate_limit_info
 
         rl_dict = {"limit": 5000, "remaining": 100, "reset_at": 1700000000, "used": 4900}
-        with patch("src.api.board.github_projects_service") as mock_svc:
+        with patch("src.api.board.get_github_service") as _mock_svc_patch:
+            mock_svc = _mock_svc_patch.return_value
             mock_svc.get_last_rate_limit.return_value = rl_dict
             info = _get_rate_limit_info()
         assert info is not None
@@ -674,7 +675,8 @@ class TestRateLimitRecovery:
         """Returns None when the cached dict is missing required keys."""
         from src.api.board import _get_rate_limit_info
 
-        with patch("src.api.board.github_projects_service") as mock_svc:
+        with patch("src.api.board.get_github_service") as _mock_svc_patch:
+            mock_svc = _mock_svc_patch.return_value
             mock_svc.get_last_rate_limit.return_value = {"limit": 5000}
             info = _get_rate_limit_info()
         assert info is None
@@ -683,7 +685,8 @@ class TestRateLimitRecovery:
         """Returns None when the cached value is not a dict."""
         from src.api.board import _get_rate_limit_info
 
-        with patch("src.api.board.github_projects_service") as mock_svc:
+        with patch("src.api.board.get_github_service") as _mock_svc_patch:
+            mock_svc = _mock_svc_patch.return_value
             mock_svc.get_last_rate_limit.return_value = None
             info = _get_rate_limit_info()
         assert info is None

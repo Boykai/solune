@@ -213,7 +213,7 @@ class TestCheckInProgressIssues:
     """Tests for checking in-progress issues."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     async def test_filters_in_progress_with_issue_numbers(
         self, mock_process, mock_service, mock_task, mock_task_no_issue
@@ -235,7 +235,7 @@ class TestCheckInProgressIssues:
         assert call_args.kwargs["issue_number"] == 42
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_non_in_progress_issues(self, mock_service, mock_task):
         """Test that issues not in 'In Progress' are skipped."""
         mock_task.status = "Done"
@@ -251,7 +251,7 @@ class TestCheckInProgressIssues:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_uses_task_repo_info_over_fallback(self, mock_service, mock_task):
         """Test that task's repository info is preferred over fallback."""
         mock_service.get_project_items = AsyncMock(return_value=[mock_task])
@@ -273,7 +273,7 @@ class TestCheckInProgressIssues:
             assert call_args["repo"] == "test-repo"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     async def test_uses_fallback_when_task_has_no_repo_info(
         self, mock_process, mock_service, mock_task
@@ -296,7 +296,7 @@ class TestCheckInProgressIssues:
         assert call_args["repo"] == "fallback-repo"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_handles_case_insensitive_status(self, mock_service, mock_task):
         """Test that status comparison is case-insensitive."""
         mock_task.status = "IN PROGRESS"  # Uppercase
@@ -318,7 +318,7 @@ class TestCheckInProgressIssues:
             assert mock_process.call_count == 1
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_handles_none_status_gracefully(self, mock_service, mock_task):
         """Test that tasks with None status are skipped."""
         mock_task.status = None
@@ -338,7 +338,7 @@ class TestCheckInProgressIssues:
             mock_process.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     async def test_collects_all_results(self, mock_process, mock_service, mock_task):
         """Test that results from all processed issues are collected."""
@@ -379,7 +379,7 @@ class TestCheckInProgressIssues:
         assert len(results) == 2
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_skips_issues_with_active_pipeline_for_other_status(
@@ -423,7 +423,7 @@ class TestCheckInProgressIssues:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_processes_issues_with_in_progress_pipeline(
         self, mock_get_pipeline, mock_service, mock_task
@@ -463,7 +463,7 @@ class TestCheckInProgressIssues:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_processes_issues_with_completed_pipeline(
@@ -495,7 +495,7 @@ class TestCheckInProgressIssues:
         assert len(results) == 1
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     @patch("src.services.copilot_polling.get_pipeline_state")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -558,7 +558,7 @@ class TestCheckInProgressIssues:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     @patch("src.services.copilot_polling.get_pipeline_state")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -627,7 +627,7 @@ class TestCheckInProgressIssues:
         assert results[0]["action"] == "status_transitioned"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.process_in_progress_issue")
     @patch("src.services.copilot_polling.get_pipeline_state")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -694,7 +694,7 @@ class TestProcessInProgressIssue:
     """Tests for processing individual in-progress issues."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_none_when_no_completed_pr(self, mock_service):
         """Test that None is returned when no completed Copilot PR."""
         mock_service.check_copilot_pr_completion = AsyncMock(return_value=None)
@@ -712,7 +712,7 @@ class TestProcessInProgressIssue:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.asyncio.sleep")
     async def test_updates_status_when_copilot_pr_ready(self, mock_sleep, mock_service):
         """Test that draft PR is converted and status is updated when Copilot finishes."""
@@ -754,7 +754,7 @@ class TestProcessInProgressIssue:
         assert call_args["status_name"] == "In Review"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_already_processed_issues(self, mock_service):
         """Test that already processed issue+PR combinations are skipped."""
         _processed_issue_prs.add(cache_key_issue_pr(42, 100, "PVT_123"))
@@ -780,7 +780,7 @@ class TestProcessInProgressIssue:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.asyncio.sleep")
     async def test_skips_mark_ready_when_already_not_draft(self, mock_sleep, mock_service):
         """Test that mark_pr_ready_for_review is skipped if PR is not a draft."""
@@ -810,7 +810,7 @@ class TestProcessInProgressIssue:
         mock_service.mark_pr_ready_for_review.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_error_when_mark_ready_fails(self, mock_service):
         """Test error handling when marking PR ready fails."""
         mock_service.check_copilot_pr_completion = AsyncMock(
@@ -839,7 +839,7 @@ class TestProcessInProgressIssue:
         assert "draft" in result["error"].lower()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.asyncio.sleep")
     async def test_returns_error_when_status_update_fails(self, mock_sleep, mock_service):
         """Test error handling when status update fails."""
@@ -870,7 +870,7 @@ class TestProcessInProgressIssue:
         assert "status" in result["error"].lower()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.pipeline.asyncio.sleep")
     async def test_adds_to_processed_cache_on_success(self, mock_sleep, mock_service):
         """Test that successful processing adds to the cache."""
@@ -900,7 +900,7 @@ class TestCheckIssueForCopilotCompletion:
     """Tests for manual issue checking."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_not_found_when_issue_not_in_project(self, mock_service):
         """Test that 'not_found' is returned when issue not in project."""
         mock_service.get_project_items = AsyncMock(return_value=[])
@@ -917,7 +917,7 @@ class TestCheckIssueForCopilotCompletion:
         assert result["issue_number"] == 999
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_skipped_when_not_in_progress(self, mock_service, mock_task):
         """Test that 'skipped' is returned when issue not in progress."""
         mock_task.status = "Backlog"
@@ -935,7 +935,7 @@ class TestCheckIssueForCopilotCompletion:
         assert result["current_status"] == "Backlog"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.process_in_progress_issue")
     async def test_processes_in_progress_issue(self, mock_process, mock_service, mock_task):
         """Test that in-progress issues are processed."""
@@ -954,7 +954,7 @@ class TestCheckIssueForCopilotCompletion:
         mock_process.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.process_in_progress_issue")
     async def test_returns_no_action_when_process_returns_none(
         self, mock_process, mock_service, mock_task
@@ -1000,7 +1000,7 @@ class TestPostAgentOutputsFromPr:
         return task
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_posts_done_marker_on_parent_only_without_sub_issue(
@@ -1057,7 +1057,7 @@ class TestPostAgentOutputsFromPr:
         assert done_call_issue == 10  # Parent issue
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_posts_md_on_sub_issue_and_done_on_parent(
@@ -1130,7 +1130,7 @@ class TestPostAgentOutputsFromPr:
         mock_service.update_issue_state.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_posts_summary_on_sub_issue_for_linter(
@@ -1203,7 +1203,7 @@ class TestPostAgentOutputsFromPr:
         mock_service.update_issue_state.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_skips_when_done_marker_already_exists(
@@ -1232,7 +1232,7 @@ class TestPostAgentOutputsFromPr:
         mock_service.check_copilot_pr_completion.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_handles_implement_agent_with_no_md_outputs(
@@ -1272,7 +1272,7 @@ class TestPostAgentOutputsFromPr:
         assert results[0]["files_posted"] == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_skips_when_no_pr_found(
@@ -1301,7 +1301,7 @@ class TestPostAgentOutputsFromPr:
         assert len(results) == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_deduplicates_via_cache(
@@ -1333,7 +1333,7 @@ class TestPostAgentOutputsFromPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._check_main_pr_completion", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_subsequent_agent_detects_completion_on_main_pr(
@@ -1393,7 +1393,7 @@ class TestPostAgentOutputsFromPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._check_main_pr_completion", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_subsequent_agent_skips_main_pr_without_fresh_signals(
@@ -1437,7 +1437,7 @@ class TestPostAgentOutputsFromPr:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._check_main_pr_completion", new_callable=AsyncMock)
     @patch("src.services.copilot_polling._find_completed_child_pr", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_subsequent_agent_rejects_stale_main_pr_events_in_new_status(
@@ -1511,7 +1511,7 @@ class TestPostAgentOutputsFromPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._get_tracking_state_from_issue", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_reconstructs_pipeline_from_tracking_table_on_restart(
@@ -1585,7 +1585,7 @@ class TestPostAgentOutputsFromPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._get_tracking_state_from_issue", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_reconstruction_skips_when_no_active_agent_in_tracking(
@@ -1629,7 +1629,7 @@ class TestCheckChildPrCompletion:
     """Tests for _check_child_pr_completion function."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_when_no_linked_prs(self, mock_service):
         """Should return False when no linked PRs exist."""
         mock_service.get_linked_pull_requests = AsyncMock(return_value=[])
@@ -1647,7 +1647,7 @@ class TestCheckChildPrCompletion:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_main_pr(self, mock_service):
         """Should skip the main PR itself when looking for child PRs."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -1669,7 +1669,7 @@ class TestCheckChildPrCompletion:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_non_copilot_prs(self, mock_service):
         """Should skip PRs not created by Copilot."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -1691,7 +1691,7 @@ class TestCheckChildPrCompletion:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_true_for_ready_child_pr(self, mock_service):
         """Should return True when child PR is not a draft."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -1719,7 +1719,7 @@ class TestCheckChildPrCompletion:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_true_for_copilot_finished_event(self, mock_service):
         """Should return True when child PR has copilot_finished event."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -1749,7 +1749,7 @@ class TestCheckChildPrCompletion:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_for_incomplete_child_pr(self, mock_service):
         """Should return False when child PR exists but is incomplete."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -1783,7 +1783,7 @@ class TestCheckMainPrCompletion:
     """Tests for _check_main_pr_completion function."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_when_pr_details_unavailable(self, mock_service):
         """Should return False when main PR details can't be fetched."""
         mock_service.get_pull_request = AsyncMock(return_value=None)
@@ -1800,7 +1800,7 @@ class TestCheckMainPrCompletion:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_when_pr_not_open(self, mock_service):
         """Should return False when main PR is not open (closed/merged)."""
         mock_service.get_pull_request = AsyncMock(
@@ -1819,7 +1819,7 @@ class TestCheckMainPrCompletion:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_true_when_pr_not_draft(self, mock_service):
         """Should return True when main PR is no longer a draft."""
         mock_service.get_pull_request = AsyncMock(return_value={"state": "OPEN", "is_draft": False})
@@ -1836,7 +1836,7 @@ class TestCheckMainPrCompletion:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_true_for_fresh_copilot_finished_event(self, mock_service):
         """Should return True when main PR has fresh copilot_finished event."""
         pipeline_start = datetime(2025, 1, 15, 17, 0, 0)
@@ -1869,7 +1869,7 @@ class TestCheckMainPrCompletion:
         assert call_args[0]["event"] == "copilot_work_finished"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_filters_stale_events(self, mock_service):
         """Should filter out stale events from before pipeline start."""
         pipeline_start = datetime(2025, 1, 15, 17, 0, 0)
@@ -1901,7 +1901,7 @@ class TestCheckMainPrCompletion:
         assert len(call_args) == 0
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_uses_all_events_when_no_pipeline_start(self, mock_service):
         """Should use all events when no pipeline start time is available."""
         mock_service.get_pull_request = AsyncMock(return_value={"state": "OPEN", "is_draft": True})
@@ -1926,7 +1926,7 @@ class TestCheckMainPrCompletion:
         assert len(call_args) == 1
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_when_no_completion_signals(self, mock_service):
         """Should return False when main PR is draft and no completion events."""
         mock_service.get_pull_request = AsyncMock(return_value={"state": "OPEN", "is_draft": True})
@@ -1945,7 +1945,7 @@ class TestCheckMainPrCompletion:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_handles_exceptions_gracefully(self, mock_service):
         """Should return False and not raise on exceptions."""
         mock_service.get_pull_request = AsyncMock(side_effect=Exception("API error"))
@@ -2024,7 +2024,7 @@ class TestMergeChildPrIfApplicable:
     """Tests for _merge_child_pr_if_applicable function."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_none_when_no_linked_prs(self, mock_service):
         """Should return None when no linked PRs exist."""
         mock_service.get_linked_pull_requests = AsyncMock(return_value=[])
@@ -2042,7 +2042,7 @@ class TestMergeChildPrIfApplicable:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_merges_child_pr_successfully(self, mock_service):
         """Should merge child PR when it targets the main branch."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -2078,7 +2078,7 @@ class TestMergeChildPrIfApplicable:
         mock_service.merge_pull_request.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_main_pr(self, mock_service):
         """Should skip the main PR when looking for child PRs to merge."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -2100,7 +2100,7 @@ class TestMergeChildPrIfApplicable:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_merge_failed_when_merge_fails(self, mock_service):
         """Should return merge_failed status when a child PR is found but merge fails."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -2137,7 +2137,7 @@ class TestMergeChildPrIfApplicable:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.completion.asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_waits_for_draft_pr_to_be_ready_before_merge(self, mock_service, mock_sleep):
         """Draft child PRs should be marked ready and given time to propagate before merge."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -2180,7 +2180,7 @@ class TestDetectCompletionSignals:
     """Tests for completion detection fallthrough handling."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch(
         "src.services.copilot_polling._get_linked_prs_including_sub_issues", new_callable=AsyncMock
     )
@@ -2249,7 +2249,7 @@ class TestReconstructPipelineState:
         _pipeline_states.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     async def test_reconstructs_from_comments(self, mock_set_state, mock_service):
         """Should reconstruct pipeline state from issue comments."""
@@ -2279,7 +2279,7 @@ class TestReconstructPipelineState:
         mock_set_state.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     async def test_stops_at_first_incomplete(self, mock_set_state, mock_service):
         """Should stop reconstruction at first agent without Done! marker."""
@@ -2308,7 +2308,7 @@ class TestReconstructPipelineState:
         assert result.current_agent == "speckit.plan"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     async def test_handles_no_comments(self, mock_set_state, mock_service):
         """Should handle issues with no comments."""
@@ -2328,7 +2328,7 @@ class TestReconstructPipelineState:
         assert result.current_agent == "speckit.specify"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     async def test_handles_api_error(self, mock_set_state, mock_service):
         """Should handle API errors gracefully."""
@@ -2348,7 +2348,7 @@ class TestReconstructPipelineState:
         assert result.completed_agents == []
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     async def test_started_at_uses_cross_status_done_timestamp(self, mock_set_state, mock_service):
         """Regression test for #1171: when no agents in the current status have
@@ -2406,7 +2406,7 @@ class TestReconstructPipelineLinksParentIssue:
         _issue_main_branches.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     @patch("src.services.copilot_polling.get_issue_main_branch", return_value=None)
     async def test_links_pr_to_parent_on_reconstruct(
@@ -2441,7 +2441,7 @@ class TestReconstructPipelineLinksParentIssue:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
     @patch("src.services.copilot_polling.get_issue_main_branch", return_value=None)
     async def test_link_failure_does_not_block_reconstruct(
@@ -2489,7 +2489,7 @@ class TestCheckBacklogIssues:
         return task
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_returns_empty_when_no_config(self, mock_config, mock_service):
         """Should return empty list when no workflow config exists."""
@@ -2505,7 +2505,7 @@ class TestCheckBacklogIssues:
         assert results == []
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_returns_empty_when_no_backlog_tasks(self, mock_config, mock_service):
         """Should return empty when no tasks in Backlog status."""
@@ -2525,7 +2525,7 @@ class TestCheckBacklogIssues:
         assert results == []
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     @patch("src.services.copilot_polling.pipeline._reconstruct_pipeline_state")
@@ -2587,7 +2587,7 @@ class TestCheckReadyIssues:
         return task
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_returns_empty_when_no_config(self, mock_config, mock_service):
         """Should return empty when no workflow config."""
@@ -2603,7 +2603,7 @@ class TestCheckReadyIssues:
         assert results == []
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     @patch("src.services.copilot_polling.pipeline._reconstruct_pipeline_state")
@@ -2655,7 +2655,7 @@ class TestTransitionAfterPipelineComplete:
         _pipeline_states.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
@@ -2687,7 +2687,7 @@ class TestTransitionAfterPipelineComplete:
         mock_remove.assert_called_once_with(42)
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     async def test_returns_error_when_status_update_fails(self, mock_ws, mock_service):
         """Should return error when status update fails."""
@@ -2714,7 +2714,7 @@ class TestTransitionAfterPipelineComplete:
         "src.services.copilot_polling.helpers._discover_main_pr_for_review",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
@@ -2767,7 +2767,7 @@ class TestTransitionAfterPipelineComplete:
         "src.services.copilot_polling.helpers._discover_main_pr_for_review",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
@@ -2806,7 +2806,7 @@ class TestTransitionAfterPipelineComplete:
         "src.services.copilot_polling.pipeline._dequeue_next_pipeline",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
@@ -2842,7 +2842,7 @@ class TestTransitionAfterPipelineComplete:
         "src.services.copilot_polling.pipeline._dequeue_next_pipeline",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
@@ -2879,7 +2879,7 @@ class TestTransitionAfterPipelineComplete:
         "src.services.copilot_polling.pipeline._dequeue_next_pipeline",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
@@ -2921,7 +2921,7 @@ class TestAdvancePipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -2991,7 +2991,7 @@ class TestAdvancePipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -3055,7 +3055,7 @@ class TestAdvancePipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -3125,7 +3125,7 @@ class TestAdvancePipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch(
         "src.services.copilot_polling._get_linked_prs_including_sub_issues", new_callable=AsyncMock
     )
@@ -3196,7 +3196,7 @@ class TestAdvancePipeline:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.pipeline.asyncio.sleep", new_callable=AsyncMock)
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -3300,7 +3300,7 @@ class TestAdvancePipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -3393,7 +3393,7 @@ class TestAdvancePipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -3487,7 +3487,7 @@ class TestFindCompletedChildPr:
     """Tests for _find_completed_child_pr function."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_none_when_no_linked_prs(self, mock_service):
         """Should return None when no linked PRs exist."""
         mock_service.get_linked_pull_requests = AsyncMock(return_value=[])
@@ -3505,7 +3505,7 @@ class TestFindCompletedChildPr:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_pr_info_when_child_pr_complete(self, mock_service):
         """Should return PR info when child PR has completion signals (like PR #214 for issue #211)."""
         # Simulate PRs #212 (main) and #214 (child)
@@ -3546,7 +3546,7 @@ class TestFindCompletedChildPr:
         assert result["copilot_finished"] is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_main_pr(self, mock_service):
         """Should skip the main PR and only consider child PRs."""
         # Only the main PR exists, no child PR
@@ -3571,7 +3571,7 @@ class TestFindCompletedChildPr:
         mock_service.get_pull_request.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_none_when_child_pr_targets_unrelated_branch(self, mock_service):
         """Should return None when child PR targets an unrelated branch (not main branch or 'main')."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -3601,7 +3601,7 @@ class TestFindCompletedChildPr:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_pr_when_not_draft(self, mock_service):
         """Should return PR info when child PR is not draft (ready for review)."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -3637,7 +3637,7 @@ class TestFindCompletedChildPr:
         mock_service.get_pr_timeline_events.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_pr_info_when_child_pr_merged(self, mock_service):
         """Should return PR info when child PR is MERGED (like PR #218 for issue #215)."""
         # Simulate PRs #216 (main) and #218 (merged child)
@@ -3675,7 +3675,7 @@ class TestFindCompletedChildPr:
         mock_service.get_pr_timeline_events.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_none_when_child_pr_still_in_progress(self, mock_service):
         """Should return None when child PR exists but is still in progress."""
         mock_service.get_linked_pull_requests = AsyncMock(
@@ -3707,7 +3707,7 @@ class TestFindCompletedChildPr:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_claimed_child_pr_from_other_agent(self, mock_service):
         """Should skip child PR that was already claimed by another agent.
 
@@ -3746,7 +3746,7 @@ class TestFindCompletedChildPr:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_allows_same_agent_to_see_claimed_pr(self, mock_service):
         """Should allow an agent to see its own claimed PR."""
         # Pre-claim PR #226 for speckit.plan
@@ -3783,7 +3783,7 @@ class TestFindCompletedChildPr:
         assert result["number"] == 226
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_completed_when_timeline_empty_and_title_has_no_wip(self, mock_service):
         """Should detect completion via title fallback when timeline API fails.
 
@@ -3826,7 +3826,7 @@ class TestFindCompletedChildPr:
         assert result["is_child_pr"] is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_none_when_timeline_empty_and_title_has_wip(self, mock_service):
         """Should NOT detect completion when title still has [WIP] prefix.
 
@@ -3862,7 +3862,7 @@ class TestFindCompletedChildPr:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_title_fallback_when_timeline_has_events(self, mock_service):
         """Should NOT use title fallback when timeline returned real events.
 
@@ -4010,7 +4010,7 @@ class TestRecoverStalledIssues:
         assert results == []
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_issues_with_all_agents_done(
         self, mock_config, mock_service, mock_backlog_task
@@ -4037,7 +4037,7 @@ class TestRecoverStalledIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_recovers_when_copilot_not_assigned_and_no_wip_pr(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
@@ -4076,7 +4076,7 @@ class TestRecoverStalledIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_recovers_when_copilot_assigned_but_no_wip_pr(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
@@ -4109,7 +4109,7 @@ class TestRecoverStalledIssues:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_no_recovery_when_agent_healthy(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
@@ -4149,7 +4149,7 @@ class TestRecoverStalledIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_recovers_when_copilot_errored_on_wip_pr(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
@@ -4199,7 +4199,7 @@ class TestRecoverStalledIssues:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_respects_max_recovery_retries(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
@@ -4228,7 +4228,7 @@ class TestRecoverStalledIssues:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_respects_cooldown(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
@@ -4257,7 +4257,7 @@ class TestRecoverStalledIssues:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_sets_cooldown_after_recovery(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_backlog_task
@@ -4293,7 +4293,7 @@ class TestRecoverStalledIssues:
     @patch(
         "src.services.copilot_polling.pipeline._self_heal_tracking_table", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_issues_without_tracking_table_after_self_heal_fails(
         self, mock_config, mock_service, mock_heal, mock_backlog_task
@@ -4320,7 +4320,7 @@ class TestRecoverStalledIssues:
         mock_heal.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_tasks_without_issue_number(self, mock_config, mock_service):
         """Should skip tasks without an issue number."""
@@ -4344,7 +4344,7 @@ class TestRecoverStalledIssues:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_recovery_when_done_marker_exists(
         self, mock_config, mock_service, mock_get_branch, mock_backlog_task
@@ -4390,7 +4390,7 @@ class TestRecoverStalledIssues:
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_uses_durable_completion_when_tracking_table_is_stale(
         self,
@@ -4476,7 +4476,7 @@ class TestRecoverStalledIssues:
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_copilot_review_agent_stall_checks(
         self, mock_config, mock_service, mock_check_done
@@ -4538,7 +4538,7 @@ class TestRecoverStalledIssues:
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_human_agent_stall_checks(self, mock_config, mock_service, mock_check_done):
         """Recovery should skip copilot_assigned / has_wip_pr for human agent.
@@ -4591,7 +4591,7 @@ class TestRecoverStalledIssues:
         "src.services.copilot_polling._find_completed_child_pr",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_recovery_when_merged_child_pr_exists(
         self, mock_config, mock_service, mock_find_child, mock_get_branch, mock_backlog_task
@@ -4656,7 +4656,7 @@ class TestRecoverStalledIssues:
         "src.services.copilot_polling._find_completed_child_pr",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_recovers_when_no_main_branch_info_and_no_merged_child(
         self,
@@ -4708,7 +4708,7 @@ class TestRecoverStalledIssues:
         "src.services.copilot_polling._find_completed_child_pr",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_merged_child_pr_guard_tolerates_marker_post_failure(
         self, mock_config, mock_service, mock_find_child, mock_get_branch, mock_backlog_task
@@ -4788,7 +4788,7 @@ class TestValidateAndReconcileTrackingTable:
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_corrections_when_table_matches_github(self, mock_service, mock_check_done):
         """No corrections when GitHub agrees with the tracking table."""
         from src.services.agent_tracking import parse_tracking_from_body
@@ -4814,7 +4814,7 @@ class TestValidateAndReconcileTrackingTable:
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_corrects_active_agent_to_done(self, mock_service, mock_check_done):
         """Active agent corrected to Done when GitHub has Done! marker."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -4849,7 +4849,7 @@ class TestValidateAndReconcileTrackingTable:
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_corrects_pending_agent_to_done(self, mock_service, mock_check_done):
         """Pending agent corrected to Done when GitHub has Done! marker."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -4882,7 +4882,7 @@ class TestValidateAndReconcileTrackingTable:
         new_callable=AsyncMock,
         return_value=True,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_corrects_multiple_agents_in_one_pass(self, mock_service, mock_check_done):
         """All out-of-sync agents corrected in a single reconciliation pass."""
         from src.services.agent_tracking import STATE_DONE, parse_tracking_from_body
@@ -4910,7 +4910,7 @@ class TestValidateAndReconcileTrackingTable:
         new_callable=AsyncMock,
         return_value=True,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_continues_with_corrected_state_when_push_fails(
         self, mock_service, mock_check_done
     ):
@@ -4939,7 +4939,7 @@ class TestValidateAndReconcileTrackingTable:
         new_callable=AsyncMock,
         return_value=True,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_already_done_agents(self, mock_service, mock_check_done):
         """Agents already marked Done should not be re-corrected."""
         from src.services.agent_tracking import parse_tracking_from_body
@@ -4973,7 +4973,7 @@ class TestValidateAndReconcileTrackingTable:
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_end_to_end_recovery_with_stale_table(self, mock_service, mock_check_done):
         """Integration: stale table gets reconciled then recovery assigns correct agent.
 
@@ -5068,7 +5068,7 @@ class TestEnsureCopilotReviewRequested:
         _review_requested_cache.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_already_cached_returns_none(self, mock_service):
         from src.services.copilot_polling import cache_key_review_requested
 
@@ -5081,7 +5081,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_pr_discovered_returns_none(self, mock_service, mock_discover):
         mock_discover.return_value = None
         result = await ensure_copilot_review_requested("tok", "o", "r", "PVT_1", 42, "title")
@@ -5091,7 +5091,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_missing_pr_number_returns_none(self, mock_service, mock_discover):
         mock_discover.return_value = {"pr_number": None, "pr_id": "PR_N", "is_draft": False}
         result = await ensure_copilot_review_requested("tok", "o", "r", "PVT_1", 42, "title")
@@ -5101,7 +5101,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_dismisses_auto_triggered_before_requesting(self, mock_service, mock_discover):
         """Auto-triggered reviews are dismissed before Solune requests its own review."""
         mock_discover.return_value = {
@@ -5128,7 +5128,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_review_requested_successfully(self, mock_service, mock_discover):
         mock_discover.return_value = {
             "pr_number": 10,
@@ -5152,7 +5152,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_review_request_fails(self, mock_service, mock_discover):
         mock_discover.return_value = {
             "pr_number": 10,
@@ -5171,7 +5171,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_exception_returns_none(self, mock_service, mock_discover):
         mock_discover.side_effect = Exception("boom")
         result = await ensure_copilot_review_requested("tok", "o", "r", "PVT_1", 42, "title")
@@ -5181,7 +5181,7 @@ class TestEnsureCopilotReviewRequested:
     @patch(
         "src.services.copilot_polling.helpers._discover_main_pr_for_review", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_draft_pr_converted_to_ready(self, mock_service, mock_discover):
         """When the discovered PR is draft, it should be converted to ready before review."""
         mock_discover.return_value = {
@@ -5221,7 +5221,7 @@ class TestCheckInReviewIssues:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.completion.ensure_copilot_review_requested")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_in_review_tasks(
         self,
         mock_service,
@@ -5247,7 +5247,7 @@ class TestCheckInReviewIssues:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.completion.ensure_copilot_review_requested")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_processes_in_review_tasks(
         self,
         mock_service,
@@ -5291,7 +5291,7 @@ class TestCheckInReviewIssues:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.completion.ensure_copilot_review_requested")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_none_results_filtered_out(
         self,
         mock_service,
@@ -5328,7 +5328,7 @@ class TestCheckInReviewIssues:
     @patch(
         "src.services.copilot_polling.completion._cp.get_workflow_config", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_exception_returns_empty(self, mock_service, mock_get_config):
         mock_service.get_project_items = AsyncMock(side_effect=Exception("err"))
         mock_get_config.return_value = MagicMock(status_in_review="In Review")
@@ -5344,7 +5344,7 @@ class TestCheckInReviewIssues:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.completion.ensure_copilot_review_requested")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_tasks_without_issue_number(
         self,
         mock_service,
@@ -5369,7 +5369,7 @@ class TestCheckInReviewIssues:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.completion.ensure_copilot_review_requested")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_when_board_is_in_review_but_pipeline_has_not_reached_copilot_review(
         self,
         mock_service,
@@ -5413,7 +5413,7 @@ class TestCheckInReviewIssues:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.completion.ensure_copilot_review_requested")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_requests_when_copilot_review_is_in_active_parallel_group(
         self,
         mock_service,
@@ -5481,7 +5481,7 @@ class TestCheckMainPrCompletionCommitBased:
     """Tests for _check_main_pr_completion commit-based + Copilot-unassigned detection."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_new_commits_copilot_unassigned(self, mock_service):
         """New commits + Copilot unassigned → True."""
         mock_service.get_pull_request = AsyncMock(
@@ -5508,7 +5508,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_new_commits_copilot_still_assigned(self, mock_service):
         """New commits but Copilot still assigned → False (still working)."""
         mock_service.get_pull_request = AsyncMock(
@@ -5535,7 +5535,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_sha_unchanged_copilot_unassigned(self, mock_service):
         """SHA unchanged but Copilot unassigned → False (no code committed, FR-007)."""
         mock_service.get_pull_request = AsyncMock(
@@ -5562,7 +5562,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_sha_unchanged_copilot_still_assigned(self, mock_service):
         """SHA unchanged + Copilot still assigned → False."""
         mock_service.get_pull_request = AsyncMock(
@@ -5589,7 +5589,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_sha_copilot_unassigned_fresh_commit(self, mock_service):
         """No assigned SHA + Copilot unassigned + fresh commit → True."""
         recent = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
@@ -5617,7 +5617,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_sha_copilot_unassigned_stale_commit(self, mock_service):
         """No assigned SHA + Copilot unassigned + stale commit → False."""
         old_time = (datetime.now(UTC) - timedelta(days=5)).isoformat()
@@ -5645,7 +5645,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_sha_copilot_still_assigned(self, mock_service):
         """No assigned SHA + Copilot still assigned → False."""
         mock_service.get_pull_request = AsyncMock(
@@ -5672,7 +5672,7 @@ class TestCheckMainPrCompletionCommitBased:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_pr_details_returns_false(self, mock_service):
         mock_service.get_pull_request = AsyncMock(return_value=None)
         result = await _check_main_pr_completion(
@@ -5718,7 +5718,7 @@ class TestPollLoop:
     @patch("src.services.copilot_polling.check_ready_issues", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.check_backlog_issues", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.post_agent_outputs_from_pr", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_single_poll_cycle(
         self,
@@ -5756,7 +5756,7 @@ class TestPollLoop:
         mock_service.get_project_items.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_exception_increments_errors(self, mock_sleep, mock_service):
         from src.services.copilot_polling import _polling_state
@@ -5808,7 +5808,7 @@ class TestRateLimitAwarePolling:
         _monitored_projects.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_check_rate_limit_budget_returns_remaining(self, mock_service):
         """_check_rate_limit_budget should return (remaining, reset_at)."""
         from src.services.copilot_polling.polling_loop import _check_rate_limit_budget
@@ -5824,7 +5824,7 @@ class TestRateLimitAwarePolling:
         assert reset_at == 1700000000
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_check_rate_limit_budget_returns_none_when_no_data(self, mock_service):
         """_check_rate_limit_budget should return (None, None) when no rate limit data."""
         from src.services.copilot_polling.polling_loop import _check_rate_limit_budget
@@ -5836,7 +5836,7 @@ class TestRateLimitAwarePolling:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_pause_if_rate_limited_pauses_when_exhausted(self, mock_service, mock_sleep):
         """_pause_if_rate_limited should sleep and return True when remaining <= threshold."""
         from src.services.copilot_polling.polling_loop import _pause_if_rate_limited
@@ -5853,7 +5853,7 @@ class TestRateLimitAwarePolling:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_pause_if_rate_limited_returns_false_when_healthy(self, mock_service, mock_sleep):
         """_pause_if_rate_limited should return False when remaining is healthy."""
         from src.services.copilot_polling.polling_loop import _pause_if_rate_limited
@@ -5870,7 +5870,7 @@ class TestRateLimitAwarePolling:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_pause_if_rate_limited_clears_stale_when_reset_passed(
         self, mock_service, mock_sleep
     ):
@@ -5901,7 +5901,7 @@ class TestRateLimitAwarePolling:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_pause_if_rate_limited_sleeps_when_reset_in_future(
         self, mock_service, mock_sleep
     ):
@@ -5920,7 +5920,7 @@ class TestRateLimitAwarePolling:
         mock_sleep.assert_awaited_once()  # should sleep
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_error_handler_clears_stale_rate_limit(self, mock_sleep, mock_service):
         """After an exception with stale rate-limit data, the error handler should clear it.
@@ -5971,7 +5971,7 @@ class TestRateLimitAwarePolling:
         mock_service.clear_last_rate_limit.assert_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_error_handler_preserves_fresh_rate_limit(self, mock_sleep, mock_service):
         """After an exception with fresh (future) rate-limit data, handler should NOT clear it.
@@ -6029,7 +6029,7 @@ class TestRateLimitAwarePolling:
     @patch("src.services.copilot_polling.check_ready_issues", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.check_backlog_issues", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.post_agent_outputs_from_pr", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_poll_loop_skips_step0_when_budget_low(
         self,
@@ -6091,7 +6091,7 @@ class TestRateLimitAwarePolling:
     @patch("src.services.copilot_polling.check_ready_issues", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.check_backlog_issues", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.post_agent_outputs_from_pr", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_poll_loop_doubles_interval_when_budget_low(
         self,
@@ -6144,7 +6144,7 @@ class TestRateLimitAwarePolling:
     def test_get_polling_status_includes_rate_limit(self):
         """get_polling_status should include rate_limit info when available."""
         with patch("src.services.copilot_polling.polling_loop._cp") as mock_cp:
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = {
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = {
                 "limit": 5000,
                 "remaining": 3000,
                 "reset_at": 1700000000,
@@ -6170,7 +6170,7 @@ class TestPipelineRateLimitAwareness:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_waits_when_budget_low(self, mock_service, mock_sleep):
         """_wait_if_rate_limited should sleep and return True when budget is critically low."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6185,7 +6185,7 @@ class TestPipelineRateLimitAwareness:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_proceeds_when_budget_healthy(
         self, mock_service, mock_sleep
     ):
@@ -6202,7 +6202,7 @@ class TestPipelineRateLimitAwareness:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_clears_stale_data(self, mock_service, mock_sleep):
         """_wait_if_rate_limited should clear stale data and continue when reset_at is past."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6218,7 +6218,7 @@ class TestPipelineRateLimitAwareness:
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_wait_if_rate_limited_proceeds_when_no_data(self, mock_service, mock_sleep):
         """_wait_if_rate_limited should return False when no rate limit data available."""
         from src.services.copilot_polling.pipeline import _wait_if_rate_limited
@@ -6229,7 +6229,7 @@ class TestPipelineRateLimitAwareness:
         mock_sleep.assert_not_awaited()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_get_rate_limit_remaining_returns_values(self, mock_service):
         """_get_rate_limit_remaining should return (remaining, reset_at)."""
         from src.services.copilot_polling.pipeline import _get_rate_limit_remaining
@@ -6243,7 +6243,7 @@ class TestPipelineRateLimitAwareness:
         assert reset_at == 1700000000
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_get_rate_limit_remaining_returns_none_when_no_data(self, mock_service):
         """_get_rate_limit_remaining should return (None, None) when no data."""
         from src.services.copilot_polling.pipeline import _get_rate_limit_remaining
@@ -6358,7 +6358,7 @@ class TestCheckAgentDoneOnParent:
     """Tests for _check_agent_done_on_parent."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_delegates_to_check_completion_comment(self, mock_service):
         """Should delegate directly to check_agent_completion_comment on parent issue."""
         mock_service.check_agent_completion_comment = AsyncMock(return_value=True)
@@ -6381,7 +6381,7 @@ class TestCheckAgentDoneOnParent:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_when_no_marker(self, mock_service):
         mock_service.check_agent_completion_comment = AsyncMock(return_value=False)
 
@@ -6416,7 +6416,7 @@ class TestCheckHumanAgentDone:
     """
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_closed_sub_issue_returns_true(self, mock_service):
         """Signal 1: A closed Human sub-issue completes the step."""
         pipeline = MagicMock()
@@ -6442,7 +6442,7 @@ class TestCheckHumanAgentDone:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_done_comment_from_assignee_returns_true(self, mock_service):
         """Signal 2: Exact 'Done!' from the assigned user completes the step."""
         pipeline = MagicMock()
@@ -6471,7 +6471,7 @@ class TestCheckHumanAgentDone:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_done_comment_from_non_assignee_returns_false(self, mock_service):
         """'Done!' from an unauthorized user must NOT complete the step."""
         pipeline = MagicMock()
@@ -6499,7 +6499,7 @@ class TestCheckHumanAgentDone:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_done_with_trailing_whitespace_does_not_complete(self, mock_service):
         """'Done! ' (with trailing space) must NOT match — exact string only."""
         pipeline = MagicMock()
@@ -6527,7 +6527,7 @@ class TestCheckHumanAgentDone:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_lowercase_done_does_not_complete(self, mock_service):
         """'done!' (case mismatch) must NOT match — case-sensitive exact string."""
         pipeline = MagicMock()
@@ -6555,7 +6555,7 @@ class TestCheckHumanAgentDone:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_assignee_falls_back_to_parent_author(self, mock_service):
         """When no assignee is stored, the parent issue author should be used."""
         pipeline = MagicMock()
@@ -6584,7 +6584,7 @@ class TestCheckHumanAgentDone:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_assignee_no_author_fails_closed(self, mock_service):
         """When neither assignee nor parent author is known, fail closed."""
         pipeline = MagicMock()
@@ -6614,7 +6614,7 @@ class TestCheckHumanAgentDone:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_signals_returns_false(self, mock_service):
         """When sub-issue is open and no 'Done!' comment exists, return False."""
         pipeline = MagicMock()
@@ -6651,7 +6651,7 @@ class TestUpdateIssueTracking:
     """Tests for _update_issue_tracking — updates agent state in issue body."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_for_empty_body(self, mock_service):
         """Should return False when issue body is empty."""
         mock_service.get_issue_with_comments = AsyncMock(return_value={"body": "", "comments": []})
@@ -6669,7 +6669,7 @@ class TestUpdateIssueTracking:
         mock_service.update_issue_body.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_for_invalid_state(self, mock_service):
         """Should return False for an unrecognized new_state value."""
         mock_service.get_issue_with_comments = AsyncMock(
@@ -6690,7 +6690,7 @@ class TestUpdateIssueTracking:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.mark_agent_active")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_true_when_no_change_needed(self, mock_service, mock_mark):
         """Should return True without calling update_issue_body when body unchanged."""
         original_body = "| 1 | Backlog | `speckit.specify` | 🔄 Active |"
@@ -6713,7 +6713,7 @@ class TestUpdateIssueTracking:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.mark_agent_active")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_marks_agent_active_and_updates(self, mock_service, mock_mark):
         """Should call mark_agent_active and push updated body when state is 'active'."""
         mock_service.get_issue_with_comments = AsyncMock(
@@ -6743,7 +6743,7 @@ class TestUpdateIssueTracking:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.mark_agent_done")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_marks_agent_done_and_updates(self, mock_service, mock_mark):
         """Should call mark_agent_done and push updated body when state is 'done'."""
         mock_service.get_issue_with_comments = AsyncMock(
@@ -6765,7 +6765,7 @@ class TestUpdateIssueTracking:
         mock_mark.assert_called_once_with("old body", "speckit.specify")
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_false_on_exception(self, mock_service):
         """Should catch exceptions and return False."""
         mock_service.get_issue_with_comments = AsyncMock(side_effect=Exception("API error"))
@@ -6791,7 +6791,7 @@ class TestGetTrackingStateFromIssue:
     """Tests for _get_tracking_state_from_issue — fetches issue body + comments."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_body_and_comments(self, mock_service):
         """Should return (body, comments) tuple from issue data."""
         mock_service.get_issue_with_comments = AsyncMock(
@@ -6813,7 +6813,7 @@ class TestGetTrackingStateFromIssue:
         assert comments[0]["body"] == "comment 1"
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_defaults_for_missing_keys(self, mock_service):
         """Should return empty defaults when body/comments are missing."""
         mock_service.get_issue_with_comments = AsyncMock(return_value={})
@@ -6838,7 +6838,7 @@ class TestReconstructSubIssueMappings:
     """Tests for _reconstruct_sub_issue_mappings — builds agent→sub-issue mapping."""
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_parses_bracketed_agent_names(self, mock_service):
         """Should parse [agent-name] prefix from sub-issue titles."""
         mock_service.get_sub_issues = AsyncMock(
@@ -6871,7 +6871,7 @@ class TestReconstructSubIssueMappings:
         assert result["speckit.plan"]["number"] == 102
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_titles_without_brackets(self, mock_service):
         """Should skip sub-issues whose titles don't match [agent] pattern."""
         mock_service.get_sub_issues = AsyncMock(
@@ -6892,7 +6892,7 @@ class TestReconstructSubIssueMappings:
         assert "speckit.plan" in result
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_empty_on_exception(self, mock_service):
         """Should return empty dict on API error."""
         mock_service.get_sub_issues = AsyncMock(side_effect=Exception("API error"))
@@ -6907,7 +6907,7 @@ class TestReconstructSubIssueMappings:
         assert result == {}
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_returns_empty_for_no_sub_issues(self, mock_service):
         """Should return empty dict when there are no sub-issues."""
         mock_service.get_sub_issues = AsyncMock(return_value=[])
@@ -6922,7 +6922,7 @@ class TestReconstructSubIssueMappings:
         assert result == {}
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_persists_to_global_sub_issue_store(self, mock_service):
         """Reconstructed mappings should be persisted to the global sub-issue store."""
         from src.services.workflow_orchestrator import (
@@ -6977,7 +6977,7 @@ class TestAdvancePipelineClosesSubIssueFromGlobalStore:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -7062,7 +7062,7 @@ class TestAdvancePipelineClosesSubIssueFromGlobalStore:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -7145,7 +7145,7 @@ class TestCloseCompletedSubIssuesSweep:
         _issue_sub_issue_map.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_sweeps_all_completed_agents(self, mock_service):
         """_close_completed_sub_issues should close sub-issues for ALL
         completed agents, not just the most recent one."""
@@ -7194,7 +7194,7 @@ class TestCloseCompletedSubIssuesSweep:
         assert mock_service.update_sub_issue_project_status.call_count == 3
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_agents_without_sub_info(self, mock_service):
         """Agents with no sub-issue mapping should be skipped gracefully."""
         from src.services.workflow_orchestrator import set_issue_sub_issues
@@ -7243,7 +7243,7 @@ class TestCloseCompletedSubIssuesSweep:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_skips_sub_issue_matching_parent(self, mock_service):
         """Sub-issues whose number matches the parent issue should be skipped."""
         from src.services.workflow_orchestrator import set_issue_sub_issues
@@ -7282,7 +7282,7 @@ class TestCloseCompletedSubIssuesSweep:
         mock_service.update_issue_state.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_pipeline_sub_issues_used_over_global(self, mock_service):
         """Pipeline's agent_sub_issues should take precedence over global store."""
         from src.services.workflow_orchestrator import set_issue_sub_issues
@@ -7323,7 +7323,7 @@ class TestCloseCompletedSubIssuesSweep:
         assert call_args.kwargs["issue_number"] == 101
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_continues_on_individual_close_failure(self, mock_service):
         """If closing one sub-issue fails, the others should still be attempted."""
         from src.services.workflow_orchestrator import set_issue_sub_issues
@@ -7389,7 +7389,7 @@ class TestProcessPipelineCompletionClosesSubIssues:
     @patch(
         "src.services.copilot_polling.pipeline._close_completed_sub_issues", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -7479,7 +7479,7 @@ class TestProcessPipelineCompletionBatchTracking:
         _pipeline_states.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -7555,7 +7555,7 @@ class TestProcessPipelineCompletionBatchTracking:
         assert "🔄 Active" not in pushed_body
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
@@ -7661,7 +7661,7 @@ class TestProcessPipelineCompletionChecksAllParallelAgents:
         "src.services.copilot_polling.pipeline._cp._get_tracking_state_from_issue",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     async def test_checks_all_parallel_agents_per_cycle(
         self,
@@ -7769,7 +7769,7 @@ class TestPipelineAdvancesAfterCopilotReview:
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.connection_manager")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_judge_assigned_despite_prior_child_prs(
         self,
         mock_service,
@@ -7856,7 +7856,7 @@ class TestDiscoverMainPrForReview:
         _issue_main_branches.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy1_in_memory_cache(self, mock_main_branch, mock_service):
         """Strategy 1: returns PR from in-memory cache."""
@@ -7877,7 +7877,7 @@ class TestDiscoverMainPrForReview:
         assert result["is_draft"] is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy2_find_existing_pr(self, mock_main_branch, mock_service):
         """Strategy 2: finds PR via find_existing_pr_for_issue on parent issue."""
@@ -7899,7 +7899,7 @@ class TestDiscoverMainPrForReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_sub_issues")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy3_sub_issue_discovery(
         self, mock_main_branch, mock_service, mock_get_subs
@@ -7940,7 +7940,7 @@ class TestDiscoverMainPrForReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_sub_issues")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy3_skips_child_prs(self, mock_main_branch, mock_service, mock_get_subs):
         """Strategy 3 should skip child PRs (targeting feature branch, not default)."""
@@ -7973,7 +7973,7 @@ class TestDiscoverMainPrForReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_sub_issues")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy5_rest_search_finds_pr(
         self, mock_main_branch, mock_service, mock_get_subs
@@ -8018,7 +8018,7 @@ class TestDiscoverMainPrForReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_sub_issues")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy5_skips_prs_not_targeting_default(
         self, mock_main_branch, mock_service, mock_get_subs
@@ -8057,7 +8057,7 @@ class TestDiscoverMainPrForReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_sub_issues")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_strategy6_creates_pr_from_branch(
         self, mock_main_branch, mock_service, mock_get_subs
@@ -8105,7 +8105,7 @@ class TestDiscoverMainPrForReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_sub_issues")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_all_strategies_fail_returns_none(
         self, mock_main_branch, mock_service, mock_get_subs
@@ -8144,7 +8144,7 @@ class TestCheckCopilotReviewDone:
         _issue_main_branches.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_review_submitted_returns_true(self, mock_main_branch, mock_service):
         """When Copilot has submitted a PR review and confirmation delay elapsed, the step is done."""
@@ -8184,7 +8184,7 @@ class TestCheckCopilotReviewDone:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_review_first_detection_returns_false(self, mock_main_branch, mock_service):
         """On first detection of a Copilot review, return False (await confirmation)."""
@@ -8209,7 +8209,7 @@ class TestCheckCopilotReviewDone:
         assert 42 in _copilot_review_first_detected
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_review_confirmation_delay_not_elapsed(self, mock_main_branch, mock_service):
         """While confirmation delay has not elapsed, return False."""
@@ -8237,7 +8237,7 @@ class TestCheckCopilotReviewDone:
         assert 42 in _copilot_review_first_detected
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_no_review_returns_false(self, mock_main_branch, mock_service):
         """When Copilot has not yet submitted a review, the step is not done."""
@@ -8263,7 +8263,7 @@ class TestCheckCopilotReviewDone:
         mock_service.request_copilot_review.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_no_main_branch_falls_back_to_api(self, mock_main_branch, mock_service):
         """When main branch is not cached, fall back to API to find the PR."""
@@ -8311,7 +8311,7 @@ class TestCheckCopilotReviewDone:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_no_pr_found_returns_false(self, mock_main_branch, mock_service):
         """When no main PR can be found, return False."""
@@ -8329,7 +8329,7 @@ class TestCheckCopilotReviewDone:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_false_positive_cleared_when_review_vanishes(
         self, mock_main_branch, mock_service
@@ -8363,7 +8363,7 @@ class TestCheckCopilotReviewDone:
         assert 42 not in _copilot_review_first_detected
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     async def test_two_cycle_confirmation_flow(self, mock_main_branch, mock_service):
         """Full two-cycle flow: first detection returns False, after delay returns True."""
@@ -8402,7 +8402,7 @@ class TestCheckCopilotReviewDone:
         assert 42 not in _copilot_review_first_detected
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_copilot_review_agent_routed_to_review_check(self, mock_service):
         """_check_agent_done_on_sub_or_parent should route copilot-review to PR review check."""
         with patch("src.services.copilot_polling.get_issue_main_branch") as mock_main_branch:
@@ -8438,7 +8438,7 @@ class TestCheckCopilotReviewDone:
             mock_service.has_copilot_reviewed_pr.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_copilot_review_not_done_returns_false(self, mock_service):
         """_check_agent_done_on_sub_or_parent returns False when review not submitted."""
         with patch("src.services.copilot_polling.get_issue_main_branch") as mock_main_branch:
@@ -8480,7 +8480,7 @@ class TestCheckInReviewIssuesPipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_config")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_in_review_issues_returns_empty(self, mock_service, mock_config):
         """When no issues are in 'In Review', return empty list."""
         mock_config.return_value = MagicMock(
@@ -8504,7 +8504,7 @@ class TestCheckInReviewIssuesPipeline:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_config")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_config_returns_empty(self, mock_service, mock_config):
         """When no workflow config exists, return empty list."""
         mock_config.return_value = None
@@ -8535,7 +8535,7 @@ class TestWipChildPrFalsePositive:
     """
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_wip_non_draft_1_commit_not_complete(self, mock_service):
         """A non-draft child PR with [WIP] title and 1 commit is NOT complete."""
         mock_service.is_copilot_author.return_value = True
@@ -8573,7 +8573,7 @@ class TestWipChildPrFalsePositive:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_non_draft_no_wip_is_complete(self, mock_service):
         """A non-draft child PR WITHOUT [WIP] title is considered complete."""
         mock_service.is_copilot_author.return_value = True
@@ -8609,7 +8609,7 @@ class TestWipChildPrFalsePositive:
         assert result["copilot_finished"] is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_wip_with_multiple_commits_is_complete(self, mock_service):
         """A non-draft PR with [WIP] title but >1 commits IS complete
         (Copilot pushed real work but title wasn't updated)."""
@@ -8794,7 +8794,7 @@ class TestRecoveryForcedTransition:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.get_next_status")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_forces_transition_when_all_done_not_yet_transitioned(
         self,
@@ -8847,7 +8847,7 @@ class TestRecoveryForcedTransition:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.get_next_status")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_transition_when_no_next_status(
         self,
@@ -8884,7 +8884,7 @@ class TestRecoveryForcedTransition:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.get_next_status")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_skips_transition_when_on_cooldown(
         self,
@@ -8925,7 +8925,7 @@ class TestRecoveryForcedTransition:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.get_next_status")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_result_empty_when_transition_returns_none(
         self,
@@ -8983,7 +8983,7 @@ class TestCopilotReviewSelfHealing:
         _copilot_review_requested_at.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_undrafts_pr_before_checking_review(self, mock_main_branch, mock_service):
         """When the main PR is still a draft, self-healing converts it to ready."""
@@ -9012,7 +9012,7 @@ class TestCopilotReviewSelfHealing:
         mock_service.request_copilot_review.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_undraft_failure_returns_false(self, mock_main_branch, mock_service):
         """When un-drafting fails, return False without checking review status."""
@@ -9036,7 +9036,7 @@ class TestCopilotReviewSelfHealing:
         mock_service.has_copilot_reviewed_pr.assert_not_awaited()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_re_requests_review_when_not_reviewed(self, mock_main_branch, mock_service):
         """When PR is ready but not yet reviewed, re-request the Copilot review."""
@@ -9069,7 +9069,7 @@ class TestCopilotReviewSelfHealing:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_skips_self_healing_when_already_reviewed(self, mock_main_branch, mock_service):
         """When Copilot has already reviewed, no self-healing calls are made."""
@@ -9125,7 +9125,7 @@ class TestCopilotReviewAutoTriggerProtection:
         _issue_main_branches.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_auto_triggered_review_ignored_when_not_requested(
         self, mock_main_branch, mock_service
@@ -9158,7 +9158,7 @@ class TestCopilotReviewAutoTriggerProtection:
         assert 50 in _copilot_review_requested_at
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_review_detected_after_solune_request(self, mock_main_branch, mock_service):
         """When Solune requested the review and a review exists, step completes."""
@@ -9187,7 +9187,7 @@ class TestCopilotReviewAutoTriggerProtection:
         mock_service.has_copilot_reviewed_pr.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_self_healing_records_timestamp_and_returns_false(
         self, mock_main_branch, mock_service
@@ -9215,7 +9215,7 @@ class TestCopilotReviewAutoTriggerProtection:
         mock_service.dismiss_copilot_reviews.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_self_healing_request_fails_no_timestamp_recorded(
         self, mock_main_branch, mock_service
@@ -9242,7 +9242,7 @@ class TestCopilotReviewAutoTriggerProtection:
         mock_service.dismiss_copilot_reviews.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_min_submitted_after_includes_buffer(self, mock_main_branch, mock_service):
         """min_submitted_after = request_ts + buffer is passed to has_copilot_reviewed_pr."""
@@ -9273,7 +9273,7 @@ class TestCopilotReviewAutoTriggerProtection:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_review_within_buffer_window_rejected(self, mock_main_branch, mock_service):
         """A review submitted within the buffer window after Solune's request is rejected."""
@@ -9298,7 +9298,7 @@ class TestCopilotReviewAutoTriggerProtection:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_done_marker_ignored_when_no_request_timestamp(
         self, mock_main_branch, mock_service
@@ -9338,7 +9338,7 @@ class TestCopilotReviewAutoTriggerProtection:
         mock_service.request_copilot_review.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_done_marker_rejected_when_older_than_request_timestamp(
         self, mock_main_branch, mock_service
@@ -9385,7 +9385,7 @@ class TestCopilotReviewAutoTriggerProtection:
         mock_service.has_copilot_reviewed_pr.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_stale_done_marker_rejected_and_deleted(self, mock_main_branch, mock_service):
         """A Done! marker older than the latest agent Done! is stale — rejected and deleted."""
@@ -9438,7 +9438,7 @@ class TestCopilotReviewAutoTriggerProtection:
         )
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_valid_done_marker_accepted_when_newer_than_agents(
         self, mock_main_branch, mock_service
@@ -9484,7 +9484,7 @@ class TestCopilotReviewAutoTriggerProtection:
         mock_service.get_pull_request.assert_not_called()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.helpers._cp.github_projects_service")
+    @patch("src.services.copilot_polling.helpers._cp.get_github_service")
     @patch("src.services.copilot_polling.helpers._cp.get_issue_main_branch")
     async def test_done_marker_metadata_restores_request_timestamp_after_restart(
         self, mock_main_branch, mock_service
@@ -9544,7 +9544,7 @@ class TestAdvancePipelineUsePipelineStatus:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -9655,7 +9655,7 @@ class TestCheckInReviewPipelineStatusMismatch:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_uses_pipeline_status_for_mismatched_cached_pipeline(
         self,
         mock_service,
@@ -9751,7 +9751,7 @@ class TestCopilotReviewGroupedPipelineRace:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_stale_auto_triggered_review_does_not_advance_grouped_pipeline(
         self,
         mock_service,
@@ -9911,7 +9911,7 @@ class TestGetOrReconstructPipelineTrackingTable:
         "src.services.copilot_polling.pipeline._reconstruct_pipeline_state", new_callable=AsyncMock
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_reconstructs_for_earlier_status_when_tracking_shows_pending(
         self,
         mock_service,
@@ -10017,7 +10017,7 @@ class TestCopilotReviewChildPrFalsePositive:
     # -- Test 1: agent_output.py skips copilot-review entirely in Step 0 --
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_agent_output_skips_copilot_review_step0(
@@ -10093,7 +10093,7 @@ class TestCopilotReviewChildPrFalsePositive:
     # -- Test 2: _find_completed_child_pr returns None for copilot-review --
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_find_completed_child_pr_returns_none_for_copilot_review(self, mock_service):
         """_find_completed_child_pr must short-circuit and return None
         when agent_name is 'copilot-review', regardless of linked PRs.
@@ -10135,7 +10135,7 @@ class TestCopilotReviewChildPrFalsePositive:
     # -- Test 3: regular agents still detected normally --
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_find_completed_child_pr_still_works_for_coding_agents(self, mock_service):
         """_find_completed_child_pr must still detect child PRs for regular
         coding agents (e.g. speckit.implement, judge) — only copilot-review
@@ -10189,7 +10189,7 @@ class TestCheckMainPrSubIssueCheck:
     """
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_sub_issue_copilot_still_assigned_blocks_completion(self, mock_service):
         """Copilot still assigned on sub-issue → False even with new SHA."""
         mock_service.get_pull_request = AsyncMock(
@@ -10221,7 +10221,7 @@ class TestCheckMainPrSubIssueCheck:
             assert call_args.kwargs["issue_number"] == 1625
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_sub_issue_copilot_unassigned_allows_completion(self, mock_service):
         """Copilot unassigned on sub-issue + new SHA → True."""
         mock_service.get_pull_request = AsyncMock(
@@ -10252,7 +10252,7 @@ class TestCheckMainPrSubIssueCheck:
             assert call_args.kwargs["issue_number"] == 1625
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_sub_issue_falls_back_to_parent(self, mock_service):
         """Without sub_issue_number, check falls back to parent issue."""
         mock_service.get_pull_request = AsyncMock(
@@ -10283,7 +10283,7 @@ class TestCheckMainPrSubIssueCheck:
             assert call_args.kwargs["issue_number"] == 1624
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_no_sha_sub_issue_copilot_still_working(self, mock_service):
         """No assigned SHA + Copilot still on sub-issue → no false completion."""
         mock_service.get_pull_request = AsyncMock(
@@ -10345,7 +10345,7 @@ class TestGetOrReconstructPipelineCurrentStatusOverride:
         "src.services.copilot_polling.pipeline._reconstruct_pipeline_state", new_callable=AsyncMock
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_overrides_agents_for_current_status_from_tracking_table(
         self,
         mock_service,
@@ -10408,7 +10408,7 @@ class TestGetOrReconstructPipelineCurrentStatusOverride:
         "src.services.copilot_polling.pipeline._reconstruct_pipeline_state", new_callable=AsyncMock
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_no_override_when_tracking_matches_config(
         self,
         mock_service,
@@ -10456,7 +10456,7 @@ class TestGetOrReconstructPipelineCurrentStatusOverride:
     @patch(
         "src.services.copilot_polling.pipeline._reconstruct_pipeline_state", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_no_override_when_no_tracking_table(
         self,
         mock_service,
@@ -10522,7 +10522,7 @@ class TestAgentOutputSkipsHumanStep0:
         _claimed_child_prs.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_pipeline_state")
     async def test_agent_output_skips_human_step0(self, mock_pipeline, mock_config, mock_service):
@@ -10608,7 +10608,7 @@ class TestCheckHumanAgentDoneMarkerFormat:
     """
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_human_done_marker_format_accepted(self, mock_service):
         """'human: Done!' from the assignee should complete the human step."""
         pipeline = MagicMock()
@@ -10636,7 +10636,7 @@ class TestCheckHumanAgentDoneMarkerFormat:
         assert result is True
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_human_done_marker_from_non_assignee_rejected(self, mock_service):
         """'human: Done!' from a non-assignee must NOT complete the step."""
         pipeline = MagicMock()
@@ -10664,7 +10664,7 @@ class TestCheckHumanAgentDoneMarkerFormat:
         assert result is False
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_done_excl_still_accepted(self, mock_service):
         """The original 'Done!' format should still work (backward compat)."""
         pipeline = MagicMock()
@@ -10722,7 +10722,7 @@ class TestGetOrReconstructPipelineLaterStatus:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_reconstructs_for_requested_status_when_first_incomplete_is_later(
         self,
         mock_service,
@@ -10790,7 +10790,7 @@ class TestGetOrReconstructPipelineLaterStatus:
         new_callable=AsyncMock,
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_still_reconstructs_for_earlier_status_when_requested_has_incomplete(
         self,
         mock_service,
@@ -10865,7 +10865,7 @@ class TestSelfHealTrackingTable:
         _pipeline_states.clear()
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
     async def test_builds_tracking_table_from_sub_issues(
         self,
@@ -10925,7 +10925,7 @@ class TestSelfHealTrackingTable:
         assert "Agents Pipelines" in call_kwargs["body"]
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
     async def test_returns_none_when_no_sub_issues(
         self,
@@ -10955,7 +10955,7 @@ class TestSelfHealTrackingTable:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
     async def test_returns_none_when_no_config(
         self,
@@ -10977,7 +10977,7 @@ class TestSelfHealTrackingTable:
         assert result is None
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
     async def test_unknown_agents_inherit_previous_status(
         self,
@@ -11022,7 +11022,7 @@ class TestSelfHealTrackingTable:
         assert result[2].status == "In Progress"  # speckit.implement in config
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     @patch("src.services.copilot_polling.pipeline._cp.get_workflow_config", new_callable=AsyncMock)
     async def test_still_returns_steps_when_body_update_fails(
         self,
@@ -11084,7 +11084,7 @@ class TestGetOrReconstructPipelineSelfHeal:
         "src.services.copilot_polling.pipeline._self_heal_tracking_table", new_callable=AsyncMock
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_self_heals_when_no_tracking_table(
         self,
         mock_service,
@@ -11146,7 +11146,7 @@ class TestGetOrReconstructPipelineSelfHeal:
         "src.services.copilot_polling.pipeline._self_heal_tracking_table", new_callable=AsyncMock
     )
     @patch("src.services.copilot_polling.pipeline._cp.parse_tracking_from_body")
-    @patch("src.services.copilot_polling.pipeline._cp.github_projects_service")
+    @patch("src.services.copilot_polling.pipeline._cp.get_github_service")
     async def test_falls_through_when_heal_returns_none(
         self,
         mock_service,
@@ -11229,7 +11229,7 @@ class TestRecoveryIncludesInReview:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_in_review_issue_not_skipped(
         self, mock_config, mock_service, mock_get_branch, mock_in_review_task
@@ -11266,7 +11266,7 @@ class TestRecoveryIncludesInReview:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_issue_main_branch")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_in_review_stalled_agent_gets_recovered(
         self, mock_config, mock_service, mock_get_branch, mock_get_orch, mock_in_review_task
@@ -11347,7 +11347,7 @@ class TestRecoverySelfHealTracking:
     @patch(
         "src.services.copilot_polling.pipeline._self_heal_tracking_table", new_callable=AsyncMock
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_self_heals_and_recovers(
         self,
@@ -11433,7 +11433,7 @@ class TestProcessPipelineCompletionFirstAgent:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_orchestrator")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch(
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
@@ -11505,7 +11505,7 @@ class TestProcessPipelineCompletionFirstAgent:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch(
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
@@ -11559,7 +11559,7 @@ class TestProcessPipelineCompletionFirstAgent:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch(
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
@@ -11642,7 +11642,7 @@ class TestAdvancePipelineUsesOriginalStatus:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -11714,7 +11714,7 @@ class TestAdvancePipelineUsesOriginalStatus:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -11804,7 +11804,7 @@ class TestProcessPipelineCompletionUsesOriginalStatus:
     )
     @patch("src.services.copilot_polling._get_tracking_state_from_issue", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.get_current_agent_from_tracking")
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_uses_original_status_for_never_assigned_agent(
         self,
         mock_service,
@@ -11890,7 +11890,7 @@ class TestProcessPipelineCompletionParallelAgents:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling._update_issue_tracking", new_callable=AsyncMock)
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling._merge_child_pr_if_applicable")
@@ -11974,7 +11974,7 @@ class TestProcessPipelineCompletionParallelAgents:
         assert mock_check_done.await_count == 3
 
     @pytest.mark.asyncio
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     @patch(
         "src.services.copilot_polling._check_agent_done_on_sub_or_parent",
         new_callable=AsyncMock,
@@ -12088,7 +12088,7 @@ class TestCopilotReviewRequestTimestamp:
         "src.services.copilot_polling.helpers._discover_main_pr_for_review",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_ensure_copilot_review_records_timestamp(self, mock_service, mock_discover):
         """ensure_copilot_review_requested should record a timestamp in
         _copilot_review_requested_at when it successfully requests a review."""
@@ -12123,7 +12123,7 @@ class TestCopilotReviewRequestTimestamp:
         "src.services.copilot_polling.helpers._discover_main_pr_for_review",
         new_callable=AsyncMock,
     )
-    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.get_github_service")
     async def test_ensure_copilot_review_no_timestamp_on_failure(self, mock_service, mock_discover):
         """When the review request fails, no timestamp should be recorded."""
         from src.services.copilot_polling.state import _copilot_review_requested_at

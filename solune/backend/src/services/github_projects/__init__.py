@@ -1,5 +1,7 @@
 """GitHub Projects V2 GraphQL service."""
 
+from __future__ import annotations
+
 import asyncio
 import hashlib
 
@@ -57,13 +59,30 @@ class GitHubClientFactory:
         self._pool.clear()
 
 
-from src.services.github_projects.service import (  # noqa: E402
-    GitHubProjectsService,
-    github_projects_service,
-)
+from src.services.github_projects.service import GitHubProjectsService  # noqa: E402
+
+# ── Lazy singleton accessor ────────────────────────────────────────────
+_github_service: GitHubProjectsService | None = None
+
+
+def get_github_service() -> GitHubProjectsService:
+    """Return the ``GitHubProjectsService`` singleton.
+
+    Creates the instance lazily on first call.  The application lifespan
+    in ``main.py`` registers the same instance on ``app.state`` for
+    FastAPI ``Depends()`` injection (see ``dependencies.py``).
+
+    Background tasks, signal bridges, orchestrators, and other
+    non-request contexts should call this function directly.
+    """
+    global _github_service
+    if _github_service is None:
+        _github_service = GitHubProjectsService()
+    return _github_service
+
 
 __all__ = [
     "GitHubClientFactory",
     "GitHubProjectsService",
-    "github_projects_service",
+    "get_github_service",
 ]

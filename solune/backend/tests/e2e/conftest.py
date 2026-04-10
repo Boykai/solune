@@ -126,15 +126,10 @@ async def e2e_app(
         patch("src.api.mcp.get_db", return_value=test_db),
         patch("src.api.tools.get_db", return_value=test_db),
         patch("src.api.onboarding.get_db", return_value=test_db),
-        # ── GitHub Projects service singletons ──
-        patch("src.api.board.github_projects_service", mock_github_projects_service),
-        patch("src.api.projects.github_projects_service", mock_github_projects_service),
-        patch("src.api.tasks.github_projects_service", mock_github_projects_service),
-        patch("src.api.workflow.github_projects_service", mock_github_projects_service),
-        patch("src.api.chores.github_projects_service", mock_github_projects_service),
+        # ── GitHub Projects service accessor ──
         patch(
-            "src.services.github_projects.github_projects_service",
-            mock_github_projects_service,
+            "src.services.github_projects.get_github_service",
+            return_value=mock_github_projects_service,
         ),
         # ── Auth: mock only the GitHub API call inside create_session_from_token ──
         # The real method body still runs (creates UserSession, saves to DB,

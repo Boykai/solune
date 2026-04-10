@@ -16,9 +16,9 @@ BACKEND_SRC = Path(__file__).resolve().parent.parent.parent / "src"
 # - calling ._private_method on an object imported from another package
 FORBIDDEN_PATTERNS = [
     # Direct httpx client access from outside github_projects
-    (r"github_projects_service\._client\b", "Direct _client access on GitHubProjectsService"),
+    (r"get_github_service\(\)\._client\b", "Direct _client access on GitHubProjectsService"),
     # Private method access from copilot_polling into github_projects
-    (r"github_projects_service\._check_copilot", "Private method access across module boundary"),
+    (r"get_github_service\(\)\._check_copilot", "Private method access across module boundary"),
 ]
 
 

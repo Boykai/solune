@@ -817,7 +817,7 @@ class TestToolsServiceValidation:
         service = ToolsService(mock_db)
         sentinel_service = object()
 
-        with patch("src.services.github_projects.github_projects_service", sentinel_service):
+        with patch("src.services.github_projects.get_github_service", return_value=sentinel_service):
             assert service._get_github_service() is sentinel_service
 
     async def test_validate_mcp_config_rejects_oversized_payload(self, mock_db):

@@ -306,9 +306,9 @@ async def ensure_pipeline_labels_exist(
     Idempotent — 422 (already exists) is silently ignored.
     """
     if github_service is None:
-        from src.services.github_projects import github_projects_service
+        from src.services.github_projects import get_github_service
 
-        github_service = github_projects_service
+        github_service = get_github_service()
 
     _FIXED_LABELS = [
         (ACTIVE_LABEL, ACTIVE_LABEL_COLOR, "Marks the active agent sub-issue"),

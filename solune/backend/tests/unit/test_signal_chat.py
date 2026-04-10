@@ -803,9 +803,9 @@ class TestRunWorkflowOrchestration:
         monkeypatch.setattr(
             "src.services.copilot_polling.ensure_polling_started", ensure_polling_started
         )
+        mock_gh = SimpleNamespace(update_item_status_by_name=update_item_status_by_name)
         monkeypatch.setattr(
-            "src.services.github_projects.github_projects_service.update_item_status_by_name",
-            update_item_status_by_name,
+            "src.services.github_projects.get_github_service", lambda: mock_gh
         )
         monkeypatch.setattr(
             "src.services.workflow_orchestrator.get_workflow_config", AsyncMock(return_value=None)
@@ -897,8 +897,8 @@ class TestRunWorkflowOrchestration:
             "src.services.copilot_polling.ensure_polling_started", ensure_polling_started
         )
         monkeypatch.setattr(
-            "src.services.github_projects.github_projects_service.update_item_status_by_name",
-            AsyncMock(),
+            "src.services.github_projects.get_github_service",
+            lambda: SimpleNamespace(update_item_status_by_name=AsyncMock()),
         )
         monkeypatch.setattr(
             "src.services.workflow_orchestrator.get_workflow_config", AsyncMock(return_value=config)
@@ -986,7 +986,7 @@ class TestHandleConfirmExecution:
         monkeypatch.setattr(
             "src.api.chat.get_recommendation", AsyncMock(return_value=recommendation)
         )
-        monkeypatch.setattr("src.services.github_projects.github_projects_service", gh)
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: gh)
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
             "src.services.cache.get_project_items_cache_key", Mock(return_value="project-cache")
@@ -1053,7 +1053,7 @@ class TestHandleConfirmExecution:
         )
         monkeypatch.setattr("src.api.chat.add_message", add_message)
         monkeypatch.setattr("src.api.chat.get_proposal", AsyncMock(return_value=proposal))
-        monkeypatch.setattr("src.services.github_projects.github_projects_service", gh)
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: gh)
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
             "src.services.cache.get_project_items_cache_key", Mock(return_value="project-cache")
@@ -1165,7 +1165,7 @@ class TestHandleConfirmExecution:
         )
         monkeypatch.setattr("src.api.chat.add_message", add_message)
         monkeypatch.setattr("src.api.chat.get_proposal", AsyncMock(return_value=proposal))
-        monkeypatch.setattr("src.services.github_projects.github_projects_service", gh)
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: gh)
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
             "src.services.cache.get_project_items_cache_key", Mock(return_value="project-cache")
