@@ -2,8 +2,7 @@
  * Tests for SignalConnection component.
  *
  * Covers: loading state, disconnected status, connect button click,
- * connected status, disconnect button click with confirmation,
- * and phone number display.
+ * connected status, and phone number display.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
