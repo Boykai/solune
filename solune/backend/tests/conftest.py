@@ -433,13 +433,13 @@ async def client(
         patch("src.services.database._connection", mock_db),
         patch("src.config.get_settings", return_value=mock_settings),
         # github_projects_service — patched in every API module that imports it
-        patch("src.api.board.github_projects_service", mock_github_service),
-        patch("src.api.projects.github_projects_service", mock_github_service),
-        patch("src.api.tasks.github_projects_service", mock_github_service),
-        patch("src.api.workflow.github_projects_service", mock_github_service),
-        patch("src.api.chores.github_projects_service", mock_github_service),
+        patch("src.api.board.get_github_service", return_value=mock_github_service),
+        patch("src.api.projects.get_github_service", return_value=mock_github_service),
+        patch("src.api.tasks.get_github_service", return_value=mock_github_service),
+        patch("src.api.workflow.get_github_service", return_value=mock_github_service),
+        patch("src.api.chores.get_github_service", return_value=mock_github_service),
         # resolve_repository (src.utils) lazy-imports github_projects_service
-        patch("src.services.github_projects.github_projects_service", mock_github_service),
+        patch("src.services.github_projects.get_github_service", return_value=mock_github_service),
         # github_auth_service — patched where imported
         patch("src.api.auth.github_auth_service", mock_github_auth_service),
         patch("src.api.projects.github_auth_service", mock_github_auth_service),
@@ -541,3 +541,4 @@ def make_mock_db_connection() -> MagicMock:
     mock.commit = AsyncMock()
     mock.close = AsyncMock()
     return mock
+

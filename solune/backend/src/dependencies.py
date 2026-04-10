@@ -36,9 +36,9 @@ def get_github_service(request: Request) -> GitHubProjectsService:
     if svc is not None:
         return svc
     # Fallback to module-level global during transition
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
 
-    return github_projects_service
+    return get_github_service()
 
 
 def get_connection_manager(request: Request) -> ConnectionManager:
