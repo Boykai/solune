@@ -21,9 +21,9 @@
 
 **Purpose**: Verify existing utilities and identify code locations for all three bug fixes
 
-- [ ] T001 Verify `BoundedDict` class exists with `touch()`, eviction, and `maxlen` in `solune/backend/src/utils.py`
-- [ ] T002 Verify `AgentStatus.PENDING_PR` enum value exists in `solune/backend/src/models/agents.py`
-- [ ] T003 Verify `_extract_agent_preview()` static method exists in `solune/backend/src/services/agents/service.py`
+- [x] T001 Verify `BoundedDict` class exists with `touch()`, eviction, and `maxlen` in `solune/backend/src/utils.py`
+- [x] T002 Verify `AgentStatus.PENDING_PR` enum value exists in `solune/backend/src/models/agents.py`
+- [x] T003 Verify `_extract_agent_preview()` static method exists in `solune/backend/src/services/agents/service.py`
 
 ---
 
@@ -33,8 +33,8 @@
 
 **⚠️ CRITICAL**: No bug fix work can begin until this phase is complete
 
-- [ ] T004 Confirm `BoundedDict.__setitem__` evicts oldest entry when at capacity and `touch()` refreshes LRU order in `solune/backend/src/utils.py`
-- [ ] T005 [P] Confirm `BoundedDict` unit tests cover eviction, `touch()`, `clear()`, and `on_evict` callback in `solune/backend/tests/unit/test_utils.py` and `solune/backend/tests/unit/test_bounded_eviction_callback.py`
+- [x] T004 Confirm `BoundedDict.__setitem__` evicts oldest entry when at capacity and `touch()` refreshes LRU order in `solune/backend/src/utils.py`
+- [x] T005 [P] Confirm `BoundedDict` unit tests cover eviction, `touch()`, `clear()`, and `on_evict` callback in `solune/backend/tests/unit/test_utils.py` and `solune/backend/tests/unit/test_bounded_eviction_callback.py`
 
 **Checkpoint**: Foundation ready — bug fix implementation can now begin in parallel
 
@@ -50,17 +50,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T006 [P] [US1] Add regression test `test_lock_dict_is_bounded` asserting `_project_launch_locks` is a `BoundedDict` instance in `solune/backend/tests/unit/test_pipeline_state_store.py`
-- [ ] T007 [P] [US1] Add regression test `test_lock_count_stays_bounded` creating locks for `maxlen + 100` projects and asserting `len(_project_launch_locks) <= maxlen` in `solune/backend/tests/unit/test_pipeline_state_store.py`
-- [ ] T008 [P] [US1] Add regression test `test_returns_same_lock_for_same_project` verifying repeated calls return the identical `asyncio.Lock` instance in `solune/backend/tests/unit/test_pipeline_state_store.py`
-- [ ] T009 [P] [US1] Add regression test `test_eviction_does_not_corrupt_remaining_locks` verifying remaining locks are valid `asyncio.Lock` instances after eviction in `solune/backend/tests/unit/test_pipeline_state_store.py`
-- [ ] T010 [P] [US1] Add regression test `test_touch_refreshes_active_lock` verifying that accessing an existing lock moves it to the end of the eviction order (LRU refresh) in `solune/backend/tests/unit/test_pipeline_state_store.py`
+- [x] T006 [P] [US1] Add regression test `test_lock_dict_is_bounded` asserting `_project_launch_locks` is a `BoundedDict` instance in `solune/backend/tests/unit/test_pipeline_state_store.py`
+- [x] T007 [P] [US1] Add regression test `test_lock_count_stays_bounded` creating locks for `maxlen + 100` projects and asserting `len(_project_launch_locks) <= maxlen` in `solune/backend/tests/unit/test_pipeline_state_store.py`
+- [x] T008 [P] [US1] Add regression test `test_returns_same_lock_for_same_project` verifying repeated calls return the identical `asyncio.Lock` instance in `solune/backend/tests/unit/test_pipeline_state_store.py`
+- [x] T009 [P] [US1] Add regression test `test_eviction_does_not_corrupt_remaining_locks` verifying remaining locks are valid `asyncio.Lock` instances after eviction in `solune/backend/tests/unit/test_pipeline_state_store.py`
+- [x] T010 [P] [US1] Add regression test `test_touch_refreshes_active_lock` verifying that accessing an existing lock moves it to the end of the eviction order (LRU refresh) in `solune/backend/tests/unit/test_pipeline_state_store.py`
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Replace `_project_launch_locks: dict[str, asyncio.Lock] = {}` with `_project_launch_locks: BoundedDict[str, asyncio.Lock] = BoundedDict(maxlen=10_000)` in `solune/backend/src/services/pipeline_state_store.py` (line ~40), importing `BoundedDict` from `src.utils`
-- [ ] T012 [US1] Refactor `get_project_launch_lock()` to use `BoundedDict` API — on cache miss call `__setitem__`, on cache hit call `touch()` for LRU refresh in `solune/backend/src/services/pipeline_state_store.py` (lines ~54–71)
-- [ ] T013 [US1] Verify existing conftest cleanup `_project_launch_locks.clear()` still works with `BoundedDict` in `solune/backend/tests/conftest.py`
+- [x] T011 [US1] Replace `_project_launch_locks: dict[str, asyncio.Lock] = {}` with `_project_launch_locks: BoundedDict[str, asyncio.Lock] = BoundedDict(maxlen=10_000)` in `solune/backend/src/services/pipeline_state_store.py` (line ~40), importing `BoundedDict` from `src.utils`
+- [x] T012 [US1] Refactor `get_project_launch_lock()` to use `BoundedDict` API — on cache miss call `__setitem__`, on cache hit call `touch()` for LRU refresh in `solune/backend/src/services/pipeline_state_store.py` (lines ~54–71)
+- [x] T013 [US1] Verify existing conftest cleanup `_project_launch_locks.clear()` still works with `BoundedDict` in `solune/backend/tests/conftest.py`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently — `_project_launch_locks` stays bounded at 10,000
 
@@ -76,17 +76,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T014 [P] [US2] Add test `test_update_agent_marks_existing_local_agent_pending_pr` — insert an agent with `lifecycle_status=active`, update it, assert `result.agent.status == PENDING_PR` and DB row has `lifecycle_status=pending_pr` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T015 [P] [US2] Add test `test_update_repo_agent_inserts_local_row_with_pending_pr` — update a `repo:`-prefixed agent, assert new local row is inserted with `lifecycle_status=pending_pr`, correct `github_pr_number`, and `branch_name` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T016 [P] [US2] Add test `test_update_agent_rejects_pending_deletion` — attempt update on an agent with `lifecycle_status=pending_deletion`, assert `ValueError` is raised in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T017 [P] [US2] Add test `test_runtime_preference_update_no_pr_no_status_change` — update only `icon_name` or `default_model_id`, assert no PR is opened and lifecycle status remains unchanged in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T014 [P] [US2] Add test `test_update_agent_marks_existing_local_agent_pending_pr` — insert an agent with `lifecycle_status=active`, update it, assert `result.agent.status == PENDING_PR` and DB row has `lifecycle_status=pending_pr` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T015 [P] [US2] Add test `test_update_repo_agent_inserts_local_row_with_pending_pr` — update a `repo:`-prefixed agent, assert new local row is inserted with `lifecycle_status=pending_pr`, correct `github_pr_number`, and `branch_name` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T016 [P] [US2] Add test `test_update_agent_rejects_pending_deletion` — attempt update on an agent with `lifecycle_status=pending_deletion`, assert `ValueError` is raised in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T017 [P] [US2] Add test `test_runtime_preference_update_no_pr_no_status_change` — update only `icon_name` or `default_model_id`, assert no PR is opened and lifecycle status remains unchanged in `solune/backend/tests/unit/test_agents_service.py`
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Ensure the UPDATE SQL path for existing local agents (non-`repo:` ID) sets `lifecycle_status = ?` to `AgentStatus.PENDING_PR.value` in `solune/backend/src/services/agents/service.py` (line ~1246)
-- [ ] T019 [US2] Ensure the UPDATE SQL path for existing local agents with a prior local record (`existing_local_agent` branch) sets `lifecycle_status = ?` to `AgentStatus.PENDING_PR.value` in `solune/backend/src/services/agents/service.py` (line ~1279)
-- [ ] T020 [US2] Ensure the INSERT SQL path for first-time repo-sourced agents includes `lifecycle_status = ?` set to `AgentStatus.PENDING_PR.value` in `solune/backend/src/services/agents/service.py` (line ~1311)
-- [ ] T021 [US2] Ensure the returned `Agent` object has `status=AgentStatus.PENDING_PR` in the `AgentCreateResult` in `solune/backend/src/services/agents/service.py` (line ~1326)
+- [x] T018 [US2] Ensure the UPDATE SQL path for existing local agents (non-`repo:` ID) sets `lifecycle_status = ?` to `AgentStatus.PENDING_PR.value` in `solune/backend/src/services/agents/service.py` (line ~1246)
+- [x] T019 [US2] Ensure the UPDATE SQL path for existing local agents with a prior local record (`existing_local_agent` branch) sets `lifecycle_status = ?` to `AgentStatus.PENDING_PR.value` in `solune/backend/src/services/agents/service.py` (line ~1279)
+- [x] T020 [US2] Ensure the INSERT SQL path for first-time repo-sourced agents includes `lifecycle_status = ?` set to `AgentStatus.PENDING_PR.value` in `solune/backend/src/services/agents/service.py` (line ~1311)
+- [x] T021 [US2] Ensure the returned `Agent` object has `status=AgentStatus.PENDING_PR` in the `AgentCreateResult` in `solune/backend/src/services/agents/service.py` (line ~1326)
 
 **Checkpoint**: At this point, User Story 2 should be fully functional and testable independently — all agent update paths correctly set pending_pr
 
@@ -102,19 +102,19 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T022 [P] [US3] Add test `test_non_list_tools_returns_none` — `tools: "read"` (string instead of list) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T023 [P] [US3] Add test `test_non_string_tools_elements_returns_none` — `tools: [123, null, {}]` (list with non-string elements) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T024 [P] [US3] Add test `test_mixed_valid_invalid_tools_returns_none` — `tools: ["read", 123, "write"]` (mixed valid and invalid) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T025 [P] [US3] Add test `test_empty_string_tool_returns_none` — `tools: ["read", "", "write"]` (empty string element) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T026 [P] [US3] Add test `test_empty_name_returns_none` — `name: ""` → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T027 [P] [US3] Add test `test_missing_name_key_returns_none` — no `name` field → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T028 [P] [US3] Add test `test_non_dict_top_level_returns_none` — top-level JSON is a list, not a dict → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
-- [ ] T029 [P] [US3] Add test `test_valid_config_returns_preview` — valid config with correct types → returns populated `AgentPreview` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T022 [P] [US3] Add test `test_non_list_tools_returns_none` — `tools: "read"` (string instead of list) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T023 [P] [US3] Add test `test_non_string_tools_elements_returns_none` — `tools: [123, null, {}]` (list with non-string elements) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T024 [P] [US3] Add test `test_mixed_valid_invalid_tools_returns_none` — `tools: ["read", 123, "write"]` (mixed valid and invalid) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T025 [P] [US3] Add test `test_empty_string_tool_returns_none` — `tools: ["read", "", "write"]` (empty string element) → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T026 [P] [US3] Add test `test_empty_name_returns_none` — `name: ""` → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T027 [P] [US3] Add test `test_missing_name_key_returns_none` — no `name` field → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T028 [P] [US3] Add test `test_non_dict_top_level_returns_none` — top-level JSON is a list, not a dict → returns `None` in `solune/backend/tests/unit/test_agents_service.py`
+- [x] T029 [P] [US3] Add test `test_valid_config_returns_preview` — valid config with correct types → returns populated `AgentPreview` in `solune/backend/tests/unit/test_agents_service.py`
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Add guard after `isinstance(tools, list)` check to validate every element is a non-empty string: `if not all(isinstance(t, str) and t for t in tools): return None` in `solune/backend/src/services/agents/service.py` (line ~1473)
-- [ ] T031 [US3] Ensure `name` emptiness check rejects whitespace-only names (e.g., `name: "   "`) by using `if not name or not name.strip()` in `solune/backend/src/services/agents/service.py` (line ~1469)
+- [x] T030 [US3] Add guard after `isinstance(tools, list)` check to validate every element is a non-empty string: `if not all(isinstance(t, str) and t for t in tools): return None` in `solune/backend/src/services/agents/service.py` (line ~1473)
+- [x] T031 [US3] Ensure `name` emptiness check rejects whitespace-only names (e.g., `name: "   "`) by using `if not name or not name.strip()` in `solune/backend/src/services/agents/service.py` (line ~1469)
 
 **Checkpoint**: All three user stories should now be independently functional — malformed configs are rejected without exceptions
 
@@ -124,12 +124,12 @@
 
 **Purpose**: Final validation, documentation, and regression prevention
 
-- [ ] T032 [P] Run full backend test suite to confirm no regressions: `cd solune/backend && python -m pytest`
-- [ ] T033 [P] Run type checker to confirm no type errors: `cd solune/backend && pyright`
-- [ ] T034 [P] Run linter to confirm code style: `cd solune/backend && ruff check`
-- [ ] T035 Verify memory stability: review that `_project_launch_locks` maxlen of 10,000 is appropriate for production workloads and document the choice in a code comment in `solune/backend/src/services/pipeline_state_store.py`
-- [ ] T036 Review T008 test results to confirm edge case: concurrent lock creation for the same project ID returns the same lock instance
-- [ ] T037 Verify edge case: multiple `agent-config` code blocks — only the first match is processed (already handled by `pattern.search()` in `solune/backend/src/services/agents/service.py`)
+- [x] T032 [P] Run full backend test suite to confirm no regressions: `cd solune/backend && python -m pytest`
+- [x] T033 [P] Run type checker to confirm no type errors: `cd solune/backend && pyright`
+- [x] T034 [P] Run linter to confirm code style: `cd solune/backend && ruff check`
+- [x] T035 Verify memory stability: review that `_project_launch_locks` maxlen of 10,000 is appropriate for production workloads and document the choice in a code comment in `solune/backend/src/services/pipeline_state_store.py`
+- [x] T036 Review T008 test results to confirm edge case: concurrent lock creation for the same project ID returns the same lock instance
+- [x] T037 Verify edge case: multiple `agent-config` code blocks — only the first match is processed (already handled by `pattern.search()` in `solune/backend/src/services/agents/service.py`)
 
 ---
 

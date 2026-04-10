@@ -1579,6 +1579,31 @@ class TestExtractAgentPreview:
         text = '```agent-config\n{"name": "Bot", "tools": "read"}\n```'
         assert AgentsService._extract_agent_preview(text) is None
 
+    def test_non_string_tools_elements_returns_none(self):
+        """Regression: tools=[123, null, {}] (non-string elements) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": [123, null, {}]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_mixed_valid_invalid_tools_returns_none(self):
+        """Regression: tools=["read", 123, "write"] (mixed) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": ["read", 123, "write"]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_empty_string_tool_returns_none(self):
+        """Regression: tools=["read", "", "write"] (empty string) → returns None."""
+        text = '```agent-config\n{"name": "Bot", "tools": ["read", "", "write"]}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_whitespace_only_name_returns_none(self):
+        """Regression: name="   " (whitespace-only) → returns None."""
+        text = '```agent-config\n{"name": "   ", "description": "test"}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_non_dict_top_level_returns_none(self):
+        """Regression: top-level JSON is a list, not a dict → returns None."""
+        text = '```agent-config\n[{"name": "Bot"}]\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
 
 # ── _coerce_agent_status ─────────────────────────────────────────────────
 

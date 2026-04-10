@@ -838,3 +838,20 @@ class TestProjectLaunchLocksBounded:
         # The most recent locks should still be valid
         last_lock = store.get_project_launch_lock(f"proj-{maxlen + 49}")
         assert isinstance(last_lock, asyncio.Lock)
+
+    def test_touch_refreshes_active_lock(self):
+        """Accessing an existing lock refreshes it in LRU order (not evicted first)."""
+        from src.utils import BoundedDict
+
+        # Use a small BoundedDict to make eviction observable
+        small = BoundedDict[str, int](maxlen=3)
+        small["a"] = 1
+        small["b"] = 2
+        small["c"] = 3
+        # Touch "a" so it moves to the end of the eviction order
+        small.touch("a")
+        # Insert a new item — "b" (oldest untouched) should be evicted, not "a"
+        small["d"] = 4
+        assert "a" in small
+        assert "b" not in small
+        assert list(small.keys()) == ["c", "a", "d"]
