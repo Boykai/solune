@@ -1604,10 +1604,8 @@ class TestExtractAgentPreview:
     )
     def test_malformed_tool_entries_return_none(self, bad_tools):
         """Per-element validation rejects non-string / blank tool entries."""
-        import json as _json
-
         config = {"name": "Bot", "tools": bad_tools}
-        text = f"```agent-config\n{_json.dumps(config)}\n```"
+        text = f"```agent-config\n{json.dumps(config)}\n```"
         assert AgentsService._extract_agent_preview(text) is None
 
     def test_tools_none_returns_none(self):
