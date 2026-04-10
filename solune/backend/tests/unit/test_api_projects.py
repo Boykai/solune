@@ -338,46 +338,53 @@ class TestRateLimitDetection:
 
     def test_primary_rate_limit_exceeded(self):
         exc = PrimaryRateLimitExceeded.__new__(PrimaryRateLimitExceeded)
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
 
     def test_request_failed_429(self):
         exc = _make_request_failed(429)
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
 
     def test_403_with_rate_limit_remaining_zero(self):
         """T008: 403 + X-RateLimit-Remaining: '0' → True."""
         exc = _make_request_failed(403, {"X-RateLimit-Remaining": "0"})
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is True
 
     def test_403_with_empty_rate_limit_dict(self):
         """T009: 403 with no remaining header and empty rl dict → False."""
         exc = _make_request_failed(403, {})
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = {}
             assert _is_github_rate_limit_error(exc) is False
 
     def test_403_with_nonzero_remaining(self):
         exc = _make_request_failed(403, {"X-RateLimit-Remaining": "100"})
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is False
 
     def test_generic_error_with_rate_limit_remaining_zero_in_dict(self):
         """Falls back to get_last_rate_limit() → remaining == 0 → True."""
         exc = RuntimeError("network")
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = {"remaining": 0}
             assert _is_github_rate_limit_error(exc) is True
 
     def test_generic_error_with_no_rate_limit_info(self):
         exc = RuntimeError("network")
-        with patch("src.api.projects.github_projects_service") as svc:
+        with patch("src.api.projects.get_github_service") as svc:
+            svc = svc.return_value
             svc.get_last_rate_limit.return_value = None
             assert _is_github_rate_limit_error(exc) is False
 
@@ -553,7 +560,7 @@ class TestWebSocketSubscribe:
                 return_value=mock_session,
             ),
             patch("src.api.projects.cache") as mock_cache,
-            patch("src.api.projects.github_projects_service", mock_github_service),
+            patch("src.api.projects.get_github_service", return_value=mock_github_service),
             patch("src.api.projects.connection_manager", mock_websocket_manager),
         ):
             mock_cache.get.return_value = [_project(project_id="PVT_other", name="Other")]
@@ -605,7 +612,7 @@ class TestWebSocketSubscribe:
                 return_value=mock_session,
             ),
             patch("src.api.projects.cache") as mock_cache,
-            patch("src.api.projects.github_projects_service", mock_github_service),
+            patch("src.api.projects.get_github_service", return_value=mock_github_service),
             patch("src.api.projects.connection_manager", mock_websocket_manager),
         ):
             mock_cache.get.return_value = [p]  # project access check
@@ -653,7 +660,7 @@ class TestWebSocketSubscribe:
                 return_value=mock_session,
             ),
             patch("src.api.projects.cache") as mock_cache,
-            patch("src.api.projects.github_projects_service", mock_github_service),
+            patch("src.api.projects.get_github_service", return_value=mock_github_service),
             patch("src.api.projects.connection_manager", mock_websocket_manager),
         ):
             mock_cache.get.side_effect = [
@@ -730,7 +737,8 @@ class TestRateLimitDetails:
         from src.api.projects import _rate_limit_details
 
         rl = {"limit": 5000, "remaining": 100, "reset_at": "2025-01-01T00:00:00Z", "used": 4900}
-        with patch("src.api.projects.github_projects_service") as mock_gps:
+        with patch("src.api.projects.get_github_service") as mock_gps:
+            mock_gps = mock_gps.return_value
             mock_gps.get_last_rate_limit.return_value = rl
             result = _rate_limit_details()
         assert result == {"rate_limit": rl}
@@ -738,14 +746,16 @@ class TestRateLimitDetails:
     def test_non_dict_returns_empty(self):
         from src.api.projects import _rate_limit_details
 
-        with patch("src.api.projects.github_projects_service") as mock_gps:
+        with patch("src.api.projects.get_github_service") as mock_gps:
+            mock_gps = mock_gps.return_value
             mock_gps.get_last_rate_limit.return_value = None
             assert _rate_limit_details() == {}
 
     def test_missing_keys_returns_empty(self):
         from src.api.projects import _rate_limit_details
 
-        with patch("src.api.projects.github_projects_service") as mock_gps:
+        with patch("src.api.projects.get_github_service") as mock_gps:
+            mock_gps = mock_gps.return_value
             mock_gps.get_last_rate_limit.return_value = {"limit": 5000}
             assert _rate_limit_details() == {}
 
@@ -767,7 +777,7 @@ class TestListProjectsStaleCacheOnRateLimit:
         mock_session.access_token = "tok"
 
         with (
-            patch("src.api.projects.github_projects_service") as mock_gps,
+            patch("src.api.projects.get_github_service") as mock_gps,
             patch("src.api.projects.cache") as mock_cache,
         ):
             mock_cache.get.return_value = None  # no fresh cache

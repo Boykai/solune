@@ -15,7 +15,7 @@ from src.models.task import Task, TaskCreateRequest
 from src.models.user import UserSession
 from src.models.workflow import WorkflowConfiguration
 from src.services.cache import cache, get_project_items_cache_key
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.services.websocket import connection_manager
 from src.services.workflow_orchestrator import (
     WorkflowContext,
@@ -110,7 +110,7 @@ async def create_task(
     )
 
     # Step 1: Create a real GitHub Issue via REST API
-    issue = await github_projects_service.create_issue(
+    issue = await get_github_service().create_issue(
         access_token=session.access_token,
         owner=owner,
         repo=repo,
@@ -125,7 +125,7 @@ async def create_task(
     issue_database_id = issue["id"]
 
     # Step 2: Add the issue to the project
-    item_id = await github_projects_service.add_issue_to_project(
+    item_id = await get_github_service().add_issue_to_project(
         access_token=session.access_token,
         project_id=project_id,
         issue_node_id=issue_node_id,

@@ -119,7 +119,7 @@ class TestGetPollingStatus:
             mock_state.poll_count = 0
             mock_state.errors_count = 0
             mock_state.last_error = None
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = None
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = None
 
             status = get_polling_status()
             assert status["is_running"] is False
@@ -141,7 +141,7 @@ class TestGetPollingStatus:
             mock_state.poll_count = 5
             mock_state.errors_count = 1
             mock_state.last_error = "timeout"
-            mock_cp.github_projects_service.get_last_rate_limit.return_value = {
+            mock_cp.get_github_service.return_value.get_last_rate_limit.return_value = {
                 "limit": 5000,
                 "remaining": 4500,
                 "used": 500,
@@ -205,8 +205,8 @@ class TestPollAppPipeline:
                 mock_state_active,  # pre-steps check
                 mock_state_done,  # post-steps re-check
             ]
-            mock_cp.github_projects_service.get_project_items = AsyncMock(return_value=[])
-            mock_cp.github_projects_service.clear_cycle_cache = MagicMock()
+            mock_cp.get_github_service.return_value.get_project_items = AsyncMock(return_value=[])
+            mock_cp.get_github_service.return_value.clear_cycle_cache = MagicMock()
 
             await poll_app_pipeline("tok", "proj", "owner", "repo", 42)
 
@@ -260,8 +260,8 @@ class TestPollAppPipeline:
                 mock_state_active,
                 mock_state_done,
             ]
-            mock_cp.github_projects_service.get_project_items = AsyncMock(return_value=[])
-            mock_cp.github_projects_service.clear_cycle_cache = MagicMock()
+            mock_cp.get_github_service.return_value.get_project_items = AsyncMock(return_value=[])
+            mock_cp.get_github_service.return_value.clear_cycle_cache = MagicMock()
 
             await poll_app_pipeline("tok", "proj", "owner", "repo", 42)
 
@@ -304,8 +304,8 @@ class TestPollAppPipeline:
                 MagicMock(is_complete=False),  # cycle 3 pre
                 None,  # cycle 3 post → missing (3/3) → break
             ]
-            mock_cp.github_projects_service.get_project_items = AsyncMock(return_value=[])
-            mock_cp.github_projects_service.clear_cycle_cache = MagicMock()
+            mock_cp.get_github_service.return_value.get_project_items = AsyncMock(return_value=[])
+            mock_cp.get_github_service.return_value.clear_cycle_cache = MagicMock()
 
             await poll_app_pipeline("tok", "proj", "owner", "repo", 42)
 

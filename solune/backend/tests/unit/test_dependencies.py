@@ -40,7 +40,7 @@ class TestServiceGetters:
         request = _request_with_state()
         fallback = object()
 
-        with patch("src.services.github_projects.github_projects_service", fallback):
+        with patch("src.services.github_projects.get_github_service", return_value=fallback):
             assert get_github_service(request) is fallback
 
     def test_get_connection_manager_prefers_app_state(self):

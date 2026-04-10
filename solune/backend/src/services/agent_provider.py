@@ -33,7 +33,7 @@ def _wrap_copilot_tools_with_runtime_state(
     try:
         import importlib
 
-        copilot_types = importlib.import_module("copilot.types")
+        copilot_types = importlib.import_module("copilot.session")
     except ImportError:
         CopilotTool = None
     else:

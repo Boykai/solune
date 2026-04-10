@@ -529,8 +529,8 @@ class TestSignalBridgeListenerAndInboundRouting:
             AsyncMock(return_value=[session]),
         )
         monkeypatch.setattr(
-            "src.services.github_projects.github_projects_service",
-            github_projects_service,
+            "src.services.github_projects.get_github_service",
+            lambda: github_projects_service,
         )
 
         result = await signal_bridge._list_user_projects("user-1")

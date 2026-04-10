@@ -64,7 +64,13 @@ cd frontend
 # Full mutation run (all shards combined)
 npx stryker run
 
-# Run a specific shard
+# Run a specific shard via STRYKER_SHARD env var
+STRYKER_SHARD=hooks-board npx stryker run
+STRYKER_SHARD=hooks-data npx stryker run
+STRYKER_SHARD=hooks-general npx stryker run
+STRYKER_SHARD=lib npx stryker run
+
+# Or use npm scripts
 npm run test:mutate:hooks-board
 npm run test:mutate:hooks-data
 npm run test:mutate:hooks-general
@@ -74,14 +80,14 @@ npm run test:mutate:lib
 npx stryker run --mutate src/utils/formatTime.ts --testFiles src/utils/formatTime.property.test.ts --reporters clear-text
 ```
 
-Frontend mutation shards (4 total):
+Frontend mutation shards (4 total, configured in `stryker.config.mjs` via `STRYKER_SHARD`):
 
-| Shard | Config | Scope |
-|-------|--------|-------|
-| `hooks-board` | `stryker-hooks-board.config.mjs` | `useAdaptivePolling`, `useBoardProjection`, `useBoardRefresh`, `useProjectBoard`, `useRealTimeSync` |
-| `hooks-data` | `stryker-hooks-data.config.mjs` | `useProjects`, `useChat`, `useChatHistory`, `useCommands`, `useWorkflow`, `useSettingsForm`, `useAuth` |
-| `hooks-general` | `stryker-hooks-general.config.mjs` | All remaining hooks not in board or data shards |
-| `lib` | `stryker-lib.config.mjs` | `src/lib/**/*.ts` (utilities, config builders, migrations) |
+| Shard | `STRYKER_SHARD` | Scope |
+|-------|-----------------|-------|
+| `hooks-board` | `hooks-board` | `useAdaptivePolling`, `useBoardProjection`, `useBoardRefresh`, `useProjectBoard`, `useRealTimeSync` |
+| `hooks-data` | `hooks-data` | `useProjects`, `useChat`, `useChatHistory`, `useCommands`, `useWorkflow`, `useSettingsForm`, `useAuth` |
+| `hooks-general` | `hooks-general` | All remaining hooks not in board or data shards |
+| `lib` | `lib` | `src/lib/**/*.ts` (utilities, config builders, migrations) |
 
 ## Backend Tests
 
@@ -366,7 +372,7 @@ E2E specs:
 - Contract validation exports backend OpenAPI, regenerates frontend types, and type-checks the generated contract.
 - Flaky detection and mutation testing run in dedicated workflows on schedule or manual dispatch.
 - Backend mutation CI runs five shard jobs (`auth-and-projects`, `orchestration`, `app-and-data`, `agents-and-integrations`, `api-and-middleware`) to keep reports smaller and faster to finish.
-- Frontend mutation CI runs four shard jobs (`hooks-board`, `hooks-data`, `hooks-general`, `lib`) so each finishes well under the 3-hour timeout.
+- Frontend mutation CI runs four shard jobs (`hooks-board`, `hooks-data`, `hooks-general`, `lib`) via `STRYKER_SHARD` env var, each finishing well under the 3-hour timeout.
 
 ## Code Quality
 

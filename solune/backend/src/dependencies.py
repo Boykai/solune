@@ -35,10 +35,12 @@ def get_github_service(request: Request) -> GitHubProjectsService:
     svc = getattr(request.app.state, "github_service", None)
     if svc is not None:
         return svc
-    # Fallback to module-level global during transition
-    from src.services.github_projects import github_projects_service
+    # Fallback to module-level accessor during transition
+    from src.services.github_projects import (
+        get_github_service as _get_github_service_fallback,
+    )
 
-    return github_projects_service
+    return _get_github_service_fallback()
 
 
 def get_connection_manager(request: Request) -> ConnectionManager:
