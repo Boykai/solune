@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from './authenticated-fixtures';
 
 test.describe('Settings Flow', () => {
@@ -25,5 +26,16 @@ test.describe('Settings Flow', () => {
 
     await expect(page.getByText('Temperature: 1.1')).toBeVisible();
     await expect(page.locator('#primary-temperature')).toHaveValue('1.1');
+  });
+
+  test('settings page passes WCAG 2.1 AA accessibility audit', async ({ page }) => {
+    await page.goto('/settings');
+    await expect(page.locator('#primary-temperature')).toBeVisible();
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
   });
 });
