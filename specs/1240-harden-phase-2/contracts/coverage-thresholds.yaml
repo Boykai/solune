@@ -1,0 +1,82 @@
+# Coverage Thresholds Contract
+# Defines the target thresholds for Harden Phase 2
+# This file serves as a machine-readable contract between plan and implementation.
+
+backend:
+  tool: pytest-cov
+  config_file: solune/backend/pyproject.toml
+  config_path: tool.coverage.report.fail_under
+  thresholds:
+    fail_under:
+      current: 75
+      target: 80
+
+frontend:
+  tool: vitest-v8
+  config_file: solune/frontend/vitest.config.ts
+  config_path: test.coverage.thresholds
+  thresholds:
+    statements:
+      current: 50
+      target: 60
+    branches:
+      current: 44
+      target: 52
+    functions:
+      current: 41
+      target: 50
+    lines:
+      current: 50
+      target: 60
+
+e2e_accessibility:
+  tool: "@axe-core/playwright"
+  version: "4.10.1"
+  wcag_tags:
+    - wcag2a
+    - wcag2aa
+    - wcag21a
+    - wcag21aa
+  target_specs:
+    - file: solune/frontend/e2e/auth.spec.ts
+      fixture: unauthenticated
+      routes: ["/login"]
+    - file: solune/frontend/e2e/board-navigation.spec.ts
+      fixture: authenticated
+      routes: ["/projects"]
+    - file: solune/frontend/e2e/chat-interaction.spec.ts
+      fixture: authenticated
+      routes: ["/projects"]
+    - file: solune/frontend/e2e/settings-flow.spec.ts
+      fixture: authenticated
+      routes: ["/settings"]
+
+property_testing:
+  backend:
+    framework: hypothesis
+    version: ">=6.131.0"
+    existing_files: 9
+    planned_additions:
+      - name: test_api_model_roundtrips.py
+        type: round-trip
+        description: "Pydantic model → dict → model for API request/response types"
+      - name: test_api_validation_properties.py
+        type: validation
+        description: "Boundary values, Unicode, empty strings, max-length fields"
+      - name: test_migration_idempotency.py
+        type: idempotency
+        description: "Apply migration twice → same result"
+  frontend:
+    framework: "@fast-check/vitest"
+    version: "0.4.0"
+    existing_files: 6
+    planned_additions:
+      - name: apiTypes.property.test.ts
+        type: round-trip
+        description: "TypeScript type → JSON → type for API interfaces"
+      - name: formValidation.property.test.ts
+        type: validation
+        description: "Form input boundaries, Unicode, special characters"
+      - name: pipelineState.property.test.ts
+        type: stateful
+        description: "Pipeline state transitions always reach valid states"
