@@ -29,7 +29,7 @@ def mock_gps():
 def _patch_gps(mock):
     """Return context manager that patches the service on the _cp module."""
     return patch(
-        "src.services.copilot_polling.github_projects_service",
+        "src.services.copilot_polling.get_github_service",
         mock,
     )
 
@@ -157,3 +157,4 @@ class TestSignal3FalsePositiveRejection:
             )
 
         assert result is False
+

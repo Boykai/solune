@@ -45,7 +45,7 @@ class TestDevopsRecoveryFallback:
         )
 
         with (
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -120,7 +120,7 @@ class TestDevopsRecoveryFallback:
         mock_attempt_merge = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -185,7 +185,7 @@ class TestDevopsRecoveryFallback:
         mock_check_done = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -241,7 +241,7 @@ class TestDevopsRecoveryFallback:
         mock_check_done = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -310,7 +310,7 @@ class TestDevopsRecoveryFallback:
         mock_check_done = AsyncMock()
 
         with (
-            patch("src.services.copilot_polling.github_projects_service") as svc,
+            patch("src.services.copilot_polling.get_github_service") as svc,
             patch(
                 "src.services.copilot_polling.get_workflow_config",
                 new_callable=AsyncMock,
@@ -350,3 +350,4 @@ class TestDevopsRecoveryFallback:
             )
 
             mock_check_done.assert_not_awaited()
+

@@ -214,7 +214,7 @@ async def _run_workflow_orchestration(
     from src.config import get_settings
     from src.models.workflow import WorkflowConfiguration
     from src.services.copilot_polling import ensure_polling_started
-    from src.services.github_projects import github_projects_service as gh
+    from src.services.github_projects import get_github_service as gh
     from src.services.workflow_orchestrator import (
         PipelineState,
         WorkflowContext,
@@ -365,7 +365,7 @@ async def _handle_confirm(
 
     try:
         from src.services.cache import cache, get_project_items_cache_key
-        from src.services.github_projects import github_projects_service as gh
+        from src.services.github_projects import get_github_service as gh
         from src.utils import resolve_repository, utcnow
 
         owner, repo = await resolve_repository(token, pid)

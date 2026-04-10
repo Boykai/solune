@@ -29,7 +29,7 @@ from src.models.workflow import WorkflowConfiguration, WorkflowResult
 from src.services.activity_logger import log_event
 from src.services.agent_tracking import append_tracking_to_body
 from src.services.database import get_db
-from src.services.github_projects import github_projects_service
+from src.services.github_projects import get_github_service
 from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
 from src.services.workflow_orchestrator import (
@@ -404,7 +404,7 @@ async def execute_pipeline_launch(
             if pipeline_label not in issue_labels:
                 issue_labels.append(pipeline_label)
 
-        issue = await github_projects_service.create_issue(
+        issue = await get_github_service().create_issue(
             access_token=session.access_token,
             owner=owner,
             repo=repo,
@@ -472,7 +472,7 @@ async def execute_pipeline_launch(
                     "start_date": metadata.start_date,
                     "target_date": metadata.target_date,
                 }
-                await github_projects_service.set_issue_metadata(
+                await get_github_service().set_issue_metadata(
                     access_token=session.access_token,
                     project_id=project_id,
                     item_id=ctx.project_item_id,
@@ -487,7 +487,7 @@ async def execute_pipeline_launch(
         if not get_agent_slugs(config, status_name):
             next_status = find_next_actionable_status(config, status_name)
             if next_status and ctx.project_item_id:
-                await github_projects_service.update_item_status_by_name(
+                await get_github_service().update_item_status_by_name(
                     access_token=session.access_token,
                     project_id=project_id,
                     item_id=ctx.project_item_id,

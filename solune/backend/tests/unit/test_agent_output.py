@@ -50,7 +50,7 @@ class TestCommentScanResult:
 # Functional tests for _post_markdown_outputs
 # ---------------------------------------------------------------------------
 
-_GPS = "src.services.copilot_polling.github_projects_service"
+_GPS = "src.services.copilot_polling.get_github_service"
 _OUTPUT_FILES = "src.services.copilot_polling.AGENT_OUTPUT_FILES"
 _GET_SUB_ISSUES = "src.services.copilot_polling.get_issue_sub_issues"
 
@@ -293,3 +293,4 @@ class TestPostMarkdownOutputs:
             )
 
         assert result == 2
+

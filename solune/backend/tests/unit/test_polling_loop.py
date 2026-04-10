@@ -311,3 +311,4 @@ class TestPollAppPipeline:
 
         # Should have slept twice (after cycles 1 and 2) then exited on cycle 3
         assert mock_sleep.call_count == 2
+

@@ -986,7 +986,7 @@ class TestHandleConfirmExecution:
         monkeypatch.setattr(
             "src.api.chat.get_recommendation", AsyncMock(return_value=recommendation)
         )
-        monkeypatch.setattr("src.services.github_projects.github_projects_service", gh)
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: gh)
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
             "src.services.cache.get_project_items_cache_key", Mock(return_value="project-cache")
@@ -1053,7 +1053,7 @@ class TestHandleConfirmExecution:
         )
         monkeypatch.setattr("src.api.chat.add_message", add_message)
         monkeypatch.setattr("src.api.chat.get_proposal", AsyncMock(return_value=proposal))
-        monkeypatch.setattr("src.services.github_projects.github_projects_service", gh)
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: gh)
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
             "src.services.cache.get_project_items_cache_key", Mock(return_value="project-cache")
@@ -1165,7 +1165,7 @@ class TestHandleConfirmExecution:
         )
         monkeypatch.setattr("src.api.chat.add_message", add_message)
         monkeypatch.setattr("src.api.chat.get_proposal", AsyncMock(return_value=proposal))
-        monkeypatch.setattr("src.services.github_projects.github_projects_service", gh)
+        monkeypatch.setattr("src.services.github_projects.get_github_service", lambda: gh)
         monkeypatch.setattr("src.services.cache.cache", cache)
         monkeypatch.setattr(
             "src.services.cache.get_project_items_cache_key", Mock(return_value="project-cache")
@@ -1183,3 +1183,4 @@ class TestHandleConfirmExecution:
         add_message.assert_awaited_once()
         reply_with_audit.assert_awaited_once()
         cache.delete.assert_called_once_with("project-cache")
+
