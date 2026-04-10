@@ -12509,4 +12509,3 @@ class TestCacheSemanticsForPolling:
         finally:
             cache.delete(items_key)
             cache.delete(board_key)
-

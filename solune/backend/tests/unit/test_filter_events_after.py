@@ -104,4 +104,3 @@ class TestFilterEventsAfter:
         cutoff = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
         result = fn([], cutoff)
         assert result == []
-

@@ -411,4 +411,3 @@ async def test_pr_lifecycle_full_flow():
             assert r3.status_code == 200
 
     await transport.aclose()
-

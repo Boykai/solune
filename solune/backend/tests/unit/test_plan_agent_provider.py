@@ -269,6 +269,17 @@ class TestPostToolUseHook:
 class TestCreatePlanSession:
     """Tests for create_plan_session SDK session factory."""
 
+    @pytest.fixture(autouse=True)
+    def _mock_copilot_types(self):
+        """Mock the copilot SDK types that aren't installed in the test env."""
+        mock_types = MagicMock()
+        mock_types.SessionConfig = dict
+        with patch.dict(
+            "sys.modules",
+            {"copilot": MagicMock(), "copilot.types": mock_types},
+        ):
+            yield
+
     @pytest.mark.anyio
     async def test_analyze_profile_uses_read_only_config(self):
         """Analyze profile should produce a session without save_plan tools."""

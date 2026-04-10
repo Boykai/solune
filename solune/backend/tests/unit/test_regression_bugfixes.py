@@ -391,4 +391,3 @@ class TestHTTPErrorResponsePatterns:
         assert "admin_blocked" in source or "locked" in source, (
             "Guard service should categorize blocked paths"
         )
-

@@ -54,7 +54,9 @@ class TestValidatePipelineLabels:
 
         with patch("src.services.copilot_polling.state_validation._cp") as mock_cp:
             mock_cp.get_github_service.return_value = AsyncMock()
-            mock_cp.get_github_service.return_value.update_issue_state = AsyncMock(return_value=True)
+            mock_cp.get_github_service.return_value.update_issue_state = AsyncMock(
+                return_value=True
+            )
 
             corrections_made, descriptions = await validate_pipeline_labels(
                 access_token="tok",
@@ -80,7 +82,9 @@ class TestValidatePipelineLabels:
 
         with patch("src.services.copilot_polling.state_validation._cp") as mock_cp:
             mock_cp.get_github_service.return_value = AsyncMock()
-            mock_cp.get_github_service.return_value.update_issue_state = AsyncMock(return_value=True)
+            mock_cp.get_github_service.return_value.update_issue_state = AsyncMock(
+                return_value=True
+            )
 
             corrections_made, descriptions = await validate_pipeline_labels(
                 access_token="tok",
@@ -107,7 +111,9 @@ class TestValidatePipelineLabels:
 
         with patch("src.services.copilot_polling.state_validation._cp") as mock_cp:
             mock_cp.get_github_service.return_value = AsyncMock()
-            mock_cp.get_github_service.return_value.update_issue_state = AsyncMock(return_value=True)
+            mock_cp.get_github_service.return_value.update_issue_state = AsyncMock(
+                return_value=True
+            )
 
             corrections_made, descriptions = await validate_pipeline_labels(
                 access_token="tok",
@@ -176,4 +182,3 @@ class TestValidatePipelineLabels:
             tracking_steps=steps,
         )
         assert corrections_made is False
-
