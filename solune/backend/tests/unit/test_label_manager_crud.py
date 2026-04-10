@@ -26,7 +26,7 @@ def _patches(rest_mock: AsyncMock):
     """Patch the github_projects_service at its source so lazy imports pick it up."""
     stack = ExitStack()
     mock_gps = SimpleNamespace(rest_request=rest_mock)
-    stack.enter_context(patch(_GH, mock_gps))
+    stack.enter_context(patch(_GH, return_value=mock_gps))
     return stack
 
 
