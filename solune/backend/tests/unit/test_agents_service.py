@@ -1579,6 +1579,50 @@ class TestExtractAgentPreview:
         text = '```agent-config\n{"name": "Bot", "tools": "read"}\n```'
         assert AgentsService._extract_agent_preview(text) is None
 
+    @pytest.mark.parametrize(
+        "bad_tools",
+        [
+            [123],
+            [None],
+            [""],
+            [{}],
+            ["  "],
+            ["valid", 42],
+            ["ok", None, "also-ok"],
+            ["\t"],
+        ],
+        ids=[
+            "int-element",
+            "none-element",
+            "empty-string",
+            "dict-element",
+            "whitespace-only",
+            "mixed-valid-and-int",
+            "none-among-valid",
+            "tab-only",
+        ],
+    )
+    def test_malformed_tool_entries_return_none(self, bad_tools):
+        """Per-element validation rejects non-string / blank tool entries."""
+        import json as _json
+
+        config = {"name": "Bot", "tools": bad_tools}
+        text = f"```agent-config\n{_json.dumps(config)}\n```"
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_tools_none_returns_none(self):
+        """tools: null should be treated as invalid (not coerced to [])."""
+        text = '```agent-config\n{"name": "Bot", "tools": null}\n```'
+        assert AgentsService._extract_agent_preview(text) is None
+
+    def test_valid_tools_still_produce_preview(self):
+        """Confirm well-formed tool lists pass validation and produce AgentPreview."""
+        text = '```agent-config\n{"name": "Helper", "tools": ["read", "write", "run"]}\n```'
+        preview = AgentsService._extract_agent_preview(text)
+        assert preview is not None
+        assert preview.name == "Helper"
+        assert preview.tools == ["read", "write", "run"]
+
 
 # ── _coerce_agent_status ─────────────────────────────────────────────────
 
