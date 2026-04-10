@@ -195,7 +195,7 @@ async def _create_copilot_agent(
         )
 
     from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
-    from copilot import PermissionHandler
+    from copilot.session import PermissionHandler
 
     from src.services.completion_providers import get_copilot_client_pool
 
