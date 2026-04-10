@@ -243,4 +243,3 @@ class TestQueryPipelineLabels:
             result = await query_pipeline_labels("tok", "o", "r")
 
         assert result == []
-

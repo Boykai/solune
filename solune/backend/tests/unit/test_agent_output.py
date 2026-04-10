@@ -293,4 +293,3 @@ class TestPostMarkdownOutputs:
             )
 
         assert result == 2
-

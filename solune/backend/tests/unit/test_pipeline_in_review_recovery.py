@@ -355,4 +355,3 @@ class TestDevopsRecoveryFallback:
             )
 
             mock_check_done.assert_not_awaited()
-

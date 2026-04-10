@@ -140,4 +140,3 @@ class TestWebhookVerification:
         assert resp.status_code == 200, (
             f"Expected 200 for signed webhook, got {resp.status_code}: {resp.text}"
         )
-

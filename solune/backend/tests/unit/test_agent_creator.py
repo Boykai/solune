@@ -2520,4 +2520,3 @@ class TestNormalizeStatus:
         from src.services.agent_creator import _normalize_status
 
         assert _normalize_status("") == ""
-

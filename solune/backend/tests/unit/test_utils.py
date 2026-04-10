@@ -532,4 +532,3 @@ class TestParseGithubUrl:
     def test_not_a_url_raises(self) -> None:
         with pytest.raises(ValidationError, match=r"only github\.com"):
             parse_github_url("not-a-url")
-
