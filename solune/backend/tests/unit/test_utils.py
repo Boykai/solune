@@ -395,8 +395,8 @@ class TestResolveRepository:
         mock_service.get_project_repository.return_value = ("owner1", "repo1")
 
         with patch(
-            "src.services.github_projects.github_projects_service",
-            mock_service,
+            "src.services.github_projects.get_github_service",
+            return_value=mock_service,
         ):
             result = await resolve_repository("token", "proj-id")
 
@@ -411,8 +411,8 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
-                mock_service,
+                "src.services.github_projects.get_github_service",
+                return_value=mock_service,
             ),
             patch(
                 "src.utils._resolve_repository_rest",
@@ -441,8 +441,8 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
-                mock_service,
+                "src.services.github_projects.get_github_service",
+                return_value=mock_service,
             ),
             patch(
                 "src.utils._resolve_repository_rest",
@@ -469,8 +469,8 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
-                mock_service,
+                "src.services.github_projects.get_github_service",
+                return_value=mock_service,
             ),
             patch(
                 "src.utils._resolve_repository_rest",
@@ -501,8 +501,8 @@ class TestResolveRepository:
 
         with (
             patch(
-                "src.services.github_projects.github_projects_service",
-                mock_service,
+                "src.services.github_projects.get_github_service",
+                return_value=mock_service,
             ),
             patch(
                 "src.utils._resolve_repository_rest",
@@ -572,3 +572,4 @@ class TestParseGithubUrl:
     def test_not_a_url_raises(self) -> None:
         with pytest.raises(ValidationError, match=r"only github\.com"):
             parse_github_url("not-a-url")
+

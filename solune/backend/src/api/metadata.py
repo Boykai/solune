@@ -23,9 +23,9 @@ async def get_metadata(
 
     If the cache is empty, triggers a fresh fetch from the GitHub API.
     """
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
 
-    svc = MetadataService(github_service=github_projects_service)
+    svc = MetadataService(github_service=get_github_service())
     ctx = await svc.get_or_fetch(session.access_token, owner, repo)
     return ctx
 
@@ -37,9 +37,9 @@ async def refresh_metadata(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> RepositoryMetadataContext:
     """Force-refresh repository metadata from the GitHub API."""
-    from src.services.github_projects import github_projects_service
+    from src.services.github_projects import get_github_service
 
-    svc = MetadataService(github_service=github_projects_service)
+    svc = MetadataService(github_service=get_github_service())
     await svc.invalidate(owner, repo)
     ctx = await svc.fetch_metadata(session.access_token, owner, repo)
     return ctx

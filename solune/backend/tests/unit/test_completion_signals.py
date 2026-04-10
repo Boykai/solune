@@ -22,7 +22,7 @@ def mock_gps():
 
 
 def _patch_gps(mock):
-    return patch("src.services.copilot_polling.github_projects_service", mock)
+    return patch("src.services.copilot_polling.get_github_service", return_value=mock)
 
 
 def _make_pr(*, is_draft=True, state="OPEN", sha="abc123"):
@@ -395,3 +395,4 @@ class TestEdgeCases:
             )
 
         assert result is False
+
