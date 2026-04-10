@@ -38,7 +38,7 @@ Phase 3 is a hardening sprint focused on four workstreams that reduce tech debt,
 | IV. Test Optionality | ✅ PASS | Existing tests must pass; new tests only where singleton accessor pattern needs coverage |
 | V. Simplicity and DRY | ✅ PASS | Each workstream simplifies existing code: fewer singletons, fewer configs, cleaner DI, upgraded deps |
 
-**Gate Result**: ✅ ALL PASS — proceed to Phase 0
+**Gate Result**: PASS — no violations. Proceed to Phase 0.
 
 ## Project Structure
 

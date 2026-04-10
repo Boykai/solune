@@ -1466,10 +1466,12 @@ class AgentsService:
                 return None
 
             name = config.get("name", "")
-            if not name:
+            if not isinstance(name, str) or not name.strip():
                 return None
             tools = config.get("tools", [])
             if not isinstance(tools, list):
+                return None
+            if not all(isinstance(t, str) and t.strip() for t in tools):
                 return None
 
             slug = AgentPreview.name_to_slug(name)

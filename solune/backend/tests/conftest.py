@@ -413,7 +413,12 @@ async def client(
     - Global service singletons → AsyncMocks
     """
     from src.api.auth import get_session_dep
-    from src.dependencies import get_connection_manager, get_github_service, verify_project_access
+    from src.dependencies import (
+        get_connection_manager,
+        get_github_service,
+        require_admin,
+        verify_project_access,
+    )
     from src.main import create_app
 
     app = create_app()
@@ -425,6 +430,9 @@ async def client(
     # Bypass project ownership check in unit tests — individual tests
     # that need to verify authorization behavior can re-enable it.
     app.dependency_overrides[verify_project_access] = lambda: None
+    # Bypass admin check — the auto-promote path depends on app.state.db
+    # which is a separate in-memory database from mock_db, causing 403s.
+    app.dependency_overrides[require_admin] = lambda: mock_session
 
     import contextlib
 
