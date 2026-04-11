@@ -1,165 +1,190 @@
-# Research: Multi-Chat App Page
+# Research: Codebase Modularity Review
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11 | **Status**: Complete
 
-## R1: Nullable Foreign Key Strategy for Backward Compatibility
+## R1: Chat Module Split Strategy — Package vs. Flat Files
 
-**Decision**: Add `conversation_id TEXT DEFAULT NULL` to `chat_messages`, `chat_proposals`, and `chat_recommendations` via `ALTER TABLE`. No `NOT NULL` constraint.
+**Decision**: Convert `api/chat.py` into a Python package (`api/chat/` directory with `__init__.py`) rather than splitting into sibling files at the `api/` level.
 
-**Rationale**: Existing rows have no conversation context — they belong to `ChatPopup` on non-AppPage routes. Making the column nullable preserves all existing data and behavior without backfilling. The `ChatPopup` never sends a `conversation_id`, so its messages continue to work unchanged. Queries that filter by `conversation_id` use `WHERE conversation_id = ?` for scoped results, while global queries (ChatPopup) omit the filter entirely.
+**Rationale**: A package approach provides several advantages over flat sibling files:
 
-SQLite's `ALTER TABLE ... ADD COLUMN` with a `DEFAULT NULL` is an O(1) metadata-only operation — it does not rewrite the table. This means the migration is safe to run on databases with millions of messages.
+1. **Encapsulation**: Internal helpers (e.g., `_persist_message()`, `_retry_persist()`) stay private to the package — they aren't visible at the `api/` level alongside `board.py`, `tasks.py`, etc.
+2. **Import compatibility**: `from src.api.chat import router` resolves to `api/chat/__init__.py`, which re-exports `router`. No external import paths change.
+3. **Namespace isolation**: Each sub-module defines its own `router = APIRouter()` with a clear scope. The package `router.py` combines them via `include_router()`.
+4. **State sharing**: The `ChatStateManager` lives in `api/chat/state.py` and is imported by sibling modules within the package. This is cleaner than a separate top-level `api/chat_state.py`.
 
-**Alternatives considered**:
-
-| Alternative | Why Rejected |
-|-------------|-------------|
-| `NOT NULL DEFAULT ''` (empty string sentinel) | Requires backfilling all existing rows; creates ambiguity between "no conversation" and "empty string"; non-standard FK pattern |
-| Separate `conversation_messages` join table | Over-normalized for SQLite; adds query complexity and JOIN overhead without tangible benefit for this use case |
-| Backfill existing messages into a default conversation | Breaks the "ChatPopup untouched" decision; adds migration complexity; unnecessary since ChatPopup works independently |
-| Add `conversation_id` only to new tables | Prevents filtering existing message types by conversation; breaks the spec requirement of scoping proposals and recommendations |
-
----
-
-## R2: Agent Session Key Strategy
-
-**Decision**: Change `AgentSessionMapping` key from `session_id` (string) to `{session_id}:{conversation_id}` (colon-separated composite key). When `conversation_id` is `None`, use the key `{session_id}:_` (underscore sentinel).
-
-**Rationale**: Each conversation needs its own independent agent context so chat history and tool state don't leak between simultaneous conversations. The existing `AgentSessionMapping` already uses string keys and supports TTL-based eviction with LRU semantics. The composite key format is:
-
-- **Simple**: A string concatenation with a known delimiter
-- **Reversible**: Can be split on `:` to recover components (UUIDs don't contain colons)
-- **Non-conflicting**: Colons are not valid UUID characters, and `_` is distinct from any UUID
-- **Backward-compatible**: Existing sessions expire via TTL (3600s); new key format only applies to new requests
+The current codebase already uses package-style organization for services (`services/copilot_polling/`, `services/github_projects/`, `services/workflow_orchestrator/`, `services/mcp_server/`) — each with `__init__.py` and multiple internal modules. Following the same pattern for API routes is consistent.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Nested dict (`dict[str, dict[str, AgentSession]]`) | Requires reworking the eviction and TTL logic throughout `AgentSessionMapping`; increases complexity |
-| Tuple key `(session_id, conversation_id)` | Existing implementation is string-based; tuple keys require changes to serialization, comparison, and hashing patterns |
-| Separate `AgentSessionMapping` per conversation | Memory overhead from multiple mapping instances; harder to manage TTL and capacity globally |
-| Keep single session per user, reset context on conversation switch | Breaks the "independent agent context" requirement; loses state when switching back |
+| Flat sibling files (`api/chat_messages.py`, `api/chat_proposals.py`) | Pollutes the `api/` namespace with 5+ chat-prefixed files; no encapsulation of internal helpers; inconsistent with existing `services/` package pattern |
+| Single file with better organization (regions/comments) | Doesn't solve the core problem — 2,930 lines is too large for effective code review, test isolation, and merge conflict avoidance |
+| Move all logic to services, keep `api/chat.py` thin | Over-extraction — the endpoint functions contain routing logic (request parsing, response formatting, SSE setup) that belongs in the API layer, not services |
 
 ---
 
-## R3: Panel Layout Persistence Strategy
+## R2: ProposalOrchestrator Extraction — Service Class vs. Module Functions
 
-**Decision**: Persist panel layout to `localStorage` under key `solune:chat-panels`. Format is a JSON object with a `version` field for future schema migration.
+**Decision**: Extract `confirm_proposal()` body into a `ProposalOrchestrator` class (in `services/proposal_orchestrator.py`) rather than a set of standalone module-level functions.
 
-```typescript
-interface PanelLayout {
-  version: 1;
-  panels: Array<{
-    panelId: string;
-    conversationId: string;
-    widthPercent: number;
-  }>;
-}
+**Rationale**: The current `confirm_proposal()` function (345 lines, starting at line 1607 of `api/chat.py`) performs five distinct sequential steps:
+
+1. **Validate** — Check proposal status, expiration, permissions
+2. **GitHub workflow** — Create branch, commit files, open PR via GitHub API
+3. **Agent assignment** — Assign a Copilot agent to the PR
+4. **Polling** — Start copilot polling for the new workflow
+5. **Broadcast** — WebSocket notification to connected clients
+
+A class provides:
+- **Dependency injection**: Constructor accepts `GitHubProjectsService`, `ConnectionManager`, `CopilotPollingService` — all testable via mocks
+- **Step isolation**: Each method can be unit-tested independently
+- **Error recovery**: Class can maintain transient state for rollback (e.g., if step 4 fails, step 2's PR still exists but polling isn't started)
+- **Consistency**: Follows the existing `services/` pattern where complex workflows are encapsulated in service classes (e.g., `AgentCreatorService`, `MetadataService`)
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Module-level functions in `services/proposal_orchestrator.py` | Loses the ability to inject dependencies via constructor; each function would need all dependencies as parameters, creating long parameter lists |
+| Keep in `api/chat/proposals.py` but refactor into smaller nested functions | Still a single endpoint function; doesn't improve testability; nested functions can't be imported or tested individually |
+| Extract to `services/github_projects/` (extend existing service) | `confirm_proposal` spans multiple services (GitHub, WebSocket, polling); adding it to `github_projects` would increase that service's coupling |
+
+---
+
+## R3: Webhooks Split — Event-Type Grouping
+
+**Decision**: Split `api/webhooks.py` by GitHub event type: `pull_requests.py` for PR events, `check_runs.py` for check run/suite events, and `helpers.py` for shared utilities.
+
+**Rationale**: The webhook dispatcher (`github_webhook()` at line 348) already routes by event type header:
+
+```python
+event_type = request.headers.get("X-GitHub-Event")
+if event_type == "pull_request":
+    return await handle_pull_request_event(payload)
+elif event_type == "check_run":
+    return await handle_check_run_event(payload)
+elif event_type == "check_suite":
+    return await handle_check_suite_event(payload)
 ```
 
-**Rationale**: Panel layout is ephemeral UI state — no server persistence needed. `localStorage` survives page refreshes (meeting the spec's "browser refresh restores previously open panels" requirement) and is synchronous (no loading states during initial render). A `version` field enables graceful migration if the schema changes in future releases (e.g., adding panel order, scroll position, or collapsed state).
+This natural routing boundary maps directly to file boundaries. Each handler file contains the event-specific logic plus any sub-handlers (e.g., `handle_pull_request_event()` calls `update_issue_status_for_copilot_pr()` and `handle_copilot_pr_ready()` — all PR-related).
 
-The `solune:` prefix namespaces the key to avoid collisions with other apps on the same domain, consistent with typical localStorage conventions.
-
-**Alternatives considered**:
-
-| Alternative | Why Rejected |
-|-------------|-------------|
-| `sessionStorage` | Doesn't survive tab close or browser restart; violates the "browser refresh restores panels" requirement |
-| Server-side persistence (new endpoint) | Over-engineered for UI layout; adds latency on every resize; requires new backend model/migration |
-| URL query parameters | Clutters the URL; doesn't scale to complex layouts; creates ugly shareable URLs |
-| IndexedDB | Overkill for ~500 bytes of JSON; async API adds unnecessary complexity |
-| React state only (no persistence) | Loses layout on refresh; violates spec requirement |
-
----
-
-## R4: Multi-Panel Resize Implementation
-
-**Decision**: Use CSS flexbox with percentage-based widths and native `mousedown`/`mousemove`/`mouseup` event handlers for resize handles. No external drag library.
-
-**Rationale**: The resize interaction is constrained to horizontal dragging between adjacent panels — much simpler than general drag-and-drop. The existing `ChatPopup` component (lines 153–204 of `ChatPopup.tsx`) already implements resize with native mouse events and `requestAnimationFrame` gating. Using the same pattern:
-
-- Keeps the codebase consistent (developers already understand the pattern)
-- Avoids a new dependency for a single use case
-- Provides direct control over performance characteristics
-
-The handle renders as a thin vertical bar (4–8px wide) between panels with a `cursor: col-resize` style. During drag:
-
-1. `mousedown` on handle → capture start position and panel widths
-2. `mousemove` (window-level) → calculate delta, update panel `widthPercent` values
-3. `mouseup` (window-level) → commit final widths to state, persist to localStorage
-4. `requestAnimationFrame` gating ensures at most one state update per frame
-
-Touch events (`touchstart`/`touchmove`/`touchend`) follow the same pattern for tablet support, though on mobile (< 768px) the tab interface replaces side-by-side panels entirely.
+Helper functions (`verify_webhook_signature()`, `extract_issue_number_from_pr()`, `classify_pull_request_activity()`, `_resolve_issue_for_pr()`) are used across event types and belong in a shared `helpers.py`.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `@dnd-kit` (existing dependency) | Designed for sortable lists and pick-up/put-down interactions; resize handles are an anti-pattern in dnd-kit's API |
-| `react-resizable-panels` (new dep) | Adds ~15KB to bundle for a single use case; the native approach is <100 lines |
-| CSS `resize` property | Only works on individual elements; cannot synchronize adjacent panel widths or enforce constraints |
-| CSS Grid with `grid-template-columns` | Possible but less intuitive for dynamic resize; percentage updates require CSS variable manipulation |
+| Split by action (opened, closed, completed) | Too granular; many actions share context and would require excessive cross-file imports |
+| Keep as single file with better organization | 1,033 lines is manageable but still large for focused reviews; event-type split is a natural boundary |
+| Move all logic to a `WebhookService` class | Over-abstraction — webhook handlers are inherently procedural (receive event, process, respond); a class adds ceremony without benefit |
 
 ---
 
-## R5: Mobile Panel Display Strategy
+## R4: Frontend API Client Split — Per-Domain Files
 
-**Decision**: On viewports below 768px, display panels as tabs with a horizontal tab bar at the top of the chat area. The active tab shows the full `ChatPanel`; inactive panels remain mounted but hidden via `display: none`.
+**Decision**: Replace the monolithic `services/api.ts` (1,876 lines) with a `services/api/` directory containing one TypeScript file per API domain, plus a shared `client.ts` and a barrel `index.ts`.
 
-**Rationale**: Side-by-side panels don't fit on mobile screens — the spec mandates a 320px minimum width per panel, which means only one panel fits on most phones. Tab switching:
+**Rationale**: The current file contains 13 namespace objects (`authApi`, `projectsApi`, `tasksApi`, `conversationApi`, `chatApi`, `boardApi`, `settingsApi`, `workflowApi`, `metadataApi`, `signalApi`, `mcpApi`, `cleanupApi`, `choresApi`) plus 15+ agent/MCP type definitions and utility functions. This creates several problems:
 
-- Preserves conversation state (React Query cache, streaming state, scroll position) without unmounting
-- Uses minimal vertical space (single row of tab buttons)
-- Follows familiar mobile chat app conventions (Slack, Discord, Telegram all use channel/conversation switching)
-- Supports the "Add Chat" button as a `+` tab
+1. **Code review scope**: Any API change requires reviewing 1,876 lines of context
+2. **Merge conflicts**: Multiple developers adding endpoints to different domains conflict on the same file
+3. **Code splitting**: Vite cannot tree-shake unused API namespaces because they're all in one module
+4. **Test isolation**: Mocking a single API namespace requires importing the entire file
 
-The active tab is highlighted with a bottom border and bolder text. Tab labels show the conversation title (truncated to 15 characters).
+Per-domain files solve all four issues while maintaining backward compatibility via barrel re-exports.
+
+**Import compatibility**: The barrel `services/api/index.ts` re-exports all namespaces:
+```typescript
+export { ApiError, onAuthExpired } from './client';
+export { authApi } from './auth';
+export { chatApi, conversationApi } from './chat';
+// ... etc
+```
+
+Existing imports like `import { chatApi } from '../services/api'` resolve to the barrel and continue to work. TypeScript path resolution treats a directory with `index.ts` the same as a file.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Horizontal swipe navigation | Requires gesture handling library; conflicts with horizontal scrolling in markdown code blocks within messages |
-| Accordion/collapsible panels | Unusual UX for chat interfaces; poor discoverability on mobile |
-| Force single panel on mobile | Simplest but entirely removes multi-chat capability on mobile; reduces feature value |
-| Bottom navigation bar | Conflicts with mobile browser chrome (bottom toolbar); less space-efficient than top tabs |
+| Keep as single file, use `// #region` comments | Doesn't solve code-splitting, merge conflicts, or test isolation |
+| One file per endpoint (e.g., `api/createTask.ts`) | Too granular; 50+ files for individual endpoints reduces discoverability |
+| Use a code-generated API client (OpenAPI → TypeScript) | Architectural change; out of scope for a modularity refactor; would require backend OpenAPI spec generation |
 
 ---
 
-## R6: Conversation Title Auto-Generation
+## R5: Frontend Types Split — Domain Scoping
 
-**Decision**: Default title is "New Chat". The title can be manually edited via the panel header. No auto-generation from first message content in Phase 1.
+**Decision**: Split `types/index.ts` (1,525 lines) into domain-scoped files with a barrel re-export.
 
-**Rationale**: Auto-generating titles from message content (e.g., using the first user message or an AI summary) adds complexity to the initial implementation:
+**Rationale**: The current file defines 40+ types, interfaces, and enums for all domains (chat, board, pipeline, tasks, agents, plans, settings, common). Analysis of the type dependency graph shows:
 
-- Requires an additional API call or background job after the first message
-- Introduces timing issues (title appears after a delay)
-- May produce poor titles from short or ambiguous first messages
+- **Common types** (`SenderType`, `ActionType`, `User`, `Project`): Referenced by 3+ other domains → extract to `common.ts`
+- **Chat types** (`ChatMessage`, `AITaskProposal`, etc.): Self-contained with imports from `common.ts` → extract to `chat.ts`
+- **Plan types** (`Plan`, `PlanStep`, `ThinkingEvent`, etc.): Self-contained → extract to `plans.ts`
+- **Board types**: Import `Task` from tasks → extract to `board.ts`
+- **No circular dependencies**: The type graph is acyclic when `common.ts` holds shared base types
 
-Manual editing via an inline input in the panel header is simpler and gives users direct control. Auto-generation can be added in a future iteration as an enhancement.
-
-**Alternatives considered**:
-
-| Alternative | Why Rejected (for Phase 1) |
-|-------------|---------------------------|
-| AI-generated title after first message | Adds latency and a background task; can be a follow-up feature |
-| First message truncated as title | Poor titles from short messages ("hi", "help"); requires cleanup logic |
-| Timestamp-based title ("Chat 2026-04-11 10:30") | Not human-friendly; doesn't convey conversation topic |
-
----
-
-## R7: Conversation Deletion Cascade Behavior
-
-**Decision**: When a conversation is deleted, its `conversation_id` references in `chat_messages`, `chat_proposals`, and `chat_recommendations` are set to `NULL` via `ON DELETE SET NULL`. Messages are not deleted — they become "orphaned" (associated with the session but no conversation).
-
-**Rationale**: Cascading deletes (`ON DELETE CASCADE` from conversations to messages) would permanently destroy message history. Setting to `NULL` preserves the messages in the database while removing the conversation container. This is safer and allows recovery. The orphaned messages are invisible in the UI (no conversation to display them in) but remain queryable for analytics or debugging.
+The barrel `index.ts` re-exports everything, preserving `import type { ChatMessage } from '@/types'` and `import type { ChatMessage } from '../types'` paths.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `ON DELETE CASCADE` (delete messages too) | Permanently destroys message history; no recovery possible |
-| Soft delete (add `deleted_at` column) | Over-engineered for Phase 1; adds query complexity with `WHERE deleted_at IS NULL` filters |
-| Prevent deletion if messages exist | Poor UX; users should be able to clean up conversations freely |
+| Keep monolithic with better comments/sections | Doesn't solve IDE navigation issues or cognitive load |
+| Type-per-file (one file per interface) | Too granular for 40+ types; 40 files in `types/` reduces discoverability |
+| Co-locate types with components (e.g., `components/chat/types.ts`) | Breaks the existing convention of centralized types; makes cross-domain type sharing harder |
+
+---
+
+## R6: Global State Consolidation — ChatStateManager
+
+**Decision**: Replace the three module-level dicts in `api/chat.py` with a `ChatStateManager` class, instantiated during app lifespan and registered on `app.state`.
+
+**Rationale**: The current global state pattern has three issues:
+
+1. **No lifecycle management**: Dicts are never cleared. The `_locks` dict accumulates one `asyncio.Lock` per unique project ID indefinitely — a memory leak identified in issue #1355's parent.
+2. **Race conditions**: Module-level dicts are accessible from any coroutine without synchronization. While Python's GIL prevents data corruption, logical races (read-modify-write on `_messages`) are possible.
+3. **Test isolation**: Tests that modify global state must manually reset it in teardown fixtures. A class-based approach allows creating fresh instances per test.
+
+The `ChatStateManager` class:
+- Uses `BoundedDict` (already in codebase) for `_locks` with a configurable capacity (default 10,000)
+- Provides explicit `clear()` for shutdown cleanup
+- Is injected via `Depends()` from `app.state.chat_state`, consistent with other singletons (`github_projects_service`, `connection_manager`, etc.)
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Keep dicts but add `WeakValueDictionary` for locks | `asyncio.Lock` instances are referenced by in-progress operations; weak refs would GC active locks |
+| Move state to Redis/external store | Over-engineered for in-memory cache; adds infrastructure dependency for a modularity refactor |
+| Use FastAPI `app.state` directly without wrapper class | Loses encapsulation; state access scattered across codebase without validation |
+
+---
+
+## R7: Import Path Migration — Test Patch Targets
+
+**Decision**: After splitting modules, systematically update all test `patch()` targets that reference the old monolithic file paths.
+
+**Rationale**: The backend test suite contains 5,200+ tests. Many use `unittest.mock.patch()` or `pytest.monkeypatch` with string targets like:
+- `src.api.chat._messages`
+- `src.api.chat._proposals`
+- `src.api.chat._get_lock`
+- `src.api.webhooks.handle_pull_request_event`
+
+After the split, these targets change to:
+- `src.api.chat.state.ChatStateManager` (or the injected instance)
+- `src.api.chat.messages._persist_message`
+- `src.api.webhooks.pull_requests.handle_pull_request_event`
+
+A systematic `grep -r "patch.*src.api.chat" tests/` followed by targeted updates ensures no test breaks from import path changes.
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Keep old import paths via re-exports in `__init__.py` | Leaking internal implementation through `__init__.py` defeats the purpose of the split; creates a maintenance burden |
+| Use `importlib` indirection in tests | Overly clever; harder to read than direct import paths |

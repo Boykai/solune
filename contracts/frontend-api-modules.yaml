@@ -1,0 +1,305 @@
+# Frontend API Module Contracts
+# Defines the public interface of each module in the services/api/ directory
+# and the types/ directory after splitting the monolithic files.
+
+# This documents the TypeScript module interfaces (exported names, types)
+# that must be preserved for backward compatibility.
+
+frontend_api_contracts:
+
+  # --- services/api/index.ts (barrel) ---
+  services_api_barrel:
+    description: "Barrel re-export — preserves all existing import paths"
+    re_exports:
+      - from: "./client"
+        names: [ApiError, onAuthExpired]
+      - from: "./auth"
+        names: [authApi]
+      - from: "./chat"
+        names: [chatApi, conversationApi]
+      - from: "./board"
+        names: [boardApi]
+      - from: "./projects"
+        names: [projectsApi]
+      - from: "./tasks"
+        names: [tasksApi]
+      - from: "./settings"
+        names: [settingsApi]
+      - from: "./workflow"
+        names: [workflowApi]
+      - from: "./agents"
+        names: [AgentConfig, McpServerConfig, AgentCreateRequest, AgentUpdateRequest,
+                AgentConfigResponse, AgentListResponse, McpServerConfigResponse,
+                AgentDeleteResponse, agentApi, mcpConfigApi]
+      - from: "./signal"
+        names: [signalApi]
+      - from: "./metadata"
+        names: [metadataApi, mcpApi, cleanupApi, choresApi]
+    backward_compatibility:
+      - "import { chatApi } from '../services/api'  // resolves to barrel"
+      - "import { ApiError } from '../services/api'  // resolves to barrel"
+      - "import type { AgentConfig } from '../services/api'  // resolves to barrel"
+
+  # --- services/api/client.ts ---
+  services_api_client:
+    description: "Base HTTP client utilities shared by all API modules"
+    exports:
+      - name: ApiError
+        type: class
+        description: "Custom error class for API responses"
+      - name: onAuthExpired
+        type: function
+        signature: "() => void"
+        description: "Callback invoked when session expires (401 response)"
+      - name: fetchApi
+        type: function
+        description: "Base fetch wrapper with error handling, CSRF, auth"
+      - name: handleResponse
+        type: function
+        description: "Response parser with Zod validation"
+    dependencies: []
+
+  # --- services/api/auth.ts ---
+  services_api_auth:
+    description: "Authentication API client"
+    exports:
+      - name: authApi
+        type: namespace
+        methods:
+          - "login()"
+          - "logout()"
+          - "getSession()"
+          - "refreshSession()"
+    dependencies: [client.ts]
+
+  # --- services/api/chat.ts ---
+  services_api_chat:
+    description: "Chat and conversation API clients"
+    exports:
+      - name: chatApi
+        type: namespace
+        methods:
+          - "getMessages(params)"
+          - "sendMessage(data)"
+          - "sendMessageStream(data)"
+          - "clearMessages()"
+          - "confirmProposal(id)"
+          - "cancelProposal(id)"
+          - "uploadFile(file)"
+          - "sendPlanMessage(data)"
+          - "sendPlanMessageStream(data)"
+          - "getPlan(id)"
+          - "updatePlan(id, data)"
+          - "approvePlan(id)"
+          - "exitPlan(id)"
+          - "getPlanHistory(id)"
+          - "createPlanStep(id, data)"
+      - name: conversationApi
+        type: namespace
+        methods:
+          - "create(data)"
+          - "list()"
+          - "update(id, data)"
+          - "delete(id)"
+    dependencies: [client.ts]
+
+  # --- services/api/board.ts ---
+  services_api_board:
+    description: "Kanban board API client"
+    exports:
+      - name: boardApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/projects.ts ---
+  services_api_projects:
+    description: "Project management API client"
+    exports:
+      - name: projectsApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/tasks.ts ---
+  services_api_tasks:
+    description: "Task CRUD API client"
+    exports:
+      - name: tasksApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/settings.ts ---
+  services_api_settings:
+    description: "Settings API client"
+    exports:
+      - name: settingsApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/workflow.ts ---
+  services_api_workflow:
+    description: "Workflow configuration API client"
+    exports:
+      - name: workflowApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/agents.ts ---
+  services_api_agents:
+    description: "Agent and MCP configuration API + types"
+    exports:
+      - name: AgentConfig
+        type: interface
+      - name: McpServerConfig
+        type: interface
+      - name: AgentCreateRequest
+        type: interface
+      - name: AgentUpdateRequest
+        type: interface
+      - name: AgentConfigResponse
+        type: interface
+      - name: AgentListResponse
+        type: interface
+      - name: McpServerConfigResponse
+        type: interface
+      - name: AgentDeleteResponse
+        type: interface
+      - name: agentApi
+        type: namespace
+      - name: mcpConfigApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/signal.ts ---
+  services_api_signal:
+    description: "Signal integration API client"
+    exports:
+      - name: signalApi
+        type: namespace
+    dependencies: [client.ts]
+
+  # --- services/api/metadata.ts ---
+  services_api_metadata:
+    description: "Metadata, MCP, cleanup, and chores API clients"
+    exports:
+      - name: metadataApi
+        type: namespace
+      - name: mcpApi
+        type: namespace
+      - name: cleanupApi
+        type: namespace
+      - name: choresApi
+        type: namespace
+    dependencies: [client.ts]
+
+frontend_types_contracts:
+
+  # --- types/index.ts (barrel) ---
+  types_barrel:
+    description: "Barrel re-export — preserves all existing import paths"
+    re_exports:
+      - from: "./common"
+      - from: "./chat"
+      - from: "./board"
+      - from: "./tasks"
+      - from: "./pipeline"
+      - from: "./plans"
+      - from: "./agents"
+      - from: "./settings"
+    backward_compatibility:
+      - "import type { ChatMessage } from '@/types'  // resolves to barrel"
+      - "import { SenderType } from '../types'  // resolves to barrel"
+
+  # --- types/common.ts ---
+  types_common:
+    description: "Shared base types, enums, and cross-domain entities"
+    exports:
+      - SenderType
+      - ActionType
+      - ProposalStatus
+      - RecommendationStatus
+      - User
+      - AuthResponse
+      - Project
+      - ProjectListResponse
+      - ProjectSelectActionData
+    dependencies: []
+
+  # --- types/chat.ts ---
+  types_chat:
+    description: "Chat domain types"
+    exports:
+      - MessageStatus
+      - ChatMessage
+      - ChatMessageRequest
+      - ChatMessagesResponse
+      - AITaskProposal
+      - IssueRecommendation
+      - Conversation
+      - ConversationsListResponse
+      - ActionData
+    dependencies: [common.ts, tasks.ts]
+
+  # --- types/board.ts ---
+  types_board:
+    description: "Board/kanban domain types"
+    exports:
+      - StatusColumn
+      - BoardColumnConfig
+    dependencies: [common.ts]
+
+  # --- types/tasks.ts ---
+  types_tasks:
+    description: "Task domain types"
+    exports:
+      - Task
+      - TaskCreateRequest
+      - TaskListResponse
+      - TaskCreateActionData
+      - StatusUpdateActionData
+    dependencies: [common.ts]
+
+  # --- types/pipeline.ts ---
+  types_pipeline:
+    description: "Pipeline and workflow domain types"
+    exports:
+      - PipelineLaunchActionData
+      - Pipeline
+    dependencies: [common.ts]
+
+  # --- types/plans.ts ---
+  types_plans:
+    description: "Plan domain types"
+    exports:
+      - PlanStatus
+      - ThinkingPhase
+      - StepApprovalStatus
+      - ThinkingEvent
+      - PlanStep
+      - Plan
+      - PlanVersion
+      - PlanHistoryResponse
+      - PlanCreateActionData
+      - PlanApprovalResponse
+      - PlanExitResponse
+      - StepCreateRequest
+      - StepUpdateRequest
+      - StepReorderRequest
+      - StepApprovalRequest
+      - StepFeedbackRequest
+      - StepFeedbackResponse
+      - DependencyGraphNode
+      - DependencyGraphEdge
+    dependencies: [common.ts]
+
+  # --- types/agents.ts ---
+  types_agents:
+    description: "Agent domain types"
+    exports:
+      - AgentLifecycleStatus
+      - AgentPreview
+    dependencies: [common.ts]
+
+  # --- types/settings.ts ---
+  types_settings:
+    description: "Settings domain types"
+    dependencies: []

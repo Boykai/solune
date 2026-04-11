@@ -1,233 +1,421 @@
-# Quickstart: Multi-Chat App Page
+# Quickstart: Codebase Modularity Review
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11
+
+## Overview
+
+This guide walks through executing the six refactoring phases defined in `plan.md`. Each phase is independently verifiable — run the test suite after each phase to confirm no regressions.
 
 ## Prerequisites
 
 - Python ≥3.12 with virtual environment
 - Node.js ≥18 with npm
-- SQLite (bundled with Python)
 - Git
+- Familiarity with FastAPI routing patterns and TypeScript module resolution
 
-## Backend Setup
+## Pre-Refactor Baseline
+
+Before starting, establish a clean test baseline:
+
+```bash
+# Backend — confirm all tests pass
+cd solune/backend
+python -m pytest tests/unit/ -q --timeout=120
+# Expected: 5,200+ tests passed
+
+# Frontend — confirm all tests pass
+cd solune/frontend
+npm test
+# Expected: 2,200+ tests passed
+```
+
+## Phase 1: Split `api/chat.py` → `api/chat/` Package
+
+### Step 1: Create package structure
+
+```bash
+cd solune/backend/src/api
+
+# Create the chat package directory
+mkdir -p chat
+
+# Create __init__.py for backward-compatible imports
+cat > chat/__init__.py << 'EOF'
+"""Chat API package — split from monolithic chat.py for maintainability."""
+from src.api.chat.router import router  # noqa: F401
+
+__all__ = ["router"]
+EOF
+```
+
+### Step 2: Extract ChatStateManager
+
+Create `api/chat/state.py` with the `ChatStateManager` class. This replaces the three module-level dicts (`_messages`, `_proposals`, `_locks`).
+
+Key implementation notes:
+- Use `BoundedDict` from `src.utils` for the locks dictionary (capacity: 10,000)
+- Provide `get_chat_state()` dependency function that reads from `app.state`
+- Register the instance in `main.py` lifespan function
+
+### Step 3: Extract endpoint modules
+
+For each endpoint group, create its module:
+
+1. **`chat/conversations.py`** — Move `create_conversation`, `list_conversations`, `update_conversation`, `delete_conversation`
+2. **`chat/messages.py`** — Move `get_messages`, `clear_messages`, `send_message`, plus helpers (`_persist_message`, `_retry_persist`, `store_proposal`, `store_recommendation`, etc.)
+3. **`chat/proposals.py`** — Move `confirm_proposal`, `cancel_proposal`, `upload_file`
+4. **`chat/plans.py`** — Move all `/plans/*` endpoints and `send_plan_message`
+5. **`chat/streaming.py`** — Move `send_message_stream`, `send_plan_message_stream`
+
+Each module creates its own `router = APIRouter()` and registers endpoints on it.
+
+### Step 4: Create combined router
+
+```python
+# api/chat/router.py
+from fastapi import APIRouter
+
+from src.api.chat.conversations import router as conversations_router
+from src.api.chat.messages import router as messages_router
+from src.api.chat.proposals import router as proposals_router
+from src.api.chat.plans import router as plans_router
+from src.api.chat.streaming import router as streaming_router
+
+router = APIRouter()
+router.include_router(conversations_router)
+router.include_router(messages_router)
+router.include_router(proposals_router)
+router.include_router(plans_router)
+router.include_router(streaming_router)
+```
+
+### Step 5: Update test patch targets
+
+```bash
+# Find all test files that patch api.chat
+cd solune/backend
+grep -rn "patch.*src\.api\.chat" tests/ | head -50
+
+# Update each patch target to the new module path
+# Example: 'src.api.chat._messages' → use ChatStateManager mock
+# Example: 'src.api.chat.confirm_proposal' → 'src.api.chat.proposals.confirm_proposal'
+```
+
+### Step 6: Delete old monolithic file
+
+```bash
+# Only after all tests pass with the new package
+rm solune/backend/src/api/chat.py
+```
+
+### Step 7: Verify
 
 ```bash
 cd solune/backend
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run migrations (applies 044_conversations.sql automatically on startup)
-# Migrations are applied via the startup hook in src/database.py
-python -c "from src.database import run_migrations; import asyncio; asyncio.run(run_migrations())"
+python -m pytest tests/unit/ -q --timeout=120
+pyright src/
+ruff check src/
 ```
 
-### Verify Migration
+---
 
-```bash
-# Check that the conversations table exists
-sqlite3 data/solune.db ".schema conversations"
+## Phase 2: Extract ProposalOrchestrator Service
 
-# Expected output:
-# CREATE TABLE conversations (
-#     conversation_id TEXT PRIMARY KEY,
-#     session_id TEXT NOT NULL,
-#     title TEXT NOT NULL DEFAULT 'New Chat',
-#     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     FOREIGN KEY (session_id) REFERENCES user_sessions(session_id) ON DELETE CASCADE
-# );
+### Step 1: Create the service
 
-# Check that conversation_id was added to chat_messages
-sqlite3 data/solune.db "PRAGMA table_info(chat_messages);" | grep conversation_id
+Create `services/proposal_orchestrator.py` with the `ProposalOrchestrator` class. Extract the five logical steps from `confirm_proposal()` into separate methods.
+
+### Step 2: Create dependency function
+
+```python
+# In services/proposal_orchestrator.py or api/chat/proposals.py
+async def get_proposal_orchestrator(request: Request) -> ProposalOrchestrator:
+    return ProposalOrchestrator(
+        github_service=get_github_service(request),
+        connection_manager=get_connection_manager(request),
+        copilot_poller=request.app.state.copilot_poller,
+    )
 ```
 
-### Run Backend Tests
+### Step 3: Update the endpoint
+
+The `confirm_proposal` endpoint in `api/chat/proposals.py` becomes a thin wrapper:
+
+```python
+@router.post("/proposals/{proposal_id}/confirm", response_model=AITaskProposal)
+async def confirm_proposal(
+    proposal_id: str,
+    session: UserSession = Depends(require_session),
+    orchestrator: ProposalOrchestrator = Depends(get_proposal_orchestrator),
+    state: ChatStateManager = Depends(get_chat_state),
+):
+    proposal = state.get_proposal(proposal_id)
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    return await orchestrator.confirm(proposal, session)
+```
+
+### Step 4: Verify
 
 ```bash
 cd solune/backend
-
-# Run conversation-specific tests
-python -m pytest tests/unit/test_chat_store.py -k "conversation" -v
-
-# Run all chat API tests
-python -m pytest tests/unit/test_chat_api.py -v
-
-# Run full backend test suite (ensure no regressions)
 python -m pytest tests/unit/ -q --timeout=120
 ```
 
-### Test Conversation Endpoints Manually
+---
+
+## Phase 3: Split `api/webhooks.py` → `api/webhooks/` Package
+
+Follow the same pattern as Phase 1:
+
+1. Create `api/webhooks/` directory with `__init__.py`
+2. Extract `helpers.py` (signature verification, issue extraction, PR classification)
+3. Extract `pull_requests.py` (PR event handlers)
+4. Extract `check_runs.py` (check run/suite event handlers)
+5. Create `router.py` (main dispatcher endpoint)
+6. Update test patch targets
+7. Delete old `api/webhooks.py`
+8. Verify with full test suite
+
+---
+
+## Phase 4: Split `services/api.ts` → `services/api/` Directory
+
+### Step 1: Create directory and client module
 
 ```bash
-# Start the backend server
-cd solune/backend && uvicorn src.main:app --reload --port 8000
-
-# Create a conversation (requires valid session cookie)
-curl -X POST http://localhost:8000/chat/conversations \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test Conversation"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# List conversations
-curl http://localhost:8000/chat/conversations \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Send a message to a specific conversation
-curl -X POST http://localhost:8000/chat/messages \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Hello!", "conversation_id": "CONVERSATION_ID"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Get messages for a specific conversation
-curl "http://localhost:8000/chat/messages?conversation_id=CONVERSATION_ID" \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Update conversation title
-curl -X PATCH http://localhost:8000/chat/conversations/CONVERSATION_ID \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Renamed Chat"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Delete conversation
-curl -X DELETE http://localhost:8000/chat/conversations/CONVERSATION_ID \
-  -b "session_id=YOUR_SESSION_ID"
+cd solune/frontend/src/services
+mkdir -p api
 ```
 
-## Frontend Setup
+Extract `ApiError`, `onAuthExpired()`, and base fetch utilities into `api/client.ts`.
+
+### Step 2: Extract domain API modules
+
+For each namespace object in the current `api.ts`, create a domain file:
+
+```bash
+# Create each domain file
+touch api/auth.ts api/chat.ts api/board.ts api/projects.ts api/tasks.ts
+touch api/settings.ts api/workflow.ts api/agents.ts api/signal.ts api/metadata.ts
+```
+
+Move each namespace object to its domain file. Each file imports shared utilities from `./client`.
+
+### Step 3: Create barrel re-export
+
+```typescript
+// services/api/index.ts
+export { ApiError, onAuthExpired } from './client';
+export { authApi } from './auth';
+export { chatApi, conversationApi } from './chat';
+export { boardApi } from './board';
+export { projectsApi } from './projects';
+export { tasksApi } from './tasks';
+export { settingsApi } from './settings';
+export { workflowApi } from './workflow';
+export type { AgentConfig, McpServerConfig, AgentCreateRequest, AgentUpdateRequest,
+  AgentConfigResponse, AgentListResponse, McpServerConfigResponse, AgentDeleteResponse } from './agents';
+export { agentApi, mcpConfigApi } from './agents';
+export { signalApi } from './signal';
+export { metadataApi, mcpApi, cleanupApi, choresApi } from './metadata';
+```
+
+### Step 4: Delete old monolithic file
+
+```bash
+rm solune/frontend/src/services/api.ts
+```
+
+### Step 5: Verify
 
 ```bash
 cd solune/frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
+npx tsc --noEmit          # Type check
+npm run build             # Build check
+npm test                  # Test suite
 ```
 
-### Run Frontend Tests
+---
+
+## Phase 5: Domain-Scoped Types
+
+### Step 1: Analyze dependencies
+
+```bash
+# Find which types are imported by which files
+cd solune/frontend/src
+grep -rn "from.*types" --include="*.ts" --include="*.tsx" | head -50
+```
+
+### Step 2: Create domain type files
+
+Extract types into domain files following the dependency graph in `data-model.md`:
+
+1. `types/common.ts` — shared enums and base types (no dependencies)
+2. `types/tasks.ts` — imports from `common.ts`
+3. `types/chat.ts` — imports from `common.ts` and `tasks.ts`
+4. `types/board.ts` — imports from `common.ts`
+5. `types/pipeline.ts` — imports from `common.ts`
+6. `types/plans.ts` — imports from `common.ts`
+7. `types/agents.ts` — imports from `common.ts`
+8. `types/settings.ts` — no dependencies
+
+### Step 3: Update barrel
+
+```typescript
+// types/index.ts
+export * from './common';
+export * from './chat';
+export * from './board';
+export * from './tasks';
+export * from './pipeline';
+export * from './plans';
+export * from './agents';
+export * from './settings';
+```
+
+### Step 4: Verify
 
 ```bash
 cd solune/frontend
-
-# Run conversation-related tests
-npm test -- --reporter=verbose useConversations
-npm test -- --reporter=verbose ChatPanel
-npm test -- --reporter=verbose ChatPanelManager
-npm test -- --reporter=verbose AppPage
-
-# Run full frontend test suite
+npx tsc --noEmit
+npm run build
 npm test
 ```
 
-### Verify UI Behavior
+---
 
-1. **Navigate to AppPage** (`/`)
-   - Should see a single chat panel (full width)
-   - Panel header shows "New Chat" title
+## Phase 6: Final Verification
 
-2. **Send a message**
-   - Type in the input and press Enter
-   - Message appears in the panel; streaming response follows
+### Full test suite
 
-3. **Add a second panel**
-   - Click "Add Chat" button
-   - Second panel appears side-by-side
-   - Both panels are resizable via the drag handle between them
+```bash
+# Backend
+cd solune/backend
+python -m pytest tests/unit/ -q --timeout=120    # All 5,200+ tests
+pyright src/                                       # Type checking
+ruff check src/                                    # Linting
 
-4. **Resize panels**
-   - Hover over the border between panels (cursor changes to `col-resize`)
-   - Drag to resize; panels respect 320px minimum width
+# Frontend
+cd solune/frontend
+npm test                                           # All 2,200+ tests
+npx tsc --noEmit                                   # Type checking
+npm run lint                                       # ESLint
+npm run build                                      # Production build
+```
 
-5. **Edit conversation title**
-   - Click the title in the panel header
-   - Type a new title and press Enter or blur
+### Import audit
 
-6. **Close a panel**
-   - Click the close (×) button in the panel header
-   - Panel is removed; remaining panels redistribute width
-   - Cannot close the last panel
+```bash
+# Backend — verify no imports reference deleted files
+cd solune/backend
+grep -rn "from src.api.chat import\|from src.api import chat" src/ tests/ | grep -v __pycache__
+# Should only show: from src.api.chat import router (via __init__.py)
 
-7. **Mobile behavior** (resize browser to < 768px)
-   - Panels switch to tab view
-   - One panel visible at a time
-   - Tab bar at top shows conversation titles
+grep -rn "from src.api.webhooks import\|from src.api import webhooks" src/ tests/ | grep -v __pycache__
+# Should only show: from src.api.webhooks import router (via __init__.py)
 
-8. **Persistence**
-   - Open multiple panels with different conversations
-   - Refresh the browser
-   - Same panels and conversations should be restored from localStorage
+# Frontend — verify no imports reference deleted files
+cd solune/frontend
+grep -rn "from.*services/api'" src/ | grep -v node_modules
+# Should resolve to services/api/index.ts (barrel)
 
-9. **ChatPopup on other pages**
-   - Navigate to `/projects` or `/agents`
-   - ChatPopup (floating bottom-right) continues to work independently
-   - ChatPopup messages are NOT scoped to any conversation
+grep -rn "from.*services/api.ts" src/ | grep -v node_modules
+# Should return zero results (old file deleted)
+```
 
-## Key Files Reference
+### Module size audit
 
-### Backend (modify)
+```bash
+# Backend — verify no module exceeds 500 lines
+cd solune/backend/src/api
+wc -l chat/*.py webhooks/*.py
 
-| File | Changes |
-|------|---------|
-| `src/migrations/044_conversations.sql` | NEW: Create conversations table + ALTER existing tables |
-| `src/models/chat.py` | Add Conversation models; add conversation_id to ChatMessage/Request |
-| `src/services/chat_store.py` | Add conversation CRUD; update message methods for conversation_id filter |
-| `src/api/chat.py` | Add conversation endpoints; update message endpoints |
-| `src/services/chat_agent.py` | Change session key to `session_id:conversation_id` |
-
-### Frontend (modify)
-
-| File | Changes |
-|------|---------|
-| `src/types/index.ts` | Add Conversation interface; add conversation_id to ChatMessage/Request |
-| `src/services/schemas/chat.ts` | Add Conversation Zod schemas; update ChatMessageSchema |
-| `src/services/api.ts` | Add conversationApi namespace; update chatApi methods |
-| `src/hooks/useChat.ts` | Accept conversationId param; update query keys |
-| `src/pages/AppPage.tsx` | Rewrite: marketing → ChatPanelManager |
-
-### Frontend (create)
-
-| File | Purpose |
-|------|---------|
-| `src/hooks/useConversations.ts` | React Query hook for conversation CRUD |
-| `src/hooks/useChatPanels.ts` | Panel layout state with localStorage persistence |
-| `src/components/chat/ChatPanel.tsx` | Standalone panel wrapping ChatInterface |
-| `src/components/chat/ChatPanelManager.tsx` | Multi-panel container with resize |
-
-### Untouched
-
-| File | Reason |
-|------|--------|
-| `AppLayout.tsx` | Layout wrapper — no changes needed |
-| `ChatPopup.tsx` | Floating popup — stays conversation-unaware |
-| `ChatInterface.tsx` | Reused as-is inside ChatPanel |
+# Frontend — verify no module exceeds 500 lines
+cd solune/frontend/src
+wc -l services/api/*.ts types/*.ts
+```
 
 ## Troubleshooting
 
-### Migration fails with "table conversations already exists"
+### Import errors after splitting
 
-The migration uses `CREATE TABLE IF NOT EXISTS`, so this shouldn't happen. If it does, check that `044_conversations.sql` was not applied twice.
+If `ModuleNotFoundError: No module named 'src.api.chat'` appears:
+1. Verify `api/chat/__init__.py` exists
+2. Check that `from src.api.chat.router import router` works in a Python shell
+3. Ensure no stale `.pyc` files: `find . -name "*.pyc" -delete && find . -name "__pycache__" -type d -exec rm -rf {} +`
 
-### Messages don't filter by conversation_id
+### Test patch targets broken
 
-Verify that:
+If tests fail with `ModuleNotFoundError` in `patch()` calls:
+1. Run `grep -rn "patch.*src.api.chat" tests/` to find all occurrences
+2. Update the target path to the new module (e.g., `src.api.chat.messages.send_message`)
+3. For patching global state, replace `patch('src.api.chat._messages', ...)` with mocking `ChatStateManager`
 
-1. The migration added the `conversation_id` column to `chat_messages`
-2. The API endpoint passes `conversation_id` to the store method
-3. The frontend sends `conversationId` in the request
+### TypeScript barrel resolution issues
 
-### Panel layout doesn't persist
+If imports from `services/api` fail:
+1. Verify `services/api/index.ts` exists with correct re-exports
+2. Run `npx tsc --traceResolution` to debug module resolution
+3. Check that no `tsconfig.json` path aliases conflict
 
-Check `localStorage` in browser DevTools:
+### Circular import errors
 
-```javascript
-JSON.parse(localStorage.getItem('solune:chat-panels'))
-```
+If Python raises `ImportError: cannot import name 'X' from partially initialized module`:
+1. Check for circular imports between the new modules (e.g., `messages.py` ↔ `streaming.py`)
+2. Use late imports or restructure the dependency (extract shared code to `state.py` or a `_helpers.py`)
 
-### Resize handle not visible
+## Key Files Reference
 
-The handle is a thin (4–8px) vertical bar between panels. Ensure:
+### Backend (new files)
 
-1. Multiple panels are open
-2. Container has sufficient width for both panels (≥640px)
+| File | Purpose |
+|------|---------|
+| `src/api/chat/__init__.py` | Package entry; re-exports router |
+| `src/api/chat/state.py` | ChatStateManager class |
+| `src/api/chat/conversations.py` | Conversation CRUD endpoints |
+| `src/api/chat/messages.py` | Message endpoints + persistence |
+| `src/api/chat/proposals.py` | Proposal confirm/cancel + upload |
+| `src/api/chat/plans.py` | Plan management endpoints |
+| `src/api/chat/streaming.py` | SSE streaming endpoints |
+| `src/api/chat/router.py` | Combined router |
+| `src/services/proposal_orchestrator.py` | Extracted proposal workflow |
+| `src/api/webhooks/__init__.py` | Package entry; re-exports router |
+| `src/api/webhooks/helpers.py` | Shared webhook utilities |
+| `src/api/webhooks/pull_requests.py` | PR event handlers |
+| `src/api/webhooks/check_runs.py` | Check run/suite handlers |
+| `src/api/webhooks/router.py` | Webhook dispatcher |
+
+### Frontend (new files)
+
+| File | Purpose |
+|------|---------|
+| `src/services/api/index.ts` | Barrel re-export |
+| `src/services/api/client.ts` | Base HTTP client |
+| `src/services/api/auth.ts` | Auth API |
+| `src/services/api/chat.ts` | Chat + conversation API |
+| `src/services/api/board.ts` | Board API |
+| `src/services/api/projects.ts` | Projects API |
+| `src/services/api/tasks.ts` | Tasks API |
+| `src/services/api/settings.ts` | Settings API |
+| `src/services/api/workflow.ts` | Workflow API |
+| `src/services/api/agents.ts` | Agent + MCP config API |
+| `src/services/api/signal.ts` | Signal API |
+| `src/services/api/metadata.ts` | Metadata, MCP, cleanup, chores API |
+| `src/types/common.ts` | Shared enums, base types |
+| `src/types/chat.ts` | Chat domain types |
+| `src/types/board.ts` | Board types |
+| `src/types/tasks.ts` | Task types |
+| `src/types/pipeline.ts` | Pipeline types |
+| `src/types/plans.ts` | Plan types |
+| `src/types/agents.ts` | Agent types |
+| `src/types/settings.ts` | Settings types |
+
+### Deleted files
+
+| File | Replaced By |
+|------|-------------|
+| `src/api/chat.py` | `src/api/chat/` package |
+| `src/api/webhooks.py` | `src/api/webhooks/` package |
+| `src/services/api.ts` | `src/services/api/` directory |

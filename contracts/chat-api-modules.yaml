@@ -1,0 +1,292 @@
+# Chat API Module Contracts
+# Defines the public interface of each module in the api/chat/ package
+# after splitting the monolithic api/chat.py
+
+# This is NOT an OpenAPI spec — it documents the Python module interfaces
+# (function signatures, dependencies, re-exports) that must be preserved
+# to maintain backward compatibility.
+
+module_contracts:
+
+  # --- api/chat/__init__.py ---
+  api_chat_init:
+    description: "Package entry point — re-exports the combined router"
+    exports:
+      - name: router
+        type: APIRouter
+        source: api.chat.router
+    backward_compatibility:
+      - "from src.api.chat import router  # MUST continue to work"
+      - "app.include_router(router, prefix='/chat')  # Used in main.py"
+
+  # --- api/chat/state.py ---
+  api_chat_state:
+    description: "ChatStateManager — manages in-memory chat state with lifecycle control"
+    exports:
+      - name: ChatStateManager
+        type: class
+        methods:
+          - "get_lock(key: str) -> asyncio.Lock"
+          - "get_messages(session_id: str) -> list[ChatMessage]"
+          - "set_messages(session_id: str, messages: list[ChatMessage]) -> None"
+          - "append_message(session_id: str, message: ChatMessage) -> None"
+          - "get_proposal(proposal_id: str) -> AITaskProposal | None"
+          - "set_proposal(proposal_id: str, proposal: AITaskProposal) -> None"
+          - "remove_proposal(proposal_id: str) -> None"
+          - "clear() -> None"
+      - name: get_chat_state
+        type: "Depends() provider"
+        signature: "(request: Request) -> ChatStateManager"
+    dependencies:
+      - "src.models.chat.ChatMessage"
+      - "src.models.chat.AITaskProposal"
+      - "src.utils.BoundedDict"
+
+  # --- api/chat/conversations.py ---
+  api_chat_conversations:
+    description: "Conversation CRUD endpoints"
+    exports:
+      - name: router
+        type: APIRouter
+    endpoints:
+      - method: POST
+        path: /conversations
+        handler: create_conversation
+        status_code: 201
+      - method: GET
+        path: /conversations
+        handler: list_conversations
+        response_model: ConversationsListResponse
+      - method: PATCH
+        path: "/conversations/{conversation_id}"
+        handler: update_conversation
+      - method: DELETE
+        path: "/conversations/{conversation_id}"
+        handler: delete_conversation
+    dependencies:
+      - "ChatStateManager (via Depends)"
+      - "UserSession (via auth dependency)"
+      - "chat_store"
+
+  # --- api/chat/messages.py ---
+  api_chat_messages:
+    description: "Message CRUD endpoints and persistence helpers"
+    exports:
+      - name: router
+        type: APIRouter
+      - name: _persist_message
+        type: "async function"
+        visibility: package-internal
+        signature: "(session_id: UUID, message: ChatMessage) -> None"
+      - name: _retry_persist
+        type: "async function"
+        visibility: package-internal
+        signature: "(fn: Callable, *args, retries: int = 3) -> None"
+      - name: store_proposal
+        type: "async function"
+        signature: "(proposal: AITaskProposal) -> None"
+      - name: store_recommendation
+        type: "async function"
+        signature: "(recommendation: IssueRecommendation) -> None"
+      - name: get_proposal
+        type: "async function"
+        signature: "(proposal_id: str) -> AITaskProposal | None"
+      - name: get_recommendation
+        type: "async function"
+        signature: "(recommendation_id: str) -> IssueRecommendation | None"
+      - name: get_session_messages
+        type: "async function"
+        signature: "(session_id: UUID) -> list[ChatMessage]"
+      - name: add_message
+        type: "async function"
+        signature: "(session_id: UUID, message: ChatMessage) -> None"
+    endpoints:
+      - method: GET
+        path: /messages
+        handler: get_messages
+        response_model: ChatMessagesResponse
+      - method: DELETE
+        path: /messages
+        handler: clear_messages
+      - method: POST
+        path: /messages
+        handler: send_message
+        response_model: ChatMessage
+    dependencies:
+      - "ChatStateManager (via Depends)"
+      - "UserSession (via auth dependency)"
+      - "chat_store"
+      - "chat_agent_service"
+      - "connection_manager"
+
+  # --- api/chat/proposals.py ---
+  api_chat_proposals:
+    description: "Proposal confirmation, cancellation, and file upload"
+    exports:
+      - name: router
+        type: APIRouter
+    endpoints:
+      - method: POST
+        path: "/proposals/{proposal_id}/confirm"
+        handler: confirm_proposal
+        response_model: AITaskProposal
+      - method: DELETE
+        path: "/proposals/{proposal_id}"
+        handler: cancel_proposal
+      - method: POST
+        path: /upload
+        handler: upload_file
+    dependencies:
+      - "ProposalOrchestrator (via Depends)"
+      - "ChatStateManager (via Depends)"
+      - "UserSession (via auth dependency)"
+
+  # --- api/chat/plans.py ---
+  api_chat_plans:
+    description: "Plan management endpoints"
+    exports:
+      - name: router
+        type: APIRouter
+    endpoints:
+      - method: POST
+        path: /messages/plan
+        handler: send_plan_message
+      - method: GET
+        path: "/plans/{plan_id}"
+        handler: get_plan
+      - method: PATCH
+        path: "/plans/{plan_id}"
+        handler: update_plan
+      - method: POST
+        path: "/plans/{plan_id}/approve"
+        handler: approve_plan
+      - method: POST
+        path: "/plans/{plan_id}/exit"
+        handler: exit_plan
+      - method: GET
+        path: "/plans/{plan_id}/history"
+        handler: get_plan_history
+      - method: POST
+        path: "/plans/{plan_id}/steps"
+        handler: create_plan_step
+    dependencies:
+      - "ChatStateManager (via Depends)"
+      - "UserSession (via auth dependency)"
+      - "chat_store"
+      - "plan_agent_provider"
+
+  # --- api/chat/streaming.py ---
+  api_chat_streaming:
+    description: "SSE streaming endpoints for messages and plans"
+    exports:
+      - name: router
+        type: APIRouter
+    endpoints:
+      - method: POST
+        path: /messages/stream
+        handler: send_message_stream
+      - method: POST
+        path: /messages/plan/stream
+        handler: send_plan_message_stream
+    dependencies:
+      - "ChatStateManager (via Depends)"
+      - "UserSession (via auth dependency)"
+      - "chat_agent_service"
+      - "plan_agent_provider"
+      - "connection_manager"
+      - "messages._persist_message (package-internal)"
+      - "messages._post_process_agent_response (package-internal)"
+
+  # --- api/chat/router.py ---
+  api_chat_router:
+    description: "Combines all sub-routers into the chat router"
+    exports:
+      - name: router
+        type: APIRouter
+    pattern: |
+      router = APIRouter()
+      router.include_router(conversations.router)
+      router.include_router(messages.router)
+      router.include_router(proposals.router)
+      router.include_router(plans.router)
+      router.include_router(streaming.router)
+
+  # --- services/proposal_orchestrator.py ---
+  services_proposal_orchestrator:
+    description: "Multi-step proposal confirmation workflow"
+    exports:
+      - name: ProposalOrchestrator
+        type: class
+        constructor_params:
+          - "github_service: GitHubProjectsService"
+          - "connection_manager: ConnectionManager"
+          - "copilot_poller: CopilotPollingService"
+        methods:
+          - "async confirm(proposal: AITaskProposal, session: UserSession) -> AITaskProposal"
+          - "async validate_proposal(proposal: AITaskProposal) -> AITaskProposal"
+          - "async setup_github_workflow(proposal, session) -> WorkflowContext"
+          - "async assign_agent(workflow: WorkflowContext) -> AgentAssignment"
+          - "async start_polling(agent, workflow) -> None"
+          - "async broadcast_result(proposal, session) -> None"
+      - name: get_proposal_orchestrator
+        type: "Depends() provider"
+        signature: "(request: Request) -> ProposalOrchestrator"
+    dependencies:
+      - "src.services.github_projects.GitHubProjectsService"
+      - "src.services.websocket.ConnectionManager"
+      - "src.services.copilot_polling.CopilotPollingService"
+
+  # --- api/webhooks/__init__.py ---
+  api_webhooks_init:
+    description: "Package entry point — re-exports the webhook router"
+    exports:
+      - name: router
+        type: APIRouter
+        source: api.webhooks.router
+    backward_compatibility:
+      - "from src.api.webhooks import router  # MUST continue to work"
+
+  # --- api/webhooks/helpers.py ---
+  api_webhooks_helpers:
+    description: "Shared webhook utilities"
+    exports:
+      - name: verify_webhook_signature
+        signature: "(payload: bytes, signature: str | None, secret: str) -> bool"
+      - name: extract_issue_number_from_pr
+        signature: "(pr_data: PullRequestData | dict) -> int | None"
+      - name: classify_pull_request_activity
+        signature: "(action: str, pr_data: dict) -> str"
+      - name: _resolve_issue_for_pr
+        visibility: package-internal
+        signature: "(pr_number: int) -> int | None"
+
+  # --- api/webhooks/pull_requests.py ---
+  api_webhooks_pull_requests:
+    description: "Pull request event handlers"
+    exports:
+      - name: handle_pull_request_event
+        signature: "(payload: PullRequestEvent | dict) -> dict[str, Any]"
+      - name: update_issue_status_for_copilot_pr
+        signature: "(pr_data: dict, action: str) -> None"
+      - name: handle_copilot_pr_ready
+        signature: "(pr_data: dict) -> None"
+
+  # --- api/webhooks/check_runs.py ---
+  api_webhooks_check_runs:
+    description: "Check run and check suite event handlers"
+    exports:
+      - name: handle_check_run_event
+        signature: "(payload: CheckRunEvent) -> dict[str, Any]"
+      - name: handle_check_suite_event
+        signature: "(payload: CheckSuiteEvent) -> dict[str, Any]"
+
+  # --- api/webhooks/router.py ---
+  api_webhooks_router:
+    description: "Main webhook dispatcher endpoint"
+    exports:
+      - name: router
+        type: APIRouter
+    endpoints:
+      - method: POST
+        path: /github
+        handler: github_webhook

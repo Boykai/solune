@@ -1,270 +1,249 @@
-# Data Model: Multi-Chat App Page
+# Data Model: Codebase Modularity Review
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11 | **Status**: Complete
 
-## Entity: Conversation
+> **Note**: This refactor introduces no new database entities or schema changes. The data model below describes the **module dependency structure** — the relationships between the new and existing modules after the refactoring is complete.
 
-A named container for a set of related chat messages within a user session. Each conversation corresponds to one chat panel on the AppPage.
+## Module: `api/chat/` Package
 
-### Fields
+The monolithic `api/chat.py` (2,930 lines) is decomposed into a Python package with the following module dependency graph:
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | PRIMARY KEY | `uuid4()` | Unique identifier |
-| `session_id` | TEXT (UUID) | NOT NULL, FK → `user_sessions.session_id` | — | Owning user session |
-| `title` | TEXT | NOT NULL | `'New Chat'` | User-editable conversation name |
-| `created_at` | TEXT (ISO 8601) | — | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | Creation timestamp |
-| `updated_at` | TEXT (ISO 8601) | — | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | Last modification timestamp |
-
-### Relationships
-
-| Related Entity | Cardinality | FK Location | Cascade |
-|---------------|-------------|-------------|---------|
-| `user_sessions` | N:1 | `conversations.session_id` | `ON DELETE CASCADE` |
-| `chat_messages` | 1:N | `chat_messages.conversation_id` | `ON DELETE SET NULL` |
-| `chat_proposals` | 1:N | `chat_proposals.conversation_id` | `ON DELETE SET NULL` |
-| `chat_recommendations` | 1:N | `chat_recommendations.conversation_id` | `ON DELETE SET NULL` |
-
-### Indexes
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_conversations_session_id` | `session_id` | List conversations by user session |
-| `idx_conversations_updated_at` | `updated_at` | Sort by most recently active |
-
-### Validation Rules
-
-- `title` max length: 200 characters (enforced by Pydantic model)
-- `session_id` must reference an existing `user_sessions` row
-- `conversation_id` is a valid UUID v4 string
-
----
-
-## Entity: ChatMessage (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation (NULL for global/ChatPopup messages) |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_messages_conversation_id` | `conversation_id` | Filter messages by conversation |
-
-### Backward Compatibility
-
-- Existing rows retain `conversation_id = NULL`
-- Queries without a `conversation_id` filter return all messages for the session (existing behavior)
-- Queries with `WHERE conversation_id = ?` return only that conversation's messages
-
----
-
-## Entity: ChatProposal (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_proposals_conversation_id` | `conversation_id` | Filter proposals by conversation |
-
----
-
-## Entity: ChatRecommendation (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_recommendations_conversation_id` | `conversation_id` | Filter recommendations by conversation |
-
----
-
-## Entity: PanelLayout (frontend only — localStorage)
-
-Client-side representation of open chat panels, persisted to `localStorage`.
-
-### Schema
-
-```typescript
-interface PanelLayout {
-  version: 1;
-  panels: PanelState[];
-}
-
-interface PanelState {
-  panelId: string;           // Unique panel identifier (UUID)
-  conversationId: string;    // FK to conversation_id
-  widthPercent: number;      // Panel width as percentage of container (0-100)
-}
-```
-
-### Validation Rules
-
-- `version` must be `1` (future versions trigger migration logic)
-- `panels` array must contain at least 1 element
-- `widthPercent` values must sum to 100 (±1 for rounding)
-- Each `panelId` must be unique
-- Each `conversationId` should reference a valid conversation (stale references are pruned on load)
-
-### State Transitions
+### Internal Module Dependencies
 
 ```text
-Initial Load:
-  localStorage empty → create default panel (single, 100% width)
-  localStorage has data → validate schema version → load panels → prune stale conversations
+api/chat/__init__.py
+    └── imports router from → api/chat/router.py
 
-Add Panel:
-  Create conversation (API) → add panel with widthPercent = 100/N → redistribute widths
+api/chat/router.py
+    ├── imports router from → api/chat/conversations.py
+    ├── imports router from → api/chat/messages.py
+    ├── imports router from → api/chat/proposals.py
+    ├── imports router from → api/chat/plans.py
+    └── imports router from → api/chat/streaming.py
 
-Remove Panel:
-  If last panel → prevent removal (minimum 1 panel)
-  Otherwise → remove panel → redistribute widths → delete conversation if empty
+api/chat/state.py                         (NO internal dependencies)
+    └── uses: BoundedDict, ChatMessage, AITaskProposal
 
-Resize:
-  Drag handle → update adjacent panel widthPercent values → persist to localStorage
+api/chat/conversations.py
+    └── imports from → api/chat/state.py  (ChatStateManager via Depends)
+
+api/chat/messages.py
+    ├── imports from → api/chat/state.py  (ChatStateManager via Depends)
+    └── defines: _persist_message(), _retry_persist(), _resolve_repository()
+
+api/chat/proposals.py
+    ├── imports from → api/chat/state.py  (ChatStateManager via Depends)
+    └── imports from → services/proposal_orchestrator.py
+
+api/chat/plans.py
+    └── imports from → api/chat/state.py  (ChatStateManager via Depends)
+
+api/chat/streaming.py
+    ├── imports from → api/chat/state.py  (ChatStateManager via Depends)
+    └── imports from → api/chat/messages.py (_persist_message, _post_process_agent_response)
 ```
+
+### External Dependencies (unchanged)
+
+Each endpoint module depends on the same external services they currently use:
+
+| Module | External Dependencies |
+|--------|----------------------|
+| `conversations.py` | `chat_store`, `auth` (session dependency) |
+| `messages.py` | `chat_store`, `chat_agent`, `auth`, `github_projects_service`, `connection_manager` |
+| `proposals.py` | `ProposalOrchestrator`, `auth` |
+| `plans.py` | `chat_store`, `plan_agent_provider`, `auth` |
+| `streaming.py` | `chat_agent`, `plan_agent_provider`, `auth`, `connection_manager` |
 
 ---
 
-## Entity Relationship Diagram
+## Module: `services/proposal_orchestrator.py`
+
+### Class: ProposalOrchestrator
+
+| Attribute | Type | Source |
+|-----------|------|--------|
+| `_github` | `GitHubProjectsService` | Injected via constructor |
+| `_ws` | `ConnectionManager` | Injected via constructor |
+| `_poller` | `CopilotPollingService` | Injected via constructor |
+
+### Method Dependencies
 
 ```text
-┌──────────────┐     1:N      ┌─────────────────┐
-│ user_sessions │────────────▶│  conversations    │
-│              │              │                   │
-│ session_id   │◀─────┐      │ conversation_id   │
-└──────────────┘      │      │ session_id (FK)   │
-                      │      │ title             │
-                      │      │ created_at        │
-                      │      │ updated_at        │
-                      │      └─────────┬─────────┘
-                      │                │
-                      │         1:N    │  ON DELETE SET NULL
-                      │                │
-                      │    ┌───────────┴──────────────┐
-                      │    │                          │
-                ┌─────┴────┴──┐    ┌──────────────┐   ┌───────────────────┐
-                │chat_messages│    │chat_proposals │   │chat_recommendations│
-                │             │    │               │   │                   │
-                │ message_id  │    │ proposal_id   │   │ recommendation_id │
-                │ session_id  │    │ session_id    │   │ session_id        │
-                │ conv_id(?)  │    │ conv_id(?)    │   │ conv_id(?)        │
-                │ sender_type │    │ original_input│   │ data              │
-                │ content     │    │ proposed_title│   │ status            │
-                │ timestamp   │    │ status        │   │ created_at        │
-                └─────────────┘    └──────────────┘   └───────────────────┘
+confirm()
+    ├── validate_proposal()      → reads proposal status, expiration
+    ├── setup_github_workflow()   → calls _github.create_branch(), .commit_files(), .create_pr()
+    ├── assign_agent()            → calls _github.assign_copilot_to_pr()
+    ├── start_polling()           → calls _poller.start_polling()
+    └── broadcast_result()        → calls _ws.broadcast()
+```
 
-Legend: (?) = nullable FK, ON DELETE SET NULL
+### Dependency Injection
+
+```text
+get_proposal_orchestrator(request: Request) → ProposalOrchestrator
+    ├── get_github_service(request)        → GitHubProjectsService
+    ├── get_connection_manager(request)    → ConnectionManager
+    └── request.app.state.copilot_poller   → CopilotPollingService
 ```
 
 ---
 
-## Pydantic Models (Backend)
+## Module: `api/webhooks/` Package
 
-### New Models
+### Internal Module Dependencies
 
-```python
-class Conversation(BaseModel):
-    conversation_id: UUID = Field(default_factory=uuid4)
-    session_id: UUID
-    title: str = "New Chat"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+```text
+api/webhooks/__init__.py
+    └── imports router from → api/webhooks/router.py
 
-class ConversationCreateRequest(BaseModel):
-    title: str = Field(default="New Chat", max_length=200)
+api/webhooks/router.py
+    ├── imports from → api/webhooks/helpers.py     (verify_webhook_signature)
+    ├── imports from → api/webhooks/pull_requests.py
+    └── imports from → api/webhooks/check_runs.py
 
-class ConversationUpdateRequest(BaseModel):
-    title: str = Field(max_length=200)
+api/webhooks/helpers.py                            (NO internal dependencies)
+    └── defines: verify_webhook_signature(), extract_issue_number_from_pr(),
+                 classify_pull_request_activity(), _resolve_issue_for_pr()
 
-class ConversationsListResponse(BaseModel):
-    conversations: list[Conversation]
-```
+api/webhooks/pull_requests.py
+    └── imports from → api/webhooks/helpers.py     (extract_issue_number_from_pr, classify)
 
-### Updated Models
-
-```python
-# Add to ChatMessage:
-conversation_id: UUID | None = None
-
-# Add to ChatMessageRequest:
-conversation_id: UUID | None = None
+api/webhooks/check_runs.py
+    └── imports from → api/webhooks/helpers.py     (extract_issue_number_from_pr)
 ```
 
 ---
 
-## TypeScript Interfaces (Frontend)
+## Module: `ChatStateManager` (api/chat/state.py)
 
-### New Interfaces
+### State Structure
 
-```typescript
-export interface Conversation {
-  conversation_id: string;
-  session_id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-}
+| Field | Type | Description |
+|-------|------|-------------|
+| `_messages` | `dict[str, list[ChatMessage]]` | In-memory message cache keyed by session ID |
+| `_proposals` | `dict[str, AITaskProposal]` | In-memory proposal cache keyed by proposal ID |
+| `_locks` | `BoundedDict[str, asyncio.Lock]` | Per-project concurrency locks with LRU eviction |
 
-export interface ConversationsListResponse {
-  conversations: Conversation[];
-}
+### Lifecycle
+
+```text
+App Startup (lifespan):
+    ChatStateManager(lock_capacity=10_000) → app.state.chat_state
+
+Request Handling (Depends):
+    get_chat_state(request) → request.app.state.chat_state
+
+App Shutdown (lifespan):
+    app.state.chat_state.clear() → empties all dicts
 ```
 
-### Updated Interfaces
+### Access Patterns
 
-```typescript
-// Add to ChatMessage:
-conversation_id?: string;
-
-// Add to ChatMessageRequest:
-conversation_id?: string;
-```
+| Operation | Method | Thread Safety |
+|-----------|--------|---------------|
+| Get/create lock | `get_lock(key)` | GIL-safe dict access; lock itself is async |
+| Read messages | `get_messages(session_id)` | Returns list reference (caller must not mutate) |
+| Write messages | `set_messages(session_id, msgs)` | Replaces list reference atomically |
+| Append message | `append_message(session_id, msg)` | Appends to existing list |
+| Get proposal | `get_proposal(proposal_id)` | Returns `None` if not found |
+| Set proposal | `set_proposal(proposal_id, p)` | Overwrites existing |
+| Remove proposal | `remove_proposal(proposal_id)` | No-op if not found |
+| Cleanup | `clear()` | Clears all three dicts |
 
 ---
 
-## Zod Schemas (Frontend)
+## Module: `services/api/` Directory (Frontend)
 
-### New Schemas
+### Module Dependency Graph
 
-```typescript
-export const ConversationSchema = z.object({
-  conversation_id: z.string(),
-  session_id: z.string(),
-  title: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
+```text
+services/api/index.ts                      (barrel re-export only)
 
-export const ConversationsListResponseSchema = z.object({
-  conversations: z.array(ConversationSchema),
-});
+services/api/client.ts                     (NO internal dependencies)
+    └── defines: ApiError, onAuthExpired(), fetchApi(), handleResponse()
+
+services/api/auth.ts
+    └── imports from → client.ts           (fetchApi, handleResponse)
+
+services/api/chat.ts
+    └── imports from → client.ts
+
+services/api/board.ts
+    └── imports from → client.ts
+
+services/api/projects.ts
+    └── imports from → client.ts
+
+services/api/tasks.ts
+    └── imports from → client.ts
+
+services/api/settings.ts
+    └── imports from → client.ts
+
+services/api/workflow.ts
+    └── imports from → client.ts
+
+services/api/agents.ts
+    └── imports from → client.ts
+
+services/api/signal.ts
+    └── imports from → client.ts
+
+services/api/metadata.ts
+    └── imports from → client.ts
 ```
 
-### Updated Schemas
+**Key property**: All domain API modules depend only on `client.ts` — no cross-domain API dependencies. This ensures clean code-splitting boundaries.
 
-```typescript
-// Add to ChatMessageSchema:
-conversation_id: z.string().optional(),
+---
+
+## Module: `types/` Directory (Frontend)
+
+### Type Dependency Graph
+
+```text
+types/index.ts                              (barrel re-export only)
+
+types/common.ts                             (NO dependencies)
+    └── defines: SenderType, ActionType, User, AuthResponse, Project, ProjectListResponse,
+                 ProposalStatus, RecommendationStatus
+
+types/tasks.ts
+    └── imports from → common.ts            (Project)
+
+types/chat.ts
+    ├── imports from → common.ts            (SenderType, ActionType, ProposalStatus)
+    └── imports from → tasks.ts             (Task — for action data)
+
+types/board.ts
+    └── imports from → common.ts            (Project)
+
+types/pipeline.ts
+    └── imports from → common.ts            (Project)
+
+types/plans.ts
+    └── imports from → common.ts            (ActionType)
+
+types/agents.ts
+    └── imports from → common.ts            (Project)
+
+types/settings.ts                           (NO dependencies)
 ```
+
+**Key property**: The dependency graph is a DAG (directed acyclic graph) rooted at `common.ts`. No circular dependencies exist.
+
+---
+
+## Impact Summary
+
+| Category | Before | After |
+|----------|--------|-------|
+| Largest backend API file | 2,930 lines (`chat.py`) | ~500 lines (`streaming.py`) |
+| Largest frontend service file | 1,876 lines (`api.ts`) | ~450 lines (`chat.ts`) |
+| Largest frontend types file | 1,525 lines (`index.ts`) | ~300 lines (`plans.ts`) |
+| Module-level global state | 3 unmanaged dicts | 1 `ChatStateManager` class |
+| God function | `confirm_proposal()` 345 lines | 5 methods, ~70 lines each |
+| Backend files in `api/` | 2 monolithic (chat + webhooks) | 2 packages (13 focused modules) |
+| Database schema changes | — | None |
+| API contract changes | — | None |
