@@ -1,270 +1,167 @@
-# Data Model: Multi-Chat App Page
+# Data Model: Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Fleet-Dispatch Agent Pipelines via GitHub CLI | **Date**: 2026-04-11 | **Status**: Complete
 
-## Entity: Conversation
+## Entity: PipelineConfig (JSON — `pipeline-config.json`)
 
-A named container for a set of related chat messages within a user session. Each conversation corresponds to one chat panel on the AppPage.
+The canonical pipeline definition consumed by both the Python backend (`PipelineService.seed_presets()`) and the Bash fleet-dispatch script. Replaces the inline `_PRESET_DEFINITIONS` in `pipelines/service.py`.
 
 ### Fields
 
 | Field | Type | Constraints | Default | Description |
 |-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | PRIMARY KEY | `uuid4()` | Unique identifier |
-| `session_id` | TEXT (UUID) | NOT NULL, FK → `user_sessions.session_id` | — | Owning user session |
-| `title` | TEXT | NOT NULL | `'New Chat'` | User-editable conversation name |
-| `created_at` | TEXT (ISO 8601) | — | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | Creation timestamp |
-| `updated_at` | TEXT (ISO 8601) | — | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | Last modification timestamp |
+| `preset_id` | string | REQUIRED, unique | — | Unique identifier for the preset (e.g., `"spec-kit"`, `"expert"`) |
+| `name` | string | REQUIRED, 1–100 chars | — | Human-readable pipeline name |
+| `description` | string | Optional, max 500 chars | `""` | Pipeline description |
+| `stages` | array[Stage] | REQUIRED, ≥1 element | — | Ordered list of pipeline stages |
+
+### Nested: Stage
+
+| Field | Type | Constraints | Default | Description |
+|-------|------|-------------|---------|-------------|
+| `id` | string | REQUIRED | — | Unique stage identifier |
+| `name` | string | REQUIRED, 1–100 chars | — | Human-readable stage name (e.g., `"Backlog"`, `"In progress"`) |
+| `order` | integer | REQUIRED, ≥0 | — | Execution order (0-indexed) |
+| `groups` | array[ExecutionGroup] | REQUIRED | `[]` | Execution groups within the stage |
+
+### Nested: ExecutionGroup
+
+| Field | Type | Constraints | Default | Description |
+|-------|------|-------------|---------|-------------|
+| `id` | string | REQUIRED | — | Unique group identifier |
+| `order` | integer | ≥0 | `0` | Group execution order within stage |
+| `execution_mode` | enum | `"sequential"` or `"parallel"` | `"sequential"` | How agents in this group are dispatched |
+| `agents` | array[AgentNode] | REQUIRED | `[]` | Agents in this group |
+
+### Nested: AgentNode
+
+| Field | Type | Constraints | Default | Description |
+|-------|------|-------------|---------|-------------|
+| `id` | string | REQUIRED | — | Unique agent node identifier |
+| `agent_slug` | string | REQUIRED | — | Agent identifier (e.g., `"speckit.specify"`, `"judge"`) |
+| `agent_display_name` | string | Optional | `""` | Human-readable agent name |
+| `model_id` | string | Optional | `""` | Model override (empty = auto/default) |
+| `model_name` | string | Optional | `""` | Human-readable model name |
+| `tool_ids` | array[string] | Optional | `[]` | Tool overrides |
+| `tool_count` | integer | ≥0 | `0` | Number of tools |
+| `config` | object | Optional | `{}` | Agent-specific configuration overrides |
 
 ### Relationships
 
-| Related Entity | Cardinality | FK Location | Cascade |
-|---------------|-------------|-------------|---------|
-| `user_sessions` | N:1 | `conversations.session_id` | `ON DELETE CASCADE` |
-| `chat_messages` | 1:N | `chat_messages.conversation_id` | `ON DELETE SET NULL` |
-| `chat_proposals` | 1:N | `chat_proposals.conversation_id` | `ON DELETE SET NULL` |
-| `chat_recommendations` | 1:N | `chat_recommendations.conversation_id` | `ON DELETE SET NULL` |
-
-### Indexes
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_conversations_session_id` | `session_id` | List conversations by user session |
-| `idx_conversations_updated_at` | `updated_at` | Sort by most recently active |
+| Related Entity | Cardinality | Description |
+|---------------|-------------|-------------|
+| PipelineConfig → Stage | 1:N | Each pipeline has ordered stages |
+| Stage → ExecutionGroup | 1:N | Each stage has ordered execution groups |
+| ExecutionGroup → AgentNode | 1:N | Each group contains agents |
 
 ### Validation Rules
 
-- `title` max length: 200 characters (enforced by Pydantic model)
-- `session_id` must reference an existing `user_sessions` row
-- `conversation_id` is a valid UUID v4 string
+- `preset_id` must be unique across all pipeline configs
+- Stage `order` values must be contiguous starting from 0
+- `execution_mode` must be either `"sequential"` or `"parallel"`
+- At least one stage is required per pipeline
+- `agent_slug` must match a known agent slug from `AgentsMixin.BUILTIN_AGENTS` or a custom agent
+
+### Mapping to Existing Pydantic Models
+
+| JSON Field | Pydantic Model | Python Field |
+|-----------|----------------|--------------|
+| PipelineConfig | `PipelineConfig` | `models/pipeline.py` |
+| Stage | `PipelineStage` | `models/pipeline.py` |
+| ExecutionGroup | `ExecutionGroup` | `models/pipeline.py` |
+| AgentNode | `PipelineAgentNode` | `models/pipeline.py` |
 
 ---
 
-## Entity: ChatMessage (updated)
+## Entity: FleetState (JSON — `fleet-state.json`)
 
-Existing entity with a new nullable `conversation_id` column.
+Local state file written by the fleet-dispatch script to track dispatch progress. Created at the start of a dispatch run; updated as agents are dispatched and complete.
 
-### New Field
+### Fields
 
 | Field | Type | Constraints | Default | Description |
 |-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation (NULL for global/ChatPopup messages) |
+| `run_id` | string (UUID) | REQUIRED | auto-generated | Unique identifier for this dispatch run |
+| `repo` | string | REQUIRED | — | Repository in `owner/repo` format |
+| `parent_issue` | integer | REQUIRED | — | Parent issue number |
+| `base_ref` | string | REQUIRED | `"main"` | Branch to base agent PRs on |
+| `pipeline_preset` | string | REQUIRED | — | Preset ID from pipeline config |
+| `started_at` | string (ISO 8601) | REQUIRED | auto-generated | Dispatch start timestamp |
+| `completed_at` | string (ISO 8601) | Optional | `null` | Dispatch completion timestamp |
+| `status` | enum | `"running"`, `"completed"`, `"partial_failure"`, `"failed"` | `"running"` | Overall run status |
+| `agents` | array[AgentDispatch] | REQUIRED | `[]` | Per-agent dispatch records |
 
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_messages_conversation_id` | `conversation_id` | Filter messages by conversation |
-
-### Backward Compatibility
-
-- Existing rows retain `conversation_id = NULL`
-- Queries without a `conversation_id` filter return all messages for the session (existing behavior)
-- Queries with `WHERE conversation_id = ?` return only that conversation's messages
-
----
-
-## Entity: ChatProposal (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
+### Nested: AgentDispatch
 
 | Field | Type | Constraints | Default | Description |
 |-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_proposals_conversation_id` | `conversation_id` | Filter proposals by conversation |
-
----
-
-## Entity: ChatRecommendation (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_recommendations_conversation_id` | `conversation_id` | Filter recommendations by conversation |
-
----
-
-## Entity: PanelLayout (frontend only — localStorage)
-
-Client-side representation of open chat panels, persisted to `localStorage`.
-
-### Schema
-
-```typescript
-interface PanelLayout {
-  version: 1;
-  panels: PanelState[];
-}
-
-interface PanelState {
-  panelId: string;           // Unique panel identifier (UUID)
-  conversationId: string;    // FK to conversation_id
-  widthPercent: number;      // Panel width as percentage of container (0-100)
-}
-```
-
-### Validation Rules
-
-- `version` must be `1` (future versions trigger migration logic)
-- `panels` array must contain at least 1 element
-- `widthPercent` values must sum to 100 (±1 for rounding)
-- Each `panelId` must be unique
-- Each `conversationId` should reference a valid conversation (stale references are pruned on load)
+| `agent_slug` | string | REQUIRED | — | Agent identifier |
+| `group_id` | string | REQUIRED | — | Execution group this agent belongs to |
+| `execution_mode` | enum | `"sequential"` or `"parallel"` | — | Group's execution mode |
+| `issue_number` | integer | Optional | `null` | Created sub-issue number |
+| `issue_node_id` | string | Optional | `null` | GitHub GraphQL node ID for the sub-issue |
+| `dispatch_status` | enum | `"pending"`, `"dispatched"`, `"completed"`, `"failed"`, `"timed_out"` | `"pending"` | Current dispatch state |
+| `dispatched_at` | string (ISO 8601) | Optional | `null` | When the agent was dispatched |
+| `completed_at` | string (ISO 8601) | Optional | `null` | When the agent completed |
+| `pr_number` | integer | Optional | `null` | PR created by the agent (if any) |
+| `pr_merged` | boolean | Optional | `false` | Whether the agent's PR was merged |
+| `error` | string | Optional | `null` | Error message if dispatch/completion failed |
+| `retry_count` | integer | ≥0 | `0` | Number of dispatch retry attempts |
 
 ### State Transitions
 
 ```text
-Initial Load:
-  localStorage empty → create default panel (single, 100% width)
-  localStorage has data → validate schema version → load panels → prune stale conversations
-
-Add Panel:
-  Create conversation (API) → add panel with widthPercent = 100/N → redistribute widths
-
-Remove Panel:
-  If last panel → prevent removal (minimum 1 panel)
-  Otherwise → remove panel → redistribute widths → delete conversation if empty
-
-Resize:
-  Drag handle → update adjacent panel widthPercent values → persist to localStorage
+pending → dispatched → completed
+pending → dispatched → failed
+pending → dispatched → timed_out
+pending → failed (dispatch failure after retries)
 ```
+
+### Validation Rules
+
+- `run_id` is a UUID v4 string generated at dispatch start
+- `status` is derived: `"completed"` if all agents are `"completed"`, `"partial_failure"` if some failed, `"failed"` if all failed
+- `fleet-state.json` is written atomically (write to temp file, then `mv`)
+- File is created in the current working directory or a path specified by `--state-dir`
 
 ---
 
-## Entity Relationship Diagram
+## Entity: AgentInstructionTemplate (file — `config/templates/*.tpl`)
 
-```text
-┌──────────────┐     1:N      ┌─────────────────┐
-│ user_sessions │────────────▶│  conversations    │
-│              │              │                   │
-│ session_id   │◀─────┐      │ conversation_id   │
-└──────────────┘      │      │ session_id (FK)   │
-                      │      │ title             │
-                      │      │ created_at        │
-                      │      │ updated_at        │
-                      │      └─────────┬─────────┘
-                      │                │
-                      │         1:N    │  ON DELETE SET NULL
-                      │                │
-                      │    ┌───────────┴──────────────┐
-                      │    │                          │
-                ┌─────┴────┴──┐    ┌──────────────┐   ┌───────────────────┐
-                │chat_messages│    │chat_proposals │   │chat_recommendations│
-                │             │    │               │   │                   │
-                │ message_id  │    │ proposal_id   │   │ recommendation_id │
-                │ session_id  │    │ session_id    │   │ session_id        │
-                │ conv_id(?)  │    │ conv_id(?)    │   │ conv_id(?)        │
-                │ sender_type │    │ original_input│   │ data              │
-                │ content     │    │ proposed_title│   │ status            │
-                │ timestamp   │    │ status        │   │ created_at        │
-                └─────────────┘    └──────────────┘   └───────────────────┘
+Template files for generating custom instructions passed to agents via the `customInstructions` field of the GraphQL mutation. Uses `envsubst` variable expansion.
 
-Legend: (?) = nullable FK, ON DELETE SET NULL
-```
+### Template Variables
 
----
+| Variable | Source | Description |
+|----------|--------|-------------|
+| `${ISSUE_TITLE}` | Parent issue title | Title of the parent GitHub issue |
+| `${ISSUE_BODY}` | Parent issue body (cleaned) | Body text with tracking tables stripped |
+| `${AGENT_NAME}` | Pipeline config | Agent slug (e.g., `speckit.specify`) |
+| `${AGENT_DESCRIPTION}` | Agent descriptions map | Human-readable task description |
+| `${PARENT_ISSUE_NUMBER}` | CLI argument | Parent issue number for cross-referencing |
+| `${PARENT_ISSUE_TITLE}` | Parent issue title | For sub-issue body generation |
+| `${BASE_REF}` | CLI argument | Branch to base PRs on |
+| `${REPO_OWNER}` | CLI argument | Repository owner |
+| `${REPO_NAME}` | CLI argument | Repository name |
+| `${EXISTING_PR_NUMBER}` | Dispatch state | PR number if reusing existing PR |
+| `${EXISTING_PR_BRANCH}` | Dispatch state | Branch name if reusing existing PR |
 
-## Pydantic Models (Backend)
+### Template Files
 
-### New Models
+| File | Agent(s) | Purpose |
+|------|----------|---------|
+| `agent-instructions.tpl` | All | Base template with issue context and output instructions |
+| `speckit-specify.tpl` | `speckit.specify` | Specification-specific output file instructions (`spec.md`) |
+| `speckit-plan.tpl` | `speckit.plan` | Plan-specific output file instructions (`plan.md`) |
+| `speckit-tasks.tpl` | `speckit.tasks` | Tasks-specific output file instructions (`tasks.md`) |
+| `speckit-implement.tpl` | `speckit.implement` | Implementation instructions (no specific output files) |
+| `copilot-review.tpl` | `copilot-review` | PR review tracking sub-issue template |
 
-```python
-class Conversation(BaseModel):
-    conversation_id: UUID = Field(default_factory=uuid4)
-    session_id: UUID
-    title: str = "New Chat"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+### Relationship to Existing Code
 
-class ConversationCreateRequest(BaseModel):
-    title: str = Field(default="New Chat", max_length=200)
+The template content is derived from:
+- `format_issue_context_as_prompt()` in `agents.py:106–205` — issue context formatting
+- `tailor_body_for_agent()` in `agents.py:215–298` — agent-specific body tailoring
+- `agent_descriptions` dict in `agents.py:233–248` — agent task descriptions
+- `agent_files` dict in `agents.py:169–175` — output file mappings per agent
 
-class ConversationUpdateRequest(BaseModel):
-    title: str = Field(max_length=200)
-
-class ConversationsListResponse(BaseModel):
-    conversations: list[Conversation]
-```
-
-### Updated Models
-
-```python
-# Add to ChatMessage:
-conversation_id: UUID | None = None
-
-# Add to ChatMessageRequest:
-conversation_id: UUID | None = None
-```
-
----
-
-## TypeScript Interfaces (Frontend)
-
-### New Interfaces
-
-```typescript
-export interface Conversation {
-  conversation_id: string;
-  session_id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ConversationsListResponse {
-  conversations: Conversation[];
-}
-```
-
-### Updated Interfaces
-
-```typescript
-// Add to ChatMessage:
-conversation_id?: string;
-
-// Add to ChatMessageRequest:
-conversation_id?: string;
-```
-
----
-
-## Zod Schemas (Frontend)
-
-### New Schemas
-
-```typescript
-export const ConversationSchema = z.object({
-  conversation_id: z.string(),
-  session_id: z.string(),
-  title: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const ConversationsListResponseSchema = z.object({
-  conversations: z.array(ConversationSchema),
-});
-```
-
-### Updated Schemas
-
-```typescript
-// Add to ChatMessageSchema:
-conversation_id: z.string().optional(),
-```

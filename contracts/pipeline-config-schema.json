@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pipeline Configuration",
+  "description": "Schema for pipeline preset definitions consumed by fleet-dispatch.sh and PipelineService",
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/PipelinePreset"
+  },
+  "minItems": 1,
+  "definitions": {
+    "PipelinePreset": {
+      "type": "object",
+      "required": ["preset_id", "name", "stages"],
+      "properties": {
+        "preset_id": {
+          "type": "string",
+          "description": "Unique identifier for the preset (e.g., 'spec-kit', 'expert')",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable pipeline name",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "description": "Pipeline description",
+          "maxLength": 500,
+          "default": ""
+        },
+        "stages": {
+          "type": "array",
+          "description": "Ordered list of pipeline stages",
+          "items": {
+            "$ref": "#/definitions/PipelineStage"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "PipelineStage": {
+      "type": "object",
+      "required": ["id", "name", "order", "groups"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique stage identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable stage name",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "order": {
+          "type": "integer",
+          "description": "Execution order (0-indexed)",
+          "minimum": 0
+        },
+        "groups": {
+          "type": "array",
+          "description": "Execution groups within the stage",
+          "items": {
+            "$ref": "#/definitions/ExecutionGroup"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExecutionGroup": {
+      "type": "object",
+      "required": ["id", "agents"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique group identifier"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Group execution order within stage",
+          "minimum": 0,
+          "default": 0
+        },
+        "execution_mode": {
+          "type": "string",
+          "description": "How agents in this group are dispatched",
+          "enum": ["sequential", "parallel"],
+          "default": "sequential"
+        },
+        "agents": {
+          "type": "array",
+          "description": "Agents in this group",
+          "items": {
+            "$ref": "#/definitions/AgentNode"
+          },
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
+    "AgentNode": {
+      "type": "object",
+      "required": ["id", "agent_slug"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique agent node identifier"
+        },
+        "agent_slug": {
+          "type": "string",
+          "description": "Agent identifier (e.g., 'speckit.specify', 'judge')"
+        },
+        "agent_display_name": {
+          "type": "string",
+          "description": "Human-readable agent name",
+          "default": ""
+        },
+        "model_id": {
+          "type": "string",
+          "description": "Model override (empty = auto/default)",
+          "default": ""
+        },
+        "model_name": {
+          "type": "string",
+          "description": "Human-readable model name",
+          "default": ""
+        },
+        "tool_ids": {
+          "type": "array",
+          "description": "Tool overrides",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "tool_count": {
+          "type": "integer",
+          "description": "Number of tools",
+          "minimum": 0,
+          "default": 0
+        },
+        "config": {
+          "type": "object",
+          "description": "Agent-specific configuration overrides",
+          "default": {}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

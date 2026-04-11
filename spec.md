@@ -1,106 +1,123 @@
-# Feature Specification: Harden Phase 1 — Critical Bug Fixes
+# Feature Specification: Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-**Feature Branch**: `001-harden-phase1-bugfixes`  
-**Created**: 2026-04-10  
-**Status**: Draft  
-**Input**: User description: "Harden Phase 1 — Critical Bug Fixes: Fix memory leak in pipeline\_state\_store, fix update\_agent lifecycle status, fix \_extract\_agent\_preview malformed configs"
+**Feature Branch**: `copilot/create-implementation-plan-for-pipelines`
+**Created**: 2026-04-11
+**Status**: Draft
+**Input**: Parent issue #1386 — Fleet-Dispatch Agent Pipelines via GitHub CLI
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Bounded Lock Dictionary Prevents Memory Leak (Priority: P1)
+### User Story 1 - CLI Fleet Dispatch with Parallel Agent Groups (Priority: P1)
 
-A platform operator runs Solune as a long-lived service handling many projects over days or weeks. The per-project launch-lock dictionary must not grow without bound; once a configurable capacity is reached, the oldest (least-recently-used) entries are evicted so the process's memory footprint stays stable.
+A platform operator runs a fleet dispatch from the command line to launch a full agent pipeline for a GitHub issue. The dispatch script reads a pipeline config JSON, creates sub-issues for each agent, and dispatches them using `gh api graphql`. Parallel agent groups (e.g., QA + tester + review) are dispatched concurrently using background processes.
 
-**Why this priority**: An unbounded dictionary that accumulates one lock per unique project ID is a memory leak. In production this degrades performance over time and can eventually exhaust available memory, making it the highest-priority fix.
+**Why this priority**: This is the core feature — without CLI dispatch, the entire fleet-dispatch capability does not exist. It directly replaces the Python-only dispatch path with a portable shell-based alternative.
 
-**Independent Test**: Create locks for more unique project IDs than the configured maximum and verify the dictionary size never exceeds that maximum. Confirm that recently-used entries survive eviction while idle entries are removed first.
+**Independent Test**: Run the dispatch script with `--dry-run` against a test pipeline config and verify it produces the correct dispatch plan (sub-issue creation order, parallel/serial group handling) without making API calls.
 
 **Acceptance Scenarios**:
 
-1. **Given** the lock dictionary has reached its maximum capacity, **When** a lock is requested for a new project ID, **Then** the dictionary evicts the least-recently-used entry and creates a new lock without exceeding the capacity limit.
-2. **Given** a lock already exists for a project ID, **When** that lock is requested again, **Then** the same lock instance is returned and the entry is refreshed to the most-recently-used position.
-3. **Given** locks have been evicted due to capacity, **When** a lock is requested for an evicted project ID, **Then** a new lock is transparently created without errors.
-4. **Given** the service has been running for an extended period with many unique project IDs, **When** the dictionary reaches capacity, **Then** memory consumption remains stable and does not continue growing.
+1. **Given** a valid pipeline config JSON and authenticated `gh` CLI, **When** the dispatch script is run with `--repo`, `--parent-issue`, and `--preset`, **Then** sub-issues are created for each agent and agents are dispatched via GraphQL mutation.
+2. **Given** a pipeline with a parallel execution group containing 3 agents, **When** the group is dispatched, **Then** all 3 `gh api graphql` calls run concurrently as background processes and the script waits for all to complete.
+3. **Given** a pipeline with serial execution groups, **When** the first agent completes, **Then** the next agent in the group is dispatched only after completion polling confirms the previous agent finished.
+4. **Given** a `--dry-run` flag, **When** the script runs, **Then** no API calls are made but the full dispatch plan is printed to stdout.
+5. **Given** a dispatch failure after 3 retry attempts, **When** the retry loop exhausts, **Then** the agent is marked as `"failed"` in the state file and the script continues with remaining agents.
 
 ---
 
-### User Story 2 - Updated Local Agents Show Correct Lifecycle Status (Priority: P1)
+### User Story 2 - Pipeline Config Extraction to Standalone JSON (Priority: P1)
 
-A developer updates an existing local agent's configuration (name, description, system prompt, or tools). After the update PR is opened, the agent's lifecycle status must reflect that a PR is pending so the UI and downstream logic treat the agent as "awaiting merge" rather than "active".
+A developer extracts the pipeline preset definitions from the Python backend (`_PRESET_DEFINITIONS` in `pipelines/service.py`) into a standalone JSON file that both the shell script and Python backend consume. This eliminates the duplication between Python and TypeScript preset definitions.
 
-**Why this priority**: Showing an updated agent as still active misleads users into thinking the change is live. This can cause confusion, incorrect behaviour during chat refinement, and breaks the expected create → pending → merge → active lifecycle. It is a correctness bug with direct user-facing impact.
+**Why this priority**: The fleet dispatch script needs a machine-readable config format. Without extraction, the script would need to parse Python source code or duplicate the definitions.
 
-**Independent Test**: Update an existing local agent's configuration, verify the returned agent object has lifecycle status set to "pending PR", and confirm the persisted database row reflects the same status along with the new PR number and branch name.
+**Independent Test**: Run the extraction script against the current `pipelines/service.py` and validate the output JSON against the pipeline config JSON Schema. Verify it matches the existing `_PRESET_DEFINITIONS` structure.
 
 **Acceptance Scenarios**:
 
-1. **Given** an existing local agent with "active" status, **When** its configuration is updated and a PR is opened, **Then** the agent's lifecycle status is set to "pending PR" in both the response and the database.
-2. **Given** a repo-sourced agent (ID starting with "repo:"), **When** it is updated for the first time, **Then** a new local record is inserted with lifecycle status "pending PR".
-3. **Given** an agent with "pending deletion" status, **When** an update is attempted, **Then** the update is rejected with an appropriate error message.
-4. **Given** only runtime preferences are changed (model, icon), **When** the update is saved, **Then** no PR is opened and the lifecycle status remains unchanged.
+1. **Given** the existing `_PRESET_DEFINITIONS` in `pipelines/service.py`, **When** the extraction script runs, **Then** a valid `pipeline-config.json` is produced that passes JSON Schema validation.
+2. **Given** the extracted JSON config, **When** loaded by the Python `PipelineService.seed_presets()`, **Then** the seeded presets match the current behavior exactly.
+3. **Given** the extracted JSON config, **When** parsed by `jq` in the fleet-dispatch script, **Then** all agent slugs, execution modes, and group structures are correctly extracted.
 
 ---
 
-### User Story 3 - Malformed Agent Configs Are Rejected During Chat Refinement (Priority: P1)
+### User Story 3 - Custom Instruction Templating for Shell Dispatch (Priority: P2)
 
-During the multi-turn agent chat refinement flow, the AI may produce a config block with structurally invalid fields (e.g., `tools: "read"` as a string instead of a list, or `tools: [123, null, {}]` with non-string elements). The extraction logic must detect these malformed-but-JSON-parseable configs and return nothing rather than passing invalid data to downstream validation or the UI.
+The custom instructions currently generated by `format_issue_context_as_prompt()` and `tailor_body_for_agent()` in Python are ported to `envsubst`-compatible template files. The fleet-dispatch script populates template variables from issue context and CLI arguments.
 
-**Why this priority**: Malformed configs that escape validation break the chat refinement experience — users see errors or broken previews. Since this sits in a critical interactive flow, it has equal priority with the other fixes.
+**Why this priority**: Custom instructions are required for agents to operate correctly, but the dispatch script can initially use a simplified instruction format while templates are developed. This is an enhancement over basic dispatch.
 
-**Independent Test**: Supply various malformed config payloads (tools as a string, tools containing non-string elements, missing required fields, non-dict top-level JSON) and verify that each one is rejected by returning no preview rather than propagating invalid data.
+**Independent Test**: Set template variables as environment variables, run `envsubst` on a template file, and verify the output matches the expected instruction format for each agent type.
 
 **Acceptance Scenarios**:
 
-1. **Given** an AI response containing `tools: "read"` (string instead of list), **When** the config is extracted, **Then** the result is empty (no preview returned).
-2. **Given** an AI response containing `tools: [123, null, {}]` (list with non-string elements), **When** the config is extracted, **Then** the result is empty (no preview returned).
-3. **Given** an AI response with a valid config block, **When** the config is extracted, **Then** the preview is returned with all fields correctly populated.
-4. **Given** an AI response with missing or empty `name` field, **When** the config is extracted, **Then** the result is empty.
-5. **Given** an AI response with no config block at all, **When** extraction is attempted, **Then** the result is empty.
+1. **Given** a `speckit.specify` template and populated environment variables, **When** `envsubst` is applied, **Then** the output includes the issue title, body, agent description, and output file instructions.
+2. **Given** a `copilot-review` template, **When** processed, **Then** the output includes the PR review tracking note specific to Copilot reviews.
+3. **Given** an unknown agent type, **When** the base template is used, **Then** a generic instruction is generated with issue context and a default task description.
+
+---
+
+### User Story 4 - Completion Monitoring and Pipeline Advancement (Priority: P2)
+
+After dispatching agents, the script monitors their completion by polling sub-issue state via `gh api graphql`. For serial groups, the next agent is dispatched only after the current one completes. A summary report is printed at the end.
+
+**Why this priority**: Monitoring enables full pipeline automation (serial group advancement). Without it, the script is fire-and-forget only, which is still useful but limited.
+
+**Independent Test**: Mock a sub-issue state transition from open to closed and verify the polling loop detects completion and advances to the next agent.
+
+**Acceptance Scenarios**:
+
+1. **Given** a dispatched agent with an open sub-issue, **When** the polling loop runs, **Then** it checks the sub-issue state every 30 seconds with exponential backoff up to 5 minutes.
+2. **Given** an agent that has been running for longer than the timeout (default 60 minutes), **When** the timeout is reached, **Then** the agent is marked as `"timed_out"` and the script proceeds.
+3. **Given** all agents have completed or timed out, **When** the dispatch run finishes, **Then** a summary table is printed with agent status, duration, and issue/PR links.
 
 ---
 
 ### Edge Cases
 
-- What happens when the lock dictionary capacity is exactly 1? The dictionary should still function correctly, evicting the single entry when a new one is added.
-- What happens when two concurrent requests try to create a lock for the same new project ID? Only one lock should be created; the second request should receive the same lock instance.
-- What happens when an agent update PR workflow fails after the local record has been partially modified? The update should fail atomically — no partial lifecycle status change should be persisted.
-- What happens when the AI response contains multiple `agent-config` code blocks? Only the first match should be processed.
-- What happens when tools contain mixed valid and invalid entries like `["read", 123, "write"]`? The entire config should be rejected rather than silently dropping invalid entries.
+- What happens when the pipeline config JSON is malformed? The script should exit with code 2 and a descriptive error message.
+- What happens when `gh auth status` fails? The script should exit immediately with an authentication error.
+- What happens when a sub-issue creation fails mid-pipeline? Already-created sub-issues remain; the script reports the failure and exits.
+- What happens when the GitHub API rate limit is hit during parallel dispatch? The retry logic with exponential backoff handles rate limiting; `gh` CLI provides rate limit headers.
+- What happens when the same parent issue is dispatched twice? The script should detect existing sub-issues (by label) and skip creation, dispatching to existing issues instead.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The per-project launch-lock collection MUST enforce a maximum capacity; when the limit is reached, the least-recently-used entry MUST be evicted before adding a new one.
-- **FR-002**: Accessing an existing lock MUST refresh it to the most-recently-used position so that actively-used projects are not prematurely evicted.
-- **FR-003**: When a local agent's configuration is updated and a PR is opened, the system MUST set the agent's lifecycle status to "pending PR" in both the returned object and the persisted record.
-- **FR-004**: When a repo-sourced agent is updated for the first time, the system MUST insert a new local record with lifecycle status "pending PR", the new PR number, and the branch name.
-- **FR-005**: The agent config extraction logic MUST reject configs where the `tools` field is not a list.
-- **FR-006**: The agent config extraction logic MUST reject configs where any element in the `tools` list is not a non-empty string.
-- **FR-007**: The agent config extraction logic MUST reject configs where the `name` field is missing or empty.
-- **FR-008**: The agent config extraction logic MUST return nothing (rather than raising an exception) for any structurally invalid config.
+- **FR-001**: The fleet-dispatch script MUST accept `--repo`, `--parent-issue`, `--config`, and `--preset` as required CLI arguments.
+- **FR-002**: The script MUST create sub-issues via `gh issue create` with `agent:{agent_slug}` labels before dispatching.
+- **FR-003**: The script MUST dispatch agents using `gh api graphql` with the `addAssigneesToAssignable` mutation and full `agentAssignment` input (customAgent, customInstructions, model, baseRef).
+- **FR-004**: The script MUST set the `GraphQL-Features: issues_copilot_assignment_api_support,coding_agent_model_selection` header on all dispatch requests.
+- **FR-005**: Parallel execution groups MUST dispatch all agents concurrently using Bash background processes (`&` + `wait`).
+- **FR-006**: Serial execution groups MUST dispatch agents one at a time with completion polling between dispatches.
+- **FR-007**: The script MUST write a `fleet-state.json` file tracking all agent dispatch states.
+- **FR-008**: The script MUST support a `--dry-run` flag that previews the dispatch plan without making API calls.
+- **FR-009**: The config extraction script MUST produce JSON that validates against the pipeline config JSON Schema.
+- **FR-010**: The script MUST retry failed dispatch calls up to 3 times with exponential backoff.
 
 ### Key Entities
 
-- **BoundedDict**: A dictionary with a maximum size that evicts least-recently-used entries when capacity is exceeded. Used to store per-project launch locks.
-- **Agent Lifecycle Status**: The state machine governing an agent's progression through create → pending PR → active (after merge) → pending deletion. The "pending PR" status indicates an open PR that has not yet been merged.
-- **AgentPreview**: The intermediate representation of an AI-generated agent configuration extracted from a chat response. Must pass structural validation before being presented to the user.
+- **PipelineConfig**: JSON representation of pipeline preset definitions with stages, groups, and agents.
+- **FleetState**: Local JSON state file tracking dispatch progress, agent statuses, and issue/PR references.
+- **AgentInstructionTemplate**: `envsubst`-compatible template files for generating custom instructions.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: The per-project lock collection never exceeds its configured maximum size, regardless of how many unique projects are processed — verified by creating entries beyond the limit and asserting the count stays bounded.
-- **SC-002**: Memory consumption of the lock collection stabilises after reaching capacity and does not continue to grow over time.
-- **SC-003**: 100% of agent updates that open a PR result in the agent's lifecycle status being persisted as "pending PR" — verified by database inspection after each update path (existing local agent, first-time repo agent).
-- **SC-004**: 100% of malformed agent config payloads (non-list tools, non-string list elements, missing name) are rejected without exceptions — verified by unit tests covering each invalid variant.
-- **SC-005**: All existing tests continue to pass after the fixes, confirming no regressions are introduced.
-- **SC-006**: The chat refinement flow completes successfully with valid agent configs and gracefully handles invalid ones without user-visible errors.
+- **SC-001**: The fleet-dispatch script successfully dispatches all agents in a "spec-kit" pipeline preset within 30 seconds (excluding agent execution time).
+- **SC-002**: Parallel groups dispatch agents concurrently — verified by checking that background processes overlap in time.
+- **SC-003**: The extracted `pipeline-config.json` passes JSON Schema validation and produces identical pipeline behavior when loaded by the Python backend.
+- **SC-004**: The `--dry-run` flag produces the correct dispatch plan for all preset pipelines without making any API calls.
+- **SC-005**: Failed dispatches are retried 3 times before marking as failed in the state file.
+- **SC-006**: All existing backend tests continue to pass after the config extraction changes.
 
 ## Assumptions
 
-- The bounded dictionary implementation (BoundedDict) already exists in the codebase and provides `touch()` for LRU refresh and automatic eviction on insert when at capacity.
-- A maximum capacity of 10,000 entries for the lock dictionary is appropriate for production workloads — this is large enough to avoid premature eviction in typical deployments while preventing unbounded growth.
-- The three SQL paths for agent updates (update existing local, insert new from repo, runtime-only preferences) are the complete set of update scenarios.
-- The `_extract_agent_preview` method is the single extraction point for agent configs from AI responses in the chat refinement flow.
-- Rejecting the entire config when any tools element is invalid (rather than filtering out bad entries) is the correct behaviour to force the AI to produce a fully valid config on retry.
+- `gh` CLI ≥2.80 is available in the target environment (CI runners, developer machines).
+- `jq` ≥1.6 is available for JSON parsing in the shell script.
+- `envsubst` (GNU gettext) is available for template expansion.
+- The `addAssigneesToAssignable` GraphQL mutation with `agentAssignment` input remains stable in the GitHub API.
+- The Copilot bot node ID can be resolved via the existing `get_copilot_bot_id()` pattern (GraphQL query for bot user).
+- Pipeline presets have at most 15 agents across 4–5 groups — the script does not need to handle hundreds of concurrent agents.
