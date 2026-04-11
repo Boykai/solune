@@ -84,4 +84,38 @@ describe('useConversations', () => {
     await result.current.deleteConversation('conv-1');
     expect(mocks.delete).toHaveBeenCalledWith('conv-1');
   });
+
+  it('returns empty conversations when API returns empty list', async () => {
+    mocks.list.mockResolvedValueOnce({ conversations: [] });
+    const { result } = renderHook(() => useConversations(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.conversations).toEqual([]);
+  });
+
+  it('exposes loading state during initial fetch', () => {
+    // Make the list call hang indefinitely for this test
+    mocks.list.mockReturnValueOnce(new Promise(() => {}));
+    const { result } = renderHook(() => useConversations(), { wrapper: createWrapper() });
+
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.conversations).toEqual([]);
+  });
+
+  it('exposes error when list fails', async () => {
+    mocks.list.mockRejectedValueOnce(new Error('Network error'));
+    const { result } = renderHook(() => useConversations(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.error).not.toBeNull());
+    expect(result.current.error?.message).toBe('Network error');
+  });
+
+  it('creates conversation with default title when no title provided', async () => {
+    const { result } = renderHook(() => useConversations(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await result.current.createConversation();
+    expect(mocks.create).toHaveBeenCalledWith(undefined);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { ChatPanel } from './ChatPanel';
 
 // Mock heavy dependencies
@@ -11,24 +11,28 @@ vi.mock('./ChatInterface', () => ({
   ),
 }));
 
+const mockUseChat = vi.fn();
 vi.mock('@/hooks/useChat', () => ({
-  useChat: () => ({
-    messages: [],
-    pendingProposals: new Map(),
-    pendingStatusChanges: new Map(),
-    pendingRecommendations: new Map(),
-    isSending: false,
-    isStreaming: false,
-    streamingContent: '',
-    streamingError: null,
-    sendMessage: vi.fn(),
-    retryMessage: vi.fn(),
-    confirmProposal: vi.fn(),
-    confirmStatusChange: vi.fn(),
-    rejectProposal: vi.fn(),
-    updateRecommendationStatus: vi.fn(),
-    clearChat: vi.fn(),
-  }),
+  useChat: (...args: unknown[]) => {
+    mockUseChat(...args);
+    return {
+      messages: [],
+      pendingProposals: new Map(),
+      pendingStatusChanges: new Map(),
+      pendingRecommendations: new Map(),
+      isSending: false,
+      isStreaming: false,
+      streamingContent: '',
+      streamingError: null,
+      sendMessage: vi.fn(),
+      retryMessage: vi.fn(),
+      confirmProposal: vi.fn(),
+      confirmStatusChange: vi.fn(),
+      rejectProposal: vi.fn(),
+      updateRecommendationStatus: vi.fn(),
+      clearChat: vi.fn(),
+    };
+  },
 }));
 
 vi.mock('@/hooks/usePlan', () => ({
@@ -54,10 +58,11 @@ vi.mock('@/hooks/useWorkflow', () => ({
   }),
 }));
 
+const mockUpdateConversation = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/hooks/useConversations', () => ({
   useConversations: () => ({
     conversations: [],
-    updateConversation: vi.fn(),
+    updateConversation: mockUpdateConversation,
     createConversation: vi.fn(),
     deleteConversation: vi.fn(),
   }),
@@ -115,5 +120,88 @@ describe('ChatPanel', () => {
       <ChatPanel conversationId="conv-1" title="Chat" onClose={vi.fn()} />,
     );
     expect(screen.getByTestId('chat-panel')).toBeInTheDocument();
+  });
+
+  it('passes conversationId to useChat', () => {
+    mockUseChat.mockClear();
+    render(
+      <ChatPanel conversationId="conv-abc" title="Chat" onClose={vi.fn()} />,
+    );
+    expect(mockUseChat).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'conv-abc' }),
+    );
+  });
+
+  it('enters title editing mode when title is clicked', async () => {
+    const { userEvent } = await import('@/test/test-utils');
+    render(
+      <ChatPanel conversationId="conv-1" title="My Title" onClose={vi.fn()} />,
+    );
+
+    // Click on the title to enter edit mode
+    await userEvent.click(screen.getByLabelText('Edit conversation title'));
+
+    // Should show an input with the title value
+    const input = screen.getByLabelText('Edit conversation title') as HTMLInputElement;
+    expect(input.tagName).toBe('INPUT');
+    expect(input.value).toBe('My Title');
+  });
+
+  it('saves title on Enter key and calls updateConversation', async () => {
+    mockUpdateConversation.mockClear();
+    const { userEvent } = await import('@/test/test-utils');
+    render(
+      <ChatPanel conversationId="conv-1" title="Old Title" onClose={vi.fn()} />,
+    );
+
+    // Enter edit mode
+    await userEvent.click(screen.getByLabelText('Edit conversation title'));
+
+    // Type new title
+    const input = screen.getByLabelText('Edit conversation title') as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, 'New Title{Enter}');
+
+    await waitFor(() => {
+      expect(mockUpdateConversation).toHaveBeenCalledWith('conv-1', 'New Title');
+    });
+  });
+
+  it('reverts title on Escape key without saving', async () => {
+    mockUpdateConversation.mockClear();
+    const { userEvent } = await import('@/test/test-utils');
+    render(
+      <ChatPanel conversationId="conv-1" title="Original" onClose={vi.fn()} />,
+    );
+
+    // Enter edit mode
+    await userEvent.click(screen.getByLabelText('Edit conversation title'));
+
+    // Type something then press Escape
+    const input = screen.getByLabelText('Edit conversation title') as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Something Else{Escape}');
+
+    // Should NOT call updateConversation
+    expect(mockUpdateConversation).not.toHaveBeenCalled();
+    // Should show original title
+    expect(screen.getByText('Original')).toBeInTheDocument();
+  });
+
+  it('does not call updateConversation when title is unchanged', async () => {
+    mockUpdateConversation.mockClear();
+    const { userEvent } = await import('@/test/test-utils');
+    render(
+      <ChatPanel conversationId="conv-1" title="Same Title" onClose={vi.fn()} />,
+    );
+
+    // Enter edit mode and press Enter without changing
+    await userEvent.click(screen.getByLabelText('Edit conversation title'));
+    const input = screen.getByLabelText('Edit conversation title');
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(mockUpdateConversation).not.toHaveBeenCalled();
+    });
   });
 });

@@ -1058,3 +1058,119 @@ class TestAgentKey:
         key_none = ChatAgentService._agent_key(sid, None)
         key_conv = ChatAgentService._agent_key(sid, "conv-1")
         assert key_none != key_conv
+
+    def test_empty_string_conversation_uses_sentinel(self):
+        """Empty string conversation_id falls back to '_' sentinel like None."""
+        sid = uuid4()
+        key_empty = ChatAgentService._agent_key(sid, "")
+        key_none = ChatAgentService._agent_key(sid, None)
+        assert key_empty == key_none
+
+
+class TestAgentKeySessionIsolation:
+    """Verify that run() and run_stream() use _agent_key to isolate conversations."""
+
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_uses_composite_key_for_session(self, mock_create_agent):
+        """run() passes session_id:conversation_id to session mapping."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = "Response"
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        service._session_mapping = AsyncMock(spec=AgentSessionMapping)
+        mock_session = MagicMock()
+        mock_session.state = {}
+        mock_session.conversation_history = []
+        service._session_mapping.get_or_create.return_value = mock_session
+
+        session_id = uuid4()
+        await service.run(
+            message="Hello",
+            session_id=session_id,
+            conversation_id="conv-abc",
+        )
+
+        expected_key = f"{session_id}:conv-abc"
+        service._session_mapping.get_or_create.assert_called_once_with(expected_key)
+
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_without_conversation_id_uses_sentinel_key(self, mock_create_agent):
+        """run() without conversation_id uses session_id:_ as key."""
+        mock_agent = AsyncMock()
+        mock_response = MagicMock()
+        mock_msg = MagicMock()
+        mock_msg.content = "Response"
+        mock_msg.annotations = None
+        mock_response.messages = [mock_msg]
+        mock_agent.run.return_value = mock_response
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        service._session_mapping = AsyncMock(spec=AgentSessionMapping)
+        mock_session = MagicMock()
+        mock_session.state = {}
+        mock_session.conversation_history = []
+        service._session_mapping.get_or_create.return_value = mock_session
+
+        session_id = uuid4()
+        await service.run(
+            message="Hello",
+            session_id=session_id,
+        )
+
+        expected_key = f"{session_id}:_"
+        service._session_mapping.get_or_create.assert_called_once_with(expected_key)
+
+    @patch("src.services.chat_agent.load_mcp_tools", new_callable=AsyncMock)
+    @patch("src.services.chat_agent.create_agent")
+    async def test_run_stream_uses_composite_key(self, mock_create_agent, mock_load_mcp_tools):
+        """run_stream() passes session_id:conversation_id to session mapping."""
+        mock_load_mcp_tools.return_value = []
+
+        # Create a minimal async iterator for the agent
+        async def mock_run_stream(*args, **kwargs):
+            yield MagicMock(text="token")
+
+        mock_agent = AsyncMock()
+        mock_agent.run_stream = mock_run_stream
+        mock_create_agent.return_value = mock_agent
+
+        service = ChatAgentService()
+        service._session_mapping = AsyncMock(spec=AgentSessionMapping)
+        mock_session = MagicMock()
+        mock_session.state = {}
+        mock_session.conversation_history = []
+        service._session_mapping.get_or_create.return_value = mock_session
+
+        session_id = uuid4()
+        events = []
+        async for event in service.run_stream(
+            message="Hello",
+            session_id=session_id,
+            conversation_id="conv-xyz",
+        ):
+            events.append(event)
+
+        expected_key = f"{session_id}:conv-xyz"
+        service._session_mapping.get_or_create.assert_called_once_with(expected_key)
+
+    async def test_different_conversations_get_different_agent_sessions(self):
+        """Verify the session mapping creates separate entries for different conversations."""
+        mapping = AgentSessionMapping(ttl_seconds=3600, max_sessions=10)
+        sid = uuid4()
+
+        # Two conversations under the same session
+        key_a = ChatAgentService._agent_key(sid, "conv-a")
+        key_b = ChatAgentService._agent_key(sid, "conv-b")
+
+        session_a = await mapping.get_or_create(key_a)
+        session_b = await mapping.get_or_create(key_b)
+
+        assert session_a is not session_b
+        assert mapping.session_count == 2
