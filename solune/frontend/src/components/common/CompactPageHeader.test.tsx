@@ -128,6 +128,50 @@ describe('CompactPageHeader', () => {
     );
   });
 
+  it('links the mobile toggle button to the stats container via aria-controls', () => {
+    const stats = [{ label: 'Count', value: '5' }];
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+    const controlsId = toggleBtn.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    const statsContainer = container.querySelector(`#${CSS.escape(controlsId!)}`);
+    expect(statsContainer).toBeInTheDocument();
+    expect(statsContainer).toHaveTextContent('Count');
+  });
+
+  it('does not render actions zone when actions prop is omitted', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} />);
+    // The header should only contain eyebrow, title, and description areas — no action buttons
+    const buttons = container.querySelectorAll('button');
+    expect(buttons).toHaveLength(0);
+  });
+
+  it('description text appears only once in the header', () => {
+    render(<CompactPageHeader {...defaultProps} />);
+    // Unlike CelestialCatalogHero which duplicated description in an aside panel,
+    // CompactPageHeader renders description exactly once
+    const descriptions = screen.getAllByText('Manage your agent constellation.');
+    expect(descriptions).toHaveLength(1);
+  });
+
+  it('renders each stat with both label and value text', () => {
+    const stats = [
+      { label: 'Columns', value: '4' },
+      { label: 'Agents', value: '12' },
+      { label: 'Active', value: '3' },
+    ];
+    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    for (const stat of stats) {
+      expect(screen.getByText(stat.label)).toBeInTheDocument();
+      expect(screen.getByText(stat.value)).toBeInTheDocument();
+    }
+  });
+
+  it('does not render a stats section when stats prop is omitted', () => {
+    render(<CompactPageHeader {...defaultProps} />);
+    expect(screen.queryByRole('button', { name: /stats/i })).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(
       <CompactPageHeader
