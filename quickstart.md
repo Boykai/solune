@@ -212,6 +212,7 @@ The migration uses `CREATE TABLE IF NOT EXISTS`, so this shouldn't happen. If it
 ### Messages don't filter by conversation_id
 
 Verify that:
+
 1. The migration added the `conversation_id` column to `chat_messages`
 2. The API endpoint passes `conversation_id` to the store method
 3. The frontend sends `conversationId` in the request
@@ -219,6 +220,7 @@ Verify that:
 ### Panel layout doesn't persist
 
 Check `localStorage` in browser DevTools:
+
 ```javascript
 JSON.parse(localStorage.getItem('solune:chat-panels'))
 ```
@@ -226,5 +228,6 @@ JSON.parse(localStorage.getItem('solune:chat-panels'))
 ### Resize handle not visible
 
 The handle is a thin (4–8px) vertical bar between panels. Ensure:
+
 1. Multiple panels are open
 2. Container has sufficient width for both panels (≥640px)
