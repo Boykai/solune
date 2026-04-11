@@ -26,12 +26,14 @@ interface UseChatOptions {
   isPlanMode?: boolean;
   onPlanThinking?: (event: ThinkingEvent) => void;
   clearPlanThinking?: () => void;
+  conversationId?: string;
 }
 
 export function useChat({
   isPlanMode = false,
   onPlanThinking,
   clearPlanThinking,
+  conversationId,
 }: UseChatOptions = {}) {
   const queryClient = useQueryClient();
   const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
@@ -41,22 +43,24 @@ export function useChat({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const proposals = useChatProposals();
 
+  const queryKey = ['chat', 'messages', conversationId ?? 'global'];
+
   const {
     data: messagesData,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['chat', 'messages'],
-    queryFn: chatApi.getMessages,
+    queryKey,
+    queryFn: () => chatApi.getMessages(conversationId),
     staleTime: STALE_TIME_MEDIUM,
   });
 
   const clearChatMutation = useMutation({
-    mutationFn: chatApi.clearMessages,
+    mutationFn: () => chatApi.clearMessages(conversationId),
     onSuccess: () => {
       proposals.clearProposals();
       setLocalMessages([]);
-      queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 
@@ -89,10 +93,11 @@ export function useChat({
   const { isCommand, executeCommand } = useCommands({ clearChat, messages: allMessages });
 
   const sendMutation = useMutation({
-    mutationFn: chatApi.sendMessage,
+    mutationFn: (data: Parameters<typeof chatApi.sendMessage>[0]) =>
+      chatApi.sendMessage(conversationId ? { ...data, conversation_id: conversationId } : data),
     onSuccess: (response) => {
       proposals.handleActionResponse(response);
-      queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+      queryClient.invalidateQueries({ queryKey });
     },
     onError: () => {
       toast.error('Failed to send message — check your connection and try again.', {
@@ -133,9 +138,9 @@ export function useChat({
       clearPlanThinking?.();
       setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
       proposals.handleActionResponse(response);
-      queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+      queryClient.invalidateQueries({ queryKey });
     },
-    [clearPlanThinking, clearStreamingPreview, proposals, queryClient],
+    [clearPlanThinking, clearStreamingPreview, proposals, queryClient, queryKey],
   );
 
   const handleTransportFailure = useCallback(
@@ -179,12 +184,15 @@ export function useChat({
         options?.isCommandInput ?? false,
       );
 
+      // Inject conversation_id into request data when scoped to a conversation
+      const requestData = conversationId ? { ...data, conversation_id: conversationId } : data;
+
       if (!useStreaming) {
         if (usePlanTransport) {
           clearPlanThinking?.();
 
           return chatApi
-            .sendPlanMessage(data)
+            .sendPlanMessage(requestData)
             .then((response) => {
               handleTransportSuccess(response, tempId, response.action_type === 'plan_create');
             })
@@ -197,7 +205,7 @@ export function useChat({
             });
         }
 
-        return sendMutation.mutateAsync(data).then(() => {
+        return sendMutation.mutateAsync(requestData).then(() => {
           setLocalMessages((prev) => prev.filter((m) => m.message_id !== tempId));
         });
       }
@@ -210,7 +218,7 @@ export function useChat({
           clearPlanThinking?.();
 
           chatApi.sendPlanMessageStream(
-            data,
+            requestData,
             () => {
               // Suppress raw plan-mode token prose. The dedicated thinking events
               // drive the visible plan progress indicator instead.
@@ -233,7 +241,7 @@ export function useChat({
         }
 
         chatApi.sendMessageStream(
-          data,
+          requestData,
           (token) => {
             setStreamingContent((prev) => prev + token);
           },
@@ -255,6 +263,7 @@ export function useChat({
     [
       clearPlanThinking,
       clearStreamingPreview,
+      conversationId,
       handleTransportFailure,
       handleTransportSuccess,
       onPlanThinking,
