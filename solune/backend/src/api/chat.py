@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -28,6 +28,10 @@ from src.models.chat import (
     ChatMessage,
     ChatMessageRequest,
     ChatMessagesResponse,
+    Conversation,
+    ConversationCreateRequest,
+    ConversationsListResponse,
+    ConversationUpdateRequest,
     SenderType,
 )
 from src.models.recommendation import (
@@ -162,6 +166,7 @@ async def _persist_message(session_id: UUID, message: ChatMessage) -> None:
         content=message.content,
         action_type=message.action_type.value if message.action_type else None,
         action_data=json.dumps(message.action_data) if message.action_data else None,
+        conversation_id=str(message.conversation_id) if message.conversation_id else None,
         context=f"message:{message.message_id}",
     )
 
@@ -307,6 +312,7 @@ async def _handle_agent_command(
     selected_project_id: str,
     project_name: str,
     project_columns: list[str],
+    conversation_id: UUID | None = None,
 ) -> ChatMessage | None:
     """Priority 0: Handle /agent or #agent custom agent creation commands.
 
@@ -347,6 +353,7 @@ async def _handle_agent_command(
         session_id=session.session_id,
         sender_type=SenderType.ASSISTANT,
         content=agent_response_text,
+        conversation_id=conversation_id,
     )
     await add_message(session.session_id, agent_msg)
     _trigger_signal_delivery(session, agent_msg, project_name)
@@ -924,16 +931,117 @@ def _trigger_signal_delivery(
         pass  # No running event loop — skip silently
 
 
+# ── Conversation CRUD ────────────────────────────────────────────
+
+
+@router.post("/conversations", status_code=201)
+async def create_conversation(
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    body: ConversationCreateRequest = Body(default_factory=ConversationCreateRequest),  # noqa: B008
+) -> Conversation:
+    """Create a new conversation for the current session."""
+    from src.services import chat_store
+
+    db = get_db()
+    conv_id = str(uuid4())
+    row = await chat_store.save_conversation(
+        db,
+        session_id=str(session.session_id),
+        conversation_id=conv_id,
+        title=body.title,
+    )
+    return Conversation(
+        conversation_id=row["conversation_id"],
+        session_id=row["session_id"],
+        title=row["title"],
+        created_at=row.get("created_at", ""),
+        updated_at=row.get("updated_at", ""),
+    )
+
+
+@router.get("/conversations", response_model=ConversationsListResponse)
+async def list_conversations(
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> ConversationsListResponse:
+    """List conversations for the current session."""
+    from src.services import chat_store
+
+    db = get_db()
+    rows = await chat_store.get_conversations(db, str(session.session_id))
+    conversations = [
+        Conversation(
+            conversation_id=r["conversation_id"],
+            session_id=r["session_id"],
+            title=r["title"],
+            created_at=r.get("created_at", ""),
+            updated_at=r.get("updated_at", ""),
+        )
+        for r in rows
+    ]
+    return ConversationsListResponse(conversations=conversations)
+
+
+@router.patch("/conversations/{conversation_id}")
+async def update_conversation(
+    conversation_id: str,
+    body: ConversationUpdateRequest,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> Conversation:
+    """Update a conversation title."""
+    from src.services import chat_store
+
+    db = get_db()
+    # Verify ownership before updating
+    existing = await chat_store.get_conversation_by_id(db, conversation_id)
+    if existing is None:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    if existing["session_id"] != str(session.session_id):
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    row = await chat_store.update_conversation(db, conversation_id, body.title)
+    if row is None:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    return Conversation(
+        conversation_id=row["conversation_id"],
+        session_id=row["session_id"],
+        title=row["title"],
+        created_at=row.get("created_at", ""),
+        updated_at=row.get("updated_at", ""),
+    )
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> dict[str, str]:
+    """Delete a conversation."""
+    from src.services import chat_store
+
+    db = get_db()
+    # Verify ownership before deleting
+    existing = await chat_store.get_conversation_by_id(db, conversation_id)
+    if existing is None:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    if existing["session_id"] != str(session.session_id):
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    await chat_store.delete_conversation(db, conversation_id)
+    return {"message": f"Conversation {conversation_id} deleted"}
+
+
 @router.get("/messages", response_model=ChatMessagesResponse)
 async def get_messages(
     session: Annotated[UserSession, Depends(get_session_dep)],
     limit: int = 50,
     offset: int = 0,
+    conversation_id: str | None = None,
 ) -> ChatMessagesResponse:
     """Get chat messages for current session with pagination.
 
     Pagination is performed at the database level to avoid loading all
     rows into memory for sessions with large message histories.
+
+    When *conversation_id* is provided, only messages for that conversation
+    are returned.
     """
     from src.services import chat_store
 
@@ -942,8 +1050,10 @@ async def get_messages(
     key = str(session.session_id)
 
     db = get_db()
-    total = await chat_store.count_messages(db, key)
-    rows = await chat_store.get_messages(db, key, limit=limit, offset=offset)
+    total = await chat_store.count_messages(db, key, conversation_id=conversation_id)
+    rows = await chat_store.get_messages(
+        db, key, limit=limit, offset=offset, conversation_id=conversation_id
+    )
     paginated: list[ChatMessage] = []
     for row in rows:
         action_data = None
@@ -960,6 +1070,8 @@ async def get_messages(
                 content=row["content"],
                 action_type=ActionType(row["action_type"]) if row.get("action_type") else None,
                 action_data=action_data,
+                timestamp=row["timestamp"] if row.get("timestamp") else utcnow(),
+                conversation_id=row.get("conversation_id"),
             )
         )
     return ChatMessagesResponse(
@@ -973,15 +1085,16 @@ async def get_messages(
 @router.delete("/messages")
 async def clear_messages(
     session: Annotated[UserSession, Depends(get_session_dep)],
+    conversation_id: str | None = None,
 ) -> dict[str, str]:
-    """Clear all chat messages for current session."""
+    """Clear all chat messages for current session, optionally scoped to a conversation."""
     key = str(session.session_id)
     _messages.pop(key, None)
     try:
         from src.services import chat_store
 
         db = get_db()
-        await chat_store.clear_messages(db, key)
+        await chat_store.clear_messages(db, key, conversation_id=conversation_id)
     except Exception:
         logger.warning("Failed to clear messages from SQLite", exc_info=True)
     return {"message": "Chat history cleared"}
@@ -1042,6 +1155,7 @@ async def send_message(
             session_id=session.session_id,
             sender_type=SenderType.ASSISTANT,
             content="AI features are not configured. Please set up your AI provider credentials (GitHub Copilot OAuth or Azure OpenAI) to use chat functionality.",
+            conversation_id=chat_request.conversation_id,
         )
         await add_message(session.session_id, error_msg)
         return error_msg
@@ -1051,6 +1165,7 @@ async def send_message(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -1077,6 +1192,7 @@ async def send_message(
         selected_project_id,
         project_name,
         project_columns,
+        conversation_id=chat_request.conversation_id,
     )
     if agent_msg:
         return agent_msg
@@ -1109,6 +1225,7 @@ async def send_message(
                 "proposed_title": content,
                 "proposed_description": "",
             },
+            conversation_id=chat_request.conversation_id,
         )
         assistant_msg = await _post_process_agent_response(
             session=session,
@@ -1147,7 +1264,11 @@ async def send_message(
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
             db=get_db(),
+            conversation_id=str(chat_request.conversation_id)
+            if chat_request.conversation_id
+            else None,
         )
+        assistant_message.conversation_id = chat_request.conversation_id
 
         # Post-process: create proposals/recommendations from action_data
         assistant_message = await _post_process_agent_response(
@@ -1408,6 +1529,7 @@ async def send_message_stream(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -1445,10 +1567,14 @@ async def send_message_stream(
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
             db=get_db(),
+            conversation_id=str(chat_request.conversation_id)
+            if chat_request.conversation_id
+            else None,
         ):
             if event.get("event") == "done":
                 try:
                     assistant_message = ChatMessage.model_validate_json(event["data"])
+                    assistant_message.conversation_id = chat_request.conversation_id
                     assistant_message = await _post_process_agent_response(
                         session=session,
                         message=assistant_message,
@@ -2020,6 +2146,7 @@ async def send_plan_message(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -2035,6 +2162,7 @@ async def send_plan_message(
         selected_pipeline_id=chat_request.pipeline_id,
         db=get_db(),
     )
+    result.conversation_id = chat_request.conversation_id
     await add_message(session.session_id, result)
     return result
 
@@ -2093,6 +2221,7 @@ async def send_plan_message_stream(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -2112,6 +2241,7 @@ async def send_plan_message_stream(
             if event.get("event") == "done":
                 try:
                     assistant_message = ChatMessage.model_validate_json(event["data"])
+                    assistant_message.conversation_id = chat_request.conversation_id
                     await add_message(session.session_id, assistant_message)
                     yield {
                         "event": "done",
