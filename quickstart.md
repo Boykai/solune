@@ -1,6 +1,10 @@
-# Quickstart: Multi-Chat App Page
+# Quickstart: Codebase Modularity Review
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11
+
+## Overview
+
+This refactoring decomposes six monolithic hotspots into domain-scoped modules. No new features are added — the public API surface and database schema remain unchanged. All existing tests must pass after each refactoring step.
 
 > **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
 
@@ -8,228 +12,236 @@
 
 - Python ≥3.12 with virtual environment
 - Node.js ≥18 with npm
-- SQLite (bundled with Python)
 - Git
+- Familiarity with the existing test suites
 
-## Backend Setup
+## Refactoring Execution Order
 
-```bash
-cd solune/backend
+Execute refactoring targets in strict dependency order. Each target is independently verifiable — all tests must pass before proceeding to the next.
 
-# Install dependencies
-pip install -e ".[dev]"
+### Target 1: Split `api/chat.py` → `api/chat/` package
 
-# Run migrations (applies 044_conversations.sql automatically on startup)
-# Migrations are applied via the startup hook in src/database.py
-python -c "from src.database import run_migrations; import asyncio; asyncio.run(run_migrations())"
-```
-
-### Verify Migration
-
-```bash
-# Check that the conversations table exists
-sqlite3 data/solune.db ".schema conversations"
-
-# Expected output:
-# CREATE TABLE conversations (
-#     conversation_id TEXT PRIMARY KEY,
-#     session_id TEXT NOT NULL,
-#     title TEXT NOT NULL DEFAULT 'New Chat',
-#     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     FOREIGN KEY (session_id) REFERENCES user_sessions(session_id) ON DELETE CASCADE
-# );
-
-# Check that conversation_id was added to chat_messages
-sqlite3 data/solune.db "PRAGMA table_info(chat_messages);" | grep conversation_id
-```
-
-### Run Backend Tests
+**Highest impact — reduces the single largest backend file from 2930 lines to ~10 focused modules.**
 
 ```bash
 cd solune/backend
 
-# Run conversation-specific tests
-python -m pytest tests/unit/test_chat_store.py -k "conversation" -v
+# 1. Create the package directory
+mkdir -p src/api/chat
 
-# Run all chat API tests
-python -m pytest tests/unit/test_api_chat.py -v
+# 2. Run existing tests first (baseline)
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
 
-# Run full backend test suite (ensure no regressions)
+# 3. After splitting, run the same tests to verify no regression
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+
+# 4. Run full backend suite
 python -m pytest tests/unit/ -q --timeout=120
 ```
 
-### Test Conversation Endpoints Manually
+**Verification**:
+
+- `from src.api.chat import router` still works (barrel re-export)
+- All 40 endpoints respond identically
+- No import errors at startup: `python -c "from src.api.chat import router; print('OK')"`
+
+### Target 2: Extract `ProposalOrchestrator` service
+
+**Converts the 348-line `confirm_proposal()` god function into a testable service class.**
 
 ```bash
-# Start the backend server
-cd solune/backend && uvicorn src.main:app --reload --port 8000
+cd solune/backend
 
-# Create a conversation (requires valid session cookie)
-curl -X POST http://localhost:8000/api/v1/chat/conversations \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test Conversation"}' \
-  -b "session_id=YOUR_SESSION_ID"
+# 1. Run proposal-specific tests (baseline)
+python -m pytest tests/unit/test_api_chat.py -k "confirm_proposal or proposal" -v
 
-# List conversations
-curl http://localhost:8000/api/v1/chat/conversations \
-  -b "session_id=YOUR_SESSION_ID"
+# 2. After extraction, verify
+python -m pytest tests/unit/test_api_chat.py -k "confirm_proposal or proposal" -v
 
-# Send a message to a specific conversation
-curl -X POST http://localhost:8000/api/v1/chat/messages \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Hello!", "conversation_id": "CONVERSATION_ID"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Get messages for a specific conversation
-curl "http://localhost:8000/api/v1/chat/messages?conversation_id=CONVERSATION_ID" \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Update conversation title
-curl -X PATCH http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Renamed Chat"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Delete conversation
-curl -X DELETE http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
-  -b "session_id=YOUR_SESSION_ID"
+# 3. Run full suite
+python -m pytest tests/unit/ -q --timeout=120
 ```
 
-## Frontend Setup
+**Verification**:
+
+- `confirm_proposal` endpoint returns identical responses
+- New `ProposalOrchestrator` can be instantiated and tested independently
+- Error handling behavior unchanged (expired proposals, missing proposals, GitHub API errors)
+
+### Target 3: Split `services/api.ts` → `services/api/` package
+
+**Improves frontend code-splitting and review scope.**
 
 ```bash
 cd solune/frontend
 
-# Install dependencies
-npm install
+# 1. Run existing API tests (baseline)
+npm test -- --reporter=verbose api.test
 
-# Start development server
-npm run dev
-```
+# 2. After splitting, verify all imports resolve
+npm run build
 
-### Run Frontend Tests
-
-```bash
-cd solune/frontend
-
-# Run conversation-related tests
-npm test -- --reporter=verbose useConversations
-npm test -- --reporter=verbose ChatPanel
-npm test -- --reporter=verbose ChatPanelManager
-npm test -- --reporter=verbose AppPage
-
-# Run full frontend test suite
+# 3. Run full test suite
 npm test
 ```
 
-### Verify UI Behavior
+**Verification**:
 
-1. **Navigate to AppPage** (`/`)
-   - Should see a single chat panel (full width)
-   - Panel header shows "New Chat" title
+- `import { chatApi } from '@/services/api'` still works (barrel re-export)
+- Build succeeds with no missing imports
+- Bundle size remains the same (±5%)
 
-2. **Send a message**
-   - Type in the input and press Enter
-   - Message appears in the panel; streaming response follows
+### Target 4: Domain-scoped types — `types/index.ts` → `types/*.ts`
 
-3. **Add a second panel**
-   - Click "Add Chat" button
-   - Second panel appears side-by-side
-   - Both panels are resizable via the drag handle between them
+**Reduces merge conflicts and improves IDE navigation.**
 
-4. **Resize panels**
-   - Hover over the border between panels (cursor changes to `col-resize`)
-   - Drag to resize; panels respect 320px minimum width
+```bash
+cd solune/frontend
 
-5. **Edit conversation title**
-   - Click the title in the panel header
-   - Type a new title and press Enter or blur
+# 1. Build baseline
+npm run build
 
-6. **Close a panel**
-   - Click the close (×) button in the panel header
-   - Panel is removed; remaining panels redistribute width
-   - Cannot close the last panel
+# 2. After splitting, verify
+npm run build
+npm test
+```
 
-7. **Mobile behavior** (resize browser to < 768px)
-   - Panels switch to tab view
-   - One panel visible at a time
-   - Tab bar at top shows conversation titles
+**Verification**:
 
-8. **Persistence**
-   - Open multiple panels with different conversations
-   - Refresh the browser
-   - Same panels and conversations should be restored from localStorage
+- `import { ChatMessage } from '@/types'` still works (barrel re-export)
+- TypeScript compilation succeeds with zero new errors
+- No circular import warnings
 
-9. **ChatPopup on other pages**
-   - Navigate to `/projects` or `/agents`
-   - ChatPopup (floating bottom-right) continues to work independently
-   - ChatPopup messages are NOT scoped to any conversation
+### Target 5: Consolidate backend global state — `ChatStateManager`
+
+**Wraps module-level dicts in a managed class with capacity limits.**
+
+```bash
+cd solune/backend
+
+# 1. Run chat tests (baseline)
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+
+# 2. After consolidation, verify
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+python -m pytest tests/unit/ -q --timeout=120
+```
+
+**Verification**:
+
+- Chat endpoints work identically
+- `ChatStateManager` respects capacity limits
+- No module-level mutable dicts remain in `api/chat/`
+
+### Target 6: Split `api/webhooks.py` → `api/webhooks/` package
+
+```bash
+cd solune/backend
+
+# 1. Run webhook tests (baseline)
+python -m pytest tests/unit/test_webhooks.py -v --timeout=120
+
+# 2. After splitting, verify
+python -m pytest tests/unit/test_webhooks.py -v --timeout=120
+python -m pytest tests/unit/ -q --timeout=120
+```
+
+**Verification**:
+
+- `from src.api.webhooks import router` still works
+- Webhook signature verification unchanged
+- All event handlers respond identically
+
+## Running Full Test Suites
+
+### Backend
+
+```bash
+cd solune/backend
+
+# Full unit test suite (5200+ tests, ~7 minutes)
+python -m pytest tests/unit/ -q --timeout=120
+
+# Coverage check (must stay ≥80%)
+python -m pytest tests/unit/ --cov=src --cov-report=term-missing --cov-fail-under=80
+```
+
+### Frontend
+
+```bash
+cd solune/frontend
+
+# Full test suite (2200+ tests, ~2 minutes)
+npm test
+
+# Build verification
+npm run build
+```
 
 ## Key Files Reference
 
-### Backend (modify)
+### Backend — Split Targets
 
-| File | Changes |
-|------|---------|
-| `src/migrations/044_conversations.sql` | NEW: Create conversations table + ALTER existing tables |
-| `src/models/chat.py` | Add Conversation models; add conversation_id to ChatMessage/Request |
-| `src/services/chat_store.py` | Add conversation CRUD; update message methods for conversation_id filter |
-| `src/api/chat.py` | Add conversation endpoints; update message endpoints |
-| `src/services/chat_agent.py` | Change session key to `session_id:conversation_id` |
+| Before | After | Lines Reduced |
+|--------|-------|---------------|
+| `src/api/chat.py` (2930 lines) | `src/api/chat/` (10 files) | 2930 → ~10 files × 100-450 lines |
+| `src/api/webhooks.py` (1033 lines) | `src/api/webhooks/` (6 files) | 1033 → ~6 files × 100-300 lines |
+| `src/main.py` (859 lines) | `src/main.py` (~120 lines) + `src/services/bootstrap.py` (~700 lines) | Single file → focused app definition |
 
-### Frontend (modify)
-
-| File | Changes |
-|------|---------|
-| `src/types/index.ts` | Add Conversation interface; add conversation_id to ChatMessage/Request |
-| `src/services/schemas/chat.ts` | Add Conversation Zod schemas; update ChatMessageSchema |
-| `src/services/api.ts` | Add conversationApi namespace; update chatApi methods |
-| `src/hooks/useChat.ts` | Accept conversationId param; update query keys |
-| `src/pages/AppPage.tsx` | Rewrite: marketing → ChatPanelManager |
-
-### Frontend (create)
+### Backend — New Files
 
 | File | Purpose |
 |------|---------|
-| `src/hooks/useConversations.ts` | React Query hook for conversation CRUD |
-| `src/hooks/useChatPanels.ts` | Panel layout state with localStorage persistence |
-| `src/components/chat/ChatPanel.tsx` | Standalone panel wrapping ChatInterface |
-| `src/components/chat/ChatPanelManager.tsx` | Multi-panel container with resize |
+| `src/services/proposal_orchestrator.py` | Extracted `confirm_proposal` orchestration logic |
+| `src/services/bootstrap.py` | Extracted lifespan/startup logic from `main.py` |
+| `src/api/chat/state.py` | `ChatStateManager` class |
+
+### Frontend — Split Targets
+
+| Before | After |
+|--------|-------|
+| `src/services/api.ts` (1876 lines) | `src/services/api/` (18 files) |
+| `src/types/index.ts` (1525 lines) | `src/types/` (11 files) |
 
 ### Untouched
 
-| File | Reason |
+| Area | Reason |
 |------|--------|
-| `AppLayout.tsx` | Layout wrapper — no changes needed |
-| `ChatPopup.tsx` | Floating popup — stays conversation-unaware |
-| `ChatInterface.tsx` | Reused as-is inside ChatPanel |
+| Database schema | No schema changes — this is a code-organization refactoring |
+| API endpoints | All endpoints retain the same URL paths, request/response shapes |
+| `ChatPopup.tsx` | Independent component, not part of any monolithic file |
+| Middleware stack | Already well-structured |
 
 ## Troubleshooting
 
-### Migration fails with "table conversations already exists"
+### Import errors after split
 
-The migration uses `CREATE TABLE IF NOT EXISTS`, so this shouldn't happen. If it does, check that `044_conversations.sql` was not applied twice.
+If `ModuleNotFoundError` occurs after splitting a file into a package:
 
-### Messages don't filter by conversation_id
+1. Verify the `__init__.py` exists in the new package directory
+2. Check that the barrel re-exports use the correct relative imports
+3. Run `python -c "from src.api.chat import router"` to isolate the error
 
-Verify that:
+### Test failures after move
 
-1. The migration added the `conversation_id` column to `chat_messages`
-2. The API endpoint passes `conversation_id` to the store method
-3. The frontend sends `conversationId` in the request
+If tests fail with import errors:
 
-### Panel layout doesn't persist
+1. Check test files for direct imports of moved functions (e.g., `from src.api.chat import _persist_message`)
+2. Update test imports to use the new module paths
+3. Private functions that were imported in tests should be importable from the sub-module
 
-Check `localStorage` in browser DevTools:
+### TypeScript build errors after type split
 
-```javascript
-JSON.parse(localStorage.getItem('solune:chat-panels'))
-```
+If `tsc` reports missing types:
 
-### Resize handle not visible
+1. Check that `types/index.ts` barrel re-exports the moved type
+2. Verify no circular imports between domain type files
+3. Run `npx tsc --noEmit` for detailed error locations
 
-The handle is a thin (4–8px) vertical bar between panels. Ensure:
+### Bundle size regression
 
-1. Multiple panels are open
-2. Container has sufficient width for both panels (≥640px)
+If the frontend bundle grows after splitting:
+
+1. Verify barrel exports don't accidentally import all domains
+2. Check that route-level code splitting still works (`React.lazy()` boundaries)
+3. Use `npx vite-bundle-analyzer` to compare before/after
