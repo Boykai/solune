@@ -72,18 +72,21 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
   const [panels, setPanels] = useState<PanelState[]>(() => {
     const saved = loadLayout();
     if (saved) return saved.panels;
-    // Will be populated on mount when initialConversationId is available
     return [];
   });
 
-  // Initialize with a default panel if nothing loaded from storage.
-  // This is an initialization pattern — the effect only runs when
-  // initialConversationId is first provided.
+  // Initialize with a default panel when initialConversationId becomes available.
+  // This effect only fires once when the conversation ID is first provided.
+  // The setState is guarded by a condition (prev.length === 0) so it's idempotent.
   useEffect(() => {
-    if (panels.length === 0 && initialConversationId) {
-      setPanels([createDefaultPanel(initialConversationId)]); // eslint-disable-line react-hooks/set-state-in-effect
-    }
-  }, [initialConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialization pattern: async ID not available at first render
+    setPanels((prev) => {
+      if (prev.length === 0 && initialConversationId) {
+        return [createDefaultPanel(initialConversationId)];
+      }
+      return prev;
+    });
+  }, [initialConversationId]);
 
   // Debounced persist to localStorage
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

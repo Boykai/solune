@@ -4,7 +4,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { conversationApi } from '@/services/api';
-import type { Conversation } from '@/types';
 import { STALE_TIME_MEDIUM } from '@/constants';
 
 export function useConversations() {
@@ -43,7 +42,7 @@ export function useConversations() {
   });
 
   return {
-    conversations: conversationsData?.conversations ?? [] as Conversation[],
+    conversations: conversationsData?.conversations ?? [],
     isLoading,
     error: error as Error | null,
     createConversation: createMutation.mutateAsync,
