@@ -166,6 +166,7 @@ async def _persist_message(session_id: UUID, message: ChatMessage) -> None:
         content=message.content,
         action_type=message.action_type.value if message.action_type else None,
         action_data=json.dumps(message.action_data) if message.action_data else None,
+        conversation_id=str(message.conversation_id) if message.conversation_id else None,
         context=f"message:{message.message_id}",
     )
 
@@ -311,6 +312,7 @@ async def _handle_agent_command(
     selected_project_id: str,
     project_name: str,
     project_columns: list[str],
+    conversation_id: UUID | None = None,
 ) -> ChatMessage | None:
     """Priority 0: Handle /agent or #agent custom agent creation commands.
 
@@ -351,6 +353,7 @@ async def _handle_agent_command(
         session_id=session.session_id,
         sender_type=SenderType.ASSISTANT,
         content=agent_response_text,
+        conversation_id=conversation_id,
     )
     await add_message(session.session_id, agent_msg)
     _trigger_signal_delivery(session, agent_msg, project_name)
@@ -988,6 +991,12 @@ async def update_conversation(
     from src.services import chat_store
 
     db = get_db()
+    # Verify ownership before updating
+    existing = await chat_store.get_conversation_by_id(db, conversation_id)
+    if existing is None:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    if existing["session_id"] != str(session.session_id):
+        raise NotFoundError(f"Conversation {conversation_id} not found")
     row = await chat_store.update_conversation(db, conversation_id, body.title)
     if row is None:
         raise NotFoundError(f"Conversation {conversation_id} not found")
@@ -1009,9 +1018,13 @@ async def delete_conversation(
     from src.services import chat_store
 
     db = get_db()
-    deleted = await chat_store.delete_conversation(db, conversation_id)
-    if not deleted:
+    # Verify ownership before deleting
+    existing = await chat_store.get_conversation_by_id(db, conversation_id)
+    if existing is None:
         raise NotFoundError(f"Conversation {conversation_id} not found")
+    if existing["session_id"] != str(session.session_id):
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    await chat_store.delete_conversation(db, conversation_id)
     return {"message": f"Conversation {conversation_id} deleted"}
 
 
@@ -1140,6 +1153,7 @@ async def send_message(
             session_id=session.session_id,
             sender_type=SenderType.ASSISTANT,
             content="AI features are not configured. Please set up your AI provider credentials (GitHub Copilot OAuth or Azure OpenAI) to use chat functionality.",
+            conversation_id=chat_request.conversation_id,
         )
         await add_message(session.session_id, error_msg)
         return error_msg
@@ -1149,6 +1163,7 @@ async def send_message(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -1175,6 +1190,7 @@ async def send_message(
         selected_project_id,
         project_name,
         project_columns,
+        conversation_id=chat_request.conversation_id,
     )
     if agent_msg:
         return agent_msg
@@ -1207,6 +1223,7 @@ async def send_message(
                 "proposed_title": content,
                 "proposed_description": "",
             },
+            conversation_id=chat_request.conversation_id,
         )
         assistant_msg = await _post_process_agent_response(
             session=session,
@@ -1245,7 +1262,9 @@ async def send_message(
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
             db=get_db(),
+            conversation_id=str(chat_request.conversation_id) if chat_request.conversation_id else None,
         )
+        assistant_message.conversation_id = chat_request.conversation_id
 
         # Post-process: create proposals/recommendations from action_data
         assistant_message = await _post_process_agent_response(
@@ -1506,6 +1525,7 @@ async def send_message_stream(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -1543,10 +1563,12 @@ async def send_message_stream(
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
             db=get_db(),
+            conversation_id=str(chat_request.conversation_id) if chat_request.conversation_id else None,
         ):
             if event.get("event") == "done":
                 try:
                     assistant_message = ChatMessage.model_validate_json(event["data"])
+                    assistant_message.conversation_id = chat_request.conversation_id
                     assistant_message = await _post_process_agent_response(
                         session=session,
                         message=assistant_message,
@@ -2118,6 +2140,7 @@ async def send_plan_message(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -2133,6 +2156,7 @@ async def send_plan_message(
         selected_pipeline_id=chat_request.pipeline_id,
         db=get_db(),
     )
+    result.conversation_id = chat_request.conversation_id
     await add_message(session.session_id, result)
     return result
 
@@ -2191,6 +2215,7 @@ async def send_plan_message_stream(
         session_id=session.session_id,
         sender_type=SenderType.USER,
         content=chat_request.content,
+        conversation_id=chat_request.conversation_id,
     )
     await add_message(session.session_id, user_message)
 
@@ -2210,6 +2235,7 @@ async def send_plan_message_stream(
             if event.get("event") == "done":
                 try:
                     assistant_message = ChatMessage.model_validate_json(event["data"])
+                    assistant_message.conversation_id = chat_request.conversation_id
                     await add_message(session.session_id, assistant_message)
                     yield {
                         "event": "done",
