@@ -128,6 +128,7 @@ solune/frontend/
 **Rationale**: Existing rows have no conversation context (they belong to `ChatPopup` on non-AppPage routes). Making the column nullable preserves all existing data and behavior. The `ChatPopup` never sends a `conversation_id`, so its messages continue to work without modification. Queries that filter by `conversation_id` use `WHERE conversation_id = ?` for scoped results, while `ChatPopup` queries omit the filter (or use `WHERE conversation_id IS NULL`).
 
 **Alternatives considered**:
+
 - `NOT NULL DEFAULT ''` with empty string sentinel: Requires backfilling existing rows; creates ambiguity between "no conversation" and "empty string".
 - Separate `conversation_messages` join table: Over-normalized for SQLite; adds query complexity without benefit.
 - Migration to assign all existing messages to a default conversation: Breaks the "ChatPopup untouched" decision; unnecessary complexity.
@@ -139,6 +140,7 @@ solune/frontend/
 **Rationale**: Each conversation needs its own independent agent context so chat history and tool state don't leak between simultaneous conversations. The existing `AgentSessionMapping` already uses string keys and supports TTL-based eviction. The composite key format is simple, reversible, and doesn't conflict with UUID characters.
 
 **Alternatives considered**:
+
 - Nested dict (`dict[str, dict[str, AgentSession]]`): Requires reworking eviction and TTL logic in `AgentSessionMapping`.
 - Tuple key `(session_id, conversation_id)`: Works but the existing implementation is string-based; conversion would require API changes.
 - Separate `AgentSessionMapping` per conversation: Memory overhead; harder to manage TTL globally.
@@ -150,6 +152,7 @@ solune/frontend/
 **Rationale**: Panel layout is ephemeral UI state—no server persistence needed. `localStorage` survives page refreshes (per the spec's verification criteria) and is synchronous (no loading states needed). A schema version field allows graceful degradation if the format changes in a future release.
 
 **Alternatives considered**:
+
 - `sessionStorage`: Doesn't survive tab close; spec requires restoration on browser refresh.
 - Server-side persistence: Over-engineered for UI layout; adds latency and a new endpoint.
 - URL state (query params): Clutters the URL; doesn't scale to complex layouts.
@@ -161,6 +164,7 @@ solune/frontend/
 **Rationale**: The resize interaction is constrained to horizontal dragging between panels—simpler than general drag-and-drop. The existing `ChatPopup` already implements resize with native events (lines 153–204 of `ChatPopup.tsx`). Using the same pattern keeps the codebase consistent. `requestAnimationFrame` gating prevents excessive re-renders during drag.
 
 **Alternatives considered**:
+
 - `@dnd-kit` (already a dependency): Designed for sortable lists and drag-and-drop; resize handles are an anti-pattern in dnd-kit.
 - `react-resizable-panels`: New dependency; adds bundle size for a single use case.
 - CSS `resize` property: Only works on individual elements; can't synchronize adjacent panel widths.
@@ -172,6 +176,7 @@ solune/frontend/
 **Rationale**: Side-by-side panels don't fit on mobile screens (spec's 320px minimum per panel). Tab switching preserves conversation state (React Query cache, scroll position) without unmounting. The tab bar uses minimal vertical space and follows mobile chat app conventions (e.g., Slack's channel switching).
 
 **Alternatives considered**:
+
 - Swipe navigation: Requires gesture handling; conflicts with horizontal scrolling in message content.
 - Accordion/collapsible panels: Unusual for chat UIs; poor mobile UX.
 - Force single panel on mobile: Simplest but removes multi-chat capability entirely on mobile.
