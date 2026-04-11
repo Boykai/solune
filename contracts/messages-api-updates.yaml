@@ -1,0 +1,214 @@
+# Messages API Updates Contract
+# OpenAPI 3.0 specification for conversation_id additions to existing message endpoints
+
+openapi: "3.0.3"
+info:
+  title: Solune Messages API — Conversation Updates
+  version: "1.0.0"
+  description: |
+    Updates to existing message endpoints to support optional conversation_id filtering.
+    All changes are backward-compatible — omitting conversation_id preserves existing behavior.
+
+servers:
+  - url: /chat
+    description: Chat API namespace
+
+paths:
+  /messages:
+    get:
+      summary: Get messages (with optional conversation filter)
+      operationId: getMessages
+      description: |
+        Returns paginated messages for the current session.
+        When conversation_id is provided, returns only messages belonging to that conversation.
+        When omitted, returns all messages for the session (existing behavior).
+      parameters:
+        - name: conversation_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: |
+            Filter messages to a specific conversation.
+            When omitted, returns all session messages (backward-compatible).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+          description: Maximum number of messages to return
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Number of messages to skip
+      responses:
+        "200":
+          description: Paginated messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessagesResponse"
+
+    post:
+      summary: Send a message (with optional conversation context)
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequestUpdated"
+            examples:
+              without_conversation:
+                summary: Send without conversation (ChatPopup behavior)
+                value:
+                  content: "Help me create a new task"
+              with_conversation:
+                summary: Send with conversation (AppPage panel behavior)
+                value:
+                  content: "Help me create a new task"
+                  conversation_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        "200":
+          description: Message sent and response received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageUpdated"
+
+    delete:
+      summary: Clear messages (with optional conversation scope)
+      operationId: clearMessages
+      parameters:
+        - name: conversation_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: |
+            Scope deletion to a specific conversation.
+            When omitted, clears all messages for the session (existing behavior).
+      responses:
+        "200":
+          description: Messages cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /messages/stream:
+    post:
+      summary: Stream a message response (with optional conversation context)
+      operationId: sendMessageStream
+      description: |
+        Sends a message and streams the response via Server-Sent Events (SSE).
+        When conversation_id is provided, the message and response are scoped to that conversation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequestUpdated"
+      responses:
+        "200":
+          description: SSE stream of response tokens
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Event types:
+                  - `token`: Partial response content
+                  - `done`: Final complete message (ChatMessageUpdated JSON)
+                  - `error`: Error details
+
+components:
+  schemas:
+    ChatMessageRequestUpdated:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          maxLength: 100000
+          description: Message content
+        ai_enhance:
+          type: boolean
+          default: true
+          description: Whether to enhance the message with AI
+        file_urls:
+          type: array
+          items:
+            type: string
+          default: []
+          description: Attached file URLs
+        pipeline_id:
+          type: string
+          nullable: true
+          description: Optional pipeline context
+        conversation_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            **NEW**: Optional conversation to scope this message to.
+            When omitted or null, the message is session-global (ChatPopup behavior).
+
+    ChatMessageUpdated:
+      type: object
+      required:
+        - message_id
+        - session_id
+        - sender_type
+        - content
+        - timestamp
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        sender_type:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        action_type:
+          type: string
+          nullable: true
+          enum: [task_create, status_update, project_select, issue_create, pipeline_launch, plan_create, app_import, app_build, app_iterate]
+        action_data:
+          type: object
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+        conversation_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            **NEW**: The conversation this message belongs to.
+            Null for session-global messages (ChatPopup).
+
+    ChatMessagesResponse:
+      type: object
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessageUpdated"

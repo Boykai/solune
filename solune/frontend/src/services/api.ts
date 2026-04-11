@@ -92,9 +92,11 @@ import type {
   StepReorderRequest,
   StepUpdateRequest,
   ThinkingEvent,
+  Conversation,
+  ConversationsListResponse,
 } from '@/types';
 import { BoardDataResponseSchema } from '@/services/schemas/board';
-import { ChatMessagesResponseSchema } from '@/services/schemas/chat';
+import { ChatMessagesResponseSchema, ConversationsListResponseSchema } from '@/services/schemas/chat';
 import { PipelineStateInfoSchema } from '@/services/schemas/pipeline';
 import { ProjectListResponseSchema } from '@/services/schemas/projects';
 import { EffectiveUserSettingsSchema } from '@/services/schemas/settings';
@@ -325,22 +327,69 @@ export const tasksApi = {
   },
 };
 
+// ============ Conversation API ============
+
+export const conversationApi = {
+  /**
+   * Create a new conversation.
+   */
+  create(title?: string): Promise<Conversation> {
+    return request<Conversation>('/chat/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ title: title ?? 'New Chat' }),
+    });
+  },
+
+  /**
+   * List conversations for the current session.
+   */
+  async list(): Promise<ConversationsListResponse> {
+    const data = await request<ConversationsListResponse>('/chat/conversations');
+    return validateResponse(ConversationsListResponseSchema, data, 'conversationApi.list');
+  },
+
+  /**
+   * Update a conversation title.
+   */
+  update(conversationId: string, title: string): Promise<Conversation> {
+    return request<Conversation>(`/chat/conversations/${conversationId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    });
+  },
+
+  /**
+   * Delete a conversation.
+   */
+  delete(conversationId: string): Promise<{ message: string }> {
+    return request<{ message: string }>(`/chat/conversations/${conversationId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 // ============ Chat API ============
 
 export const chatApi = {
   /**
    * Get chat messages for current session.
    */
-  async getMessages(): Promise<ChatMessagesResponse> {
-    const data = await request<ChatMessagesResponse>('/chat/messages');
+  async getMessages(conversationId?: string): Promise<ChatMessagesResponse> {
+    const params = conversationId
+      ? `?conversation_id=${encodeURIComponent(conversationId)}`
+      : '';
+    const data = await request<ChatMessagesResponse>(`/chat/messages${params}`);
     return validateResponse(ChatMessagesResponseSchema, data, 'chatApi.getMessages');
   },
 
   /**
    * Clear all chat messages for current session.
    */
-  clearMessages(): Promise<{ message: string }> {
-    return request<{ message: string }>('/chat/messages', { method: 'DELETE' });
+  clearMessages(conversationId?: string): Promise<{ message: string }> {
+    const params = conversationId
+      ? `?conversation_id=${encodeURIComponent(conversationId)}`
+      : '';
+    return request<{ message: string }>(`/chat/messages${params}`, { method: 'DELETE' });
   },
 
   /**
