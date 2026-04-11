@@ -1,7 +1,7 @@
 # Tasks: Multi-Chat App Page
 
-**Input**: Design documents from plan.md, spec.md (specs/001-multi-chat-app-page/spec.md), data-model.md, research.md, contracts/
-**Prerequisites**: plan.md (required), spec.md (required for user stories), data-model.md, research.md, contracts/
+**Input**: Design documents from `plan.md`, `specs/001-multi-chat-app-page/spec.md`, `data-model.md`, `research.md`, `contracts/`
+**Prerequisites**: `plan.md` (required), `spec.md` (required for user stories), `data-model.md`, `research.md`, `contracts/`
 
 **Tests**: Tests ARE explicitly requested in Phase 5 of the spec. Test tasks are included for backend CRUD, frontend components, and hooks.
 
@@ -49,7 +49,7 @@
 
 ### Backend Store
 
-- [ ] T009 Add save_conversation(db, session_id, conversation_id, title) method with INSERT OR REPLACE to `solune/backend/src/services/chat_store.py`
+- [ ] T009 Add save_conversation(db, session_id, conversation_id, title) method using INSERT with ON CONFLICT handling to `solune/backend/src/services/chat_store.py`
 - [ ] T010 [P] Add get_conversations(db, session_id) method returning conversations ordered by updated_at DESC to `solune/backend/src/services/chat_store.py`
 - [ ] T011 [P] Add get_conversation_by_id(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
 - [ ] T012 [P] Add update_conversation(db, conversation_id, title) method that also updates updated_at timestamp to `solune/backend/src/services/chat_store.py`
@@ -192,7 +192,7 @@
 
 ### Implementation for User Story 5
 
-- [ ] T056 [US5] Add localStorage persistence to useChatPanels — save panel layout as JSON under key `solune:chat-panels` with schema `{ version: 1, panels: [...] }` on every state change in `solune/frontend/src/hooks/useChatPanels.ts`
+- [ ] T056 [US5] Add debounced localStorage persistence to useChatPanels — save panel layout as JSON under key `solune:chat-panels` with schema `{ version: 1, panels: [...] }` on state changes (debounce writes during rapid interactions like resize) in `solune/frontend/src/hooks/useChatPanels.ts`
 - [ ] T057 [US5] Add restore-on-load logic to useChatPanels — on mount, read from localStorage, validate schema version, load panels; if localStorage is empty or invalid, create default single panel in `solune/frontend/src/hooks/useChatPanels.ts`
 - [ ] T058 [US5] Add stale conversation pruning — on restore, verify each panel's conversationId exists via conversationApi.list(); replace stale references with new empty conversations in `solune/frontend/src/hooks/useChatPanels.ts`
 
