@@ -315,6 +315,16 @@ class ChatAgentService:
     inputs and return ``ChatMessage`` instances.
     """
 
+    @staticmethod
+    def _agent_key(session_id: UUID, conversation_id: str | None = None) -> str:
+        """Build a composite key for agent session isolation.
+
+        Each conversation gets its own agent context so that concurrent
+        chats do not share state.
+        """
+        cid = conversation_id or "_"
+        return f"{session_id}:{cid}"
+
     def __init__(self) -> None:
         settings = get_settings()
         self._session_mapping = AgentSessionMapping(
@@ -338,6 +348,7 @@ class ChatAgentService:
         pipeline_id: str | None = None,
         file_urls: list[str] | None = None,
         db: Any | None = None,
+        conversation_id: str | None = None,
     ) -> ChatMessage:
         """Run the agent with a user message and return a ChatMessage.
 
@@ -357,7 +368,9 @@ class ChatAgentService:
             ChatMessage with the agent's response, including action_type and
             action_data when the agent invoked an action tool.
         """
-        agent_session = await self._session_mapping.get_or_create(str(session_id))
+        agent_session = await self._session_mapping.get_or_create(
+            self._agent_key(session_id, conversation_id)
+        )
 
         # Inject runtime context into session state for tool access
         agent_session.state.update(
@@ -442,6 +455,7 @@ class ChatAgentService:
         pipeline_id: str | None = None,
         file_urls: list[str] | None = None,
         db: Any | None = None,
+        conversation_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Run the agent in streaming mode, yielding SSE-compatible events.
 
@@ -455,7 +469,9 @@ class ChatAgentService:
         Yields:
             Dicts with ``event`` and ``data`` keys for SSE serialization.
         """
-        agent_session = await self._session_mapping.get_or_create(str(session_id))
+        agent_session = await self._session_mapping.get_or_create(
+            self._agent_key(session_id, conversation_id)
+        )
 
         # Inject runtime context into session state for tool access
         agent_session.state.update(

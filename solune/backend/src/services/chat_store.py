@@ -51,14 +51,23 @@ async def save_message(
     content: str,
     action_type: str | None = None,
     action_data: str | None = None,
+    conversation_id: str | None = None,
 ) -> None:
     """Persist a chat message to SQLite."""
     async with transaction(db):
         await db.execute(
             """INSERT OR REPLACE INTO chat_messages
-               (message_id, session_id, sender_type, content, action_type, action_data)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (message_id, session_id, sender_type, content, action_type, action_data),
+               (message_id, session_id, sender_type, content, action_type, action_data, conversation_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                message_id,
+                session_id,
+                sender_type,
+                content,
+                action_type,
+                action_data,
+                conversation_id,
+            ),
         )
 
 
@@ -68,26 +77,36 @@ async def get_messages(
     *,
     limit: int | None = None,
     offset: int = 0,
+    conversation_id: str | None = None,
 ) -> list[dict]:
     """Retrieve messages for a session, ordered by timestamp.
 
     When *limit* is provided, only *limit* rows starting at *offset* are
     returned (SQL-level pagination).  Otherwise all rows are fetched.
+
+    When *conversation_id* is provided, only messages belonging to that
+    conversation are returned.
     """
+    where = "WHERE session_id = ?"
+    params: list[str | int] = [session_id]
+    if conversation_id is not None:
+        where += " AND conversation_id = ?"
+        params.append(conversation_id)
+
     if limit is not None:
         cursor = await db.execute(
-            """SELECT message_id, session_id, sender_type, content,
-                      action_type, action_data, timestamp
-               FROM chat_messages WHERE session_id = ? ORDER BY timestamp
+            f"""SELECT message_id, session_id, sender_type, content,
+                      action_type, action_data, timestamp, conversation_id
+               FROM chat_messages {where} ORDER BY timestamp
                LIMIT ? OFFSET ?""",
-            (session_id, limit, offset),
+            (*params, limit, offset),
         )
     else:
         cursor = await db.execute(
-            """SELECT message_id, session_id, sender_type, content,
-                      action_type, action_data, timestamp
-               FROM chat_messages WHERE session_id = ? ORDER BY timestamp""",
-            (session_id,),
+            f"""SELECT message_id, session_id, sender_type, content,
+                      action_type, action_data, timestamp, conversation_id
+               FROM chat_messages {where} ORDER BY timestamp""",
+            tuple(params),
         )
     rows = await cursor.fetchall()
     result = []
@@ -102,6 +121,7 @@ async def get_messages(
                     "action_type": row[4],
                     "action_data": row[5],
                     "timestamp": row[6],
+                    "conversation_id": row[7],
                 }
             )
         else:
@@ -112,11 +132,17 @@ async def get_messages(
 async def count_messages(
     db: aiosqlite.Connection,
     session_id: str,
+    conversation_id: str | None = None,
 ) -> int:
     """Return the total number of messages for a session."""
+    where = "WHERE session_id = ?"
+    params: list[str] = [session_id]
+    if conversation_id is not None:
+        where += " AND conversation_id = ?"
+        params.append(conversation_id)
     cursor = await db.execute(
-        "SELECT COUNT(*) FROM chat_messages WHERE session_id = ?",
-        (session_id,),
+        f"SELECT COUNT(*) FROM chat_messages {where}",
+        tuple(params),
     )
     row = await cursor.fetchone()
     return row[0] if row else 0
@@ -125,10 +151,141 @@ async def count_messages(
 async def clear_messages(
     db: aiosqlite.Connection,
     session_id: str,
+    conversation_id: str | None = None,
 ) -> None:
-    """Delete all messages for a session."""
+    """Delete all messages for a session, optionally scoped to a conversation."""
     async with transaction(db):
-        await db.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        if conversation_id is not None:
+            await db.execute(
+                "DELETE FROM chat_messages WHERE session_id = ? AND conversation_id = ?",
+                (session_id, conversation_id),
+            )
+        else:
+            await db.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+
+
+# ── Conversations ────────────────────────────────────────────────
+
+
+async def save_conversation(
+    db: aiosqlite.Connection,
+    session_id: str,
+    conversation_id: str,
+    title: str = "New Chat",
+) -> dict:
+    """Create or replace a conversation and return it as a dict."""
+    async with transaction(db):
+        await db.execute(
+            """INSERT OR REPLACE INTO conversations
+               (conversation_id, session_id, title)
+               VALUES (?, ?, ?)""",
+            (conversation_id, session_id, title),
+        )
+    cursor = await db.execute(
+        """SELECT conversation_id, session_id, title, created_at, updated_at
+           FROM conversations WHERE conversation_id = ?""",
+        (conversation_id,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return {
+            "conversation_id": conversation_id,
+            "session_id": session_id,
+            "title": title,
+        }
+    if isinstance(row, tuple):
+        return {
+            "conversation_id": row[0],
+            "session_id": row[1],
+            "title": row[2],
+            "created_at": row[3],
+            "updated_at": row[4],
+        }
+    return dict(row)
+
+
+async def get_conversations(
+    db: aiosqlite.Connection,
+    session_id: str,
+) -> list[dict]:
+    """Return all conversations for a session, ordered by updated_at DESC."""
+    cursor = await db.execute(
+        """SELECT conversation_id, session_id, title, created_at, updated_at
+           FROM conversations WHERE session_id = ? ORDER BY updated_at DESC""",
+        (session_id,),
+    )
+    rows = await cursor.fetchall()
+    result = []
+    for row in rows:
+        if isinstance(row, tuple):
+            result.append(
+                {
+                    "conversation_id": row[0],
+                    "session_id": row[1],
+                    "title": row[2],
+                    "created_at": row[3],
+                    "updated_at": row[4],
+                }
+            )
+        else:
+            result.append(dict(row))
+    return result
+
+
+async def get_conversation_by_id(
+    db: aiosqlite.Connection,
+    conversation_id: str,
+) -> dict | None:
+    """Return a single conversation by ID, or None if not found."""
+    cursor = await db.execute(
+        """SELECT conversation_id, session_id, title, created_at, updated_at
+           FROM conversations WHERE conversation_id = ?""",
+        (conversation_id,),
+    )
+    row = await cursor.fetchone()
+    if row is None:
+        return None
+    if isinstance(row, tuple):
+        return {
+            "conversation_id": row[0],
+            "session_id": row[1],
+            "title": row[2],
+            "created_at": row[3],
+            "updated_at": row[4],
+        }
+    return dict(row)
+
+
+async def update_conversation(
+    db: aiosqlite.Connection,
+    conversation_id: str,
+    title: str,
+) -> dict | None:
+    """Update a conversation title and return the updated record, or None if not found."""
+    async with transaction(db):
+        await db.execute(
+            """UPDATE conversations
+               SET title = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+               WHERE conversation_id = ?""",
+            (title, conversation_id),
+        )
+    return await get_conversation_by_id(db, conversation_id)
+
+
+async def delete_conversation(
+    db: aiosqlite.Connection,
+    conversation_id: str,
+) -> bool:
+    """Delete a conversation. Returns True if deleted, False if not found."""
+    existing = await get_conversation_by_id(db, conversation_id)
+    if existing is None:
+        return False
+    async with transaction(db):
+        await db.execute(
+            "DELETE FROM conversations WHERE conversation_id = ?",
+            (conversation_id,),
+        )
+    return True
 
 
 # ── Proposals ────────────────────────────────────────────────────
