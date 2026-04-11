@@ -141,34 +141,34 @@ describe('CompactPageHeader', () => {
 
   it('does not render actions zone when actions prop is omitted', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
-    // The actions wrapper div only renders when actions is provided
-    const header = container.querySelector('header')!;
-    // With no actions, there should be no shrink-0 wrapper
-    expect(header.querySelector('.shrink-0')).not.toBeInTheDocument();
+    // The header should only contain eyebrow, title, and description areas — no action buttons
+    const buttons = container.querySelectorAll('button');
+    expect(buttons).toHaveLength(0);
   });
 
-  it('wraps description in a group for hover-expand behavior', () => {
-    const { container } = render(<CompactPageHeader {...defaultProps} />);
-    const groupDiv = container.querySelector('.group');
-    expect(groupDiv).toBeInTheDocument();
-    const desc = groupDiv?.querySelector('p');
-    expect(desc?.className).toContain('group-hover:line-clamp-none');
+  it('description text appears only once in the header', () => {
+    render(<CompactPageHeader {...defaultProps} />);
+    // Unlike CelestialCatalogHero which duplicated description in an aside panel,
+    // CompactPageHeader renders description exactly once
+    const descriptions = screen.getAllByText('Manage your agent constellation.');
+    expect(descriptions).toHaveLength(1);
   });
 
-  it('renders all stats as individual chip elements', () => {
+  it('renders each stat with both label and value text', () => {
     const stats = [
       { label: 'Columns', value: '4' },
       { label: 'Agents', value: '12' },
       { label: 'Active', value: '3' },
     ];
-    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
-    const chips = container.querySelectorAll('span.inline-flex');
-    expect(chips).toHaveLength(3);
+    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    for (const stat of stats) {
+      expect(screen.getByText(stat.label)).toBeInTheDocument();
+      expect(screen.getByText(stat.value)).toBeInTheDocument();
+    }
   });
 
   it('does not render a stats section when stats prop is omitted', () => {
-    const { container } = render(<CompactPageHeader {...defaultProps} />);
-    expect(container.querySelector('.inline-flex')).not.toBeInTheDocument();
+    render(<CompactPageHeader {...defaultProps} />);
     expect(screen.queryByRole('button', { name: /stats/i })).not.toBeInTheDocument();
   });
 
