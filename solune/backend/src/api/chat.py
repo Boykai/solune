@@ -1262,7 +1262,9 @@ async def send_message(
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
             db=get_db(),
-            conversation_id=str(chat_request.conversation_id) if chat_request.conversation_id else None,
+            conversation_id=str(chat_request.conversation_id)
+            if chat_request.conversation_id
+            else None,
         )
         assistant_message.conversation_id = chat_request.conversation_id
 
@@ -1563,7 +1565,9 @@ async def send_message_stream(
             pipeline_id=chat_request.pipeline_id,
             file_urls=chat_request.file_urls,
             db=get_db(),
-            conversation_id=str(chat_request.conversation_id) if chat_request.conversation_id else None,
+            conversation_id=str(chat_request.conversation_id)
+            if chat_request.conversation_id
+            else None,
         ):
             if event.get("event") == "done":
                 try:

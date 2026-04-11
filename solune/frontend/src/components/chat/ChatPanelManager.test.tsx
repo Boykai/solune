@@ -48,7 +48,7 @@ vi.mock('@/hooks/useChatPanels', () => ({
   }),
 }));
 
-let mockIsMobile = false;
+const mockIsMobile = false;
 vi.mock('@/hooks/useMediaQuery', () => ({
   useMediaQuery: () => mockIsMobile,
 }));
