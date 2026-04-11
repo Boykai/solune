@@ -613,7 +613,7 @@ class TestSetupWorkflow:
             patch(
                 "src.services.copilot_polling.ensure_polling_started",
                 new=AsyncMock(),
-            ),
+            ) as mock_polling,
             patch.object(orch, "_resolve_pipeline", new=AsyncMock(return_value=mock_pipeline_result)),
         ):
             await orch._setup_workflow(
@@ -623,6 +623,9 @@ class TestSetupWorkflow:
 
         # set_workflow_config should have been called (to create default config)
         mock_set_config.assert_awaited()
+        # Workflow continues despite settings retrieval failure
+        mock_orch.assign_agent_for_status.assert_awaited_once()
+        mock_polling.assert_awaited_once()
 
 
 # ── Backward-compatible re-exports ─────────────────────────────────────────
