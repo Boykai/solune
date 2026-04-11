@@ -1,22 +1,33 @@
 # Dashboard
 
-The dashboard is your home screen after signing in. It gives you a quick overview of Solune's main features and lets you jump to any section with one click.
+The dashboard route (`/`) is now Solune's full-screen chat workspace. Instead of a welcome hero or quick-access cards, `AppPage` renders `ChatPanelManager` so you can work in one or more conversations side by side.
 
 ## What You See
 
-- **Welcome hero** — a themed header with a daily affirmation message
-- **Quick-access cards** — a grid of cards that link to the core pages:
-  - **Projects** — open the Kanban board
-  - **Pipeline** — build or manage automation workflows
-  - **Agents** — browse the AI agent catalog
-  - **Chores** — view recurring tasks
-- **Apps button** — a prominent button to jump to app management
+### Desktop layout
+
+- **Chat panels** — each panel is an independent conversation backed by its own `conversation_id`
+- **Resizable split view** — drag the divider between panels to rebalance width (minimum 320 px per panel)
+- **Add chat button** — open another conversation without leaving the page
+- **Editable titles** — rename each conversation from the panel header
+- **Close button** — remove a panel when more than one conversation is open
+
+### Mobile layout
+
+- **Tabbed conversations** — panels switch to a one-at-a-time tab strip below 768 px
+- **Add Chat action** — create another conversation from the tab bar or footer action
 
 ## How to Use It
 
-Click any card or button to navigate directly to that feature. The dashboard does not display project data itself — it is a launching pad to get you where you need to go quickly.
+1. Start on `/` after signing in.
+2. Use the first panel for your main conversation.
+3. Click **Add Chat** to open another conversation for a different task or app.
+4. Resize desktop panels or switch tabs on mobile as needed.
+5. Rename a panel when you want a clearer conversation title.
 
-## Tips
+## Conversation Behavior
 
-- If you are new to Solune, start with **Projects** to see your GitHub issues on a board, then explore **Pipeline** to set up AI automation.
-- The daily affirmation rotates automatically — check back for a fresh message each day.
+- Panel layout is persisted in `localStorage` under `solune:chat-panels`.
+- Each panel keeps its own message history and plan-mode state.
+- Deleting a panel removes its conversation after the UI closes it.
+- The floating chat popup on other pages remains available, but it is separate from the dashboard's multi-panel conversations.

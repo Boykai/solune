@@ -1,118 +1,112 @@
 # Solune Roadmap
 
 > From chat-driven pipelines to a voice-first, agent-native DevOps platform.
+>
+> **Planning note:** `v0.2.0` reflects the features currently shipped in the repository. `v0.3.0` through `v0.5.0` remain aspirational planning targets rather than committed delivery dates.
 
 ---
 
-## v0.2.0 — Intelligent Chat Agent (Microsoft Agent Framework)
+## v0.2.0 — Intelligent Chat Agent (current)
 
-Replace the current completion-based chat with a Microsoft Agent Framework agent that can reason, ask clarifying questions, use tools, and take autonomous action.
+The current release focuses on the Microsoft Agent Framework chat experience and the workflows that hang off it.
 
-### Features
+### Shipped in the repository
 
 - ✅ **Agent Framework chat agent** — multi-turn conversations with memory, tool use, and decision-making
-- ✅ **Clarifying questions** — agent asks 2-3 targeted questions before acting ("What tech stack?", "Need auth?", "Any integrations?")
-- ✅ **Difficulty assessment** — agent evaluates request complexity and selects the appropriate pipeline preset automatically
-- ✅ **Autonomous project creation** — agent creates GitHub parent issues, configures pipelines, and launches execution from a single chat message
-- ✅ **Tool/skill extensibility** — register custom tools and skills the chat agent can invoke via MCP
-- ✅ **Model flexibility** — swap underlying models (GPT-4o, Claude, Llama) without changing agent logic
-- ✅ **Conversation history** — persistent multi-session memory so the agent remembers project context
+- ✅ **Clarifying questions** — the agent can gather follow-up details before acting
+- ✅ **Difficulty assessment** — prompts can drive different pipeline choices and planning flows
+- ✅ **Autonomous project creation hooks** — chat and app flows can create parent issues and launch pipelines
+- ✅ **Tool / skill extensibility** — project-scoped MCP tools are available to the chat agent
+- ✅ **Model flexibility** — providers and models are configurable
+- ✅ **Conversation history** — persisted chat history and dashboard conversations
 - ✅ **Streaming responses** — AI Enhance conversations stream tokens, tool calls, and results in real time
-- ✅ **File uploads** — attach up to 5 files (10 MB each), including transcript-aware `.vtt` and `.srt` uploads
-- ✅ **@mention pipeline selection** — pick one active pipeline inline per message with autocomplete
+- ✅ **File uploads** — up to 5 files (10 MB each), including transcript-aware `.vtt` / `.srt` uploads
+- ✅ **@mention pipeline selection** — one active pipeline can be attached inline per message
 - ✅ **AI Enhance toggle** — switch between Agent Framework reasoning and lightweight metadata-only replies
-- ✅ **Chat history navigation** — reuse up to 100 prior prompts with shell-style Arrow Up/Down shortcuts
-- ✅ **Markdown rendering** — assistant replies support GFM, code blocks with copy, tables, and links
+- ✅ **Chat history navigation** — shell-style Arrow Up / Down prompt recall
+- ✅ **Markdown rendering** — assistant replies support GFM, tables, links, and copyable code blocks
 
-### Why first
+### Partially shipped / still evolving
 
-This is the foundation. Voice, MCP exposure, and autonomous app creation all depend on having an intelligent agent that can reason about requests and orchestrate tools — not just generate text. Today's `AIAgentService` uses direct completion calls; the Agent Framework gives it tool use, planning, and multi-step execution.
+- 🟡 **Dashboard multi-chat workspace** — shipped behind `AppPage`, but the UX is still actively being refined
+- 🟡 **App-builder orchestration** — plan-driven app creation APIs and orchestration tables exist, but the end-to-end product flow is still growing
+- 🟡 **Voice input** — browser transcription exists today, but full duplex voice is not yet delivered
 
 ---
 
-## v0.3.0 — Full Duplex Voice Chat
+## v0.3.0 — Full Duplex Voice Chat (aspirational)
 
-Add a Jarvis-like voice interface on both browser and Signal. Today Solune has `VoiceInputButton` with Web Speech API for transcription — this upgrades to full duplex conversation.
+Expand from browser transcription into a true two-way voice conversation system.
 
-### Features
+### Target capabilities
 
 - **Browser voice chat** — full duplex audio via WebRTC with real-time speech-to-text and text-to-speech
-- **Natural conversation** — interrupt, ask follow-ups, and have back-and-forth dialogue while the agent works
-- **Voice-driven actions** — "Create a new app called Stockwise using React and Azure" triggers the full creation flow
-- **Signal voice support** — send voice messages via Signal, receive spoken status updates and pipeline notifications
-- **Live transcription** — real-time transcript displayed in chat alongside voice interaction
-- **Push-to-talk & hands-free modes** — toggle between always-listening and push-to-talk in browser
-- **Voice activity detection** — smart silence detection to know when you've finished speaking
+- **Natural conversation** — interrupt, ask follow-ups, and continue while the agent works
+- **Voice-driven actions** — prompt complex creation flows by speaking them
+- **Signal voice support** — send and receive voice-driven updates through Signal
+- **Live transcription** — visible transcript alongside the conversation
+- **Push-to-talk & hands-free modes** — multiple browser interaction modes
+- **Voice activity detection** — silence detection for turn-taking
 
-### Depends on
-
-v0.2.0 — voice is an input channel for the agent, not a separate system
+Depends on: **v0.2.0** chat agent foundation.
 
 ---
 
-## v0.4.0 — Solune MCP Server
+## v0.4.0 — Solune MCP Server (aspirational)
 
-Expose Solune's full capabilities as an MCP server so any AI agent — internal or external — can interact with the platform.
+Expose Solune as an MCP server so internal and external agents can interact with the platform through the same tool layer.
 
-### Features
+### Target capabilities
 
-- **Solune MCP tools** — create projects, launch pipelines, check board status, manage apps, query activity
-- **External agent access** — Copilot in VS Code, Claude, or any MCP-compatible agent can drive Solune
-- **Internal agent access** — Solune's own chat agent uses the same MCP tools (single source of truth)
-- **Auth-scoped access** — MCP connections inherit the user's GitHub OAuth permissions
-- **Pipeline templates as tools** — "launch spec-kit pipeline for issue #42" as a single tool call
-- **Status subscriptions** — agents can subscribe to pipeline progress events
-- **Self-documenting** — MCP server exposes tool schemas so agents discover capabilities dynamically
-
-### Use cases
-
-- Ask Copilot in VS Code: "What's the status of my pipelines in Solune?"
-- Have Claude create a Solune project and launch a pipeline from a spec document
-- Chain Solune into a larger multi-agent workflow as a "DevOps tool"
+- **Solune MCP tools** — create projects, launch pipelines, query status, manage apps, inspect activity
+- **External agent access** — VS Code Copilot, Claude, or any MCP-compatible agent can drive Solune
+- **Internal agent access** — Solune chat reuses the same MCP tool contracts
+- **Auth-scoped access** — user permissions flow through the MCP connection
+- **Pipeline templates as tools** — higher-level single-call actions
+- **Status subscriptions** — pipeline/event subscriptions for agents
+- **Self-documenting schemas** — tools advertise their contracts dynamically
 
 ---
 
-## v0.5.0 — Autonomous App Builder
+## v0.5.0 — Autonomous App Builder (aspirational)
 
-The dream: "Build me a stock app with AI using Microsoft tools" → agent asks 2-3 questions → creates everything → reports back.
+Turn Solune into a prompt-to-application system that can plan, scaffold, and report progress through one conversation.
 
-### Features
+### Target capabilities
 
-- **End-to-end creation flow** — single prompt creates project, scaffolds app, configures pipeline, launches agents, reports completion
-- **Smart scaffolding** — agent selects tech stack, structure, and deployment target based on the request
-- **Pipeline auto-configuration** — difficulty assessment drives pipeline selection (simple = fewer agents, complex = full Spec Kit + parallel)
-- **Progress reporting** — real-time updates via chat, voice, or Signal as agents work
-- **Iteration support** — "Add authentication to Stockwise" triggers a targeted pipeline run on the existing app
-- **Template library** — pre-built app templates (SaaS, API, CLI, dashboard) the agent can start from
+- **End-to-end creation flow** — one prompt creates a project, scaffolds an app, configures a pipeline, and launches execution
+- **Smart scaffolding** — stack and structure selected from the prompt context
+- **Pipeline auto-configuration** — difficulty drives the depth of automation used
+- **Progress reporting** — chat, voice, or Signal updates during execution
+- **Iteration support** — follow-up prompts target an existing app
+- **Template library** — reusable starting points for common app categories
 
-### Depends on
-
-v0.2.0 (agent reasoning), v0.3.0 (voice channel), v0.4.0 (MCP tools for self-driving)
+Depends on: `v0.2.0` (agent reasoning), `v0.3.0` (voice), and `v0.4.0` (MCP exposure).
 
 ---
 
 ## Ongoing — UX & Ecosystem
 
-Woven into each release:
+Themes that continue across releases:
 
-### MCP Ecosystem
+### MCP ecosystem
 
-- **Awesome MCP integration** — browse and install community MCP servers from within Solune
-- **MCP marketplace UI** — search, preview, one-click install on the Tools page
-- **OpenClaw integration** — expanded agent tool capabilities
+- Awesome MCP integration and browsing
+- MCP marketplace / install UI on the Tools page
+- Expanded custom-agent tool interoperability
 
 ### Agentic DevOps
 
-- **Auto-retry with learning** — failed stages retry with adjusted prompts based on error analysis
-- **PR merge automation** — configurable auto-merge when Copilot review passes
-- **Multi-repo pipelines** — orchestrate across repositories from a single pipeline
-- **Deployment pipelines** — extend beyond code into build, test, and deploy
+- Auto-retry with learning
+- PR merge automation
+- Multi-repo pipeline coordination
+- Deploy-time automation after code generation
 
-### Developer Experience
+### Developer experience
 
-- **Agent performance insights** — which agents produce the best code, which models are fastest
-- **Custom pipeline templates** — share and import configurations
-- **Mobile-responsive layout** — full functionality on tablet and phone
+- Agent performance insights
+- Shareable pipeline templates
+- Improved tablet / phone usability
 
 ---
 
@@ -121,9 +115,9 @@ Woven into each release:
 | Version | Theme | Target |
 |---------|-------|--------|
 | **v0.2.0** | Microsoft Agent Framework chat | ✅ Shipped |
-| **v0.3.0** | Full duplex voice (browser + Signal) | Q3 2026 |
-| **v0.4.0** | Solune MCP server | Q3 2026 |
-| **v0.5.0** | Autonomous app builder | Q4 2026 |
+| **v0.3.0** | Full duplex voice (browser + Signal) | Aspirational |
+| **v0.4.0** | Solune MCP server | Aspirational |
+| **v0.5.0** | Autonomous app builder | Aspirational |
 
 ---
 
@@ -133,17 +127,15 @@ Woven into each release:
 v0.2.0 (current)                  v0.5.0 (target)
 ─────────────────                 ─────────────────────────────────
 
- Voice/Chat ──► Agent Framework    Voice/Chat ──► Agent Framework
-                  │                                  │
-                  ├── Tools & Skills                 ├── Tools & Skills
-                  └── MCP Servers (project)          ├── MCP Servers (external)
-                                                     ├── Solune MCP (self-driving)
-                                                     └── Pipeline Engine
+Voice/Chat ──► Agent Framework    Voice/Chat ──► Agent Framework
+                 │                                  │
+                 ├── Tools & Skills                 ├── Tools & Skills
+                 └── MCP Servers (project)          ├── MCP Servers (external)
+                                                    ├── Solune MCP (self-driving)
+                                                    └── Pipeline Engine
 
- Pipeline Engine ──► GitHub        Pipeline Engine ──► GitHub
-   (unchanged)                       (unchanged — agents use it as a tool)
+Pipeline Engine ──► GitHub        Pipeline Engine ──► GitHub
+  (current automation)              (agents use it as a tool)
 
- Signal ──► Notifications only     Signal ──► Full voice + text interaction
+Signal ──► Notifications + text   Signal ──► Full voice + text interaction
 ```
-
-The pipeline engine stays as-is. The Agent Framework wraps only the chat experience, giving it reasoning, tool use, and multi-turn conversation. Voice and MCP are channels into that same agent.

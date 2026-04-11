@@ -1,5 +1,7 @@
 # Feature Specification: Harden Phase 1 — Critical Bug Fixes
 
+> **Note:** Despite the generic filename, this document is a feature-branch specification for **Harden Phase 1 — Critical Bug Fixes** and is not the product-wide Solune specification.
+
 **Feature Branch**: `001-harden-phase1-bugfixes`  
 **Created**: 2026-04-10  
 **Status**: Draft  

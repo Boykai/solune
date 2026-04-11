@@ -1,284 +1,325 @@
 # API Reference
 
-This document lists every HTTP, WebSocket, and SSE endpoint exposed by the Solune backend. For interactive browsing and testing, start the backend with `ENABLE_DOCS=true` and visit `/api/docs` for the auto-generated OpenAPI interface.
+This document lists the HTTP, WebSocket, and SSE endpoints exposed by the Solune backend.
 
-All endpoints are prefixed with `/api/v1`. Unless noted, all endpoints require an active session cookie set by the OAuth flow. The `/health`, `/auth/github`, `/auth/github/callback`, and `/webhooks/github` endpoints are unauthenticated. The `/auth/dev-login` endpoint is also unauthenticated when `DEBUG=true`.
+- **Base path**: `/api/v1`
+- **Interactive docs**: enable `ENABLE_DOCS=true` and open `/api/docs`
+- **Authentication**: unless noted otherwise, endpoints require an authenticated session cookie
+- **Unauthenticated endpoints**: `/health`, `/auth/github`, `/auth/github/callback`, `/webhooks/github`, and `/auth/dev-login` when `DEBUG=true`
+
+## Transport types
+
+| Type | Meaning |
+|------|---------|
+| **HTTP** | Standard JSON request/response endpoints |
+| **WS** | WebSocket endpoint |
+| **SSE** | Server-Sent Events stream |
 
 ## Health
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Health check |
+| GET | `/health` | Structured health check for Docker and load balancers |
+| GET | `/ready` | Readiness probe for orchestration/hosting checks |
+| GET | `/rate-limit/history` | Rate-limit time-series history |
 
 ## Authentication
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/auth/github` | Initiate GitHub OAuth flow |
-| GET | `/auth/github/callback` | OAuth callback handler |
-| GET | `/auth/me` | Get current authenticated user |
-| POST | `/auth/logout` | Logout and clear session |
-| POST | `/auth/dev-login` | Dev-only PAT login (`DEBUG=true` only; JSON body requires a non-empty `github_token` up to 255 chars) |
+| GET | `/auth/github` | Start the GitHub OAuth flow |
+| GET | `/auth/github/callback` | Complete the GitHub OAuth callback and create a session |
+| GET | `/auth/me` | Get the current authenticated user |
+| POST | `/auth/logout` | Clear the current session |
+| POST | `/auth/dev-login` | Dev-only PAT login when `DEBUG=true` |
 
 ## Projects
 
-Project and board endpoints let you list, select, and subscribe to real-time updates from your GitHub Projects.
-
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/projects` | List user's GitHub Projects |
-| GET | `/projects/{id}` | Get project details |
-| GET | `/projects/{id}/tasks` | Get project tasks |
-| POST | `/projects/{id}/select` | Select active project (starts polling) |
-| WS | `/projects/{id}/subscribe` | WebSocket for real-time updates |
-| GET | `/projects/{id}/events` | SSE fallback for real-time updates |
+| POST | `/projects/create` | Create a standalone GitHub Project V2 |
+| GET | `/projects` | List accessible GitHub Projects (`refresh=true` bypasses cache) |
+| GET | `/projects/{project_id}` | Get project details including status columns |
+| GET | `/projects/{project_id}/tasks` | Get project tasks/items |
+| POST | `/projects/{project_id}/select` | Select the active project and start polling |
+| WS | `/projects/{project_id}/subscribe` | WebSocket stream for project updates |
+| GET | `/projects/{project_id}/events` | SSE fallback for real-time project events |
 
 ## Board
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/board/projects` | List projects with status field configuration |
-| GET | `/board/projects/{project_id}` | Get board data (columns + items) |
+| GET | `/board/projects` | List projects that have board-compatible status fields |
+| GET | `/board/projects/{project_id}` | Get board columns and items for a project |
+| PATCH | `/board/projects/{project_id}/items/{item_id}/status` | Update a board item's status by name |
 
 ## Chat
 
-Chat endpoints power the conversational interface — send messages, receive AI responses, manage proposals, and use the `#agent` command to create custom agents inline.
+### Conversations and messages
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/chat/messages` | Get chat messages for session (supports `limit` and `offset` pagination) |
-| POST | `/chat/messages` | Send message, get AI response (supports `#agent` command). Accepts optional `ai_enhance`, `file_urls`, and `pipeline_id` params. Rate limit: 10/min |
-| POST | `/chat/messages/stream` | Send message and stream AI response via SSE. Requires `ai_enhance=true`. Rate limit: 10/min |
-| DELETE | `/chat/messages` | Clear chat history |
-| POST | `/chat/proposals/{id}/confirm` | Confirm task proposal |
-| DELETE | `/chat/proposals/{id}` | Cancel task proposal |
-| POST | `/chat/upload` | Upload a file attachment |
+| POST | `/chat/conversations` | Create a new conversation for the current session |
+| GET | `/chat/conversations` | List saved conversations for the current session |
+| PATCH | `/chat/conversations/{conversation_id}` | Update a conversation title |
+| DELETE | `/chat/conversations/{conversation_id}` | Delete a conversation |
+| GET | `/chat/messages` | Get chat messages (supports pagination and optional `conversation_id`) |
+| DELETE | `/chat/messages` | Clear chat history for the session or a specific conversation |
+| POST | `/chat/messages` | Send a message and receive a standard JSON chat response |
+| POST | `/chat/messages/stream` | Send a message and receive an SSE stream. Requires `ai_enhance=true` |
+| POST | `/chat/upload` | Upload a file attachment for later chat use |
 
-### Streaming
+### Plan mode
 
-The `POST /chat/messages/stream` endpoint returns a streaming SSE (Server-Sent Events) response. The client receives incremental events as the agent generates its response. This endpoint requires `ai_enhance=true`; if `ai_enhance=false` is passed, it returns a 400 error directing clients to use the non-streaming `POST /chat/messages` endpoint instead.
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/chat/messages/plan` | Enter plan mode with a non-streaming response |
+| POST | `/chat/messages/plan/stream` | Enter plan mode with streaming SSE + thinking events |
+| GET | `/chat/plans/{plan_id}` | Retrieve a plan and all of its steps |
+| PATCH | `/chat/plans/{plan_id}` | Update plan metadata (title and summary) |
+| POST | `/chat/plans/{plan_id}/approve` | Approve a plan and launch it through the parent-issue pipeline flow |
+| POST | `/chat/plans/{plan_id}/exit` | Exit plan mode and return to normal chat |
+| GET | `/chat/plans/{plan_id}/history` | Get plan version history |
+| POST | `/chat/plans/{plan_id}/steps` | Add a new plan step |
+| PATCH | `/chat/plans/{plan_id}/steps/{step_id}` | Update a plan step |
+| DELETE | `/chat/plans/{plan_id}/steps/{step_id}` | Delete a plan step |
+| POST | `/chat/plans/{plan_id}/steps/reorder` | Reorder plan steps with DAG validation |
+| POST | `/chat/plans/{plan_id}/steps/{step_id}/approve` | Approve or unapprove a single plan step |
+| POST | `/chat/plans/{plan_id}/steps/{step_id}/feedback` | Submit feedback for plan refinement |
+| GET | `/chat/plans/{plan_id}/export` | Export a plan as Markdown or GitHub issues |
 
-| Event | Data | Description |
-|-------|------|-------------|
-| `token` | Partial text string | Incremental text content from the agent |
-| `tool_call` | Tool name + arguments | Agent is invoking a registered tool |
-| `tool_result` | Tool output + action payload | Tool execution completed |
-| `done` | Final `ChatMessage` JSON | Stream complete, includes the full message |
-| `error` | Error message string | An error occurred during streaming |
+### Proposals and streaming
 
-> **Rate limit**: Both `POST /chat/messages` and `POST /chat/messages/stream` are rate-limited to **10 requests per minute** per user.
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/chat/proposals/{proposal_id}/confirm` | Confirm an AI task proposal |
+| DELETE | `/chat/proposals/{proposal_id}` | Cancel an AI task proposal |
 
-### File Upload Constraints
+`POST /chat/messages/stream` returns an SSE stream with these event types:
 
-The `POST /chat/upload` endpoint and `file_urls` parameter on `POST /chat/messages` and `POST /chat/messages/stream` are subject to the following constraints:
+| Event | Description |
+|-------|-------------|
+| `token` | Incremental assistant text |
+| `tool_call` | Agent tool invocation metadata |
+| `tool_result` | Tool result payload |
+| `done` | Final `ChatMessage` JSON |
+| `error` | Stream error payload |
+
+> **Rate limit**: `POST /chat/messages` and `POST /chat/messages/stream` are both limited to **10 requests per minute** per user.
+
+### File upload constraints
 
 | Constraint | Value |
 |------------|-------|
-| Maximum file size | 10 MB per file |
 | Maximum files per message | 5 |
-| Allowed types | Images (png, jpg, jpeg, gif, webp, svg), documents (pdf, txt, md, csv, json, yaml, yml, vtt, srt), archives (zip) |
-| Blocked types | Executables and scripts (exe, sh, bat, cmd, js, py, rb) |
+| Maximum file size | 10 MB per file |
+| Allowed types | png, jpg, jpeg, gif, webp, svg, pdf, txt, md, csv, json, yaml, yml, vtt, srt, zip |
+| Blocked types | exe, sh, bat, cmd, js, py, rb |
 | Transcript auto-detection | `.vtt` and `.srt` files are automatically detected as transcripts |
-
-### `#agent` Command
-
-Send `#agent <description> #<status-name>` via chat or Signal to create a custom GitHub agent:
-
-- Fuzzy status column matching (`#in-review`, `#InReview`, `#IN_REVIEW`)
-- AI-generated preview with natural language edit loop
-- 8-step pipeline: save config → create column → create issue → create branch → commit files → open PR → move to In Review → update pipeline mappings
 
 ## Tasks
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/tasks` | Create a task (GitHub Issue + project attachment) |
-| PATCH | `/tasks/{id}/status` | Update task status |
+| POST | `/tasks` | Create a new task in a GitHub Project |
+| PATCH | `/tasks/{task_id}/status` | Update a task status |
 
 ## Chores
 
 | Method | Path | Description |
 |--------|------|-------------|
+| POST | `/chores/{project_id}/seed-presets` | Seed built-in chore presets for a project |
+| POST | `/chores/evaluate-triggers` | Evaluate active chores for trigger conditions |
 | GET | `/chores/{project_id}/templates` | List available chore templates from `.github/ISSUE_TEMPLATE/` |
-| GET | `/chores/{project_id}` | List all chores for a project |
-| POST | `/chores/{project_id}` | Create a new chore (generates template, commits via PR, creates tracking issue) |
-| PATCH | `/chores/{project_id}/{chore_id}` | Update a chore (schedule, status) |
-| DELETE | `/chores/{project_id}/{chore_id}` | Remove a chore, closing any open associated issue |
-| POST | `/chores/{project_id}/{chore_id}/trigger` | Manually trigger a chore — creates a GitHub issue and runs agent pipeline |
-| POST | `/chores/{project_id}/chat` | Interactive chat for sparse-input template refinement |
-| PUT | `/chores/{project_id}/{chore_id}/inline-update` | Inline-edit a chore field |
-| POST | `/chores/{project_id}/create-with-merge` | Create a chore by merging template and overrides |
-| POST | `/chores/{project_id}/seed-presets` | Idempotently seed built-in chore presets for a project |
-| POST | `/chores/evaluate-triggers` | Evaluate all active chores for trigger conditions |
+| GET | `/chores/{project_id}/chore-names` | List all chore names for a project |
+| GET | `/chores/{project_id}` | List chores for a project |
+| POST | `/chores/{project_id}` | Create a chore |
+| PATCH | `/chores/{project_id}/{chore_id}` | Update a chore |
+| DELETE | `/chores/{project_id}/{chore_id}` | Delete a chore and close any associated issue |
+| POST | `/chores/{project_id}/{chore_id}/trigger` | Trigger a chore run manually |
+| POST | `/chores/{project_id}/chat` | Refine chore input through chat |
+| PUT | `/chores/{project_id}/{chore_id}/inline-update` | Inline-edit a chore and open a PR |
+| POST | `/chores/{project_id}/create-with-merge` | Create a chore with branch + PR + auto-merge flow |
 
 ## Cleanup
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/cleanup/preflight` | Preflight check: compute branch/PR deletion lists without mutations |
-| POST | `/cleanup/execute` | Execute cleanup: delete branches and close PRs (main branch protected) |
-| GET | `/cleanup/history` | Retrieve audit trail of past cleanup operations |
+| POST | `/cleanup/preflight` | Preview branch/PR/item cleanup without mutating anything |
+| POST | `/cleanup/execute` | Execute cleanup for branches, PRs, and orphaned issues |
+| GET | `/cleanup/history` | Get cleanup audit history |
 
 ## Settings
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/settings/user` | Get effective user settings |
-| PUT | `/settings/user` | Update user preferences |
+| GET | `/settings/user` | Get the authenticated user's effective settings |
+| PUT | `/settings/user` | Update user settings |
 | GET | `/settings/global` | Get global settings |
-| PUT | `/settings/global` | Update global settings |
+| PUT | `/settings/global` | Update global settings (admin only) |
 | GET | `/settings/project/{project_id}` | Get effective project settings |
-| PUT | `/settings/project/{project_id}` | Update project-specific settings |
+| PUT | `/settings/project/{project_id}` | Update project settings |
 | GET | `/settings/models/{provider}` | Fetch available models for a provider |
 
-## Workflow & Pipeline
+## MCP Settings
 
-Workflow and pipeline endpoints control the agent pipeline engine — confirm or reject recommendations, retry failed agents, and manage polling.
+These endpoints live under `/settings` because MCP configurations are user-scoped settings data.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/workflow/recommendations/{id}/confirm` | Confirm issue recommendation → full workflow |
-| POST | `/workflow/recommendations/{id}/reject` | Reject recommendation |
-| POST | `/workflow/pipeline/{issue_number}/retry` | Retry a failed/stalled agent |
+| GET | `/settings/mcps` | List MCP configurations for the current user |
+| POST | `/settings/mcps` | Create an MCP configuration |
+| PUT | `/settings/mcps/{mcp_id}` | Update an MCP configuration with optimistic concurrency control |
+| DELETE | `/settings/mcps/{mcp_id}` | Delete an MCP configuration |
+
+## Workflow & legacy pipeline orchestration
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/workflow/recommendations/{recommendation_id}/confirm` | Confirm an issue recommendation |
+| POST | `/workflow/recommendations/{recommendation_id}/reject` | Reject an issue recommendation |
+| POST | `/workflow/pipeline/{issue_number}/retry` | Retry a failed or stalled agent assignment |
 | GET | `/workflow/config` | Get workflow configuration |
 | PUT | `/workflow/config` | Update workflow configuration |
-| GET | `/workflow/agents` | List available agents (repo + built-in) |
-| GET | `/workflow/transitions` | Get transition audit log |
+| GET | `/workflow/agents` | List available agents for the selected repository |
+| GET | `/workflow/transitions` | Get workflow transition history |
 | GET | `/workflow/pipeline-states` | Get all active pipeline states |
-| GET | `/workflow/pipeline-states/{issue_number}` | Get pipeline state for specific issue |
-| POST | `/workflow/notify/in-review` | Send In Review notification |
+| GET | `/workflow/pipeline-states/{issue_number}` | Get pipeline state for a specific issue |
+| POST | `/workflow/notify/in-review` | Send an In Review notification |
 | GET | `/workflow/polling/status` | Get polling service status |
+| POST | `/workflow/polling/check-issue/{issue_number}` | Manually check one issue for completion |
 | POST | `/workflow/polling/start` | Start background polling |
 | POST | `/workflow/polling/stop` | Stop background polling |
-| POST | `/workflow/polling/check-issue/{issue_number}` | Manually check a specific issue |
 | POST | `/workflow/polling/check-all` | Check all In Progress issues |
 
 ## Signal
 
-Signal endpoints manage the bidirectional phone messaging connection — link your account, set notification preferences, and handle conflict banners.
-
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/signal/connection` | Get Signal connection status |
-| POST | `/signal/connection/link` | Generate QR code for linking |
-| GET | `/signal/connection/link/status` | Poll link completion status |
-| DELETE | `/signal/connection` | Disconnect Signal account |
-| GET | `/signal/preferences` | Get notification preferences |
-| PUT | `/signal/preferences` | Update notification preferences |
-| GET | `/signal/banners` | Get active conflict banners |
-| POST | `/signal/banners/{id}/dismiss` | Dismiss a conflict banner |
-| POST | `/signal/webhook/inbound` | Handle inbound Signal message webhook |
+| POST | `/signal/connection/link` | Generate a Signal linking QR code |
+| GET | `/signal/connection/link/status` | Poll the link completion state |
+| DELETE | `/signal/connection` | Disconnect Signal and purge linked state |
+| GET | `/signal/preferences` | Get Signal notification preferences |
+| PUT | `/signal/preferences` | Update Signal notification preferences |
+| GET | `/signal/banners` | List active conflict banners |
+| POST | `/signal/banners/{banner_id}/dismiss` | Dismiss a conflict banner |
+| POST | `/signal/webhook/inbound` | Receive inbound Signal webhook traffic |
 
 ## Agents
 
-Agent endpoints let you create, update, and manage custom GitHub Agent configurations stored per-project.
-
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/agents/{project_id}` | List all agents for a project (merged from SQLite + GitHub repo) |
-| GET | `/agents/{project_id}/pending` | List agents pending deployment |
-| DELETE | `/agents/{project_id}/pending` | Purge all pending agent configurations |
-| POST | `/agents/{project_id}` | Create a new agent configuration |
-| PATCH | `/agents/{project_id}/bulk-model` | Bulk-update the model for multiple agents |
-| PATCH | `/agents/{project_id}/{agent_id}` | Update an existing agent configuration |
-| DELETE | `/agents/{project_id}/{agent_id}` | Delete an agent configuration |
-| GET | `/agents/{project_id}/{agent_id}/tools` | Get MCP tool assignments for an agent |
-| PUT | `/agents/{project_id}/{agent_id}/tools` | Update MCP tool assignments for an agent |
-| POST | `/agents/{project_id}/chat` | Conversational refinement of an agent definition |
-| POST | `/agents/{project_id}/sync-mcps` | Synchronize MCP tool configurations across agent files |
+| GET | `/agents/{project_id}` | List agents merged from SQLite + `.github/agents/` |
+| GET | `/agents/{project_id}/pending` | List pending agent PR work |
+| DELETE | `/agents/{project_id}/pending` | Purge stale pending agent rows |
+| PATCH | `/agents/{project_id}/bulk-model` | Bulk-update default models for active agents |
+| GET | `/agents/{project_id}/catalog` | Browse catalog agents from Awesome Copilot |
+| POST | `/agents/{project_id}/import` | Import a catalog agent into the project |
+| POST | `/agents/{project_id}/{agent_id}/install` | Install an imported agent into the repository |
+| POST | `/agents/{project_id}` | Create a new custom agent |
+| PATCH | `/agents/{project_id}/{agent_id}` | Update an existing custom agent |
+| DELETE | `/agents/{project_id}/{agent_id}` | Delete an agent through a PR-backed flow |
+| POST | `/agents/{project_id}/chat` | Refine agent content through chat |
+| POST | `/agents/{project_id}/sync-mcps` | Synchronize MCP config across agent files |
+| GET | `/agents/{project_id}/{agent_id}/tools` | List MCP tools assigned to an agent |
+| PUT | `/agents/{project_id}/{agent_id}/tools` | Replace MCP tools assigned to an agent |
 
 ## Pipelines
 
-Manage agent pipeline configurations and column-to-agent assignments per project.
-
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/pipelines/{project_id}` | List all pipeline configurations for a project |
-| POST | `/pipelines/{project_id}` | Create a new pipeline configuration |
-| POST | `/pipelines/{project_id}/seed-presets` | Seed default pipeline presets for a project |
-| GET | `/pipelines/{project_id}/assignment` | Get the current column-to-pipeline assignment |
-| PUT | `/pipelines/{project_id}/assignment` | Set the column-to-pipeline assignment |
-| GET | `/pipelines/{project_id}/{pipeline_id}` | Get a single pipeline configuration |
+| GET | `/pipelines/{project_id}` | List pipeline configurations |
+| POST | `/pipelines/{project_id}/seed-presets` | Seed preset pipeline configs |
+| GET | `/pipelines/{project_id}/assignment` | Get the active pipeline assignment |
+| PUT | `/pipelines/{project_id}/assignment` | Set the active pipeline assignment |
+| POST | `/pipelines/{project_id}/launch` | Create an issue from pasted content and launch a pipeline |
+| POST | `/pipelines/{project_id}` | Create a pipeline configuration |
+| GET | `/pipelines/{project_id}/{pipeline_id}` | Get one pipeline configuration |
 | PUT | `/pipelines/{project_id}/{pipeline_id}` | Update a pipeline configuration |
 | DELETE | `/pipelines/{project_id}/{pipeline_id}` | Delete a pipeline configuration |
-| POST | `/pipelines/{project_id}/launch` | Create a GitHub Issue from pasted/uploaded text and launch the assigned agent pipeline |
+| POST | `/pipelines/{pipeline_id}/runs` | Create and start a pipeline run |
+| GET | `/pipelines/{pipeline_id}/runs` | List pipeline runs |
+| GET | `/pipelines/{pipeline_id}/runs/{run_id}` | Get full state for a pipeline run |
+| POST | `/pipelines/{pipeline_id}/runs/{run_id}/cancel` | Cancel a run |
+| POST | `/pipelines/{pipeline_id}/runs/{run_id}/recover` | Recover and resume a run |
+| GET | `/pipelines/{pipeline_id}/groups` | List stage groups for a pipeline |
+| PUT | `/pipelines/{pipeline_id}/groups` | Create or replace stage groups atomically |
 
 ## Tools
 
-Manage MCP (Model Context Protocol) tool server configurations per project.
-
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/tools/presets` | List available tool server presets |
-| GET | `/tools/{project_id}` | List all tool configurations for a project |
-| POST | `/tools/{project_id}` | Add a new tool server configuration |
-| GET | `/tools/{project_id}/repo-config` | Get repository-level MCP config (from `.github/`) |
-| PUT | `/tools/{project_id}/repo-config/{server_name}` | Update a repo-level MCP server entry |
-| DELETE | `/tools/{project_id}/repo-config/{server_name}` | Remove a repo-level MCP server entry |
-| GET | `/tools/{project_id}/{tool_id}` | Get a single tool configuration |
+| GET | `/tools/presets` | List built-in MCP tool presets |
+| GET | `/tools/{project_id}` | List tool configurations for a project |
+| POST | `/tools/{project_id}` | Create/upload a tool configuration |
+| GET | `/tools/{project_id}/repo-config` | Read repository MCP config files |
+| PUT | `/tools/{project_id}/repo-config/{server_name}` | Update a repository MCP server entry |
+| DELETE | `/tools/{project_id}/repo-config/{server_name}` | Delete a repository MCP server entry |
+| GET | `/tools/{project_id}/{tool_id}` | Get one tool configuration |
 | PUT | `/tools/{project_id}/{tool_id}` | Update a tool configuration |
 | POST | `/tools/{project_id}/{tool_id}/sync` | Sync a tool configuration from its remote source |
 | DELETE | `/tools/{project_id}/{tool_id}` | Delete a tool configuration |
 
-## MCP
-
-Manage Model Context Protocol server configurations (stored per-user, under the `/settings` prefix).
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/settings/mcps` | List all MCP configurations for the authenticated user |
-| POST | `/settings/mcps` | Add a new MCP configuration |
-| DELETE | `/settings/mcps/{mcp_id}` | Remove an MCP configuration (owner only) |
-
 ## Metadata
 
-Read and refresh cached GitHub repository metadata (labels, branches, milestones, collaborators).
-
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/metadata/{owner}/{repo}` | Get cached repository metadata context |
-| POST | `/metadata/{owner}/{repo}/refresh` | Force-refresh metadata cache for a repository |
+| GET | `/metadata/{owner}/{repo}` | Get cached repository metadata |
+| POST | `/metadata/{owner}/{repo}/refresh` | Force-refresh repository metadata |
 
 ## Onboarding
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/onboarding/state` | Get onboarding tour state for the current user |
-| PUT | `/onboarding/state` | Update onboarding tour progress (step, completed, dismissed) |
+| GET | `/onboarding/state` | Get onboarding tour state |
+| PUT | `/onboarding/state` | Update onboarding tour state |
 
-## Apps
-
-App lifecycle management for generated applications.
+## Templates
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/apps/owners` | List available repository owners for app creation |
-| GET | `/apps` | List all apps |
+| GET | `/templates` | List available app templates |
+| GET | `/templates/{template_id}` | Get detailed app template metadata and manifest |
+
+## Apps
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/apps/owners` | List owners where the current user can create repos |
+| GET | `/apps` | List managed apps |
 | POST | `/apps` | Create a new app |
-| GET | `/apps/{app_name}` | Get a single app by name |
-| PUT | `/apps/{app_name}` | Update an app |
-| GET | `/apps/{app_name}/assets` | Get asset inventory for an app |
-| DELETE | `/apps/{app_name}` | Delete an app |
+| GET | `/apps/{app_name}` | Get app details |
+| PUT | `/apps/{app_name}` | Update app metadata |
+| GET | `/apps/{app_name}/assets` | Get the app's GitHub asset inventory |
+| DELETE | `/apps/{app_name}` | Delete an app (`force=true` performs full asset cleanup) |
 | POST | `/apps/{app_name}/start` | Start an app |
 | POST | `/apps/{app_name}/stop` | Stop an app |
+| GET | `/apps/{app_name}/status` | Get the current app status |
+| POST | `/apps/import` | Import an existing GitHub repo as an app |
+| POST | `/apps/{app_name}/build` | Trigger a full app build from a template |
+| POST | `/apps/{app_name}/iterate` | Launch an iteration flow for an existing app |
+| POST | `/apps/create-with-plan` | Start plan-driven, multi-phase app creation |
+| GET | `/apps/{app_name}/plan-status` | Poll the plan-orchestration status for an app |
 
 ## Activity
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/activity` | Get activity feed (recent events across all entities) |
-| GET | `/activity/{entity_type}/{entity_id}` | Get activity feed for a specific entity |
+| GET | `/activity` | Get the project-scoped activity feed |
+| GET | `/activity/stats` | Get aggregated activity statistics |
+| GET | `/activity/{entity_type}/{entity_id}` | Get activity history for a specific entity |
 
 ## Webhooks
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/webhooks/github` | Handle GitHub webhook events (PR `ready_for_review`) |
+| POST | `/webhooks/github` | Handle inbound GitHub webhook events |
 
 ---
 
 ## What's Next?
 
-- [Explore the architecture](architecture.md) — understand how the services connect
-- [Configure environment variables](configuration.md) — set up providers, secrets, and tuning
-- [Troubleshoot common issues](troubleshooting.md) — when endpoints return unexpected results
+- [Architecture](architecture.md) — understand how the frontend, backend, and sidecar interact
+- [Configuration](configuration.md) — review environment variables and operational settings
+- [Troubleshooting](troubleshooting.md) — common API/runtime issues and their fixes

@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, '../../..');
+const workspaceRoot = resolve(repoRoot, '..');
 const docsRoot = resolve(repoRoot, 'docs');
 
 const changedDocs = [
@@ -17,13 +18,19 @@ const changedDocs = [
   'roadmap.md',
   'pages/README.md',
   'pages/chat.md',
+  'pages/dashboard.md',
   'pages/layout.md',
+  'testing.md',
 ] as const;
 
 const relativeLinkPattern = /(?<!!)\[[^\]]+\]\(([^)]+)\)/g;
 
 function readDoc(relativePath: string): string {
   return readFileSync(resolve(docsRoot, relativePath), 'utf8');
+}
+
+function readWorkspaceFile(relativePath: string): string {
+  return readFileSync(resolve(workspaceRoot, relativePath), 'utf8');
 }
 
 function slugifyHeading(heading: string): string {
@@ -111,10 +118,16 @@ describe('chat documentation updates', () => {
     const pagesIndex = readDoc('pages/README.md');
     const layoutGuide = readDoc('pages/layout.md');
     const chatGuide = readDoc('pages/chat.md');
+    const dashboardGuide = readDoc('pages/dashboard.md');
 
     expect(chatGuide).toContain('# Chat');
+    expect(chatGuide).toContain('no dedicated `/chat` route');
+    expect(chatGuide).toContain('ChatPopup');
+    expect(chatGuide).toContain('ChatPanelManager');
     expect(pagesIndex).toContain('[Chat](chat.md)');
     expect(layoutGuide).toContain('[Chat](chat.md)');
+    expect(dashboardGuide).toContain('full-screen chat workspace');
+    expect(dashboardGuide).toContain('solune:chat-panels');
   });
 
   it('documents the streaming chat API and attachment constraints', () => {
@@ -138,28 +151,20 @@ describe('chat documentation updates', () => {
     const projectStructure = readDoc('project-structure.md');
 
     expect(architecture).toContain('### ChatAgentService');
-    expect(architecture).toContain('MentionInput');
-    expect(architecture).toContain('MentionAutocomplete');
-    expect(architecture).toContain('FilePreviewChips');
-    expect(architecture).toContain('MarkdownRenderer');
-    expect(architecture).toContain('ChatMessageSkeleton');
-    expect(architecture).toContain('PipelineWarningBanner');
-    expect(architecture).toContain('PipelineIndicator');
-    expect(architecture).toContain('useChatProposals');
-    expect(architecture).toContain('useFileUpload');
-    expect(architecture).toContain('useMentionAutocomplete');
+    expect(architecture).toContain('ActivityPage');
+    expect(architecture).toContain('AppsPage');
+    expect(architecture).toContain('HelpPage');
+    expect(architecture).toContain('useConversations');
+    expect(architecture).toContain('app_plan_orchestrator');
+    expect(architecture).toContain('plan_agent_provider');
+    expect(architecture).toContain('transcript_detector');
 
-    expect(projectStructure).toContain('chat_agent.py');
-    expect(projectStructure).toContain('MentionInput');
-    expect(projectStructure).toContain('MentionAutocomplete');
-    expect(projectStructure).toContain('FilePreviewChips');
-    expect(projectStructure).toContain('MarkdownRenderer');
-    expect(projectStructure).toContain('ChatMessageSkeleton');
-    expect(projectStructure).toContain('PipelineWarningBanner');
-    expect(projectStructure).toContain('PipelineIndicator');
-    expect(projectStructure).toContain('useChatProposals');
-    expect(projectStructure).toContain('useFileUpload');
-    expect(projectStructure).toContain('useMentionAutocomplete');
+    expect(projectStructure).toContain('044_conversations.sql');
+    expect(projectStructure).toContain('command-palette/');
+    expect(projectStructure).toContain('onboarding/');
+    expect(projectStructure).toContain('useConversations');
+    expect(projectStructure).toContain('activity_service.py');
+    expect(projectStructure).toContain('task_registry.py');
   });
 
   it('marks the shipped v0.2.0 chat capabilities in the roadmap', () => {
@@ -172,8 +177,37 @@ describe('chat documentation updates', () => {
     expect(roadmap).toContain('✅ **AI Enhance toggle**');
     expect(roadmap).toContain('✅ **Chat history navigation**');
     expect(roadmap).toContain('✅ **Markdown rendering**');
-    expect(roadmap).toContain('v0.2.0 (current)');
+    expect(roadmap).toContain('v0.2.0 — Intelligent Chat Agent (current)');
     expect(roadmap).toContain('| **v0.2.0** | Microsoft Agent Framework chat | ✅ Shipped |');
+    expect(roadmap).toContain('Aspirational');
+  });
+
+  it('documents configuration additions, quickstart status, and frontend docs', () => {
+    const configuration = readDoc('configuration.md');
+    const testing = readDoc('testing.md');
+    const quickstart = readWorkspaceFile('quickstart.md');
+    const spec = readWorkspaceFile('spec.md');
+    const frontendReadme = readFileSync(resolve(repoRoot, 'frontend/README.md'), 'utf8');
+
+    expect(configuration).toContain('AGENT_SESSION_TTL_SECONDS');
+    expect(configuration).toContain('AGENT_MAX_CONCURRENT_SESSIONS');
+    expect(configuration).toContain('AGENT_STREAMING_ENABLED');
+    expect(configuration).toContain('AGENT_COPILOT_TIMEOUT_SECONDS');
+    expect(configuration).toContain('CHAT_AUTO_CREATE_ENABLED');
+    expect(configuration).toContain('OTEL_EXPORTER_OTLP_ENDPOINT');
+    expect(configuration).toContain('SENTRY_DSN');
+    expect(configuration).toContain('MCP_SERVER_ENABLED');
+    expect(configuration).toContain('API_TIMEOUT_SECONDS');
+
+    expect(testing).toContain('backend/tests/');
+    expect(testing).toContain('chaos/');
+    expect(testing).toContain('frontend/e2e/');
+    expect(quickstart).toContain('Status note');
+    expect(spec).toContain('feature-branch specification');
+    expect(frontendReadme).toContain('# Solune Frontend');
+    expect(frontendReadme).toContain('React 19');
+    expect(frontendReadme).toContain('TanStack Query v5');
+    expect(frontendReadme).toContain('npm run build');
   });
 
   it('resolves all relative markdown links in the changed docs', () => {
