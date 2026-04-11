@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from jsonschema import Draft7Validator, ValidationError, validate
 
 from src.models.pipeline import (
@@ -24,8 +25,11 @@ from src.models.pipeline import (
 )
 from src.services.pipelines.service import _PRESET_DEFINITIONS
 
-# Resolve the schema path relative to this file (repo root/contracts/)
-_SCHEMA_PATH = Path(__file__).resolve().parents[4] / "contracts" / "pipeline-config-schema.json"
+# Resolve the contracts directory relative to this test file.
+# Layout: tests/unit/test_…py → backend/ → solune/ → (repo root) → contracts/
+_CONTRACTS_DIR = Path(__file__).resolve().parents[4] / "contracts"
+_SCHEMA_PATH = _CONTRACTS_DIR / "pipeline-config-schema.json"
+_CLI_CONTRACT_PATH = _CONTRACTS_DIR / "fleet-dispatch-cli.yaml"
 
 
 @pytest.fixture()
@@ -133,7 +137,7 @@ class TestSchemaRejectsInvalid:
     """Invalid pipeline configs must fail schema validation."""
 
     def test_rejects_empty_array(self, schema: dict) -> None:
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="minItems"):
             validate(instance=[], schema=schema)
 
     def test_rejects_preset_missing_preset_id(self, schema: dict, presets: list[dict]) -> None:
@@ -397,60 +401,41 @@ class TestRoundTripFidelity:
 # ---------------------------------------------------------------------------
 
 
-_CLI_CONTRACT_PATH = Path(__file__).resolve().parents[4] / "contracts" / "fleet-dispatch-cli.yaml"
-
-
 class TestFleetDispatchCliContract:
     """Validate the fleet-dispatch-cli.yaml contract structure."""
+
+    @pytest.fixture()
+    def cli_contract(self) -> dict:
+        """Load and cache the CLI contract YAML."""
+        return yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
 
     def test_contract_file_exists(self) -> None:
         assert _CLI_CONTRACT_PATH.exists(), f"Contract not found at {_CLI_CONTRACT_PATH}"
 
-    def test_contract_is_valid_yaml(self) -> None:
-        import yaml
+    def test_contract_is_valid_yaml(self, cli_contract: dict) -> None:
+        assert isinstance(cli_contract, dict)
 
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        assert isinstance(data, dict)
+    def test_contract_has_openapi_version(self, cli_contract: dict) -> None:
+        assert "openapi" in cli_contract
+        assert cli_contract["openapi"].startswith("3.")
 
-    def test_contract_has_openapi_version(self) -> None:
-        import yaml
+    def test_contract_defines_dispatch_path(self, cli_contract: dict) -> None:
+        assert "/dispatch" in cli_contract.get("paths", {})
 
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        assert "openapi" in data
-        assert data["openapi"].startswith("3.")
-
-    def test_contract_defines_dispatch_path(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        assert "/dispatch" in data.get("paths", {})
-
-    def test_contract_defines_fleet_state_schema(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        schemas = data.get("components", {}).get("schemas", {})
+    def test_contract_defines_fleet_state_schema(self, cli_contract: dict) -> None:
+        schemas = cli_contract.get("components", {}).get("schemas", {})
         assert "FleetState" in schemas
 
-    def test_contract_defines_agent_dispatch_schema(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        schemas = data.get("components", {}).get("schemas", {})
+    def test_contract_defines_agent_dispatch_schema(self, cli_contract: dict) -> None:
+        schemas = cli_contract.get("components", {}).get("schemas", {})
         assert "AgentDispatch" in schemas
 
-    def test_contract_defines_graphql_dispatch_request(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        schemas = data.get("components", {}).get("schemas", {})
+    def test_contract_defines_graphql_dispatch_request(self, cli_contract: dict) -> None:
+        schemas = cli_contract.get("components", {}).get("schemas", {})
         assert "GraphQLDispatchRequest" in schemas
 
-    def test_fleet_state_required_fields(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        fleet_state = data["components"]["schemas"]["FleetState"]
+    def test_fleet_state_required_fields(self, cli_contract: dict) -> None:
+        fleet_state = cli_contract["components"]["schemas"]["FleetState"]
         required = set(fleet_state.get("required", []))
         expected = {
             "run_id",
@@ -464,19 +449,13 @@ class TestFleetDispatchCliContract:
         }
         assert required == expected
 
-    def test_dispatch_parameters_include_required_cli_args(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        dispatch = data["paths"]["/dispatch"]["post"]
+    def test_dispatch_parameters_include_required_cli_args(self, cli_contract: dict) -> None:
+        dispatch = cli_contract["paths"]["/dispatch"]["post"]
         params = {p["name"] for p in dispatch.get("parameters", [])}
         assert {"repo", "parent-issue", "config", "preset"} <= params
 
-    def test_graphql_features_header_defined(self) -> None:
-        import yaml
-
-        data = yaml.safe_load(_CLI_CONTRACT_PATH.read_text())
-        headers_schema = data["components"]["schemas"]["GraphQLHeaders"]
+    def test_graphql_features_header_defined(self, cli_contract: dict) -> None:
+        headers_schema = cli_contract["components"]["schemas"]["GraphQLHeaders"]
         props = headers_schema.get("properties", {})
         assert "GraphQL-Features" in props
         allowed = props["GraphQL-Features"]["enum"]
