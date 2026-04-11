@@ -187,7 +187,7 @@ solune/
 │   │   │   │                     # FilePreviewChips, MarkdownRenderer,
 │   │   │   │                     # ChatMessageSkeleton, PipelineWarningBanner,
 │   │   │   │                     # PipelineIndicator
-│   │   │   ├── common/           # ErrorBoundary, CelestialCatalogHero,
+│   │   │   ├── common/           # ErrorBoundary, CompactPageHeader,
 │   │   │   │                     # CelestialLoader, ThemedAgentIcon, agentIcons
 │   │   │   ├── agents/           # AgentsPanel, AgentCard, AgentAvatar,
 │   │   │   │                     # AgentChatFlow, AddAgentModal, AgentInlineEditor
