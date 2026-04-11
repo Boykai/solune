@@ -23,7 +23,7 @@ A pipeline operator wants to dispatch a complete agent pipeline (multiple agents
 
 ---
 
-### User Story 2 — Extract Pipeline Configuration to a Standalone File (Priority: P2)
+### User Story 2 — Extract Pipeline Configuration to a Standalone File (Priority: P1)
 
 A pipeline operator or contributor wants the pipeline group and agent definitions to live in a standalone configuration file that both the shell dispatch script and the Python backend can consume. Today the pipeline definitions are embedded inside Python code. By extracting them to a shared format, changes to pipeline structure can be made in one place and used by both dispatch paths.
 
@@ -39,7 +39,7 @@ A pipeline operator or contributor wants the pipeline group and agent definition
 
 ---
 
-### User Story 3 — Template Custom Instructions for Shell-Based Dispatch (Priority: P3)
+### User Story 3 — Template Custom Instructions for Shell-Based Dispatch (Priority: P2)
 
 A pipeline operator wants custom instructions (the context prompt sent to each agent) to be generated from reusable templates that the shell script can populate without the Python backend. Currently, custom instructions are built by Python functions that combine issue context, PR context, and agent-specific output instructions. Templates must be readable and fillable by standard shell tools so the dispatch script can produce equivalent instructions.
 
@@ -55,7 +55,7 @@ A pipeline operator wants custom instructions (the context prompt sent to each a
 
 ---
 
-### User Story 4 — Monitor Agent Completion and Pipeline Progress (Priority: P4)
+### User Story 4 — Monitor Agent Completion and Pipeline Progress (Priority: P2)
 
 A pipeline operator wants to monitor the progress of a dispatched fleet — seeing which agents have completed, which are still running, and whether any have failed. The monitoring uses available CLI commands to poll agent status and report aggregate pipeline health.
 
