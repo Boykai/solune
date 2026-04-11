@@ -313,13 +313,15 @@ class TestMessageConversationFiltering:
         assert msgs_b[0]["content"] == "Conv B"
 
     @pytest.mark.anyio
-    async def test_get_messages_without_conversation_returns_all(self, mock_db):
-        """Backward compatibility: no conversation_id filter returns all messages."""
+    async def test_get_messages_without_conversation_returns_only_global(self, mock_db):
+        """ChatPopup isolation: no conversation_id returns only IS NULL messages."""
         await save_message(mock_db, "sess-1", "msg-1", "user", "A", conversation_id="conv-1")
         await save_message(mock_db, "sess-1", "msg-2", "user", "B")
 
-        all_msgs = await get_messages(mock_db, "sess-1")
-        assert len(all_msgs) == 2
+        global_msgs = await get_messages(mock_db, "sess-1")
+        assert len(global_msgs) == 1
+        assert global_msgs[0]["content"] == "B"
+        assert global_msgs[0]["conversation_id"] is None
 
     @pytest.mark.anyio
     async def test_count_messages_with_conversation(self, mock_db):
@@ -327,8 +329,8 @@ class TestMessageConversationFiltering:
         await save_message(mock_db, "sess-1", "msg-2", "user", "B", conversation_id="conv-1")
         await save_message(mock_db, "sess-1", "msg-3", "user", "C")
 
-        count_all = await count_messages(mock_db, "sess-1")
-        assert count_all == 3
+        count_global = await count_messages(mock_db, "sess-1")
+        assert count_global == 1  # only the IS NULL message
 
         count_conv = await count_messages(mock_db, "sess-1", conversation_id="conv-1")
         assert count_conv == 2
@@ -341,8 +343,15 @@ class TestMessageConversationFiltering:
 
         await clear_messages(mock_db, "sess-1", conversation_id="conv-1")
 
-        remaining = await get_messages(mock_db, "sess-1")
-        assert len(remaining) == 2
+        # Global (IS NULL) messages are unaffected
+        global_remaining = await get_messages(mock_db, "sess-1")
+        assert len(global_remaining) == 1
+        assert global_remaining[0]["content"] == "C"
+
+        # conv-2 messages are unaffected
+        conv2_remaining = await get_messages(mock_db, "sess-1", conversation_id="conv-2")
+        assert len(conv2_remaining) == 1
+        assert conv2_remaining[0]["content"] == "B"
 
     @pytest.mark.anyio
     async def test_backward_compat_messages_without_conversation_id(self, mock_db):
