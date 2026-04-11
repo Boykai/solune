@@ -84,7 +84,7 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
   }, [initialConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced persist to localStorage
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (panels.length === 0) return;
     clearTimeout(saveTimerRef.current);

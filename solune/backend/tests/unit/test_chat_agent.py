@@ -1024,3 +1024,37 @@ class TestProviderFactory:
         mock_settings.return_value = MagicMock(ai_provider="unknown_provider")
         with pytest.raises(ValueError, match="Unknown AI_PROVIDER"):
             await create_agent(instructions="test")
+
+
+# ── Agent key isolation tests ───────────────────────────────────────────
+
+
+class TestAgentKey:
+    """Tests for ChatAgentService._agent_key() composite key generation."""
+
+    def test_agent_key_with_conversation_id(self):
+        sid = uuid4()
+        key = ChatAgentService._agent_key(sid, "conv-123")
+        assert key == f"{sid}:conv-123"
+
+    def test_agent_key_without_conversation_id(self):
+        sid = uuid4()
+        key = ChatAgentService._agent_key(sid, None)
+        assert key == f"{sid}:_"
+
+    def test_agent_key_default_conversation_id(self):
+        sid = uuid4()
+        key = ChatAgentService._agent_key(sid)
+        assert key == f"{sid}:_"
+
+    def test_different_conversations_produce_different_keys(self):
+        sid = uuid4()
+        key_a = ChatAgentService._agent_key(sid, "conv-a")
+        key_b = ChatAgentService._agent_key(sid, "conv-b")
+        assert key_a != key_b
+
+    def test_none_conversation_uses_sentinel(self):
+        sid = uuid4()
+        key_none = ChatAgentService._agent_key(sid, None)
+        key_conv = ChatAgentService._agent_key(sid, "conv-1")
+        assert key_none != key_conv
