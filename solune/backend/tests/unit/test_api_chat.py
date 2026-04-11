@@ -2666,3 +2666,145 @@ class TestUploadFileValidationDirect:
         assert isinstance(resp, JSONResponse)
         assert resp.status_code == 400
         assert json.loads(resp.body)["error_code"] == "invalid_filename"
+
+
+# ── Conversation CRUD API endpoints ─────────────────────────────────────────
+
+
+class TestConversationAPI:
+    """Tests for conversation CRUD endpoints in the chat API."""
+
+    async def test_create_conversation(self, client):
+        """POST /chat/conversations creates a new conversation."""
+        resp = await client.post(
+            "/api/v1/chat/conversations",
+            json={"title": "My Chat"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["title"] == "My Chat"
+        assert "conversation_id" in data
+        assert "session_id" in data
+        assert "created_at" in data
+        assert "updated_at" in data
+
+    async def test_create_conversation_default_title(self, client):
+        """POST /chat/conversations with no title uses 'New Chat' default."""
+        resp = await client.post(
+            "/api/v1/chat/conversations",
+            json={},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["title"] == "New Chat"
+
+    async def test_list_conversations_empty(self, client):
+        """GET /chat/conversations returns empty list when no conversations exist."""
+        resp = await client.get("/api/v1/chat/conversations")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["conversations"] == []
+
+    async def test_list_conversations_returns_created(self, client):
+        """GET /chat/conversations returns previously created conversations."""
+        await client.post("/api/v1/chat/conversations", json={"title": "Chat A"})
+        await client.post("/api/v1/chat/conversations", json={"title": "Chat B"})
+
+        resp = await client.get("/api/v1/chat/conversations")
+        assert resp.status_code == 200
+        conversations = resp.json()["conversations"]
+        assert len(conversations) == 2
+        titles = {c["title"] for c in conversations}
+        assert titles == {"Chat A", "Chat B"}
+
+    async def test_update_conversation_title(self, client):
+        """PATCH /chat/conversations/{id} updates the title."""
+        create_resp = await client.post("/api/v1/chat/conversations", json={"title": "Old Title"})
+        conv_id = create_resp.json()["conversation_id"]
+
+        resp = await client.patch(
+            f"/api/v1/chat/conversations/{conv_id}",
+            json={"title": "New Title"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "New Title"
+
+    async def test_update_conversation_not_found(self, client):
+        """PATCH /chat/conversations/{id} returns 404 for nonexistent conversation."""
+        resp = await client.patch(
+            "/api/v1/chat/conversations/nonexistent-id",
+            json={"title": "New Title"},
+        )
+        assert resp.status_code == 404
+
+    async def test_delete_conversation(self, client):
+        """DELETE /chat/conversations/{id} removes the conversation."""
+        create_resp = await client.post("/api/v1/chat/conversations", json={"title": "To Delete"})
+        conv_id = create_resp.json()["conversation_id"]
+
+        resp = await client.delete(f"/api/v1/chat/conversations/{conv_id}")
+        assert resp.status_code == 200
+        assert "deleted" in resp.json()["message"].lower()
+
+        # Verify it's gone
+        list_resp = await client.get("/api/v1/chat/conversations")
+        assert len(list_resp.json()["conversations"]) == 0
+
+    async def test_delete_conversation_not_found(self, client):
+        """DELETE /chat/conversations/{id} returns 404 for nonexistent conversation."""
+        resp = await client.delete("/api/v1/chat/conversations/nonexistent-id")
+        assert resp.status_code == 404
+
+    async def test_get_messages_with_conversation_filter(self, client):
+        """GET /chat/messages?conversation_id=X returns only that conversation's messages."""
+        # With no messages, filtering by conversation_id returns empty
+        resp_filtered = await client.get(
+            "/api/v1/chat/messages",
+            params={"conversation_id": "conv-nonexistent"},
+        )
+        assert resp_filtered.status_code == 200
+        assert resp_filtered.json()["total"] == 0
+        assert resp_filtered.json()["messages"] == []
+
+        # Without filter, also returns empty (no messages yet)
+        resp_all = await client.get("/api/v1/chat/messages")
+        assert resp_all.status_code == 200
+        assert resp_all.json()["total"] == 0
+
+    async def test_clear_messages_with_conversation_id(self, client):
+        """DELETE /chat/messages?conversation_id=X clears only that conversation's messages."""
+        resp = await client.delete(
+            "/api/v1/chat/messages",
+            params={"conversation_id": "conv-1"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["message"] == "Chat history cleared"
+
+
+class TestConversationOwnership:
+    """Tests verifying conversation ownership checks prevent cross-session access."""
+
+    async def test_update_other_sessions_conversation_returns_404(self, client, mock_db):
+        """PATCH on another session's conversation returns 404 to prevent enumeration."""
+        from src.services import chat_store
+
+        # Create a conversation belonging to a different session
+        await chat_store.save_conversation(
+            mock_db, "other-session-id", "foreign-conv", "Foreign Chat"
+        )
+
+        resp = await client.patch(
+            "/api/v1/chat/conversations/foreign-conv",
+            json={"title": "Hijacked!"},
+        )
+        assert resp.status_code == 404
+
+    async def test_delete_other_sessions_conversation_returns_404(self, client, mock_db):
+        """DELETE on another session's conversation returns 404 to prevent enumeration."""
+        from src.services import chat_store
+
+        await chat_store.save_conversation(
+            mock_db, "other-session-id", "foreign-conv", "Foreign Chat"
+        )
+
+        resp = await client.delete("/api/v1/chat/conversations/foreign-conv")
+        assert resp.status_code == 404
