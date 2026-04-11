@@ -23,78 +23,14 @@ npm run dev
 
 ### Step 1: Create CompactPageHeader
 
-Create `src/components/common/CompactPageHeader.tsx`:
+Create `src/components/common/CompactPageHeader.tsx`.
 
-```typescript
-import type { ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+Do **not** duplicate the full component implementation in this guide. `CompactPageHeader` has interactive/mobile behavior and styling details that can change over time, so the source file should remain the single source of truth:
 
-interface CompactPageHeaderStat {
-  label: string;
-  value: string;
-}
+- Source: [`src/components/common/CompactPageHeader.tsx`](solune/frontend/src/components/common/CompactPageHeader.tsx)
+- Keep the existing production implementation, including any current hooks, icons, responsive stats behavior, and updated class names.
 
-interface CompactPageHeaderProps {
-  eyebrow: string;
-  title: string;
-  description: string;
-  badge?: string;
-  stats?: CompactPageHeaderStat[];
-  actions?: ReactNode;
-  className?: string;
-}
-
-export function CompactPageHeader({
-  eyebrow,
-  title,
-  description,
-  badge,
-  stats = [],
-  actions,
-  className,
-}: CompactPageHeaderProps) {
-  return (
-    <header className={cn('rounded-2xl border border-border/70 bg-background/35 px-5 py-4 backdrop-blur-sm sm:px-6', className)}>
-      <div className="group flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs uppercase tracking-[0.25em] text-primary/85">{eyebrow}</p>
-            {badge && (
-              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[11px] uppercase tracking-[0.18em] text-primary">
-                {badge}
-              </span>
-            )}
-          </div>
-          <h2 className="mt-1.5 text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
-            {title}
-          </h2>
-          <p className="mt-1 line-clamp-1 text-sm leading-relaxed text-muted-foreground group-hover:line-clamp-none">
-            {description}
-          </p>
-        </div>
-        {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {actions}
-          </div>
-        )}
-      </div>
-      {stats.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {stats.map((stat) => (
-            <span
-              key={stat.label}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/50 px-2.5 py-1 text-xs"
-            >
-              <span className="text-muted-foreground">{stat.label}</span>
-              <span className="font-medium text-foreground">{stat.value}</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </header>
-  );
-}
-```
+This quickstart focuses on where to use `CompactPageHeader`, rather than embedding a copy of the component that can drift from the real implementation.
 
 ### Step 2: Replace Hero in Each Page
 
