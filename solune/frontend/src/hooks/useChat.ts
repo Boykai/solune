@@ -43,7 +43,7 @@ export function useChat({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const proposals = useChatProposals();
 
-  const queryKey = ['chat', 'messages', conversationId ?? 'global'];
+  const queryKey = useMemo(() => ['chat', 'messages', conversationId ?? 'global'], [conversationId]);
 
   const {
     data: messagesData,

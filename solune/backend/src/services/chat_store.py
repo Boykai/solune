@@ -59,7 +59,15 @@ async def save_message(
             """INSERT OR REPLACE INTO chat_messages
                (message_id, session_id, sender_type, content, action_type, action_data, conversation_id)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (message_id, session_id, sender_type, content, action_type, action_data, conversation_id),
+            (
+                message_id,
+                session_id,
+                sender_type,
+                content,
+                action_type,
+                action_data,
+                conversation_id,
+            ),
         )
 
 

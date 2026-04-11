@@ -286,7 +286,11 @@ class TestMessageConversationFiltering:
     @pytest.mark.anyio
     async def test_save_message_with_conversation_id(self, mock_db):
         await save_message(
-            mock_db, "sess-1", "msg-1", "user", "Hello",
+            mock_db,
+            "sess-1",
+            "msg-1",
+            "user",
+            "Hello",
             conversation_id="conv-1",
         )
         msgs = await get_messages(mock_db, "sess-1", conversation_id="conv-1")

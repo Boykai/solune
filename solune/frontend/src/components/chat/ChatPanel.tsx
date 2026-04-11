@@ -5,7 +5,7 @@
  * so conversations are fully independent.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, Pencil, Check } from '@/lib/icons';
 import { ChatInterface } from './ChatInterface';
 import { useChat } from '@/hooks/useChat';
@@ -29,6 +29,14 @@ export function ChatPanel({ conversationId, title, onClose, showClose = true }: 
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the title input when editing starts
+  useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus();
+    }
+  }, [isEditingTitle]);
 
   const {
     isPlanMode,
@@ -101,6 +109,7 @@ export function ChatPanel({ conversationId, title, onClose, showClose = true }: 
           {isEditingTitle ? (
             <div className="flex items-center gap-1">
               <input
+                ref={titleInputRef}
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
@@ -113,7 +122,6 @@ export function ChatPanel({ conversationId, title, onClose, showClose = true }: 
                 }}
                 onBlur={handleSaveTitle}
                 className="h-6 rounded border border-border bg-background px-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                autoFocus
                 maxLength={200}
                 aria-label="Edit conversation title"
               />

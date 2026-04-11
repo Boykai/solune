@@ -322,7 +322,7 @@ class ChatAgentService:
         Each conversation gets its own agent context so that concurrent
         chats do not share state.
         """
-        cid = conversation_id if conversation_id else "_"
+        cid = conversation_id or "_"
         return f"{session_id}:{cid}"
 
     def __init__(self) -> None:

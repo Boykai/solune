@@ -1038,7 +1038,9 @@ async def get_messages(
 
     db = get_db()
     total = await chat_store.count_messages(db, key, conversation_id=conversation_id)
-    rows = await chat_store.get_messages(db, key, limit=limit, offset=offset, conversation_id=conversation_id)
+    rows = await chat_store.get_messages(
+        db, key, limit=limit, offset=offset, conversation_id=conversation_id
+    )
     paginated: list[ChatMessage] = []
     for row in rows:
         action_data = None

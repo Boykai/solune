@@ -161,12 +161,10 @@ export function ChatPanelManager() {
     [conversations],
   );
 
-  // Ensure active tab is valid
-  useEffect(() => {
-    if (activeTabIndex >= panels.length && panels.length > 0) {
-      setActiveTabIndex(panels.length - 1);
-    }
-  }, [panels.length, activeTabIndex]);
+  // Ensure active tab is valid — computed rather than set in effect
+  const safeActiveTab = activeTabIndex >= panels.length && panels.length > 0
+    ? panels.length - 1
+    : activeTabIndex;
 
   if (panels.length === 0) {
     return (
@@ -191,7 +189,7 @@ export function ChatPanelManager() {
                 type="button"
                 onClick={() => setActiveTabIndex(idx)}
                 className={`shrink-0 truncate rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  idx === activeTabIndex
+                  idx === safeActiveTab
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground hover:bg-muted/50'
                 }`}
@@ -216,7 +214,7 @@ export function ChatPanelManager() {
           {panels.map((panel, idx) => (
             <div
               key={panel.panelId}
-              className={idx === activeTabIndex ? 'h-full' : 'hidden'}
+              className={idx === safeActiveTab ? 'h-full' : 'hidden'}
             >
               <ChatPanel
                 conversationId={panel.conversationId}
@@ -257,17 +255,15 @@ export function ChatPanelManager() {
         <div key={panel.panelId} className="flex h-full" style={{ width: `${panel.widthPercent}%` }}>
           {/* Resize handle (between panels) */}
           {idx > 0 && (
-            <div
+            <button
+              type="button"
               className="flex w-1.5 shrink-0 cursor-col-resize items-center justify-center bg-border/30 transition-colors hover:bg-primary/20"
               onMouseDown={(e) => onResizeStart(e, idx - 1)}
               onTouchStart={(e) => onResizeStart(e, idx - 1)}
-              role="separator"
-              aria-orientation="vertical"
               aria-label="Resize panels"
-              tabIndex={0}
             >
               <div className="h-8 w-0.5 rounded-full bg-muted-foreground/30" />
-            </div>
+            </button>
           )}
           <div className="flex-1 overflow-hidden border-r border-border/30 last:border-r-0">
             <ChatPanel

@@ -76,10 +76,12 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
     return [];
   });
 
-  // Initialize with a default panel if nothing loaded from storage
+  // Initialize with a default panel if nothing loaded from storage.
+  // This is an initialization pattern — the effect only runs when
+  // initialConversationId is first provided.
   useEffect(() => {
     if (panels.length === 0 && initialConversationId) {
-      setPanels([createDefaultPanel(initialConversationId)]);
+      setPanels([createDefaultPanel(initialConversationId)]); // eslint-disable-line react-hooks/set-state-in-effect
     }
   }, [initialConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 

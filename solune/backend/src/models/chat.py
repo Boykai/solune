@@ -141,7 +141,9 @@ class ChatMessagesResponse(BaseModel):
 class Conversation(BaseModel):
     """Represents a conversation container for chat messages."""
 
-    conversation_id: UUID = Field(default_factory=uuid4, description="Unique conversation identifier")
+    conversation_id: UUID = Field(
+        default_factory=uuid4, description="Unique conversation identifier"
+    )
     session_id: UUID = Field(..., description="Parent session ID (FK)")
     title: str = Field(default="New Chat", max_length=200, description="Conversation title")
     created_at: datetime = Field(default_factory=utcnow, description="Creation timestamp")
