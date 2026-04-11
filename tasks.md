@@ -1,7 +1,7 @@
 # Tasks: Codebase Modularity Review
 
 **Input**: Design documents from `plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/`
-**Prerequisites**: plan.md (required), research.md (9 decisions), data-model.md (module topology), contracts/ (5 interface contracts)
+**Prerequisites**: `plan.md` (required), `research.md` (9 decisions), `data-model.md` (module topology), `contracts/` (5 interface contracts)
 
 **Tests**: No new tests are required — this is a behavior-preserving refactoring with existing test coverage (5200+ backend, 2200+ frontend). All existing tests must pass after each target. See `quickstart.md` for verification commands.
 
@@ -308,7 +308,7 @@ Phase 10: Polish ──────────────── (after all) �
 
 ## Parallel Example: User Story 1 (Chat Split)
 
-```bash
+```text
 # Phase 2 foundational tasks can run in parallel:
 Task T007: "Extract helpers into solune/backend/src/api/chat/helpers.py"
 Task T008: "Extract FileUploadResponse into solune/backend/src/api/chat/models.py"
@@ -320,7 +320,7 @@ Task T014: "Extract conversations into solune/backend/src/api/chat/conversations
 
 ## Parallel Example: User Story 5 (Frontend API Split)
 
-```bash
+```text
 # All domain API files can be extracted in parallel (each touches a different file):
 Task T048: "Extract authApi into solune/frontend/src/services/api/auth.ts"
 Task T049: "Extract chatApi into solune/frontend/src/services/api/chat.ts"
@@ -332,7 +332,7 @@ Task T052: "Extract projectsApi into solune/frontend/src/services/api/projects.t
 
 ## Parallel Example: User Story 6 (Domain Types)
 
-```bash
+```text
 # All domain type files can be extracted in parallel (each touches a different file):
 Task T068: "Create solune/frontend/src/types/common.ts"
 Task T069: "Extract chat types into solune/frontend/src/types/chat.ts"
