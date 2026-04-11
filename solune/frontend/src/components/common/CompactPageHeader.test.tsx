@@ -128,6 +128,50 @@ describe('CompactPageHeader', () => {
     );
   });
 
+  it('links the mobile toggle button to the stats container via aria-controls', () => {
+    const stats = [{ label: 'Count', value: '5' }];
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+    const controlsId = toggleBtn.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    const statsContainer = container.querySelector(`#${CSS.escape(controlsId!)}`);
+    expect(statsContainer).toBeInTheDocument();
+    expect(statsContainer).toHaveTextContent('Count');
+  });
+
+  it('does not render actions zone when actions prop is omitted', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} />);
+    // The actions wrapper div only renders when actions is provided
+    const header = container.querySelector('header')!;
+    // With no actions, there should be no shrink-0 wrapper
+    expect(header.querySelector('.shrink-0')).not.toBeInTheDocument();
+  });
+
+  it('wraps description in a group for hover-expand behavior', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} />);
+    const groupDiv = container.querySelector('.group');
+    expect(groupDiv).toBeInTheDocument();
+    const desc = groupDiv?.querySelector('p');
+    expect(desc?.className).toContain('group-hover:line-clamp-none');
+  });
+
+  it('renders all stats as individual chip elements', () => {
+    const stats = [
+      { label: 'Columns', value: '4' },
+      { label: 'Agents', value: '12' },
+      { label: 'Active', value: '3' },
+    ];
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const chips = container.querySelectorAll('span.inline-flex');
+    expect(chips).toHaveLength(3);
+  });
+
+  it('does not render a stats section when stats prop is omitted', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} />);
+    expect(container.querySelector('.inline-flex')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /stats/i })).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(
       <CompactPageHeader
