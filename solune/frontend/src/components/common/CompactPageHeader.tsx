@@ -42,7 +42,7 @@ export function CompactPageHeader({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[11px] uppercase tracking-[0.28em] text-primary/85">{eyebrow}</p>
             {badge && (
-              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-primary">
+              <span className="min-w-0 max-w-[12rem] truncate rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-primary">
                 {badge}
               </span>
             )}
@@ -95,7 +95,7 @@ export function CompactPageHeader({
                 className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2.5 py-1 text-xs"
               >
                 <span className="text-muted-foreground">{stat.label}</span>
-                <span className="font-medium text-foreground">{stat.value}</span>
+                <span className="min-w-0 max-w-[8rem] truncate font-medium text-foreground">{stat.value}</span>
               </span>
             ))}
           </div>
