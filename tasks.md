@@ -36,8 +36,8 @@
 
 **⚠️ CRITICAL**: No user story work (page migrations, dead code removal) can begin until this phase is complete.
 
-- [ ] T001 Create `CompactPageHeader` component implementing compact single-row layout (~80–100px height) with eyebrow, title, description (line-clamp-1 with group-hover expand), badge (optional pill), stats (inline chips, hidden behind toggle on mobile < 640px), actions zone, and className forwarding using `cn()` utility in `solune/frontend/src/components/common/CompactPageHeader.tsx`
-- [ ] T002 [P] Create unit tests for `CompactPageHeader` covering: render with all props, render with minimal props (eyebrow + title + description only), badge omitted when undefined, stats omitted when empty array, stats chips render label and value, actions slot renders children, className forwarded to root `<header>` element, description has `line-clamp-1` class, accessibility (semantic `<header>` element, `<h2>` heading) in `solune/frontend/src/components/common/CompactPageHeader.test.tsx`
+- [x] T001 Create `CompactPageHeader` component implementing compact single-row layout (~80–100px height) with eyebrow, title, description (line-clamp-1 with group-hover expand), badge (optional pill), stats (inline chips, hidden behind toggle on mobile < 640px), actions zone, and className forwarding using `cn()` utility in `solune/frontend/src/components/common/CompactPageHeader.tsx`
+- [x] T002 [P] Create unit tests for `CompactPageHeader` covering: render with all props, render with minimal props (eyebrow + title + description only), badge omitted when undefined, stats omitted when empty array, stats chips render label and value, actions slot renders children, className forwarded to root `<header>` element, description has `line-clamp-1` class, accessibility (semantic `<header>` element, `<h2>` heading) in `solune/frontend/src/components/common/CompactPageHeader.test.tsx`
 
 **Checkpoint**: `CompactPageHeader` renders correctly with all prop combinations. Tests pass with `npm test -- --reporter=verbose CompactPageHeader`. Page migration can now begin.
 
@@ -58,12 +58,12 @@
 
 ### Implementation
 
-- [ ] T003 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop, remove `className="projects-catalog-hero"` in `solune/frontend/src/pages/ProjectsPage.tsx`
-- [ ] T004 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop in `solune/frontend/src/pages/AgentsPage.tsx`
-- [ ] T005 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop, remove `className="projects-catalog-hero"` in `solune/frontend/src/pages/AgentsPipelinePage.tsx`
-- [ ] T006 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop in `solune/frontend/src/pages/ToolsPage.tsx`
-- [ ] T007 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop in `solune/frontend/src/pages/ChoresPage.tsx`
-- [ ] T008 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>` (no `note` prop used) in `solune/frontend/src/pages/HelpPage.tsx`
+- [x] T003 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop, remove `className="projects-catalog-hero"` in `solune/frontend/src/pages/ProjectsPage.tsx`
+- [x] T004 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop in `solune/frontend/src/pages/AgentsPage.tsx`
+- [x] T005 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop, remove `className="projects-catalog-hero"` in `solune/frontend/src/pages/AgentsPipelinePage.tsx`
+- [x] T006 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop in `solune/frontend/src/pages/ToolsPage.tsx`
+- [x] T007 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>`, remove `note` prop in `solune/frontend/src/pages/ChoresPage.tsx`
+- [x] T008 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import, replace `<CelestialCatalogHero>` JSX with `<CompactPageHeader>` (no `note` prop used) in `solune/frontend/src/pages/HelpPage.tsx`
 
 **Checkpoint**: All six pages render with `CompactPageHeader`. No TypeScript errors. Existing page tests still pass. `npm test -- --reporter=verbose` shows no regressions.
 
@@ -77,9 +77,9 @@
 
 ### Implementation
 
-- [ ] T009 [P] [US5] Delete the old hero component file `solune/frontend/src/components/common/CelestialCatalogHero.tsx`
-- [ ] T010 [P] [US5] Delete the old hero test file `solune/frontend/src/components/common/CelestialCatalogHero.test.tsx`
-- [ ] T011 [US5] Remove orphaned `.dark .projects-catalog-hero .catalog-hero-*` CSS rules (lines ~432–489) from `solune/frontend/src/index.css` — retain `.moonwell` (30+ components), `.hanging-stars` (LoginPage), and all `.celestial-*` animation classes (Sidebar, AppLayout, CelestialLoader, etc.)
+- [x] T009 [P] [US5] Delete the old hero component file `solune/frontend/src/components/common/CelestialCatalogHero.tsx`
+- [x] T010 [P] [US5] Delete the old hero test file `solune/frontend/src/components/common/CelestialCatalogHero.test.tsx`
+- [x] T011 [US5] Remove orphaned `.dark .projects-catalog-hero .catalog-hero-*` CSS rules (lines ~432–489) from `solune/frontend/src/index.css` — retain `.moonwell` (30+ components), `.hanging-stars` (LoginPage), and all `.celestial-*` animation classes (Sidebar, AppLayout, CelestialLoader, etc.)
 
 **Checkpoint**: Zero references to `CelestialCatalogHero` in codebase. No orphaned CSS. `npm test`, `npx eslint .`, and `npx tsc --noEmit` all pass.
 
@@ -89,9 +89,9 @@
 
 **Purpose**: Final verification across all dimensions — tests, lint, types, and visual correctness.
 
-- [ ] T012 Run full frontend test suite to verify zero regressions: `cd solune/frontend && npx vitest run`
-- [ ] T013 [P] Run ESLint to verify no lint errors: `cd solune/frontend && npx eslint .`
-- [ ] T014 [P] Run TypeScript type check to verify no type errors: `cd solune/frontend && npx tsc --noEmit`
+- [x] T012 Run full frontend test suite to verify zero regressions: `cd solune/frontend && npx vitest run`
+- [x] T013 [P] Run ESLint to verify no lint errors: `cd solune/frontend && npx eslint .`
+- [x] T014 [P] Run TypeScript type check to verify no type errors: `cd solune/frontend && npx tsc --noEmit`
 - [ ] T015 Visual smoke test on all 6 pages (`/projects`, `/agents`, `/agents/pipeline`, `/tools`, `/chores`, `/help`) — verify compact header renders correctly on desktop and mobile viewport
 
 ---
