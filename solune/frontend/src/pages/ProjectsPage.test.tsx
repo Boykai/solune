@@ -173,8 +173,8 @@ vi.mock('@/hooks/useBoardControls', () => ({
   useBoardControls: () => mocks.boardControls,
 }));
 
-vi.mock('@/components/common/CelestialCatalogHero', () => ({
-  CelestialCatalogHero: ({
+vi.mock('@/components/common/CompactPageHeader', () => ({
+  CompactPageHeader: ({
     title,
     description,
     actions,
@@ -183,11 +183,11 @@ vi.mock('@/components/common/CelestialCatalogHero', () => ({
     description: string;
     actions?: React.ReactNode;
   }) => (
-    <section>
-      <h1>{title}</h1>
+    <header>
+      <h2>{title}</h2>
       <p>{description}</p>
       <div>{actions}</div>
-    </section>
+    </header>
   ),
 }));
 
