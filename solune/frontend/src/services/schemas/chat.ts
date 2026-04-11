@@ -109,7 +109,7 @@ const ChatMessageSchema = z.object({
   timestamp: z.string(),
   status: z.enum(['pending', 'sent', 'failed']).optional(),
   resolved_model: ResolvedModelInfoSchema.nullable().optional(),
-  conversation_id: z.string().optional(),
+  conversation_id: z.string().nullable().optional(),
 });
 
 export const ChatMessagesResponseSchema = z.object({

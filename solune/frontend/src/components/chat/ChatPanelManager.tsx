@@ -15,7 +15,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 const MIN_WIDTH_PX = 320;
 
 export function ChatPanelManager() {
-  const { conversations, createConversation, deleteConversation } = useConversations();
+  const { conversations, isLoading: isConversationsLoading, createConversation, deleteConversation } = useConversations();
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialConvId, setInitialConvId] = useState<string | undefined>(undefined);
 
@@ -33,14 +33,14 @@ export function ChatPanelManager() {
 
   // Reconcile panels against loaded conversations to drop stale entries
   useEffect(() => {
-    if (!conversations || conversations.length === 0 || panels.length === 0) return;
+    if (isConversationsLoading || panels.length === 0) return;
     const validIds = new Set(conversations.map((c) => c.conversation_id));
     removeStalePanels(validIds);
-  }, [conversations, panels.length, removeStalePanels]);
+  }, [conversations, isConversationsLoading, panels.length, removeStalePanels]);
 
   // Create a default conversation on first mount if there are no panels
   useEffect(() => {
-    if (isInitialized) return;
+    if (isInitialized && panels.length > 0) return;
 
     const init = async () => {
       if (panels.length === 0) {

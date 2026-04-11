@@ -92,13 +92,16 @@ async def get_messages(
     returned (SQL-level pagination).  Otherwise all rows are fetched.
 
     When *conversation_id* is provided, only messages belonging to that
-    conversation are returned.
+    conversation are returned.  When omitted, only global (non-conversation)
+    messages are returned — i.e. ``conversation_id IS NULL``.
     """
     where = "WHERE session_id = ?"
     params: list[str | int] = [session_id]
     if conversation_id is not None:
         where += " AND conversation_id = ?"
         params.append(conversation_id)
+    else:
+        where += " AND conversation_id IS NULL"
 
     if limit is not None:
         cursor = await db.execute(
@@ -147,6 +150,8 @@ async def count_messages(
     if conversation_id is not None:
         where += " AND conversation_id = ?"
         params.append(conversation_id)
+    else:
+        where += " AND conversation_id IS NULL"
     cursor = await db.execute(
         f"SELECT COUNT(*) FROM chat_messages {where}",
         tuple(params),
@@ -160,7 +165,12 @@ async def clear_messages(
     session_id: str,
     conversation_id: str | None = None,
 ) -> None:
-    """Delete all messages for a session, optionally scoped to a conversation."""
+    """Delete messages for a session.
+
+    When *conversation_id* is provided, only that conversation's messages are
+    deleted.  When omitted, only global (non-conversation) messages — i.e.
+    rows where ``conversation_id IS NULL`` — are removed.
+    """
     async with transaction(db):
         if conversation_id is not None:
             await db.execute(
@@ -168,7 +178,10 @@ async def clear_messages(
                 (session_id, conversation_id),
             )
         else:
-            await db.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+            await db.execute(
+                "DELETE FROM chat_messages WHERE session_id = ? AND conversation_id IS NULL",
+                (session_id,),
+            )
 
 
 # ── Conversations ────────────────────────────────────────────────

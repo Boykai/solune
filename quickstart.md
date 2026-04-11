@@ -51,7 +51,7 @@ cd solune/backend
 python -m pytest tests/unit/test_chat_store.py -k "conversation" -v
 
 # Run all chat API tests
-python -m pytest tests/unit/test_chat_api.py -v
+python -m pytest tests/unit/test_api_chat.py -v
 
 # Run full backend test suite (ensure no regressions)
 python -m pytest tests/unit/ -q --timeout=120
@@ -64,33 +64,33 @@ python -m pytest tests/unit/ -q --timeout=120
 cd solune/backend && uvicorn src.main:app --reload --port 8000
 
 # Create a conversation (requires valid session cookie)
-curl -X POST http://localhost:8000/chat/conversations \
+curl -X POST http://localhost:8000/api/v1/chat/conversations \
   -H "Content-Type: application/json" \
   -d '{"title": "Test Conversation"}' \
   -b "session_id=YOUR_SESSION_ID"
 
 # List conversations
-curl http://localhost:8000/chat/conversations \
+curl http://localhost:8000/api/v1/chat/conversations \
   -b "session_id=YOUR_SESSION_ID"
 
 # Send a message to a specific conversation
-curl -X POST http://localhost:8000/chat/messages \
+curl -X POST http://localhost:8000/api/v1/chat/messages \
   -H "Content-Type: application/json" \
   -d '{"content": "Hello!", "conversation_id": "CONVERSATION_ID"}' \
   -b "session_id=YOUR_SESSION_ID"
 
 # Get messages for a specific conversation
-curl "http://localhost:8000/chat/messages?conversation_id=CONVERSATION_ID" \
+curl "http://localhost:8000/api/v1/chat/messages?conversation_id=CONVERSATION_ID" \
   -b "session_id=YOUR_SESSION_ID"
 
 # Update conversation title
-curl -X PATCH http://localhost:8000/chat/conversations/CONVERSATION_ID \
+curl -X PATCH http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
   -H "Content-Type: application/json" \
   -d '{"title": "Renamed Chat"}' \
   -b "session_id=YOUR_SESSION_ID"
 
 # Delete conversation
-curl -X DELETE http://localhost:8000/chat/conversations/CONVERSATION_ID \
+curl -X DELETE http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
   -b "session_id=YOUR_SESSION_ID"
 ```
 

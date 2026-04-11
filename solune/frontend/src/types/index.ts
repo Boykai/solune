@@ -265,7 +265,7 @@ export interface ChatMessage {
   timestamp: string;
   status?: MessageStatus;
   resolved_model?: ResolvedModelInfo | null;
-  conversation_id?: string;
+  conversation_id?: string | null;
 }
 
 export interface ChatMessageRequest {
