@@ -38,6 +38,7 @@ python -m pytest tests/unit/ -q --timeout=120
 ```
 
 **Verification**:
+
 - `from src.api.chat import router` still works (barrel re-export)
 - All 40 endpoints respond identically
 - No import errors at startup: `python -c "from src.api.chat import router; print('OK')"`
@@ -60,6 +61,7 @@ python -m pytest tests/unit/ -q --timeout=120
 ```
 
 **Verification**:
+
 - `confirm_proposal` endpoint returns identical responses
 - New `ProposalOrchestrator` can be instantiated and tested independently
 - Error handling behavior unchanged (expired proposals, missing proposals, GitHub API errors)
@@ -82,6 +84,7 @@ npm test
 ```
 
 **Verification**:
+
 - `import { chatApi } from '@/services/api'` still works (barrel re-export)
 - Build succeeds with no missing imports
 - Bundle size remains the same (±5%)
@@ -102,6 +105,7 @@ npm test
 ```
 
 **Verification**:
+
 - `import { ChatMessage } from '@/types'` still works (barrel re-export)
 - TypeScript compilation succeeds with zero new errors
 - No circular import warnings
@@ -122,6 +126,7 @@ python -m pytest tests/unit/ -q --timeout=120
 ```
 
 **Verification**:
+
 - Chat endpoints work identically
 - `ChatStateManager` respects capacity limits
 - No module-level mutable dicts remain in `api/chat/`
@@ -140,6 +145,7 @@ python -m pytest tests/unit/ -q --timeout=120
 ```
 
 **Verification**:
+
 - `from src.api.webhooks import router` still works
 - Webhook signature verification unchanged
 - All event handlers respond identically
@@ -209,6 +215,7 @@ npm run build
 ### Import errors after split
 
 If `ModuleNotFoundError` occurs after splitting a file into a package:
+
 1. Verify the `__init__.py` exists in the new package directory
 2. Check that the barrel re-exports use the correct relative imports
 3. Run `python -c "from src.api.chat import router"` to isolate the error
@@ -216,6 +223,7 @@ If `ModuleNotFoundError` occurs after splitting a file into a package:
 ### Test failures after move
 
 If tests fail with import errors:
+
 1. Check test files for direct imports of moved functions (e.g., `from src.api.chat import _persist_message`)
 2. Update test imports to use the new module paths
 3. Private functions that were imported in tests should be importable from the sub-module
@@ -223,6 +231,7 @@ If tests fail with import errors:
 ### TypeScript build errors after type split
 
 If `tsc` reports missing types:
+
 1. Check that `types/index.ts` barrel re-exports the moved type
 2. Verify no circular imports between domain type files
 3. Run `npx tsc --noEmit` for detailed error locations
@@ -230,6 +239,7 @@ If `tsc` reports missing types:
 ### Bundle size regression
 
 If the frontend bundle grows after splitting:
+
 1. Verify barrel exports don't accidentally import all domains
 2. Check that route-level code splitting still works (`React.lazy()` boundaries)
 3. Use `npx vite-bundle-analyzer` to compare before/after

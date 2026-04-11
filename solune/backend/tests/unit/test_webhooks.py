@@ -21,8 +21,10 @@ from src.services.cache import cache, get_repo_agents_cache_key
 def _mock_webhook_log_event():
     """Prevent log_event from hitting a real database in webhook tests."""
     with (
-        patch("src.api.webhooks.log_event", new_callable=AsyncMock),
-        patch("src.api.webhooks.get_db", return_value=MagicMock()),
+        patch("src.api.webhooks.handlers.log_event", new_callable=AsyncMock),
+        patch("src.api.webhooks.handlers.get_db", return_value=MagicMock()),
+        patch("src.api.webhooks.pull_requests.log_event", new_callable=AsyncMock),
+        patch("src.api.webhooks.pull_requests.get_db", return_value=MagicMock()),
     ):
         yield
 
@@ -212,7 +214,7 @@ class TestPullRequestEventHandling:
         assert cache.get(cache_key) is None
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_detects_copilot_pr_ready_no_token(self, mock_settings):
         """Test detection of Copilot PR ready for review without webhook token."""
         mock_settings.return_value.github_webhook_token = None
@@ -241,7 +243,7 @@ class TestPullRequestEventHandling:
         assert "action_needed" in result
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_detects_copilot_opened_non_draft(self, mock_settings):
         """Test detection of Copilot opening a non-draft PR."""
         mock_settings.return_value.github_webhook_token = None
@@ -301,7 +303,7 @@ class TestHandleCopilotPrReady:
         assert result["reason"] == "no_linked_issue"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
     async def test_linked_issue_found(self, mock_gps):
         mock_gps.get_linked_pull_requests = AsyncMock(return_value=[])
         pr_data = {
@@ -315,7 +317,7 @@ class TestHandleCopilotPrReady:
         assert result["issue_number"] == 10
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
     async def test_error_handling(self, mock_gps):
         mock_gps.get_linked_pull_requests = AsyncMock(side_effect=Exception("API fail"))
         pr_data = {
@@ -332,7 +334,7 @@ class TestUpdateIssueStatusForCopilotPr:
     """Tests for update_issue_status_for_copilot_pr."""
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_no_linked_issue(self, mock_settings):
         mock_settings.return_value.github_webhook_token = "tok"
         pr_data = {"number": 1, "body": "", "head": {"ref": "branch"}}
@@ -340,7 +342,7 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["action"] == "no_linked_issue_found"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_no_webhook_token(self, mock_settings):
         mock_settings.return_value.github_webhook_token = None
         pr_data = {"number": 1, "body": "Fixes #5", "head": {"ref": "b"}}
@@ -349,8 +351,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert "action_needed" in result
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_auth_failure(self, mock_settings, mock_gps):
         """Webhook token present but auth fails."""
         mock_settings.return_value.github_webhook_token = "bad-token"
@@ -362,8 +364,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert "authenticate" in result["error"].lower()
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_issue_not_in_any_project(self, mock_settings, mock_gps):
         """Token works but issue not found in any project."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -378,8 +380,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["action"] == "issue_not_in_project"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_status_updated_success(self, mock_settings, mock_gps):
         """Full happy path - issue found and status updated."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -396,8 +398,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["new_status"] == "In Review"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_status_update_fails(self, mock_settings, mock_gps):
         """Issue found but update_item_status_by_name returns False."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -414,8 +416,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert "Failed to update" in result["error"]
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_exception_during_project_lookup(self, mock_settings, mock_gps):
         """Exception raised during the whole project lookup flow."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -425,8 +427,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["status"] == "error"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_project_items_error_continues(self, mock_settings, mock_gps):
         """When get_project_items fails for one project, continues to next."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -443,8 +445,8 @@ class TestUpdateIssueStatusForCopilotPr:
         assert result["status"] == "success"
 
     @pytest.mark.asyncio
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_issue_found_by_title_match(self, mock_settings, mock_gps):
         """Issue matched by title containing '#N'."""
         mock_settings.return_value.github_webhook_token = "tok"
@@ -462,8 +464,8 @@ class TestUpdateIssueStatusForCopilotPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_pipeline_state")
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_skips_status_move_when_pipeline_agent_not_copilot_review(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
@@ -489,8 +491,8 @@ class TestUpdateIssueStatusForCopilotPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_pipeline_state")
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_proceeds_when_pipeline_agent_is_copilot_review(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
@@ -513,8 +515,8 @@ class TestUpdateIssueStatusForCopilotPr:
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_pipeline_state")
-    @patch("src.api.webhooks.github_projects_service")
-    @patch("src.api.webhooks.get_settings")
+    @patch("src.api.webhooks.pull_requests.github_projects_service")
+    @patch("src.api.webhooks.pull_requests.get_settings")
     async def test_proceeds_when_no_pipeline_exists(
         self, mock_settings, mock_gps, mock_get_pipeline
     ):
@@ -547,7 +549,7 @@ class TestGithubWebhookEndpoint:
         return "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
 
     async def test_webhook_invalid_signature(self, client):
-        with patch("src.api.webhooks.get_settings") as mock_s:
+        with patch("src.api.webhooks.handlers.get_settings") as mock_s:
             mock_s.return_value = MagicMock(github_webhook_secret="secret")
             resp = await client.post(
                 "/api/v1/webhooks/github",
@@ -561,8 +563,8 @@ class TestGithubWebhookEndpoint:
 
     async def test_webhook_ignores_unhandled_event(self, client, webhook_secret):
         with (
-            patch("src.api.webhooks.get_settings") as mock_s,
-            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.handlers.get_settings") as mock_s,
+            patch("src.api.webhooks.handlers.verify_webhook_signature", return_value=True),
         ):
             mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
             resp = await client.post(
@@ -575,8 +577,8 @@ class TestGithubWebhookEndpoint:
 
     async def test_webhook_deduplication(self, client, webhook_secret):
         with (
-            patch("src.api.webhooks.get_settings") as mock_s,
-            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.handlers.get_settings") as mock_s,
+            patch("src.api.webhooks.handlers.verify_webhook_signature", return_value=True),
         ):
             mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
             # Clear processed IDs for test isolation
@@ -607,8 +609,8 @@ class TestGithubWebhookEndpoint:
     async def test_webhook_pull_request_routing(self, client, webhook_secret):
         """Pull request events are routed to handle_pull_request_event."""
         with (
-            patch("src.api.webhooks.get_settings") as mock_s,
-            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.handlers.get_settings") as mock_s,
+            patch("src.api.webhooks.handlers.verify_webhook_signature", return_value=True),
         ):
             mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
             resp = await client.post(
@@ -629,9 +631,9 @@ class TestGithubWebhookEndpoint:
 
     async def test_webhook_logs_pr_merge_activity(self, client, webhook_secret):
         with (
-            patch("src.api.webhooks.get_settings") as mock_s,
-            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
-            patch("src.api.webhooks.log_event", new_callable=AsyncMock) as mock_log_event,
+            patch("src.api.webhooks.handlers.get_settings") as mock_s,
+            patch("src.api.webhooks.handlers.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.handlers.log_event", new_callable=AsyncMock) as mock_log_event,
         ):
             mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
             resp = await client.post(
@@ -655,9 +657,9 @@ class TestGithubWebhookEndpoint:
 
     async def test_webhook_logs_copilot_ready_activity(self, client, webhook_secret):
         with (
-            patch("src.api.webhooks.get_settings") as mock_s,
-            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
-            patch("src.api.webhooks.log_event", new_callable=AsyncMock) as mock_log_event,
+            patch("src.api.webhooks.handlers.get_settings") as mock_s,
+            patch("src.api.webhooks.handlers.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.handlers.log_event", new_callable=AsyncMock) as mock_log_event,
         ):
             mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
             resp = await client.post(
@@ -685,7 +687,7 @@ class TestGithubWebhookEndpoint:
 
         body = json_mod.dumps({"action": "ping"}).encode()
         sig = self._sign(body, webhook_secret)
-        with patch("src.api.webhooks.get_settings") as mock_s:
+        with patch("src.api.webhooks.handlers.get_settings") as mock_s:
             mock_s.return_value = MagicMock(github_webhook_secret=webhook_secret)
             resp = await client.post(
                 "/api/v1/webhooks/github",
@@ -783,8 +785,8 @@ class TestWebhookResponseSanitization:
         from src.api.webhooks import _processed_delivery_ids
 
         with (
-            patch("src.api.webhooks.get_settings") as mock_settings,
-            patch("src.api.webhooks.verify_webhook_signature", return_value=True),
+            patch("src.api.webhooks.handlers.get_settings") as mock_settings,
+            patch("src.api.webhooks.handlers.verify_webhook_signature", return_value=True),
         ):
             mock_settings.return_value = MagicMock(
                 github_webhook_secret="test-secret",
