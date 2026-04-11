@@ -68,8 +68,8 @@ describe('CompactPageHeader', () => {
   });
 
   it('does not render stats section when stats is empty', () => {
-    const { container } = render(<CompactPageHeader {...defaultProps} stats={[]} />);
-    expect(container.querySelector('#compact-header-stats')).not.toBeInTheDocument();
+    render(<CompactPageHeader {...defaultProps} stats={[]} />);
+    expect(screen.queryByRole('button', { name: /show stats/i })).not.toBeInTheDocument();
   });
 
   it('renders the actions slot', () => {

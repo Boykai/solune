@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { BarChart3 } from '@/lib/icons';
 
@@ -27,6 +27,7 @@ export function CompactPageHeader({
   className,
 }: CompactPageHeaderProps) {
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+  const statsId = useId();
 
   return (
     <header
@@ -74,7 +75,7 @@ export function CompactPageHeader({
             className="flex items-center gap-1.5 text-xs text-muted-foreground sm:hidden"
             onClick={() => setMobileStatsOpen((prev) => !prev)}
             aria-expanded={mobileStatsOpen}
-            aria-controls="compact-header-stats"
+            aria-controls={statsId}
           >
             <BarChart3 className="h-3.5 w-3.5" />
             {mobileStatsOpen ? 'Hide stats' : 'Show stats'}
@@ -82,7 +83,7 @@ export function CompactPageHeader({
 
           {/* Stats chips */}
           <div
-            id="compact-header-stats"
+            id={statsId}
             className={cn(
               'flex flex-wrap items-center gap-2',
               mobileStatsOpen ? 'mt-2' : 'hidden sm:flex',
