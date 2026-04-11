@@ -1149,13 +1149,14 @@ class TestAgentKeySessionIsolation:
         service._session_mapping.get_or_create.return_value = mock_session
 
         session_id = uuid4()
-        events = []
-        async for event in service.run_stream(
-            message="Hello",
-            session_id=session_id,
-            conversation_id="conv-xyz",
-        ):
-            events.append(event)
+        _events = [
+            event
+            async for event in service.run_stream(
+                message="Hello",
+                session_id=session_id,
+                conversation_id="conv-xyz",
+            )
+        ]
 
         expected_key = f"{session_id}:conv-xyz"
         service._session_mapping.get_or_create.assert_called_once_with(expected_key)

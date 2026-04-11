@@ -2718,9 +2718,7 @@ class TestConversationAPI:
 
     async def test_update_conversation_title(self, client):
         """PATCH /chat/conversations/{id} updates the title."""
-        create_resp = await client.post(
-            "/api/v1/chat/conversations", json={"title": "Old Title"}
-        )
+        create_resp = await client.post("/api/v1/chat/conversations", json={"title": "Old Title"})
         conv_id = create_resp.json()["conversation_id"]
 
         resp = await client.patch(
@@ -2740,9 +2738,7 @@ class TestConversationAPI:
 
     async def test_delete_conversation(self, client):
         """DELETE /chat/conversations/{id} removes the conversation."""
-        create_resp = await client.post(
-            "/api/v1/chat/conversations", json={"title": "To Delete"}
-        )
+        create_resp = await client.post("/api/v1/chat/conversations", json={"title": "To Delete"})
         conv_id = create_resp.json()["conversation_id"]
 
         resp = await client.delete(f"/api/v1/chat/conversations/{conv_id}")
@@ -2792,7 +2788,9 @@ class TestConversationOwnership:
         from src.services import chat_store
 
         # Create a conversation belonging to a different session
-        await chat_store.save_conversation(mock_db, "other-session-id", "foreign-conv", "Foreign Chat")
+        await chat_store.save_conversation(
+            mock_db, "other-session-id", "foreign-conv", "Foreign Chat"
+        )
 
         resp = await client.patch(
             "/api/v1/chat/conversations/foreign-conv",
@@ -2804,7 +2802,9 @@ class TestConversationOwnership:
         """DELETE on another session's conversation returns 404 to prevent enumeration."""
         from src.services import chat_store
 
-        await chat_store.save_conversation(mock_db, "other-session-id", "foreign-conv", "Foreign Chat")
+        await chat_store.save_conversation(
+            mock_db, "other-session-id", "foreign-conv", "Foreign Chat"
+        )
 
         resp = await client.delete("/api/v1/chat/conversations/foreign-conv")
         assert resp.status_code == 404

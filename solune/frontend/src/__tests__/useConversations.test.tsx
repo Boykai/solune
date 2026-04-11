@@ -115,7 +115,7 @@ describe('useConversations', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    await result.current.createConversation();
+    await result.current.createConversation(undefined);
     expect(mocks.create).toHaveBeenCalledWith(undefined);
   });
 });
