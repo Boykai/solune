@@ -224,7 +224,7 @@ describe('librarian documentation workflow', () => {
       extractChecklistItems(checklistTemplate, 'Verification Items'),
     );
     expect(checklistTemplate).toContain('## Overall Status');
-    expect(changeManifest).toContain('**Overall Status**: [PASS / PARTIAL / FAIL]');
+    expect(changeManifest).toContain('**Overall Status**: PASS');
   });
 
   it('references only existing documentation files in the change manifest', () => {
