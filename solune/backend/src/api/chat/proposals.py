@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.auth import get_session_dep
 from src.dependencies import get_connection_manager, get_github_service
-from src.exceptions import NotFoundError, ValidationError
+from src.exceptions import NotFoundError
 from src.logging_utils import get_logger
 from src.models.chat import ChatMessage, SenderType
 from src.models.recommendation import AITaskProposal, ProposalConfirmRequest, ProposalStatus

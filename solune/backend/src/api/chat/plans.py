@@ -10,9 +10,9 @@ from fastapi.responses import JSONResponse, Response
 from src.api.auth import get_session_dep
 from src.dependencies import require_selected_project
 from src.logging_utils import get_logger
+from src.middleware.rate_limit import limiter
 from src.models.chat import ActionType, ChatMessage, ChatMessageRequest, SenderType
 from src.models.user import UserSession
-from src.middleware.rate_limit import limiter
 from src.services.cache import cache, get_user_projects_cache_key
 from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db

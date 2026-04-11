@@ -17,28 +17,31 @@ from src.api.webhooks.common import (
 )
 from src.api.webhooks.handlers import github_webhook, router
 from src.api.webhooks.pull_requests import (
+    github_projects_service,
     handle_copilot_pr_ready,
     handle_pull_request_event,
     update_issue_status_for_copilot_pr,
 )
+from src.config import get_settings
+from src.services.activity_logger import log_event
+from src.services.database import get_db
 
 __all__ = [
-    # Router
-    "router",
-    # Main endpoint
-    "github_webhook",
-    # Common utilities
-    "verify_webhook_signature",
+    "_get_auto_merge_pipeline",
     "_processed_delivery_ids",
     "_resolve_issue_for_pr",
-    "_get_auto_merge_pipeline",
     "classify_pull_request_activity",
     "extract_issue_number_from_pr",
-    # Pull request handlers
-    "handle_pull_request_event",
-    "handle_copilot_pr_ready",
-    "update_issue_status_for_copilot_pr",
-    # Check run/suite handlers
+    "get_db",
+    "get_settings",
+    "github_projects_service",
+    "github_webhook",
     "handle_check_run_event",
     "handle_check_suite_event",
+    "handle_copilot_pr_ready",
+    "handle_pull_request_event",
+    "log_event",
+    "router",
+    "update_issue_status_for_copilot_pr",
+    "verify_webhook_signature",
 ]

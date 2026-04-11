@@ -27,12 +27,17 @@ router.include_router(streaming_router)
 # Every symbol that external code imports from `src.api.chat` must appear
 # here so the barrel import keeps working.
 
-from .dispatch import (  # noqa: E402, F401
+from pathlib import Path as Path  # noqa: E402
+
+from src.services.cache import cache as cache  # noqa: E402
+from src.services.database import get_db as get_db  # noqa: E402
+
+from .dispatch import (  # noqa: E402
     _extract_transcript_content,
     _handle_transcript_upload,
     _post_process_agent_response,
 )
-from .helpers import (  # noqa: E402, F401
+from .helpers import (  # noqa: E402
     _resolve_repository,
     _retry_persist,
     _safe_validation_detail,
@@ -44,9 +49,9 @@ from .helpers import (  # noqa: E402, F401
     store_proposal,
     store_recommendation,
 )
-from .models import FileUploadResponse  # noqa: E402, F401
-from .proposals import upload_file  # noqa: E402, F401
-from .state import (  # noqa: E402, F401
+from .models import FileUploadResponse  # noqa: E402
+from .proposals import upload_file  # noqa: E402
+from .state import (  # noqa: E402
     _PERSIST_BASE_DELAY,
     _PERSIST_MAX_RETRIES,
     _locks,
@@ -55,40 +60,30 @@ from .state import (  # noqa: E402, F401
     _recommendations,
 )
 
-# Additional re-exports for test compatibility — these were previously
-# importable from the monolithic chat.py because they were top-level imports.
-from pathlib import Path as Path  # noqa: E402, F401
-
-from src.services.cache import cache as cache  # noqa: E402, F401
-from src.services.database import get_db as get_db  # noqa: E402, F401
-
 __all__ = [
-    # Router
-    "router",
-    # State
+    "_PERSIST_BASE_DELAY",
+    "_PERSIST_MAX_RETRIES",
+    "FileUploadResponse",
+    "Path",
+    "_extract_transcript_content",
+    "_handle_transcript_upload",
+    "_locks",
     "_messages",
+    "_post_process_agent_response",
     "_proposals",
     "_recommendations",
-    "_locks",
-    "_PERSIST_MAX_RETRIES",
-    "_PERSIST_BASE_DELAY",
-    # Helpers
     "_resolve_repository",
     "_retry_persist",
-    "_trigger_signal_delivery",
     "_safe_validation_detail",
+    "_trigger_signal_delivery",
     "add_message",
-    "get_session_messages",
+    "cache",
+    "get_db",
     "get_proposal",
     "get_recommendation",
+    "get_session_messages",
+    "router",
     "store_proposal",
     "store_recommendation",
-    # Dispatch
-    "_handle_transcript_upload",
-    "_extract_transcript_content",
-    "_post_process_agent_response",
-    # Models
-    "FileUploadResponse",
-    # Endpoints
     "upload_file",
 ]

@@ -58,13 +58,12 @@ class ProposalOrchestrator:
 
         Raises NotFoundError, ValidationError (same as the original endpoint).
         """
-        from src.dependencies import require_selected_project
-
         from src.api.chat.helpers import (
             _resolve_repository,
             _trigger_signal_delivery,
             add_message,
         )
+        from src.dependencies import require_selected_project
 
         proposal = await self._validate_proposal(proposal_id, session)
         self._apply_edits(proposal, request)
@@ -75,8 +74,13 @@ class ProposalOrchestrator:
         body = self._build_body(proposal)
 
         try:
-            issue_url, issue_number, issue_node_id, issue_database_id = (
-                await self._create_github_issue(proposal, session, github_service, owner, repo, body)
+            (
+                issue_url,
+                issue_number,
+                issue_node_id,
+                issue_database_id,
+            ) = await self._create_github_issue(
+                proposal, session, github_service, owner, repo, body
             )
 
             item_id = await self._add_to_project(
@@ -138,9 +142,7 @@ class ProposalOrchestrator:
 
     # ── Private step methods ─────────────────────────────────────────────
 
-    async def _validate_proposal(
-        self, proposal_id: str, session: UserSession
-    ) -> AITaskProposal:
+    async def _validate_proposal(self, proposal_id: str, session: UserSession) -> AITaskProposal:
         """Retrieve and validate proposal ownership + expiration + status."""
         from src.api.chat.helpers import get_proposal
 
@@ -300,11 +302,6 @@ class ProposalOrchestrator:
         """
         try:
             from src.config import get_settings
-            from src.services.workflow_orchestrator.config import (
-                PipelineResolutionResult,
-                load_pipeline_as_agent_mappings,
-                resolve_project_pipeline_mappings,
-            )
 
             settings = get_settings()
 
