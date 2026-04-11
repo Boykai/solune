@@ -1,35 +1,27 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, userEvent } from '@/test/test-utils';
+import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@/test/test-utils';
 import { AppPage } from './AppPage';
 
-const mocks = vi.hoisted(() => ({
-  navigate: vi.fn(),
+// Mock ChatPanelManager so we don't need to wire up all the hooks/providers
+vi.mock('@/components/chat/ChatPanelManager', () => ({
+  ChatPanelManager: () => <div data-testid="chat-panel-manager">Chat Panel Manager</div>,
 }));
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mocks.navigate,
-  };
-});
-
 describe('AppPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it('renders ChatPanelManager', () => {
+    render(<AppPage />);
+    expect(screen.getByTestId('chat-panel-manager')).toBeInTheDocument();
   });
 
-  it('renders the apps quick-launch button', () => {
+  it('does not render marketing content', () => {
     render(<AppPage />);
-
-    expect(screen.getByRole('button', { name: /open apps page/i })).toBeInTheDocument();
+    expect(screen.queryByText('Change your project mindset.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Daily affirmations for delivery')).not.toBeInTheDocument();
   });
 
-  it('navigates to the apps page when the animated icon button is clicked', async () => {
+  it('renders at full viewport height', () => {
     render(<AppPage />);
-
-    await userEvent.click(screen.getByRole('button', { name: /open apps page/i }));
-
-    expect(mocks.navigate).toHaveBeenCalledWith('/apps');
+    const container = screen.getByTestId('chat-panel-manager').parentElement;
+    expect(container).toHaveClass('overflow-hidden');
   });
 });
