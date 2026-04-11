@@ -265,6 +265,7 @@ export interface ChatMessage {
   timestamp: string;
   status?: MessageStatus;
   resolved_model?: ResolvedModelInfo | null;
+  conversation_id?: string;
 }
 
 export interface ChatMessageRequest {
@@ -272,6 +273,7 @@ export interface ChatMessageRequest {
   ai_enhance?: boolean;
   file_urls?: string[];
   pipeline_id?: string;
+  conversation_id?: string;
 }
 
 // ============ @Mention Types ============
@@ -365,6 +367,20 @@ export interface FileUploadError {
 
 export interface ChatMessagesResponse {
   messages: ChatMessage[];
+}
+
+// ============ Conversations ============
+
+export interface Conversation {
+  conversation_id: string;
+  session_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ConversationsListResponse {
+  conversations: Conversation[];
 }
 
 // ============ AI Task Proposals ============
