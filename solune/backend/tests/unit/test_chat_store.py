@@ -351,3 +351,56 @@ class TestMessageConversationFiltering:
         msgs = await get_messages(mock_db, "sess-1")
         assert len(msgs) == 1
         assert msgs[0]["conversation_id"] is None
+
+
+# =============================================================================
+# Conversation session isolation
+# =============================================================================
+
+
+class TestConversationSessionIsolation:
+    """Tests verifying conversations are properly scoped to sessions."""
+
+    @pytest.mark.anyio
+    async def test_get_conversation_by_id_returns_session_id(self, mock_db):
+        """Verify that get_conversation_by_id returns session_id for ownership checks."""
+        await save_conversation(mock_db, "sess-1", "conv-1", "My Chat")
+        result = await get_conversation_by_id(mock_db, "conv-1")
+        assert result is not None
+        assert result["session_id"] == "sess-1"
+
+    @pytest.mark.anyio
+    async def test_update_conversation_only_affects_own(self, mock_db):
+        """Update does not cross session boundaries at the store level."""
+        await save_conversation(mock_db, "sess-1", "conv-1", "Original")
+        await save_conversation(mock_db, "sess-2", "conv-2", "Other")
+        await update_conversation(mock_db, "conv-1", "Changed")
+        # sess-2's conversation should be unaffected
+        other = await get_conversation_by_id(mock_db, "conv-2")
+        assert other is not None
+        assert other["title"] == "Other"
+
+    @pytest.mark.anyio
+    async def test_delete_conversation_only_affects_own(self, mock_db):
+        """Delete does not cross session boundaries at the store level."""
+        await save_conversation(mock_db, "sess-1", "conv-1", "To delete")
+        await save_conversation(mock_db, "sess-2", "conv-2", "Keep")
+        await delete_conversation(mock_db, "conv-1")
+        # sess-2's conversation should be unaffected
+        other = await get_conversation_by_id(mock_db, "conv-2")
+        assert other is not None
+        assert other["title"] == "Keep"
+
+    @pytest.mark.anyio
+    async def test_get_messages_with_conversation_and_limit(self, mock_db):
+        """Pagination works correctly with conversation_id filter."""
+        for i in range(5):
+            await save_message(
+                mock_db, "sess-1", f"msg-{i}", "user", f"msg {i}", conversation_id="conv-1"
+            )
+        await save_message(mock_db, "sess-1", "msg-other", "user", "other")
+
+        msgs = await get_messages(mock_db, "sess-1", limit=2, conversation_id="conv-1")
+        assert len(msgs) == 2
+        for m in msgs:
+            assert m["conversation_id"] == "conv-1"
