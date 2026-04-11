@@ -30,6 +30,7 @@ export function ChatPanel({ conversationId, title, onClose, showClose = true }: 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(title);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const isSavingTitleRef = useRef(false);
 
   // Focus the title input when editing starts
   useEffect(() => {
@@ -87,18 +88,24 @@ export function ChatPanel({ conversationId, title, onClose, showClose = true }: 
     : null;
 
   const handleSaveTitle = useCallback(async () => {
-    const trimmed = editTitle.trim();
-    if (trimmed && trimmed !== title) {
-      try {
-        await updateConversation(conversationId, trimmed);
-      } catch {
-        // Revert on failure
+    if (isSavingTitleRef.current) return;
+    isSavingTitleRef.current = true;
+    try {
+      const trimmed = editTitle.trim();
+      if (trimmed && trimmed !== title) {
+        try {
+          await updateConversation(conversationId, trimmed);
+        } catch {
+          // Revert on failure
+          setEditTitle(title);
+        }
+      } else {
         setEditTitle(title);
       }
-    } else {
-      setEditTitle(title);
+      setIsEditingTitle(false);
+    } finally {
+      isSavingTitleRef.current = false;
     }
-    setIsEditingTitle(false);
   }, [editTitle, title, conversationId, updateConversation]);
 
   return (

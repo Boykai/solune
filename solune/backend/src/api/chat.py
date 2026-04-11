@@ -954,8 +954,8 @@ async def create_conversation(
         conversation_id=row["conversation_id"],
         session_id=row["session_id"],
         title=row["title"],
-        created_at=row.get("created_at", ""),
-        updated_at=row.get("updated_at", ""),
+        created_at=row.get("created_at") or utcnow(),
+        updated_at=row.get("updated_at") or utcnow(),
     )
 
 
@@ -973,8 +973,8 @@ async def list_conversations(
             conversation_id=r["conversation_id"],
             session_id=r["session_id"],
             title=r["title"],
-            created_at=r.get("created_at", ""),
-            updated_at=r.get("updated_at", ""),
+            created_at=r.get("created_at") or utcnow(),
+            updated_at=r.get("updated_at") or utcnow(),
         )
         for r in rows
     ]
@@ -1004,8 +1004,8 @@ async def update_conversation(
         conversation_id=row["conversation_id"],
         session_id=row["session_id"],
         title=row["title"],
-        created_at=row.get("created_at", ""),
-        updated_at=row.get("updated_at", ""),
+        created_at=row.get("created_at") or utcnow(),
+        updated_at=row.get("updated_at") or utcnow(),
     )
 
 
