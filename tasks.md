@@ -1,171 +1,253 @@
-# Tasks: Increase Test Coverage with Meaningful Tests Using Modern Best Practices
+# Tasks: Multi-Chat App Page
 
-**Input**: Design documents from `/specs/001-increase-test-coverage/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories)
+**Input**: Design documents from `plan.md`, `specs/001-multi-chat-app-page/spec.md`, `data-model.md`, `research.md`, `contracts/`
+**Prerequisites**: `plan.md` (required), `spec.md` (required for user stories), `data-model.md`, `research.md`, `contracts/`
 
-**Tests**: Tests ARE the primary deliverable for this feature. All tasks generate test files or fix the bounded-locks bug.
+**Tests**: Tests ARE explicitly requested in Phase 5 of the spec. Test tasks are included for backend CRUD, frontend components, and hooks.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3, US4)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3, US4, US5, US6, US7)
 - Include exact file paths in descriptions
 
 ## Path Conventions
 
 - **Web app**: `solune/backend/src/`, `solune/backend/tests/`, `solune/frontend/src/`
+- Backend migrations: `solune/backend/src/migrations/`
 - Backend tests: `solune/backend/tests/unit/test_<module>.py`
-- Frontend tests: colocated `<Component>.test.tsx` or `__tests__/<Component>.test.tsx`
+- Frontend hooks: `solune/frontend/src/hooks/`
+- Frontend components: `solune/frontend/src/components/chat/`
+- Frontend pages: `solune/frontend/src/pages/`
+- Frontend tests: colocated `<Component>.test.tsx` or `src/__tests__/`
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Verify existing test infrastructure is ready; no new tooling needed
+**Purpose**: Create the database migration and verify existing test suites are green before modifying any source code.
 
-- [ ] T001 Verify backend test suite passes with `cd solune/backend && python -m pytest tests/ --cov=src --cov-fail-under=75 -q`
-- [ ] T002 Verify frontend test suite passes with `cd solune/frontend && npm run test`
-- [ ] T003 [P] Verify backend linting passes with `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/`
-- [ ] T004 [P] Verify frontend linting and type-check passes with `cd solune/frontend && npm run lint && npm run type-check`
+- [ ] T001 Create migration file `solune/backend/src/migrations/044_conversations.sql` — New `conversations` table (conversation_id, session_id, title, created_at, updated_at) with FK to user_sessions; ALTER chat_messages, chat_proposals, chat_recommendations to add nullable conversation_id column with FK ON DELETE SET NULL; create indexes idx_conversations_session_id, idx_conversations_updated_at, idx_chat_messages_conversation_id, idx_chat_proposals_conversation_id, idx_chat_recommendations_conversation_id
+- [ ] T002 [P] Verify existing backend test suite passes with `cd solune/backend && python -m pytest tests/unit/ -q --timeout=120`
+- [ ] T003 [P] Verify existing frontend test suite passes with `cd solune/frontend && npm test`
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: No foundational infrastructure changes are needed. The existing test infrastructure (pytest-asyncio auto mode, Vitest + happy-dom, jest-axe, @fast-check/vitest) is already modern and correct. Phase 2 is a no-op checkpoint.
+**Purpose**: Backend models, store methods, API endpoints, agent isolation, and frontend types/schemas/API client. All user stories depend on this phase.
 
-**⚠️ CRITICAL**: Confirm all Phase 1 verification tasks pass before proceeding to user stories.
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-**Checkpoint**: Foundation verified — user story implementation can now begin in parallel
+### Backend Models
+
+- [ ] T004 Add Conversation model (conversation_id UUID PK, session_id UUID, title str default "New Chat", created_at datetime, updated_at datetime) to `solune/backend/src/models/chat.py`
+- [ ] T005 [P] Add ConversationCreateRequest model (title str, max_length=200, default "New Chat") to `solune/backend/src/models/chat.py`
+- [ ] T006 [P] Add ConversationUpdateRequest model (title str, max_length=200) to `solune/backend/src/models/chat.py`
+- [ ] T007 [P] Add ConversationsListResponse model (conversations: list[Conversation]) to `solune/backend/src/models/chat.py`
+- [ ] T008 Add optional conversation_id (UUID | None = None) field to ChatMessage and ChatMessageRequest in `solune/backend/src/models/chat.py`
+
+### Backend Store
+
+- [ ] T009 Add save_conversation(db, session_id, conversation_id, title) method using INSERT with ON CONFLICT handling to `solune/backend/src/services/chat_store.py`
+- [ ] T010 [P] Add get_conversations(db, session_id) method returning conversations ordered by updated_at DESC to `solune/backend/src/services/chat_store.py`
+- [ ] T011 [P] Add get_conversation_by_id(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
+- [ ] T012 [P] Add update_conversation(db, conversation_id, title) method that also updates updated_at timestamp to `solune/backend/src/services/chat_store.py`
+- [ ] T013 [P] Add delete_conversation(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
+- [ ] T014 Update save_message() to accept optional conversation_id parameter and include it in INSERT to `solune/backend/src/services/chat_store.py`
+- [ ] T015 Update get_messages() to accept optional conversation_id parameter and append AND conversation_id = ? filter when present to `solune/backend/src/services/chat_store.py`
+- [ ] T016 [P] Update count_messages() to accept optional conversation_id parameter with same filter logic to `solune/backend/src/services/chat_store.py`
+- [ ] T017 [P] Update clear_messages() to accept optional conversation_id parameter to scope DELETE to conversation to `solune/backend/src/services/chat_store.py`
+
+### Backend API
+
+- [ ] T018 Add POST /conversations endpoint (creates conversation, returns 201 with Conversation) to `solune/backend/src/api/chat.py`
+- [ ] T019 [P] Add GET /conversations endpoint (returns ConversationsListResponse for session) to `solune/backend/src/api/chat.py`
+- [ ] T020 [P] Add PATCH /conversations/{conversation_id} endpoint (updates title, returns Conversation; 404 if not found) to `solune/backend/src/api/chat.py`
+- [ ] T021 [P] Add DELETE /conversations/{conversation_id} endpoint (deletes conversation, returns message; 404 if not found) to `solune/backend/src/api/chat.py`
+- [ ] T022 Update GET /messages endpoint to accept optional conversation_id query parameter for filtering to `solune/backend/src/api/chat.py`
+- [ ] T023 Update POST /messages endpoint to accept optional conversation_id in request body to `solune/backend/src/api/chat.py`
+- [ ] T024 [P] Update POST /messages/stream endpoint to accept optional conversation_id in request body to `solune/backend/src/api/chat.py`
+- [ ] T025 [P] Update DELETE /messages endpoint to accept optional conversation_id query parameter for scoped deletion to `solune/backend/src/api/chat.py`
+
+### Backend Agent Isolation
+
+- [ ] T026 Add _agent_key(session_id, conversation_id=None) helper that returns "{session_id}:{conversation_id}" or "{session_id}:_" when None to `solune/backend/src/services/chat_agent.py`
+- [ ] T027 Update run() and run_stream() methods to accept optional conversation_id and pass composite key to _session_mapping.get_or_create() in `solune/backend/src/services/chat_agent.py`
+
+### Frontend Types
+
+- [ ] T028 [P] Add Conversation interface (conversation_id, session_id, title, created_at, updated_at) and ConversationsListResponse interface to `solune/frontend/src/types/index.ts`
+- [ ] T029 [P] Add optional conversation_id field to ChatMessage and ChatMessageRequest interfaces in `solune/frontend/src/types/index.ts`
+
+### Frontend Schemas
+
+- [ ] T030 [P] Add ConversationSchema and ConversationsListResponseSchema Zod schemas to `solune/frontend/src/services/schemas/chat.ts`
+- [ ] T031 [P] Add optional conversation_id field to ChatMessageSchema in `solune/frontend/src/services/schemas/chat.ts`
+
+### Frontend API Client
+
+- [ ] T032 Add conversationApi namespace with create(), list(), update(id), delete(id) methods to `solune/frontend/src/services/api.ts`
+- [ ] T033 Update chatApi.getMessages() to accept optional conversationId parameter and pass as query param to `solune/frontend/src/services/api.ts`
+- [ ] T034 [P] Update chatApi.sendMessage() and sendMessageStream() to accept optional conversationId and include in request body to `solune/frontend/src/services/api.ts`
+- [ ] T035 [P] Update chatApi.clearMessages() to accept optional conversationId and pass as query param to `solune/frontend/src/services/api.ts`
+
+### Frontend State Hooks
+
+- [ ] T036 Create useConversations React Query hook with useQuery(['conversations']) for list and useMutation for create/update/delete with auto-invalidation in `solune/frontend/src/hooks/useConversations.ts`
+- [ ] T037 Update useChat hook to accept optional conversationId parameter, use ['chat', 'messages', conversationId ?? 'global'] as query key, and pass conversationId to all API calls in `solune/frontend/src/hooks/useChat.ts`
+
+**Checkpoint**: Foundation ready — all backend endpoints functional, frontend types/API client/hooks compile, existing tests pass. User story implementation can now begin.
 
 ---
 
-## Phase 3: User Story 1 — Close Critical Frontend Test Gaps (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 — Start a Chat on the Home Page (Priority: P1) 🎯 MVP
 
-**Goal**: Add meaningful tests for all untested frontend chores components, tools components, agents components, settings components, UI primitives, and remaining pipeline/chat gaps. Every new test must exercise rendering, user interaction, and core behavior — not just import verification.
+**Goal**: Replace the AppPage marketing landing page with a full-viewport single chat panel experience. An authenticated user navigates to `/` and immediately sees a functional chat panel with all existing chat capabilities (streaming, proposals, plan mode, file upload, mentions, commands).
 
-**Independent Test**: Run `cd solune/frontend && npx vitest run --coverage` and verify chores, tools, agents, settings, and UI directories show meaningful coverage improvements. All new tests must pass.
+**Independent Test**: Navigate to `/`, type a message, verify a streaming response appears. All existing chat features work in the panel. Run `cd solune/frontend && npm test -- AppPage` to confirm.
 
 ### Implementation for User Story 1
 
-#### Chores Components (6 untested)
+- [ ] T038 [US1] Create useChatPanels hook with basic single-panel state (panels array with panelId, conversationId, widthPercent), addPanel(), removePanel(panelId) methods, and default single panel at 100% width in `solune/frontend/src/hooks/useChatPanels.ts`
+- [ ] T039 [US1] Create ChatPanel component that accepts conversationId and onClose props, owns its own useChat(conversationId) + usePlan() instances, renders panel header with title and close button, and wraps ChatInterface with full existing functionality in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [ ] T040 [US1] Create ChatPanelManager component that uses useChatPanels() + useConversations(), renders panels in a flexbox side-by-side layout, includes "Add Chat" button that creates a new conversation + panel in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T041 [US1] Rewrite AppPage to replace marketing content with `<ChatPanelManager />` at full viewport height `h-[calc(100vh-<header-height>)]` in `solune/frontend/src/pages/AppPage.tsx`
 
-- [ ] T005 [P] [US1] Create test for ChoreChatFlow in `solune/frontend/src/components/chores/__tests__/ChoreChatFlow.test.tsx` — render with mock props, verify chat flow UI renders, test user message submission
-- [ ] T006 [P] [US1] Create test for ChoreInlineEditor in `solune/frontend/src/components/chores/__tests__/ChoreInlineEditor.test.tsx` — render in edit mode, verify input fields, test save/cancel interactions
-- [ ] T007 [P] [US1] Create test for ChoresSaveAllBar in `solune/frontend/src/components/chores/__tests__/ChoresSaveAllBar.test.tsx` — render with pending changes, verify save-all button, test click handler
-- [ ] T008 [P] [US1] Create test for ChoresSpotlight in `solune/frontend/src/components/chores/__tests__/ChoresSpotlight.test.tsx` — render spotlight view, verify featured chore display, test navigation
-- [ ] T009 [P] [US1] Create test for ChoresToolbar in `solune/frontend/src/components/chores/__tests__/ChoresToolbar.test.tsx` — render toolbar, verify filter/sort controls, test toolbar actions
-- [ ] T010 [P] [US1] Create test for PipelineSelector in `solune/frontend/src/components/chores/__tests__/PipelineSelector.test.tsx` — render with pipeline options, verify selection behavior, test change handler
-
-#### Tools Components (8 untested)
-
-- [ ] T011 [P] [US1] Create test for ToolCard in `solune/frontend/src/components/tools/__tests__/ToolCard.test.tsx` — render with tool data, verify name/description display, test click interaction
-- [ ] T012 [P] [US1] Create test for ToolsPanel in `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` — render panel with mock tools list, verify tool cards render, test add/remove flow
-- [ ] T013 [P] [US1] Create test for ToolChips in `solune/frontend/src/components/tools/__tests__/ToolChips.test.tsx` — render chips with tool names, verify chip display, test removal interaction
-- [ ] T014 [P] [US1] Create test for McpPresetsGallery in `solune/frontend/src/components/tools/__tests__/McpPresetsGallery.test.tsx` — render gallery with presets, verify preset cards, test selection
-- [ ] T015 [P] [US1] Create test for RepoConfigPanel in `solune/frontend/src/components/tools/__tests__/RepoConfigPanel.test.tsx` — render config panel, verify form fields, test configuration changes
-- [ ] T016 [P] [US1] Create test for EditRepoMcpModal in `solune/frontend/src/components/tools/__tests__/EditRepoMcpModal.test.tsx` — render modal open state, verify form inputs, test save/cancel
-- [ ] T017 [P] [US1] Create test for UploadMcpModal in `solune/frontend/src/components/tools/__tests__/UploadMcpModal.test.tsx` — render upload modal, verify file input area, test upload flow
-- [ ] T018 [P] [US1] Create test for GitHubMcpConfigGenerator in `solune/frontend/src/components/tools/__tests__/GitHubMcpConfigGenerator.test.tsx` — render config generator, verify output preview, test generate action
-
-#### Agents Components (5 untested)
-
-- [ ] T019 [P] [US1] Create test for AgentCard in `solune/frontend/src/components/agents/__tests__/AgentCard.test.tsx` — render with agent data, verify name/avatar/status display, test click handler
-- [ ] T020 [P] [US1] Create test for AgentInlineEditor in `solune/frontend/src/components/agents/__tests__/AgentInlineEditor.test.tsx` — render in edit mode, verify form fields, test save/cancel
-- [ ] T021 [P] [US1] Create test for AgentIconCatalog in `solune/frontend/src/components/agents/__tests__/AgentIconCatalog.test.tsx` — render icon catalog, verify icon grid display, test icon selection
-- [ ] T022 [P] [US1] Create test for AgentIconPickerModal in `solune/frontend/src/components/agents/__tests__/AgentIconPickerModal.test.tsx` — render picker modal, verify search/filter, test icon pick
-- [ ] T023 [P] [US1] Create test for BulkModelUpdateDialog in `solune/frontend/src/components/agents/__tests__/BulkModelUpdateDialog.test.tsx` — render dialog with agents, verify model selection, test confirm/cancel
-
-#### Settings Components (4 untested)
-
-- [ ] T024 [P] [US1] Create test for ProjectSettings in `solune/frontend/src/components/settings/__tests__/ProjectSettings.test.tsx` — render settings form, verify input fields, test save interaction
-- [ ] T025 [P] [US1] Create test for AIPreferences in `solune/frontend/src/components/settings/__tests__/AIPreferences.test.tsx` — render preferences panel, verify toggle/select controls, test preference changes
-- [ ] T026 [P] [US1] Create test for PrimarySettings in `solune/frontend/src/components/settings/__tests__/PrimarySettings.test.tsx` — render primary settings, verify key settings display, test edit flow
-- [ ] T027 [P] [US1] Create test for SignalConnection in `solune/frontend/src/components/settings/__tests__/SignalConnection.test.tsx` — render connection status, verify indicator display, test reconnect action
-
-#### UI Primitives (6 untested — non-trivial ones only)
-
-- [ ] T028 [P] [US1] Create test for copy-button in `solune/frontend/src/components/ui/__tests__/copy-button.test.tsx` — render with content, verify clipboard copy on click, test copied-state feedback
-- [ ] T029 [P] [US1] Create test for character-counter in `solune/frontend/src/components/ui/__tests__/character-counter.test.tsx` — render with limits, verify count display, test near-limit and over-limit styling
-- [ ] T030 [P] [US1] Create test for keyboard-shortcut-modal in `solune/frontend/src/components/ui/__tests__/keyboard-shortcut-modal.test.tsx` — render modal, verify shortcut list display, test close interaction
-
-#### Remaining Component Gaps (Pipeline, Chat — lower priority within P1)
-
-- [ ] T031 [P] [US1] Create test for ModelSelector in `solune/frontend/src/components/pipeline/__tests__/ModelSelector.test.tsx` — render with model options, verify dropdown, test selection change
-- [ ] T032 [P] [US1] Create test for PipelineStagesOverview in `solune/frontend/src/components/pipeline/__tests__/PipelineStagesOverview.test.tsx` — render with stages data, verify stage cards, test stage navigation
-- [ ] T033 [P] [US1] Create test for ParallelStageGroup in `solune/frontend/src/components/pipeline/__tests__/ParallelStageGroup.test.tsx` — render with parallel stages, verify group layout, test expand/collapse
-- [ ] T034 [P] [US1] Create test for MentionAutocomplete in `solune/frontend/src/components/chat/__tests__/MentionAutocomplete.test.tsx` — render with suggestions, verify dropdown display, test selection
-- [ ] T035 [P] [US1] Create test for PlanDependencyGraph in `solune/frontend/src/components/chat/__tests__/PlanDependencyGraph.test.tsx` — render with graph data, verify node rendering, test node interaction
-- [ ] T036 [P] [US1] Create test for PipelineIndicator in `solune/frontend/src/components/chat/__tests__/PipelineIndicator.test.tsx` — render with status, verify indicator display, test status changes
-- [ ] T037 [P] [US1] Create test for ChatMessageSkeleton in `solune/frontend/src/components/chat/__tests__/ChatMessageSkeleton.test.tsx` — render skeleton, verify placeholder structure
-
-**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. Run `cd solune/frontend && npx vitest run` to confirm all new + existing tests pass.
+**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. Navigate to `/` and see a single working chat panel.
 
 ---
 
-## Phase 4: User Story 2 — Close Backend Test Gaps (Priority: P2)
+## Phase 4: User Story 7 — Chat Popup Backward Compatibility (Priority: P1)
 
-**Goal**: Add meaningful tests for untested backend prompt modules and the `otel_setup.py` service. Each test must verify actual behavior — output structure, variable substitution, edge cases.
+**Goal**: Ensure the existing floating ChatPopup on pages other than `/` (e.g., `/projects`, `/pipeline`, `/agents`) continues to function exactly as before. Messages without conversation_id remain accessible. No changes to ChatPopup.tsx.
 
-**Independent Test**: Run `cd solune/backend && python -m pytest tests/ --cov=src --cov-fail-under=75 -q` and verify newly tested modules appear in the coverage report.
+**Independent Test**: Navigate to `/projects`, open the ChatPopup, send a message, verify it works identically to before. Run existing ChatPopup tests: `cd solune/frontend && npm test -- ChatPopup`.
+
+### Verification for User Story 7
+
+- [ ] T042 [US7] Verify ChatPopup.tsx and ChatInterface.tsx are NOT modified — confirm via `git diff` that these files have zero changes
+- [ ] T043 [US7] Verify backend messages without conversation_id continue to work — GET /messages without conversation_id returns all session messages (existing behavior preserved in T015 and T022)
+- [ ] T044 [US7] Run existing ChatPopup tests to confirm zero regressions: `cd solune/frontend && npm test -- ChatPopup`
+
+**Checkpoint**: ChatPopup behavior is unchanged. All existing ChatPopup tests pass.
+
+---
+
+## Phase 5: User Story 2 — Open Multiple Chat Panels Side by Side (Priority: P2)
+
+**Goal**: Users can click "Add Chat" to open additional chat panels. Each panel operates independently with its own conversation. Panels can be closed. Messages in one panel never appear in another.
+
+**Independent Test**: Click "Add Chat," send different messages in each panel, confirm responses are independent. Close a panel, verify remaining panels redistribute width.
 
 ### Implementation for User Story 2
 
-#### Prompt Module Tests (3 untested)
+- [ ] T045 [US2] Extend useChatPanels hook to support multiple panels — addPanel() creates new conversation via conversationApi.create() and adds panel with redistributed widths (100/N per panel) in `solune/frontend/src/hooks/useChatPanels.ts`
+- [ ] T046 [US2] Extend useChatPanels hook removePanel(panelId) — remove panel, redistribute remaining panel widths proportionally, prevent removal of last panel in `solune/frontend/src/hooks/useChatPanels.ts`
+- [ ] T047 [US2] Update ChatPanelManager to render multiple panels in flexbox row layout with each panel receiving its widthPercent as flex-basis in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T048 [US2] Add close button handler in ChatPanel that calls onClose callback to trigger removePanel() in `solune/frontend/src/components/chat/ChatPanel.tsx`
 
-- [ ] T038 [P] [US2] Create test for agent_instructions prompt in `solune/backend/tests/unit/test_agent_instructions_prompt.py` — verify output structure contains required sections, test variable substitution with real project data, test edge cases (empty inputs, special characters, long inputs)
-- [ ] T039 [P] [US2] Create test for issue_generation prompt in `solune/backend/tests/unit/test_issue_generation_prompt.py` — verify output structure contains required issue fields, test variable substitution, test edge cases (empty title, missing context, special characters)
-- [ ] T040 [P] [US2] Create test for task_generation prompt in `solune/backend/tests/unit/test_task_generation_prompt.py` — verify output structure contains task list format, test variable substitution, test edge cases (empty plan, no user stories)
-
-#### Observability Service Test (1 untested)
-
-- [ ] T041 [P] [US2] Create test for otel_setup service in `solune/backend/tests/unit/test_otel_setup.py` — verify setup initialization creates expected providers, test no-op fallback behavior when OTel is disabled, test cleanup/shutdown sequence
-
-**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. Run backend tests to confirm.
+**Checkpoint**: Multiple panels open side-by-side, each sends/receives independently, close removes panel.
 
 ---
 
-## Phase 5: User Story 3 — Fix Discovered Bugs (Priority: P2)
+## Phase 6: User Story 3 — Resize Chat Panels (Priority: P3)
 
-**Goal**: Fix the unbounded `_project_launch_locks` dictionary in `pipeline_state_store.py` by replacing it with a bounded data structure (using the existing `BoundedDict` from `solune/backend/src/utils.py`). Add regression test to prevent recurrence.
+**Goal**: Users drag a resize handle between adjacent panels to allocate more space to one conversation. Panels enforce a 320px minimum width.
 
-**Independent Test**: Write a unit test that creates locks for more entries than the maximum capacity and verifies the dictionary does not grow beyond its bound.
+**Independent Test**: Open two panels, drag the resize handle, verify width changes. Attempt to resize below 320px, verify it snaps to minimum.
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Fix unbounded `_project_launch_locks` in `solune/backend/src/services/pipeline_state_store.py` — replace `dict[str, asyncio.Lock]` with `BoundedDict[str, asyncio.Lock]` using a sensible max size, import `BoundedDict` from `src.utils`
-- [ ] T043 [US3] Add bounded-locks regression test in `solune/backend/tests/unit/test_pipeline_state_store.py` — verify lock count stays bounded after accessing more than max unique project IDs, verify existing locks work correctly, verify eviction of oldest entries
-- [ ] T044 [US3] Update conftest cleanup if needed in `solune/backend/tests/conftest.py` — verify existing `_project_launch_locks.clear()` cleanup still works with `BoundedDict`, adjust if the clear API differs
+- [ ] T049 [US3] Add draggable resize handles between panels in ChatPanelManager — render thin vertical bar (4–8px) with `cursor: col-resize` between each pair of adjacent panels in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T050 [US3] Implement resize drag logic using native mousedown/mousemove/mouseup on window with requestAnimationFrame gating — calculate delta, update adjacent panel widthPercent values in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T051 [US3] Add min-width constraint (320px) to resize logic — prevent panels from shrinking below minimum, snap to minimum when drag exceeds limit in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T052 [P] [US3] Add touch event support (touchstart/touchmove/touchend) for tablet resize in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
 
-**Checkpoint**: All existing `pipeline_state_store` tests still pass, plus the new bounded-locks regression test passes. Run `cd solune/backend && python -m pytest tests/unit/test_pipeline_state_store.py -v`.
+**Checkpoint**: Resize handle works between panels. Min-width enforced. No layout jank during drag.
 
 ---
 
-## Phase 6: User Story 4 — Raise Coverage Thresholds (Priority: P3)
+## Phase 7: User Story 4 — Manage Conversations (Priority: P3)
 
-**Goal**: After all new tests are in place, raise CI coverage thresholds to prevent future regressions. The new thresholds codify the coverage gains from US1–US3.
+**Goal**: Users can rename a conversation by editing the title in the panel header. Titles persist via the PATCH /conversations/{id} endpoint. Users can also delete conversations.
 
-**Independent Test**: Temporarily lower a coverage value below the new threshold and verify that the CI job fails with a clear error message.
+**Independent Test**: Click the title in a panel header, edit it, confirm it persists after refresh. Delete a conversation, confirm panel is closed.
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] Measure new frontend coverage baseline by running `cd solune/frontend && npx vitest run --coverage` and recording statements/branches/functions/lines percentages
-- [ ] T046 [US4] Raise frontend coverage thresholds in `solune/frontend/vitest.config.ts` — update `coverage.thresholds` to new baseline (target: ≥65% lines, ≥55% branches, ≥55% functions, ≥65% statements), set values 2–3% below measured to allow normal fluctuation
-- [ ] T047 [US4] Measure new backend coverage baseline by running `cd solune/backend && python -m pytest tests/ --cov=src -q` and recording overall percentage
-- [ ] T048 [US4] Raise backend coverage threshold in `solune/backend/pyproject.toml` — raise `fail_under` to the new measured baseline minus 2–3% (e.g., if coverage is 82%, set to 79; if coverage is 76%, set to 75 i.e., no change needed)
+- [ ] T053 [US4] Add inline-editable title to ChatPanel header — click title to show input, Enter/blur saves via useConversations().updateConversation(), Escape cancels in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [ ] T054 [US4] Add title truncation with ellipsis in ChatPanel header for long titles (CSS text-overflow: ellipsis, max-width) in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [ ] T055 [P] [US4] Wire delete conversation to close panel — close button triggers conversation deletion via useConversations().deleteConversation() then removes panel in `solune/frontend/src/components/chat/ChatPanel.tsx`
 
-**Checkpoint**: Both test suites pass with the raised thresholds. Verify by running full suites with coverage enforcement.
+**Checkpoint**: Conversation titles are editable inline, persist on save, and truncate gracefully. Delete removes conversation and panel.
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Concerns
+## Phase 8: User Story 5 — Restore Panel Layout on Return (Priority: P3)
 
-**Purpose**: Final validation across all user stories
+**Goal**: Panel layout (which conversations are open and their width percentages) is persisted to localStorage and restored on page load. Stale conversation references are pruned.
 
-- [ ] T049 Run full backend validation: `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/ && pyright src/ && python -m pytest tests/ --cov=src --cov-fail-under=75 -q`
-- [ ] T050 Run full frontend validation: `cd solune/frontend && npm run lint && npm run type-check && npm run test && npm run build`
-- [ ] T051 Verify zero pre-existing test failures introduced — compare test counts before and after
-- [ ] T052 Verify all new test files follow repository naming conventions (`test_<module>.py` for backend, `<Component>.test.tsx` or `__tests__/<Component>.test.tsx` for frontend)
+**Independent Test**: Open multiple panels, refresh browser, verify same panels reappear with correct conversations and widths.
+
+### Implementation for User Story 5
+
+- [ ] T056 [US5] Add debounced localStorage persistence to useChatPanels — save panel layout as JSON under key `solune:chat-panels` with schema `{ version: 1, panels: [...] }` on state changes (debounce writes during rapid interactions like resize) in `solune/frontend/src/hooks/useChatPanels.ts`
+- [ ] T057 [US5] Add restore-on-load logic to useChatPanels — on mount, read from localStorage, validate schema version, load panels; if localStorage is empty or invalid, create default single panel in `solune/frontend/src/hooks/useChatPanels.ts`
+- [ ] T058 [US5] Add stale conversation pruning — on restore, verify each panel's conversationId exists via conversationApi.list(); replace stale references with new empty conversations in `solune/frontend/src/hooks/useChatPanels.ts`
+
+**Checkpoint**: Panel layout persists across browser refresh. Stale conversations are handled gracefully.
+
+---
+
+## Phase 9: User Story 6 — Mobile Chat Experience (Priority: P4)
+
+**Goal**: On viewports below 768px, display panels one at a time with tab-based switching. A horizontal tab bar at the top shows conversation titles. Inactive panels remain mounted but hidden.
+
+**Independent Test**: Resize browser to < 768px, verify single-panel display with tabs. Add second conversation, switch tabs, verify content changes.
+
+### Implementation for User Story 6
+
+- [ ] T059 [US6] Add mobile detection (viewport < 768px) to ChatPanelManager using a media query hook or window.matchMedia in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T060 [US6] Implement tab bar UI for mobile — horizontal row of tab buttons showing conversation titles (truncated to ~15 chars), active tab highlighted with bottom border, "+" button for Add Chat in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [ ] T061 [US6] Implement tab switching — active tab shows full ChatPanel, inactive panels use `display: none` to preserve state (React Query cache, scroll position, streaming state) in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+
+**Checkpoint**: Mobile users see tab-based interface. Tab switching preserves conversation state.
+
+---
+
+## Phase 10: Testing & Verification
+
+**Purpose**: Add tests for new backend conversation CRUD, new frontend components, and hooks. Update existing AppPage tests.
+
+### Backend Tests
+
+- [ ] T062 [P] Add conversation CRUD tests (save_conversation, get_conversations, get_conversation_by_id, update_conversation, delete_conversation) to `solune/backend/tests/unit/test_chat_store.py`
+- [ ] T063 [P] Add message filtering by conversation_id tests (get_messages with conversation_id returns scoped results, get_messages without conversation_id returns all) to `solune/backend/tests/unit/test_chat_store.py`
+- [ ] T064 [P] Add backward compatibility test (messages without conversation_id continue to work, conversation_id defaults to NULL) to `solune/backend/tests/unit/test_chat_store.py`
+- [ ] T065 [P] Add conversation API endpoint tests (POST/GET/PATCH/DELETE /conversations, 404 handling) to `solune/backend/tests/unit/test_chat_api.py`
+- [ ] T066 [P] Add agent session key isolation test (different conversation_ids produce different agent keys, None produces sentinel key) to `solune/backend/tests/unit/test_chat_agent.py`
+
+### Frontend Tests
+
+- [ ] T067 [P] Update AppPage tests for new chat layout — renders ChatPanelManager, single panel by default, no marketing content in `solune/frontend/src/pages/AppPage.test.tsx`
+- [ ] T068 [P] Create ChatPanel component tests — renders with conversationId, shows title, close button works, wraps ChatInterface in `solune/frontend/src/components/chat/ChatPanel.test.tsx`
+- [ ] T069 [P] Create ChatPanelManager component tests — renders single panel default, "Add Chat" adds second panel, close panel removes it, resize handle renders between panels in `solune/frontend/src/components/chat/ChatPanelManager.test.tsx`
+- [ ] T070 [P] Create useConversations hook tests — list returns conversations, create invalidates cache, update saves title, delete removes conversation in `solune/frontend/src/__tests__/useConversations.test.ts`
+
+**Checkpoint**: All new and existing tests pass. Run `cd solune/backend && python -m pytest tests/unit/ -q --timeout=120` and `cd solune/frontend && npm test`.
+
+---
+
+## Phase 11: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final validation, documentation, and cleanup across all user stories
+
+- [ ] T071 Run full backend validation: `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/ && python -m pytest tests/unit/ -q --timeout=120`
+- [ ] T072 Run full frontend validation: `cd solune/frontend && npm run lint && npm run type-check && npm test && npm run build`
+- [ ] T073 Verify zero pre-existing test failures — compare test counts before and after changes
+- [ ] T074 Run quickstart.md validation scenarios (create conversation, send message, list conversations, verify filtering)
+- [ ] T075 [P] Verify all new files follow repository naming conventions and are properly exported/imported
 
 ---
 
@@ -174,65 +256,77 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies — can start immediately
-- **Foundational (Phase 2)**: Depends on Setup passing — BLOCKS all user stories
-- **User Story 1 (Phase 3)**: Depends on Phase 2 verification — frontend tests only
-- **User Story 2 (Phase 4)**: Depends on Phase 2 verification — backend tests only
-- **User Story 3 (Phase 5)**: Depends on Phase 2 verification — backend bug fix
-- **User Story 4 (Phase 6)**: Depends on Phases 3, 4, and 5 completion (needs all new tests in place before raising thresholds)
-- **Polish (Phase 7)**: Depends on all user stories being complete
+- **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories
+- **User Story 1 (Phase 3)**: Depends on Foundational (Phase 2) — MVP delivery
+- **User Story 7 (Phase 4)**: Depends on Foundational (Phase 2) — verification only, can run in parallel with US1
+- **User Story 2 (Phase 5)**: Depends on US1 (Phase 3) — extends single-panel to multi-panel
+- **User Story 3 (Phase 6)**: Depends on US2 (Phase 5) — adds resize to multi-panel
+- **User Story 4 (Phase 7)**: Depends on US1 (Phase 3) — adds title editing to panel header
+- **User Story 5 (Phase 8)**: Depends on US2 (Phase 5) — persists multi-panel layout
+- **User Story 6 (Phase 9)**: Depends on US2 (Phase 5) — adds mobile tab switching
+- **Testing (Phase 10)**: Can start after each story's phase completes; full suite after Phase 9
+- **Polish (Phase 11)**: Depends on all user stories and testing being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Can start after Phase 2 — independent of backend work
-- **User Story 2 (P2)**: Can start after Phase 2 — independent of frontend work. Can run in parallel with US1
-- **User Story 3 (P2)**: Can start after Phase 2 — independent of US1/US2. Can run in parallel with US1 and US2
-- **User Story 4 (P3)**: MUST wait for US1, US2, and US3 to complete — thresholds depend on actual coverage gains
+- **User Story 1 (P1)**: Can start after Foundational (Phase 2) — No dependencies on other stories
+- **User Story 7 (P1)**: Can start after Foundational (Phase 2) — Verification only, parallel with US1
+- **User Story 2 (P2)**: Depends on US1 for basic ChatPanel/ChatPanelManager to extend
+- **User Story 3 (P3)**: Depends on US2 for multi-panel layout to add resize handles
+- **User Story 4 (P3)**: Depends on US1 for ChatPanel header to add editable title — can run parallel with US2/US3
+- **User Story 5 (P3)**: Depends on US2 for multi-panel state to persist — can run parallel with US3
+- **User Story 6 (P4)**: Depends on US2 for multi-panel layout to add mobile tab switching
 
 ### Within Each User Story
 
-- All tasks marked [P] within a story can run in parallel (different files, no dependencies)
-- US3 tasks are sequential: fix (T042) → test (T043) → cleanup (T044)
-- US4 tasks are sequential: measure (T045) → raise (T046) → measure (T047) → raise (T048)
+- Models before services before endpoints (backend, Phase 2)
+- Types before schemas before API client before hooks (frontend, Phase 2)
+- Hooks before components before pages (frontend, Phases 3+)
+- All tasks marked [P] within a phase can run in parallel (different files)
+- Commit after each task or logical group
+- Story complete before moving to next priority
 
 ### Parallel Opportunities
 
-- **Phase 3 (US1)**: All 33 frontend component test tasks (T005–T037) can run in parallel — each creates a separate test file
-- **Phase 4 (US2)**: All 4 backend test tasks (T038–T041) can run in parallel — each creates a separate test file
-- **Phase 5 (US3)**: T042 must complete before T043; T043 before T044 (sequential)
-- **US1, US2, US3**: Can all run in parallel (frontend, backend tests, backend fix are independent)
+- **Phase 1**: T002 and T003 can run in parallel (independent test suites)
+- **Phase 2 Backend Models**: T005, T006, T007 can run in parallel (same file but independent sections)
+- **Phase 2 Backend Store**: T010, T011, T012, T013 can run in parallel; T016, T017 can run in parallel
+- **Phase 2 Backend API**: T019, T020, T021 can run in parallel; T024, T025 can run in parallel
+- **Phase 2 Frontend**: T028+T029, T030+T031 can run in parallel (different files)
+- **Phase 2 Frontend API**: T034, T035 can run in parallel
+- **Phase 4 (US7)**: All verification tasks can run in parallel
+- **Phase 10 (Testing)**: All test creation tasks (T062–T070) can run in parallel (separate test files)
+- **Cross-story**: US4 (Phase 7) can run in parallel with US2/US3/US5/US6 since it only touches ChatPanel
 
 ---
 
 ## Parallel Example: User Story 1
 
 ```text
-# Launch all chores tests together (all [P]):
-Task T005: "Create test for ChoreChatFlow in solune/frontend/src/components/chores/__tests__/ChoreChatFlow.test.tsx"
-Task T006: "Create test for ChoreInlineEditor in solune/frontend/src/components/chores/__tests__/ChoreInlineEditor.test.tsx"
-Task T007: "Create test for ChoresSaveAllBar in solune/frontend/src/components/chores/__tests__/ChoresSaveAllBar.test.tsx"
-Task T008: "Create test for ChoresSpotlight in solune/frontend/src/components/chores/__tests__/ChoresSpotlight.test.tsx"
-Task T009: "Create test for ChoresToolbar in solune/frontend/src/components/chores/__tests__/ChoresToolbar.test.tsx"
-Task T010: "Create test for PipelineSelector in solune/frontend/src/components/chores/__tests__/PipelineSelector.test.tsx"
+# Phase 2 foundational tasks that can be parallelized:
+Task T028: "Add Conversation interface to solune/frontend/src/types/index.ts"
+Task T030: "Add ConversationSchema to solune/frontend/src/services/schemas/chat.ts"
 
-# Launch all tools tests together (all [P]):
-Task T011: "Create test for ToolCard in solune/frontend/src/components/tools/__tests__/ToolCard.test.tsx"
-Task T012: "Create test for ToolsPanel in solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx"
-Task T013: "Create test for ToolChips in solune/frontend/src/components/tools/__tests__/ToolChips.test.tsx"
-Task T014: "Create test for McpPresetsGallery in solune/frontend/src/components/tools/__tests__/McpPresetsGallery.test.tsx"
-Task T015: "Create test for RepoConfigPanel in solune/frontend/src/components/tools/__tests__/RepoConfigPanel.test.tsx"
-Task T016: "Create test for EditRepoMcpModal in solune/frontend/src/components/tools/__tests__/EditRepoMcpModal.test.tsx"
-Task T017: "Create test for UploadMcpModal in solune/frontend/src/components/tools/__tests__/UploadMcpModal.test.tsx"
-Task T018: "Create test for GitHubMcpConfigGenerator in solune/frontend/src/components/tools/__tests__/GitHubMcpConfigGenerator.test.tsx"
+# Phase 3 US1 tasks are sequential (hooks → components → pages):
+Task T038: "Create useChatPanels hook"
+Task T039: "Create ChatPanel component" (depends on T038)
+Task T040: "Create ChatPanelManager component" (depends on T039)
+Task T041: "Rewrite AppPage" (depends on T040)
 ```
 
-## Parallel Example: User Story 2
+## Parallel Example: Testing Phase
 
 ```text
-# Launch all backend prompt tests together (all [P]):
-Task T038: "Create test for agent_instructions prompt in solune/backend/tests/unit/test_agent_instructions_prompt.py"
-Task T039: "Create test for issue_generation prompt in solune/backend/tests/unit/test_issue_generation_prompt.py"
-Task T040: "Create test for task_generation prompt in solune/backend/tests/unit/test_task_generation_prompt.py"
-Task T041: "Create test for otel_setup service in solune/backend/tests/unit/test_otel_setup.py"
+# All test tasks can run in parallel (separate files):
+Task T062: "Conversation CRUD tests in test_chat_store.py"
+Task T063: "Message filtering tests in test_chat_store.py"
+Task T064: "Backward compat test in test_chat_store.py"
+Task T065: "API endpoint tests in test_chat_api.py"
+Task T066: "Agent session key test in test_chat_agent.py"
+Task T067: "AppPage tests in AppPage.test.tsx"
+Task T068: "ChatPanel tests in ChatPanel.test.tsx"
+Task T069: "ChatPanelManager tests in ChatPanelManager.test.tsx"
+Task T070: "useConversations tests in useConversations.test.ts"
 ```
 
 ---
@@ -241,32 +335,34 @@ Task T041: "Create test for otel_setup service in solune/backend/tests/unit/test
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Verify test infrastructure
-2. Complete Phase 2: Confirm foundation (no-op for this feature)
-3. Complete Phase 3: User Story 1 — Frontend test gaps
-4. **STOP and VALIDATE**: Run `cd solune/frontend && npx vitest run --coverage` — all new tests pass, coverage improves
-5. Deploy/demo if ready — frontend has regression detection for chores, tools, agents, settings, UI
+1. Complete Phase 1: Setup (migration + verify existing tests)
+2. Complete Phase 2: Foundational (all backend + frontend types/API/hooks)
+3. Complete Phase 3: User Story 1 (single chat panel on AppPage)
+4. **STOP and VALIDATE**: Navigate to `/`, send a message, verify streaming response in chat panel
+5. Deploy/demo if ready — AppPage is a working chat workspace
 
 ### Incremental Delivery
 
-1. Complete Setup + Foundation → Infrastructure verified
-2. Add US1 (Frontend tests) → Test independently → ~33 new test files (MVP!)
-3. Add US2 (Backend tests) → Test independently → ~4 new test files
-4. Add US3 (Bug fix) → Test independently → 1 fix + 1 regression test
-5. Add US4 (Thresholds) → Test independently → Config changes only
-6. Each story adds value without breaking previous stories
+1. Complete Setup + Foundational → Backend fully functional, frontend typed
+2. Add US1 (Single panel) → Test independently → AppPage is a chat workspace (MVP!)
+3. Add US7 (Backward compat) → Verify ChatPopup still works → Regression safety
+4. Add US2 (Multi-panel) → Test independently → Side-by-side panels work
+5. Add US3 (Resize) → Test independently → Panels are resizable
+6. Add US4 (Conversation management) → Test independently → Titles editable
+7. Add US5 (Layout persistence) → Test independently → Panels restore on refresh
+8. Add US6 (Mobile) → Test independently → Tab switching on mobile
+9. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy
 
 With multiple developers:
 
-1. Team completes Setup + Foundation verification together
-2. Once Foundation is verified:
-   - Developer A: User Story 1 (Frontend tests — largest scope)
-   - Developer B: User Story 2 (Backend prompt/otel tests)
-   - Developer C: User Story 3 (Bug fix — smallest scope, highest risk)
-3. All three stories complete independently
-4. Team raises thresholds together (US4) after US1–US3 merge
+1. Team completes Setup + Foundational together
+2. Once Foundational is done:
+   - Developer A: User Story 1 → US2 → US3 (core panel path)
+   - Developer B: User Story 7 (verification) → US4 (conversation management) → US5 (persistence)
+   - Developer C: Testing (Phase 10) as stories complete → US6 (mobile) → Polish
+3. Stories integrate cleanly because they touch different files/areas
 
 ---
 
@@ -274,17 +370,33 @@ With multiple developers:
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 52 (T001–T052) |
-| Phase 1 (Setup) | 4 tasks |
-| Phase 2 (Foundation) | 0 tasks (verification only) |
-| Phase 3 (US1 — Frontend) | 33 tasks |
-| Phase 4 (US2 — Backend) | 4 tasks |
-| Phase 5 (US3 — Bug fix) | 3 tasks |
-| Phase 6 (US4 — Thresholds) | 4 tasks |
-| Phase 7 (Polish) | 4 tasks |
-| Parallel opportunities | 37 of 52 tasks are parallelizable |
-| Suggested MVP scope | User Story 1 (Phase 3) |
-| Independent test criteria | Each story validates with its own test runner command |
+| Total tasks | 75 (T001–T075) |
+| Phase 1 (Setup) | 3 tasks |
+| Phase 2 (Foundational) | 34 tasks |
+| Phase 3 (US1 — Single Panel MVP) | 4 tasks |
+| Phase 4 (US7 — Backward Compat) | 3 tasks |
+| Phase 5 (US2 — Multi-Panel) | 4 tasks |
+| Phase 6 (US3 — Resize) | 4 tasks |
+| Phase 7 (US4 — Conversation Mgmt) | 3 tasks |
+| Phase 8 (US5 — Layout Persistence) | 3 tasks |
+| Phase 9 (US6 — Mobile) | 3 tasks |
+| Phase 10 (Testing) | 9 tasks |
+| Phase 11 (Polish) | 5 tasks |
+| Parallel opportunities | 42 of 75 tasks are parallelizable |
+| Suggested MVP scope | Setup + Foundational + US1 (Phases 1–3) |
+| Independent test criteria | Each story validates with its own acceptance test |
+
+### Task Count per User Story
+
+| User Story | Priority | Tasks | Phase |
+|------------|----------|-------|-------|
+| US1: Start a Chat on Home Page | P1 | 4 | Phase 3 |
+| US2: Multiple Panels Side by Side | P2 | 4 | Phase 5 |
+| US3: Resize Chat Panels | P3 | 4 | Phase 6 |
+| US4: Manage Conversations | P3 | 3 | Phase 7 |
+| US5: Restore Panel Layout | P3 | 3 | Phase 8 |
+| US6: Mobile Chat Experience | P4 | 3 | Phase 9 |
+| US7: Chat Popup Backward Compat | P1 | 3 | Phase 4 |
 
 ## Notes
 
@@ -293,8 +405,10 @@ With multiple developers:
 - Each user story should be independently completable and testable
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- All new tests must be meaningful — test actual behavior, not just imports or trivial renders
-- Use existing test patterns: `vi.mock()` + `vi.hoisted()` for frontend mocks, `unittest.mock.patch` for backend mocks
-- Use accessible queries (`getByRole`, `getByText`, `getByLabelText`) for frontend tests
-- Use `async def test_*` directly for backend async tests (asyncio_mode = "auto")
+- Foundational phase (Phase 2) is the largest — intentionally front-loaded to unblock all stories
+- ChatPopup.tsx and ChatInterface.tsx are UNTOUCHED — reused as-is
+- All conversation_id fields are nullable for backward compatibility
+- Agent sessions use composite key `{session_id}:{conversation_id}` for isolation
+- Panel layout persisted to localStorage under `solune:chat-panels` with schema version
+- Mobile breakpoint at 768px switches from side-by-side panels to tab-based navigation
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
