@@ -75,6 +75,7 @@ class ChatMessage(BaseModel):
     action_type: ActionType | None = Field(default=None, description="Associated action type")
     action_data: dict[str, Any] | None = Field(default=None, description="Action-specific payload")
     timestamp: datetime = Field(default_factory=utcnow, description="Message timestamp")
+    conversation_id: UUID | None = Field(default=None, description="Owning conversation ID")
 
     model_config = {
         "json_schema_extra": {
@@ -107,6 +108,7 @@ class ChatMessageRequest(BaseModel):
         description="Optional pipeline configuration ID from @mention selection. "
         "When provided, overrides the project's default pipeline assignment for this submission.",
     )
+    conversation_id: UUID | None = Field(default=None, description="Owning conversation ID")
 
     @field_validator("content")
     @classmethod
@@ -134,3 +136,31 @@ class ChatMessagesResponse(BaseModel):
     total: int | None = None
     limit: int | None = None
     offset: int | None = None
+
+
+class Conversation(BaseModel):
+    """Represents a conversation container for chat messages."""
+
+    conversation_id: UUID = Field(default_factory=uuid4, description="Unique conversation identifier")
+    session_id: UUID = Field(..., description="Parent session ID (FK)")
+    title: str = Field(default="New Chat", max_length=200, description="Conversation title")
+    created_at: datetime = Field(default_factory=utcnow, description="Creation timestamp")
+    updated_at: datetime = Field(default_factory=utcnow, description="Last modification timestamp")
+
+
+class ConversationCreateRequest(BaseModel):
+    """Request to create a new conversation."""
+
+    title: str = Field(default="New Chat", max_length=200, description="Conversation title")
+
+
+class ConversationUpdateRequest(BaseModel):
+    """Request to update a conversation."""
+
+    title: str = Field(..., max_length=200, description="New conversation title")
+
+
+class ConversationsListResponse(BaseModel):
+    """Response for listing conversations."""
+
+    conversations: list[Conversation]
