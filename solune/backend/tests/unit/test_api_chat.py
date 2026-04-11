@@ -1306,10 +1306,10 @@ class TestConfirmProposal:
 
         # Patch workflow functions to avoid side effects
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1701,10 +1701,10 @@ class TestConfirmProposalEdgeCases:
         mock_github_service.add_issue_to_project.return_value = "PVTI_20"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1744,10 +1744,10 @@ class TestConfirmProposalEdgeCases:
         mock_github_service.add_issue_to_project.return_value = "PVTI_21"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1789,10 +1789,10 @@ class TestConfirmProposalEdgeCases:
         }
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=["easy"]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=["easy"]),
             patch(
                 "src.services.workflow_orchestrator.config.load_pipeline_as_agent_mappings",
                 new_callable=AsyncMock,
@@ -1876,10 +1876,10 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_30"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1916,10 +1916,10 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_31"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -2020,10 +2020,10 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_32"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -2103,10 +2103,10 @@ class TestConfirmProposalFallbacks:
                 "src.config.get_settings",
                 return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
             ),
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
             patch(
                 "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
                 new_callable=AsyncMock,
@@ -2183,15 +2183,15 @@ class TestConfirmProposalFallbacks:
                 return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
             ),
             patch(
-                "src.api.chat.proposals.get_workflow_config",
+                "src.services.proposal_orchestrator.get_workflow_config",
                 new_callable=AsyncMock,
                 return_value=existing_config,
             ),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=["copilot-swe-agent"]),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=["copilot-swe-agent"]),
             patch(
-                "src.api.chat.proposals.get_effective_user_settings",
+                "src.services.proposal_orchestrator.get_effective_user_settings",
                 new_callable=AsyncMock,
                 return_value=effective_settings,
             ),
@@ -2261,10 +2261,10 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
             patch(
                 "src.services.workflow_orchestrator.config.load_pipeline_as_agent_mappings",
                 new_callable=AsyncMock,
@@ -2331,10 +2331,10 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=["copilot-swe-agent"]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=["copilot-swe-agent"]),
             patch(
                 "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
                 new_callable=AsyncMock,
@@ -2402,10 +2402,10 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
+            patch("src.services.proposal_orchestrator.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.services.proposal_orchestrator.set_workflow_config", new_callable=AsyncMock),
+            patch("src.services.proposal_orchestrator.get_workflow_orchestrator") as mock_orch,
+            patch("src.services.proposal_orchestrator.get_agent_slugs", return_value=[]),
             patch(
                 "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
                 new_callable=AsyncMock,
