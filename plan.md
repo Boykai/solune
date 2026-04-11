@@ -16,7 +16,7 @@ Replace the Python-only dispatch path (`copilot.py → _assign_copilot_graphql()
 **Target Platform**: Linux (CI/CD), macOS (local dev)
 **Project Type**: Web application (extending existing `solune/` monorepo)
 **Performance Goals**: Dispatch ≤10 agents in <30 seconds; parallel group dispatch should be truly concurrent
-**Constraints**: Must use `gh api graphql` for full `agentAssignment` support; no new Python runtime dependencies
+**Constraints**: Must use `gh api graphql` for full `agentAssignment` support; no new Python runtime dependencies (dev/test tooling may add `jsonschema` for schema validation)
 **Scale/Scope**: Pipelines with up to 15 agents across 4–5 groups; typically 3–5 concurrent agents per parallel group
 
 ## Constitution Check

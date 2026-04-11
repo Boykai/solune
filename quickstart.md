@@ -117,7 +117,11 @@ python scripts/extract-pipeline-config.py \
   --output config/pipeline-config.json
 
 # Validate the generated config against the JSON schema
-./scripts/validate-contracts.sh config/pipeline-config.json
+# NOTE: ./scripts/validate-contracts.sh currently validates only OpenAPI → TypeScript
+# type generation and does not accept a pipeline config file path argument.
+# JSON Schema validation for pipeline configs will be added in a later phase.
+# For now, validate manually:
+python -m jsonschema -i config/pipeline-config.json contracts/pipeline-config-schema.json
 ```
 
 ### Inspect the Config
@@ -168,8 +172,10 @@ gh agent-task view TASK_ID --repo owner/repo
 ### Run Shell Script Tests
 
 ```bash
-# Install bats (Bash Automated Testing System)
-npm install -g bats
+# Install bats-core (Bash Automated Testing System)
+# macOS: brew install bats-core
+# Ubuntu/Debian: sudo apt-get install bats
+# Or from source: https://bats-core.readthedocs.io/en/stable/installation.html
 
 # Run fleet-dispatch tests
 bats solune/scripts/tests/fleet-dispatch.bats
