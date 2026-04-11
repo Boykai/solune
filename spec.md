@@ -5,6 +5,8 @@
 **Status**: Draft
 **Input**: Parent issue #1386 — Fleet-Dispatch Agent Pipelines via GitHub CLI
 
+> **Complete Specification**: See [specs/001-fleet-dispatch-cli/spec.md](specs/001-fleet-dispatch-cli/spec.md) for the full 16-FR requirement set, expanded edge cases, and comprehensive acceptance scenarios. This document provides the working subset (10 FRs) used by the implementation plan.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - CLI Fleet Dispatch with Parallel Agent Groups (Priority: P1)

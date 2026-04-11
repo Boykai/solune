@@ -23,6 +23,8 @@ The canonical pipeline definition consumed by both the Python backend (`Pipeline
 | `name` | string | REQUIRED, 1–100 chars | — | Human-readable stage name (e.g., `"Backlog"`, `"In progress"`) |
 | `order` | integer | REQUIRED, ≥0 | — | Execution order (0-indexed) |
 | `groups` | array[ExecutionGroup] | REQUIRED | `[]` | Execution groups within the stage |
+| `agents` | array[AgentNode] | Optional | `[]` | Flattened list of all agents in the stage (backward-compatible convenience field derived from groups) |
+| `execution_mode` | enum | `"sequential"` or `"parallel"` | `"sequential"` | Stage-level execution mode (backward-compatible convenience field) |
 
 ### Nested: ExecutionGroup
 

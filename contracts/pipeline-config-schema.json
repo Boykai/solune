@@ -66,6 +66,20 @@
             "$ref": "#/definitions/ExecutionGroup"
           },
           "default": []
+        },
+        "agents": {
+          "type": "array",
+          "description": "Flattened list of all agents in the stage (backward-compatible convenience field derived from groups)",
+          "items": {
+            "$ref": "#/definitions/AgentNode"
+          },
+          "default": []
+        },
+        "execution_mode": {
+          "type": "string",
+          "description": "Stage-level execution mode (backward-compatible convenience field)",
+          "enum": ["sequential", "parallel"],
+          "default": "sequential"
         }
       },
       "additionalProperties": false
