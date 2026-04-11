@@ -27,9 +27,9 @@
 
 **Purpose**: Create the database migration and verify existing test suites are green before modifying any source code.
 
-- [ ] T001 Create migration file `solune/backend/src/migrations/044_conversations.sql` — New `conversations` table (conversation_id, session_id, title, created_at, updated_at) with FK to user_sessions; ALTER chat_messages, chat_proposals, chat_recommendations to add nullable conversation_id column with FK ON DELETE SET NULL; create indexes idx_conversations_session_id, idx_conversations_updated_at, idx_chat_messages_conversation_id, idx_chat_proposals_conversation_id, idx_chat_recommendations_conversation_id
-- [ ] T002 [P] Verify existing backend test suite passes with `cd solune/backend && python -m pytest tests/unit/ -q --timeout=120`
-- [ ] T003 [P] Verify existing frontend test suite passes with `cd solune/frontend && npm test`
+- [x] T001 Create migration file `solune/backend/src/migrations/044_conversations.sql` — New `conversations` table (conversation_id, session_id, title, created_at, updated_at) with FK to user_sessions; ALTER chat_messages, chat_proposals, chat_recommendations to add nullable conversation_id column with FK ON DELETE SET NULL; create indexes idx_conversations_session_id, idx_conversations_updated_at, idx_chat_messages_conversation_id, idx_chat_proposals_conversation_id, idx_chat_recommendations_conversation_id
+- [x] T002 [P] Verify existing backend test suite passes with `cd solune/backend && python -m pytest tests/unit/ -q --timeout=120`
+- [x] T003 [P] Verify existing frontend test suite passes with `cd solune/frontend && npm test`
 
 ---
 
@@ -41,61 +41,61 @@
 
 ### Backend Models
 
-- [ ] T004 Add Conversation model (conversation_id UUID PK, session_id UUID, title str default "New Chat", created_at datetime, updated_at datetime) to `solune/backend/src/models/chat.py`
-- [ ] T005 [P] Add ConversationCreateRequest model (title str, max_length=200, default "New Chat") to `solune/backend/src/models/chat.py`
-- [ ] T006 [P] Add ConversationUpdateRequest model (title str, max_length=200) to `solune/backend/src/models/chat.py`
-- [ ] T007 [P] Add ConversationsListResponse model (conversations: list[Conversation]) to `solune/backend/src/models/chat.py`
-- [ ] T008 Add optional conversation_id (UUID | None = None) field to ChatMessage and ChatMessageRequest in `solune/backend/src/models/chat.py`
+- [x] T004 Add Conversation model (conversation_id UUID PK, session_id UUID, title str default "New Chat", created_at datetime, updated_at datetime) to `solune/backend/src/models/chat.py`
+- [x] T005 [P] Add ConversationCreateRequest model (title str, max_length=200, default "New Chat") to `solune/backend/src/models/chat.py`
+- [x] T006 [P] Add ConversationUpdateRequest model (title str, max_length=200) to `solune/backend/src/models/chat.py`
+- [x] T007 [P] Add ConversationsListResponse model (conversations: list[Conversation]) to `solune/backend/src/models/chat.py`
+- [x] T008 Add optional conversation_id (UUID | None = None) field to ChatMessage and ChatMessageRequest in `solune/backend/src/models/chat.py`
 
 ### Backend Store
 
-- [ ] T009 Add save_conversation(db, session_id, conversation_id, title) method using INSERT with ON CONFLICT handling to `solune/backend/src/services/chat_store.py`
-- [ ] T010 [P] Add get_conversations(db, session_id) method returning conversations ordered by updated_at DESC to `solune/backend/src/services/chat_store.py`
-- [ ] T011 [P] Add get_conversation_by_id(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
-- [ ] T012 [P] Add update_conversation(db, conversation_id, title) method that also updates updated_at timestamp to `solune/backend/src/services/chat_store.py`
-- [ ] T013 [P] Add delete_conversation(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
-- [ ] T014 Update save_message() to accept optional conversation_id parameter and include it in INSERT to `solune/backend/src/services/chat_store.py`
-- [ ] T015 Update get_messages() to accept optional conversation_id parameter and append AND conversation_id = ? filter when present to `solune/backend/src/services/chat_store.py`
-- [ ] T016 [P] Update count_messages() to accept optional conversation_id parameter with same filter logic to `solune/backend/src/services/chat_store.py`
-- [ ] T017 [P] Update clear_messages() to accept optional conversation_id parameter to scope DELETE to conversation to `solune/backend/src/services/chat_store.py`
+- [x] T009 Add save_conversation(db, session_id, conversation_id, title) method using INSERT with ON CONFLICT handling to `solune/backend/src/services/chat_store.py`
+- [x] T010 [P] Add get_conversations(db, session_id) method returning conversations ordered by updated_at DESC to `solune/backend/src/services/chat_store.py`
+- [x] T011 [P] Add get_conversation_by_id(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
+- [x] T012 [P] Add update_conversation(db, conversation_id, title) method that also updates updated_at timestamp to `solune/backend/src/services/chat_store.py`
+- [x] T013 [P] Add delete_conversation(db, conversation_id) method to `solune/backend/src/services/chat_store.py`
+- [x] T014 Update save_message() to accept optional conversation_id parameter and include it in INSERT to `solune/backend/src/services/chat_store.py`
+- [x] T015 Update get_messages() to accept optional conversation_id parameter and append AND conversation_id = ? filter when present to `solune/backend/src/services/chat_store.py`
+- [x] T016 [P] Update count_messages() to accept optional conversation_id parameter with same filter logic to `solune/backend/src/services/chat_store.py`
+- [x] T017 [P] Update clear_messages() to accept optional conversation_id parameter to scope DELETE to conversation to `solune/backend/src/services/chat_store.py`
 
 ### Backend API
 
-- [ ] T018 Add POST /conversations endpoint (creates conversation, returns 201 with Conversation) to `solune/backend/src/api/chat.py`
-- [ ] T019 [P] Add GET /conversations endpoint (returns ConversationsListResponse for session) to `solune/backend/src/api/chat.py`
-- [ ] T020 [P] Add PATCH /conversations/{conversation_id} endpoint (updates title, returns Conversation; 404 if not found) to `solune/backend/src/api/chat.py`
-- [ ] T021 [P] Add DELETE /conversations/{conversation_id} endpoint (deletes conversation, returns message; 404 if not found) to `solune/backend/src/api/chat.py`
-- [ ] T022 Update GET /messages endpoint to accept optional conversation_id query parameter for filtering to `solune/backend/src/api/chat.py`
-- [ ] T023 Update POST /messages endpoint to accept optional conversation_id in request body to `solune/backend/src/api/chat.py`
-- [ ] T024 [P] Update POST /messages/stream endpoint to accept optional conversation_id in request body to `solune/backend/src/api/chat.py`
-- [ ] T025 [P] Update DELETE /messages endpoint to accept optional conversation_id query parameter for scoped deletion to `solune/backend/src/api/chat.py`
+- [x] T018 Add POST /conversations endpoint (creates conversation, returns 201 with Conversation) to `solune/backend/src/api/chat.py`
+- [x] T019 [P] Add GET /conversations endpoint (returns ConversationsListResponse for session) to `solune/backend/src/api/chat.py`
+- [x] T020 [P] Add PATCH /conversations/{conversation_id} endpoint (updates title, returns Conversation; 404 if not found) to `solune/backend/src/api/chat.py`
+- [x] T021 [P] Add DELETE /conversations/{conversation_id} endpoint (deletes conversation, returns message; 404 if not found) to `solune/backend/src/api/chat.py`
+- [x] T022 Update GET /messages endpoint to accept optional conversation_id query parameter for filtering to `solune/backend/src/api/chat.py`
+- [x] T023 Update POST /messages endpoint to accept optional conversation_id in request body to `solune/backend/src/api/chat.py`
+- [x] T024 [P] Update POST /messages/stream endpoint to accept optional conversation_id in request body to `solune/backend/src/api/chat.py`
+- [x] T025 [P] Update DELETE /messages endpoint to accept optional conversation_id query parameter for scoped deletion to `solune/backend/src/api/chat.py`
 
 ### Backend Agent Isolation
 
-- [ ] T026 Add _agent_key(session_id, conversation_id=None) helper that returns "{session_id}:{conversation_id}" or "{session_id}:_" when None to `solune/backend/src/services/chat_agent.py`
-- [ ] T027 Update run() and run_stream() methods to accept optional conversation_id and pass composite key to _session_mapping.get_or_create() in `solune/backend/src/services/chat_agent.py`
+- [x] T026 Add _agent_key(session_id, conversation_id=None) helper that returns "{session_id}:{conversation_id}" or "{session_id}:_" when None to `solune/backend/src/services/chat_agent.py`
+- [x] T027 Update run() and run_stream() methods to accept optional conversation_id and pass composite key to _session_mapping.get_or_create() in `solune/backend/src/services/chat_agent.py`
 
 ### Frontend Types
 
-- [ ] T028 [P] Add Conversation interface (conversation_id, session_id, title, created_at, updated_at) and ConversationsListResponse interface to `solune/frontend/src/types/index.ts`
-- [ ] T029 [P] Add optional conversation_id field to ChatMessage and ChatMessageRequest interfaces in `solune/frontend/src/types/index.ts`
+- [x] T028 [P] Add Conversation interface (conversation_id, session_id, title, created_at, updated_at) and ConversationsListResponse interface to `solune/frontend/src/types/index.ts`
+- [x] T029 [P] Add optional conversation_id field to ChatMessage and ChatMessageRequest interfaces in `solune/frontend/src/types/index.ts`
 
 ### Frontend Schemas
 
-- [ ] T030 [P] Add ConversationSchema and ConversationsListResponseSchema Zod schemas to `solune/frontend/src/services/schemas/chat.ts`
-- [ ] T031 [P] Add optional conversation_id field to ChatMessageSchema in `solune/frontend/src/services/schemas/chat.ts`
+- [x] T030 [P] Add ConversationSchema and ConversationsListResponseSchema Zod schemas to `solune/frontend/src/services/schemas/chat.ts`
+- [x] T031 [P] Add optional conversation_id field to ChatMessageSchema in `solune/frontend/src/services/schemas/chat.ts`
 
 ### Frontend API Client
 
-- [ ] T032 Add conversationApi namespace with create(), list(), update(id), delete(id) methods to `solune/frontend/src/services/api.ts`
-- [ ] T033 Update chatApi.getMessages() to accept optional conversationId parameter and pass as query param to `solune/frontend/src/services/api.ts`
-- [ ] T034 [P] Update chatApi.sendMessage() and sendMessageStream() to accept optional conversationId and include in request body to `solune/frontend/src/services/api.ts`
-- [ ] T035 [P] Update chatApi.clearMessages() to accept optional conversationId and pass as query param to `solune/frontend/src/services/api.ts`
+- [x] T032 Add conversationApi namespace with create(), list(), update(id), delete(id) methods to `solune/frontend/src/services/api.ts`
+- [x] T033 Update chatApi.getMessages() to accept optional conversationId parameter and pass as query param to `solune/frontend/src/services/api.ts`
+- [x] T034 [P] Update chatApi.sendMessage() and sendMessageStream() to accept optional conversationId and include in request body to `solune/frontend/src/services/api.ts`
+- [x] T035 [P] Update chatApi.clearMessages() to accept optional conversationId and pass as query param to `solune/frontend/src/services/api.ts`
 
 ### Frontend State Hooks
 
-- [ ] T036 Create useConversations React Query hook with useQuery(['conversations']) for list and useMutation for create/update/delete with auto-invalidation in `solune/frontend/src/hooks/useConversations.ts`
-- [ ] T037 Update useChat hook to accept optional conversationId parameter, use ['chat', 'messages', conversationId ?? 'global'] as query key, and pass conversationId to all API calls in `solune/frontend/src/hooks/useChat.ts`
+- [x] T036 Create useConversations React Query hook with useQuery(['conversations']) for list and useMutation for create/update/delete with auto-invalidation in `solune/frontend/src/hooks/useConversations.ts`
+- [x] T037 Update useChat hook to accept optional conversationId parameter, use ['chat', 'messages', conversationId ?? 'global'] as query key, and pass conversationId to all API calls in `solune/frontend/src/hooks/useChat.ts`
 
 **Checkpoint**: Foundation ready — all backend endpoints functional, frontend types/API client/hooks compile, existing tests pass. User story implementation can now begin.
 
@@ -109,10 +109,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T038 [US1] Create useChatPanels hook with basic single-panel state (panels array with panelId, conversationId, widthPercent), addPanel(), removePanel(panelId) methods, and default single panel at 100% width in `solune/frontend/src/hooks/useChatPanels.ts`
-- [ ] T039 [US1] Create ChatPanel component that accepts conversationId and onClose props, owns its own useChat(conversationId) + usePlan() instances, renders panel header with title and close button, and wraps ChatInterface with full existing functionality in `solune/frontend/src/components/chat/ChatPanel.tsx`
-- [ ] T040 [US1] Create ChatPanelManager component that uses useChatPanels() + useConversations(), renders panels in a flexbox side-by-side layout, includes "Add Chat" button that creates a new conversation + panel in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T041 [US1] Rewrite AppPage to replace marketing content with `<ChatPanelManager />` at full viewport height `h-[calc(100vh-<header-height>)]` in `solune/frontend/src/pages/AppPage.tsx`
+- [x] T038 [US1] Create useChatPanels hook with basic single-panel state (panels array with panelId, conversationId, widthPercent), addPanel(), removePanel(panelId) methods, and default single panel at 100% width in `solune/frontend/src/hooks/useChatPanels.ts`
+- [x] T039 [US1] Create ChatPanel component that accepts conversationId and onClose props, owns its own useChat(conversationId) + usePlan() instances, renders panel header with title and close button, and wraps ChatInterface with full existing functionality in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [x] T040 [US1] Create ChatPanelManager component that uses useChatPanels() + useConversations(), renders panels in a flexbox side-by-side layout, includes "Add Chat" button that creates a new conversation + panel in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T041 [US1] Rewrite AppPage to replace marketing content with `<ChatPanelManager />` at full viewport height `h-[calc(100vh-<header-height>)]` in `solune/frontend/src/pages/AppPage.tsx`
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. Navigate to `/` and see a single working chat panel.
 
@@ -126,9 +126,9 @@
 
 ### Verification for User Story 7
 
-- [ ] T042 [US7] Verify ChatPopup.tsx and ChatInterface.tsx are NOT modified — confirm via `git diff` that these files have zero changes
-- [ ] T043 [US7] Verify backend messages without conversation_id continue to work — GET /messages without conversation_id returns all session messages (existing behavior preserved in T015 and T022)
-- [ ] T044 [US7] Run existing ChatPopup tests to confirm zero regressions: `cd solune/frontend && npm test -- ChatPopup`
+- [x] T042 [US7] Verify ChatPopup.tsx and ChatInterface.tsx are NOT modified — confirm via `git diff` that these files have zero changes
+- [x] T043 [US7] Verify backend messages without conversation_id continue to work — GET /messages without conversation_id returns all session messages (existing behavior preserved in T015 and T022)
+- [x] T044 [US7] Run existing ChatPopup tests to confirm zero regressions: `cd solune/frontend && npm test -- ChatPopup`
 
 **Checkpoint**: ChatPopup behavior is unchanged. All existing ChatPopup tests pass.
 
@@ -142,10 +142,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T045 [US2] Extend useChatPanels hook to support multiple panels — addPanel() creates new conversation via conversationApi.create() and adds panel with redistributed widths (100/N per panel) in `solune/frontend/src/hooks/useChatPanels.ts`
-- [ ] T046 [US2] Extend useChatPanels hook removePanel(panelId) — remove panel, redistribute remaining panel widths proportionally, prevent removal of last panel in `solune/frontend/src/hooks/useChatPanels.ts`
-- [ ] T047 [US2] Update ChatPanelManager to render multiple panels in flexbox row layout with each panel receiving its widthPercent as flex-basis in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T048 [US2] Add close button handler in ChatPanel that calls onClose callback to trigger removePanel() in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [x] T045 [US2] Extend useChatPanels hook to support multiple panels — addPanel() creates new conversation via conversationApi.create() and adds panel with redistributed widths (100/N per panel) in `solune/frontend/src/hooks/useChatPanels.ts`
+- [x] T046 [US2] Extend useChatPanels hook removePanel(panelId) — remove panel, redistribute remaining panel widths proportionally, prevent removal of last panel in `solune/frontend/src/hooks/useChatPanels.ts`
+- [x] T047 [US2] Update ChatPanelManager to render multiple panels in flexbox row layout with each panel receiving its widthPercent as flex-basis in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T048 [US2] Add close button handler in ChatPanel that calls onClose callback to trigger removePanel() in `solune/frontend/src/components/chat/ChatPanel.tsx`
 
 **Checkpoint**: Multiple panels open side-by-side, each sends/receives independently, close removes panel.
 
@@ -159,10 +159,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T049 [US3] Add draggable resize handles between panels in ChatPanelManager — render thin vertical bar (4–8px) with `cursor: col-resize` between each pair of adjacent panels in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T050 [US3] Implement resize drag logic using native mousedown/mousemove/mouseup on window with requestAnimationFrame gating — calculate delta, update adjacent panel widthPercent values in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T051 [US3] Add min-width constraint (320px) to resize logic — prevent panels from shrinking below minimum, snap to minimum when drag exceeds limit in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T052 [P] [US3] Add touch event support (touchstart/touchmove/touchend) for tablet resize in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T049 [US3] Add draggable resize handles between panels in ChatPanelManager — render thin vertical bar (4–8px) with `cursor: col-resize` between each pair of adjacent panels in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T050 [US3] Implement resize drag logic using native mousedown/mousemove/mouseup on window with requestAnimationFrame gating — calculate delta, update adjacent panel widthPercent values in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T051 [US3] Add min-width constraint (320px) to resize logic — prevent panels from shrinking below minimum, snap to minimum when drag exceeds limit in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T052 [P] [US3] Add touch event support (touchstart/touchmove/touchend) for tablet resize in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
 
 **Checkpoint**: Resize handle works between panels. Min-width enforced. No layout jank during drag.
 
@@ -176,9 +176,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T053 [US4] Add inline-editable title to ChatPanel header — click title to show input, Enter/blur saves via useConversations().updateConversation(), Escape cancels in `solune/frontend/src/components/chat/ChatPanel.tsx`
-- [ ] T054 [US4] Add title truncation with ellipsis in ChatPanel header for long titles (CSS text-overflow: ellipsis, max-width) in `solune/frontend/src/components/chat/ChatPanel.tsx`
-- [ ] T055 [P] [US4] Wire delete conversation to close panel — close button triggers conversation deletion via useConversations().deleteConversation() then removes panel in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [x] T053 [US4] Add inline-editable title to ChatPanel header — click title to show input, Enter/blur saves via useConversations().updateConversation(), Escape cancels in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [x] T054 [US4] Add title truncation with ellipsis in ChatPanel header for long titles (CSS text-overflow: ellipsis, max-width) in `solune/frontend/src/components/chat/ChatPanel.tsx`
+- [x] T055 [P] [US4] Wire delete conversation to close panel — close button triggers conversation deletion via useConversations().deleteConversation() then removes panel in `solune/frontend/src/components/chat/ChatPanel.tsx`
 
 **Checkpoint**: Conversation titles are editable inline, persist on save, and truncate gracefully. Delete removes conversation and panel.
 
@@ -192,9 +192,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T056 [US5] Add debounced localStorage persistence to useChatPanels — save panel layout as JSON under key `solune:chat-panels` with schema `{ version: 1, panels: [...] }` on state changes (debounce writes during rapid interactions like resize) in `solune/frontend/src/hooks/useChatPanels.ts`
-- [ ] T057 [US5] Add restore-on-load logic to useChatPanels — on mount, read from localStorage, validate schema version, load panels; if localStorage is empty or invalid, create default single panel in `solune/frontend/src/hooks/useChatPanels.ts`
-- [ ] T058 [US5] Add stale conversation pruning — on restore, verify each panel's conversationId exists via conversationApi.list(); replace stale references with new empty conversations in `solune/frontend/src/hooks/useChatPanels.ts`
+- [x] T056 [US5] Add debounced localStorage persistence to useChatPanels — save panel layout as JSON under key `solune:chat-panels` with schema `{ version: 1, panels: [...] }` on state changes (debounce writes during rapid interactions like resize) in `solune/frontend/src/hooks/useChatPanels.ts`
+- [x] T057 [US5] Add restore-on-load logic to useChatPanels — on mount, read from localStorage, validate schema version, load panels; if localStorage is empty or invalid, create default single panel in `solune/frontend/src/hooks/useChatPanels.ts`
+- [x] T058 [US5] Add stale conversation pruning — on restore, verify each panel's conversationId exists via conversationApi.list(); replace stale references with new empty conversations in `solune/frontend/src/hooks/useChatPanels.ts`
 
 **Checkpoint**: Panel layout persists across browser refresh. Stale conversations are handled gracefully.
 
@@ -208,9 +208,9 @@
 
 ### Implementation for User Story 6
 
-- [ ] T059 [US6] Add mobile detection (viewport < 768px) to ChatPanelManager using a media query hook or window.matchMedia in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T060 [US6] Implement tab bar UI for mobile — horizontal row of tab buttons showing conversation titles (truncated to ~15 chars), active tab highlighted with bottom border, "+" button for Add Chat in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
-- [ ] T061 [US6] Implement tab switching — active tab shows full ChatPanel, inactive panels use `display: none` to preserve state (React Query cache, scroll position, streaming state) in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T059 [US6] Add mobile detection (viewport < 768px) to ChatPanelManager using a media query hook or window.matchMedia in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T060 [US6] Implement tab bar UI for mobile — horizontal row of tab buttons showing conversation titles (truncated to ~15 chars), active tab highlighted with bottom border, "+" button for Add Chat in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
+- [x] T061 [US6] Implement tab switching — active tab shows full ChatPanel, inactive panels use `display: none` to preserve state (React Query cache, scroll position, streaming state) in `solune/frontend/src/components/chat/ChatPanelManager.tsx`
 
 **Checkpoint**: Mobile users see tab-based interface. Tab switching preserves conversation state.
 
@@ -222,18 +222,18 @@
 
 ### Backend Tests
 
-- [ ] T062 [P] Add conversation CRUD tests (save_conversation, get_conversations, get_conversation_by_id, update_conversation, delete_conversation) to `solune/backend/tests/unit/test_chat_store.py`
-- [ ] T063 [P] Add message filtering by conversation_id tests (get_messages with conversation_id returns scoped results, get_messages without conversation_id returns all) to `solune/backend/tests/unit/test_chat_store.py`
-- [ ] T064 [P] Add backward compatibility test (messages without conversation_id continue to work, conversation_id defaults to NULL) to `solune/backend/tests/unit/test_chat_store.py`
-- [ ] T065 [P] Add conversation API endpoint tests (POST/GET/PATCH/DELETE /conversations, 404 handling) to `solune/backend/tests/unit/test_chat_api.py`
-- [ ] T066 [P] Add agent session key isolation test (different conversation_ids produce different agent keys, None produces sentinel key) to `solune/backend/tests/unit/test_chat_agent.py`
+- [x] T062 [P] Add conversation CRUD tests (save_conversation, get_conversations, get_conversation_by_id, update_conversation, delete_conversation) to `solune/backend/tests/unit/test_chat_store.py`
+- [x] T063 [P] Add message filtering by conversation_id tests (get_messages with conversation_id returns scoped results, get_messages without conversation_id returns all) to `solune/backend/tests/unit/test_chat_store.py`
+- [x] T064 [P] Add backward compatibility test (messages without conversation_id continue to work, conversation_id defaults to NULL) to `solune/backend/tests/unit/test_chat_store.py`
+- [x] T065 [P] Add conversation API endpoint tests (POST/GET/PATCH/DELETE /conversations, 404 handling) to `solune/backend/tests/unit/test_chat_api.py`
+- [x] T066 [P] Add agent session key isolation test (different conversation_ids produce different agent keys, None produces sentinel key) to `solune/backend/tests/unit/test_chat_agent.py`
 
 ### Frontend Tests
 
-- [ ] T067 [P] Update AppPage tests for new chat layout — renders ChatPanelManager, single panel by default, no marketing content in `solune/frontend/src/pages/AppPage.test.tsx`
-- [ ] T068 [P] Create ChatPanel component tests — renders with conversationId, shows title, close button works, wraps ChatInterface in `solune/frontend/src/components/chat/ChatPanel.test.tsx`
-- [ ] T069 [P] Create ChatPanelManager component tests — renders single panel default, "Add Chat" adds second panel, close panel removes it, resize handle renders between panels in `solune/frontend/src/components/chat/ChatPanelManager.test.tsx`
-- [ ] T070 [P] Create useConversations hook tests — list returns conversations, create invalidates cache, update saves title, delete removes conversation in `solune/frontend/src/__tests__/useConversations.test.ts`
+- [x] T067 [P] Update AppPage tests for new chat layout — renders ChatPanelManager, single panel by default, no marketing content in `solune/frontend/src/pages/AppPage.test.tsx`
+- [x] T068 [P] Create ChatPanel component tests — renders with conversationId, shows title, close button works, wraps ChatInterface in `solune/frontend/src/components/chat/ChatPanel.test.tsx`
+- [x] T069 [P] Create ChatPanelManager component tests — renders single panel default, "Add Chat" adds second panel, close panel removes it, resize handle renders between panels in `solune/frontend/src/components/chat/ChatPanelManager.test.tsx`
+- [x] T070 [P] Create useConversations hook tests — list returns conversations, create invalidates cache, update saves title, delete removes conversation in `solune/frontend/src/__tests__/useConversations.test.ts`
 
 **Checkpoint**: All new and existing tests pass. Run `cd solune/backend && python -m pytest tests/unit/ -q --timeout=120` and `cd solune/frontend && npm test`.
 
@@ -243,11 +243,11 @@
 
 **Purpose**: Final validation, documentation, and cleanup across all user stories
 
-- [ ] T071 Run full backend validation: `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/ && python -m pytest tests/unit/ -q --timeout=120`
-- [ ] T072 Run full frontend validation: `cd solune/frontend && npm run lint && npm run type-check && npm test && npm run build`
-- [ ] T073 Verify zero pre-existing test failures — compare test counts before and after changes
-- [ ] T074 Run quickstart.md validation scenarios (create conversation, send message, list conversations, verify filtering)
-- [ ] T075 [P] Verify all new files follow repository naming conventions and are properly exported/imported
+- [x] T071 Run full backend validation: `cd solune/backend && ruff check src/ tests/ && ruff format --check src/ tests/ && python -m pytest tests/unit/ -q --timeout=120`
+- [x] T072 Run full frontend validation: `cd solune/frontend && npm run lint && npm run type-check && npm test && npm run build`
+- [x] T073 Verify zero pre-existing test failures — compare test counts before and after changes
+- [x] T074 Run quickstart.md validation scenarios (create conversation, send message, list conversations, verify filtering)
+- [x] T075 [P] Verify all new files follow repository naming conventions and are properly exported/imported
 
 ---
 
