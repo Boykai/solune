@@ -256,9 +256,7 @@ class TestBuildBody:
         orch = _make_orchestrator()
         proposal = _make_proposal()
 
-        with patch(
-            "src.attachment_formatter.format_attachments_markdown", return_value=""
-        ):
+        with patch("src.attachment_formatter.format_attachments_markdown", return_value=""):
             body = orch._build_body(proposal)
 
         assert body == "Fix the login flow"
@@ -310,9 +308,7 @@ class TestBuildBody:
         proposal = _make_proposal(proposed_description="")
         proposal.edited_description = None
 
-        with patch(
-            "src.attachment_formatter.format_attachments_markdown", return_value=""
-        ):
+        with patch("src.attachment_formatter.format_attachments_markdown", return_value=""):
             body = orch._build_body(proposal)
 
         assert body == ""
@@ -368,9 +364,7 @@ class TestCreateGitHubIssue:
             "id": 1,
         }
 
-        await orch._create_github_issue(
-            proposal, session, github_service, "o", "r", "body"
-        )
+        await orch._create_github_issue(proposal, session, github_service, "o", "r", "body")
 
         call_kwargs = github_service.create_issue.call_args.kwargs
         assert call_kwargs["title"] == "Custom Title"
@@ -388,9 +382,7 @@ class TestAddToProject:
         github_service = AsyncMock()
         github_service.add_issue_to_project.return_value = "PVTI_99"
 
-        result = await orch._add_to_project(
-            "I_42", 100042, session, github_service, "PVT_1"
-        )
+        result = await orch._add_to_project("I_42", 100042, session, github_service, "PVT_1")
 
         assert result == "PVTI_99"
         github_service.add_issue_to_project.assert_awaited_once_with(
@@ -413,7 +405,9 @@ class TestPersistStatus:
         orch = ProposalOrchestrator(chat_state_manager=None, chat_store_module=store)
         proposal = _make_proposal()
 
-        with patch("src.services.proposal_orchestrator.get_db", return_value=MagicMock()) as mock_db:
+        with patch(
+            "src.services.proposal_orchestrator.get_db", return_value=MagicMock()
+        ) as mock_db:
             await orch._persist_status("p-1", proposal)
 
         assert proposal.status == ProposalStatus.CONFIRMED
@@ -467,7 +461,9 @@ class TestBroadcastUpdate:
         connection_manager = AsyncMock()
 
         await orch._broadcast_update(
-            proposal, session, connection_manager,
+            proposal,
+            session,
+            connection_manager,
             project_id="PVT_1",
             item_id="PVTI_10",
             issue_number=42,
@@ -563,8 +559,17 @@ class TestSetupWorkflow:
         ):
             # Should not raise
             await orch._setup_workflow(
-                proposal, "p-1", session, AsyncMock(), AsyncMock(),
-                "owner", "repo", "PVT_1", "PVTI_10", "I_42", 42,
+                proposal,
+                "p-1",
+                session,
+                AsyncMock(),
+                AsyncMock(),
+                "owner",
+                "repo",
+                "PVT_1",
+                "PVTI_10",
+                "I_42",
+                42,
             )
 
     async def test_creates_default_config_when_none_exists(self):
@@ -614,11 +619,22 @@ class TestSetupWorkflow:
                 "src.services.copilot_polling.ensure_polling_started",
                 new=AsyncMock(),
             ) as mock_polling,
-            patch.object(orch, "_resolve_pipeline", new=AsyncMock(return_value=mock_pipeline_result)),
+            patch.object(
+                orch, "_resolve_pipeline", new=AsyncMock(return_value=mock_pipeline_result)
+            ),
         ):
             await orch._setup_workflow(
-                proposal, "p-1", session, github_service, connection_manager,
-                "owner", "repo", "PVT_1", "PVTI_10", "I_42", 42,
+                proposal,
+                "p-1",
+                session,
+                github_service,
+                connection_manager,
+                "owner",
+                "repo",
+                "PVT_1",
+                "PVTI_10",
+                "I_42",
+                42,
             )
 
         # set_workflow_config should have been called (to create default config)
@@ -760,7 +776,7 @@ class TestChatState:
     """Tests for chat state module — verifies the extracted state dicts behave correctly."""
 
     def test_state_dicts_are_mutable(self):
-        from src.api.chat.state import _locks, _messages, _proposals, _recommendations
+        from src.api.chat.state import _messages
 
         # Verify they can be used as expected
         _messages["test-key"] = []
