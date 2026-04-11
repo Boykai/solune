@@ -43,6 +43,7 @@ vi.mock('@/hooks/useChatPanels', () => ({
     removePanel: mockRemovePanel,
     resizePanels: vi.fn(),
     updatePanelConversation: vi.fn(),
+    removeStalePanels: vi.fn(),
     containerRef: { current: null },
     minWidthPx: 320,
   }),

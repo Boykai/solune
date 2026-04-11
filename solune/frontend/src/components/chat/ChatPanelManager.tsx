@@ -24,11 +24,19 @@ export function ChatPanelManager() {
     addPanel,
     removePanel,
     resizePanels,
+    removeStalePanels,
     containerRef,
   } = useChatPanels(initialConvId);
 
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+
+  // Reconcile panels against loaded conversations to drop stale entries
+  useEffect(() => {
+    if (!conversations || conversations.length === 0 || panels.length === 0) return;
+    const validIds = new Set(conversations.map((c) => c.conversation_id));
+    removeStalePanels(validIds);
+  }, [conversations, panels.length, removeStalePanels]);
 
   // Create a default conversation on first mount if there are no panels
   useEffect(() => {
@@ -116,14 +124,19 @@ export function ChatPanelManager() {
           let newRight = resizeState.current.rightStartPct - deltaPct;
 
           // Enforce min-width as a percentage
+          const totalPct = resizeState.current.leftStartPct + resizeState.current.rightStartPct;
           const minPct = (MIN_WIDTH_PX / resizeState.current.containerWidth) * 100;
+
+          // If the container is too narrow for both panels to meet min-width, bail out
+          if (minPct * 2 > totalPct) return;
+
           if (newLeft < minPct) {
             newLeft = minPct;
-            newRight = resizeState.current.leftStartPct + resizeState.current.rightStartPct - minPct;
+            newRight = totalPct - minPct;
           }
           if (newRight < minPct) {
             newRight = minPct;
-            newLeft = resizeState.current.leftStartPct + resizeState.current.rightStartPct - minPct;
+            newLeft = totalPct - minPct;
           }
 
           resizePanels(

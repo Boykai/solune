@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useChatPanels, type PanelState } from '@/hooks/useChatPanels';
 
@@ -14,6 +14,11 @@ beforeEach(() => {
   idCounter = 0;
   localStorage.clear();
   vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.clearAllTimers();
 });
 
 describe('useChatPanels', () => {
