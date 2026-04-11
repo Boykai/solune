@@ -1,0 +1,202 @@
+# Conversations API Contract
+# OpenAPI 3.0 specification for conversation CRUD endpoints
+
+openapi: "3.0.3"
+info:
+  title: Solune Conversations API
+  version: "1.0.0"
+  description: |
+    CRUD endpoints for managing chat conversations.
+    Conversations are containers for related chat messages within a user session.
+    Each conversation maps to one chat panel on the AppPage.
+
+servers:
+  - url: /chat
+    description: Chat API namespace
+
+paths:
+  /conversations:
+    post:
+      summary: Create a new conversation
+      operationId: createConversation
+      description: |
+        Creates a new conversation for the authenticated user's session.
+        Returns the created conversation with generated ID and timestamps.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationCreateRequest"
+            examples:
+              default:
+                summary: Create with default title
+                value: {}
+              custom_title:
+                summary: Create with custom title
+                value:
+                  title: "Project Planning"
+      responses:
+        "201":
+          description: Conversation created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+              example:
+                conversation_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                session_id: "11111111-2222-3333-4444-555555555555"
+                title: "New Chat"
+                created_at: "2026-04-11T10:30:00.000Z"
+                updated_at: "2026-04-11T10:30:00.000Z"
+        "401":
+          description: Unauthorized — no valid session
+        "422":
+          description: Validation error (title too long)
+
+    get:
+      summary: List all conversations for the current session
+      operationId: listConversations
+      description: |
+        Returns all conversations belonging to the authenticated user's session,
+        ordered by most recently updated first.
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationsListResponse"
+              example:
+                conversations:
+                  - conversation_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    session_id: "11111111-2222-3333-4444-555555555555"
+                    title: "Project Planning"
+                    created_at: "2026-04-11T10:30:00.000Z"
+                    updated_at: "2026-04-11T10:35:00.000Z"
+                  - conversation_id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                    session_id: "11111111-2222-3333-4444-555555555555"
+                    title: "Bug Investigation"
+                    created_at: "2026-04-11T09:00:00.000Z"
+                    updated_at: "2026-04-11T09:15:00.000Z"
+        "401":
+          description: Unauthorized — no valid session
+
+  /conversations/{conversation_id}:
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: The conversation's unique identifier
+
+    patch:
+      summary: Update a conversation's title
+      operationId: updateConversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationUpdateRequest"
+            example:
+              title: "Renamed Conversation"
+      responses:
+        "200":
+          description: Conversation updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Conversation not found
+        "422":
+          description: Validation error
+
+    delete:
+      summary: Delete a conversation
+      operationId: deleteConversation
+      description: |
+        Deletes a conversation. Associated messages, proposals, and recommendations
+        have their conversation_id set to NULL (ON DELETE SET NULL) — they are NOT deleted.
+      responses:
+        "200":
+          description: Conversation deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Conversation deleted"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Conversation not found
+
+components:
+  schemas:
+    Conversation:
+      type: object
+      required:
+        - conversation_id
+        - session_id
+        - title
+        - created_at
+        - updated_at
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+          description: Unique conversation identifier
+        session_id:
+          type: string
+          format: uuid
+          description: Owning user session
+        title:
+          type: string
+          maxLength: 200
+          description: User-editable conversation name
+        created_at:
+          type: string
+          format: date-time
+          description: ISO 8601 creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: ISO 8601 last-modified timestamp
+
+    ConversationCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          default: "New Chat"
+          description: Initial conversation title
+
+    ConversationUpdateRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          description: New conversation title
+
+    ConversationsListResponse:
+      type: object
+      required:
+        - conversations
+      properties:
+        conversations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Conversation"
+          description: List of conversations ordered by updated_at DESC
