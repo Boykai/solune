@@ -8,9 +8,7 @@ from src.api.webhook_models import PullRequestEvent
 from src.api.webhooks.common import extract_issue_number_from_pr
 from src.config import get_settings
 from src.logging_utils import get_logger
-from src.services.activity_logger import log_event
 from src.services.cache import cache, get_repo_agents_cache_key
-from src.services.database import get_db
 from src.services.github_projects import github_projects_service
 
 logger = get_logger(__name__)
@@ -154,21 +152,8 @@ async def handle_pull_request_event(payload: PullRequestEvent | dict[str, Any]) 
             repo_name,
             pr_number,
         )
-        await log_event(
-            get_db(),
-            event_type="webhook",
-            entity_type="issue",
-            entity_id=str(pr_number),
-            project_id="",
-            actor=pr_author,
-            action="pr_merged",
-            summary=f"PR #{pr_number} merged in {repo_owner}/{repo_name}",
-            detail={
-                "webhook_type": "pull_request",
-                "repository": f"{repo_owner}/{repo_name}",
-                "pr_author": pr_author,
-            },
-        )
+        # Activity logging is handled centrally in handlers.github_webhook
+        # via classify_pull_request_activity(); no per-event logging here.
         return {
             "status": "processed",
             "event": "pull_request",
@@ -190,21 +175,8 @@ async def handle_pull_request_event(payload: PullRequestEvent | dict[str, Any]) 
             repo_owner,
             repo_name,
         )
-        await log_event(
-            get_db(),
-            event_type="webhook",
-            entity_type="issue",
-            entity_id=str(pr_number),
-            project_id="",
-            actor=pr_author,
-            action="copilot_pr_ready",
-            summary=f"Copilot PR #{pr_number} ready for review in {repo_owner}/{repo_name}",
-            detail={
-                "webhook_type": "pull_request",
-                "repository": f"{repo_owner}/{repo_name}",
-                "pr_author": pr_author,
-            },
-        )
+        # Activity logging is handled centrally in handlers.github_webhook
+        # via classify_pull_request_activity(); no per-event logging here.
 
         return await update_issue_status_for_copilot_pr(
             pr_data=pr_data,
@@ -222,21 +194,8 @@ async def handle_pull_request_event(payload: PullRequestEvent | dict[str, Any]) 
             repo_owner,
             repo_name,
         )
-        await log_event(
-            get_db(),
-            event_type="webhook",
-            entity_type="issue",
-            entity_id=str(pr_number),
-            project_id="",
-            actor=pr_author,
-            action="copilot_pr_ready",
-            summary=f"Copilot opened PR #{pr_number} in {repo_owner}/{repo_name}",
-            detail={
-                "webhook_type": "pull_request",
-                "repository": f"{repo_owner}/{repo_name}",
-                "pr_author": pr_author,
-            },
-        )
+        # Activity logging is handled centrally in handlers.github_webhook
+        # via classify_pull_request_activity(); no per-event logging here.
 
         return await update_issue_status_for_copilot_pr(
             pr_data=pr_data,

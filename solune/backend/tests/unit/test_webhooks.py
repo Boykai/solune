@@ -23,8 +23,6 @@ def _mock_webhook_log_event():
     with (
         patch("src.api.webhooks.handlers.log_event", new_callable=AsyncMock),
         patch("src.api.webhooks.handlers.get_db", return_value=MagicMock()),
-        patch("src.api.webhooks.pull_requests.log_event", new_callable=AsyncMock),
-        patch("src.api.webhooks.pull_requests.get_db", return_value=MagicMock()),
     ):
         yield
 

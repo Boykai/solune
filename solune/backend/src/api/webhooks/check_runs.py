@@ -110,7 +110,8 @@ async def handle_check_suite_event(payload: CheckSuiteEvent) -> dict[str, Any]:
     """Handle check_suite webhook events for CI pass/failure detection.
 
     Routes check_suite completed events: on success, attempts auto-merge
-    for associated auto-merge issues; on failure, dispatches DevOps agent.
+    for associated auto-merge issues; on failure, logs and returns the CI
+    failure for the associated pull requests.
     """
     if payload.action != "completed":
         return {"status": "ignored", "reason": "action_not_completed"}

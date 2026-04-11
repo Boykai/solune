@@ -7,10 +7,13 @@
 ## Class Definition
 
 ```python
-from src.models.chat import AITaskProposal, ProposalConfirmRequest
-from src.models.auth import UserSession
-from src.services.github_projects import GitHubProjectsService
-from src.services.websocket import ConnectionManager
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from src.models.recommendation import AITaskProposal, ProposalConfirmRequest
+    from src.models.user import UserSession
 
 
 class ProposalOrchestrator:
@@ -23,13 +26,13 @@ class ProposalOrchestrator:
 
     def __init__(
         self,
-        chat_state: "ChatStateManager",
-        chat_store: "ChatStore",
+        chat_state_manager: Any,
+        chat_store_module: Any,
     ) -> None:
         """
         Args:
-            chat_state: In-memory cache manager for proposals/messages.
-            chat_store: Persistent storage (SQLite) for chat data.
+            chat_state_manager: In-memory state module (src.api.chat.state).
+            chat_store_module: Persistent storage module (src.services.chat_store).
         """
         ...
 
@@ -38,17 +41,14 @@ class ProposalOrchestrator:
         proposal_id: str,
         request: ProposalConfirmRequest | None,
         session: UserSession,
-        github_service: GitHubProjectsService,
-        connection_manager: ConnectionManager,
+        github_service: Any,
+        connection_manager: Any,
     ) -> AITaskProposal:
         """
-        Full confirmation flow: validate → edit → create issue → add to project → persist → broadcast.
+        Full confirmation flow: validate → edit → create issue → add to project
+        → persist → broadcast → setup workflow.
 
-        Raises:
-            NotFoundError: Proposal not found or not owned by session.
-            ExpiredError: Proposal has expired.
-            GitHubApiError: GitHub issue creation or project assignment failed.
-            PersistenceError: SQLite write failed after retries.
+        Raises NotFoundError, ValidationError (same as the original endpoint).
         """
         ...
 ```
@@ -66,10 +66,10 @@ async def _validate_proposal(
     session: UserSession,
 ) -> AITaskProposal:
     """
-    Retrieve proposal from cache/store and validate ownership + expiration.
+    Retrieve proposal from cache/store and validate ownership + expiration + status.
 
     Returns the validated proposal.
-    Raises NotFoundError or ExpiredError.
+    Raises NotFoundError or ValidationError.
     """
 ```
 
@@ -80,12 +80,22 @@ def _apply_edits(
     self,
     proposal: AITaskProposal,
     request: ProposalConfirmRequest | None,
-) -> AITaskProposal:
+) -> None:
     """
     Apply user-provided title/description edits to the proposal.
 
-    Pure function — no side effects.
-    Returns a new proposal with edits applied (or the same proposal if no edits).
+    Mutates the proposal in place. No-op if request is None or has no edits.
+    """
+```
+
+### `_build_body`
+
+```python
+def _build_body(self, proposal: AITaskProposal) -> str:
+    """
+    Build issue body with attachments and validate length.
+
+    Raises ValidationError if body exceeds GitHub's character limit.
     """
 ```
 
@@ -96,13 +106,15 @@ async def _create_github_issue(
     self,
     proposal: AITaskProposal,
     session: UserSession,
-    github_service: GitHubProjectsService,
-) -> tuple[str, int]:
+    github_service: Any,
+    owner: str,
+    repo: str,
+    body: str,
+) -> tuple[str, int, str, int]:
     """
     Create a GitHub issue from the proposal.
 
-    Returns (issue_url, issue_number).
-    Raises GitHubApiError on failure.
+    Returns (issue_url, issue_number, issue_node_id, issue_database_id).
     """
 ```
 
@@ -111,15 +123,16 @@ async def _create_github_issue(
 ```python
 async def _add_to_project(
     self,
-    issue_number: int,
+    issue_node_id: str,
+    issue_database_id: int,
     session: UserSession,
-    github_service: GitHubProjectsService,
-) -> None:
+    github_service: Any,
+    project_id: str,
+) -> str:
     """
     Add the created issue to the user's GitHub project board.
 
-    No-op if the project is not configured.
-    Raises GitHubApiError on failure.
+    Returns the project item ID.
     """
 ```
 
@@ -128,13 +141,13 @@ async def _add_to_project(
 ```python
 async def _persist_status(
     self,
+    proposal_id: str,
     proposal: AITaskProposal,
 ) -> None:
     """
-    Update the proposal's status in SQLite via chat_store.
+    Update the proposal's status to CONFIRMED in SQLite via chat_store.
 
-    Uses retry logic for transient SQLite errors.
-    Raises PersistenceError after max retries.
+    Failure is logged but does not raise.
     """
 ```
 
@@ -145,12 +158,54 @@ async def _broadcast_update(
     self,
     proposal: AITaskProposal,
     session: UserSession,
-    connection_manager: ConnectionManager,
+    connection_manager: Any,
+    project_id: str,
+    item_id: str,
+    issue_number: int,
+    issue_url: str,
 ) -> None:
     """
-    Send the updated proposal to connected WebSocket clients.
+    Send the task_created WebSocket broadcast to connected clients.
+    """
+```
 
-    Failure is logged but does not raise — broadcast is best-effort.
+### `_setup_workflow`
+
+```python
+async def _setup_workflow(
+    self,
+    proposal: AITaskProposal,
+    proposal_id: str,
+    session: UserSession,
+    github_service: Any,
+    connection_manager: Any,
+    owner: str,
+    repo: str,
+    project_id: str,
+    item_id: str,
+    issue_node_id: str,
+    issue_number: int,
+) -> None:
+    """
+    Set up workflow config, resolve pipeline, assign agent, start polling.
+
+    Failures are logged but do not cause the endpoint to fail — the issue
+    has already been created successfully at this point.
+    """
+```
+
+### `_resolve_pipeline`
+
+```python
+async def _resolve_pipeline(
+    self,
+    proposal: AITaskProposal,
+    proposal_id: str,
+    project_id: str,
+    github_user_id: str,
+) -> Any:
+    """
+    Resolve pipeline mappings — selected pipeline or project/user/default fallback.
     """
 ```
 
@@ -159,27 +214,20 @@ async def _broadcast_update(
 | Error Type | HTTP Status | When |
 |-----------|-------------|------|
 | `NotFoundError` | 404 | Proposal ID doesn't exist or belongs to different session |
-| `ExpiredError` | 410 | Proposal has passed its expiration timestamp |
-| `GitHubApiError` | 502 | GitHub API returned an error during issue creation or project assignment |
-| `PersistenceError` | 500 | SQLite write failed after retry attempts |
-| `ValueError` | 422 | Issue body exceeds GitHub's 64000 character limit |
+| `ValidationError` | 422 | Proposal has expired, already confirmed, or body exceeds limit |
 
 ## Testing Contract
 
 ```python
 # Unit test example — test validation independently
 orchestrator = ProposalOrchestrator(
-    chat_state=mock_state,
-    chat_store=mock_store,
+    chat_state_manager=mock_state,
+    chat_store_module=mock_store,
 )
 proposal = await orchestrator._validate_proposal("pid-123", mock_session)
-assert proposal.status == "pending"
+assert proposal.status == ProposalStatus.PENDING
 
-# Unit test example — test GitHub creation independently
-url, number = await orchestrator._create_github_issue(
-    proposal=mock_proposal,
-    session=mock_session,
-    github_service=mock_github,  # Only mock needed
-)
-assert number == 42
+# Unit test example — test edits mutate in place
+orchestrator._apply_edits(proposal, mock_request)
+assert proposal.edited_title == mock_request.edited_title
 ```

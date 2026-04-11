@@ -43,10 +43,8 @@ _SAFE_ERROR_MESSAGES: dict[str, tuple[int, str]] = {
 
 
 def _get_lock(key: str) -> asyncio.Lock:
-    """Return a per-key asyncio lock (lazy-created)."""
-    if key not in _locks:
-        _locks[key] = asyncio.Lock()
-    return _locks[key]
+    """Return a per-key asyncio lock (lazy-created atomically)."""
+    return _locks.setdefault(key, asyncio.Lock())
 
 
 async def _retry_persist(
