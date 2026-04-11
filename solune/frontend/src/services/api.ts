@@ -375,7 +375,9 @@ export const chatApi = {
    * Get chat messages for current session.
    */
   async getMessages(conversationId?: string): Promise<ChatMessagesResponse> {
-    const params = conversationId ? `?conversation_id=${conversationId}` : '';
+    const params = conversationId
+      ? `?conversation_id=${encodeURIComponent(conversationId)}`
+      : '';
     const data = await request<ChatMessagesResponse>(`/chat/messages${params}`);
     return validateResponse(ChatMessagesResponseSchema, data, 'chatApi.getMessages');
   },
@@ -384,7 +386,9 @@ export const chatApi = {
    * Clear all chat messages for current session.
    */
   clearMessages(conversationId?: string): Promise<{ message: string }> {
-    const params = conversationId ? `?conversation_id=${conversationId}` : '';
+    const params = conversationId
+      ? `?conversation_id=${encodeURIComponent(conversationId)}`
+      : '';
     return request<{ message: string }>(`/chat/messages${params}`, { method: 'DELETE' });
   },
 

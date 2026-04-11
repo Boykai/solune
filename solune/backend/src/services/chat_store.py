@@ -69,6 +69,13 @@ async def save_message(
                 conversation_id,
             ),
         )
+        if conversation_id is not None:
+            await db.execute(
+                """UPDATE conversations
+                   SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                   WHERE conversation_id = ?""",
+                (conversation_id,),
+            )
 
 
 async def get_messages(
@@ -173,12 +180,14 @@ async def save_conversation(
     conversation_id: str,
     title: str = "New Chat",
 ) -> dict:
-    """Create or replace a conversation and return it as a dict."""
+    """Create or update a conversation and return it as a dict."""
     async with transaction(db):
         await db.execute(
-            """INSERT OR REPLACE INTO conversations
-               (conversation_id, session_id, title)
-               VALUES (?, ?, ?)""",
+            """INSERT INTO conversations (conversation_id, session_id, title)
+               VALUES (?, ?, ?)
+               ON CONFLICT(conversation_id) DO UPDATE SET
+                   title = excluded.title,
+                   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')""",
             (conversation_id, session_id, title),
         )
     cursor = await db.execute(

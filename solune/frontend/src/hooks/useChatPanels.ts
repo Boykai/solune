@@ -63,6 +63,7 @@ export interface UseChatPanelsReturn {
   removePanel: (panelId: string) => void;
   resizePanels: (leftPanelId: string, rightPanelId: string, leftPercent: number, rightPercent: number) => void;
   updatePanelConversation: (panelId: string, conversationId: string) => void;
+  removeStalePanels: (validConversationIds: Set<string>) => void;
   containerRef: React.RefObject<HTMLDivElement | null>;
   minWidthPx: number;
 }
@@ -136,12 +137,21 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
     );
   }, []);
 
+  const removeStalePanels = useCallback((validConversationIds: Set<string>) => {
+    setPanels((prev) => {
+      const valid = prev.filter((p) => validConversationIds.has(p.conversationId));
+      if (valid.length === prev.length) return prev;
+      return valid.length > 0 ? redistributeWidths(valid) : [];
+    });
+  }, []);
+
   return {
     panels,
     addPanel,
     removePanel,
     resizePanels,
     updatePanelConversation,
+    removeStalePanels,
     containerRef,
     minWidthPx: MIN_WIDTH_PX,
   };

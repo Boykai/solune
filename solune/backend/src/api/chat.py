@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -936,8 +936,8 @@ def _trigger_signal_delivery(
 
 @router.post("/conversations", status_code=201)
 async def create_conversation(
-    body: ConversationCreateRequest,
     session: Annotated[UserSession, Depends(get_session_dep)],
+    body: ConversationCreateRequest = Body(default_factory=ConversationCreateRequest),  # noqa: B008
 ) -> Conversation:
     """Create a new conversation for the current session."""
     from src.services import chat_store
@@ -1070,6 +1070,8 @@ async def get_messages(
                 content=row["content"],
                 action_type=ActionType(row["action_type"]) if row.get("action_type") else None,
                 action_data=action_data,
+                timestamp=row["timestamp"] if row.get("timestamp") else utcnow(),
+                conversation_id=row.get("conversation_id"),
             )
         )
     return ChatMessagesResponse(
