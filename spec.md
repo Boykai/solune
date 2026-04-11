@@ -5,7 +5,7 @@
 **Status**: Draft
 **Input**: Parent issue #1386 — Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-> **Complete Specification**: See [specs/001-fleet-dispatch-cli/spec.md](specs/001-fleet-dispatch-cli/spec.md) for the full 16-FR requirement set, expanded edge cases, and comprehensive acceptance scenarios. This document provides the working subset (10 FRs) used by the implementation plan.
+> **Complete Specification**: A comprehensive 16-FR requirement set with expanded edge cases and acceptance scenarios is planned for `specs/001-fleet-dispatch-cli/spec.md` (not yet created). This document provides the working subset (10 FRs) used by the implementation plan.
 
 ## User Scenarios & Testing *(mandatory)*
 

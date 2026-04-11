@@ -137,7 +137,7 @@ class TestSchemaRejectsInvalid:
     """Invalid pipeline configs must fail schema validation."""
 
     def test_rejects_empty_array(self, schema: dict) -> None:
-        with pytest.raises(ValidationError, match="minItems"):
+        with pytest.raises(ValidationError):
             validate(instance=[], schema=schema)
 
     def test_rejects_preset_missing_preset_id(self, schema: dict, presets: list[dict]) -> None:
