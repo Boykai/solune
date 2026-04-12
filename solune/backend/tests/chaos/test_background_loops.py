@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src import main
+from src.services import bootstrap
 
 
 @pytest.mark.asyncio
@@ -19,14 +19,14 @@ async def test_polling_watchdog_attempts_restart_after_detecting_stopped_loop(mo
         if len(sleep_calls) > 1:
             raise asyncio.CancelledError()
 
-    monkeypatch.setattr(main.asyncio, "sleep", fake_sleep)
-    monkeypatch.setattr(main, "_auto_start_copilot_polling", restart)
+    monkeypatch.setattr(bootstrap.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(bootstrap, "auto_start_copilot_polling", restart)
     monkeypatch.setattr(
         "src.services.copilot_polling.get_polling_status",
         lambda: {"is_running": False, "errors_count": 1, "last_error": "boom"},
     )
 
-    await main._polling_watchdog_loop()
+    await bootstrap.polling_watchdog_loop()
 
     assert sleep_calls[0] == 30
     restart.assert_awaited_once()
@@ -42,11 +42,11 @@ async def test_session_cleanup_loop_uses_exponential_backoff_after_failures(monk
         if len(sleep_calls) > 2:
             raise asyncio.CancelledError()
 
-    monkeypatch.setattr(main.asyncio, "sleep", fake_sleep)
-    monkeypatch.setattr(main, "get_settings", lambda: SimpleNamespace(session_cleanup_interval=5))
+    monkeypatch.setattr(bootstrap.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(bootstrap, "get_settings", lambda: SimpleNamespace(session_cleanup_interval=5))
     monkeypatch.setattr("src.services.database.get_db", lambda: object())
     monkeypatch.setattr("src.services.session_store.purge_expired_sessions", purge)
 
-    await main._session_cleanup_loop()
+    await bootstrap.session_cleanup_loop()
 
     assert sleep_calls[:2] == [5, 10]
