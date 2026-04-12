@@ -1,102 +1,15 @@
-# Quickstart: Multi-Chat App Page
+# Quickstart: Simplify Page Headers for Focused UI
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11
+**Feature**: Simplify Page Headers | **Date**: 2026-04-11
 
 > **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
 
 ## Prerequisites
 
-- Python ≥3.12 with virtual environment
 - Node.js ≥18 with npm
-- SQLite (bundled with Python)
 - Git
 
-## Backend Setup
-
-```bash
-cd solune/backend
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run migrations (applies 044_conversations.sql automatically on startup)
-# Migrations are applied via the startup hook in src/database.py
-python -c "from src.database import run_migrations; import asyncio; asyncio.run(run_migrations())"
-```
-
-### Verify Migration
-
-```bash
-# Check that the conversations table exists
-sqlite3 data/solune.db ".schema conversations"
-
-# Expected output:
-# CREATE TABLE conversations (
-#     conversation_id TEXT PRIMARY KEY,
-#     session_id TEXT NOT NULL,
-#     title TEXT NOT NULL DEFAULT 'New Chat',
-#     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     FOREIGN KEY (session_id) REFERENCES user_sessions(session_id) ON DELETE CASCADE
-# );
-
-# Check that conversation_id was added to chat_messages
-sqlite3 data/solune.db "PRAGMA table_info(chat_messages);" | grep conversation_id
-```
-
-### Run Backend Tests
-
-```bash
-cd solune/backend
-
-# Run conversation-specific tests
-python -m pytest tests/unit/test_chat_store.py -k "conversation" -v
-
-# Run all chat API tests
-python -m pytest tests/unit/test_api_chat.py -v
-
-# Run full backend test suite (ensure no regressions)
-python -m pytest tests/unit/ -q --timeout=120
-```
-
-### Test Conversation Endpoints Manually
-
-```bash
-# Start the backend server
-cd solune/backend && uvicorn src.main:app --reload --port 8000
-
-# Create a conversation (requires valid session cookie)
-curl -X POST http://localhost:8000/api/v1/chat/conversations \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test Conversation"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# List conversations
-curl http://localhost:8000/api/v1/chat/conversations \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Send a message to a specific conversation
-curl -X POST http://localhost:8000/api/v1/chat/messages \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Hello!", "conversation_id": "CONVERSATION_ID"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Get messages for a specific conversation
-curl "http://localhost:8000/api/v1/chat/messages?conversation_id=CONVERSATION_ID" \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Update conversation title
-curl -X PATCH http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Renamed Chat"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Delete conversation
-curl -X DELETE http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
-  -b "session_id=YOUR_SESSION_ID"
-```
-
-## Frontend Setup
+## Setup
 
 ```bash
 cd solune/frontend
@@ -108,128 +21,165 @@ npm install
 npm run dev
 ```
 
-### Run Frontend Tests
+## Implementation Steps
+
+### Step 1: Create CompactPageHeader
+
+Create `src/components/common/CompactPageHeader.tsx`.
+
+Do **not** duplicate the full component implementation in this guide. `CompactPageHeader` has interactive/mobile behavior and styling details that can change over time, so the source file should remain the single source of truth:
+
+- Source: [`src/components/common/CompactPageHeader.tsx`](solune/frontend/src/components/common/CompactPageHeader.tsx)
+- Keep the existing production implementation, including any current hooks, icons, responsive stats behavior, and updated class names.
+
+This quickstart focuses on where to use `CompactPageHeader`, rather than embedding a copy of the component that can drift from the real implementation.
+
+### Step 2: Replace Hero in Each Page
+
+For each of the 6 pages, make two changes:
+
+1. **Change import**: `CelestialCatalogHero` → `CompactPageHeader`
+2. **Drop `note` prop** (if present)
+3. **Drop `className="projects-catalog-hero"`** (AgentsPipelinePage, ProjectsPage only)
+
+Example for ProjectsPage.tsx:
+
+```diff
+- import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
++ import { CompactPageHeader } from '@/components/common/CompactPageHeader';
+
+-      <CelestialCatalogHero
+-        className="projects-catalog-hero"
++      <CompactPageHeader
+         eyebrow="Mission Control"
+         title="Every project, mapped and moving."
+         description="..."
+         badge={...}
+-        note="..."
+         stats={heroStats}
+         actions={...}
+       />
+```
+
+### Step 3: Delete Dead Code
+
+```bash
+# Delete the old hero component and its tests
+rm src/components/common/CelestialCatalogHero.tsx
+rm src/components/common/CelestialCatalogHero.test.tsx
+```
+
+### Step 4: Remove Orphaned CSS
+
+Remove the `.dark .projects-catalog-hero .catalog-hero-*` block from `src/index.css` (lines ~432–489).
+
+**DO NOT remove**: `.moonwell`, `.hanging-stars`, `.celestial-*` animations (used elsewhere).
+
+## Run Tests
 
 ```bash
 cd solune/frontend
 
-# Run conversation-related tests
-npm test -- --reporter=verbose useConversations
-npm test -- --reporter=verbose ChatPanel
-npm test -- --reporter=verbose ChatPanelManager
-npm test -- --reporter=verbose AppPage
-
-# Run full frontend test suite
+# Run all frontend tests
 npm test
+
+# Run only the component test
+npm test -- --reporter=verbose CompactPageHeader
+
+# Run page-specific tests
+npm test -- --reporter=verbose ProjectsPage
+npm test -- --reporter=verbose AgentsPage
+npm test -- --reporter=verbose AgentsPipelinePage
 ```
 
-### Verify UI Behavior
+## Run Lint & Type Check
 
-1. **Navigate to AppPage** (`/`)
-   - Should see a single chat panel (full width)
-   - Panel header shows "New Chat" title
+```bash
+cd solune/frontend
 
-2. **Send a message**
-   - Type in the input and press Enter
-   - Message appears in the panel; streaming response follows
+# ESLint
+npx eslint .
 
-3. **Add a second panel**
-   - Click "Add Chat" button
-   - Second panel appears side-by-side
-   - Both panels are resizable via the drag handle between them
+# TypeScript type check
+npx tsc --noEmit
+```
 
-4. **Resize panels**
-   - Hover over the border between panels (cursor changes to `col-resize`)
-   - Drag to resize; panels respect 320px minimum width
+## Verify UI Behavior
 
-5. **Edit conversation title**
-   - Click the title in the panel header
-   - Type a new title and press Enter or blur
+1. **Navigate to each of the 6 pages**:
+   - `/projects` — Projects page
+   - `/agents` — Agents page
+   - `/agents/pipeline` — Agents Pipeline page
+   - `/tools` — Tools page
+   - `/chores` — Chores page
+   - `/help` — Help page
 
-6. **Close a panel**
-   - Click the close (×) button in the panel header
-   - Panel is removed; remaining panels redistribute width
-   - Cannot close the last panel
+2. **Check compact header** on each page:
+   - Header height is ~80–100px (not ~350–450px)
+   - Eyebrow text, title, and badge are visible
+   - Description shows as single line, expands on hover
+   - Stats show as inline chips (not large moonwell cards)
+   - Action buttons are accessible
 
-7. **Mobile behavior** (resize browser to < 768px)
-   - Panels switch to tab view
-   - One panel visible at a time
-   - Tab bar at top shows conversation titles
+3. **Check mobile viewport** (Chrome DevTools → 375px width):
+   - Header remains compact
+   - Stats are hidden (or behind a toggle)
+   - Actions are still accessible
 
-8. **Persistence**
-   - Open multiple panels with different conversations
-   - Refresh the browser
-   - Same panels and conversations should be restored from localStorage
-
-9. **ChatPopup on other pages**
-   - Navigate to `/projects` or `/agents`
-   - ChatPopup (floating bottom-right) continues to work independently
-   - ChatPopup messages are NOT scoped to any conversation
+4. **Check no regressions**:
+   - Sidebar celestial animations still work
+   - LoginPage decorations (hanging-stars, celestial-float) still work
+   - CelestialLoader animations still work
+   - NotFoundPage and ErrorBoundary decorations still work
 
 ## Key Files Reference
 
-### Backend (modify)
-
-| File | Changes |
-|------|---------|
-| `src/migrations/044_conversations.sql` | NEW: Create conversations table + ALTER existing tables |
-| `src/models/chat.py` | Add Conversation models; add conversation_id to ChatMessage/Request |
-| `src/services/chat_store.py` | Add conversation CRUD; update message methods for conversation_id filter |
-| `src/api/chat.py` | Add conversation endpoints; update message endpoints |
-| `src/services/chat_agent.py` | Change session key to `session_id:conversation_id` |
-
-### Frontend (modify)
-
-| File | Changes |
-|------|---------|
-| `src/types/index.ts` | Add Conversation interface; add conversation_id to ChatMessage/Request |
-| `src/services/schemas/chat.ts` | Add Conversation Zod schemas; update ChatMessageSchema |
-| `src/services/api.ts` | Add conversationApi namespace; update chatApi methods |
-| `src/hooks/useChat.ts` | Accept conversationId param; update query keys |
-| `src/pages/AppPage.tsx` | Rewrite: marketing → ChatPanelManager |
-
-### Frontend (create)
+### Create
 
 | File | Purpose |
 |------|---------|
-| `src/hooks/useConversations.ts` | React Query hook for conversation CRUD |
-| `src/hooks/useChatPanels.ts` | Panel layout state with localStorage persistence |
-| `src/components/chat/ChatPanel.tsx` | Standalone panel wrapping ChatInterface |
-| `src/components/chat/ChatPanelManager.tsx` | Multi-panel container with resize |
+| `src/components/common/CompactPageHeader.tsx` | New compact header component |
+| `src/components/common/CompactPageHeader.test.tsx` | Tests for new component |
+
+### Modify
+
+| File | Changes |
+|------|---------|
+| `src/pages/ProjectsPage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
+| `src/pages/AgentsPage.tsx` | Swap import, remove `note` prop |
+| `src/pages/AgentsPipelinePage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
+| `src/pages/ToolsPage.tsx` | Swap import, remove `note` prop |
+| `src/pages/ChoresPage.tsx` | Swap import, remove `note` prop |
+| `src/pages/HelpPage.tsx` | Swap import (no `note` used) |
+| `src/index.css` | Remove `.dark .projects-catalog-hero .catalog-hero-*` rules |
+
+### Delete
+
+| File | Reason |
+|------|--------|
+| `src/components/common/CelestialCatalogHero.tsx` | Replaced by CompactPageHeader |
+| `src/components/common/CelestialCatalogHero.test.tsx` | Tests for deleted component |
 
 ### Untouched
 
 | File | Reason |
 |------|--------|
-| `AppLayout.tsx` | Layout wrapper — no changes needed |
-| `ChatPopup.tsx` | Floating popup — stays conversation-unaware |
-| `ChatInterface.tsx` | Reused as-is inside ChatPanel |
+| `src/layout/Sidebar.tsx` | Uses `celestial-orbit-spin` independently |
+| `src/layout/AppLayout.tsx` | Uses `celestial-*` classes independently |
+| `src/components/common/CelestialLoader.tsx` | Uses `celestial-orbit-spin` independently |
+| `src/pages/LoginPage.tsx` | Uses `hanging-stars`, `celestial-float`, `celestial-pulse-glow` independently |
+| All components using `.moonwell` | `.moonwell` CSS is retained |
 
 ## Troubleshooting
 
-### Migration fails with "table conversations already exists"
+### Build fails with "Cannot find module CelestialCatalogHero"
 
-The migration uses `CREATE TABLE IF NOT EXISTS`, so this shouldn't happen. If it does, check that `044_conversations.sql` was not applied twice.
+Ensure all 6 pages have updated their imports from `CelestialCatalogHero` to `CompactPageHeader`.
 
-### Messages don't filter by conversation_id
+### Tests fail referencing "Current Ritual"
 
-Verify that:
+The `CelestialCatalogHero.test.tsx` file should be deleted, not updated. The `CompactPageHeader.test.tsx` replaces it.
 
-1. The migration added the `conversation_id` column to `chat_messages`
-2. The API endpoint passes `conversation_id` to the store method
-3. The frontend sends `conversationId` in the request
+### Dark mode looks broken on ProjectsPage/AgentsPipelinePage
 
-### Panel layout doesn't persist
-
-Check `localStorage` in browser DevTools:
-
-```javascript
-JSON.parse(localStorage.getItem('solune:chat-panels'))
-```
-
-### Resize handle not visible
-
-The handle is a thin (4–8px) vertical bar between panels. Ensure:
-
-1. Multiple panels are open
-2. Container has sufficient width for both panels (≥640px)
+The `.dark .projects-catalog-hero` CSS overrides have been removed. Since `CompactPageHeader` doesn't use the `projects-catalog-hero` className, these overrides are no longer needed. Verify that `CompactPageHeader` renders correctly in both light and dark modes without special overrides.

@@ -1,108 +1,158 @@
-# Feature Specification: Harden Phase 1 — Critical Bug Fixes
+# Feature Specification: Simplify Page Headers for Focused UI
 
-> **Note:** Despite the generic filename, this document is a feature-branch specification for **Harden Phase 1 — Critical Bug Fixes** and is not the product-wide Solune specification.
-
-**Feature Branch**: `001-harden-phase1-bugfixes`  
-**Created**: 2026-04-10  
+**Feature Branch**: `copilot/speckitplan-create-compact-header`  
+**Created**: 2026-04-11  
 **Status**: Draft  
-**Input**: User description: "Harden Phase 1 — Critical Bug Fixes: Fix memory leak in pipeline\_state\_store, fix update\_agent lifecycle status, fix \_extract\_agent\_preview malformed configs"
+**Input**: User description: "Simplify Page Headers for Focused UI — Replace the large CelestialCatalogHero hero sections (~20% of viewport, ~350–450px tall) with a compact, single-row page header across 6 pages."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Bounded Lock Dictionary Prevents Memory Leak (Priority: P1)
+### User Story 1 - Compact Page Header Reclaims Vertical Space (Priority: P1)
 
-A platform operator runs Solune as a long-lived service handling many projects over days or weeks. The per-project launch-lock dictionary must not grow without bound; once a configurable capacity is reached, the oldest (least-recently-used) entries are evicted so the process's memory footprint stays stable.
+A user navigates to any of the six main pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help). Instead of seeing a large decorative hero section that occupies roughly 20% of the viewport (~350–450px tall), they see a compact, single-row header (~80–100px tall) that still presents all essential information — page identity (eyebrow and title), contextual badge, and action buttons — without requiring the user to scroll past decorative content to reach the page's primary working area.
 
-**Why this priority**: An unbounded dictionary that accumulates one lock per unique project ID is a memory leak. In production this degrades performance over time and can eventually exhaust available memory, making it the highest-priority fix.
+**Why this priority**: The hero sections consume significant vertical real estate on every major page. Reducing header height directly increases the visible working area for content that users interact with (board columns, agent catalogs, tool lists, chore templates). This is the core value of the feature — every user benefits immediately on every page load.
 
-**Independent Test**: Create locks for more unique project IDs than the configured maximum and verify the dictionary size never exceeds that maximum. Confirm that recently-used entries survive eviction while idle entries are removed first.
+**Independent Test**: Navigate to each of the six affected pages and verify that the header occupies approximately 80–100px of vertical space, all essential information (eyebrow, title, badge, actions) remains visible, and the primary content area starts higher on the page than before.
 
 **Acceptance Scenarios**:
 
-1. **Given** the lock dictionary has reached its maximum capacity, **When** a lock is requested for a new project ID, **Then** the dictionary evicts the least-recently-used entry and creates a new lock without exceeding the capacity limit.
-2. **Given** a lock already exists for a project ID, **When** that lock is requested again, **Then** the same lock instance is returned and the entry is refreshed to the most-recently-used position.
-3. **Given** locks have been evicted due to capacity, **When** a lock is requested for an evicted project ID, **Then** a new lock is transparently created without errors.
-4. **Given** the service has been running for an extended period with many unique project IDs, **When** the dictionary reaches capacity, **Then** memory consumption remains stable and does not continue growing.
+1. **Given** a user navigates to the Projects page, **When** the page loads, **Then** the header is rendered as a single-row compact layout occupying no more than ~100px of vertical space.
+2. **Given** a user navigates to any of the six affected pages, **When** the page loads, **Then** the eyebrow label, page title, and action buttons are all visible in the header without scrolling.
+3. **Given** a page has a contextual badge (e.g., repository or project name), **When** the header renders, **Then** the badge is displayed in the header row.
+4. **Given** the previous hero occupied ~350–450px, **When** the compact header is used instead, **Then** the primary content area gains approximately 250–370px of additional visible space above the fold.
 
 ---
 
-### User Story 2 - Updated Local Agents Show Correct Lifecycle Status (Priority: P1)
+### User Story 2 - Stats Displayed as Compact Inline Chips (Priority: P1)
 
-A developer updates an existing local agent's configuration (name, description, system prompt, or tools). After the update PR is opened, the agent's lifecycle status must reflect that a PR is pending so the UI and downstream logic treat the agent as "awaiting merge" rather than "active".
+A user viewing a page with contextual statistics (e.g., board columns count, pipeline count, assignment count) sees these stats rendered as small pill or chip elements inline with the header, rather than as large decorative moonwell cards that consumed significant horizontal and vertical space.
 
-**Why this priority**: Showing an updated agent as still active misleads users into thinking the change is live. This can cause confusion, incorrect behaviour during chat refinement, and breaks the expected create → pending → merge → active lifecycle. It is a correctness bug with direct user-facing impact.
+**Why this priority**: Stats provide valuable at-a-glance context. Displaying them as compact chips preserves this value while eliminating the large card layout. This is essential to the compact header working correctly — without chip-style stats, the header cannot stay within its height target.
 
-**Independent Test**: Update an existing local agent's configuration, verify the returned agent object has lifecycle status set to "pending PR", and confirm the persisted database row reflects the same status along with the new PR number and branch name.
+**Independent Test**: Navigate to a page with stats (e.g., Projects page with 4 stats) and verify that each stat is displayed as a small inline chip showing label and value, and that all stats fit within the single-row header layout.
 
 **Acceptance Scenarios**:
 
-1. **Given** an existing local agent with "active" status, **When** its configuration is updated and a PR is opened, **Then** the agent's lifecycle status is set to "pending PR" in both the response and the database.
-2. **Given** a repo-sourced agent (ID starting with "repo:"), **When** it is updated for the first time, **Then** a new local record is inserted with lifecycle status "pending PR".
-3. **Given** an agent with "pending deletion" status, **When** an update is attempted, **Then** the update is rejected with an appropriate error message.
-4. **Given** only runtime preferences are changed (model, icon), **When** the update is saved, **Then** no PR is opened and the lifecycle status remains unchanged.
+1. **Given** a page provides stats (label/value pairs), **When** the compact header renders, **Then** each stat appears as a small pill/chip element showing both the label and value.
+2. **Given** a page has multiple stats (e.g., 4 stats on the Projects page), **When** the header renders on desktop, **Then** all stats are visible inline without overflowing the header row.
+3. **Given** a page has no stats (e.g., Help page), **When** the header renders, **Then** the stat area is omitted and the header layout adjusts gracefully.
 
 ---
 
-### User Story 3 - Malformed Agent Configs Are Rejected During Chat Refinement (Priority: P1)
+### User Story 3 - Description as Single-Line Subtitle (Priority: P2)
 
-During the multi-turn agent chat refinement flow, the AI may produce a config block with structurally invalid fields (e.g., `tools: "read"` as a string instead of a list, or `tools: [123, null, {}]` with non-string elements). The extraction logic must detect these malformed-but-JSON-parseable configs and return nothing rather than passing invalid data to downstream validation or the UI.
+A user reading the page header sees the page description rendered as a single-line subtitle below the title. The full description is accessible by hovering, which expands the text to show all content. This keeps the header compact by default while preserving the descriptive context for users who want it.
 
-**Why this priority**: Malformed configs that escape validation break the chat refinement experience — users see errors or broken previews. Since this sits in a critical interactive flow, it has equal priority with the other fixes.
+**Why this priority**: Descriptions provide helpful context but are not essential for every page visit. A single-line treatment with hover-to-expand balances information density with compactness. It's a P2 because the header is still functional without this refinement.
 
-**Independent Test**: Supply various malformed config payloads (tools as a string, tools containing non-string elements, missing required fields, non-dict top-level JSON) and verify that each one is rejected by returning no preview rather than propagating invalid data.
+**Independent Test**: Navigate to a page with a description, verify the description is visible as a single truncated line, hover over it, and verify the full text becomes visible.
 
 **Acceptance Scenarios**:
 
-1. **Given** an AI response containing `tools: "read"` (string instead of list), **When** the config is extracted, **Then** the result is empty (no preview returned).
-2. **Given** an AI response containing `tools: [123, null, {}]` (list with non-string elements), **When** the config is extracted, **Then** the result is empty (no preview returned).
-3. **Given** an AI response with a valid config block, **When** the config is extracted, **Then** the preview is returned with all fields correctly populated.
-4. **Given** an AI response with missing or empty `name` field, **When** the config is extracted, **Then** the result is empty.
-5. **Given** an AI response with no config block at all, **When** extraction is attempted, **Then** the result is empty.
+1. **Given** a page has a description, **When** the compact header renders, **Then** the description appears as a single line of text, truncated with an ellipsis if it exceeds the available width.
+2. **Given** the description is truncated, **When** the user hovers over it, **Then** the full description text is revealed.
+3. **Given** a page has a short description that fits on one line, **When** the header renders, **Then** the description is displayed in full without truncation or hover behavior.
+
+---
+
+### User Story 4 - Stats Toggle on Mobile Viewports (Priority: P2)
+
+A user on a mobile device sees the compact header without stats cluttering the limited screen space. Stats are hidden by default on mobile and accessible via a toggle control, keeping the header clean and focused on the essentials (title, badge, actions) when screen real estate is most constrained.
+
+**Why this priority**: Mobile viewports cannot comfortably display all header elements in a single row. Hiding stats behind a toggle prevents the compact header from becoming crowded on small screens while still making the data accessible when needed.
+
+**Independent Test**: View any stats-bearing page on a mobile viewport, verify stats are hidden by default, activate the toggle, and verify stats become visible.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user views a page with stats on a mobile-width viewport, **When** the header renders, **Then** the stats are hidden by default.
+2. **Given** stats are hidden on mobile, **When** the user activates the stats toggle, **Then** all stats become visible.
+3. **Given** a page has no stats, **When** the header renders on mobile, **Then** no toggle control is displayed.
+
+---
+
+### User Story 5 - Decorative Elements Removed from Page Headers (Priority: P3)
+
+A user navigating the application no longer sees animated celestial decorations (orbiting rings, twinkling stars, floating moons, glowing beams, hanging stars) in page headers. The celestial theme is preserved elsewhere in the application (sidebar, global chrome) but headers are clean and content-focused.
+
+**Why this priority**: Removing decorative elements reduces visual noise and loading overhead in headers. The theme is maintained elsewhere, so the brand identity is preserved. This is P3 because it's a natural consequence of replacing the hero component — it doesn't require separate effort.
+
+**Independent Test**: Navigate to each affected page and verify that no animated decorative elements (orbits, stars, moons, beams) appear in the header area.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user navigates to any of the six affected pages, **When** the header renders, **Then** no animated celestial elements (orbits, twinkling stars, floating moons, pulsing glows, gradient beams) are present in the header.
+2. **Given** the old hero component displayed a "Current Ritual" aside panel, **When** the compact header renders, **Then** no aside panel or note section is present.
+
+---
+
+### User Story 6 - Consistent Header Experience Across All Six Pages (Priority: P1)
+
+A user navigating between the six main pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help) experiences a consistent header layout across all pages. Each page uses the same compact header format with its own eyebrow, title, badge, stats, and actions, creating a unified and predictable navigation experience.
+
+**Why this priority**: Consistency across all six pages is essential for the feature to deliver its full value. A partial rollout would create a jarring experience where some pages have large heroes and others have compact headers.
+
+**Independent Test**: Navigate to all six pages in sequence and verify each uses the same compact header layout pattern, with only the content (eyebrow, title, stats, actions) differing per page.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user navigates between all six affected pages, **When** each page loads, **Then** each page uses the same compact header layout with the same structural elements (eyebrow, title, badge area, stats area, actions area).
+2. **Given** the Help page currently has fewer props (no badge, no stats), **When** the compact header renders on the Help page, **Then** the header gracefully omits missing sections while maintaining the same overall layout structure.
 
 ---
 
 ### Edge Cases
 
-- What happens when the lock dictionary capacity is exactly 1? The dictionary should still function correctly, evicting the single entry when a new one is added.
-- What happens when two concurrent requests try to create a lock for the same new project ID? Only one lock should be created; the second request should receive the same lock instance.
-- What happens when an agent update PR workflow fails after the local record has been partially modified? The update should fail atomically — no partial lifecycle status change should be persisted.
-- What happens when the AI response contains multiple `agent-config` code blocks? Only the first match should be processed.
-- What happens when tools contain mixed valid and invalid entries like `["read", 123, "write"]`? The entire config should be rejected rather than silently dropping invalid entries.
+- What happens when a page has no badge, no stats, and only one action (e.g., Help page)? The header should render cleanly with only the eyebrow, title, description, and single action button visible.
+- What happens when stat values are very long strings (e.g., a long pipeline name)? Stat chips should truncate long values with an ellipsis to prevent layout overflow.
+- What happens when there are many action buttons (e.g., Tools page has 3 buttons)? The actions area should accommodate multiple buttons without breaking the single-row layout on desktop, and should wrap gracefully on narrower viewports.
+- What happens when the browser viewport is resized from desktop to mobile while the page is open? The header should responsively adjust, hiding stats and adapting layout without requiring a page reload.
+- What happens when the badge text is long (e.g., "organization-name/very-long-repository-name")? The badge should truncate with an ellipsis rather than pushing other header elements out of alignment.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The per-project launch-lock collection MUST enforce a maximum capacity; when the limit is reached, the least-recently-used entry MUST be evicted before adding a new one.
-- **FR-002**: Accessing an existing lock MUST refresh it to the most-recently-used position so that actively-used projects are not prematurely evicted.
-- **FR-003**: When a local agent's configuration is updated and a PR is opened, the system MUST set the agent's lifecycle status to "pending PR" in both the returned object and the persisted record.
-- **FR-004**: When a repo-sourced agent is updated for the first time, the system MUST insert a new local record with lifecycle status "pending PR", the new PR number, and the branch name.
-- **FR-005**: The agent config extraction logic MUST reject configs where the `tools` field is not a list.
-- **FR-006**: The agent config extraction logic MUST reject configs where any element in the `tools` list is not a non-empty string.
-- **FR-007**: The agent config extraction logic MUST reject configs where the `name` field is missing or empty.
-- **FR-008**: The agent config extraction logic MUST return nothing (rather than raising an exception) for any structurally invalid config.
+- **FR-001**: The system MUST display a compact, single-row page header on all six affected pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help) with a height target of approximately 80–100px.
+- **FR-002**: The compact header MUST display the following elements when provided: eyebrow label, page title, description (as subtitle), contextual badge, stats (as pill/chip elements), and action buttons.
+- **FR-003**: The compact header MUST arrange content in a single-row layout: eyebrow and title on the left, badge in the center, and action buttons on the right.
+- **FR-004**: The page description MUST be rendered as a single-line subtitle, truncated with an ellipsis when it exceeds the available width, and MUST expand to show the full text on hover.
+- **FR-005**: Stats MUST be rendered as small pill/chip elements rather than large card-style layouts.
+- **FR-006**: Stats MUST be hidden by default on mobile viewports and accessible via a toggle control.
+- **FR-007**: The compact header MUST NOT include any decorative animated elements (orbiting rings, twinkling stars, floating moons, gradient beams, hanging stars, pulsing glows).
+- **FR-008**: The compact header MUST NOT include a "Current Ritual" aside panel or a dedicated note section.
+- **FR-009**: The compact header MUST gracefully handle missing optional props (badge, stats, actions) by omitting those sections without breaking the layout.
+- **FR-010**: All six pages MUST use the same compact header layout to ensure visual consistency across the application.
+- **FR-011**: The previous hero section and any visual styles exclusively used by it MUST be removed from the codebase after all pages have been migrated.
+- **FR-012**: All existing automated tests MUST continue to pass after the migration, with no regressions introduced.
 
 ### Key Entities
 
-- **BoundedDict**: A dictionary with a maximum size that evicts least-recently-used entries when capacity is exceeded. Used to store per-project launch locks.
-- **Agent Lifecycle Status**: The state machine governing an agent's progression through create → pending PR → active (after merge) → pending deletion. The "pending PR" status indicates an open PR that has not yet been merged.
-- **AgentPreview**: The intermediate representation of an AI-generated agent configuration extracted from a chat response. Must pass structural validation before being presented to the user.
+- **Compact Page Header**: The new single-row header element that replaces the hero section on all six pages. Displays eyebrow, title, description, badge, stats, actions, and supports custom styling. Does not include a "Current Ritual" note section.
+- **Stat Chip**: A small pill-shaped inline element displaying a label and value pair, used to present page-level statistics compactly within the header row.
+- **Affected Pages**: The six pages sharing the hero component — Projects, Agents, Agents Pipeline, Tools, Chores, and Help — all of which must be migrated simultaneously.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: The per-project lock collection never exceeds its configured maximum size, regardless of how many unique projects are processed — verified by creating entries beyond the limit and asserting the count stays bounded.
-- **SC-002**: Memory consumption of the lock collection stabilises after reaching capacity and does not continue to grow over time.
-- **SC-003**: 100% of agent updates that open a PR result in the agent's lifecycle status being persisted as "pending PR" — verified by database inspection after each update path (existing local agent, first-time repo agent).
-- **SC-004**: 100% of malformed agent config payloads (non-list tools, non-string list elements, missing name) are rejected without exceptions — verified by unit tests covering each invalid variant.
-- **SC-005**: All existing tests continue to pass after the fixes, confirming no regressions are introduced.
-- **SC-006**: The chat refinement flow completes successfully with valid agent configs and gracefully handles invalid ones without user-visible errors.
+- **SC-001**: All six affected pages display a compact header that occupies no more than approximately 100px of vertical space, down from ~350–450px — a reduction of at least 70% in header height.
+- **SC-002**: Users can see the primary content area (board, catalog, tool list) without scrolling past the header on a standard 1080p viewport (1920×1080).
+- **SC-003**: All essential information (eyebrow, title, badge, actions) remains visible and accessible in the compact header on every affected page.
+- **SC-004**: On mobile viewports (≤768px width), the header remains usable and does not overflow or obscure content, with stats accessible via a toggle.
+- **SC-005**: No animated decorative elements are present in any page header after the migration.
+- **SC-006**: All existing automated tests pass without modification (except tests specifically for the removed hero component, which are updated or removed).
+- **SC-007**: The six pages present a visually consistent header experience — same layout structure, same spacing, same interaction patterns — differing only in per-page content (eyebrow text, title, stats, actions).
+- **SC-008**: The removed hero section and its exclusively-used visual styles are no longer present in the codebase, leaving no dead code.
 
 ## Assumptions
 
-- The bounded dictionary implementation (BoundedDict) already exists in the codebase and provides `touch()` for LRU refresh and automatic eviction on insert when at capacity.
-- A maximum capacity of 10,000 entries for the lock dictionary is appropriate for production workloads — this is large enough to avoid premature eviction in typical deployments while preventing unbounded growth.
-- The three SQL paths for agent updates (update existing local, insert new from repo, runtime-only preferences) are the complete set of update scenarios.
-- The `_extract_agent_preview` method is the single extraction point for agent configs from AI responses in the chat refinement flow.
-- Rejecting the entire config when any tools element is invalid (rather than filtering out bad entries) is the correct behaviour to force the AI to produce a fully valid config on retry.
+- The big-bang rollout approach (migrating all six pages simultaneously) is preferred over a gradual rollout because all pages share the same hero component, making a simultaneous swap simpler and avoiding an inconsistent intermediate state.
+- The ~80–100px height target is a guideline, not a hard constraint. Minor variance is acceptable as long as the header remains visually compact and single-row on desktop.
+- The celestial theme is preserved in other parts of the application (sidebar, global chrome), so removing decorative elements from headers does not diminish the overall brand identity.
+- The "Current Ritual" aside card is removed entirely because it duplicated the page description and consumed significant horizontal space (~22rem on large screens) without adding unique value.
+- Stats on the Help page are not applicable (the Help page currently passes no stats), so the compact header must handle the zero-stats case gracefully.
+- The description hover-to-expand behavior uses standard interaction patterns (e.g., CSS line-clamp with hover expansion) and does not require complex scripting.
+- Mobile breakpoint for hiding stats aligns with the application's existing responsive breakpoints.
+- Action buttons vary per page (1–3 buttons, mix of link and click handlers) and the compact header must accommodate this range without layout issues.

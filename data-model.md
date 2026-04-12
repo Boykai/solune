@@ -1,270 +1,218 @@
-# Data Model: Multi-Chat App Page
+# Data Model: Simplify Page Headers for Focused UI
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Simplify Page Headers | **Date**: 2026-04-11 | **Status**: Complete
 
-## Entity: Conversation
+## Entity: CompactPageHeaderStat
 
-A named container for a set of related chat messages within a user session. Each conversation corresponds to one chat panel on the AppPage.
+A single statistic displayed as an inline chip/pill in the compact page header.
+
+### Fields
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `label` | `string` | Required, non-empty | Short uppercase label for the stat (e.g., "Board columns") |
+| `value` | `string` | Required, non-empty | Display value for the stat (e.g., "12") |
+
+### Usage
+
+Stats are rendered as small pill/chip elements in a flex row. Each chip shows the label in small uppercase text and the value in slightly larger text.
+
+---
+
+## Entity: CompactPageHeaderProps
+
+The full props interface for the `CompactPageHeader` component.
 
 ### Fields
 
 | Field | Type | Constraints | Default | Description |
 |-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | PRIMARY KEY | `uuid4()` | Unique identifier |
-| `session_id` | TEXT (UUID) | NOT NULL, FK → `user_sessions.session_id` | — | Owning user session |
-| `title` | TEXT | NOT NULL | `'New Chat'` | User-editable conversation name |
-| `created_at` | TEXT (ISO 8601) | — | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | Creation timestamp |
-| `updated_at` | TEXT (ISO 8601) | — | `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')` | Last modification timestamp |
+| `eyebrow` | `string` | Required | — | Small uppercase label above the title (e.g., "Mission Control") |
+| `title` | `string` | Required | — | Main heading text (e.g., "Every project, mapped and moving.") |
+| `description` | `string` | Required | — | Subtitle text, single-line with line-clamp-1, expands on hover |
+| `badge` | `string` | Optional | `undefined` | Badge text displayed as a pill (e.g., "owner/repo") |
+| `stats` | `CompactPageHeaderStat[]` | Optional | `[]` | Array of stat objects rendered as inline chips |
+| `actions` | `ReactNode` | Optional | `undefined` | Action buttons rendered in the right zone |
+| `className` | `string` | Optional | `undefined` | Additional CSS classes forwarded to the root element |
 
-### Relationships
+### Prop Migration from CelestialCatalogHero
 
-| Related Entity | Cardinality | FK Location | Cascade |
-|---------------|-------------|-------------|---------|
-| `user_sessions` | N:1 | `conversations.session_id` | `ON DELETE CASCADE` |
-| `chat_messages` | 1:N | `chat_messages.conversation_id` | `ON DELETE SET NULL` |
-| `chat_proposals` | 1:N | `chat_proposals.conversation_id` | `ON DELETE SET NULL` |
-| `chat_recommendations` | 1:N | `chat_recommendations.conversation_id` | `ON DELETE SET NULL` |
-
-### Indexes
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_conversations_session_id` | `session_id` | List conversations by user session |
-| `idx_conversations_updated_at` | `updated_at` | Sort by most recently active |
-
-### Validation Rules
-
-- `title` max length: 200 characters (enforced by Pydantic model)
-- `session_id` must reference an existing `user_sessions` row
-- `conversation_id` is a valid UUID v4 string
+| CelestialCatalogHero Prop | CompactPageHeader Prop | Change |
+|---------------------------|----------------------|--------|
+| `eyebrow` | `eyebrow` | No change |
+| `title` | `title` | No change |
+| `description` | `description` | Demoted to single-line subtitle |
+| `badge` | `badge` | No change |
+| `note` | ❌ Removed | "Current Ritual" aside eliminated |
+| `stats` | `stats` | Same interface; rendered as chips instead of moonwell cards |
+| `actions` | `actions` | No change |
+| `className` | `className` | No change |
 
 ---
 
-## Entity: ChatMessage (updated)
+## Component DOM Structure
 
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation (NULL for global/ChatPopup messages) |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_messages_conversation_id` | `conversation_id` | Filter messages by conversation |
-
-### Backward Compatibility
-
-- Existing rows retain `conversation_id = NULL`
-- Queries without a `conversation_id` filter return all messages for the session (existing behavior)
-- Queries with `WHERE conversation_id = ?` return only that conversation's messages
-
----
-
-## Entity: ChatProposal (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_proposals_conversation_id` | `conversation_id` | Filter proposals by conversation |
-
----
-
-## Entity: ChatRecommendation (updated)
-
-Existing entity with a new nullable `conversation_id` column.
-
-### New Field
-
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `conversation_id` | TEXT (UUID) | NULLABLE, FK → `conversations.conversation_id` | `NULL` | Owning conversation |
-
-### Index
-
-| Index | Columns | Purpose |
-|-------|---------|---------|
-| `idx_chat_recommendations_conversation_id` | `conversation_id` | Filter recommendations by conversation |
-
----
-
-## Entity: PanelLayout (frontend only — localStorage)
-
-Client-side representation of open chat panels, persisted to `localStorage`.
-
-### Schema
-
-```typescript
-interface PanelLayout {
-  version: 1;
-  panels: PanelState[];
-}
-
-interface PanelState {
-  panelId: string;           // Unique panel identifier (UUID)
-  conversationId: string;    // FK to conversation_id
-  widthPercent: number;      // Panel width as percentage of container (0-100)
-}
-```
-
-### Validation Rules
-
-- `version` must be `1` (future versions trigger migration logic)
-- `panels` array must contain at least 1 element
-- `widthPercent` values must sum to 100 (±1 for rounding)
-- Each `panelId` must be unique
-- Each `conversationId` should reference a valid conversation (stale references are pruned on load)
-
-### State Transitions
+### CelestialCatalogHero (BEFORE — to be deleted)
 
 ```text
-Initial Load:
-  localStorage empty → create default panel (single, 100% width)
-  localStorage has data → validate schema version → load panels → prune stale conversations
-
-Add Panel:
-  Create conversation (API) → add panel with widthPercent = 100/N → redistribute widths
-
-Remove Panel:
-  If last panel → prevent removal (minimum 1 panel)
-  Otherwise → remove panel → redistribute widths → delete conversation if empty
-
-Resize:
-  Drag handle → update adjacent panel widthPercent values → persist to localStorage
+<section>                              ← ~350–450px tall
+  <div.catalog-hero-decor>             ← Decorative background (orbits, stars, beams)
+    <div.catalog-hero-ambient-glow>
+    <div.catalog-hero-orbit> × 3
+    <div.catalog-hero-moon>
+    <div.catalog-hero-star> × 2
+    <div.catalog-hero-beam>
+  </div>
+  <div.grid>                           ← Two-column grid on LG
+    <div>                              ← Left: Content
+      <span.celestial-sigil> + <p.eyebrow>
+      <span.badge> (optional)
+      <h2.title>
+      <p.description>
+      <div.actions>
+      <div.stats>                      ← Large moonwell cards
+    </div>
+    <div.catalog-hero-aside-wrap>      ← Right: Decorative aside panel (LG only, ~22rem)
+      <div.hanging-stars>
+      <div.catalog-hero-aside>
+        <div> × 7 decorative elements
+        <div.catalog-hero-note>        ← "Current Ritual" with note/description
+      </div>
+    </div>
+  </div>
+</section>
 ```
 
----
+**DOM nodes**: ~25+ elements (decorative + content)
 
-## Entity Relationship Diagram
+### CompactPageHeader (AFTER — to be created)
 
 ```text
-┌──────────────┐     1:N      ┌─────────────────┐
-│ user_sessions │────────────▶│  conversations    │
-│              │              │                   │
-│ session_id   │◀─────┐      │ conversation_id   │
-└──────────────┘      │      │ session_id (FK)   │
-                      │      │ title             │
-                      │      │ created_at        │
-                      │      │ updated_at        │
-                      │      └─────────┬─────────┘
-                      │                │
-                      │         1:N    │  ON DELETE SET NULL
-                      │                │
-                      │    ┌───────────┴──────────────┐
-                      │    │                          │
-                ┌─────┴────┴──┐    ┌──────────────┐   ┌───────────────────┐
-                │chat_messages│    │chat_proposals │   │chat_recommendations│
-                │             │    │               │   │                   │
-                │ message_id  │    │ proposal_id   │   │ recommendation_id │
-                │ session_id  │    │ session_id    │   │ session_id        │
-                │ conv_id(?)  │    │ conv_id(?)    │   │ conv_id(?)        │
-                │ sender_type │    │ original_input│   │ data              │
-                │ content     │    │ proposed_title│   │ status            │
-                │ timestamp   │    │ status        │   │ created_at        │
-                └─────────────┘    └──────────────┘   └───────────────────┘
+<header>                               ← ~80–100px tall
+  <div.flex>                           ← Single-row layout
+    <div>                              ← Left: Content
+      <div.flex>                       ← Eyebrow + badge row
+        <p.eyebrow>
+        <span.badge> (optional)
+      </div>
+      <h2.title>
+      <p.description>                  ← line-clamp-1, expands on hover
+    </div>
+    <div>                              ← Right: Actions
+      {actions}
+    </div>
+  </div>
+  <div.stats>                          ← Stats row (chips)
+    <span.chip> × N                    ← Inline pill/chip elements
+  </div>
+</header>
+```
 
-Legend: (?) = nullable FK, ON DELETE SET NULL
+**DOM nodes**: ~8–12 elements (content only, no decorative)
+
+---
+
+## State Transitions
+
+This feature has no state machine or data model changes. The only "state" is the mobile stats toggle:
+
+```text
+Mobile Stats Toggle:
+  Initial → collapsed (stats hidden)
+  User taps toggle → expanded (stats visible)
+  User taps toggle again → collapsed
+  Viewport resizes to ≥640px → stats always visible (toggle hidden)
 ```
 
 ---
 
-## Pydantic Models (Backend)
+## Page-Specific Prop Values
 
-### New Models
-
-```python
-class Conversation(BaseModel):
-    conversation_id: UUID = Field(default_factory=uuid4)
-    session_id: UUID
-    title: str = "New Chat"
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-class ConversationCreateRequest(BaseModel):
-    title: str = Field(default="New Chat", max_length=200)
-
-class ConversationUpdateRequest(BaseModel):
-    title: str = Field(max_length=200)
-
-class ConversationsListResponse(BaseModel):
-    conversations: list[Conversation]
-```
-
-### Updated Models
-
-```python
-# Add to ChatMessage:
-conversation_id: UUID | None = None
-
-# Add to ChatMessageRequest:
-conversation_id: UUID | None = None
-```
-
----
-
-## TypeScript Interfaces (Frontend)
-
-### New Interfaces
+### ProjectsPage
 
 ```typescript
-export interface Conversation {
-  conversation_id: string;
-  session_id: string;
-  title: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ConversationsListResponse {
-  conversations: Conversation[];
-}
+<CompactPageHeader
+  eyebrow="Mission Control"
+  title="Every project, mapped and moving."
+  description="Live Kanban view of your GitHub Project..."
+  badge={selectedProject ? `${selectedProject.owner_login}/${selectedProject.name}` : 'Awaiting project'}
+  stats={heroStats}
+  actions={<>...</>}
+/>
 ```
 
-### Updated Interfaces
+### AgentsPage
 
 ```typescript
-// Add to ChatMessage:
-conversation_id?: string;
-
-// Add to ChatMessageRequest:
-conversation_id?: string;
+<CompactPageHeader
+  eyebrow="Celestial Catalog"
+  title="Shape your agent constellation."
+  description="Browse repository agents in a broader catalog..."
+  badge={repo ? `${repo.owner}/${repo.name}` : 'Awaiting repository'}
+  stats={[
+    { label: 'Board columns', value: String(columns.length) },
+    { label: 'Assignments', value: String(assignedCount) },
+    { label: 'Mapped states', value: String(Object.keys(agentConfig.localMappings).length) },
+    { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
+  ]}
+  actions={<>...</>}
+/>
 ```
 
----
-
-## Zod Schemas (Frontend)
-
-### New Schemas
+### AgentsPipelinePage
 
 ```typescript
-export const ConversationSchema = z.object({
-  conversation_id: z.string(),
-  session_id: z.string(),
-  title: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const ConversationsListResponseSchema = z.object({
-  conversations: z.array(ConversationSchema),
-});
+<CompactPageHeader
+  eyebrow="Constellation Flow"
+  title="Orchestrate agents across every stage."
+  description="Build custom pipelines that route issues through agents..."
+  badge={selectedProject ? `${selectedProject.owner_login}/${selectedProject.name}` : 'Awaiting project'}
+  stats={[...]}
+  actions={<>...</>}
+/>
 ```
 
-### Updated Schemas
+### ToolsPage
 
 ```typescript
-// Add to ChatMessageSchema:
-conversation_id: z.string().optional(),
+<CompactPageHeader
+  eyebrow="Tool Forge"
+  title="Equip your agents with MCP tools."
+  description="Upload and manage MCP configurations..."
+  badge={repo ? repo.name : 'Awaiting repository'}
+  stats={[
+    { label: 'Repository', value: repo ? repo.name : 'Unlinked' },
+    { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
+  ]}
+  actions={<>...</>}
+/>
+```
+
+### ChoresPage
+
+```typescript
+<CompactPageHeader
+  eyebrow="Ritual Maintenance"
+  title="Turn upkeep into a visible rhythm."
+  description="Organize recurring repository chores..."
+  badge={repo ? `${repo.owner}/${repo.name}` : 'Awaiting repository'}
+  stats={[
+    { label: 'Board columns', value: String(boardData?.columns.length ?? 0) },
+    { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
+    { label: 'Repository', value: repo ? repo.name : 'Unlinked' },
+    { label: 'Automation mode', value: projectId ? 'Live' : 'Idle' },
+  ]}
+  actions={<>...</>}
+/>
+```
+
+### HelpPage
+
+```typescript
+<CompactPageHeader
+  eyebrow="// Guidance & support"
+  title="Help Center"
+  description="Everything you need to navigate your celestial workspace."
+  actions={<Button onClick={restart} variant="outline" size="sm">...</Button>}
+/>
 ```
