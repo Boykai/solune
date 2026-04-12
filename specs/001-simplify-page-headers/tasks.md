@@ -23,8 +23,8 @@
 
 **Purpose**: No new project initialization needed — this is an in-place migration within an existing frontend application. Setup phase covers the new component creation that all subsequent phases depend on.
 
-- [ ] T001 Create `CompactPageHeader.tsx` component with props interface (`CompactPageHeaderStat`, `CompactPageHeaderProps`), single-row flexbox layout (eyebrow + title left, badge center, actions right), and `<header>` semantic element in `solune/frontend/src/components/common/CompactPageHeader.tsx`
-- [ ] T002 Create `CompactPageHeader.test.tsx` with render tests for all props, missing optional props, accessibility checks, and className forwarding in `solune/frontend/src/components/common/CompactPageHeader.test.tsx`
+- [x] T001 Create `CompactPageHeader.tsx` component with props interface (`CompactPageHeaderStat`, `CompactPageHeaderProps`), single-row flexbox layout (eyebrow + title left, badge center, actions right), and `<header>` semantic element in `solune/frontend/src/components/common/CompactPageHeader.tsx`
+- [x] T002 Create `CompactPageHeader.test.tsx` with render tests for all props, missing optional props, accessibility checks, and className forwarding in `solune/frontend/src/components/common/CompactPageHeader.test.tsx`
 
 **Checkpoint**: CompactPageHeader component created and passes its own tests. Ready for page migration.
 
@@ -36,9 +36,9 @@
 
 **⚠️ CRITICAL**: These behaviors must be built into CompactPageHeader before any page starts using it.
 
-- [ ] T003 [US3] Implement description as single-line subtitle with `line-clamp-1` and `group-hover:line-clamp-none` expand-on-hover behavior in `solune/frontend/src/components/common/CompactPageHeader.tsx`
-- [ ] T004 [US4] Implement mobile stats toggle — hide stats behind a toggle button on viewports < 640px using `useState` hook and Tailwind responsive classes in `solune/frontend/src/components/common/CompactPageHeader.tsx`
-- [ ] T005 [US2] Implement stats as inline pill/chip elements with small text label and value, flex-wrap layout, and graceful omission when no stats provided in `solune/frontend/src/components/common/CompactPageHeader.tsx`
+- [x] T003 [US3] Implement description as single-line subtitle with `line-clamp-1` and `group-hover:line-clamp-none` expand-on-hover behavior in `solune/frontend/src/components/common/CompactPageHeader.tsx`
+- [x] T004 [US4] Implement mobile stats toggle — hide stats behind a toggle button on viewports < 640px using `useState` hook and Tailwind responsive classes in `solune/frontend/src/components/common/CompactPageHeader.tsx`
+- [x] T005 [US2] Implement stats as inline pill/chip elements with small text label and value, flex-wrap layout, and graceful omission when no stats provided in `solune/frontend/src/components/common/CompactPageHeader.tsx`
 
 **Checkpoint**: CompactPageHeader fully implements all interactive behaviors (description truncation, mobile stats toggle, chip-style stats). Ready for page migration.
 
@@ -52,12 +52,12 @@
 
 ### Implementation for User Stories 1, 2, 5, 6 (Page Migration — all parallel)
 
-- [ ] T006 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/ProjectsPage.tsx` — remove `note` prop, remove `className="projects-catalog-hero"`
-- [ ] T007 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/AgentsPage.tsx` — remove `note` prop
-- [ ] T008 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/AgentsPipelinePage.tsx` — remove `note` prop, remove `className="projects-catalog-hero"`
-- [ ] T009 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/ToolsPage.tsx` — remove `note` prop
-- [ ] T010 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/ChoresPage.tsx` — remove `note` prop
-- [ ] T011 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/HelpPage.tsx` — update import (no `note` prop was used)
+- [x] T006 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/ProjectsPage.tsx` — remove `note` prop, remove `className="projects-catalog-hero"`
+- [x] T007 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/AgentsPage.tsx` — remove `note` prop
+- [x] T008 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/AgentsPipelinePage.tsx` — remove `note` prop, remove `className="projects-catalog-hero"`
+- [x] T009 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/ToolsPage.tsx` — remove `note` prop
+- [x] T010 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/ChoresPage.tsx` — remove `note` prop
+- [x] T011 [P] [US1] Swap `CelestialCatalogHero` → `CompactPageHeader` import and JSX in `solune/frontend/src/pages/HelpPage.tsx` — update import (no `note` prop was used)
 
 **Checkpoint**: All 6 pages render with the compact header. No TypeScript errors. No references to CelestialCatalogHero in page files. User Stories 1, 2, 5, and 6 are all satisfied.
 
@@ -71,7 +71,7 @@
 
 ### Implementation for User Story 3
 
-- [ ] T012 [US3] Verify description rendering on all 6 pages — confirm `line-clamp-1` truncation and `group-hover:line-clamp-none` expand behavior works with each page's description text (integration verification, no code changes expected)
+- [x] T012 [US3] Verify description rendering on all 6 pages — confirm `line-clamp-1` truncation and `group-hover:line-clamp-none` expand behavior works with each page's description text (integration verification, no code changes expected)
 
 **Checkpoint**: Description subtitle behavior confirmed on all pages. US3 satisfied.
 
@@ -85,7 +85,7 @@
 
 ### Implementation for User Story 4
 
-- [ ] T013 [US4] Verify mobile stats toggle on all stats-bearing pages (Projects, Agents, AgentsPipeline, Tools, Chores) at < 640px viewport — confirm stats hidden by default, toggle reveals them, and Help page (no stats) shows no toggle (integration verification, no code changes expected)
+- [x] T013 [US4] Verify mobile stats toggle on all stats-bearing pages (Projects, Agents, AgentsPipeline, Tools, Chores) at < 640px viewport — confirm stats hidden by default, toggle reveals them, and Help page (no stats) shows no toggle (integration verification, no code changes expected)
 
 **Checkpoint**: Mobile stats toggle behavior confirmed on all applicable pages. US4 satisfied.
 
@@ -95,9 +95,9 @@
 
 **Purpose**: Remove the old CelestialCatalogHero component and its exclusively-used CSS now that all pages are migrated.
 
-- [ ] T014 [P] Delete `solune/frontend/src/components/common/CelestialCatalogHero.tsx` (old hero component, ~119 lines)
-- [ ] T015 [P] Delete `solune/frontend/src/components/common/CelestialCatalogHero.test.tsx` (old hero tests, ~110 lines)
-- [ ] T016 Remove orphaned `.dark .projects-catalog-hero .catalog-hero-*` CSS rules (lines ~432–489) from `solune/frontend/src/index.css` — retain `.moonwell`, `.hanging-stars`, and all `.celestial-*` animation classes
+- [x] T014 [P] Delete `solune/frontend/src/components/common/CelestialCatalogHero.tsx` (old hero component, ~119 lines)
+- [x] T015 [P] Delete `solune/frontend/src/components/common/CelestialCatalogHero.test.tsx` (old hero tests, ~110 lines)
+- [x] T016 Remove orphaned `.dark .projects-catalog-hero .catalog-hero-*` CSS rules (lines ~432–489) from `solune/frontend/src/index.css` — retain `.moonwell`, `.hanging-stars`, and all `.celestial-*` animation classes
 
 **Checkpoint**: No references to `CelestialCatalogHero` remain in the codebase. No orphaned CSS. Net code reduction: ~229 lines deleted.
 
@@ -107,12 +107,12 @@
 
 **Purpose**: Final verification across all user stories and cleanup
 
-- [ ] T017 Run `npx vitest run` in `solune/frontend/` — all frontend tests pass with zero failures
-- [ ] T018 [P] Run `npx eslint .` in `solune/frontend/` — no lint errors
-- [ ] T019 [P] Run `npx tsc --noEmit` in `solune/frontend/` — no type errors
-- [ ] T020 Visual smoke test on all 6 pages in desktop viewport — compact headers render correctly with all props
-- [ ] T021 Visual smoke test on all 6 pages in mobile viewport (375px width) — headers remain compact, stats hidden behind toggle
-- [ ] T022 Verify no regressions in sidebar celestial animations, LoginPage decorations, CelestialLoader, NotFoundPage, and ErrorBoundary decorations
+- [x] T017 Run `npx vitest run` in `solune/frontend/` — all frontend tests pass with zero failures
+- [x] T018 [P] Run `npx eslint .` in `solune/frontend/` — no lint errors
+- [x] T019 [P] Run `npx tsc --noEmit` in `solune/frontend/` — no type errors
+- [x] T020 Visual smoke test on all 6 pages in desktop viewport — compact headers render correctly with all props
+- [x] T021 Visual smoke test on all 6 pages in mobile viewport (375px width) — headers remain compact, stats hidden behind toggle
+- [x] T022 Verify no regressions in sidebar celestial animations, LoginPage decorations, CelestialLoader, NotFoundPage, and ErrorBoundary decorations
 
 ---
 
