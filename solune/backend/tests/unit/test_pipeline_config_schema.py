@@ -290,6 +290,155 @@ class TestSchemaRejectsInvalid:
         with pytest.raises(ValidationError, match="additionalProperties"):
             validate(instance=bad, schema=schema)
 
+    def test_rejects_empty_preset_name(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "",
+                "stages": [{"id": "s1", "name": "S", "order": 0, "groups": []}],
+            }
+        ]
+        with pytest.raises(ValidationError, match="minLength"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_preset_name_exceeding_max_length(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "x" * 101,
+                "stages": [{"id": "s1", "name": "S", "order": 0, "groups": []}],
+            }
+        ]
+        with pytest.raises(ValidationError, match="maxLength"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_description_exceeding_max_length(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "description": "x" * 501,
+                "stages": [{"id": "s1", "name": "S", "order": 0, "groups": []}],
+            }
+        ]
+        with pytest.raises(ValidationError, match="maxLength"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_negative_tool_count(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "stages": [
+                    {
+                        "id": "s1",
+                        "name": "S",
+                        "order": 0,
+                        "groups": [
+                            {
+                                "id": "g1",
+                                "agents": [
+                                    {
+                                        "id": "a1",
+                                        "agent_slug": "coder",
+                                        "tool_count": -1,
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+        with pytest.raises(ValidationError, match="minimum"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_float_stage_order(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "stages": [{"id": "s1", "name": "S", "order": 0.5, "groups": []}],
+            }
+        ]
+        with pytest.raises(ValidationError):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_agent_node_extra_property(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "stages": [
+                    {
+                        "id": "s1",
+                        "name": "S",
+                        "order": 0,
+                        "groups": [
+                            {
+                                "id": "g1",
+                                "agents": [
+                                    {
+                                        "id": "a1",
+                                        "agent_slug": "coder",
+                                        "extra": "nope",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+        with pytest.raises(ValidationError, match="additionalProperties"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_execution_group_extra_property(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "stages": [
+                    {
+                        "id": "s1",
+                        "name": "S",
+                        "order": 0,
+                        "groups": [
+                            {
+                                "id": "g1",
+                                "agents": [],
+                                "extra_field": "nope",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+        with pytest.raises(ValidationError, match="additionalProperties"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_empty_stage_name(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "stages": [{"id": "s1", "name": "", "order": 0, "groups": []}],
+            }
+        ]
+        with pytest.raises(ValidationError, match="minLength"):
+            validate(instance=bad, schema=schema)
+
+    def test_rejects_stage_name_exceeding_max_length(self, schema: dict) -> None:
+        bad = [
+            {
+                "preset_id": "test",
+                "name": "Test",
+                "stages": [{"id": "s1", "name": "x" * 101, "order": 0, "groups": []}],
+            }
+        ]
+        with pytest.raises(ValidationError, match="maxLength"):
+            validate(instance=bad, schema=schema)
+
 
 # ---------------------------------------------------------------------------
 # Pydantic model ↔ JSON Schema field consistency
@@ -460,3 +609,28 @@ class TestFleetDispatchCliContract:
         assert "GraphQL-Features" in props
         allowed = props["GraphQL-Features"]["enum"]
         assert "issues_copilot_assignment_api_support,coding_agent_model_selection" in allowed
+
+    def test_fleet_state_status_enum_values(self, cli_contract: dict) -> None:
+        """FleetState.status must cover all documented lifecycle states."""
+        fleet_state = cli_contract["components"]["schemas"]["FleetState"]
+        status_enum = set(fleet_state["properties"]["status"]["enum"])
+        expected = {"running", "completed", "partial_failure", "failed"}
+        assert status_enum == expected
+
+    def test_agent_dispatch_status_enum_values(self, cli_contract: dict) -> None:
+        """AgentDispatch.dispatch_status must cover all documented agent states."""
+        agent_dispatch = cli_contract["components"]["schemas"]["AgentDispatch"]
+        status_enum = set(agent_dispatch["properties"]["dispatch_status"]["enum"])
+        expected = {"pending", "dispatched", "completed", "failed", "timed_out"}
+        assert status_enum == expected
+
+    def test_agent_dispatch_required_fields(self, cli_contract: dict) -> None:
+        agent_dispatch = cli_contract["components"]["schemas"]["AgentDispatch"]
+        required = set(agent_dispatch.get("required", []))
+        expected = {"agent_slug", "group_id", "execution_mode", "dispatch_status"}
+        assert required == expected
+
+    def test_graphql_dispatch_request_required_fields(self, cli_contract: dict) -> None:
+        gql_schema = cli_contract["components"]["schemas"]["GraphQLDispatchRequest"]
+        required = set(gql_schema.get("required", []))
+        assert {"issueId", "assigneeIds", "repoId", "baseRef", "customAgent"} <= required
