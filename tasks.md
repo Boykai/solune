@@ -50,6 +50,7 @@
 **Independent Test**: Navigate to each of the six pages and verify: header height is ~80–100px, eyebrow/title/badge/actions are visible, stats appear as inline chips, description is a single truncated line that expands on hover, and on mobile viewport stats are hidden behind a toggle.
 
 **User Stories Delivered**:
+
 - **US1** (P1): Compact Page Header Reclaims Vertical Space — header height reduced from ~350–450px to ~80–100px
 - **US2** (P1): Stats Displayed as Compact Inline Chips — stats rendered as pill/chip elements, not moonwell cards
 - **US3** (P2): Description as Single-Line Subtitle — `line-clamp-1` with `group-hover:line-clamp-none`
@@ -127,15 +128,19 @@
 ### Parallel Opportunities
 
 **Within Phase 2** (Foundational):
+
 - T001 and T002 can be authored in parallel (different files)
 
 **Within Phase 3** (Page Migrations — all 6 are parallel):
+
 - T003 (`ProjectsPage.tsx`) ‖ T004 (`AgentsPage.tsx`) ‖ T005 (`AgentsPipelinePage.tsx`) ‖ T006 (`ToolsPage.tsx`) ‖ T007 (`ChoresPage.tsx`) ‖ T008 (`HelpPage.tsx`)
 
 **Within Phase 4** (Dead Code Removal):
+
 - T009 ‖ T010 ‖ T011 (all different files)
 
 **Within Phase 5** (Verification):
+
 - T013 (`eslint`) ‖ T014 (`tsc --noEmit`)
 
 ---

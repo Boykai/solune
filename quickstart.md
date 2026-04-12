@@ -2,9 +2,7 @@
 
 **Feature**: Simplify Page Headers | **Date**: 2026-04-11
 
-> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
-
-> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
+> **Status note (2026-04-11):** The CompactPageHeader component replaces CelestialCatalogHero across six pages. The component is implemented and tested. Refer to the source file for the latest implementation details.
 
 ## Prerequisites
 
