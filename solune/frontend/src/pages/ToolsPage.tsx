@@ -40,10 +40,10 @@ export function ToolsPage() {
         ]}
         actions={
           <>
-            <Button variant="default" size="sm" asChild>
+            <Button variant="default" size="lg" asChild>
               <a href="#tools-catalog">Browse tools</a>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="lg" asChild>
               <a
                 href="https://docs.github.com/en/copilot/concepts/context/mcp"
                 target="_blank"
@@ -52,7 +52,7 @@ export function ToolsPage() {
                 MCP docs
               </a>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="lg" asChild>
               <a
                 href="https://github.com/mcp"
                 target="_blank"

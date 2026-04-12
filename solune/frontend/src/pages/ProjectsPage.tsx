@@ -332,10 +332,10 @@ export function ProjectsPage() {
         stats={heroStats}
         actions={
           <>
-            <Button variant="default" size="sm" asChild>
+            <Button variant="default" size="lg" asChild>
               <a href="#board">View board</a>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="lg" asChild>
               <a href="#pipeline-stages">Pipeline stages</a>
             </Button>
           </>

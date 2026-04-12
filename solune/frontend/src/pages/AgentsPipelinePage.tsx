@@ -130,10 +130,10 @@ export function AgentsPipelinePage() {
         ]}
         actions={
           <>
-            <Button variant="default" size="sm" onClick={handleNewPipeline}>
+            <Button variant="default" size="lg" onClick={handleNewPipeline}>
               New pipeline
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="lg" asChild>
               <a href="#saved-pipelines">Saved workflows</a>
             </Button>
           </>

@@ -93,10 +93,10 @@ export function ChoresPage() {
         ]}
         actions={
           <>
-            <Button variant="default" size="sm" asChild>
+            <Button variant="default" size="lg" asChild>
               <a href="#chores-catalog">Plan recurring work</a>
             </Button>
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" size="lg" asChild>
               <a href="#chore-templates">Review upkeep cadence</a>
             </Button>
           </>
