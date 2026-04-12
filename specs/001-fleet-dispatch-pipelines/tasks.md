@@ -11,9 +11,9 @@
 
 **Purpose**: Create the shared CLI, helper, and fixture scaffolding used by every story.
 
-- [ ] T001 Create the fleet dispatch CLI entrypoint scaffold in `solune/scripts/fleet-dispatch.sh`
-- [ ] T002 [P] Create shared GitHub CLI and JSON helper scaffolding in `solune/scripts/lib/fleet_dispatch_common.sh`
-- [ ] T003 [P] Create reusable mocked GitHub CLI fixture scaffolding in `solune/backend/tests/fixtures/fleet_dispatch/github_api_graphql_success.json`
+- [X] T001 Create the fleet dispatch CLI entrypoint scaffold in `solune/scripts/fleet-dispatch.sh`
+- [X] T002 [P] Create shared GitHub CLI and JSON helper scaffolding in `solune/scripts/lib/fleet_dispatch_common.sh`
+- [X] T003 [P] Create reusable mocked GitHub CLI fixture scaffolding in `solune/backend/tests/fixtures/fleet_dispatch/github_api_graphql_success.json`
 
 ---
 
@@ -23,12 +23,12 @@
 
 **⚠️ CRITICAL**: Complete this phase before starting any user story work.
 
-- [ ] T004 Extend fleet-dispatch configuration and dispatch-record models in `solune/backend/src/models/pipeline.py`
-- [ ] T005 Implement typed config loading and parity helpers for fleet dispatch in `solune/backend/src/services/workflow_orchestrator/config.py`
-- [ ] T006 [P] Add the runtime fleet-dispatch JSON Schema in `solune/scripts/pipelines/pipeline-config.schema.json`
-- [ ] T007 [P] Add foundational schema and model coverage in `solune/backend/tests/unit/test_pipeline_config_schema.py`
-- [ ] T008 Implement shared GraphQL headers, retry, and rate-limit helpers in `solune/scripts/lib/fleet_dispatch_common.sh`
-- [ ] T009 [P] Add shared mocked `gh agent-task` polling fixtures in `solune/backend/tests/fixtures/fleet_dispatch/agent_task_list.json`
+- [X] T004 Extend fleet-dispatch configuration and dispatch-record models in `solune/backend/src/models/pipeline.py`
+- [X] T005 Implement typed config loading and parity helpers for fleet dispatch in `solune/backend/src/services/workflow_orchestrator/config.py`
+- [X] T006 [P] Add the runtime fleet-dispatch JSON Schema in `solune/scripts/pipelines/pipeline-config.schema.json`
+- [X] T007 [P] Add foundational schema and model coverage in `solune/backend/tests/unit/test_pipeline_config_schema.py`
+- [X] T008 Implement shared GraphQL headers, retry, and rate-limit helpers in `solune/scripts/lib/fleet_dispatch_common.sh`
+- [X] T009 [P] Add shared mocked `gh agent-task` polling fixtures in `solune/backend/tests/fixtures/fleet_dispatch/agent_task_list.json`
 
 **Checkpoint**: Foundation ready — user story work can begin.
 
@@ -42,16 +42,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T010 [P] [US1] Add serial-versus-parallel dispatch ordering coverage in `solune/backend/tests/unit/test_fleet_dispatch_cli.py`
-- [ ] T011 [P] [US1] Add shell smoke coverage for sub-issue creation, resume locking, and error strategies in `solune/backend/tests/integration/test_fleet_dispatch_smoke.py`
+- [X] T010 [P] [US1] Add serial-versus-parallel dispatch ordering coverage in `solune/backend/tests/unit/test_fleet_dispatch_cli.py`
+- [X] T011 [P] [US1] Add shell smoke coverage for sub-issue creation, resume locking, and error strategies in `solune/backend/tests/integration/test_fleet_dispatch_smoke.py`
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Implement prerequisite validation, argument parsing, and dispatch bootstrap flow in `solune/scripts/fleet-dispatch.sh`
-- [ ] T013 [US1] Implement parent-issue lock detection plus sub-issue create-or-resume flow in `solune/scripts/fleet-dispatch.sh`
-- [ ] T014 [US1] Implement serial and parallel execution boundaries for ordered agent groups in `solune/scripts/fleet-dispatch.sh`
-- [ ] T015 [US1] Implement GraphQL assignment calls with fail-fast and continue semantics in `solune/scripts/fleet-dispatch.sh`
-- [ ] T016 [P] [US1] Implement parent/sub-issue labels and linkage body helpers in `solune/scripts/lib/fleet_dispatch_common.sh`
+- [X] T012 [US1] Implement prerequisite validation, argument parsing, and dispatch bootstrap flow in `solune/scripts/fleet-dispatch.sh`
+- [X] T013 [US1] Implement parent-issue lock detection plus sub-issue create-or-resume flow in `solune/scripts/fleet-dispatch.sh`
+- [X] T014 [US1] Implement serial and parallel execution boundaries for ordered agent groups in `solune/scripts/fleet-dispatch.sh`
+- [X] T015 [US1] Implement GraphQL assignment calls with fail-fast and continue semantics in `solune/scripts/fleet-dispatch.sh`
+- [X] T016 [P] [US1] Implement parent/sub-issue labels and linkage body helpers in `solune/scripts/lib/fleet_dispatch_common.sh`
 
 **Checkpoint**: User Story 1 delivers the MVP CLI dispatch path.
 
@@ -65,14 +65,14 @@
 
 ### Tests for User Story 2
 
-- [ ] T017 [P] [US2] Add canonical fleet-config schema validation cases in `solune/backend/tests/unit/test_pipeline_config_schema.py`
-- [ ] T018 [P] [US2] Add backend parity coverage for JSON-loaded group order and execution modes in `solune/backend/tests/unit/test_pipeline_orchestrator.py`
+- [X] T017 [P] [US2] Add canonical fleet-config schema validation cases in `solune/backend/tests/unit/test_pipeline_config_schema.py`
+- [X] T018 [P] [US2] Add backend parity coverage for JSON-loaded group order and execution modes in `solune/backend/tests/unit/test_pipeline_orchestrator.py`
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Extract the canonical four-group fleet definition into `solune/scripts/pipelines/fleet-dispatch.json`
-- [ ] T020 [US2] Implement backend loading of the standalone fleet config in `solune/backend/src/services/workflow_orchestrator/config.py`
-- [ ] T021 [US2] Align orchestrator fallback groups with the extracted JSON contract in `solune/backend/src/services/pipeline_orchestrator.py`
+- [X] T019 [US2] Extract the canonical four-group fleet definition into `solune/scripts/pipelines/fleet-dispatch.json`
+- [X] T020 [US2] Implement backend loading of the standalone fleet config in `solune/backend/src/services/workflow_orchestrator/config.py`
+- [X] T021 [US2] Align orchestrator fallback groups with the extracted JSON contract in `solune/backend/src/services/pipeline_orchestrator.py`
 
 **Checkpoint**: User Story 2 makes the pipeline definition portable and shared.
 
@@ -91,10 +91,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T024 [US3] Implement template rendering and missing-template fallback resolution in `solune/scripts/lib/fleet_dispatch_common.sh`
-- [ ] T025 [P] [US3] Create fallback and Speckit agent templates in `solune/scripts/pipelines/templates/generic.md`, `solune/scripts/pipelines/templates/speckit.specify.md`, `solune/scripts/pipelines/templates/speckit.plan.md`, `solune/scripts/pipelines/templates/speckit.tasks.md`, `solune/scripts/pipelines/templates/speckit.analyze.md`, and `solune/scripts/pipelines/templates/speckit.implement.md`
-- [ ] T026 [P] [US3] Create QA and operations agent templates in `solune/scripts/pipelines/templates/quality-assurance.md`, `solune/scripts/pipelines/templates/tester.md`, `solune/scripts/pipelines/templates/copilot-review.md`, `solune/scripts/pipelines/templates/judge.md`, `solune/scripts/pipelines/templates/linter.md`, and `solune/scripts/pipelines/templates/devops.md`
-- [ ] T027 [US3] Wire template references and fallback markers into `solune/scripts/pipelines/fleet-dispatch.json`
+- [X] T024 [US3] Implement template rendering and missing-template fallback resolution in `solune/scripts/lib/fleet_dispatch_common.sh`
+- [X] T025 [P] [US3] Create fallback and Speckit agent templates in `solune/scripts/pipelines/templates/generic.md`, `solune/scripts/pipelines/templates/speckit.specify.md`, `solune/scripts/pipelines/templates/speckit.plan.md`, `solune/scripts/pipelines/templates/speckit.tasks.md`, `solune/scripts/pipelines/templates/speckit.analyze.md`, and `solune/scripts/pipelines/templates/speckit.implement.md`
+- [X] T026 [P] [US3] Create QA and operations agent templates in `solune/scripts/pipelines/templates/quality-assurance.md`, `solune/scripts/pipelines/templates/tester.md`, `solune/scripts/pipelines/templates/copilot-review.md`, `solune/scripts/pipelines/templates/judge.md`, `solune/scripts/pipelines/templates/linter.md`, and `solune/scripts/pipelines/templates/devops.md`
+- [X] T027 [US3] Wire template references and fallback markers into `solune/scripts/pipelines/fleet-dispatch.json`
 
 **Checkpoint**: User Story 3 restores prompt quality parity for CLI-driven assignments.
 
@@ -113,9 +113,9 @@
 
 ### Implementation for User Story 4
 
-- [ ] T030 [US4] Implement dispatch-record serialization and status aggregation in `solune/scripts/fleet-dispatch.sh`
-- [ ] T031 [US4] Implement monitor output for queued, in-progress, completed, and failed agents in `solune/scripts/fleet-dispatch.sh`
-- [ ] T032 [US4] Implement stuck-agent timeout warnings and final elapsed-time summary output in `solune/scripts/fleet-dispatch.sh`
+- [X] T030 [US4] Implement dispatch-record serialization and status aggregation in `solune/scripts/fleet-dispatch.sh`
+- [X] T031 [US4] Implement monitor output for queued, in-progress, completed, and failed agents in `solune/scripts/fleet-dispatch.sh`
+- [X] T032 [US4] Implement stuck-agent timeout warnings and final elapsed-time summary output in `solune/scripts/fleet-dispatch.sh`
 
 **Checkpoint**: User Story 4 gives operators a usable monitoring loop and completion summary.
 
@@ -130,13 +130,13 @@
 ### Tests for User Story 5
 
 - [ ] T033 [P] [US5] Add single-agent retry and reassign coverage in `solune/backend/tests/integration/test_fleet_dispatch_retry.py`
-- [ ] T034 [P] [US5] Add retry argument parsing and override option coverage in `solune/backend/tests/unit/test_fleet_dispatch_cli.py`
+- [X] T034 [P] [US5] Add retry argument parsing and override option coverage in `solune/backend/tests/unit/test_fleet_dispatch_cli.py`
 
 ### Implementation for User Story 5
 
-- [ ] T035 [US5] Implement `--agent`, `--sub-issue`, and `--retry` CLI flow in `solune/scripts/fleet-dispatch.sh`
-- [ ] T036 [US5] Implement Copilot unassign-before-retry plus override template/model handling in `solune/scripts/lib/fleet_dispatch_common.sh`
-- [ ] T037 [US5] Implement single-agent redispatch status updates and audit output in `solune/scripts/fleet-dispatch.sh`
+- [X] T035 [US5] Implement `--agent`, `--sub-issue`, and `--retry` CLI flow in `solune/scripts/fleet-dispatch.sh`
+- [X] T036 [US5] Implement Copilot unassign-before-retry plus override template/model handling in `solune/scripts/lib/fleet_dispatch_common.sh`
+- [X] T037 [US5] Implement single-agent redispatch status updates and audit output in `solune/scripts/fleet-dispatch.sh`
 
 **Checkpoint**: User Story 5 supports targeted retries and ad-hoc redispatch.
 
