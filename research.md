@@ -1,125 +1,215 @@
-# Research: Simplify Page Headers for Focused UI
+# Research: Codebase Modularity Review
 
-**Feature**: Simplify Page Headers | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11 | **Status**: Complete
 
-## R1: CSS Class Removal Safety Analysis
+## R1: Backend Monolith Split Strategy — `api/chat.py`
 
-**Decision**: Remove only `.dark .projects-catalog-hero .catalog-hero-*` scoped CSS rules from `index.css` (lines ~432–489). Retain all `celestial-*` animation classes, `.moonwell`, and `.hanging-stars`.
+**Decision**: Split `api/chat.py` (2930 lines, 40 functions) into five domain-scoped modules under a new `api/chat/` package: `messages.py`, `proposals.py`, `plans.py`, `conversations.py`, and `streaming.py`. A top-level `api/chat/__init__.py` re-exports the FastAPI router to maintain backward compatibility with existing imports.
 
-**Rationale**: A thorough codebase search reveals that many CSS classes used within `CelestialCatalogHero` are shared with other components throughout the application. Only the `.projects-catalog-hero`-scoped dark mode overrides are exclusive to the hero component.
+**Rationale**: `api/chat.py` is the largest backend file and contains five distinct responsibilities that rarely change together:
 
-**Shared class usage (RETAIN)**:
+1. **Message CRUD** — `get_messages`, `add_message`, `clear_messages`, `get_session_messages`, persistence helpers
+2. **Proposal/recommendation handling** — `store_proposal`, `get_proposal`, `confirm_proposal`, `cancel_proposal`
+3. **Plan mode endpoints** — 14 functions for plan CRUD, approval, step management, export
+4. **Conversation CRUD** — `create_conversation`, `list_conversations`, `update_conversation`, `delete_conversation`
+5. **Streaming** — `send_message_stream`, `send_plan_message_stream`, SSE response handling
 
-| CSS Class | Components Using It (Outside CelestialCatalogHero) |
-|-----------|---------------------------------------------------|
-| `moonwell` | AgentCard, AgentIconCatalog, AgentsPanel (6×), ToolCard, ToolsPanel, GitHubMcpConfigGenerator (2×), ChoresSpotlight (2×), PipelineSelector, ChoresToolbar (3×), ActivityPage, AgentsPipelinePage, FeaturedRitualsPanel, ChoreCard, ProjectIssueLaunchPanel, FeatureGuideCard, SavedWorkflowsList (2×), PipelineAnalytics (4×), PipelineStagesOverview, PipelineToolbar |
-| `hanging-stars` | LoginPage.tsx (line 65) |
-| `celestial-orbit-spin` | Sidebar.tsx, AppLayout.tsx, CelestialLoader.tsx, LoginPage.tsx, AnimatedBackground.tsx |
-| `celestial-orbit-spin-reverse` | Same components as `celestial-orbit-spin` |
-| `celestial-twinkle` | CelestialLoadingProgress.tsx, ProjectSelectionEmptyState.tsx, AppLayout.tsx |
-| `celestial-float` | LoginPage.tsx, NotFoundPage.tsx, App.tsx, ErrorBoundary.tsx |
-| `celestial-pulse-glow` | NotificationBell.tsx, LoginPage.tsx, Sidebar.tsx, AppLayout.tsx, CelestialLoader.tsx, TourProgress.tsx |
-
-**Exclusive to hero (REMOVE)**:
-
-| CSS Rule | Location in index.css |
-|----------|-----------------------|
-| `.dark .projects-catalog-hero.section-aurora` | Line ~432 |
-| `.dark .projects-catalog-hero .catalog-hero-decor` | Line ~448 |
-| `.dark .projects-catalog-hero .catalog-hero-ambient-glow` | Line ~452 |
-| `.dark .projects-catalog-hero .catalog-hero-orbit` | Line ~457 |
-| `.dark .projects-catalog-hero .catalog-hero-moon` | Line ~461 |
-| `.dark .projects-catalog-hero .catalog-hero-aside-moon` | Line ~462 |
-| `.dark .projects-catalog-hero .catalog-hero-aside` | Line ~468 |
-| `.dark .projects-catalog-hero .catalog-hero-aside-sun` | Line ~475 |
-| `.dark .projects-catalog-hero .catalog-hero-aside-orbit-*` | Lines ~479–481 |
-| `.dark .projects-catalog-hero .catalog-hero-aside-core` | Line ~481 |
-| `.dark .projects-catalog-hero .catalog-hero-note` | Line ~485 |
+Splitting by responsibility reduces the cognitive load for reviewers (a plan-mode change no longer requires reviewing 2930 lines), enables independent testing per module, and makes `git blame` more useful. The `__init__.py` re-export pattern ensures that existing `from src.api.chat import router` statements continue to work.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Remove all celestial animation CSS | Breaks 15+ components that use `celestial-*` classes for sidebar, loading, login, error, and background animations |
-| Remove `moonwell` CSS class | Breaks 30+ UI elements across agents, tools, chores, pipeline, and board components |
-| Remove `hanging-stars` CSS | Breaks decorative stars in LoginPage |
-| Keep all hero CSS "just in case" | Leaves ~60 lines of dead CSS; contradicts simplicity principle |
+| Split by HTTP method (GET/POST/PATCH) | Mixes unrelated domains in each file; doesn't align with how developers think about changes |
+| Keep as one file, add region comments | Doesn't help IDE navigation, test isolation, or review scope |
+| Split into only 2 files (sync + stream) | Still leaves large monoliths; doesn't address the plan-mode bloat |
+| Use APIRouter sub-routers without splitting the file | Organizes routes but doesn't reduce file size or improve testability |
 
 ---
 
-## R2: CompactPageHeader Component Architecture
+## R2: God Function Extraction — `confirm_proposal()`
 
-**Decision**: Create a single `CompactPageHeader.tsx` component with a responsive flexbox layout. Use a `<header>` semantic element. Stats render as inline pill/chip elements. Description uses `line-clamp-1` with `group-hover:line-clamp-none` for expand-on-hover.
+**Decision**: Extract `confirm_proposal()` (348 lines) into a `ProposalOrchestrator` service class in `services/proposal_orchestrator.py`. The class exposes a single `async def confirm(proposal_id, request, session, github_service, connection_manager)` method that internally delegates to focused private methods: `_validate_proposal()`, `_apply_edits()`, `_create_github_issue()`, `_add_to_project()`, `_persist_status()`, `_broadcast_update()`.
 
-**Rationale**: The replacement component needs to:
+**Rationale**: A 348-line function that touches GitHub API, SQLite persistence, WebSocket broadcasting, and validation is untestable in isolation — every test must mock all four concerns. Extracting to a service class with focused methods enables:
 
-1. Accept the same props as `CelestialCatalogHero` minus `note` (which is dropped per issue decision)
-2. Use a single-row layout (~80–100px height vs ~350–450px)
-3. Render stats as small chips instead of large moonwell cards
-4. Have no decorative elements (orbits, stars, beams)
+- **Unit testing** each step independently (e.g., test `_validate_proposal()` without mocking GitHub)
+- **Mocking** the orchestrator as a single dependency in the API layer
+- **Reuse** if proposal confirmation is needed from other entry points (e.g., webhooks, CLI)
+- **Error isolation** — a broadcast failure doesn't need to be handled in the same scope as GitHub API errors
 
-The `<header>` element is more semantically correct than the current `<section>` for page headers. The `cn()` utility from `@/lib/utils` is used for conditional className merging, consistent with all other components in the codebase.
+The API endpoint becomes a thin wrapper: resolve dependencies, call `orchestrator.confirm()`, return result.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Keep `<section>` element | `<header>` is more semantically appropriate for page headings; improves accessibility |
-| Use CSS Grid instead of Flexbox | Over-engineered for a simple three-zone layout; flexbox handles the single-row case naturally |
-| Use a UI library card component | Adds dependency on shadcn Card; a simple `<header>` with Tailwind is sufficient |
-| Create separate mobile and desktop header components | Violates DRY; responsive Tailwind classes handle both layouts in one component |
+| Split into standalone functions (not a class) | Loses shared state (proposal cache, connection references); functions need the same parameters passed repeatedly |
+| Keep in `chat.py` but refactor into smaller private functions | Improves readability but doesn't improve testability — private functions share the module's global state |
+| Event-driven architecture (publish confirmation event) | Over-engineered for synchronous confirmation flow; adds eventual consistency concerns |
 
 ---
 
-## R3: Stats Display Strategy
+## R3: Frontend API Client Split Strategy — `services/api.ts`
 
-**Decision**: Stats render as inline chips/pills on desktop (always visible) and are hidden behind a toggle on mobile (< 640px). The toggle is a simple button that expands/collapses the stats row.
+**Decision**: Split `services/api.ts` (1876 lines, 20 namespace objects) into domain-scoped files under `services/api/`: `auth.ts`, `chat.ts`, `board.ts`, `tasks.ts`, `projects.ts`, `settings.ts`, `workflow.ts`, `metadata.ts`, `agents.ts`, `pipelines.ts`, `chores.ts`, `tools.ts`, `apps.ts`, `activity.ts`. A barrel `services/api/index.ts` re-exports all namespaces. Shared utilities (`apiClient`, `handleApiError`, type helpers) go in `services/api/client.ts`.
 
-**Rationale**: The issue recommends "Stats on mobile: always visible or collapsible? Recommend hidden behind a toggle on mobile to avoid crowding." Desktop viewports have sufficient width for 2–4 stat chips. Mobile viewports (< 640px) would crowd the header if stats are always visible.
+**Rationale**: The monolithic `api.ts` makes every change require reviewing 1876 lines. Splitting by domain:
 
-The implementation uses:
+- Enables **tree-shaking** — unused API domains are excluded from bundles for code-split routes
+- Matches the **backend API module structure** (`api/chat.py`, `api/board.py`, etc.)
+- Makes **code review** focused — a chat API change only touches `api/chat.ts`
+- Keeps **imports stable** via barrel re-exports: `import { chatApi } from '@/services/api'` still works
 
-- Desktop: `flex flex-wrap gap-2` for inline chips, always visible
-- Mobile: `hidden sm:flex` by default, toggled with a `useState` hook and a small icon button
+The shared `client.ts` contains the axios/fetch instance, error handling, and request interceptors — these are genuine cross-cutting concerns that every domain needs.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Always visible on mobile | Crowds header on phones; pushes actions below fold |
-| Stats removed on mobile entirely | Loses information; no recovery path |
-| Horizontal scrollable row on mobile | Touch-scroll conflicts with page scroll; poor discoverability |
-| Separate stats tooltip on mobile | Non-standard UX; requires precise tap target |
+| Keep as one file with better comments/regions | Doesn't help tree-shaking or review scope |
+| Split by HTTP method | Mixes unrelated domains; not how developers conceptualize API calls |
+| Auto-generate from OpenAPI spec | No OpenAPI spec exists; creating one is a separate initiative |
+| Use a code-gen tool (e.g., orval) | Requires backend schema first; too large a scope change for this refactoring |
 
 ---
 
-## R4: Description Display Strategy
+## R4: Domain-Scoped Types Strategy — `types/index.ts`
 
-**Decision**: Description renders as a single-line subtitle with `line-clamp-1`. On hover, the description expands to show full text via `group-hover:line-clamp-none`. On mobile, the description also truncates with an expand tap.
+**Decision**: Split `types/index.ts` (1525 lines) into domain-scoped files: `types/chat.ts`, `types/board.ts`, `types/pipeline.ts`, `types/agents.ts`, `types/tasks.ts`, `types/projects.ts`, `types/settings.ts`, `types/common.ts`. A barrel `types/index.ts` re-exports everything for backward compatibility.
 
-**Rationale**: The issue states "Description demoted to a single-line subtitle (line-clamp-1, expands on hover)." This keeps the header compact while preserving full description accessibility. The `group` + `group-hover` Tailwind pattern is standard and requires no JavaScript for the desktop hover interaction.
+**Rationale**: A single 1525-line type file creates unnecessary merge conflicts when multiple features modify types in different domains. Domain-scoped files:
+
+- Reduce **merge conflicts** — changes to board types don't conflict with chat type changes
+- Improve **IDE navigation** — jump-to-definition lands in the relevant domain file, not line 847 of a mega-file
+- Enable **co-location** — domain types live next to their API client and hooks
+- Maintain **backward compatibility** — the barrel re-export means all existing `import { X } from '@/types'` statements continue working
+
+Shared types (e.g., `PaginatedResponse<T>`, `ApiError`, `UUID`) go in `types/common.ts`.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Always show full description | Increases header height beyond 100px target on pages with long descriptions |
-| Tooltip for description | Less discoverable; requires explicit hover/click interaction |
-| Remove description entirely | Loses context for new users; description provides useful page context |
-| Two-line truncation (line-clamp-2) | Still variable height; single-line is more predictable |
+| Co-locate types in each component folder | Scatters types too widely; types are shared across hooks, services, and components |
+| Keep one file with region markers | Doesn't reduce merge conflicts or improve navigation |
+| Generate types from backend Pydantic models | Requires a type generation pipeline; separate initiative |
+| Use TypeScript namespaces for grouping | Namespaces are discouraged in modern TS; don't improve file-level organization |
 
 ---
 
-## R5: Rollout Strategy
+## R5: Backend Global State Consolidation
 
-**Decision**: Big-bang rollout — replace `CelestialCatalogHero` with `CompactPageHeader` on all 6 pages in a single PR. Delete `CelestialCatalogHero.tsx` after migration.
+**Decision**: Wrap the four module-level dicts (`_messages`, `_proposals`, `_recommendations`, `_locks`) in a `ChatStateManager` class instantiated during the FastAPI lifespan. Inject via `Depends()` in the same way as `get_github_service`. The manager exposes typed methods: `get_messages(session_id)`, `store_proposal(proposal)`, `get_lock(key)`, etc.
 
-**Rationale**: The issue recommends "big-bang — all 6 pages share the same component, replacement is prop-compatible." All 6 pages use the exact same component with the same prop interface. The new component accepts a subset of the same props (minus `note`). There is no data model change, no backend change, and no gradual migration benefit.
+**Rationale**: Module-level mutable dicts create three problems:
+
+1. **Race conditions** — `_locks` dict is itself unprotected; concurrent requests can create duplicate locks
+2. **No lifecycle management** — dicts grow without bound (the `_locks` dict was already identified as a memory leak target in Harden Phase 1)
+3. **Testing difficulty** — tests must monkey-patch module globals or import-order-dependent state
+
+A `ChatStateManager` class:
+
+- Can be **instantiated with configuration** (max capacity, TTL) from `app.state`
+- Can be **injected and mocked** cleanly in tests
+- Can use **BoundedDict** internally for capacity-limited caches
+- Has a clear **lifecycle** tied to the FastAPI lifespan (create on startup, cleanup on shutdown)
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Gradual rollout (1 page per PR) | Adds 5 extra PRs; both components coexist with no benefit; more merge conflicts |
-| Feature flag (show old/new header) | Over-engineered for a visual-only, non-data change; adds dead code |
-| A/B test | No metrics infrastructure for header comparison; visual preference is already decided |
+| Move dicts to `app.state` directly | Same issues (no encapsulation, no capacity limits); just moves the globals |
+| Use Redis/external cache | Over-engineered for in-process caching; adds infrastructure dependency |
+| Keep globals, add explicit locking | Addresses race conditions but not lifecycle or testing concerns |
+| Singleton pattern via module `__init__` | Still module-level global state; just adds indirection |
+
+---
+
+## R6: Backend Webhooks Split Strategy — `api/webhooks.py`
+
+**Decision**: Split `api/webhooks.py` (1033 lines) into an `api/webhooks/` package: `pull_requests.py` (PR event handlers), `check_runs.py` (CI check handlers), `issues.py` (issue event handlers), `common.py` (signature verification, payload parsing), and `__init__.py` (router re-export).
+
+**Rationale**: Webhook handlers are inherently event-type-scoped — a pull request handler never interacts with a check run handler. The current monolithic file forces developers to read past unrelated handlers to find the one they need. Splitting by GitHub event type:
+
+- Mirrors **GitHub's own event taxonomy** (pull_request, check_run, issues, etc.)
+- Makes **adding new event handlers** straightforward — create a new file, register the route
+- Enables **focused testing** — test PR handlers without loading check run dependencies
+- Keeps **shared utilities** (HMAC verification, payload extraction) in a common module
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Split by webhook source (GitHub, Slack, etc.) | Only GitHub webhooks exist today; premature generalization |
+| Keep as one file with handler registration pattern | Doesn't reduce file size or improve testability |
+| Move to event-driven architecture with pub/sub | Over-engineered for the current webhook volume; adds infrastructure complexity |
+
+---
+
+## R7: Backend `main.py` Bootstrap Extraction
+
+**Decision**: Extract bootstrap logic from `main.py` (859 lines) into `services/bootstrap.py`. The bootstrap module handles: service initialization, migration running, polling loop setup, agent sync scheduling, and cleanup task registration. `main.py` retains only the FastAPI app creation, middleware registration, and router inclusion.
+
+**Rationale**: `main.py` currently mixes two concerns:
+
+1. **App definition** — creating the FastAPI instance, adding middleware, including routers
+2. **Lifecycle management** — initializing services, running migrations, starting background tasks
+
+These change for different reasons and at different frequencies. A developer adding a new middleware shouldn't need to navigate past 400 lines of initialization code. The extraction:
+
+- Makes `main.py` a **declarative app definition** (~100-150 lines)
+- Makes **startup/shutdown testable** independently
+- Follows the **FastAPI lifespan pattern** — bootstrap functions are called from the lifespan context manager
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Move everything to a `create_app()` factory | Still mixes concerns in one function; just moves the code |
+| Use FastAPI event handlers (@app.on_event) | Deprecated in favor of lifespan context manager |
+| Keep as-is with better comments | Doesn't improve testability or review scope |
+
+---
+
+## R8: Frontend Test Layout Consolidation
+
+**Decision**: Standardize on the `__tests__/` subdirectory pattern for all component domains. Co-located `.test.tsx` files in `layout/` should be moved to `layout/__tests__/`. Utility and constant tests remain co-located (they're single files, not test suites).
+
+**Rationale**: The hybrid pattern (some domains use `__tests__/`, layout uses co-located files) reduces discoverability. When a developer looks for tests, they need to check both patterns. The `__tests__/` subdirectory pattern is already dominant (used by 7 component domains) and has advantages:
+
+- **Clean directory listings** — component files aren't interleaved with test files
+- **Glob-friendly** — `**/__tests__/**` reliably finds all tests
+- **Consistent expectations** — new contributors always know where to look
+
+Exception: single-file test modules (e.g., `chat-placeholders.test.ts` in `constants/`) can remain co-located since there's no subdirectory to justify a `__tests__/` folder for one file.
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Standardize on co-located `.test.tsx` everywhere | Would require moving 100+ test files from `__tests__/` directories; larger disruption |
+| Keep hybrid | Continues to cause confusion; inconsistent developer experience |
+| Top-level `tests/` mirror of `src/` | Disconnects tests from components; harder to maintain |
+
+---
+
+## R9: Circular Dependency Resolution in `dependencies.py`
+
+**Decision**: Resolve the `auth.py` ↔ `dependencies.py` circular import by moving the session dependency into `dependencies.py` directly (consolidating the lazy import workaround). The `_get_session_dep()` wrapper and lazy `from src.api.auth import get_session_dep` should be replaced with a direct implementation in `dependencies.py` that uses the session store.
+
+**Rationale**: The current lazy import in `_get_session_dep()` is a symptom of the circular dependency between `dependencies.py` (which provides DI functions) and `auth.py` (which provides session validation). This fragile pattern:
+
+- Hides **runtime import failures** (caught only when the dependency is first resolved)
+- Makes **import order** matter (tests that import auth before dependencies may see different behavior)
+- Adds **indirection** without clear benefit
+
+Consolidating session dependency resolution into `dependencies.py` breaks the cycle cleanly since `auth.py` can then import from `dependencies.py` without dependencies.py needing to import from `auth.py`.
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Keep the lazy import | Fragile; hides errors; already identified as a problem |
+| Move all DI to `auth.py` | Wrong responsibility — auth should not own non-auth dependencies |
+| Create a third module `di.py` | Just moves the problem; adds another file to maintain |
