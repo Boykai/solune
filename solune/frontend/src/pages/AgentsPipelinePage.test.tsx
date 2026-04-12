@@ -222,9 +222,19 @@ vi.mock('@/components/common/ProjectSelectionEmptyState', () => ({
 }));
 
 vi.mock('@/components/common/CompactPageHeader', () => ({
-  CompactPageHeader: ({ title, actions }: { title: string; actions: ReactNode }) => (
+  CompactPageHeader: ({ title, badge, stats, actions }: { title: string; badge?: string; stats?: { label: string; value: string }[]; actions: ReactNode }) => (
     <header>
       <h2>{title}</h2>
+      {badge && <span data-testid="header-badge">{badge}</span>}
+      {stats && (
+        <div data-testid="header-stats">
+          {stats.map((s: { label: string; value: string }) => (
+            <span key={s.label} data-testid={`stat-${s.label}`}>
+              {s.label}: {s.value}
+            </span>
+          ))}
+        </div>
+      )}
       <div>{actions}</div>
     </header>
   ),
@@ -307,5 +317,27 @@ describe('AgentsPipelinePage', () => {
     render(<AgentsPipelinePage />);
 
     expect(screen.getByText(/Analytics will appear once pipelines are created/)).toBeInTheDocument();
+  });
+
+  it('passes the project owner/name as the header badge', () => {
+    render(<AgentsPipelinePage />);
+    const badge = screen.getByTestId('header-badge');
+    expect(badge).toHaveTextContent('Boykai/Project Solune');
+  });
+
+  it('passes stats with saved pipeline count and active stages', () => {
+    render(<AgentsPipelinePage />);
+    expect(screen.getByTestId('stat-Saved pipelines')).toHaveTextContent('Saved pipelines: 0');
+    expect(screen.getByTestId('stat-Active stages')).toHaveTextContent('Active stages: 1');
+  });
+
+  it('passes the project name in stats', () => {
+    render(<AgentsPipelinePage />);
+    expect(screen.getByTestId('stat-Project')).toHaveTextContent('Project: Project Solune');
+  });
+
+  it('passes the assigned pipeline name "None" when no pipeline is assigned', () => {
+    render(<AgentsPipelinePage />);
+    expect(screen.getByTestId('stat-Assigned pipeline')).toHaveTextContent('Assigned pipeline: None');
   });
 });
