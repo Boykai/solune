@@ -1,7 +1,7 @@
 # Implementation Plan: Simplify Page Headers for Focused UI
 
-**Branch**: `copilot/speckitplan-create-compact-header` | **Date**: 2026-04-11 | **Spec**: [#1398](https://github.com/Boykai/solune/issues/1398)
-**Input**: Parent issue #1398 — Replace CelestialCatalogHero hero sections (~20% viewport, ~350–450px) with compact single-row page headers across 6 pages.
+**Branch**: `copilot/speckit-plan-simplify-page-headers` | **Date**: 2026-04-12 | **Spec**: [#1483](https://github.com/Boykai/solune/issues/1483)
+**Input**: Parent issue #1483 — Replace CelestialCatalogHero hero sections (~20% viewport, ~350–450px) with compact single-row page headers across 6 pages.
 
 ## Summary
 
@@ -32,7 +32,7 @@ Replace the large `CelestialCatalogHero` component (~350–450px tall) with a ne
 
 | Principle | Status | Notes |
 |-----------|--------|-------|
-| I. Specification-First | ✅ PASS | Feature fully specified in parent issue #1398 with phases, file list, and explicit decisions |
+| I. Specification-First | ✅ PASS | Feature fully specified in parent issue #1483 with phases, file list, and explicit decisions |
 | II. Template-Driven Workflow | ✅ PASS | This plan follows `plan-template.md`; supplementary artifacts generated per workflow |
 | III. Agent-Orchestrated Execution | ✅ PASS | Plan agent produces plan; implement agent will execute phased tasks |
 | IV. Test Optionality | ✅ PASS | Tests included for the new component; existing CelestialCatalogHero tests replaced with CompactPageHeader tests |

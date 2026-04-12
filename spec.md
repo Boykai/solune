@@ -1,7 +1,7 @@
 # Feature Specification: Simplify Page Headers for Focused UI
 
-**Feature Branch**: `copilot/speckitplan-create-compact-header`  
-**Created**: 2026-04-11  
+**Feature Branch**: `copilot/speckit-plan-simplify-page-headers`  
+**Created**: 2026-04-12  
 **Status**: Draft  
 **Input**: User description: "Simplify Page Headers for Focused UI — Replace the large CelestialCatalogHero hero sections (~20% of viewport, ~350–450px tall) with a compact, single-row page header across 6 pages."
 
