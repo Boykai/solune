@@ -1,235 +1,237 @@
-# Quickstart: Multi-Chat App Page
+# Quickstart: Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11
+**Feature**: Fleet-Dispatch Agent Pipelines via GitHub CLI | **Date**: 2026-04-11
+
+> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
 
 > **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
 
 ## Prerequisites
 
-- Python ≥3.12 with virtual environment
-- Node.js ≥18 with npm
-- SQLite (bundled with Python)
-- Git
+- `gh` CLI ≥2.80 (with `gh agent-task` support)
+- `jq` ≥1.6
+- `envsubst` (GNU `gettext` package)
+- Authenticated GitHub session (`gh auth login`)
+- Repository with GitHub Copilot agent access enabled
 
-## Backend Setup
+## Verify Prerequisites
+
+```bash
+# Check gh CLI version (must be ≥2.80)
+gh --version
+
+# Check jq availability
+jq --version
+
+# Check envsubst availability
+envsubst --version
+
+# Verify GitHub authentication
+gh auth status
+```
+
+## Phase 1: Fleet Dispatch Script
+
+### Basic Usage
+
+```bash
+# Dispatch a pipeline for a parent issue
+cd solune
+./scripts/fleet-dispatch.sh \
+  --repo "owner/repo" \
+  --parent-issue 1386 \
+  --config config/pipeline-config.json \
+  --preset "spec-kit" \
+  --base-ref "main"
+```
+
+### Dry Run (no actual dispatch)
+
+```bash
+# Preview what would be dispatched without executing
+./scripts/fleet-dispatch.sh \
+  --repo "owner/repo" \
+  --parent-issue 1386 \
+  --config config/pipeline-config.json \
+  --preset "expert" \
+  --base-ref "main" \
+  --dry-run
+```
+
+### Custom Model Override
+
+```bash
+# Override the default model for all agents
+./scripts/fleet-dispatch.sh \
+  --repo "owner/repo" \
+  --parent-issue 1386 \
+  --config config/pipeline-config.json \
+  --preset "spec-kit" \
+  --base-ref "main" \
+  --model "claude-sonnet-4"
+```
+
+### Expected Output
+
+```
+[fleet-dispatch] Loading pipeline config: config/pipeline-config.json
+[fleet-dispatch] Preset: spec-kit (5 stages, 8 agents)
+[fleet-dispatch] Parent issue: #1386
+[fleet-dispatch] Base ref: main
+
+[fleet-dispatch] Creating sub-issues...
+  ✓ speckit.specify → #1387
+  ✓ speckit.plan → #1388
+  ✓ speckit.tasks → #1389
+  ✓ speckit.implement → #1390
+  ✓ speckit.analyze → #1391
+
+[fleet-dispatch] Dispatching Stage 1: Backlog (sequential)
+  → Dispatching speckit.specify to #1387... ✓
+  → Polling for completion...
+
+[fleet-dispatch] Dispatching Stage 2: Ready (sequential)
+  → Dispatching speckit.plan to #1388... ✓
+  → Polling for completion...
+
+[fleet-dispatch] Dispatching Stage 3: In progress (parallel)
+  → Dispatching quality-assurance to #1392... (background)
+  → Dispatching tester to #1393... (background)
+  → Dispatching copilot-review to #1394... (background)
+  → Waiting for parallel group to complete...
+  ✓ All 3 agents completed
+
+[fleet-dispatch] Summary:
+  Agents dispatched: 8/8
+  Successful: 8
+  Failed: 0
+  Duration: 2h 15m
+  State file: fleet-state.json
+```
+
+## Phase 2: Pipeline Config Extraction
+
+### Extract Config from Python Backend
+
+```bash
+# Generate pipeline-config.json from backend preset definitions
+cd solune
+python scripts/extract-pipeline-config.py \
+  --source backend/src/services/pipelines/service.py \
+  --output config/pipeline-config.json
+
+# Validate the generated config against the JSON schema
+# NOTE: ./scripts/validate-contracts.sh currently validates only OpenAPI → TypeScript
+# type generation and does not accept a pipeline config file path argument.
+# JSON Schema validation for pipeline configs will be added in a later phase.
+# For now, validate manually:
+python -m jsonschema -i config/pipeline-config.json contracts/pipeline-config-schema.json
+```
+
+### Inspect the Config
+
+```bash
+# List all presets
+jq '.[].preset_id' config/pipeline-config.json
+
+# Show agents in the "expert" pipeline
+jq '.[] | select(.preset_id == "expert") | .stages[].groups[].agents[].agent_slug' \
+  config/pipeline-config.json
+
+# Show parallel groups
+jq '.[] | select(.preset_id == "expert") | .stages[].groups[] | select(.execution_mode == "parallel") | {id, agents: [.agents[].agent_slug]}' \
+  config/pipeline-config.json
+```
+
+## Phase 3: Monitoring
+
+### Check Dispatch State
+
+```bash
+# View current dispatch state
+jq '.' fleet-state.json
+
+# Show agent statuses
+jq '.agents[] | {agent_slug, dispatch_status, issue_number}' fleet-state.json
+
+# Show only failed agents
+jq '.agents[] | select(.dispatch_status == "failed")' fleet-state.json
+```
+
+### Manual Completion Polling
+
+```bash
+# Check if a sub-issue is closed (agent completed)
+gh issue view 1387 --repo owner/repo --json state -q '.state'
+
+# List Copilot agent tasks
+gh agent-task list --repo owner/repo
+
+# View a specific agent task
+gh agent-task view TASK_ID --repo owner/repo
+```
+
+## Development & Testing
+
+### Run Shell Script Tests
+
+```bash
+# Install bats-core (Bash Automated Testing System)
+# macOS: brew install bats-core
+# Ubuntu/Debian: sudo apt-get install bats
+# Or from source: https://bats-core.readthedocs.io/en/stable/installation.html
+
+# Run fleet-dispatch tests
+bats solune/scripts/tests/fleet-dispatch.bats
+```
+
+### Run Python Extraction Tests
 
 ```bash
 cd solune/backend
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Run migrations (applies 044_conversations.sql automatically on startup)
-# Migrations are applied via the startup hook in src/database.py
-python -c "from src.database import run_migrations; import asyncio; asyncio.run(run_migrations())"
+python -m pytest tests/unit/test_extract_pipeline_config.py -v
 ```
 
-### Verify Migration
+### Manual Verification
 
 ```bash
-# Check that the conversations table exists
-sqlite3 data/solune.db ".schema conversations"
+# 1. Verify the GraphQL mutation works with gh CLI
+gh api graphql \
+  -H "GraphQL-Features: issues_copilot_assignment_api_support,coding_agent_model_selection" \
+  -f query='
+    mutation($issueId: ID!, $assigneeIds: [ID!]!, $repoId: ID!, $baseRef: String!, $customInstructions: String!, $customAgent: String!, $model: String!) {
+      addAssigneesToAssignable(input: {
+        assignableId: $issueId,
+        assigneeIds: $assigneeIds,
+        agentAssignment: {
+          targetRepositoryId: $repoId,
+          baseRef: $baseRef,
+          customInstructions: $customInstructions,
+          customAgent: $customAgent,
+          model: $model
+        }
+      }) {
+        assignable {
+          ... on Issue {
+            id
+            assignees(first: 10) { nodes { login } }
+          }
+        }
+      }
+    }
+  ' \
+  -f issueId="ISSUE_NODE_ID" \
+  -f assigneeIds='["COPILOT_BOT_ID"]' \
+  -f repoId="REPO_NODE_ID" \
+  -f baseRef="main" \
+  -f customInstructions="Your instructions here" \
+  -f customAgent="speckit.specify" \
+  -f model="claude-opus-4.6"
 
-# Expected output:
-# CREATE TABLE conversations (
-#     conversation_id TEXT PRIMARY KEY,
-#     session_id TEXT NOT NULL,
-#     title TEXT NOT NULL DEFAULT 'New Chat',
-#     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-#     FOREIGN KEY (session_id) REFERENCES user_sessions(session_id) ON DELETE CASCADE
-# );
-
-# Check that conversation_id was added to chat_messages
-sqlite3 data/solune.db "PRAGMA table_info(chat_messages);" | grep conversation_id
+# 2. Verify sub-issue creation
+gh issue create \
+  --repo owner/repo \
+  --title "[speckit.specify] Feature Name" \
+  --body "> **Parent Issue:** #1386 — Feature Name" \
+  --label "agent:speckit.specify"
 ```
-
-### Run Backend Tests
-
-```bash
-cd solune/backend
-
-# Run conversation-specific tests
-python -m pytest tests/unit/test_chat_store.py -k "conversation" -v
-
-# Run all chat API tests
-python -m pytest tests/unit/test_api_chat.py -v
-
-# Run full backend test suite (ensure no regressions)
-python -m pytest tests/unit/ -q --timeout=120
-```
-
-### Test Conversation Endpoints Manually
-
-```bash
-# Start the backend server
-cd solune/backend && uvicorn src.main:app --reload --port 8000
-
-# Create a conversation (requires valid session cookie)
-curl -X POST http://localhost:8000/api/v1/chat/conversations \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test Conversation"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# List conversations
-curl http://localhost:8000/api/v1/chat/conversations \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Send a message to a specific conversation
-curl -X POST http://localhost:8000/api/v1/chat/messages \
-  -H "Content-Type: application/json" \
-  -d '{"content": "Hello!", "conversation_id": "CONVERSATION_ID"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Get messages for a specific conversation
-curl "http://localhost:8000/api/v1/chat/messages?conversation_id=CONVERSATION_ID" \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Update conversation title
-curl -X PATCH http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Renamed Chat"}' \
-  -b "session_id=YOUR_SESSION_ID"
-
-# Delete conversation
-curl -X DELETE http://localhost:8000/api/v1/chat/conversations/CONVERSATION_ID \
-  -b "session_id=YOUR_SESSION_ID"
-```
-
-## Frontend Setup
-
-```bash
-cd solune/frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-### Run Frontend Tests
-
-```bash
-cd solune/frontend
-
-# Run conversation-related tests
-npm test -- --reporter=verbose useConversations
-npm test -- --reporter=verbose ChatPanel
-npm test -- --reporter=verbose ChatPanelManager
-npm test -- --reporter=verbose AppPage
-
-# Run full frontend test suite
-npm test
-```
-
-### Verify UI Behavior
-
-1. **Navigate to AppPage** (`/`)
-   - Should see a single chat panel (full width)
-   - Panel header shows "New Chat" title
-
-2. **Send a message**
-   - Type in the input and press Enter
-   - Message appears in the panel; streaming response follows
-
-3. **Add a second panel**
-   - Click "Add Chat" button
-   - Second panel appears side-by-side
-   - Both panels are resizable via the drag handle between them
-
-4. **Resize panels**
-   - Hover over the border between panels (cursor changes to `col-resize`)
-   - Drag to resize; panels respect 320px minimum width
-
-5. **Edit conversation title**
-   - Click the title in the panel header
-   - Type a new title and press Enter or blur
-
-6. **Close a panel**
-   - Click the close (×) button in the panel header
-   - Panel is removed; remaining panels redistribute width
-   - Cannot close the last panel
-
-7. **Mobile behavior** (resize browser to < 768px)
-   - Panels switch to tab view
-   - One panel visible at a time
-   - Tab bar at top shows conversation titles
-
-8. **Persistence**
-   - Open multiple panels with different conversations
-   - Refresh the browser
-   - Same panels and conversations should be restored from localStorage
-
-9. **ChatPopup on other pages**
-   - Navigate to `/projects` or `/agents`
-   - ChatPopup (floating bottom-right) continues to work independently
-   - ChatPopup messages are NOT scoped to any conversation
-
-## Key Files Reference
-
-### Backend (modify)
-
-| File | Changes |
-|------|---------|
-| `src/migrations/044_conversations.sql` | NEW: Create conversations table + ALTER existing tables |
-| `src/models/chat.py` | Add Conversation models; add conversation_id to ChatMessage/Request |
-| `src/services/chat_store.py` | Add conversation CRUD; update message methods for conversation_id filter |
-| `src/api/chat.py` | Add conversation endpoints; update message endpoints |
-| `src/services/chat_agent.py` | Change session key to `session_id:conversation_id` |
-
-### Frontend (modify)
-
-| File | Changes |
-|------|---------|
-| `src/types/index.ts` | Add Conversation interface; add conversation_id to ChatMessage/Request |
-| `src/services/schemas/chat.ts` | Add Conversation Zod schemas; update ChatMessageSchema |
-| `src/services/api.ts` | Add conversationApi namespace; update chatApi methods |
-| `src/hooks/useChat.ts` | Accept conversationId param; update query keys |
-| `src/pages/AppPage.tsx` | Rewrite: marketing → ChatPanelManager |
-
-### Frontend (create)
-
-| File | Purpose |
-|------|---------|
-| `src/hooks/useConversations.ts` | React Query hook for conversation CRUD |
-| `src/hooks/useChatPanels.ts` | Panel layout state with localStorage persistence |
-| `src/components/chat/ChatPanel.tsx` | Standalone panel wrapping ChatInterface |
-| `src/components/chat/ChatPanelManager.tsx` | Multi-panel container with resize |
-
-### Untouched
-
-| File | Reason |
-|------|--------|
-| `AppLayout.tsx` | Layout wrapper — no changes needed |
-| `ChatPopup.tsx` | Floating popup — stays conversation-unaware |
-| `ChatInterface.tsx` | Reused as-is inside ChatPanel |
-
-## Troubleshooting
-
-### Migration fails with "table conversations already exists"
-
-The migration uses `CREATE TABLE IF NOT EXISTS`, so this shouldn't happen. If it does, check that `044_conversations.sql` was not applied twice.
-
-### Messages don't filter by conversation_id
-
-Verify that:
-
-1. The migration added the `conversation_id` column to `chat_messages`
-2. The API endpoint passes `conversation_id` to the store method
-3. The frontend sends `conversationId` in the request
-
-### Panel layout doesn't persist
-
-Check `localStorage` in browser DevTools:
-
-```javascript
-JSON.parse(localStorage.getItem('solune:chat-panels'))
-```
-
-### Resize handle not visible
-
-The handle is a thin (4–8px) vertical bar between panels. Ensure:
-
-1. Multiple panels are open
-2. Container has sufficient width for both panels (≥640px)
