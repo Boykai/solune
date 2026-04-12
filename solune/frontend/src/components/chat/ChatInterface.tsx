@@ -477,16 +477,16 @@ export function ChatInterface({
             <div className="mt-6 w-full max-w-sm rounded-lg border border-border bg-background/56 p-4 text-left">
               <p className="font-medium text-foreground mb-2">Try something like:</p>
               <ul className="list-none space-y-2">
-                <li className="text-sm text-muted-foreground before:content-['\201C'] after:content-['\201D'] before:text-primary after:text-primary">
+                <li className="text-sm text-muted-foreground before:content-['“'] after:content-['”'] before:text-primary after:text-primary">
                   Create a task to add user authentication
                 </li>
-                <li className="text-sm text-muted-foreground before:content-['\201C'] after:content-['\201D'] before:text-primary after:text-primary">
+                <li className="text-sm text-muted-foreground before:content-['“'] after:content-['”'] before:text-primary after:text-primary">
                   Add a bug fix for the login page crash
                 </li>
-                <li className="text-sm text-muted-foreground before:content-['\201C'] after:content-['\201D'] before:text-primary after:text-primary">
+                <li className="text-sm text-muted-foreground before:content-['“'] after:content-['”'] before:text-primary after:text-primary">
                   Set up CI/CD pipeline for the project
                 </li>
-                <li className="text-sm text-muted-foreground before:content-['\201C'] after:content-['\201D'] before:text-primary after:text-primary">
+                <li className="text-sm text-muted-foreground before:content-['“'] after:content-['”'] before:text-primary after:text-primary">
                   Type /help to see available commands
                 </li>
               </ul>
