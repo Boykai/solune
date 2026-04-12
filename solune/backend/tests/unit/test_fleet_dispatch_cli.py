@@ -140,6 +140,51 @@ class TestFleetDispatchCli:
         assert result.returncode == 0, result.stderr
         assert log_lines.index("issue_edit:200") < log_lines.index("dispatch:Existing retry issue")
 
+    def test_reuses_existing_sub_issue_by_default(self, tmp_path: Path) -> None:
+        config = _base_config()
+        config["groups"] = [config["groups"][0]]
+        config["groups"][0]["agents"] = [config["groups"][0]["agents"][0]]
+        extra_issue = {
+            "number": 200,
+            "node_id": "ISSUE_NODE_200",
+            "html_url": "https://github.com/Boykai/solune/issues/200",
+            "title": "Existing alpha issue",
+            "body": "Existing body",
+            "labels": ["fleet-dispatch", "fleet-parent:1555", "fleet-agent:alpha", "alpha"],
+        }
+
+        result = run_script(tmp_path, config, extra_issues=[extra_issue])
+        log_lines = read_log(tmp_path)
+
+        assert result.returncode == 0, result.stderr
+        assert "issue_create:[Fleet] Alpha for #1555" not in log_lines
+        assert "dispatch:Existing alpha issue" in log_lines
+
+    def test_no_resume_creates_new_sub_issue_when_match_exists(self, tmp_path: Path) -> None:
+        config = _base_config()
+        config["groups"] = [config["groups"][0]]
+        config["groups"][0]["agents"] = [config["groups"][0]["agents"][0]]
+        extra_issue = {
+            "number": 200,
+            "node_id": "ISSUE_NODE_200",
+            "html_url": "https://github.com/Boykai/solune/issues/200",
+            "title": "Existing alpha issue",
+            "body": "Existing body",
+            "labels": ["fleet-dispatch", "fleet-parent:1555", "fleet-agent:alpha", "alpha"],
+        }
+
+        result = run_script(
+            tmp_path,
+            config,
+            extra_issues=[extra_issue],
+            extra_args=["--no-resume"],
+        )
+        log_lines = read_log(tmp_path)
+
+        assert result.returncode == 0, result.stderr
+        assert "issue_create:[Fleet] Alpha for #1555" in log_lines
+        assert "dispatch:[Fleet] Alpha for #1555" in log_lines
+
     def test_dispatch_fails_when_agent_task_cannot_be_resolved(self, tmp_path: Path) -> None:
         config = _base_config()
         config["groups"] = [config["groups"][0]]
