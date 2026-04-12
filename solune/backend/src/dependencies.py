@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     import aiosqlite
 
     from src.models.user import UserSession
+    from src.services.chat_state_manager import ChatStateManager
     from src.services.github_projects import GitHubProjectsService
     from src.services.websocket import ConnectionManager
 
@@ -59,6 +60,15 @@ def get_database(request: Request) -> aiosqlite.Connection:
     from src.services.database import get_db
 
     return get_db()
+
+
+def get_chat_state_manager(request: Request) -> ChatStateManager:
+    """Return the singleton :class:`ChatStateManager`."""
+    mgr = getattr(request.app.state, "chat_state_manager", None)
+    if mgr is not None:
+        return mgr
+    # Fallback during transition
+    raise AppException(message="ChatStateManager not initialized", status_code=500)
 
 
 def _get_session_dep():
