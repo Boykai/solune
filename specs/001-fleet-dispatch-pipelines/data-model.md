@@ -65,11 +65,20 @@
 | `path` | string | yes | Repository-relative template file |
 | `agentSlug` | string | yes | Agent-specific template owner |
 | `fallback` | boolean | yes | Marks generic fallback template |
-| `placeholders` | array\<string\> | yes | Supported values include `ISSUE_TITLE`, `ISSUE_BODY`, `ISSUE_COMMENTS`, `PARENT_ISSUE_NUMBER`, `PARENT_ISSUE_URL`, `BASE_REF`, `PR_BRANCH` |
+| `placeholders` | array\<string\> | yes | Supported substitution variable names for the template |
 
 **Relationships**:
 - Referenced by `PipelineAgent`.
 - Rendered using parent-issue context and optional existing PR metadata.
+
+**Supported placeholders**:
+- `ISSUE_TITLE`
+- `ISSUE_BODY`
+- `ISSUE_COMMENTS`
+- `PARENT_ISSUE_NUMBER`
+- `PARENT_ISSUE_URL`
+- `BASE_REF`
+- `PR_BRANCH`
 
 ## 5. SubIssueRecord
 
