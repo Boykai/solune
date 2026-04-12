@@ -320,6 +320,7 @@ def _clear_test_caches():
         polling_state_mod._copilot_review_requested_at.clear()
         polling_state_mod._recovery_last_attempt.clear()
         polling_state_mod._merge_failure_counts.clear()
+        polling_state_mod._devops_tracking.clear()
         polling_state_mod._pending_auto_merge_retries.clear()
         polling_state_mod._pending_post_devops_retries.clear()
         polling_state_mod._background_tasks.clear()
