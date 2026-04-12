@@ -4,8 +4,6 @@
 
 > **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
 
-> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
-
 ## Prerequisites
 
 - `gh` CLI ≥2.80 (with `gh agent-task` support)
@@ -18,7 +16,7 @@
 
 ```bash
 # Check gh CLI version (must be ≥2.80)
-gh --version
+gh version
 
 # Check jq availability
 jq --version
