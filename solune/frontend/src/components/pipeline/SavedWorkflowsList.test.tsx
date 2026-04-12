@@ -29,7 +29,7 @@ function createPipeline(overrides: Partial<PipelineConfigSummary> = {}): Pipelin
 }
 
 describe('SavedWorkflowsList', () => {
-  it('exposes the saved workflows section for the hero anchor link', () => {
+  it('exposes the saved workflows section for the header anchor link', () => {
     const { container } = render(
       <SavedWorkflowsList
         pipelines={[]}

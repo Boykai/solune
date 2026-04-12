@@ -172,6 +172,24 @@ describe('CompactPageHeader', () => {
     expect(screen.queryByRole('button', { name: /stats/i })).not.toBeInTheDocument();
   });
 
+  it('applies truncation class to long badge text', () => {
+    const longBadge = 'organization-name/very-long-repository-name-that-exceeds-limits';
+    const { container } = render(<CompactPageHeader {...defaultProps} badge={longBadge} />);
+    const badgeEl = container.querySelector('span.truncate');
+    expect(badgeEl).toBeInTheDocument();
+    expect(badgeEl).toHaveTextContent(longBadge);
+  });
+
+  it('applies truncation class to long stat values', () => {
+    const stats = [{ label: 'Pipeline', value: 'My Very Long Pipeline Name For Testing' }];
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const truncatedValues = container.querySelectorAll('span.truncate');
+    const statValue = Array.from(truncatedValues).find(
+      (el) => el.textContent === 'My Very Long Pipeline Name For Testing',
+    );
+    expect(statValue).toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(
       <CompactPageHeader

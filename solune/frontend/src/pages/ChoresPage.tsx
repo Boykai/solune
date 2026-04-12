@@ -75,7 +75,7 @@ export function ChoresPage() {
   const owner = boardRepo?.owner ?? workflowConfig?.repository_owner;
   const repoName = boardRepo?.name ?? workflowConfig?.repository_name;
 
-  // Synthesise a repo-like object for the hero badge/stats (same shape as BoardRepository)
+  // Synthesise a repo-like object for the header badge/stats (same shape as BoardRepository)
   const repo = owner && repoName ? { owner, name: repoName } : undefined;
 
   return (

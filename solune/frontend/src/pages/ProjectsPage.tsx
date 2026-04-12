@@ -247,7 +247,7 @@ export function ProjectsPage() {
     [pipelineAssignment?.pipeline_id, savedPipelines],
   );
 
-  const heroStats = useMemo(
+  const headerStats = useMemo(
     () => [
       { label: 'Board columns', value: String(transformedBoardData?.columns.length ?? 0) },
       {
@@ -329,7 +329,7 @@ export function ProjectsPage() {
             ? `${selectedProject.owner_login}/${selectedProject.name}`
             : 'Awaiting project'
         }
-        stats={heroStats}
+        stats={headerStats}
         actions={
           <>
             <Button variant="default" size="lg" asChild>
