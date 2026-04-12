@@ -78,6 +78,83 @@ Replace the oversized catalog hero treatment on six Solune frontend pages with t
 
 **Structure Decision**: Use the existing frontend web-app structure centered on `/home/runner/work/solune/solune/solune/frontend/src`. This feature touches a shared presentational component, six page containers, existing component/page tests, and one shared stylesheet; there is no need for backend, storage, or new package/module boundaries.
 
+## Implementation Phases
+
+### Phase 0 — Confirm baseline and shared contract
+
+1. Verify the shared `CompactPageHeader` prop contract in `/home/runner/work/solune/solune/solune/frontend/src/components/common/CompactPageHeader.tsx` matches the spec (`eyebrow`, `title`, `description`, `badge`, `stats`, `actions`, `className`, and no `note` prop).
+2. Confirm the existing component test coverage in `/home/runner/work/solune/solune/solune/frontend/src/components/common/CompactPageHeader.test.tsx` covers compact rendering, mobile stats toggle behavior, and clean omission of optional regions.
+3. Audit the affected page files so each page’s current hero data can be mapped directly into the shared header props without changing page logic.
+
+**Dependencies**: Feature spec, current component implementation, existing component tests.  
+**Exit Criteria**: Shared header contract is validated and page-specific header inputs are known.
+
+### Phase 1 — Finalize shared component behavior
+
+1. Keep the compact header as the only shared page-header implementation for this rollout.
+2. Ensure the component preserves the spec-required behavior:
+   - compact desktop footprint (~80–100px target),
+   - no decorative hero visuals,
+   - single-line description with expand-on-hover behavior,
+   - mobile stats hidden behind a toggle by default,
+   - graceful omission of empty `badge`, `stats`, and `actions`.
+3. Extend or adjust component tests only if a spec requirement is not already covered.
+
+**Dependencies**: Phase 0 contract verification.  
+**Exit Criteria**: Shared component behavior is fully aligned with `FR-001` through `FR-009`.
+
+### Phase 2 — Migrate all six pages to the shared header
+
+1. Replace page-specific hero usage in:
+   - `/home/runner/work/solune/solune/solune/frontend/src/pages/ProjectsPage.tsx`
+   - `/home/runner/work/solune/solune/solune/frontend/src/pages/AgentsPage.tsx`
+   - `/home/runner/work/solune/solune/solune/frontend/src/pages/AgentsPipelinePage.tsx`
+   - `/home/runner/work/solune/solune/solune/frontend/src/pages/ToolsPage.tsx`
+   - `/home/runner/work/solune/solune/solune/frontend/src/pages/ChoresPage.tsx`
+   - `/home/runner/work/solune/solune/solune/frontend/src/pages/HelpPage.tsx`
+2. Map each page’s existing eyebrow/title/description/badge/stats/actions into `CompactPageHeader` props.
+3. Remove any leftover `note`/“Current Ritual” wiring while preserving existing page actions, data fetching, filtering, and navigation behavior.
+4. Update or keep page-level tests/mocks in place where pages explicitly reference the shared header component.
+
+**Dependencies**: Phase 1 shared component behavior is stable.  
+**Exit Criteria**: All six pages use the same header contract and preserve existing interactive behavior (`FR-012`).
+
+### Phase 3 — Clean up dead hero code and scoped styles
+
+1. Delete `CelestialCatalogHero` implementation and any dedicated tests only after all page migrations are complete.
+2. Remove hero-specific selectors from `/home/runner/work/solune/solune/solune/frontend/src/index.css`.
+3. Re-run code search before deleting shared-looking CSS classes to confirm `.moonwell`, `.hanging-stars`, and reusable `celestial-*` utilities are not orphaned by this feature.
+
+**Dependencies**: Phase 2 complete so cleanup does not break active pages.  
+**Exit Criteria**: No remaining `CelestialCatalogHero` references and no unsafe shared-style deletions.
+
+### Phase 4 — Verification and smoke testing
+
+1. Run frontend validation from `/home/runner/work/solune/solune/solune/frontend`:
+   - `npm run test`
+   - `npm run lint`
+   - `npm run type-check`
+2. Perform browser/manual verification across the six pages on desktop and a mobile viewport:
+   - compact header visible,
+   - stats chips inline on larger screens,
+   - stats toggle on mobile,
+   - actions still usable,
+   - no decorative hero remnants.
+3. Capture any regressions in component/page tests before implementation is considered complete.
+
+**Dependencies**: Phases 1–3 complete.  
+**Exit Criteria**: `SC-004` through `SC-008` satisfied with no regressions.
+
+## Dependency Order
+
+```text
+Phase 0: Baseline + contract confirmation
+  -> Phase 1: Shared component alignment
+      -> Phase 2: Six-page migration
+          -> Phase 3: Dead code / CSS cleanup
+              -> Phase 4: Validation + smoke test
+```
+
 ## Complexity Tracking
 
 No constitution violations or extra complexity require justification for this planning phase.
