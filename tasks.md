@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/001-simplify-page-headers/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/compact-page-header-api.yaml, quickstart.md
 
-**Tests**: Not explicitly requested in the feature specification. Test tasks are omitted per the Task Optionality principle. Existing `CelestialCatalogHero.test.tsx` is deleted and replaced with `CompactPageHeader.test.tsx` to maintain current coverage.
+**Tests**: Additional integration or e2e test tasks are not included since they were not explicitly requested in the feature specification. However, T002 creates `CompactPageHeader.test.tsx` to maintain coverage parity with the deleted `CelestialCatalogHero.test.tsx`.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. User stories US1 (compact header), US2 (stat chips), US5 (no decorations), and US6 (consistency) are addressed together by the component creation and page migration phases since they are inherently coupled — the compact header component satisfies all four simultaneously. US3 (description subtitle) and US4 (mobile stats toggle) are specific component behaviors implemented in Phase 2.
 
@@ -123,8 +123,8 @@
 - **Setup (Phase 1)**: No dependencies — can start immediately
 - **Foundational (Phase 2)**: Depends on T001 (component file exists) — builds behaviors into CompactPageHeader
 - **User Story 1/2/5/6 (Phase 3)**: Depends on Phase 2 completion — all page migrations are parallel
-- **User Story 3 (Phase 4)**: Depends on Phase 3 — verification of description behavior on live pages
-- **User Story 4 (Phase 5)**: Depends on Phase 3 — verification of mobile toggle on live pages
+- **User Story 3 (Phase 4)**: Depends on Phase 3 — verification of description behavior on live pages (can run in parallel with Phase 5)
+- **User Story 4 (Phase 5)**: Depends on Phase 3 — verification of mobile toggle on live pages (can run in parallel with Phase 4)
 - **Clean Up (Phase 6)**: Depends on Phases 3, 4, 5 — all pages migrated before deleting old component
 - **Polish (Phase 7)**: Depends on Phase 6 — full verification after all changes complete
 
