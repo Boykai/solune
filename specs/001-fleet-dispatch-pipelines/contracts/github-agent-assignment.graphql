@@ -1,0 +1,38 @@
+# GitHub GraphQL contract used by the planned fleet-dispatch CLI.
+# Required header:
+#   GraphQL-Features: issues_copilot_assignment_api_support,coding_agent_model_selection
+
+mutation FleetDispatchAssignAgent(
+  $issueId: ID!
+  $assigneeIds: [ID!]!
+  $repoId: ID!
+  $baseRef: String!
+  $customInstructions: String!
+  $customAgent: String!
+  $model: String!
+) {
+  addAssigneesToAssignable(
+    input: {
+      assignableId: $issueId
+      assigneeIds: $assigneeIds
+      agentAssignment: {
+        targetRepositoryId: $repoId
+        baseRef: $baseRef
+        customInstructions: $customInstructions
+        customAgent: $customAgent
+        model: $model
+      }
+    }
+  ) {
+    assignable {
+      ... on Issue {
+        id
+        assignees(first: 10) {
+          nodes {
+            login
+          }
+        }
+      }
+    }
+  }
+}
