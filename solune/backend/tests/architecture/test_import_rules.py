@@ -73,8 +73,8 @@ class TestApiBoundary:
     # Pre-existing api → _store imports (legacy; do not add new ones)
     _API_STORE_ALLOWLIST: typing.ClassVar[set[tuple[str, str]]] = {
         ("src/api/mcp.py", "src.services.mcp_store"),
-        ("src/api/chat.py", "src.services.settings_store"),
-        ("src/api/chat.py", "src.services.chat_store"),
+        # chat package sub-modules (split from monolithic chat.py)
+        ("src/api/chat/proposals.py", "src.services.settings_store"),
         ("src/api/settings.py", "src.services.settings_store"),
         ("src/api/board.py", "src.services.done_items_store"),
         ("src/api/pipelines.py", "src.services.settings_store"),

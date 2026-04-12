@@ -173,7 +173,7 @@ class TestSendMessageFeatureRequest:
         mock_chat_agent_service.run_plan.return_value = plan_response
 
         with patch(
-            "src.api.chat._resolve_repository",
+            "src.api.chat.messages._resolve_repository",
             new=AsyncMock(return_value=("octocat", "hello-world")),
         ):
             resp = await client.post(
@@ -203,8 +203,8 @@ class TestSendMessageFeatureRequest:
     async def test_ai_not_configured(self, client, mock_session, mock_ai_agent_service):
         mock_session.selected_project_id = "PVT_1"
         with (
-            patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")),
-            patch("src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")),
+            patch("src.api.chat.messages.get_ai_agent_service", side_effect=ValueError("not configured")),
+            patch("src.api.chat.messages.get_chat_agent_service", side_effect=ValueError("not configured")),
         ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
@@ -387,7 +387,7 @@ class TestSendMessageTaskGeneration:
         mock_ai_agent_service.parse_status_change_request.return_value = None
         mock_ai_agent_service.generate_title_from_description.return_value = "Some task"
 
-        with patch("src.api.chat.AITaskProposal", side_effect=RuntimeError("storage failed")):
+        with patch("src.api.chat.messages.AITaskProposal", side_effect=RuntimeError("storage failed")):
             resp = await client.post(
                 "/api/v1/chat/messages",
                 json={"content": "some task", "ai_enhance": False},
@@ -437,7 +437,7 @@ class TestSendMessageTaskGeneration:
         mock_session.selected_project_id = "PVT_1"
         user_input = "Investigate why the login flow gets stuck after redirect"
 
-        with patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")):
+        with patch("src.api.chat.messages.get_ai_agent_service", side_effect=ValueError("not configured")):
             resp = await client.post(
                 "/api/v1/chat/messages",
                 json={"content": user_input, "ai_enhance": False},
@@ -498,7 +498,7 @@ class TestSendMessageStream:
         mock_chat_agent_service.run_plan_stream = MagicMock(return_value=stream_events())
 
         with patch(
-            "src.api.chat._resolve_repository",
+            "src.api.chat.streaming._resolve_repository",
             new=AsyncMock(return_value=("octocat", "hello-world")),
         ):
             resp = await client.post(
@@ -648,7 +648,7 @@ class TestPlanModeEndpoints:
         mock_chat_agent_service.run_plan.return_value = agent_response
 
         with patch(
-            "src.api.chat._resolve_repository",
+            "src.api.chat.plans._resolve_repository",
             new=AsyncMock(return_value=("octocat", "hello-world")),
         ):
             expected_db = chat_mod.get_db()
@@ -694,10 +694,10 @@ class TestPlanModeEndpoints:
 
         with (
             patch(
-                "src.api.chat._resolve_repository",
+                "src.api.chat.plans._resolve_repository",
                 new=AsyncMock(return_value=("octocat", "hello-world")),
             ),
-            patch("src.api.chat.get_chat_agent_service", side_effect=RuntimeError("offline")),
+            patch("src.api.chat.plans.get_chat_agent_service", side_effect=RuntimeError("offline")),
         ):
             resp = await client.post(
                 "/api/v1/chat/messages/plan",
@@ -748,7 +748,7 @@ class TestPlanModeEndpoints:
         mock_chat_agent_service.run_plan_stream = MagicMock(return_value=stream_events())
 
         with patch(
-            "src.api.chat._resolve_repository",
+            "src.api.chat.streaming._resolve_repository",
             new=AsyncMock(return_value=("octocat", "hello-world")),
         ):
             resp = await client.post(
@@ -789,10 +789,10 @@ class TestPlanModeEndpoints:
 
         with (
             patch(
-                "src.api.chat._resolve_repository",
+                "src.api.chat.streaming._resolve_repository",
                 new=AsyncMock(return_value=("octocat", "hello-world")),
             ),
-            patch("src.api.chat.get_chat_agent_service", side_effect=RuntimeError("offline")),
+            patch("src.api.chat.streaming.get_chat_agent_service", side_effect=RuntimeError("offline")),
         ):
             resp = await client.post(
                 "/api/v1/chat/messages/plan/stream",
@@ -838,11 +838,11 @@ class TestPlanModeEndpoints:
 
         with (
             patch(
-                "src.api.chat._resolve_repository",
+                "src.api.chat.streaming._resolve_repository",
                 new=AsyncMock(return_value=("octocat", "hello-world")),
             ),
             patch(
-                "src.api.chat.add_message",
+                "src.api.chat.messages.add_message",
                 new=AsyncMock(side_effect=[None, RuntimeError("db unavailable")]),
             ),
         ):
@@ -861,7 +861,7 @@ class TestTranscriptHelpers:
     async def test_handle_transcript_upload_returns_none_without_files(
         self, mock_session, mock_ai_agent_service
     ):
-        from src.api.chat import _handle_transcript_upload
+        from src.api.chat.messages import _handle_transcript_upload
 
         result = await _handle_transcript_upload(
             mock_session,
@@ -877,7 +877,7 @@ class TestTranscriptHelpers:
     async def test_handle_transcript_upload_success_with_metadata_fallback(
         self, mock_session, mock_ai_agent_service
     ):
-        from src.api.chat import _handle_transcript_upload
+        from src.api.chat.messages import _handle_transcript_upload
 
         upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -902,15 +902,15 @@ class TestTranscriptHelpers:
                     return_value=SimpleNamespace(is_transcript=True),
                 ),
                 patch(
-                    "src.api.chat._resolve_repository",
+                    "src.api.chat.messages._resolve_repository",
                     new=AsyncMock(side_effect=RuntimeError("no repo")),
                 ),
                 patch(
-                    "src.api.chat.store_recommendation",
+                    "src.api.chat.messages.store_recommendation",
                     new=AsyncMock(side_effect=capture_recommendation),
                 ),
-                patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
-                patch("src.api.chat._trigger_signal_delivery") as trigger_signal,
+                patch("src.api.chat.messages.add_message", new_callable=AsyncMock) as add_message,
+                patch("src.api.chat.messages._trigger_signal_delivery") as trigger_signal,
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
@@ -943,7 +943,7 @@ class TestTranscriptHelpers:
     async def test_handle_transcript_upload_returns_error_message_when_analysis_fails(
         self, mock_session, mock_ai_agent_service
     ):
-        from src.api.chat import _handle_transcript_upload
+        from src.api.chat.messages import _handle_transcript_upload
 
         upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -959,13 +959,13 @@ class TestTranscriptHelpers:
                     return_value=SimpleNamespace(is_transcript=True),
                 ),
                 patch(
-                    "src.api.chat._resolve_repository",
+                    "src.api.chat.messages._resolve_repository",
                     new=AsyncMock(return_value=("octocat", "hello-world")),
                 ),
                 patch(
-                    "src.api.chat.store_recommendation", new_callable=AsyncMock
+                    "src.api.chat.messages.store_recommendation", new_callable=AsyncMock
                 ) as store_recommendation,
-                patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
+                patch("src.api.chat.messages.add_message", new_callable=AsyncMock) as add_message,
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
@@ -986,7 +986,7 @@ class TestTranscriptHelpers:
     async def test_handle_transcript_upload_skips_oversized_files(
         self, mock_session, mock_ai_agent_service
     ):
-        from src.api.chat import _handle_transcript_upload
+        from src.api.chat.messages import _handle_transcript_upload
 
         upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -997,7 +997,7 @@ class TestTranscriptHelpers:
         try:
             with (
                 patch(
-                    "src.api.chat.MAX_FILE_SIZE_BYTES",
+                    "src.api.chat.messages.MAX_FILE_SIZE_BYTES",
                     TEST_MAX_FILE_SIZE_BYTES,
                 ),
                 patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
@@ -1017,7 +1017,7 @@ class TestTranscriptHelpers:
         mock_ai_agent_service.analyze_transcript.assert_not_called()
 
     async def test_extract_transcript_content_returns_first_detected_transcript(self):
-        from src.api.chat import _extract_transcript_content
+        from src.api.chat.messages import _extract_transcript_content
 
         upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -1050,7 +1050,7 @@ class TestTranscriptHelpers:
         assert result == "WEBVTT\n\n00:00.000 --> 00:01.000\nHello"
 
     async def test_extract_transcript_content_skips_oversized_files(self):
-        from src.api.chat import _extract_transcript_content
+        from src.api.chat.messages import _extract_transcript_content
 
         upload_dir = Path(tempfile.gettempdir()) / "chat-uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -1061,7 +1061,7 @@ class TestTranscriptHelpers:
         try:
             with (
                 patch(
-                    "src.api.chat.MAX_FILE_SIZE_BYTES",
+                    "src.api.chat.messages.MAX_FILE_SIZE_BYTES",
                     TEST_MAX_FILE_SIZE_BYTES,
                 ),
                 patch("src.services.transcript_detector.detect_transcript") as detect_transcript,
@@ -1306,10 +1306,10 @@ class TestConfirmProposal:
 
         # Patch workflow functions to avoid side effects
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1389,7 +1389,7 @@ class TestResolveRepository:
     """Direct tests for _resolve_repository covering all fallback branches."""
 
     async def test_no_project_selected_raises(self):
-        from src.api.chat import _resolve_repository
+        from src.api.chat.messages import _resolve_repository
         from src.exceptions import ValidationError
 
         session = UserSession(
@@ -1402,7 +1402,7 @@ class TestResolveRepository:
             await _resolve_repository(session)
 
     async def test_project_repository_found(self):
-        from src.api.chat import _resolve_repository
+        from src.api.chat.messages import _resolve_repository
 
         session = UserSession(
             github_user_id="1",
@@ -1417,7 +1417,7 @@ class TestResolveRepository:
         assert result == ("owner", "repo")
 
     async def test_workflow_config_fallback(self):
-        from src.api.chat import _resolve_repository
+        from src.api.chat.messages import _resolve_repository
 
         session = UserSession(
             github_user_id="1",
@@ -1440,7 +1440,7 @@ class TestResolveRepository:
         assert result == ("wf_owner", "wf_repo")
 
     async def test_settings_default_fallback(self):
-        from src.api.chat import _resolve_repository
+        from src.api.chat.messages import _resolve_repository
 
         session = UserSession(
             github_user_id="1",
@@ -1466,7 +1466,7 @@ class TestResolveRepository:
         assert result == ("def_owner", "def_repo")
 
     async def test_all_fallbacks_fail_raises(self):
-        from src.api.chat import _resolve_repository
+        from src.api.chat.messages import _resolve_repository
         from src.exceptions import ValidationError
 
         session = UserSession(
@@ -1495,22 +1495,22 @@ class TestRetryPersist:
     async def test_retries_transient_operational_errors_then_succeeds(self):
         import sqlite3
 
-        from src.api.chat import _PERSIST_BASE_DELAY, _retry_persist
+        from src.api.chat.messages import _PERSIST_BASE_DELAY, _retry_persist
 
         persist = AsyncMock(side_effect=[sqlite3.OperationalError("locked"), None])
 
-        with patch("src.api.chat.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("src.api.chat.messages.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await _retry_persist(persist, context="message:test")
 
         assert persist.await_count == 2
         mock_sleep.assert_awaited_once_with(_PERSIST_BASE_DELAY)
 
     async def test_non_transient_errors_fail_fast(self):
-        from src.api.chat import _retry_persist
+        from src.api.chat.messages import _retry_persist
 
         persist = AsyncMock(side_effect=RuntimeError("boom"))
 
-        with patch("src.api.chat.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("src.api.chat.messages.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(RuntimeError, match="boom"):
                 await _retry_persist(persist, context="message:test")
 
@@ -1519,12 +1519,12 @@ class TestRetryPersist:
     async def test_exhausted_transient_errors_raise_persistence_error(self):
         import sqlite3
 
-        from src.api.chat import _PERSIST_MAX_RETRIES, _retry_persist
+        from src.api.chat.messages import _PERSIST_MAX_RETRIES, _retry_persist
         from src.exceptions import PersistenceError
 
         persist = AsyncMock(side_effect=sqlite3.OperationalError("locked"))
 
-        with patch("src.api.chat.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+        with patch("src.api.chat.messages.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             with pytest.raises(PersistenceError, match="Failed to persist message:test"):
                 await _retry_persist(persist, context="message:test")
 
@@ -1534,7 +1534,7 @@ class TestRetryPersist:
 
 class TestPostProcessAgentResponse:
     async def test_task_create_uses_user_content_when_description_is_missing(self, mock_session):
-        from src.api.chat import _post_process_agent_response
+        from src.api.chat.messages import _post_process_agent_response
         from src.models.chat import ActionType, ChatMessage, SenderType
 
         captured: dict[str, AITaskProposal] = {}
@@ -1550,7 +1550,7 @@ class TestPostProcessAgentResponse:
             action_data={"proposed_title": "Fix login redirect loop"},
         )
 
-        with patch("src.api.chat.store_proposal", new=AsyncMock(side_effect=capture)):
+        with patch("src.api.chat.messages.store_proposal", new=AsyncMock(side_effect=capture)):
             result = await _post_process_agent_response(
                 session=mock_session,
                 message=message,
@@ -1701,10 +1701,10 @@ class TestConfirmProposalEdgeCases:
         mock_github_service.add_issue_to_project.return_value = "PVTI_20"
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1744,10 +1744,10 @@ class TestConfirmProposalEdgeCases:
         mock_github_service.add_issue_to_project.return_value = "PVTI_21"
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1789,10 +1789,10 @@ class TestConfirmProposalEdgeCases:
         }
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=["easy"]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=["easy"]),
             patch(
                 "src.services.workflow_orchestrator.config.load_pipeline_as_agent_mappings",
                 new_callable=AsyncMock,
@@ -1876,10 +1876,10 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_30"
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -1916,10 +1916,10 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_31"
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -2020,10 +2020,10 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_32"
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
         ):
             mock_orch.return_value.assign_agent_for_status = AsyncMock()
             mock_orch.return_value.create_all_sub_issues = AsyncMock(return_value=[])
@@ -2103,10 +2103,10 @@ class TestConfirmProposalFallbacks:
                 "src.config.get_settings",
                 return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
             ),
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
             patch(
                 "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
                 new_callable=AsyncMock,
@@ -2183,15 +2183,15 @@ class TestConfirmProposalFallbacks:
                 return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
             ),
             patch(
-                "src.api.chat.get_workflow_config",
+                "src.api.chat.proposals.get_workflow_config",
                 new_callable=AsyncMock,
                 return_value=existing_config,
             ),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=["copilot-swe-agent"]),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=["copilot-swe-agent"]),
             patch(
-                "src.api.chat.get_effective_user_settings",
+                "src.api.chat.proposals.get_effective_user_settings",
                 new_callable=AsyncMock,
                 return_value=effective_settings,
             ),
@@ -2261,10 +2261,10 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
             patch(
                 "src.services.workflow_orchestrator.config.load_pipeline_as_agent_mappings",
                 new_callable=AsyncMock,
@@ -2331,10 +2331,10 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=["copilot-swe-agent"]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=["copilot-swe-agent"]),
             patch(
                 "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
                 new_callable=AsyncMock,
@@ -2402,10 +2402,10 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.set_workflow_config", new_callable=AsyncMock),
-            patch("src.api.chat.get_workflow_orchestrator") as mock_orch,
-            patch("src.api.chat.get_agent_slugs", return_value=[]),
+            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
+            patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
             patch(
                 "src.services.workflow_orchestrator.config.resolve_project_pipeline_mappings",
                 new_callable=AsyncMock,
@@ -2520,7 +2520,7 @@ class TestErrorMessageSanitization:
 
         with (
             patch(
-                "src.api.chat.resolve_repository", new_callable=AsyncMock, return_value=("o", "r")
+                "src.api.chat.messages.resolve_repository", new_callable=AsyncMock, return_value=("o", "r")
             ),
         ):
             resp = await client.post(
@@ -2584,7 +2584,7 @@ class TestUploadFilePathTraversal:
 
 class TestUploadFileValidationDirect:
     async def test_missing_filename_returns_no_file_error(self, mock_session):
-        from src.api.chat import upload_file
+        from src.api.chat.messages import upload_file
 
         resp = await upload_file(file=_make_upload_file(None, b"hello"), session=mock_session)
 
@@ -2597,7 +2597,7 @@ class TestUploadFileValidationDirect:
         }
 
     async def test_unknown_extension_is_rejected(self, mock_session):
-        from src.api.chat import upload_file
+        from src.api.chat.messages import upload_file
 
         resp = await upload_file(
             file=_make_upload_file("notes.xyz", b"hello"), session=mock_session
@@ -2608,7 +2608,7 @@ class TestUploadFileValidationDirect:
         assert json.loads(resp.body)["error_code"] == "unsupported_type"
 
     async def test_empty_file_is_rejected(self, mock_session):
-        from src.api.chat import upload_file
+        from src.api.chat.messages import upload_file
 
         resp = await upload_file(file=_make_upload_file("notes.txt", b""), session=mock_session)
 
@@ -2617,9 +2617,9 @@ class TestUploadFileValidationDirect:
         assert json.loads(resp.body)["error_code"] == "empty_file"
 
     async def test_oversized_file_is_rejected(self, mock_session):
-        from src.api.chat import upload_file
+        from src.api.chat.messages import upload_file
 
-        with patch("src.api.chat.MAX_FILE_SIZE_BYTES", 4):
+        with patch("src.api.chat.messages.MAX_FILE_SIZE_BYTES", 4):
             resp = await upload_file(
                 file=_make_upload_file("notes.txt", b"12345"),
                 session=mock_session,
@@ -2630,7 +2630,7 @@ class TestUploadFileValidationDirect:
         assert json.loads(resp.body)["error_code"] == "file_too_large"
 
     async def test_missing_content_type_defaults_to_octet_stream(self, mock_session):
-        from src.api.chat import upload_file
+        from src.api.chat.messages import upload_file
 
         resp = await upload_file(
             file=_make_upload_file("notes.txt", b"hello", content_type=None),
@@ -2647,7 +2647,7 @@ class TestUploadFileValidationDirect:
             stored_path.unlink(missing_ok=True)
 
     async def test_invalid_resolved_path_is_rejected(self, mock_session):
-        import src.api.chat as chat_mod
+        import src.api.chat.messages as chat_mod
 
         with patch.object(
             chat_mod.Path,

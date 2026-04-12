@@ -145,8 +145,8 @@ async def e2e_app(
             return_value=_MOCK_GITHUB_USER,
         ),
         # ── AI / chat agent services ──
-        patch("src.api.chat.get_ai_agent_service", return_value=mock_ai_agent_service),
-        patch("src.api.chat.get_chat_agent_service", return_value=mock_chat_agent_service),
+        patch("src.api.chat.messages.get_ai_agent_service", return_value=mock_ai_agent_service),
+        patch("src.api.chat.messages.get_chat_agent_service", return_value=mock_chat_agent_service),
         # ── WebSocket connection_manager ──
         patch("src.api.projects.connection_manager", mock_connection_manager),
         patch("src.api.tasks.connection_manager", mock_connection_manager),
