@@ -163,8 +163,8 @@
 
 ### Implementation for User Story 5
 
-- [ ] T064 [US5] Update `solune/backend/src/api/chat.py` (or sub-modules after US1 split) — replace all direct access to module-level `_messages`, `_proposals`, `_recommendations`, `_locks` dicts with calls to `ChatStateManager` methods via `Depends(get_chat_state_manager)` (FR-005)
-- [ ] T065 [US5] Remove module-level global state declarations from `solune/backend/src/api/chat.py` (or chat sub-modules after US1 split) — delete `_messages: dict = {}`, `_proposals: dict = {}`, `_recommendations: dict = {}`, `_locks: dict = {}` and their standalone accessor functions after all references use `ChatStateManager`
+- [ ] T064 [US5] Update chat package sub-modules (`solune/backend/src/api/chat/conversations.py`, `messages.py`, `proposals.py`, `plans.py`, `streaming.py`) — replace all direct access to module-level `_messages`, `_proposals`, `_recommendations`, `_locks` dicts with calls to `ChatStateManager` methods via `Depends(get_chat_state_manager)` (FR-005)
+- [ ] T065 [US5] Remove module-level global state declarations from chat package sub-modules (`solune/backend/src/api/chat/conversations.py`, `messages.py`, `proposals.py`, `streaming.py`) — delete `_messages: dict = {}`, `_proposals: dict = {}`, `_recommendations: dict = {}`, `_locks: dict = {}` and their standalone accessor functions after all references use `ChatStateManager`
 - [ ] T066 [US5] Update `solune/backend/src/main.py` lifespan shutdown — add explicit `ChatStateManager` cleanup via `app.state.chat_state_manager` clear methods during application shutdown
 - [ ] T067 [US5] Verify ChatStateManager integration: `cd solune/backend && python -m pytest tests/ -x -q`
 
@@ -354,3 +354,4 @@ Backend and frontend tracks are fully independent after Phase 1.
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Test patch paths: after package splits, patch at the sub-module level where the name is used, not the barrel re-export
+- Frontend type imports: domain type files (e.g., `chat.ts`) must import from sibling files directly (`import { X } from './proposals'`), never through the barrel `index.ts`, to avoid circular dependencies
