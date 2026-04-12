@@ -13,6 +13,10 @@ import json
 from typing import Any
 
 from src.logging_utils import get_logger
+from src.services.workflow_orchestrator.config import (
+    build_pipeline_stages_from_fleet_config,
+    load_fleet_dispatch_config,
+)
 
 logger = get_logger(__name__)
 
@@ -21,25 +25,41 @@ logger = get_logger(__name__)
 # Pipeline stage definition
 # ---------------------------------------------------------------------------
 
+def _default_pipeline_stages() -> list[dict[str, Any]]:
+    """Load default pipeline stages from the shared fleet-dispatch contract."""
+
+    try:
+        return build_pipeline_stages_from_fleet_config(load_fleet_dispatch_config())
+    except Exception:
+        logger.warning("Failed to load shared fleet-dispatch config; using legacy fallback")
+        return [
+            {"name": "speckit.specify", "agent": "speckit.specify", "group": 1, "parallel": False},
+            {"name": "speckit.plan", "agent": "speckit.plan", "group": 1, "parallel": False},
+            {"name": "speckit.tasks", "agent": "speckit.tasks", "group": 1, "parallel": False},
+            {"name": "speckit.analyze", "agent": "speckit.analyze", "group": 1, "parallel": False},
+            {
+                "name": "speckit.implement",
+                "agent": "speckit.implement",
+                "group": 1,
+                "parallel": False,
+            },
+            {
+                "name": "quality-assurance",
+                "agent": "quality-assurance",
+                "group": 2,
+                "parallel": True,
+            },
+            {"name": "tester", "agent": "tester", "group": 2, "parallel": True},
+            {"name": "copilot-review", "agent": "copilot-review", "group": 2, "parallel": True},
+            {"name": "judge", "agent": "judge", "group": 3, "parallel": True},
+            {"name": "linter", "agent": "linter", "group": 3, "parallel": True},
+            {"name": "devops", "agent": "devops", "group": 4, "parallel": False},
+        ]
+
+
 # Each group runs serially between groups; agents within a group marked
 # ``parallel=True`` run concurrently via asyncio.gather().
-PIPELINE_STAGES: list[dict[str, Any]] = [
-    # Group 1 — speckit core (serial)
-    {"name": "specify", "agent": "solune-specify", "group": 1, "parallel": False},
-    {"name": "plan", "agent": "solune-plan", "group": 1, "parallel": False},
-    {"name": "tasks", "agent": "solune-tasks", "group": 1, "parallel": False},
-    {"name": "analyze", "agent": "solune-analyze", "group": 1, "parallel": False},
-    {"name": "implement", "agent": "solune-implement", "group": 1, "parallel": False},
-    # Group 2 — quality assurance (parallel)
-    {"name": "quality-assurance", "agent": "solune-analyze", "group": 2, "parallel": True},
-    {"name": "tester", "agent": "solune-analyze", "group": 2, "parallel": True},
-    {"name": "copilot-review", "agent": "solune-analyze", "group": 2, "parallel": True},
-    # Group 3 — judgment + linting (parallel)
-    {"name": "judge", "agent": "solune-analyze", "group": 3, "parallel": True},
-    {"name": "linter", "agent": "solune-analyze", "group": 3, "parallel": True},
-    # Group 4 — devops (serial)
-    {"name": "devops", "agent": "solune-implement", "group": 4, "parallel": False},
-]
+PIPELINE_STAGES: list[dict[str, Any]] = _default_pipeline_stages()
 
 
 class StageResult:

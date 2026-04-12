@@ -1,0 +1,181 @@
+{
+  "$schema": "./pipeline-config.schema.json",
+  "version": "1",
+  "name": "Fleet Dispatch Agent Pipeline",
+  "repository": {
+    "owner": "Boykai",
+    "name": "solune"
+  },
+  "defaults": {
+    "baseRef": "main",
+    "errorStrategy": "continue",
+    "pollIntervalSeconds": 30,
+    "taskTimeoutSeconds": 1800
+  },
+  "groups": [
+    {
+      "id": "group-1",
+      "name": "Speckit Core",
+      "order": 1,
+      "executionMode": "serial",
+      "agents": [
+        {
+          "slug": "speckit.specify",
+          "displayName": "Spec Kit - Specify",
+          "customAgent": "speckit.specify",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/speckit.specify.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["speckit", "pipeline"]
+          }
+        },
+        {
+          "slug": "speckit.plan",
+          "displayName": "Spec Kit - Plan",
+          "customAgent": "speckit.plan",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/speckit.plan.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["speckit", "pipeline"]
+          }
+        },
+        {
+          "slug": "speckit.tasks",
+          "displayName": "Spec Kit - Tasks",
+          "customAgent": "speckit.tasks",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/speckit.tasks.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["speckit", "pipeline"]
+          }
+        },
+        {
+          "slug": "speckit.analyze",
+          "displayName": "Spec Kit - Analyze",
+          "customAgent": "speckit.analyze",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/speckit.analyze.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["speckit", "pipeline"]
+          }
+        },
+        {
+          "slug": "speckit.implement",
+          "displayName": "Spec Kit - Implement",
+          "customAgent": "speckit.implement",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/speckit.implement.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["speckit", "pipeline"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "group-2",
+      "name": "Quality Gate",
+      "order": 2,
+      "executionMode": "parallel",
+      "agents": [
+        {
+          "slug": "quality-assurance",
+          "displayName": "Quality Assurance",
+          "customAgent": "quality-assurance",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/quality-assurance.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["quality", "pipeline"]
+          }
+        },
+        {
+          "slug": "tester",
+          "displayName": "Tester",
+          "customAgent": "tester",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/tester.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["quality", "pipeline"]
+          }
+        },
+        {
+          "slug": "copilot-review",
+          "displayName": "Copilot Review",
+          "customAgent": "copilot-review",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/copilot-review.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["quality", "pipeline"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "group-3",
+      "name": "Judgement",
+      "order": 3,
+      "executionMode": "parallel",
+      "agents": [
+        {
+          "slug": "judge",
+          "displayName": "Judge",
+          "customAgent": "judge",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/judge.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["ops", "pipeline"]
+          }
+        },
+        {
+          "slug": "linter",
+          "displayName": "Linter",
+          "customAgent": "linter",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/linter.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["ops", "pipeline"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "group-4",
+      "name": "DevOps",
+      "order": 4,
+      "executionMode": "serial",
+      "agents": [
+        {
+          "slug": "devops",
+          "displayName": "DevOps",
+          "customAgent": "devops",
+          "model": "claude-opus-4.6",
+          "instructionTemplate": "solune/scripts/pipelines/templates/devops.md",
+          "retryable": true,
+          "subIssue": {
+            "title": "[Fleet] {{AGENT_DISPLAY_NAME}} for #{{PARENT_ISSUE_NUMBER}} — {{PARENT_ISSUE_TITLE}}",
+            "labels": ["ops", "pipeline"]
+          }
+        }
+      ]
+    }
+  ]
+}
