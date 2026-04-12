@@ -113,11 +113,16 @@ describe('CompactPageHeader', () => {
 
   it('toggles stats visibility on mobile when toggle is clicked', () => {
     const stats = [{ label: 'Count', value: '5' }];
-    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
     const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+    const statsContainer = container.querySelector(
+      `#${CSS.escape(toggleBtn.getAttribute('aria-controls')!)}`
+    );
 
     // Initially mobile stats are hidden (button says "Show stats")
     expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
+    expect(statsContainer).toHaveClass('hidden');
+    expect(statsContainer).toHaveClass('md:flex');
 
     // Click to show
     fireEvent.click(toggleBtn);
@@ -125,6 +130,8 @@ describe('CompactPageHeader', () => {
       'aria-expanded',
       'true',
     );
+    expect(statsContainer).toHaveClass('mt-2');
+    expect(statsContainer).not.toHaveClass('hidden');
 
     // Click to hide again
     fireEvent.click(screen.getByRole('button', { name: /hide stats/i }));
@@ -132,6 +139,7 @@ describe('CompactPageHeader', () => {
       'aria-expanded',
       'false',
     );
+    expect(statsContainer).toHaveClass('hidden');
   });
 
   it('links the mobile toggle button to the stats container via aria-controls', () => {

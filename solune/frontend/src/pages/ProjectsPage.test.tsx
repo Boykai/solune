@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   refetchSavedPipelines: vi.fn(),
   mutate: vi.fn(),
+  compactPageHeader: vi.fn(),
   syncStatus: 'connected' as 'connected' | 'polling' | 'connecting' | 'disconnected',
   savedPipelines: {
     pipelines: [
@@ -177,18 +178,33 @@ vi.mock('@/components/common/CompactPageHeader', () => ({
   CompactPageHeader: ({
     title,
     description,
+    badge,
+    stats = [],
     actions,
   }: {
     title: string;
     description: string;
+    badge?: string;
+    stats?: { label: string; value: string }[];
     actions?: React.ReactNode;
-  }) => (
-    <header>
-      <h2>{title}</h2>
-      <p>{description}</p>
-      <div>{actions}</div>
-    </header>
-  ),
+  }) => {
+    mocks.compactPageHeader({ title, description, badge, stats });
+    return (
+      <header>
+        <h2>{title}</h2>
+        <p>{description}</p>
+        {badge ? <span>{badge}</span> : null}
+        <ul>
+          {stats.map((stat) => (
+            <li key={stat.label}>
+              {stat.label}: {stat.value}
+            </li>
+          ))}
+        </ul>
+        <div>{actions}</div>
+      </header>
+    );
+  },
 }));
 
 vi.mock('@/components/common/CelestialLoadingProgress', () => ({
@@ -244,6 +260,28 @@ describe('ProjectsPage', () => {
     mocks.projectBoard.selectedProjectId = 'PVT_1';
     mocks.projectBoard.selectProject = mocks.selectBoardProject;
     mocks.syncStatus = 'connected';
+  });
+
+  it('passes the selected project badge and board stats into the compact header', () => {
+    render(<ProjectsPage />);
+
+    expect(mocks.compactPageHeader).toHaveBeenCalledWith({
+      title: 'Every project, mapped and moving.',
+      description:
+        'Live Kanban view of your GitHub Project. Filter, sort, and group issues across pipeline stages, then trigger agents directly from the board.',
+      badge: 'Boykai/Solune',
+      stats: [
+        { label: 'Board columns', value: '1' },
+        { label: 'Total items', value: '0' },
+        { label: 'Pipeline', value: 'Spec Kit Flow' },
+        { label: 'Project', value: 'Solune' },
+      ],
+    });
+    expect(screen.getByRole('link', { name: 'View board' })).toHaveAttribute('href', '#board');
+    expect(screen.getByRole('link', { name: 'Pipeline stages' })).toHaveAttribute(
+      'href',
+      '#pipeline-stages',
+    );
   });
 
   it('renders polished status and empty-state controls for filtered views', async () => {
