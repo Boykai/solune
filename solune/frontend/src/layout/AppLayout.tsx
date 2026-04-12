@@ -63,18 +63,24 @@ function SignalBannerBar() {
 export function AppLayout() {
   const { user } = useAuth();
   const { isDarkMode, toggleTheme } = useAppTheme();
-  const { isCollapsed, toggle: toggleSidebar } = useSidebarState();
+  const { isCollapsed, setCollapsed: setSidebarCollapsed, toggle: toggleSidebar } = useSidebarState();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const wasMobileRef = useRef(isMobile);
+  const handledInitialMobileSidebarRef = useRef(false);
 
   // Auto-collapse sidebar when entering mobile breakpoint
   useEffect(() => {
     const wasMobile = wasMobileRef.current;
     wasMobileRef.current = isMobile;
-    if (isMobile && !wasMobile && !isCollapsed) {
-      toggleSidebar();
+
+    const shouldCollapseOnInitialMobileRender =
+      !handledInitialMobileSidebarRef.current && isMobile;
+    handledInitialMobileSidebarRef.current = true;
+
+    if ((shouldCollapseOnInitialMobileRender || (isMobile && !wasMobile)) && !isCollapsed) {
+      setSidebarCollapsed(true);
     }
-  }, [isMobile, isCollapsed, toggleSidebar]);
+  }, [isMobile, isCollapsed, setSidebarCollapsed]);
   const {
     selectedProject,
     projects,

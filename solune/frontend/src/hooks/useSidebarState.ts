@@ -34,6 +34,22 @@ function loadCollapsed(): boolean {
 export function useSidebarState() {
   const [isCollapsed, setIsCollapsed] = useState(loadCollapsed);
 
+  const setCollapsed = useCallback((next: boolean) => {
+    setIsCollapsed((prev) => {
+      if (prev === next) {
+        return prev;
+      }
+
+      try {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      } catch {
+        /* ignore */
+      }
+
+      return next;
+    });
+  }, []);
+
   const toggle = useCallback(() => {
     setIsCollapsed((prev) => {
       const next = !prev;
@@ -46,5 +62,5 @@ export function useSidebarState() {
     });
   }, []);
 
-  return { isCollapsed, toggle };
+  return { isCollapsed, setCollapsed, toggle };
 }

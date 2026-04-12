@@ -5,6 +5,7 @@ import { render, screen } from '@/test/test-utils';
 import { AgentsPipelinePage } from './AgentsPipelinePage';
 import type { PipelineConfigSummary } from '@/types';
 
+const mockCompactPageHeader = vi.hoisted(() => vi.fn());
 const mockInvalidateQueries = vi.fn();
 const mockNewPipeline = vi.fn();
 const mockLoadPipeline = vi.fn();
@@ -222,12 +223,33 @@ vi.mock('@/components/common/ProjectSelectionEmptyState', () => ({
 }));
 
 vi.mock('@/components/common/CompactPageHeader', () => ({
-  CompactPageHeader: ({ title, actions }: { title: string; actions: ReactNode }) => (
-    <header>
-      <h2>{title}</h2>
-      <div>{actions}</div>
-    </header>
-  ),
+  CompactPageHeader: ({
+    title,
+    badge,
+    stats = [],
+    actions,
+  }: {
+    title: string;
+    badge?: string;
+    stats?: { label: string; value: string }[];
+    actions: ReactNode;
+  }) => {
+    mockCompactPageHeader({ title, badge, stats });
+    return (
+      <header>
+        <h2>{title}</h2>
+        {badge ? <span>{badge}</span> : null}
+        <ul>
+          {stats.map((stat) => (
+            <li key={stat.label}>
+              {stat.label}: {stat.value}
+            </li>
+          ))}
+        </ul>
+        <div>{actions}</div>
+      </header>
+    );
+  },
 }));
 
 vi.mock('@/components/ui/tooltip', () => ({
@@ -244,6 +266,26 @@ describe('AgentsPipelinePage', () => {
     vi.clearAllMocks();
     mockPipelineConfig.isDirty = true;
     mockPipelineConfig.boardState = 'editing';
+  });
+
+  it('passes the pipeline summary badge and stats into the compact header', () => {
+    render(<AgentsPipelinePage />);
+
+    expect(mockCompactPageHeader).toHaveBeenCalledWith({
+      title: 'Orchestrate agents across every stage.',
+      badge: 'Boykai/Project Solune',
+      stats: [
+        { label: 'Saved pipelines', value: '0' },
+        { label: 'Active stages', value: '1' },
+        { label: 'Assigned pipeline', value: 'None' },
+        { label: 'Project', value: 'Project Solune' },
+      ],
+    });
+    expect(screen.getByRole('button', { name: 'New pipeline' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Saved workflows' })).toHaveAttribute(
+      'href',
+      '#saved-pipelines',
+    );
   });
 
   it('does not render a Current Pipeline section', () => {

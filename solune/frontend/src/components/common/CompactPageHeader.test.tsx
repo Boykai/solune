@@ -48,6 +48,21 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
   });
 
+  it('uses symmetric desktop grid columns so the badge can stay centered without actions', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} badge="New" />);
+    expect(container.firstElementChild?.firstElementChild).toHaveClass(
+      'md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]'
+    );
+  });
+
+  it('renders the badge in its own centered layout slot', () => {
+    render(<CompactPageHeader {...defaultProps} badge="New" />);
+    expect(screen.getByText('New').parentElement).toHaveClass(
+      'md:col-start-2',
+      'md:justify-self-center'
+    );
+  });
+
   it('does not render a badge element when badge is undefined', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
     const badges = container.querySelectorAll('span.rounded-full');
@@ -83,6 +98,19 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('Add Agent')).toBeInTheDocument();
   });
 
+  it('anchors the actions slot in the trailing desktop grid column', () => {
+    render(
+      <CompactPageHeader
+        {...defaultProps}
+        actions={<button data-testid="header-action">Add Agent</button>}
+      />
+    );
+    expect(screen.getByTestId('header-action').parentElement).toHaveClass(
+      'md:col-start-3',
+      'md:justify-self-end'
+    );
+  });
+
   it('applies line-clamp-1 class to description', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
     const desc = container.querySelector('p.line-clamp-1');
@@ -103,15 +131,21 @@ describe('CompactPageHeader', () => {
     render(<CompactPageHeader {...defaultProps} stats={stats} />);
     const toggleBtn = screen.getByRole('button', { name: /show stats/i });
     expect(toggleBtn).toBeInTheDocument();
+    expect(toggleBtn).toHaveClass('md:hidden');
   });
 
   it('toggles stats visibility on mobile when toggle is clicked', () => {
     const stats = [{ label: 'Count', value: '5' }];
-    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
     const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+    const statsContainer = container.querySelector(
+      `#${CSS.escape(toggleBtn.getAttribute('aria-controls')!)}`
+    );
 
     // Initially mobile stats are hidden (button says "Show stats")
     expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
+    expect(statsContainer).toHaveClass('hidden');
+    expect(statsContainer).toHaveClass('md:flex');
 
     // Click to show
     fireEvent.click(toggleBtn);
@@ -119,6 +153,8 @@ describe('CompactPageHeader', () => {
       'aria-expanded',
       'true',
     );
+    expect(statsContainer).toHaveClass('mt-2');
+    expect(statsContainer).not.toHaveClass('hidden');
 
     // Click to hide again
     fireEvent.click(screen.getByRole('button', { name: /hide stats/i }));
@@ -126,6 +162,7 @@ describe('CompactPageHeader', () => {
       'aria-expanded',
       'false',
     );
+    expect(statsContainer).toHaveClass('hidden');
   });
 
   it('links the mobile toggle button to the stats container via aria-controls', () => {
@@ -137,6 +174,7 @@ describe('CompactPageHeader', () => {
     const statsContainer = container.querySelector(`#${CSS.escape(controlsId!)}`);
     expect(statsContainer).toBeInTheDocument();
     expect(statsContainer).toHaveTextContent('Count');
+    expect(statsContainer).toHaveClass('md:flex');
   });
 
   it('does not render actions zone when actions prop is omitted', () => {
