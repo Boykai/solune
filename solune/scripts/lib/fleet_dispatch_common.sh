@@ -340,17 +340,14 @@ fd_resolve_task_for_agent() {
   jq -r \
     --arg slug "$(printf '%s' "$agent_slug" | tr '[:upper:]' '[:lower:]')" \
     --arg title "$(printf '%s' "$issue_title" | tr '[:upper:]' '[:lower:]')" '
-      . as $all
-      | (
-          map(
-            select(
-              ((.name // "") | ascii_downcase | contains($title))
-              or ((.name // "") | ascii_downcase | contains($slug))
-            )
-          )
-          | sort_by(.createdAt // "")
-          | last
-        ) // ($all | sort_by(.createdAt // "") | last) // empty
+      map(
+        select(
+          ((.name // "") | ascii_downcase | contains($title))
+          or ((.name // "") | ascii_downcase | contains($slug))
+        )
+      )
+      | sort_by(.createdAt // "")
+      | last // empty
       | .id // empty
     ' <<<"$tasks_json"
 }

@@ -306,6 +306,19 @@ dispatch_one_agent() {
   fi
 
   task_id="$(fd_resolve_task_for_agent "$OWNER" "$REPO" "$slug" "$issue_title")"
+  if [[ -z "$task_id" ]]; then
+    build_record \
+      "$(jq -r '.groupId' <<<"$agent_json")" \
+      "$slug" \
+      "$sub_issue_number" \
+      'failed' \
+      "$attempt" \
+      '' \
+      "$dispatch_started_at" \
+      "$(fd_timestamp)" \
+      'Unable to resolve agent task after dispatch'
+    return 1
+  fi
   build_record "$(jq -r '.groupId' <<<"$agent_json")" "$slug" "$sub_issue_number" 'queued' "$attempt" "$task_id" "$dispatch_started_at"
 }
 

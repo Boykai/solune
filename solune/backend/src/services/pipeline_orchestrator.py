@@ -25,6 +25,7 @@ logger = get_logger(__name__)
 # Pipeline stage definition
 # ---------------------------------------------------------------------------
 
+
 def _default_pipeline_stages() -> list[dict[str, Any]]:
     """Load default pipeline stages from the shared fleet-dispatch contract."""
 

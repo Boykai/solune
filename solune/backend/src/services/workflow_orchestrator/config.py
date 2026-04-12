@@ -144,15 +144,15 @@ def build_pipeline_stages_from_fleet_config(
     stages: list[dict[str, Any]] = []
     for group in sorted(config.groups, key=lambda item: item.order):
         is_parallel = group.execution_mode == "parallel"
-        for agent in group.agents:
-            stages.append(
-                {
-                    "name": agent.slug,
-                    "agent": agent.custom_agent or agent.slug,
-                    "group": group.order,
-                    "parallel": is_parallel,
-                }
-            )
+        stages.extend(
+            {
+                "name": agent.slug,
+                "agent": agent.custom_agent or agent.slug,
+                "group": group.order,
+                "parallel": is_parallel,
+            }
+            for agent in group.agents
+        )
     return stages
 
 
