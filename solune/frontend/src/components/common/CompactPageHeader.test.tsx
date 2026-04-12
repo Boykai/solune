@@ -48,6 +48,11 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
   });
 
+  it('renders the badge in its own centered layout slot', () => {
+    render(<CompactPageHeader {...defaultProps} badge="New" />);
+    expect(screen.getByText('New').parentElement).toHaveClass('md:justify-self-center');
+  });
+
   it('does not render a badge element when badge is undefined', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
     const badges = container.querySelectorAll('span.rounded-full');
@@ -103,6 +108,7 @@ describe('CompactPageHeader', () => {
     render(<CompactPageHeader {...defaultProps} stats={stats} />);
     const toggleBtn = screen.getByRole('button', { name: /show stats/i });
     expect(toggleBtn).toBeInTheDocument();
+    expect(toggleBtn).toHaveClass('md:hidden');
   });
 
   it('toggles stats visibility on mobile when toggle is clicked', () => {
@@ -137,6 +143,7 @@ describe('CompactPageHeader', () => {
     const statsContainer = container.querySelector(`#${CSS.escape(controlsId!)}`);
     expect(statsContainer).toBeInTheDocument();
     expect(statsContainer).toHaveTextContent('Count');
+    expect(statsContainer).toHaveClass('md:flex');
   });
 
   it('does not render actions zone when actions prop is omitted', () => {
