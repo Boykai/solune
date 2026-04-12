@@ -7,7 +7,7 @@ Solune is organized into pages you can navigate from the sidebar. After signing 
 | Page | Description | Learn More |
 |------|-------------|------------|
 | [Login](login.md) | Sign in with your GitHub account | [login.md](login.md) |
-| [Dashboard](dashboard.md) | Home screen with quick-access cards | [dashboard.md](dashboard.md) |
+| [Dashboard](dashboard.md) | Full-screen multi-chat workspace rendered by `ChatPanelManager` | [dashboard.md](dashboard.md) |
 | [Projects](projects.md) | Kanban board for managing GitHub issues | [projects.md](projects.md) |
 | [Pipeline](pipeline.md) | Build multi-agent automation workflows | [pipeline.md](pipeline.md) |
 | [Agents](agents.md) | Browse available AI agents | [agents.md](agents.md) |
@@ -25,7 +25,7 @@ Once signed in, every page shares a consistent layout described in [layout.md](l
 
 - **Sidebar** (left) — navigate between pages, switch projects, toggle light/dark theme, and see your recent issues
 - **Top bar** — breadcrumb trail showing where you are, a search shortcut (Ctrl+K / Cmd+K), notifications, GitHub API rate limit indicator, and your profile
-- **Chat** — a floating chat panel available on every page for talking to AI agents, proposing issues, and running slash commands
+- **Chat** — the floating chat popup is available on every page, while `/` provides the full multi-panel chat workspace
 - **Command Palette** — press Ctrl+K (or Cmd+K) to quickly search and jump to any page or action
 - **Onboarding Tour** — a guided walkthrough that highlights key UI elements the first time you use Solune (replay it anytime from the Help page)
 
