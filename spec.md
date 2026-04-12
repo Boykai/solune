@@ -1,158 +1,125 @@
-# Feature Specification: Simplify Page Headers for Focused UI
+# Feature Specification: Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-**Feature Branch**: `copilot/speckitplan-create-compact-header`  
-**Created**: 2026-04-11  
-**Status**: Draft  
-**Input**: User description: "Simplify Page Headers for Focused UI — Replace the large CelestialCatalogHero hero sections (~20% of viewport, ~350–450px tall) with a compact, single-row page header across 6 pages."
+**Feature Branch**: `copilot/create-implementation-plan-for-pipelines`
+**Created**: 2026-04-11
+**Status**: Draft
+**Input**: Parent issue #1386 — Fleet-Dispatch Agent Pipelines via GitHub CLI
+
+> **Complete Specification**: A comprehensive 16-FR requirement set with expanded edge cases and acceptance scenarios is planned for `specs/001-fleet-dispatch-cli/spec.md` (not yet created). This document provides the working subset (10 FRs) used by the implementation plan.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Compact Page Header Reclaims Vertical Space (Priority: P1)
+### User Story 1 - CLI Fleet Dispatch with Parallel Agent Groups (Priority: P1)
 
-A user navigates to any of the six main pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help). Instead of seeing a large decorative hero section that occupies roughly 20% of the viewport (~350–450px tall), they see a compact, single-row header (~80–100px tall) that still presents all essential information — page identity (eyebrow and title), contextual badge, and action buttons — without requiring the user to scroll past decorative content to reach the page's primary working area.
+A platform operator runs a fleet dispatch from the command line to launch a full agent pipeline for a GitHub issue. The dispatch script reads a pipeline config JSON, creates sub-issues for each agent, and dispatches them using `gh api graphql`. Parallel agent groups (e.g., QA + tester + review) are dispatched concurrently using background processes.
 
-**Why this priority**: The hero sections consume significant vertical real estate on every major page. Reducing header height directly increases the visible working area for content that users interact with (board columns, agent catalogs, tool lists, chore templates). This is the core value of the feature — every user benefits immediately on every page load.
+**Why this priority**: This is the core feature — without CLI dispatch, the entire fleet-dispatch capability does not exist. It directly replaces the Python-only dispatch path with a portable shell-based alternative.
 
-**Independent Test**: Navigate to each of the six affected pages and verify that the header occupies approximately 80–100px of vertical space, all essential information (eyebrow, title, badge, actions) remains visible, and the primary content area starts higher on the page than before.
+**Independent Test**: Run the dispatch script with `--dry-run` against a test pipeline config and verify it produces the correct dispatch plan (sub-issue creation order, parallel/serial group handling) without making API calls.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user navigates to the Projects page, **When** the page loads, **Then** the header is rendered as a single-row compact layout occupying no more than ~100px of vertical space.
-2. **Given** a user navigates to any of the six affected pages, **When** the page loads, **Then** the eyebrow label, page title, and action buttons are all visible in the header without scrolling.
-3. **Given** a page has a contextual badge (e.g., repository or project name), **When** the header renders, **Then** the badge is displayed in the header row.
-4. **Given** the previous hero occupied ~350–450px, **When** the compact header is used instead, **Then** the primary content area gains approximately 250–370px of additional visible space above the fold.
+1. **Given** a valid pipeline config JSON and authenticated `gh` CLI, **When** the dispatch script is run with `--repo`, `--parent-issue`, and `--preset`, **Then** sub-issues are created for each agent and agents are dispatched via GraphQL mutation.
+2. **Given** a pipeline with a parallel execution group containing 3 agents, **When** the group is dispatched, **Then** all 3 `gh api graphql` calls run concurrently as background processes and the script waits for all to complete.
+3. **Given** a pipeline with serial execution groups, **When** the first agent completes, **Then** the next agent in the group is dispatched only after completion polling confirms the previous agent finished.
+4. **Given** a `--dry-run` flag, **When** the script runs, **Then** no API calls are made but the full dispatch plan is printed to stdout.
+5. **Given** a dispatch failure after 3 retry attempts, **When** the retry loop exhausts, **Then** the agent is marked as `"failed"` in the state file and the script continues with remaining agents.
 
 ---
 
-### User Story 2 - Stats Displayed as Compact Inline Chips (Priority: P1)
+### User Story 2 - Pipeline Config Extraction to Standalone JSON (Priority: P1)
 
-A user viewing a page with contextual statistics (e.g., board columns count, pipeline count, assignment count) sees these stats rendered as small pill or chip elements inline with the header, rather than as large decorative moonwell cards that consumed significant horizontal and vertical space.
+A developer extracts the pipeline preset definitions from the Python backend (`_PRESET_DEFINITIONS` in `pipelines/service.py`) into a standalone JSON file that both the shell script and Python backend consume. This eliminates the duplication between Python and TypeScript preset definitions.
 
-**Why this priority**: Stats provide valuable at-a-glance context. Displaying them as compact chips preserves this value while eliminating the large card layout. This is essential to the compact header working correctly — without chip-style stats, the header cannot stay within its height target.
+**Why this priority**: The fleet dispatch script needs a machine-readable config format. Without extraction, the script would need to parse Python source code or duplicate the definitions.
 
-**Independent Test**: Navigate to a page with stats (e.g., Projects page with 4 stats) and verify that each stat is displayed as a small inline chip showing label and value, and that all stats fit within the single-row header layout.
+**Independent Test**: Run the extraction script against the current `pipelines/service.py` and validate the output JSON against the pipeline config JSON Schema. Verify it matches the existing `_PRESET_DEFINITIONS` structure.
 
 **Acceptance Scenarios**:
 
-1. **Given** a page provides stats (label/value pairs), **When** the compact header renders, **Then** each stat appears as a small pill/chip element showing both the label and value.
-2. **Given** a page has multiple stats (e.g., 4 stats on the Projects page), **When** the header renders on desktop, **Then** all stats are visible inline without overflowing the header row.
-3. **Given** a page has no stats (e.g., Help page), **When** the header renders, **Then** the stat area is omitted and the header layout adjusts gracefully.
+1. **Given** the existing `_PRESET_DEFINITIONS` in `pipelines/service.py`, **When** the extraction script runs, **Then** a valid `pipeline-config.json` is produced that passes JSON Schema validation.
+2. **Given** the extracted JSON config, **When** loaded by the Python `PipelineService.seed_presets()`, **Then** the seeded presets match the current behavior exactly.
+3. **Given** the extracted JSON config, **When** parsed by `jq` in the fleet-dispatch script, **Then** all agent slugs, execution modes, and group structures are correctly extracted.
 
 ---
 
-### User Story 3 - Description as Single-Line Subtitle (Priority: P2)
+### User Story 3 - Custom Instruction Templating for Shell Dispatch (Priority: P2)
 
-A user reading the page header sees the page description rendered as a single-line subtitle below the title. The full description is accessible by hovering, which expands the text to show all content. This keeps the header compact by default while preserving the descriptive context for users who want it.
+The custom instructions currently generated by `format_issue_context_as_prompt()` and `tailor_body_for_agent()` in Python are ported to `envsubst`-compatible template files. The fleet-dispatch script populates template variables from issue context and CLI arguments.
 
-**Why this priority**: Descriptions provide helpful context but are not essential for every page visit. A single-line treatment with hover-to-expand balances information density with compactness. It's a P2 because the header is still functional without this refinement.
+**Why this priority**: Custom instructions are required for agents to operate correctly, but the dispatch script can initially use a simplified instruction format while templates are developed. This is an enhancement over basic dispatch.
 
-**Independent Test**: Navigate to a page with a description, verify the description is visible as a single truncated line, hover over it, and verify the full text becomes visible.
+**Independent Test**: Set template variables as environment variables, run `envsubst` on a template file, and verify the output matches the expected instruction format for each agent type.
 
 **Acceptance Scenarios**:
 
-1. **Given** a page has a description, **When** the compact header renders, **Then** the description appears as a single line of text, truncated with an ellipsis if it exceeds the available width.
-2. **Given** the description is truncated, **When** the user hovers over it, **Then** the full description text is revealed.
-3. **Given** a page has a short description that fits on one line, **When** the header renders, **Then** the description is displayed in full without truncation or hover behavior.
+1. **Given** a `speckit.specify` template and populated environment variables, **When** `envsubst` is applied, **Then** the output includes the issue title, body, agent description, and output file instructions.
+2. **Given** a `copilot-review` template, **When** processed, **Then** the output includes the PR review tracking note specific to Copilot reviews.
+3. **Given** an unknown agent type, **When** the base template is used, **Then** a generic instruction is generated with issue context and a default task description.
 
 ---
 
-### User Story 4 - Stats Toggle on Mobile Viewports (Priority: P2)
+### User Story 4 - Completion Monitoring and Pipeline Advancement (Priority: P2)
 
-A user on a mobile device sees the compact header without stats cluttering the limited screen space. Stats are hidden by default on mobile and accessible via a toggle control, keeping the header clean and focused on the essentials (title, badge, actions) when screen real estate is most constrained.
+After dispatching agents, the script monitors their completion by polling sub-issue state via `gh api graphql`. For serial groups, the next agent is dispatched only after the current one completes. A summary report is printed at the end.
 
-**Why this priority**: Mobile viewports cannot comfortably display all header elements in a single row. Hiding stats behind a toggle prevents the compact header from becoming crowded on small screens while still making the data accessible when needed.
+**Why this priority**: Monitoring enables full pipeline automation (serial group advancement). Without it, the script is fire-and-forget only, which is still useful but limited.
 
-**Independent Test**: View any stats-bearing page on a mobile viewport, verify stats are hidden by default, activate the toggle, and verify stats become visible.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user views a page with stats on a mobile-width viewport, **When** the header renders, **Then** the stats are hidden by default.
-2. **Given** stats are hidden on mobile, **When** the user activates the stats toggle, **Then** all stats become visible.
-3. **Given** a page has no stats, **When** the header renders on mobile, **Then** no toggle control is displayed.
-
----
-
-### User Story 5 - Decorative Elements Removed from Page Headers (Priority: P3)
-
-A user navigating the application no longer sees animated celestial decorations (orbiting rings, twinkling stars, floating moons, glowing beams, hanging stars) in page headers. The celestial theme is preserved elsewhere in the application (sidebar, global chrome) but headers are clean and content-focused.
-
-**Why this priority**: Removing decorative elements reduces visual noise and loading overhead in headers. The theme is maintained elsewhere, so the brand identity is preserved. This is P3 because it's a natural consequence of replacing the hero component — it doesn't require separate effort.
-
-**Independent Test**: Navigate to each affected page and verify that no animated decorative elements (orbits, stars, moons, beams) appear in the header area.
+**Independent Test**: Mock a sub-issue state transition from open to closed and verify the polling loop detects completion and advances to the next agent.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user navigates to any of the six affected pages, **When** the header renders, **Then** no animated celestial elements (orbits, twinkling stars, floating moons, pulsing glows, gradient beams) are present in the header.
-2. **Given** the old hero component displayed a "Current Ritual" aside panel, **When** the compact header renders, **Then** no aside panel or note section is present.
-
----
-
-### User Story 6 - Consistent Header Experience Across All Six Pages (Priority: P1)
-
-A user navigating between the six main pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help) experiences a consistent header layout across all pages. Each page uses the same compact header format with its own eyebrow, title, badge, stats, and actions, creating a unified and predictable navigation experience.
-
-**Why this priority**: Consistency across all six pages is essential for the feature to deliver its full value. A partial rollout would create a jarring experience where some pages have large heroes and others have compact headers.
-
-**Independent Test**: Navigate to all six pages in sequence and verify each uses the same compact header layout pattern, with only the content (eyebrow, title, stats, actions) differing per page.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user navigates between all six affected pages, **When** each page loads, **Then** each page uses the same compact header layout with the same structural elements (eyebrow, title, badge area, stats area, actions area).
-2. **Given** the Help page currently has fewer props (no badge, no stats), **When** the compact header renders on the Help page, **Then** the header gracefully omits missing sections while maintaining the same overall layout structure.
+1. **Given** a dispatched agent with an open sub-issue, **When** the polling loop runs, **Then** it checks the sub-issue state every 30 seconds with exponential backoff up to 5 minutes.
+2. **Given** an agent that has been running for longer than the timeout (default 60 minutes), **When** the timeout is reached, **Then** the agent is marked as `"timed_out"` and the script proceeds.
+3. **Given** all agents have completed or timed out, **When** the dispatch run finishes, **Then** a summary table is printed with agent status, duration, and issue/PR links.
 
 ---
 
 ### Edge Cases
 
-- What happens when a page has no badge, no stats, and only one action (e.g., Help page)? The header should render cleanly with only the eyebrow, title, description, and single action button visible.
-- What happens when stat values are very long strings (e.g., a long pipeline name)? Stat chips should truncate long values with an ellipsis to prevent layout overflow.
-- What happens when there are many action buttons (e.g., Tools page has 3 buttons)? The actions area should accommodate multiple buttons without breaking the single-row layout on desktop, and should wrap gracefully on narrower viewports.
-- What happens when the browser viewport is resized from desktop to mobile while the page is open? The header should responsively adjust, hiding stats and adapting layout without requiring a page reload.
-- What happens when the badge text is long (e.g., "organization-name/very-long-repository-name")? The badge should truncate with an ellipsis rather than pushing other header elements out of alignment.
+- What happens when the pipeline config JSON is malformed? The script should exit with code 2 and a descriptive error message.
+- What happens when `gh auth status` fails? The script should exit immediately with an authentication error.
+- What happens when a sub-issue creation fails mid-pipeline? Already-created sub-issues remain; the script reports the failure and exits.
+- What happens when the GitHub API rate limit is hit during parallel dispatch? The retry logic with exponential backoff handles rate limiting; `gh` CLI provides rate limit headers.
+- What happens when the same parent issue is dispatched twice? The script should detect existing sub-issues (by label) and skip creation, dispatching to existing issues instead.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST display a compact, single-row page header on all six affected pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help) with a height target of approximately 80–100px.
-- **FR-002**: The compact header MUST display the following elements when provided: eyebrow label, page title, description (as subtitle), contextual badge, stats (as pill/chip elements), and action buttons.
-- **FR-003**: The compact header MUST arrange content in a single-row layout: eyebrow and title on the left, badge in the center, and action buttons on the right.
-- **FR-004**: The page description MUST be rendered as a single-line subtitle, truncated with an ellipsis when it exceeds the available width, and MUST expand to show the full text on hover.
-- **FR-005**: Stats MUST be rendered as small pill/chip elements rather than large card-style layouts.
-- **FR-006**: Stats MUST be hidden by default on mobile viewports and accessible via a toggle control.
-- **FR-007**: The compact header MUST NOT include any decorative animated elements (orbiting rings, twinkling stars, floating moons, gradient beams, hanging stars, pulsing glows).
-- **FR-008**: The compact header MUST NOT include a "Current Ritual" aside panel or a dedicated note section.
-- **FR-009**: The compact header MUST gracefully handle missing optional props (badge, stats, actions) by omitting those sections without breaking the layout.
-- **FR-010**: All six pages MUST use the same compact header layout to ensure visual consistency across the application.
-- **FR-011**: The previous hero section and any visual styles exclusively used by it MUST be removed from the codebase after all pages have been migrated.
-- **FR-012**: All existing automated tests MUST continue to pass after the migration, with no regressions introduced.
+- **FR-001**: The fleet-dispatch script MUST accept `--repo`, `--parent-issue`, `--config`, and `--preset` as required CLI arguments.
+- **FR-002**: The script MUST create sub-issues via `gh issue create` with `agent:{agent_slug}` labels before dispatching.
+- **FR-003**: The script MUST dispatch agents using `gh api graphql` with the `addAssigneesToAssignable` mutation and full `agentAssignment` input (customAgent, customInstructions, model, baseRef).
+- **FR-004**: The script MUST set the `GraphQL-Features: issues_copilot_assignment_api_support,coding_agent_model_selection` header on all dispatch requests.
+- **FR-005**: Parallel execution groups MUST dispatch all agents concurrently using Bash background processes (`&` + `wait`).
+- **FR-006**: Serial execution groups MUST dispatch agents one at a time with completion polling between dispatches.
+- **FR-007**: The script MUST write a `fleet-state.json` file tracking all agent dispatch states.
+- **FR-008**: The script MUST support a `--dry-run` flag that previews the dispatch plan without making API calls.
+- **FR-009**: The config extraction script MUST produce JSON that validates against the pipeline config JSON Schema.
+- **FR-010**: The script MUST retry failed dispatch calls up to 3 times with exponential backoff.
 
 ### Key Entities
 
-- **Compact Page Header**: The new single-row header element that replaces the hero section on all six pages. Displays eyebrow, title, description, badge, stats, actions, and supports custom styling. Does not include a "Current Ritual" note section.
-- **Stat Chip**: A small pill-shaped inline element displaying a label and value pair, used to present page-level statistics compactly within the header row.
-- **Affected Pages**: The six pages sharing the hero component — Projects, Agents, Agents Pipeline, Tools, Chores, and Help — all of which must be migrated simultaneously.
+- **PipelineConfig**: JSON representation of pipeline preset definitions with stages, groups, and agents.
+- **FleetState**: Local JSON state file tracking dispatch progress, agent statuses, and issue/PR references.
+- **AgentInstructionTemplate**: `envsubst`-compatible template files for generating custom instructions.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: All six affected pages display a compact header that occupies no more than approximately 100px of vertical space, down from ~350–450px — a reduction of at least 70% in header height.
-- **SC-002**: Users can see the primary content area (board, catalog, tool list) without scrolling past the header on a standard 1080p viewport (1920×1080).
-- **SC-003**: All essential information (eyebrow, title, badge, actions) remains visible and accessible in the compact header on every affected page.
-- **SC-004**: On mobile viewports (≤768px width), the header remains usable and does not overflow or obscure content, with stats accessible via a toggle.
-- **SC-005**: No animated decorative elements are present in any page header after the migration.
-- **SC-006**: All existing automated tests pass without modification (except tests specifically for the removed hero component, which are updated or removed).
-- **SC-007**: The six pages present a visually consistent header experience — same layout structure, same spacing, same interaction patterns — differing only in per-page content (eyebrow text, title, stats, actions).
-- **SC-008**: The removed hero section and its exclusively-used visual styles are no longer present in the codebase, leaving no dead code.
+- **SC-001**: The fleet-dispatch script successfully dispatches all agents in a "spec-kit" pipeline preset within 30 seconds (excluding agent execution time).
+- **SC-002**: Parallel groups dispatch agents concurrently — verified by checking that background processes overlap in time.
+- **SC-003**: The extracted `pipeline-config.json` passes JSON Schema validation and produces identical pipeline behavior when loaded by the Python backend.
+- **SC-004**: The `--dry-run` flag produces the correct dispatch plan for all preset pipelines without making any API calls.
+- **SC-005**: Failed dispatches are retried 3 times before marking as failed in the state file.
+- **SC-006**: All existing backend tests continue to pass after the config extraction changes.
 
 ## Assumptions
 
-- The big-bang rollout approach (migrating all six pages simultaneously) is preferred over a gradual rollout because all pages share the same hero component, making a simultaneous swap simpler and avoiding an inconsistent intermediate state.
-- The ~80–100px height target is a guideline, not a hard constraint. Minor variance is acceptable as long as the header remains visually compact and single-row on desktop.
-- The celestial theme is preserved in other parts of the application (sidebar, global chrome), so removing decorative elements from headers does not diminish the overall brand identity.
-- The "Current Ritual" aside card is removed entirely because it duplicated the page description and consumed significant horizontal space (~22rem on large screens) without adding unique value.
-- Stats on the Help page are not applicable (the Help page currently passes no stats), so the compact header must handle the zero-stats case gracefully.
-- The description hover-to-expand behavior uses standard interaction patterns (e.g., CSS line-clamp with hover expansion) and does not require complex scripting.
-- Mobile breakpoint for hiding stats aligns with the application's existing responsive breakpoints.
-- Action buttons vary per page (1–3 buttons, mix of link and click handlers) and the compact header must accommodate this range without layout issues.
+- `gh` CLI ≥2.80 is available in the target environment (CI runners, developer machines).
+- `jq` ≥1.6 is available for JSON parsing in the shell script.
+- `envsubst` (GNU gettext) is available for template expansion.
+- The `addAssigneesToAssignable` GraphQL mutation with `agentAssignment` input remains stable in the GitHub API.
+- The Copilot bot node ID can be resolved via the existing `get_copilot_bot_id()` pattern (GraphQL query for bot user).
+- Pipeline presets have at most 15 agents across 4–5 groups — the script does not need to handle hundreds of concurrent agents.

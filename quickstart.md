@@ -1,185 +1,234 @@
-# Quickstart: Simplify Page Headers for Focused UI
+# Quickstart: Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-**Feature**: Simplify Page Headers | **Date**: 2026-04-11
-
-> **Status note (2026-04-11):** The CompactPageHeader component replaces CelestialCatalogHero across six pages. The component is implemented and tested. Refer to the source file for the latest implementation details.
+**Feature**: Fleet-Dispatch Agent Pipelines via GitHub CLI | **Date**: 2026-04-11
 
 ## Prerequisites
 
-- Node.js ≥18 with npm
-- Git
+- `gh` CLI ≥2.80 (with `gh agent-task` support)
+- `jq` ≥1.6
+- `envsubst` (GNU `gettext` package)
+- Authenticated GitHub session (`gh auth login`)
+- Repository with GitHub Copilot agent access enabled
 
-## Setup
-
-```bash
-cd solune/frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-## Implementation Steps
-
-### Step 1: Create CompactPageHeader
-
-Create `src/components/common/CompactPageHeader.tsx`.
-
-Do **not** duplicate the full component implementation in this guide. `CompactPageHeader` has interactive/mobile behavior and styling details that can change over time, so the source file should remain the single source of truth:
-
-- Source: [`src/components/common/CompactPageHeader.tsx`](solune/frontend/src/components/common/CompactPageHeader.tsx)
-- Keep the existing production implementation, including any current hooks, icons, responsive stats behavior, and updated class names.
-
-This quickstart focuses on where to use `CompactPageHeader`, rather than embedding a copy of the component that can drift from the real implementation.
-
-### Step 2: Replace Hero in Each Page
-
-For each of the 6 pages, make two changes:
-
-1. **Change import**: `CelestialCatalogHero` → `CompactPageHeader`
-2. **Drop `note` prop** (if present)
-3. **Drop `className="projects-catalog-hero"`** (AgentsPipelinePage, ProjectsPage only)
-
-Example for ProjectsPage.tsx:
-
-```diff
-- import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
-+ import { CompactPageHeader } from '@/components/common/CompactPageHeader';
-
--      <CelestialCatalogHero
--        className="projects-catalog-hero"
-+      <CompactPageHeader
-         eyebrow="Mission Control"
-         title="Every project, mapped and moving."
-         description="..."
-         badge={...}
--        note="..."
-         stats={heroStats}
-         actions={...}
-       />
-```
-
-### Step 3: Delete Dead Code
+## Verify Prerequisites
 
 ```bash
-# Delete the old hero component and its tests
-rm src/components/common/CelestialCatalogHero.tsx
-rm src/components/common/CelestialCatalogHero.test.tsx
+# Check gh CLI version (must be ≥2.80)
+gh --version
+
+# Check jq availability
+jq --version
+
+# Check envsubst availability
+envsubst --version
+
+# Verify GitHub authentication
+gh auth status
 ```
 
-### Step 4: Remove Orphaned CSS
+## Phase 1: Fleet Dispatch Script
 
-Remove the `.dark .projects-catalog-hero .catalog-hero-*` block from `src/index.css` (lines ~432–489).
-
-**DO NOT remove**: `.moonwell`, `.hanging-stars`, `.celestial-*` animations (used elsewhere).
-
-## Run Tests
+### Basic Usage
 
 ```bash
-cd solune/frontend
-
-# Run all frontend tests
-npm test
-
-# Run only the component test
-npm test -- --reporter=verbose CompactPageHeader
-
-# Run page-specific tests
-npm test -- --reporter=verbose ProjectsPage
-npm test -- --reporter=verbose AgentsPage
-npm test -- --reporter=verbose AgentsPipelinePage
+# Dispatch a pipeline for a parent issue
+cd solune
+./scripts/fleet-dispatch.sh \
+  --repo "owner/repo" \
+  --parent-issue 1386 \
+  --config config/pipeline-config.json \
+  --preset "spec-kit" \
+  --base-ref "main"
 ```
 
-## Run Lint & Type Check
+### Dry Run (no actual dispatch)
 
 ```bash
-cd solune/frontend
-
-# ESLint
-npx eslint .
-
-# TypeScript type check
-npx tsc --noEmit
+# Preview what would be dispatched without executing
+./scripts/fleet-dispatch.sh \
+  --repo "owner/repo" \
+  --parent-issue 1386 \
+  --config config/pipeline-config.json \
+  --preset "expert" \
+  --base-ref "main" \
+  --dry-run
 ```
 
-## Verify UI Behavior
+### Custom Model Override
 
-1. **Navigate to each of the 6 pages**:
-   - `/projects` — Projects page
-   - `/agents` — Agents page
-   - `/agents/pipeline` — Agents Pipeline page
-   - `/tools` — Tools page
-   - `/chores` — Chores page
-   - `/help` — Help page
+```bash
+# Override the default model for all agents
+./scripts/fleet-dispatch.sh \
+  --repo "owner/repo" \
+  --parent-issue 1386 \
+  --config config/pipeline-config.json \
+  --preset "spec-kit" \
+  --base-ref "main" \
+  --model "claude-sonnet-4"
+```
 
-2. **Check compact header** on each page:
-   - Header height is ~80–100px (not ~350–450px)
-   - Eyebrow text, title, and badge are visible
-   - Description shows as single line, expands on hover
-   - Stats show as inline chips (not large moonwell cards)
-   - Action buttons are accessible
+### Expected Output
 
-3. **Check mobile viewport** (Chrome DevTools → 375px width):
-   - Header remains compact
-   - Stats are hidden (or behind a toggle)
-   - Actions are still accessible
+```
+[fleet-dispatch] Loading pipeline config: config/pipeline-config.json
+[fleet-dispatch] Preset: spec-kit (5 stages, 8 agents)
+[fleet-dispatch] Parent issue: #1386
+[fleet-dispatch] Base ref: main
 
-4. **Check no regressions**:
-   - Sidebar celestial animations still work
-   - LoginPage decorations (hanging-stars, celestial-float) still work
-   - CelestialLoader animations still work
-   - NotFoundPage and ErrorBoundary decorations still work
+[fleet-dispatch] Creating sub-issues...
+  ✓ speckit.specify → #1387
+  ✓ speckit.plan → #1388
+  ✓ speckit.tasks → #1389
+  ✓ speckit.implement → #1390
+  ✓ speckit.analyze → #1391
 
-## Key Files Reference
+[fleet-dispatch] Dispatching Stage 1: Backlog (sequential)
+  → Dispatching speckit.specify to #1387... ✓
+  → Polling for completion...
 
-### Create
+[fleet-dispatch] Dispatching Stage 2: Ready (sequential)
+  → Dispatching speckit.plan to #1388... ✓
+  → Polling for completion...
 
-| File | Purpose |
-|------|---------|
-| `src/components/common/CompactPageHeader.tsx` | New compact header component |
-| `src/components/common/CompactPageHeader.test.tsx` | Tests for new component |
+[fleet-dispatch] Dispatching Stage 3: In progress (parallel)
+  → Dispatching quality-assurance to #1392... (background)
+  → Dispatching tester to #1393... (background)
+  → Dispatching copilot-review to #1394... (background)
+  → Waiting for parallel group to complete...
+  ✓ All 3 agents completed
 
-### Modify
+[fleet-dispatch] Summary:
+  Agents dispatched: 8/8
+  Successful: 8
+  Failed: 0
+  Duration: 2h 15m
+  State file: fleet-state.json
+```
 
-| File | Changes |
-|------|---------|
-| `src/pages/ProjectsPage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
-| `src/pages/AgentsPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/AgentsPipelinePage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
-| `src/pages/ToolsPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/ChoresPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/HelpPage.tsx` | Swap import (no `note` used) |
-| `src/index.css` | Remove `.dark .projects-catalog-hero .catalog-hero-*` rules |
+## Phase 2: Pipeline Config Extraction
 
-### Delete
+### Extract Config from Python Backend
 
-| File | Reason |
-|------|--------|
-| `src/components/common/CelestialCatalogHero.tsx` | Replaced by CompactPageHeader |
-| `src/components/common/CelestialCatalogHero.test.tsx` | Tests for deleted component |
+```bash
+# Generate pipeline-config.json from backend preset definitions
+cd solune
+python scripts/extract-pipeline-config.py \
+  --source backend/src/services/pipelines/service.py \
+  --output config/pipeline-config.json
 
-### Untouched
+# Validate the generated config against the JSON schema
+# NOTE: ./scripts/validate-contracts.sh currently validates only OpenAPI → TypeScript
+# type generation and does not accept a pipeline config file path argument.
+# JSON Schema validation for pipeline configs will be added in a later phase.
+# For now, validate manually:
+python -m jsonschema -i config/pipeline-config.json ../contracts/pipeline-config-schema.json
+```
 
-| File | Reason |
-|------|--------|
-| `src/layout/Sidebar.tsx` | Uses `celestial-orbit-spin` independently |
-| `src/layout/AppLayout.tsx` | Uses `celestial-*` classes independently |
-| `src/components/common/CelestialLoader.tsx` | Uses `celestial-orbit-spin` independently |
-| `src/pages/LoginPage.tsx` | Uses `hanging-stars`, `celestial-float`, `celestial-pulse-glow` independently |
-| All components using `.moonwell` | `.moonwell` CSS is retained |
+### Inspect the Config
 
-## Troubleshooting
+```bash
+# List all presets
+jq '.[].preset_id' config/pipeline-config.json
 
-### Build fails with "Cannot find module CelestialCatalogHero"
+# Show agents in the "expert" pipeline
+jq '.[] | select(.preset_id == "expert") | .stages[].groups[].agents[].agent_slug' \
+  config/pipeline-config.json
 
-Ensure all 6 pages have updated their imports from `CelestialCatalogHero` to `CompactPageHeader`.
+# Show parallel groups
+jq '.[] | select(.preset_id == "expert") | .stages[].groups[] | select(.execution_mode == "parallel") | {id, agents: [.agents[].agent_slug]}' \
+  config/pipeline-config.json
+```
 
-### Tests fail referencing "Current Ritual"
+## Phase 3: Monitoring
 
-The `CelestialCatalogHero.test.tsx` file should be deleted, not updated. The `CompactPageHeader.test.tsx` replaces it.
+### Check Dispatch State
 
-### Dark mode looks broken on ProjectsPage/AgentsPipelinePage
+```bash
+# View current dispatch state
+jq '.' fleet-state.json
 
-The `.dark .projects-catalog-hero` CSS overrides have been removed. Since `CompactPageHeader` doesn't use the `projects-catalog-hero` className, these overrides are no longer needed. Verify that `CompactPageHeader` renders correctly in both light and dark modes without special overrides.
+# Show agent statuses
+jq '.agents[] | {agent_slug, dispatch_status, issue_number}' fleet-state.json
+
+# Show only failed agents
+jq '.agents[] | select(.dispatch_status == "failed")' fleet-state.json
+```
+
+### Manual Completion Polling
+
+```bash
+# Check if a sub-issue is closed (agent completed)
+gh issue view 1387 --repo owner/repo --json state -q '.state'
+
+# List Copilot agent tasks
+gh agent-task list --repo owner/repo
+
+# View a specific agent task
+gh agent-task view TASK_ID --repo owner/repo
+```
+
+## Development & Testing
+
+### Run Shell Script Tests
+
+```bash
+# Install bats-core (Bash Automated Testing System)
+# macOS: brew install bats-core
+# Ubuntu/Debian: sudo apt-get install bats
+# Or from source: https://bats-core.readthedocs.io/en/stable/installation.html
+
+# Run fleet-dispatch tests
+cd solune
+bats scripts/tests/fleet-dispatch.bats
+```
+
+### Run Python Extraction Tests
+
+```bash
+cd solune/backend
+python -m pytest tests/unit/test_extract_pipeline_config.py -v
+```
+
+### Manual Verification
+
+```bash
+# 1. Verify the GraphQL mutation works with gh CLI
+gh api graphql \
+  -H "GraphQL-Features: issues_copilot_assignment_api_support,coding_agent_model_selection" \
+  -f query='
+    mutation($issueId: ID!, $assigneeIds: [ID!]!, $repoId: ID!, $baseRef: String!, $customInstructions: String!, $customAgent: String!, $model: String!) {
+      addAssigneesToAssignable(input: {
+        assignableId: $issueId,
+        assigneeIds: $assigneeIds,
+        agentAssignment: {
+          targetRepositoryId: $repoId,
+          baseRef: $baseRef,
+          customInstructions: $customInstructions,
+          customAgent: $customAgent,
+          model: $model
+        }
+      }) {
+        assignable {
+          ... on Issue {
+            id
+            assignees(first: 10) { nodes { login } }
+          }
+        }
+      }
+    }
+  ' \
+  -f issueId="ISSUE_NODE_ID" \
+  -f assigneeIds='["COPILOT_BOT_ID"]' \
+  -f repoId="REPO_NODE_ID" \
+  -f baseRef="main" \
+  -f customInstructions="Your instructions here" \
+  -f customAgent="speckit.specify" \
+  -f model="claude-opus-4.6"
+
+# 2. Verify sub-issue creation
+gh issue create \
+  --repo owner/repo \
+  --title "[speckit.specify] Feature Name" \
+  --body "> **Parent Issue:** #1386 — Feature Name" \
+  --label "agent:speckit.specify"
+```
