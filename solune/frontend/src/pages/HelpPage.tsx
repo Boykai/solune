@@ -4,7 +4,7 @@
  */
 
 import { Play, Kanban, GitBranch, Bot, Wrench, ListChecks, Settings, Boxes, LayoutDashboard, Clock } from '@/lib/icons';
-import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
+import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { FaqAccordion } from '@/components/help/FaqAccordion';
 import { FeatureGuideCard } from '@/components/help/FeatureGuideCard';
 import { Button } from '@/components/ui/button';
@@ -135,7 +135,7 @@ export function HelpPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-12 pb-16">
       {/* Hero */}
-      <CelestialCatalogHero
+      <CompactPageHeader
         eyebrow="// Guidance & support"
         title="Help Center"
         description="Everything you need to navigate your celestial workspace."
