@@ -7,7 +7,6 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './authenticated-fixtures';
 import { VIEWPORTS } from './viewports';
 
-const PIPELINE_TITLE = 'Orchestrate agents across every stage.';
 const PIPELINE_PROJECT_BADGE = /test-user\/test project/i;
 
 async function openPipelinePage(page: Page) {
