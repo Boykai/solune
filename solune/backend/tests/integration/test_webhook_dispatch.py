@@ -74,12 +74,19 @@ async def test_webhook_ready_for_review_reports_action_needed_without_webhook_to
     signature = _sign_payload(body, webhook_secret)
 
     transport = ASGITransport(app=_build_webhook_app())
+    mock_gh = AsyncMock()
+    mock_db = AsyncMock()
+    mock_log = AsyncMock()
     with (
         patch("src.config.get_settings", return_value=settings),
         patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", AsyncMock()),
-        patch("src.api.webhooks.get_db", return_value=AsyncMock()),
-        patch("src.api.webhooks.log_event", new_callable=AsyncMock),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
+        patch("src.api.webhooks.github_projects_service", mock_gh),
+        patch("src.api.webhooks.pull_requests.github_projects_service", mock_gh),
+        patch("src.api.webhooks.get_db", return_value=mock_db),
+        patch("src.api.webhooks.handlers.get_db", return_value=mock_db),
+        patch("src.api.webhooks.log_event", mock_log),
+        patch("src.api.webhooks.handlers.log_event", mock_log),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post(
@@ -120,6 +127,7 @@ async def test_webhook_duplicate_delivery_short_circuits_second_dispatch():
     with (
         patch("src.config.get_settings", return_value=settings),
         patch("src.api.webhooks.get_settings", return_value=settings),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             first = await client.post(

@@ -119,6 +119,7 @@ class TestWebhookVerification:
         with (
             patch("src.config.get_settings", return_value=settings),
             patch("src.api.webhooks.get_settings", return_value=settings),
+            patch("src.api.webhooks.handlers.get_settings", return_value=settings),
             patch("src.api.webhooks.github_projects_service", mock_gh),
         ):
             transport = ASGITransport(app=app)
