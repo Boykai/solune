@@ -58,7 +58,7 @@ async def _get_auto_merge_pipeline(
       Step C: Project-level — ``is_auto_merge_enabled(db, project_id)``
 
     Note: ``devops_attempts`` and ``devops_active`` are now tracked
-    persistently via ``_devops_tracking`` in ``state.py``.
+    centrally in-memory via ``_devops_tracking`` in ``state.py``.
     ``dispatch_devops_agent`` handles deduplication internally.
     """
     try:

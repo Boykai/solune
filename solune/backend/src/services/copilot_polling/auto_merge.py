@@ -312,7 +312,10 @@ async def dispatch_devops_agent(
         owner: Repository owner
         repo: Repository name
         issue_number: Issue number
-        pipeline_metadata: Deprecated — ignored; kept for call-site compat.
+        pipeline_metadata: Deprecated for dedup/retry-cap tracking; kept for
+            call-site compatibility and still forwarded through legacy retry
+            flow, where compatibility fields such as ``devops_active`` may be
+            mutated.
         project_id: Project ID for broadcast
         merge_result_context: Context from AutoMergeResult (CI failures, conflicts, etc.)
 

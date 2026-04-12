@@ -1604,6 +1604,16 @@ async def _advance_pipeline(
     Returns:
         Result dict or None
     """
+    # Guard: if the pipeline is already halted (error state), skip to
+    # prevent duplicate halt comments on re-entry from the polling loop.
+    if getattr(pipeline, "error", None):
+        logger.debug(
+            "Pipeline for issue #%d already halted (error=%s) — skipping advance",
+            issue_number,
+            str(pipeline.error)[:80],
+        )
+        return None
+
     completed_agent = pipeline.current_agent
     if completed_agent is None:
         logger.error("No current agent in pipeline — cannot advance")
@@ -1745,6 +1755,10 @@ async def _advance_pipeline(
                 issue_number,
             )
             _merge_failure_counts.pop(issue_number, None)
+            # Clear any prior error state so recovery resumes normally.
+            if getattr(pipeline, "error", None):
+                pipeline.error = None
+                _cp.set_pipeline_state(issue_number, pipeline)
             await asyncio.sleep(_cp.POST_ACTION_DELAY_SECONDS)
         elif merge_result and merge_result.get("status") == "merge_failed":
             # A child PR exists but could not be merged.  Track the failure
