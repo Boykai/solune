@@ -1,0 +1,293 @@
+# Fleet Dispatch CLI Contract
+# Defines the interface for solune/scripts/fleet-dispatch.sh
+
+openapi: "3.0.3"
+info:
+  title: Fleet Dispatch CLI Interface
+  version: "1.0.0"
+  description: |
+    Contract for the fleet-dispatch.sh script interface.
+    This is not a REST API — it documents the CLI arguments, environment variables,
+    input/output formats, and the GraphQL mutations used by the script.
+
+    The script dispatches Copilot cloud agents via `gh api graphql` using the
+    `addAssigneesToAssignable` mutation with `agentAssignment` input.
+
+# CLI Arguments (documented as pseudo-paths for contract structure)
+paths:
+  /dispatch:
+    post:
+      summary: Dispatch a fleet of agents for a pipeline
+      operationId: fleetDispatch
+      description: |
+        Main entry point. Creates sub-issues and dispatches agents per the pipeline config.
+
+        Usage:
+        ```
+        fleet-dispatch.sh \
+          --repo OWNER/REPO \
+          --parent-issue NUMBER \
+          --config PATH \
+          --preset PRESET_ID \
+          [--base-ref BRANCH] \
+          [--model MODEL] \
+          [--state-dir PATH] \
+          [--dry-run] \
+          [--verbose]
+        ```
+      parameters:
+        - name: repo
+          in: query
+          required: true
+          description: "Repository in owner/repo format"
+          schema:
+            type: string
+            pattern: "^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$"
+            example: "Boykai/solune"
+        - name: parent-issue
+          in: query
+          required: true
+          description: "Parent issue number to create sub-issues under"
+          schema:
+            type: integer
+            minimum: 1
+            example: 1386
+        - name: config
+          in: query
+          required: true
+          description: "Path to pipeline-config.json"
+          schema:
+            type: string
+            example: "config/pipeline-config.json"
+        - name: preset
+          in: query
+          required: true
+          description: "Pipeline preset ID to use from the config file"
+          schema:
+            type: string
+            example: "spec-kit"
+        - name: base-ref
+          in: query
+          required: false
+          description: "Branch to base agent PRs on"
+          schema:
+            type: string
+            default: "main"
+        - name: model
+          in: query
+          required: false
+          description: "Model override for all agents (empty = per-agent default)"
+          schema:
+            type: string
+            default: ""
+            example: "claude-opus-4.6"
+        - name: state-dir
+          in: query
+          required: false
+          description: "Directory for fleet-state.json output"
+          schema:
+            type: string
+            default: "."
+        - name: dry-run
+          in: query
+          required: false
+          description: "Preview dispatch plan without executing"
+          schema:
+            type: boolean
+            default: false
+        - name: verbose
+          in: query
+          required: false
+          description: "Enable verbose logging to stderr"
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "0":
+          description: "All agents dispatched successfully (exit code 0)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetState"
+        "1":
+          description: "One or more agents failed to dispatch (exit code 1)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FleetState"
+        "2":
+          description: "Invalid arguments or missing prerequisites (exit code 2)"
+
+components:
+  schemas:
+    FleetState:
+      type: object
+      required:
+        - run_id
+        - repo
+        - parent_issue
+        - base_ref
+        - pipeline_preset
+        - started_at
+        - status
+        - agents
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          description: "Unique identifier for this dispatch run"
+        repo:
+          type: string
+          description: "Repository in owner/repo format"
+        parent_issue:
+          type: integer
+          description: "Parent issue number"
+        base_ref:
+          type: string
+          description: "Branch to base agent PRs on"
+        pipeline_preset:
+          type: string
+          description: "Preset ID from pipeline config"
+        started_at:
+          type: string
+          format: date-time
+          description: "Dispatch start timestamp (ISO 8601)"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Dispatch completion timestamp"
+        status:
+          type: string
+          enum:
+            - running
+            - completed
+            - partial_failure
+            - failed
+          description: "Overall run status"
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentDispatch"
+
+    AgentDispatch:
+      type: object
+      required:
+        - agent_slug
+        - group_id
+        - execution_mode
+        - dispatch_status
+      properties:
+        agent_slug:
+          type: string
+          description: "Agent identifier"
+        group_id:
+          type: string
+          description: "Execution group this agent belongs to"
+        execution_mode:
+          type: string
+          enum:
+            - sequential
+            - parallel
+          description: "Group's execution mode"
+        issue_number:
+          type: integer
+          nullable: true
+          description: "Created sub-issue number"
+        issue_node_id:
+          type: string
+          nullable: true
+          description: "GitHub GraphQL node ID for the sub-issue"
+        dispatch_status:
+          type: string
+          enum:
+            - pending
+            - dispatched
+            - completed
+            - failed
+            - timed_out
+          description: "Current dispatch state"
+        dispatched_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "When the agent was dispatched"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "When the agent completed"
+        pr_number:
+          type: integer
+          nullable: true
+          description: "PR created by the agent (if any)"
+        pr_merged:
+          type: boolean
+          default: false
+          description: "Whether the agent's PR was merged"
+        error:
+          type: string
+          nullable: true
+          description: "Error message if dispatch/completion failed"
+        retry_count:
+          type: integer
+          minimum: 0
+          default: 0
+          description: "Number of dispatch retry attempts"
+
+    GraphQLDispatchRequest:
+      type: object
+      description: |
+        The GraphQL mutation payload sent via `gh api graphql` to dispatch an agent.
+        Mirrors the existing `_assign_copilot_graphql()` in copilot.py.
+      required:
+        - issueId
+        - assigneeIds
+        - repoId
+        - baseRef
+        - customAgent
+      properties:
+        issueId:
+          type: string
+          description: "GitHub node ID of the sub-issue (ID! type)"
+        assigneeIds:
+          type: array
+          items:
+            type: string
+          description: "Array containing the Copilot bot node ID ([ID!]! type)"
+        repoId:
+          type: string
+          description: "GitHub node ID of the target repository (ID! type)"
+        baseRef:
+          type: string
+          description: "Branch to base the agent's PR on"
+        customInstructions:
+          type: string
+          description: "Custom instructions for the agent (generated from templates)"
+          default: ""
+        customAgent:
+          type: string
+          description: "Agent slug (e.g., 'speckit.specify')"
+        model:
+          type: string
+          description: "Model to use (e.g., 'claude-opus-4.6')"
+          default: "claude-opus-4.6"
+
+    GraphQLHeaders:
+      type: object
+      description: "Required HTTP headers for the GraphQL mutation"
+      properties:
+        GraphQL-Features:
+          type: string
+          description: "Feature flags required for agent assignment"
+          enum:
+            - "issues_copilot_assignment_api_support,coding_agent_model_selection"
+
+  securitySchemes:
+    ghAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Authentication is handled by `gh` CLI's built-in auth.
+        The script requires `gh auth status` to pass before dispatch.
+        The token must have `repo` and `project` scopes.
