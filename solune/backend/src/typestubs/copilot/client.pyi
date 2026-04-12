@@ -1,7 +1,5 @@
 from typing import Any
 
-from typing_extensions import TypedDict
-
 class SubprocessConfig:
     """Config for spawning a local Copilot CLI subprocess."""
 

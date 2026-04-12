@@ -1,5 +1,3 @@
-from typing import Any
-
 from copilot.client import CopilotClient as CopilotClient
 from copilot.client import ExternalServerConfig as ExternalServerConfig
 from copilot.client import SubprocessConfig as SubprocessConfig
