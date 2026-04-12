@@ -252,7 +252,7 @@ describe('AgentsPipelinePage', () => {
     expect(screen.queryByText('Current Pipeline')).not.toBeInTheDocument();
   });
 
-  it('guards the hero new pipeline action when there are unsaved changes', async () => {
+  it('guards the header new pipeline action when there are unsaved changes', async () => {
     const user = userEvent.setup();
 
     render(<AgentsPipelinePage />);
