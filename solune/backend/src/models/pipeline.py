@@ -160,7 +160,7 @@ class FleetDispatchDefaults(FleetDispatchModel):
     task_timeout_seconds: int = Field(..., alias="taskTimeoutSeconds", ge=5)
 
     @model_validator(mode="after")
-    def validate_timeout(self) -> "FleetDispatchDefaults":
+    def validate_timeout(self) -> FleetDispatchDefaults:
         if self.task_timeout_seconds < self.poll_interval_seconds:
             raise ValueError("taskTimeoutSeconds must be >= pollIntervalSeconds")
         return self

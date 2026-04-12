@@ -7,10 +7,10 @@ import textwrap
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_PATH = REPO_ROOT / 'scripts' / 'fleet-dispatch.sh'
+SCRIPT_PATH = REPO_ROOT / "scripts" / "fleet-dispatch.sh"
 
 FAKE_GH_SCRIPT = textwrap.dedent(
-    r'''#!/usr/bin/env python3
+    r"""#!/usr/bin/env python3
 import json
 import fcntl
 import os
@@ -21,6 +21,7 @@ state_path = Path(os.environ["FAKE_GH_STATE"])
 log_path = Path(os.environ["FAKE_GH_LOG"])
 lock_path = state_path.with_suffix(".lock")
 fail_agent = os.environ.get("FAKE_GH_FAIL_AGENT", "")
+omit_task_agent = os.environ.get("FAKE_GH_OMIT_TASK_FOR_AGENT", "")
 args = sys.argv[1:]
 lock_handle = lock_path.open("w", encoding="utf-8")
 fcntl.flock(lock_handle, fcntl.LOCK_EX)
@@ -90,6 +91,10 @@ elif args[:2] == ["api", "graphql"]:
         if fail_agent and agent == fail_agent:
             print("dispatch failed", file=sys.stderr)
             sys.exit(1)
+        if omit_task_agent and agent == omit_task_agent:
+            log(f"dispatch:{issue['title']}")
+            print(json.dumps({"data": {"addAssigneesToAssignable": {"assignable": {"id": issue_id, "assignees": {"nodes": [{"login": "copilot-swe-agent"}]}}}}}))
+            sys.exit(0)
         task_id = f"task-{state['next_task']}"
         state["next_task"] += 1
         task = {
@@ -122,40 +127,42 @@ elif args[:1] == ["api"]:
         raise SystemExit(f"Unhandled endpoint: {endpoint}")
 else:
     raise SystemExit(f"Unhandled gh call: {args}")
-'''
+"""
 )
 
 
-def write_fake_gh(tmp_path: Path, *, extra_issues: list[dict] | None = None) -> tuple[Path, Path, Path]:
-    state_path = tmp_path / 'state.json'
-    log_path = tmp_path / 'gh.log'
+def write_fake_gh(
+    tmp_path: Path, *, extra_issues: list[dict] | None = None
+) -> tuple[Path, Path, Path]:
+    state_path = tmp_path / "state.json"
+    log_path = tmp_path / "gh.log"
     log_path.touch()
     state_path.write_text(
         json.dumps(
             {
-                'next_issue': 2000,
-                'next_task': 1,
-                'issues': extra_issues or [],
-                'tasks': [],
-                'parent': {
-                    'number': 1555,
-                    'node_id': 'PARENT_NODE',
-                    'html_url': 'https://github.com/Boykai/solune/issues/1555',
-                    'title': 'Fleet Dispatch Parent',
-                    'body': 'Parent issue body',
-                    'labels': [],
+                "next_issue": 2000,
+                "next_task": 1,
+                "issues": extra_issues or [],
+                "tasks": [],
+                "parent": {
+                    "number": 1555,
+                    "node_id": "PARENT_NODE",
+                    "html_url": "https://github.com/Boykai/solune/issues/1555",
+                    "title": "Fleet Dispatch Parent",
+                    "body": "Parent issue body",
+                    "labels": [],
                 },
-                'comments': [
+                "comments": [
                     {
-                        'user': {'login': 'alice'},
-                        'body': 'Looks good',
-                        'created_at': '2026-04-12T16:00:00Z',
+                        "user": {"login": "alice"},
+                        "body": "Looks good",
+                        "created_at": "2026-04-12T16:00:00Z",
                     }
                 ],
             }
         )
     )
-    gh_path = tmp_path / 'gh'
+    gh_path = tmp_path / "gh"
     gh_path.write_text(FAKE_GH_SCRIPT)
     gh_path.chmod(0o755)
     return gh_path, state_path, log_path
@@ -166,44 +173,47 @@ def run_script(
     config: dict,
     *,
     fail_agent: str | None = None,
+    omit_task_for_agent: str | None = None,
     extra_issues: list[dict] | None = None,
     extra_args: list[str] | None = None,
     prelock: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    config_path = tmp_path / 'fleet.json'
+    config_path = tmp_path / "fleet.json"
     config_path.write_text(json.dumps(config))
     _, state_path, log_path = write_fake_gh(tmp_path, extra_issues=extra_issues)
-    state_dir = tmp_path / 'dispatch-state'
+    state_dir = tmp_path / "dispatch-state"
     state_dir.mkdir(exist_ok=True)
     if prelock:
-        (state_dir / 'parent-1555.lock').write_text('123')
+        (state_dir / "parent-1555.lock").write_text("123")
     env = {
         **os.environ,
-        'PATH': f"{tmp_path}:{os.environ['PATH']}",
-        'FAKE_GH_STATE': str(state_path),
-        'FAKE_GH_LOG': str(log_path),
-        'FLEET_DISPATCH_SKIP_AUTH': '1',
-        'FLEET_DISPATCH_STATE_DIR': str(state_dir),
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "FAKE_GH_STATE": str(state_path),
+        "FAKE_GH_LOG": str(log_path),
+        "FLEET_DISPATCH_SKIP_AUTH": "1",
+        "FLEET_DISPATCH_STATE_DIR": str(state_dir),
     }
     if fail_agent:
-        env['FAKE_GH_FAIL_AGENT'] = fail_agent
+        env["FAKE_GH_FAIL_AGENT"] = fail_agent
+    if omit_task_for_agent:
+        env["FAKE_GH_OMIT_TASK_FOR_AGENT"] = omit_task_for_agent
     args = [
-        'bash',
+        "bash",
         str(SCRIPT_PATH),
-        '--owner',
-        'Boykai',
-        '--repo',
-        'solune',
-        '--parent-issue',
-        '1555',
-        '--config',
+        "--owner",
+        "Boykai",
+        "--repo",
+        "solune",
+        "--parent-issue",
+        "1555",
+        "--config",
         str(config_path),
-        '--base-ref',
-        'copilot/test-branch',
-        '--poll-interval',
-        '1',
-        '--task-timeout',
-        '5',
+        "--base-ref",
+        "copilot/test-branch",
+        "--poll-interval",
+        "1",
+        "--task-timeout",
+        "5",
     ]
     if extra_args:
         args.extend(extra_args)
@@ -211,4 +221,4 @@ def run_script(
 
 
 def read_log(tmp_path: Path) -> list[str]:
-    return (tmp_path / 'gh.log').read_text().splitlines()
+    return (tmp_path / "gh.log").read_text().splitlines()
