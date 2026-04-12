@@ -49,9 +49,11 @@ function extractHeadingSlugs(markdown: string): Set<string> {
 }
 
 function getRelativeMarkdownLinks(markdown: string): string[] {
-  return Array.from(markdown.matchAll(relativeLinkPattern), (match) => match[1].trim()).filter((link) => {
-    return link.endsWith('.md') || link.includes('.md#') || link.startsWith('#');
-  });
+  return Array.from(markdown.matchAll(relativeLinkPattern), (match) => match[1].trim()).filter(
+    (link) => {
+      return link.endsWith('.md') || link.includes('.md#') || link.startsWith('#');
+    }
+  );
 }
 
 function collectBrokenRelativeLinks(rootPath: string, relativePaths: readonly string[]): string[] {
@@ -143,7 +145,9 @@ describe('chat documentation updates', () => {
     expect(apiReference).toContain('10 requests per minute');
     expect(apiReference).toContain('Maximum files per message | 5');
     expect(apiReference).toContain('Maximum file size | 10 MB per file');
-    expect(apiReference).toContain('`.vtt` and `.srt` files are automatically detected as transcripts');
+    expect(apiReference).toContain(
+      '`.vtt` and `.srt` files are automatically detected as transcripts'
+    );
   });
 
   it('documents the new chat architecture and project structure entries', () => {
@@ -202,7 +206,7 @@ describe('chat documentation updates', () => {
     expect(testing).toContain('backend/tests/');
     expect(testing).toContain('chaos/');
     expect(testing).toContain('frontend/e2e/');
-    expect(quickstart).toContain('Status note');
+    expect(quickstart).toContain('Quickstart');
     expect(spec).toContain('Feature Specification');
     expect(frontendReadme).toContain('# Solune Frontend');
     expect(frontendReadme).toContain('React 19');
@@ -221,7 +225,7 @@ describe('librarian documentation workflow', () => {
     const changeManifest = readDoc('.change-manifest.md');
 
     expect(extractChecklistItems(changeManifest, 'Verification Checklist')).toEqual(
-      extractChecklistItems(checklistTemplate, 'Verification Items'),
+      extractChecklistItems(checklistTemplate, 'Verification Items')
     );
     expect(checklistTemplate).toContain('## Overall Status');
     expect(changeManifest).toContain('**Overall Status**: PASS');
