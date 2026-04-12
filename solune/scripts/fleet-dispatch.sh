@@ -281,7 +281,7 @@ create_or_resume_sub_issue() {
 dispatch_one_agent() {
   local agent_json="$1"
   local attempt="${2:-1}"
-  local slug custom_agent model template_path instructions sub_issue_json sub_issue_number issue_node_id issue_title task_json task_id dispatch_started_at
+  local slug custom_agent model template_path instructions sub_issue_json sub_issue_number issue_node_id issue_title task_id dispatch_started_at
   slug="$(jq -r '.slug' <<<"$agent_json")"
   custom_agent="$(jq -r '.customAgent // ""' <<<"$agent_json")"
   model="$(jq -r '.model' <<<"$agent_json")"
@@ -305,8 +305,7 @@ dispatch_one_agent() {
     return 1
   fi
 
-  task_json="$(fd_resolve_task_for_agent "$OWNER" "$REPO" "$slug" "$issue_title")"
-  task_id="$(gh agent-task list --repo "$OWNER/$REPO" --limit 100 --json id,createdAt | jq -r 'sort_by(.createdAt // "") | last.id // empty')"
+  task_id="$(fd_resolve_task_for_agent "$OWNER" "$REPO" "$slug" "$issue_title")"
   build_record "$(jq -r '.groupId' <<<"$agent_json")" "$slug" "$sub_issue_number" 'queued' "$attempt" "$task_id" "$dispatch_started_at"
 }
 

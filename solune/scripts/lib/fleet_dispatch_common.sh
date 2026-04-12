@@ -337,7 +337,7 @@ fd_resolve_task_for_agent() {
   local issue_title="$4"
   local tasks_json
   tasks_json="$(gh agent-task list --repo "$owner/$repo" --limit 100 --json id,name,state,createdAt,updatedAt,completedAt,pullRequestNumber,pullRequestUrl)"
-  jq -c \
+  jq -r \
     --arg slug "$(printf '%s' "$agent_slug" | tr '[:upper:]' '[:lower:]')" \
     --arg title "$(printf '%s' "$issue_title" | tr '[:upper:]' '[:lower:]')" '
       . as $all
@@ -351,6 +351,7 @@ fd_resolve_task_for_agent() {
           | sort_by(.createdAt // "")
           | last
         ) // ($all | sort_by(.createdAt // "") | last) // empty
+      | .id // empty
     ' <<<"$tasks_json"
 }
 
