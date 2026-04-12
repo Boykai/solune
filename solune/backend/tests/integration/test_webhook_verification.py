@@ -80,7 +80,7 @@ class TestWebhookVerification:
         app = _build_webhook_app()
         with (
             patch("src.config.get_settings", return_value=settings),
-            patch("src.api.webhooks.get_settings", return_value=settings),
+            patch("src.api.webhooks.handlers.get_settings", return_value=settings),
         ):
             transport = ASGITransport(app=app)
             try:
@@ -118,8 +118,8 @@ class TestWebhookVerification:
         mock_gh = AsyncMock(name="github_projects_service")
         with (
             patch("src.config.get_settings", return_value=settings),
-            patch("src.api.webhooks.get_settings", return_value=settings),
-            patch("src.api.webhooks.github_projects_service", mock_gh),
+            patch("src.api.webhooks.handlers.get_settings", return_value=settings),
+            patch("src.api.webhooks.pull_requests.github_projects_service", mock_gh),
         ):
             transport = ASGITransport(app=app)
             try:
