@@ -192,3 +192,26 @@ class TestFleetDispatchCli:
         state = json.loads(state_files[0].read_text())
         assert state["records"][0]["status"] == "failed"
         assert state["records"][0]["errorMessage"] == "Unable to resolve agent task after dispatch"
+
+    def test_timeout_uses_dispatch_started_at(self, tmp_path: Path) -> None:
+        config = _base_config()
+        config["groups"] = [config["groups"][0]]
+        config["groups"][0]["agents"] = [config["groups"][0]["agents"][0]]
+
+        result = run_script(
+            tmp_path,
+            config,
+            extra_args=["--task-timeout", "1", "--poll-interval", "1"],
+            extra_env={
+                "FAKE_GH_PENDING_AGENT": "alpha",
+                "FAKE_GH_PENDING_VIEWS": "1",
+                "FAKE_GH_DISPATCH_DELAY_AGENT": "alpha",
+                "FAKE_GH_DISPATCH_DELAY_SECONDS": "2",
+            },
+        )
+
+        assert result.returncode != 0
+        state_files = list((tmp_path / "dispatch-state").glob("*.json"))
+        assert len(state_files) == 1
+        state = json.loads(state_files[0].read_text())
+        assert state["records"][0]["status"] == "timed_out"

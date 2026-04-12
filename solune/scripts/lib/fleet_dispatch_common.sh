@@ -18,6 +18,23 @@ fd_timestamp() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+fd_timestamp_to_epoch() {
+  local timestamp="${1:-}"
+  if [[ -z "$timestamp" || "$timestamp" == 'null' ]]; then
+    date -u +%s
+    return 0
+  fi
+  if date -u -d "$timestamp" +%s >/dev/null 2>&1; then
+    date -u -d "$timestamp" +%s
+    return 0
+  fi
+  if date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$timestamp" +%s >/dev/null 2>&1; then
+    date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$timestamp" +%s
+    return 0
+  fi
+  date -u +%s
+}
+
 fd_slug_to_label() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr '/. ' '-__'
 }
