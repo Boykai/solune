@@ -222,7 +222,17 @@ vi.mock('@/components/common/ProjectSelectionEmptyState', () => ({
 }));
 
 vi.mock('@/components/common/CompactPageHeader', () => ({
-  CompactPageHeader: ({ title, badge, stats, actions }: { title: string; badge?: string; stats?: { label: string; value: string }[]; actions: ReactNode }) => (
+  CompactPageHeader: ({
+    title,
+    badge,
+    stats,
+    actions,
+  }: {
+    title: string;
+    badge?: string;
+    stats?: { label: string; value: string }[];
+    actions: ReactNode;
+  }) => (
     <header>
       <h2>{title}</h2>
       {badge && <span data-testid="header-badge">{badge}</span>}
