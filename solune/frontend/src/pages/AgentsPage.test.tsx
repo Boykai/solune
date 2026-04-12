@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 import { AgentsPage } from './AgentsPage';
 
@@ -55,6 +55,17 @@ describe('AgentsPage', () => {
   it('renders without crashing', () => {
     render(<AgentsPage />);
     expect(document.body).toBeDefined();
+  });
+
+  it('renders a compact page header with the expected title', () => {
+    render(<AgentsPage />);
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading).toHaveTextContent('Shape your agent constellation.');
+  });
+
+  it('uses a <header> element for the page header', () => {
+    const { container } = render(<AgentsPage />);
+    expect(container.querySelector('header')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {

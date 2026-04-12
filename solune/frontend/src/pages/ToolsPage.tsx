@@ -7,7 +7,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useProjectBoard } from '@/hooks/useProjectBoard';
 import { useToolsList } from '@/hooks/useTools';
 import { ToolsPanel } from '@/components/tools/ToolsPanel';
-import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
+import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { ProjectSelectionEmptyState } from '@/components/common/ProjectSelectionEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
@@ -29,12 +29,11 @@ export function ToolsPage() {
 
   return (
     <div className="celestial-fade-in flex flex-col gap-5 rounded-[1.5rem] border border-border/70 bg-background/42 p-4 backdrop-blur-sm sm:gap-6 sm:rounded-[1.75rem] sm:p-6">
-      <CelestialCatalogHero
+      <CompactPageHeader
         eyebrow="Tool Forge"
         title="Equip your agents with MCP tools."
         description="Upload and manage MCP configurations that sync to your repository and can be embedded into GitHub Custom Agent definitions. Assign tools to agents during creation for enhanced capabilities."
         badge={repo ? repo.name : 'Awaiting repository'}
-        note="Uploaded MCP configs are stored in both .copilot/mcp.json and .vscode/mcp.json, then embedded into assigned .github/agents/*.agent.md files when you save an agent."
         stats={[
           { label: 'Repository', value: repo ? repo.name : 'Unlinked' },
           { label: 'Project', value: selectedProject?.name ?? 'Unselected' },

@@ -13,7 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { pipelinesApi } from '@/services/api';
 import { AgentsPanel } from '@/components/agents/AgentsPanel';
 import { statusColorToCSS } from '@/components/board/colorUtils';
-import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
+import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { ProjectSelectionEmptyState } from '@/components/common/ProjectSelectionEmptyState';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -90,12 +90,11 @@ export function AgentsPage() {
 
   return (
     <div className="celestial-fade-in flex flex-col gap-5 rounded-[1.5rem] border border-border/70 bg-background/42 p-4 backdrop-blur-sm sm:gap-6 sm:rounded-[1.75rem] sm:p-6">
-      <CelestialCatalogHero
+      <CompactPageHeader
         eyebrow="Celestial Catalog"
         title="Shape your agent constellation."
         description="Browse repository agents in a broader catalog, spotlight the most active rituals, and keep every board column tied to the right assistant."
         badge={repo ? `${repo.owner}/${repo.name}` : 'Awaiting repository'}
-        note="Give active agents more surface area, keep pending work visible, and let assignments read like a calm operations map instead of a stacked sidebar."
         stats={[
           { label: 'Board columns', value: String(columns.length) },
           { label: 'Assignments', value: String(assignedCount) },

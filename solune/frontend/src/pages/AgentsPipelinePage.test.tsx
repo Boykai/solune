@@ -221,12 +221,12 @@ vi.mock('@/components/common/ProjectSelectionEmptyState', () => ({
   ProjectSelectionEmptyState: () => <div>Select a project</div>,
 }));
 
-vi.mock('@/components/common/CelestialCatalogHero', () => ({
-  CelestialCatalogHero: ({ title, actions }: { title: string; actions: ReactNode }) => (
-    <section>
-      <h1>{title}</h1>
+vi.mock('@/components/common/CompactPageHeader', () => ({
+  CompactPageHeader: ({ title, actions }: { title: string; actions: ReactNode }) => (
+    <header>
+      <h2>{title}</h2>
       <div>{actions}</div>
-    </section>
+    </header>
   ),
 }));
 

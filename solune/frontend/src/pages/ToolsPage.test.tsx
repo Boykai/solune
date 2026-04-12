@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 import { ToolsPage } from './ToolsPage';
 
@@ -29,6 +29,17 @@ describe('ToolsPage', () => {
   it('renders without crashing', () => {
     render(<ToolsPage />);
     expect(document.body).toBeDefined();
+  });
+
+  it('renders a compact page header with the expected title', () => {
+    render(<ToolsPage />);
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading).toHaveTextContent('Equip your agents with MCP tools.');
+  });
+
+  it('uses a <header> element for the page header', () => {
+    const { container } = render(<ToolsPage />);
+    expect(container.querySelector('header')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
