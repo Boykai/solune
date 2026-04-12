@@ -86,6 +86,17 @@ def _base_config() -> dict:
     }
 
 
+def _existing_alpha_issue() -> dict:
+    return {
+        "number": 200,
+        "node_id": "ISSUE_NODE_200",
+        "html_url": "https://github.com/Boykai/solune/issues/200",
+        "title": "Existing alpha issue",
+        "body": "Existing body",
+        "labels": ["fleet-dispatch", "fleet-parent:1555", "fleet-agent:alpha", "alpha"],
+    }
+
+
 class TestFleetDispatchCli:
     def test_dispatch_orders_serial_then_parallel(self, tmp_path: Path) -> None:
         result = run_script(tmp_path, _base_config())
@@ -144,16 +155,8 @@ class TestFleetDispatchCli:
         config = _base_config()
         config["groups"] = [config["groups"][0]]
         config["groups"][0]["agents"] = [config["groups"][0]["agents"][0]]
-        extra_issue = {
-            "number": 200,
-            "node_id": "ISSUE_NODE_200",
-            "html_url": "https://github.com/Boykai/solune/issues/200",
-            "title": "Existing alpha issue",
-            "body": "Existing body",
-            "labels": ["fleet-dispatch", "fleet-parent:1555", "fleet-agent:alpha", "alpha"],
-        }
 
-        result = run_script(tmp_path, config, extra_issues=[extra_issue])
+        result = run_script(tmp_path, config, extra_issues=[_existing_alpha_issue()])
         log_lines = read_log(tmp_path)
 
         assert result.returncode == 0, result.stderr
@@ -164,19 +167,10 @@ class TestFleetDispatchCli:
         config = _base_config()
         config["groups"] = [config["groups"][0]]
         config["groups"][0]["agents"] = [config["groups"][0]["agents"][0]]
-        extra_issue = {
-            "number": 200,
-            "node_id": "ISSUE_NODE_200",
-            "html_url": "https://github.com/Boykai/solune/issues/200",
-            "title": "Existing alpha issue",
-            "body": "Existing body",
-            "labels": ["fleet-dispatch", "fleet-parent:1555", "fleet-agent:alpha", "alpha"],
-        }
-
         result = run_script(
             tmp_path,
             config,
-            extra_issues=[extra_issue],
+            extra_issues=[_existing_alpha_issue()],
             extra_args=["--no-resume"],
         )
         log_lines = read_log(tmp_path)
