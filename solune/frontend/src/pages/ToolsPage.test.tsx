@@ -79,10 +79,10 @@ describe('ToolsPage', () => {
       ],
     };
 
-    const { container } = render(<ToolsPage />);
-    // Badge is the truncated pill element next to the eyebrow
-    const badge = container.querySelector('span.rounded-full.border-primary\\/25');
-    expect(badge).toHaveTextContent('solune');
+    render(<ToolsPage />);
+    // Badge is rendered next to the eyebrow text
+    const eyebrow = screen.getByText('Tool Forge');
+    expect(eyebrow.parentElement).toHaveTextContent('solune');
   });
 
   it('renders stats chips for repository and project', () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import { axe, toHaveNoViolations } from 'jest-axe';
@@ -30,6 +30,10 @@ vi.mock('@/lib/commands/registry', () => ({
 }));
 
 describe('HelpPage', () => {
+  beforeEach(() => {
+    mockRestart.mockClear();
+  });
+
   it('renders and shows the help center heading', () => {
     render(
       <MemoryRouter>
