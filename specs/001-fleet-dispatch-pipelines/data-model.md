@@ -64,12 +64,13 @@
 |---|---|---|---|
 | `path` | string | yes | Repository-relative template file |
 | `agentSlug` | string | yes | Agent-specific template owner |
-| `fallback` | boolean | yes | Marks generic fallback template |
+| `fallback` | boolean | yes | Marks the generic template selected when no agent-specific template exists |
 | `placeholders` | array\<string\> | yes | Supported substitution variable names for the template |
 
 **Relationships**:
 - Referenced by `PipelineAgent`.
 - Rendered using parent-issue context and optional existing PR metadata.
+- Selected as the fallback template when a configured agent has no dedicated template file.
 
 **Supported placeholders**:
 - `ISSUE_TITLE`
@@ -79,6 +80,10 @@
 - `PARENT_ISSUE_URL`
 - `BASE_REF`
 - `PR_BRANCH`
+
+**Fallback selection rule**:
+- If `PipelineAgent.instructionTemplate` resolves to an existing agent-specific file, render that template.
+- Otherwise, select the single `InstructionTemplate` record where `fallback=true`; this generic template carries the shared issue-context framing plus a warning that no dedicated template was found for the agent slug.
 
 ## 5. SubIssueRecord
 
