@@ -1,7 +1,7 @@
 # Implementation Plan: Fleet-Dispatch Agent Pipelines via GitHub CLI
 
-**Branch**: `001-fleet-dispatch-pipelines` | **Date**: 2026-04-12 | **Spec**: `/home/runner/work/solune/solune/specs/001-fleet-dispatch-pipelines/spec.md`
-**Input**: Feature specification from `/home/runner/work/solune/solune/specs/001-fleet-dispatch-pipelines/spec.md`
+**Branch**: `001-fleet-dispatch-pipelines` | **Date**: 2026-04-12 | **Spec**: `specs/001-fleet-dispatch-pipelines/spec.md`
+**Input**: Feature specification from `specs/001-fleet-dispatch-pipelines/spec.md`
 
 ## Summary
 
@@ -23,8 +23,8 @@ Add a GitHub CLI-based fleet dispatch path that mirrors the backend's existing C
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **Specification-First Development**: PASS — `/home/runner/work/solune/solune/specs/001-fleet-dispatch-pipelines/spec.md` already defines prioritized user stories, acceptance scenarios, edge cases, assumptions, and scope boundaries.
-- **Template-Driven Workflow**: PASS — this plan and all Phase 0/1 artifacts stay inside `/home/runner/work/solune/solune/specs/001-fleet-dispatch-pipelines/` using the canonical Speckit artifact set.
+- **Specification-First Development**: PASS — `specs/001-fleet-dispatch-pipelines/spec.md` already defines prioritized user stories, acceptance scenarios, edge cases, assumptions, and scope boundaries.
+- **Template-Driven Workflow**: PASS — this plan and all Phase 0/1 artifacts stay inside `specs/001-fleet-dispatch-pipelines/` using the canonical Speckit artifact set.
 - **Agent-Orchestrated Execution**: PASS — the design keeps the existing single-responsibility agents and focuses this feature on dispatch orchestration, config extraction, monitoring, and retry handoffs.
 - **Test Optionality with Clarity**: PASS — the spec explicitly calls for verifiable dispatch/config behavior, so the plan includes targeted pytest-backed coverage without imposing unrelated new frameworks.
 - **Simplicity and DRY**: PASS — the design reuses the existing GraphQL mutation, prompt-formatting logic, and pipeline-group abstractions instead of introducing a second backend protocol.
