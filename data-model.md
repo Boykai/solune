@@ -134,6 +134,8 @@ app.add_middleware(...)
 app.include_router(...)
 ```
 
+**DOM nodes**: ~8–12 elements (content only, no decorative)
+
 ---
 
 ## Module: `services/api/` Package (from `services/api.ts`)

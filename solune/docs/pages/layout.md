@@ -29,15 +29,19 @@ The top bar sits across the top of every page and provides context and quick act
 
 ## Chat Panel
 
-A floating chat panel is available on every page, accessible from the bottom-right corner. It stays open as you navigate between pages — your conversation is never lost.
+Solune exposes chat in two places:
+
+- **Floating `ChatPopup`** — available from the bottom-right corner on every authenticated page
+- **Dashboard chat workspace** — the `/` route renders `ChatPanelManager` with one or more conversation panels
 
 **What you can do:**
 
-- **Talk to AI agents** — type a message or use `@agentname` to direct a question to a specific agent
-- **Use slash commands** — type `/` to see available commands (e.g., `/help`, `/theme`, `/clear`)
+- **Talk to AI agents** — send messages from the popup or from dashboard chat panels
+- **Use slash commands** — type `/` to see available commands (for example `/help`, `/theme`, `/clear`)
 - **Voice input** — click the microphone button to dictate messages
 - **Attach files** — drag or paste files into the chat for context
-- **Review proposals** — when an agent proposes an issue or status change, you can accept or reject it directly in the chat
+- **Review proposals** — confirm or reject task, issue, and status proposals inline
+- **Work across conversations** — the dashboard supports multiple persistent conversations at once
 
 For the full chat feature guide, see [Chat](chat.md).
 

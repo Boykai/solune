@@ -30,7 +30,7 @@ import { extractRateLimitInfo, isRateLimitApiError } from '@/utils/rateLimit';
 import { cn } from '@/lib/utils';
 import type { BoardItem, BoardDataResponse } from '@/types';
 import { boardApi, pipelinesApi } from '@/services/api';
-import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
+import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { Button } from '@/components/ui/button';
 import { ListOrdered, GitMerge } from '@/lib/icons';
 import { toast } from 'sonner';
@@ -320,8 +320,7 @@ export function ProjectsPage() {
 
   return (
     <div className="projects-page-shell celestial-fade-in flex h-full flex-col gap-5 overflow-visible rounded-[1.75rem] border border-border/70 bg-background/35 p-4 backdrop-blur-sm sm:p-6">
-      <CelestialCatalogHero
-        className="projects-catalog-hero"
+      <CompactPageHeader
         eyebrow="Mission Control"
         title="Every project, mapped and moving."
         description="Live Kanban view of your GitHub Project. Filter, sort, and group issues across pipeline stages, then trigger agents directly from the board."
@@ -330,7 +329,6 @@ export function ProjectsPage() {
             ? `${selectedProject.owner_login}/${selectedProject.name}`
             : 'Awaiting project'
         }
-        note="Use the board to triage work and queue items for the active agent pipeline — all without leaving the project view."
         stats={heroStats}
         actions={
           <>

@@ -91,7 +91,7 @@
 
 **Dependencies**: Requires US1 (Phase 3) complete so `proposals.py` exists in `api/chat/`
 
-### Implementation for User Story 2
+**⚠️ CRITICAL**: No user story work (page migrations, dead code removal) can begin until this phase is complete.
 
 - [ ] T020 [US2] Create `ProposalOrchestrator` class skeleton in `solune/backend/src/services/proposal_orchestrator.py` with `__init__(chat_state, chat_store)` and `async def confirm()` signature per `contracts/proposal-orchestrator-interface.md`
 - [ ] T021 [US2] Extract `_validate_proposal()` method in `solune/backend/src/services/proposal_orchestrator.py` — retrieve proposal from cache/store, validate ownership and expiration
@@ -139,7 +139,7 @@
 
 **Independent Test**: `python -m pytest tests/unit/test_webhooks.py -v --timeout=120` — all webhook tests pass; `from src.api.webhooks import router` works
 
-### Implementation for User Story 4
+### Implementation
 
 - [ ] T040 [P] [US4] Extract signature verification and payload parsing into `solune/backend/src/api/webhooks/common.py` with `verify_signature`, `parse_webhook_payload`, `WebhookContext` class per `contracts/webhooks-package-interface.md`
 - [ ] T041 [P] [US4] Extract PR event handlers into `solune/backend/src/api/webhooks/pull_requests.py` moving `handle_pull_request_event` and related PR handlers from `solune/backend/src/api/webhooks.py`
@@ -160,7 +160,7 @@
 
 **Independent Test**: `npm run build` succeeds; `npm test` passes; `import { chatApi } from '@/services/api'` resolves correctly
 
-### Implementation for User Story 5
+### Implementation
 
 - [ ] T048 [P] [US5] Extract `authApi` into `solune/frontend/src/services/api/auth.ts` importing from `./client`
 - [ ] T049 [P] [US5] Extract `chatApi`, `conversationApi` into `solune/frontend/src/services/api/chat.ts` importing from `./client`
@@ -230,7 +230,7 @@
 
 **Checkpoint**: main.py simplified to declarative app definition — all lifecycle logic in bootstrap.py
 
----
+### User Story Dependencies
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
@@ -247,11 +247,11 @@
 - [ ] T095 Verify no circular import warnings in backend: `python -c "from src.main import app"` completes without warnings
 - [ ] T096 Update `architecture.md` and `project-structure.md` documentation if they reference old file paths
 
----
+### Parallel Opportunities
 
-## Dependencies & Execution Order
+**Within Phase 2** (Foundational):
 
-### Phase Dependencies
+- T001 and T002 can be authored in parallel (different files)
 
 - **Setup (Phase 1)**: No dependencies — can start immediately
 - **Foundational (Phase 2)**: Depends on Setup — creates shared modules used by all backend stories
@@ -264,7 +264,7 @@
 - **US7: Bootstrap Extract (Phase 9)**: Depends on US3 (Phase 5) — ChatStateManager wiring in main.py should settle first
 - **Polish (Phase 10)**: Depends on all user stories being complete
 
-### User Story Dependencies
+- T003 (`ProjectsPage.tsx`) ‖ T004 (`AgentsPage.tsx`) ‖ T005 (`AgentsPipelinePage.tsx`) ‖ T006 (`ToolsPage.tsx`) ‖ T007 (`ChoresPage.tsx`) ‖ T008 (`HelpPage.tsx`)
 
 ```text
 Phase 1: Setup ─────────────────────────────────────────────────────────────┐
@@ -283,7 +283,7 @@ Phase 9: US7 (Bootstrap) ──────── (after US3) ──────
 Phase 10: Polish ──────────────── (after all) ─────────────┘                │
 ```
 
-### Within Each User Story
+- T009 ‖ T010 ‖ T011 (all different files)
 
 - Shared modules (helpers, state, models) before endpoints
 - Internal modules (dispatch) before external-facing modules (streaming)
@@ -344,7 +344,7 @@ Task T070: "Extract board types into solune/frontend/src/types/board.ts"
 
 ## Implementation Strategy
 
-### MVP First (User Story 1 Only)
+### MVP First (Phase 2 + Phase 3 Only)
 
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational (shared modules)

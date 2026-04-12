@@ -8,7 +8,6 @@ This refactoring decomposes six monolithic hotspots into domain-scoped modules. 
 
 ## Prerequisites
 
-- Python ≥3.12 with virtual environment
 - Node.js ≥18 with npm
 - Git
 - Familiarity with the existing test suites
@@ -22,7 +21,7 @@ Execute refactoring targets in strict dependency order. Each target is independe
 **Highest impact — reduces the single largest backend file from 2930 lines to ~10 focused modules.**
 
 ```bash
-cd solune/backend
+cd solune/frontend
 
 # 1. Create the package directory
 mkdir -p src/api/chat
@@ -47,8 +46,7 @@ python -m pytest tests/unit/ -q --timeout=120
 
 **Converts the 348-line `confirm_proposal()` god function into a testable service class.**
 
-```bash
-cd solune/backend
+Do **not** duplicate the full component implementation in this guide. `CompactPageHeader` has interactive/mobile behavior and styling details that can change over time, so the source file should remain the single source of truth:
 
 # 1. Run proposal-specific tests (baseline)
 python -m pytest tests/unit/test_api_chat.py -k "confirm_proposal or proposal" -v
@@ -94,7 +92,10 @@ npm test
 **Reduces merge conflicts and improves IDE navigation.**
 
 ```bash
-cd solune/frontend
+# Delete the old hero component and its tests
+rm src/components/common/CelestialCatalogHero.tsx
+rm src/components/common/CelestialCatalogHero.test.tsx
+```
 
 # 1. Build baseline
 npm run build
