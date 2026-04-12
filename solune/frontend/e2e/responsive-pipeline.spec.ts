@@ -8,10 +8,19 @@ import { test, expect } from './authenticated-fixtures';
 import { VIEWPORTS } from './viewports';
 
 const PIPELINE_TITLE = 'Orchestrate agents across every stage.';
+const PIPELINE_PROJECT_BADGE = /test-user\/test project/i;
 
 async function openPipelinePage(page: Page) {
+  const viewport = page.viewportSize();
+  if (viewport && viewport.width < 768) {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('sidebar-collapsed', 'true');
+    });
+  }
+
   await page.goto('/pipeline');
-  await expect(page.getByText(PIPELINE_TITLE)).toBeVisible();
+  await expect(page.getByRole('button', { name: /^New pipeline$/ })).toBeVisible();
+  await expect(page.getByText(PIPELINE_PROJECT_BADGE)).toBeVisible();
 }
 
 test.describe('Responsive Pipeline Layout', () => {
@@ -40,12 +49,16 @@ test.describe('Responsive Pipeline Layout', () => {
     expect(bodyScrollWidth).toBeLessThanOrEqual(windowWidth + 1);
   });
 
-  // Visual regression: capture pipeline layout at mobile viewport
+  // Visual regression: capture the pipeline stages region at mobile viewport.
   test('visual regression — pipeline at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openPipelinePage(page);
-    await expect(page).toHaveScreenshot('responsive-pipeline-mobile.png', {
+    const stagesGrid = page.getByTestId('pipeline-stages-grid');
+
+    await expect(stagesGrid).toBeVisible({ timeout: 15_000 });
+    await expect(stagesGrid).toHaveScreenshot('responsive-pipeline-mobile.png', {
       maxDiffPixels: 100,
+      timeout: 15_000,
     });
   });
 });
