@@ -102,7 +102,7 @@
 - [ ] T026 [US2] Extract `_persist_status()` method in `solune/backend/src/services/proposal_orchestrator.py` — update proposal status in SQLite with retry logic
 - [ ] T027 [US2] Extract `_broadcast_update()` method in `solune/backend/src/services/proposal_orchestrator.py` — send updated proposal to WebSocket clients (best-effort)
 - [ ] T028 [US2] Extract `_setup_workflow()` and `_resolve_pipeline()` methods in `solune/backend/src/services/proposal_orchestrator.py` — set up workflow config, resolve pipeline mappings, assign agent, start polling per `contracts/proposal-orchestrator-interface.md`
-- [ ] T029 [US2] Wire `confirm()` method to delegate to `_validate_proposal` → `_apply_edits` → `_build_body` → `_create_github_issue` → `_add_to_project` → `_persist_status` → `_broadcast_update` → `_setup_workflow` in `solune/backend/src/services/proposal_orchestrator.py`
+- [ ] T029 [US2] Wire `confirm()` method to delegate to `_validate_proposal` → `_apply_edits` → `_build_body` → `_create_github_issue` → `_add_to_project` → `_persist_status` → `_broadcast_update` → `_setup_workflow` (which calls `_resolve_pipeline` internally) in `solune/backend/src/services/proposal_orchestrator.py`
 - [ ] T030 [US2] Update `solune/backend/src/api/chat/proposals.py` to instantiate and call `ProposalOrchestrator.confirm()` instead of inline logic
 - [ ] T031 [US2] Verify: `python -m pytest tests/unit/test_api_chat.py -k "confirm_proposal or proposal" -v` and `python -m pytest tests/unit/ -q --timeout=120`
 
