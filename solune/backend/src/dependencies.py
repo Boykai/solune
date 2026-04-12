@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from src.models.user import UserSession
     from src.services.chat_state_manager import ChatStateManager
     from src.services.github_projects import GitHubProjectsService
+    from src.services.proposal_orchestrator import ProposalOrchestrator
     from src.services.websocket import ConnectionManager
 
 logger = get_logger(__name__)
@@ -259,3 +260,17 @@ def require_selected_project(session: UserSession) -> str:
     if not session.selected_project_id:
         raise ValidationError("No project selected. Please select a project first.")
     return session.selected_project_id
+
+
+def get_proposal_orchestrator(request: Request) -> "ProposalOrchestrator":
+    """Return a :class:`ProposalOrchestrator` wired to app services."""
+    from src.services import chat_store, settings_store
+    from src.services.proposal_orchestrator import ProposalOrchestrator
+
+    return ProposalOrchestrator(
+        github_service=get_github_service(request),
+        connection_manager=get_connection_manager(request),
+        chat_state_manager=get_chat_state_manager(request),
+        chat_store=chat_store,
+        settings_store=settings_store,
+    )
