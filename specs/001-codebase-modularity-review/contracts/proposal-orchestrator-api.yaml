@@ -1,0 +1,88 @@
+# ProposalOrchestrator API Contract
+# Describes the public interface of the extracted ProposalOrchestrator service
+
+module: solune.backend.src.services.proposal_orchestrator
+class: ProposalOrchestrator
+
+constructor:
+  parameters:
+    - name: github_service
+      type: GitHubProjectsService
+      required: true
+      description: GitHub API operations (issue creation, project management)
+    - name: connection_manager
+      type: ConnectionManager
+      required: true
+      description: WebSocket broadcast manager
+    - name: chat_state_manager
+      type: ChatStateManager
+      required: true
+      description: In-memory state for proposals and messages
+    - name: chat_store
+      type: ChatStore
+      required: true
+      description: SQLite persistence for proposal status updates
+    - name: settings_store
+      type: module
+      required: true
+      description: User and project settings access
+
+public_methods:
+  - name: confirm
+    async: true
+    parameters:
+      - name: proposal_id
+        type: str
+        description: ID of the proposal to confirm
+      - name: request
+        type: ProposalConfirmRequest | None
+        description: Optional user edits (title, description)
+      - name: session
+        type: UserSession
+        description: Authenticated user session
+    returns: AITaskProposal
+    raises:
+      - type: HTTPException(404)
+        when: Proposal not found
+      - type: HTTPException(403)
+        when: Proposal not owned by session
+      - type: HTTPException(410)
+        when: Proposal expired
+      - type: HTTPException(409)
+        when: Proposal already confirmed
+      - type: HTTPException(400)
+        when: Issue body exceeds GitHub API limit
+      - type: HTTPException(502)
+        when: GitHub API call fails
+    description: >
+      Executes the 7-phase proposal confirmation workflow:
+      1. Validate proposal (ownership, expiry, status)
+      2. Apply user edits (title, description)
+      3. Resolve repository and validate body length
+      4. Create GitHub issue and add to project
+      5. Update status, broadcast WebSocket, add chat message
+      6. Configure workflow (pipeline mapping, agent mapping)
+      7. Assign agent, initialize pipeline, start polling
+
+internal_methods:
+  - name: _validate_proposal
+    description: Phase 1 — verify ownership, expiry, pending status
+  - name: _apply_user_edits
+    description: Phase 2 — apply edited_title and edited_description
+  - name: _resolve_repository
+    description: Phase 3 — get owner/repo/project_id, validate body length
+  - name: _create_github_issue
+    description: Phase 4 — create issue via GitHub API + add to project
+  - name: _broadcast_confirmation
+    description: Phase 5 — status update + WebSocket + confirmation message
+  - name: _configure_workflow
+    description: Phase 6 — load/create WorkflowConfiguration + pipeline mapping
+  - name: _assign_agent_and_start
+    description: Phase 7 — agent assignment + pipeline init + polling start
+
+dependency_injection:
+  factory: get_proposal_orchestrator
+  location: solune.backend.src.dependencies
+  pattern: >
+    Factory function composes all service dependencies via Depends().
+    Used in api/chat/proposals.py endpoint as Depends(get_proposal_orchestrator).

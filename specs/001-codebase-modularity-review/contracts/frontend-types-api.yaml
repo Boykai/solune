@@ -1,0 +1,150 @@
+# Frontend Types API Contract
+# Describes the module structure after splitting types/index.ts
+
+package: solune/frontend/src/types
+original_file: types/index.ts (1525 lines)
+
+barrel_index:
+  file: index.ts
+  description: >
+    Re-exports all public types from domain modules.
+    Ensures all 202+ existing 'import type { X } from "@/types"' paths work unchanged.
+  pattern: |
+    export * from './common';
+    export * from './auth';
+    export * from './projects';
+    export * from './tasks';
+    export * from './chat';
+    export * from './proposals';
+    export * from './plans';
+    export * from './board';
+    export * from './settings';
+    export * from './workflow';
+    export * from './pipeline';
+    export * from './agents';
+    export * from './signal';
+    export * from './mcp';
+    export * from './cleanup';
+    export * from './chores';
+    export * from './activity';
+    export * from './ui';
+    export * from './apps';
+    export * from './app-template';
+
+shared_module:
+  file: common.ts
+  description: Enums, error types, and file types used across multiple domains
+  exports:
+    - ProjectType (enum)
+    - SenderType (enum)
+    - ActionType (enum)
+    - ProposalStatus (enum)
+    - RecommendationStatus (enum)
+    - APIError (interface)
+    - FileAttachment (interface)
+    - FileUploadResponse (interface)
+    - FileUploadError (interface)
+    - MessageStatus (enum, if present)
+
+domain_modules:
+  - file: auth.ts
+    imports_from: []
+    exports: [User, AuthResponse]
+    lines: ~15
+
+  - file: projects.ts
+    imports_from: []
+    exports: [StatusColumn, Project, ProjectListResponse]
+    lines: ~25
+
+  - file: tasks.ts
+    imports_from: []
+    exports: [Task, TaskCreateRequest, TaskListResponse]
+    lines: ~25
+
+  - file: chat.ts
+    imports_from: [common (SenderType, ActionType, MessageStatus, FileAttachment), proposals (IssueCreateActionData), plans (PlanCreateActionData)]
+    exports: [ChatMessage, ChatMessageRequest, ChatMessagesResponse, ActionData, MentionToken, MentionInputState, MentionFilterResult, VoiceInputState, ChatPreferences, Conversation, ConversationsListResponse]
+    lines: ~100
+    note: >
+      ActionData is a union type that references action data types from
+      proposals.ts and plans.ts. These are imported directly from sibling
+      modules (not through the barrel) to avoid circular dependencies.
+
+  - file: proposals.ts
+    imports_from: [common (ProposalStatus, RecommendationStatus)]
+    exports: [AITaskProposal, ProposalConfirmRequest, IssuePriority, IssueSize, IssueLabel, IssueMetadata, RepositoryMetadata, IssueRecommendation, IssueCreateActionData]
+    lines: ~80
+
+  - file: plans.ts
+    imports_from: []
+    exports: [PlanStatus, ThinkingPhase, StepApprovalStatus, ThinkingEvent, PlanStep, Plan, PlanVersion, PlanHistoryResponse, PlanCreateActionData, PlanApprovalResponse, PlanExitResponse, StepCreateRequest, StepUpdateRequest, StepReorderRequest, StepApprovalRequest, StepFeedbackRequest, StepFeedbackResponse, DependencyGraphNode, DependencyGraphEdge]
+    lines: ~85
+
+  - file: board.ts
+    imports_from: []
+    exports: [StatusChangeProposal, StatusColor, ContentType, PRState, BoardStatusOption, BoardStatusField, BoardProject, BoardRepository, BoardAssignee, BoardCustomFieldValue, LinkedPR, BoardLabel, SubIssue, BoardItem, BoardColumn, PaginatedResponse, RateLimitInfo, RefreshErrorType, RefreshError, BoardDataResponse, BoardProjectListResponse]
+    lines: ~340
+
+  - file: settings.ts
+    imports_from: []
+    exports: [AIProviderType, ThemeModeType, DefaultViewType, AIPreferences, DisplayPreferences, WorkflowDefaults, NotificationPreferences, EffectiveUserSettings, GlobalSettings, ProjectBoardConfig, ProjectAgentMapping, ProjectSpecificSettings, EffectiveProjectSettings, UpdateAIPreferences, UpdateDisplayPreferences, UpdateWorkflowDefaults, UpdateNotificationPreferences, UpdateGlobalSettings, UpdateProjectSpecificSettings, ModelOption, ModelsResponse]
+    lines: ~130
+
+  - file: workflow.ts
+    imports_from: []
+    exports: [WorkflowResult, PipelineIssueLaunchRequest, WorkflowConfiguration, AgentNotification, PipelineStateInfo]
+    lines: ~55
+
+  - file: pipeline.ts
+    imports_from: []
+    exports: [PipelineAgentNode, ExecutionGroup, PipelineStage, PipelineConfig, PipelineConfigSummary, PipelineConfigListResponse, PipelineConfigCreate, PipelineConfigUpdate, AIModel, ModelGroup, PipelineBoardState, PipelineModelOverride, PipelineValidationErrors, ProjectPipelineAssignment, PresetPipelineDefinition, FlowGraphNode, PresetSeedResult]
+    lines: ~130
+
+  - file: agents.ts
+    imports_from: []
+    exports: [AgentSource, AgentAssignment, AvailableAgent, AgentPreset]
+    lines: ~30
+
+  - file: signal.ts
+    imports_from: []
+    exports: [SignalConnectionStatus, SignalNotificationMode, SignalLinkStatus, SignalConnection, SignalLinkResponse, SignalLinkStatusResponse, SignalPreferences, SignalPreferencesUpdate, SignalBanner, SignalBannersResponse]
+    lines: ~45
+
+  - file: mcp.ts
+    imports_from: []
+    exports: [McpConfiguration, McpConfigurationListResponse, McpConfigurationCreate, McpToolSyncStatus, McpToolConfig, McpToolConfigCreate, McpToolConfigUpdate, McpToolConfigListResponse, McpToolSyncResult, RepoMcpServerConfig, RepoMcpServerUpdate, RepoMcpConfigResponse, McpPreset, McpPresetListResponse, ToolChip, ToolDeleteResult]
+    lines: ~90
+
+  - file: cleanup.ts
+    imports_from: []
+    exports: [BranchInfo, PullRequestInfo, OrphanedIssueInfo, IssueInfo, IssueToDelete, CleanupPreflightResponse, CleanupItemResult, CleanupExecuteRequest, CleanupConfirmPayload, CleanupExecuteResponse, CleanupAuditLogEntry, CleanupHistoryResponse]
+    lines: ~110
+
+  - file: chores.ts
+    imports_from: []
+    exports: [ScheduleType, ChoreStatus, Chore, ChoreCreate, ChoreTemplate, ChoreUpdate, ChoreTriggerResult, ChoreChatMessage, ChoreChatResponse, ChoreInlineUpdate, ChoreInlineUpdateResponse, ChoreCreateWithConfirmation, ChoreCreateResponse, FeaturedRitualCard, FeaturedRituals, ChoreEditState, ChoreCounterData]
+    lines: ~145
+
+  - file: activity.ts
+    imports_from: []
+    exports: [ActivityEvent, ActivityStats]
+    lines: ~20
+
+  - file: ui.ts
+    imports_from: []
+    exports: [NavRoute, SidebarState, RecentInteraction, Notification, TourStepPlacement, TourStep, FaqCategory, FaqEntry, ResolvedModelInfo]
+    lines: ~60
+
+cross_domain_imports:
+  description: >
+    Most domain type files are self-contained with no cross-imports.
+    Only chat.ts has cross-domain imports (from common.ts, proposals.ts, plans.ts)
+    to build the ActionData union type. These imports use direct sibling paths
+    (e.g., import { IssueCreateActionData } from './proposals') to avoid
+    circular references through the barrel index.ts.
+  graph:
+    - from: chat.ts
+      imports: [common.ts, proposals.ts, plans.ts]
+    - from: proposals.ts
+      imports: [common.ts]

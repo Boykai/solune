@@ -1,0 +1,121 @@
+# ChatStateManager API Contract
+# Describes the public interface of the extracted ChatStateManager class
+
+module: solune.backend.src.services.chat_state_manager
+class: ChatStateManager
+
+constructor:
+  parameters:
+    - name: db
+      type: aiosqlite.Connection
+      required: true
+      description: Database connection for persistence operations
+    - name: chat_store
+      type: ChatStore
+      required: true
+      description: SQLite persistence layer for chat data
+    - name: max_retries
+      type: int
+      required: false
+      default: 3
+      description: Maximum retry attempts for transient SQLite errors
+    - name: base_delay
+      type: float
+      required: false
+      default: 0.1
+      description: Base delay in seconds for exponential backoff
+
+methods:
+  - name: get_lock
+    async: false
+    parameters:
+      - name: key
+        type: str
+    returns: asyncio.Lock
+    description: Lazy-create and return a per-key asyncio.Lock
+
+  - name: get_messages
+    async: true
+    parameters:
+      - name: session_id
+        type: str
+    returns: list[ChatMessage]
+    description: >
+      Read-through cache: returns from memory if available,
+      otherwise loads from SQLite and caches the result.
+
+  - name: add_message
+    async: true
+    parameters:
+      - name: session_id
+        type: str
+      - name: message
+        type: ChatMessage
+    returns: None
+    description: >
+      Write-through: persists to SQLite first (with retry),
+      then appends to in-memory cache.
+
+  - name: clear_messages
+    async: true
+    parameters:
+      - name: session_id
+        type: str
+    returns: None
+    description: Clears messages from both cache and database for the given session.
+
+  - name: get_proposal
+    async: true
+    parameters:
+      - name: proposal_id
+        type: str
+    returns: AITaskProposal | None
+    description: >
+      Read-through cache: returns from memory if available,
+      otherwise loads from SQLite and caches the result.
+
+  - name: store_proposal
+    async: true
+    parameters:
+      - name: proposal_id
+        type: str
+      - name: proposal
+        type: AITaskProposal
+    returns: None
+    description: >
+      Write-through: persists to SQLite first (with retry),
+      then updates in-memory cache.
+
+  - name: get_recommendation
+    async: true
+    parameters:
+      - name: recommendation_id
+        type: str
+    returns: IssueRecommendation | None
+    description: >
+      Read-through cache: returns from memory if available,
+      otherwise loads from SQLite and caches the result.
+
+  - name: store_recommendation
+    async: true
+    parameters:
+      - name: recommendation_id
+        type: str
+      - name: recommendation
+        type: IssueRecommendation
+    returns: None
+    description: >
+      Write-through: persists to SQLite first (with retry),
+      then updates in-memory cache.
+
+dependency_injection:
+  factory: get_chat_state_manager
+  location: solune.backend.src.dependencies
+  pattern: >
+    Reads from request.app.state.chat_state_manager.
+    Instance created during FastAPI lifespan startup.
+
+lifecycle:
+  created: During FastAPI lifespan startup (after database init)
+  stored: app.state.chat_state_manager
+  destroyed: Implicitly on application shutdown (Python GC)

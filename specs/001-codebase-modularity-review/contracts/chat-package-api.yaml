@@ -1,0 +1,133 @@
+# Chat Package API Contract
+# Describes the module structure after splitting api/chat.py into a package
+
+package: solune.backend.src.api.chat
+router_prefix: /chat
+original_file: api/chat.py (2930 lines)
+
+modules:
+  - name: __init__.py
+    description: Router aggregation and public symbol re-exports
+    exports:
+      - router  # APIRouter combining all sub-module routers
+    pattern: >
+      Creates a single APIRouter, includes sub-routers from each module.
+      Re-exports any symbols that were previously imported as
+      'from src.api.chat import X' for backward compatibility.
+
+  - name: conversations.py
+    description: Conversation CRUD endpoints
+    routes:
+      - method: POST
+        path: /conversations
+        handler: create_conversation
+      - method: GET
+        path: /conversations
+        handler: list_conversations
+      - method: PATCH
+        path: /conversations/{conversation_id}
+        handler: update_conversation
+      - method: DELETE
+        path: /conversations/{conversation_id}
+        handler: delete_conversation
+    dependencies:
+      - ChatStateManager (via Depends)
+      - ChatStore (via Depends)
+      - UserSession (via Depends)
+
+  - name: messages.py
+    description: Message listing, deletion, and send endpoints
+    routes:
+      - method: GET
+        path: /messages
+        handler: get_messages
+      - method: DELETE
+        path: /messages
+        handler: clear_messages
+      - method: POST
+        path: /messages
+        handler: send_message
+    dependencies:
+      - ChatStateManager (via Depends)
+      - ChatStore (via Depends)
+      - AI service (chat agent)
+      - UserSession (via Depends)
+
+  - name: proposals.py
+    description: Proposal confirmation and cancellation
+    routes:
+      - method: POST
+        path: /proposals/{proposal_id}/confirm
+        handler: confirm_proposal
+      - method: DELETE
+        path: /proposals/{proposal_id}
+        handler: cancel_proposal
+    dependencies:
+      - ProposalOrchestrator (via Depends)
+      - ChatStateManager (via Depends)
+      - UserSession (via Depends)
+
+  - name: plans.py
+    description: Plan CRUD, steps, and approval workflow
+    routes:
+      - method: POST
+        path: /plans
+        handler: create_plan
+      - method: GET
+        path: /plans
+        handler: list_plans
+      - method: GET
+        path: /plans/{plan_id}
+        handler: get_plan
+      - method: DELETE
+        path: /plans/{plan_id}
+        handler: delete_plan
+      - method: POST
+        path: /plans/{plan_id}/steps
+        handler: create_step
+      - method: PATCH
+        path: /plans/{plan_id}/steps/{step_id}
+        handler: update_step
+      - method: POST
+        path: /plans/{plan_id}/steps/reorder
+        handler: reorder_steps
+      - method: POST
+        path: /plans/{plan_id}/approve
+        handler: approve_plan
+      - method: POST
+        path: /plans/{plan_id}/exit
+        handler: exit_plan
+      - method: GET
+        path: /plans/{plan_id}/history
+        handler: get_plan_history
+      - method: POST
+        path: /plans/{plan_id}/steps/{step_id}/approve
+        handler: approve_step
+      - method: POST
+        path: /plans/{plan_id}/steps/{step_id}/feedback
+        handler: step_feedback
+    dependencies:
+      - ChatStore (via Depends)
+      - Plan service
+      - UserSession (via Depends)
+
+  - name: streaming.py
+    description: SSE streaming for chat and plan generation
+    routes:
+      - method: POST
+        path: /stream
+        handler: stream_chat
+      - method: POST
+        path: /plan-stream
+        handler: stream_plan
+    dependencies:
+      - ChatStateManager (via Depends)
+      - AI service (chat agent)
+      - SSE helpers
+
+backward_compatibility:
+  pattern: >
+    The __init__.py re-exports the router and any previously-public symbols.
+    Existing 'from src.api.chat import router' continues to work.
+    Test patches like 'src.api.chat.get_github_service' must be updated to
+    'src.api.chat.proposals.get_github_service' (the actual import location).

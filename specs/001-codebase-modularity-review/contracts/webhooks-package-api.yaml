@@ -1,0 +1,83 @@
+# Webhooks Package API Contract
+# Describes the module structure after splitting api/webhooks.py into a package
+
+package: solune.backend.src.api.webhooks
+router_prefix: /webhooks
+original_file: api/webhooks.py (1033 lines)
+
+modules:
+  - name: __init__.py
+    description: Router aggregation and public symbol re-exports
+    exports:
+      - router  # APIRouter combining all sub-module routers
+    pattern: >
+      Creates a single APIRouter, includes the handler router.
+      Re-exports any symbols for backward compatibility.
+
+  - name: handlers.py
+    description: Main webhook dispatcher, security, and event classification
+    routes:
+      - method: POST
+        path: /github
+        handler: github_webhook
+        description: Main GitHub webhook endpoint — dispatches to event-specific handlers
+    functions:
+      - name: verify_webhook_signature
+        description: HMAC-SHA256 signature verification for GitHub webhooks
+      - name: classify_pull_request_activity
+        description: Classify PR events into actionable categories
+      - name: extract_issue_number_from_pr
+        description: Extract linked issue number from PR body
+    state:
+      - name: _processed_delivery_ids
+        type: BoundedSet[str]
+        maxlen: 1000
+        description: FIFO deduplication set for webhook delivery IDs
+    dependencies:
+      - get_settings (via Depends)
+      - get_db (via Depends)
+      - log_event function
+      - pull_requests module (for PR event handling)
+      - ci module (for check run/suite handling)
+
+  - name: pull_requests.py
+    description: Pull request event handlers
+    functions:
+      - name: handle_pull_request_event
+        async: true
+        description: Handle PR opened/closed/ready_for_review events
+      - name: handle_copilot_pr_ready
+        async: true
+        description: Trigger auto-review for Copilot-authored PRs
+      - name: update_issue_status_for_copilot_pr
+        async: true
+        description: Update board status when Copilot PR transitions
+    dependencies:
+      - github_projects_service
+      - workflow orchestrator modules
+
+  - name: ci.py
+    description: CI check run and check suite event handlers
+    functions:
+      - name: handle_check_run_event
+        async: true
+        description: Handle completed check run events (CI failures → DevOps agent)
+      - name: handle_check_suite_event
+        async: true
+        description: Handle check suite pass/fail (auto-merge or DevOps dispatch)
+      - name: _get_auto_merge_pipeline
+        async: true
+        description: 3-tier cache lookup (L1 memory → L2 SQLite → L3 project) for auto-merge config
+    dependencies:
+      - github_projects_service
+      - auto-merge pipeline config
+
+backward_compatibility:
+  pattern: >
+    The __init__.py re-exports the router.
+    Existing 'from src.api.webhooks import router' continues to work.
+    Test patches must target the actual import location:
+    - 'src.api.webhooks.handlers.get_settings' (not src.api.webhooks.get_settings)
+    - 'src.api.webhooks.handlers.get_db'
+    - 'src.api.webhooks.handlers.log_event'
+    - 'src.api.webhooks.pull_requests.github_projects_service'

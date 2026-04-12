@@ -1,0 +1,130 @@
+# Frontend API Client API Contract
+# Describes the module structure after splitting services/api.ts
+
+package: solune/frontend/src/services/api
+original_file: services/api.ts (1876 lines)
+
+barrel_index:
+  file: index.ts
+  description: >
+    Re-exports all public symbols from domain modules.
+    Ensures all 63+ existing 'import { X } from "@/services/api"' paths work unchanged.
+  exports:
+    - from ./client: ApiError, onAuthExpired
+    - from ./auth: authApi
+    - from ./projects: projectsApi
+    - from ./tasks: tasksApi
+    - from ./chat: conversationApi, chatApi
+    - from ./board: boardApi
+    - from ./settings: settingsApi
+    - from ./workflow: workflowApi, metadataApi
+    - from ./signal: signalApi
+    - from ./mcp: mcpApi
+    - from ./cleanup: cleanupApi
+    - from ./chores: choresApi
+    - from ./agents: agentsApi
+    - from ./pipelines: pipelinesApi, modelsApi
+    - from ./tools: toolsApi, agentToolsApi
+    - from ./apps: appsApi
+    - from ./activity: activityApi
+  note: >
+    Type exports (AgentConfig, CatalogAgent, etc.) that were previously
+    exported from api.ts must also be re-exported from the barrel.
+
+shared_module:
+  file: client.ts
+  description: Base HTTP client infrastructure shared by all domain modules
+  exports:
+    - name: request
+      type: function
+      signature: "<T>(url: string, options?: RequestInit) => Promise<T>"
+      description: Generic typed fetch wrapper with CSRF token, auth handling, error normalization
+    - name: ApiError
+      type: class
+      description: Custom error class for API failures with status, statusText, detail fields
+    - name: onAuthExpired
+      type: function
+      signature: "(listener: () => void) => () => void"
+      description: Register auth expiration listener; returns unsubscribe function
+    - name: API_BASE_URL
+      type: string
+      description: Base URL from VITE_API_BASE_URL env var or '/api/v1'
+    - name: getCsrfToken
+      type: function
+      description: Reads CSRF token from document.cookie
+    - name: normalizeApiError
+      type: function
+      description: Normalizes error responses into consistent ApiError format
+
+domain_modules:
+  - file: auth.ts
+    imports_from_client: [request]
+    exports: [authApi]
+
+  - file: projects.ts
+    imports_from_client: [request]
+    exports: [projectsApi]
+
+  - file: tasks.ts
+    imports_from_client: [request]
+    exports: [tasksApi]
+
+  - file: chat.ts
+    imports_from_client: [request]
+    exports: [conversationApi, chatApi]
+    note: Largest domain module (~450 lines) — includes conversation + message + proposal + upload APIs
+
+  - file: board.ts
+    imports_from_client: [request]
+    exports: [boardApi]
+
+  - file: settings.ts
+    imports_from_client: [request]
+    exports: [settingsApi]
+
+  - file: workflow.ts
+    imports_from_client: [request]
+    exports: [workflowApi, metadataApi]
+
+  - file: signal.ts
+    imports_from_client: [request]
+    exports: [signalApi]
+
+  - file: mcp.ts
+    imports_from_client: [request]
+    exports: [mcpApi]
+
+  - file: cleanup.ts
+    imports_from_client: [request]
+    exports: [cleanupApi]
+
+  - file: chores.ts
+    imports_from_client: [request]
+    exports: [choresApi]
+
+  - file: agents.ts
+    imports_from_client: [request]
+    exports: [agentsApi]
+
+  - file: pipelines.ts
+    imports_from_client: [request]
+    exports: [pipelinesApi, modelsApi]
+
+  - file: tools.ts
+    imports_from_client: [request]
+    exports: [toolsApi, agentToolsApi]
+
+  - file: apps.ts
+    imports_from_client: [request]
+    exports: [appsApi]
+
+  - file: activity.ts
+    imports_from_client: [request]
+    exports: [activityApi]
+
+test_migration:
+  original: services/api.test.ts
+  new_location: services/api/api.test.ts
+  changes: >
+    Move test file into api/ directory. Update import paths from '../api' to './index'.
+    Test structure and assertions remain identical — only import paths change.
