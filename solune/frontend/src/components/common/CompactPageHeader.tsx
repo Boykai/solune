@@ -36,17 +36,9 @@ export function CompactPageHeader({
         className,
       )}
     >
-      {/* Top row: eyebrow + badge left, actions right */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start md:gap-4">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[11px] uppercase tracking-[0.28em] text-primary/85">{eyebrow}</p>
-            {badge && (
-              <span className="min-w-0 max-w-[12rem] truncate rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-primary">
-                {badge}
-              </span>
-            )}
-          </div>
+          <p className="text-[11px] uppercase tracking-[0.28em] text-primary/85">{eyebrow}</p>
 
           <h2 className="mt-1 text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-2xl">
             {title}
@@ -60,19 +52,26 @@ export function CompactPageHeader({
           </div>
         </div>
 
-        {/* Actions zone */}
+        {badge && (
+          <div className="min-w-0 md:col-start-2 md:justify-self-center">
+            <span className="inline-flex max-w-[12rem] items-center truncate rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-primary">
+              {badge}
+            </span>
+          </div>
+        )}
+
         {actions && (
-          <div className="flex shrink-0 items-center gap-2">{actions}</div>
+          <div className="flex shrink-0 items-center gap-2 md:col-start-3 md:justify-self-end">
+            {actions}
+          </div>
         )}
       </div>
 
-      {/* Stats row — inline chips (desktop), toggle on mobile */}
       {stats.length > 0 && (
         <div className="mt-2">
-          {/* Mobile toggle button (< 640px) */}
           <button
             type="button"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground sm:hidden"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground md:hidden"
             onClick={() => setMobileStatsOpen((prev) => !prev)}
             aria-expanded={mobileStatsOpen}
             aria-controls={statsId}
@@ -81,12 +80,11 @@ export function CompactPageHeader({
             {mobileStatsOpen ? 'Hide stats' : 'Show stats'}
           </button>
 
-          {/* Stats chips */}
           <div
             id={statsId}
             className={cn(
               'flex flex-wrap items-center gap-2',
-              mobileStatsOpen ? 'mt-2' : 'hidden sm:flex',
+              mobileStatsOpen ? 'mt-2' : 'hidden md:flex',
             )}
           >
             {stats.map((stat) => (

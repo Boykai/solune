@@ -4,6 +4,14 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppLayout } from './AppLayout';
 
+const mockSidebarState = vi.hoisted(() => ({
+  isCollapsed: false,
+  setCollapsed: vi.fn(),
+  toggle: vi.fn(),
+}));
+
+const mockUseMediaQuery = vi.hoisted(() => vi.fn(() => false));
+
 // Mock all the hooks used by AppLayout
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
@@ -65,10 +73,7 @@ vi.mock('@/hooks/useSettings', () => ({
 }));
 
 vi.mock('@/hooks/useSidebarState', () => ({
-  useSidebarState: () => ({
-    isCollapsed: false,
-    toggle: vi.fn(),
-  }),
+  useSidebarState: () => mockSidebarState,
 }));
 
 vi.mock('@/hooks/useProjectBoard', () => ({
@@ -90,7 +95,7 @@ vi.mock('@/hooks/useNotifications', () => ({
 }));
 
 vi.mock('@/hooks/useMediaQuery', () => ({
-  useMediaQuery: () => false,
+  useMediaQuery: mockUseMediaQuery,
 }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({
@@ -142,6 +147,10 @@ function renderAppLayout() {
 describe('AppLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSidebarState.isCollapsed = false;
+    mockSidebarState.setCollapsed.mockReset();
+    mockSidebarState.toggle.mockReset();
+    mockUseMediaQuery.mockReturnValue(false);
   });
 
   it('renders the sidebar', () => {
@@ -167,5 +176,23 @@ describe('AppLayout', () => {
   it('renders main content area', () => {
     renderAppLayout();
     expect(screen.getByRole('main')).toBeInTheDocument();
+  });
+
+  it('auto-collapses the sidebar on the first mobile render when it starts expanded', () => {
+    mockUseMediaQuery.mockReturnValue(true);
+
+    renderAppLayout();
+
+    expect(mockSidebarState.setCollapsed).toHaveBeenCalledOnce();
+    expect(mockSidebarState.setCollapsed).toHaveBeenCalledWith(true);
+  });
+
+  it('does not auto-collapse the sidebar on the first mobile render when it is already collapsed', () => {
+    mockUseMediaQuery.mockReturnValue(true);
+    mockSidebarState.isCollapsed = true;
+
+    renderAppLayout();
+
+    expect(mockSidebarState.setCollapsed).not.toHaveBeenCalled();
   });
 });
