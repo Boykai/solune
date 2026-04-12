@@ -173,7 +173,19 @@ class TestRunPipeline:
     @pytest.mark.anyio
     async def test_default_stages_defined(self):
         """PIPELINE_STAGES has expected structure."""
-        assert len(PIPELINE_STAGES) > 0
+        assert [stage["name"] for stage in PIPELINE_STAGES] == [
+            "speckit.specify",
+            "speckit.plan",
+            "speckit.tasks",
+            "speckit.analyze",
+            "speckit.implement",
+            "quality-assurance",
+            "tester",
+            "copilot-review",
+            "judge",
+            "linter",
+            "devops",
+        ]
         for stage in PIPELINE_STAGES:
             assert "name" in stage
             assert "agent" in stage
