@@ -1748,7 +1748,7 @@
     transform: translateY(0);
   }
 
-  /* ── Celestial orbit animation on CelestialCatalogHero ── */
+  /* ── Celestial orbit transition ── */
   .celestial-orbit {
     transition: border-color var(--transition-cosmic-slow);
   }

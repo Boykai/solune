@@ -223,10 +223,10 @@ vi.mock('@/components/common/ProjectSelectionEmptyState', () => ({
 
 vi.mock('@/components/common/CompactPageHeader', () => ({
   CompactPageHeader: ({ title, actions }: { title: string; actions: ReactNode }) => (
-    <section>
-      <h1>{title}</h1>
+    <header>
+      <h2>{title}</h2>
       <div>{actions}</div>
-    </section>
+    </header>
   ),
 }));
 

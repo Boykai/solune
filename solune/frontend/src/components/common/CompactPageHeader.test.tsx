@@ -1,12 +1,13 @@
 /**
  * Tests for the CompactPageHeader component.
  *
- * Covers: required props rendering, stats display, actions slot, badge,
- * className forwarding, and accessibility.
+ * Covers: required props rendering, badge, stats chips, actions slot,
+ * description line-clamp, className forwarding, mobile stats toggle,
+ * and accessibility.
  */
 
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { render, screen, fireEvent } from '@/test/test-utils';
 import { CompactPageHeader } from './CompactPageHeader';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 
@@ -24,9 +25,22 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('Manage your agent constellation.')).toBeInTheDocument();
   });
 
-  it('renders as a <section> element', () => {
+  it('renders as a semantic <header> element', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
-    expect(container.querySelector('section')).toBeInTheDocument();
+    expect(container.querySelector('header')).toBeInTheDocument();
+  });
+
+  it('renders an <h2> heading for the title', () => {
+    render(<CompactPageHeader {...defaultProps} />);
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading).toHaveTextContent('Celestial Agents');
+  });
+
+  it('renders with minimal props (eyebrow + title + description only)', () => {
+    render(<CompactPageHeader eyebrow="Test" title="Title" description="Desc" />);
+    expect(screen.getByText('Test')).toBeInTheDocument();
+    expect(screen.getByText('Title')).toBeInTheDocument();
+    expect(screen.getByText('Desc')).toBeInTheDocument();
   });
 
   it('renders a badge when provided', () => {
@@ -34,14 +48,14 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
   });
 
-  it('does not render a badge element when not provided', () => {
+  it('does not render a badge element when badge is undefined', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
-    const badgeSpans = container.querySelectorAll('span.rounded-full');
-    const badges = Array.from(badgeSpans).filter((el) => el.textContent === 'New');
-    expect(badges).toHaveLength(0);
+    const badges = container.querySelectorAll('span.rounded-full');
+    const badgeElements = Array.from(badges).filter((el) => el.textContent === 'New');
+    expect(badgeElements).toHaveLength(0);
   });
 
-  it('renders stats as inline chips when provided', () => {
+  it('renders stats chips when provided', () => {
     const stats = [
       { label: 'Total Agents', value: '42' },
       { label: 'Active', value: '12' },
@@ -53,33 +67,120 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('12')).toBeInTheDocument();
   });
 
+  it('does not render stats section when stats is empty', () => {
+    render(<CompactPageHeader {...defaultProps} stats={[]} />);
+    expect(screen.queryByRole('button', { name: /show stats/i })).not.toBeInTheDocument();
+  });
+
   it('renders the actions slot', () => {
     render(
       <CompactPageHeader
         {...defaultProps}
-        actions={<button data-testid="hero-action">Add Agent</button>}
-      />
+        actions={<button data-testid="header-action">Add Agent</button>}
+      />,
     );
-    expect(screen.getByTestId('hero-action')).toBeInTheDocument();
+    expect(screen.getByTestId('header-action')).toBeInTheDocument();
     expect(screen.getByText('Add Agent')).toBeInTheDocument();
   });
 
-  it('forwards custom className', () => {
-    const { container } = render(
-      <CompactPageHeader {...defaultProps} className="extra-header-class" />
-    );
-    const section = container.querySelector('section');
-    expect(section?.className).toContain('extra-header-class');
+  it('applies line-clamp-1 class to description', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} />);
+    const desc = container.querySelector('p.line-clamp-1');
+    expect(desc).toBeInTheDocument();
+    expect(desc).toHaveTextContent('Manage your agent constellation.');
   });
 
-  it('applies section-aurora class on the section', () => {
+  it('forwards custom className to root <header> element', () => {
+    const { container } = render(
+      <CompactPageHeader {...defaultProps} className="extra-class" />,
+    );
+    const header = container.querySelector('header');
+    expect(header?.className).toContain('extra-class');
+  });
+
+  it('renders a mobile stats toggle button', () => {
+    const stats = [{ label: 'Count', value: '5' }];
+    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+    expect(toggleBtn).toBeInTheDocument();
+  });
+
+  it('toggles stats visibility on mobile when toggle is clicked', () => {
+    const stats = [{ label: 'Count', value: '5' }];
+    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+
+    // Initially mobile stats are hidden (button says "Show stats")
+    expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
+
+    // Click to show
+    fireEvent.click(toggleBtn);
+    expect(screen.getByRole('button', { name: /hide stats/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+
+    // Click to hide again
+    fireEvent.click(screen.getByRole('button', { name: /hide stats/i }));
+    expect(screen.getByRole('button', { name: /show stats/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('links the mobile toggle button to the stats container via aria-controls', () => {
+    const stats = [{ label: 'Count', value: '5' }];
+    const { container } = render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    const toggleBtn = screen.getByRole('button', { name: /show stats/i });
+    const controlsId = toggleBtn.getAttribute('aria-controls');
+    expect(controlsId).toBeTruthy();
+    const statsContainer = container.querySelector(`#${CSS.escape(controlsId!)}`);
+    expect(statsContainer).toBeInTheDocument();
+    expect(statsContainer).toHaveTextContent('Count');
+  });
+
+  it('does not render actions zone when actions prop is omitted', () => {
     const { container } = render(<CompactPageHeader {...defaultProps} />);
-    const section = container.querySelector('section');
-    expect(section?.className).toContain('section-aurora');
+    // The header should only contain eyebrow, title, and description areas — no action buttons
+    const buttons = container.querySelectorAll('button');
+    expect(buttons).toHaveLength(0);
+  });
+
+  it('description text appears only once in the header', () => {
+    render(<CompactPageHeader {...defaultProps} />);
+    // Unlike CelestialCatalogHero which duplicated description in an aside panel,
+    // CompactPageHeader renders description exactly once
+    const descriptions = screen.getAllByText('Manage your agent constellation.');
+    expect(descriptions).toHaveLength(1);
+  });
+
+  it('renders each stat with both label and value text', () => {
+    const stats = [
+      { label: 'Columns', value: '4' },
+      { label: 'Agents', value: '12' },
+      { label: 'Active', value: '3' },
+    ];
+    render(<CompactPageHeader {...defaultProps} stats={stats} />);
+    for (const stat of stats) {
+      expect(screen.getByText(stat.label)).toBeInTheDocument();
+      expect(screen.getByText(stat.value)).toBeInTheDocument();
+    }
+  });
+
+  it('does not render a stats section when stats prop is omitted', () => {
+    render(<CompactPageHeader {...defaultProps} />);
+    expect(screen.queryByRole('button', { name: /stats/i })).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = render(<CompactPageHeader {...defaultProps} />);
+    const { container } = render(
+      <CompactPageHeader
+        {...defaultProps}
+        badge="Beta"
+        stats={[{ label: 'Items', value: '10' }]}
+        actions={<button>Action</button>}
+      />,
+    );
     await expectNoA11yViolations(container);
   });
 });

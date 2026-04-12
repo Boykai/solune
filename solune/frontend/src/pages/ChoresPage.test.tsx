@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@/test/test-utils';
+import { render, screen } from '@/test/test-utils';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 import { ChoresPage } from './ChoresPage';
 
@@ -50,6 +50,17 @@ describe('ChoresPage', () => {
   it('renders without crashing', () => {
     render(<ChoresPage />);
     expect(document.body).toBeDefined();
+  });
+
+  it('renders a compact page header with the expected title', () => {
+    render(<ChoresPage />);
+    const heading = screen.getByRole('heading', { level: 2 });
+    expect(heading).toHaveTextContent('Turn upkeep into a visible rhythm.');
+  });
+
+  it('uses a <header> element for the page header', () => {
+    const { container } = render(<ChoresPage />);
+    expect(container.querySelector('header')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {

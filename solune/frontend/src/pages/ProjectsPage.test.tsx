@@ -183,11 +183,11 @@ vi.mock('@/components/common/CompactPageHeader', () => ({
     description: string;
     actions?: React.ReactNode;
   }) => (
-    <section>
-      <h1>{title}</h1>
+    <header>
+      <h2>{title}</h2>
       <p>{description}</p>
       <div>{actions}</div>
-    </section>
+    </header>
   ),
 }));
 
