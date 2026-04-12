@@ -106,7 +106,7 @@ solune/
 3. **GraphQL dispatch function**: Mirror `_assign_copilot_graphql()` — construct mutation payload with `agentAssignment { customAgent, customInstructions, model, baseRef }`. Set required `GraphQL-Features` header
 4. **Parallel group dispatch**: For each group with `execution_mode: "parallel"`, dispatch all agents as background processes (`dispatch "$agent" &`), then `wait` for all PIDs. Capture exit codes
 5. **Serial group dispatch**: For sequential groups, dispatch one agent at a time with completion polling between agents
-6. **Retry logic**: 3 attempts with exponential backoff (3s, 6s, 9s) per dispatch call
+6. **Retry logic**: 3 attempts with exponential backoff (3s, 6s, 12s) per dispatch call
 7. **State file management**: Write `fleet-state.json` tracking issue numbers, node IDs, dispatch timestamps, and completion status
 
 **Dependencies**: `gh` CLI ≥2.80, `jq` ≥1.6, authenticated `gh auth status`
