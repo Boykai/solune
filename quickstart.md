@@ -1,185 +1,247 @@
-# Quickstart: Simplify Page Headers for Focused UI
+# Quickstart: Codebase Modularity Review
 
-**Feature**: Simplify Page Headers | **Date**: 2026-04-11
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11
 
-> **Status note (2026-04-11):** The CompactPageHeader component replaces CelestialCatalogHero across six pages. The component is implemented and tested. Refer to the source file for the latest implementation details.
+## Overview
+
+This refactoring decomposes six monolithic hotspots into domain-scoped modules. No new features are added — the public API surface and database schema remain unchanged. All existing tests must pass after each refactoring step.
+
+> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
 
 ## Prerequisites
 
+- Python ≥3.12 with virtual environment
 - Node.js ≥18 with npm
 - Git
+- Familiarity with the existing test suites
 
-## Setup
+## Refactoring Execution Order
+
+Execute refactoring targets in strict dependency order. Each target is independently verifiable — all tests must pass before proceeding to the next.
+
+### Target 1: Split `api/chat.py` → `api/chat/` package
+
+**Highest impact — reduces the single largest backend file from 2930 lines to ~10 focused modules.**
+
+```bash
+cd solune/backend
+
+# 1. Create the package directory
+mkdir -p src/api/chat
+
+# 2. Run existing tests first (baseline)
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+
+# 3. After splitting, run the same tests to verify no regression
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+
+# 4. Run full backend suite
+python -m pytest tests/unit/ -q --timeout=120
+```
+
+**Verification**:
+
+- `from src.api.chat import router` still works (barrel re-export)
+- All 40 endpoints respond identically
+- No import errors at startup: `python -c "from src.api.chat import router; print('OK')"`
+
+### Target 2: Extract `ProposalOrchestrator` service
+
+**Converts the 348-line `confirm_proposal()` god function into a testable service class.**
+
+```bash
+cd solune/backend
+
+# 1. Run proposal-specific tests (baseline)
+python -m pytest tests/unit/test_api_chat.py -k "confirm_proposal or proposal" -v
+
+# 2. After extraction, verify
+python -m pytest tests/unit/test_api_chat.py -k "confirm_proposal or proposal" -v
+
+# 3. Run full suite
+python -m pytest tests/unit/ -q --timeout=120
+```
+
+**Verification**:
+
+- `confirm_proposal` endpoint returns identical responses
+- New `ProposalOrchestrator` can be instantiated and tested independently
+- Error handling behavior unchanged (expired proposals, missing proposals, GitHub API errors)
+
+### Target 3: Split `services/api.ts` → `services/api/` package
+
+**Improves frontend code-splitting and review scope.**
 
 ```bash
 cd solune/frontend
 
-# Install dependencies
-npm install
+# 1. Run existing API tests (baseline)
+npm test -- --reporter=verbose api.test
 
-# Start development server
-npm run dev
+# 2. After splitting, verify all imports resolve
+npm run build
+
+# 3. Run full test suite
+npm test
 ```
 
-## Implementation Steps
+**Verification**:
 
-### Step 1: Create CompactPageHeader
+- `import { chatApi } from '@/services/api'` still works (barrel re-export)
+- Build succeeds with no missing imports
+- Bundle size remains the same (±5%)
 
-Create `src/components/common/CompactPageHeader.tsx`.
+### Target 4: Domain-scoped types — `types/index.ts` → `types/*.ts`
 
-Do **not** duplicate the full component implementation in this guide. `CompactPageHeader` has interactive/mobile behavior and styling details that can change over time, so the source file should remain the single source of truth:
-
-- Source: [`src/components/common/CompactPageHeader.tsx`](solune/frontend/src/components/common/CompactPageHeader.tsx)
-- Keep the existing production implementation, including any current hooks, icons, responsive stats behavior, and updated class names.
-
-This quickstart focuses on where to use `CompactPageHeader`, rather than embedding a copy of the component that can drift from the real implementation.
-
-### Step 2: Replace Hero in Each Page
-
-For each of the 6 pages, make two changes:
-
-1. **Change import**: `CelestialCatalogHero` → `CompactPageHeader`
-2. **Drop `note` prop** (if present)
-3. **Drop `className="projects-catalog-hero"`** (AgentsPipelinePage, ProjectsPage only)
-
-Example for ProjectsPage.tsx:
-
-```diff
-- import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
-+ import { CompactPageHeader } from '@/components/common/CompactPageHeader';
-
--      <CelestialCatalogHero
--        className="projects-catalog-hero"
-+      <CompactPageHeader
-         eyebrow="Mission Control"
-         title="Every project, mapped and moving."
-         description="..."
-         badge={...}
--        note="..."
-         stats={heroStats}
-         actions={...}
-       />
-```
-
-### Step 3: Delete Dead Code
-
-```bash
-# Delete the old hero component and its tests
-rm src/components/common/CelestialCatalogHero.tsx
-rm src/components/common/CelestialCatalogHero.test.tsx
-```
-
-### Step 4: Remove Orphaned CSS
-
-Remove the `.dark .projects-catalog-hero .catalog-hero-*` block from `src/index.css` (lines ~432–489).
-
-**DO NOT remove**: `.moonwell`, `.hanging-stars`, `.celestial-*` animations (used elsewhere).
-
-## Run Tests
+**Reduces merge conflicts and improves IDE navigation.**
 
 ```bash
 cd solune/frontend
 
-# Run all frontend tests
+# 1. Build baseline
+npm run build
+
+# 2. After splitting, verify
+npm run build
+npm test
+```
+
+**Verification**:
+
+- `import { ChatMessage } from '@/types'` still works (barrel re-export)
+- TypeScript compilation succeeds with zero new errors
+- No circular import warnings
+
+### Target 5: Consolidate backend global state — `ChatStateManager`
+
+**Wraps module-level dicts in a managed class with capacity limits.**
+
+```bash
+cd solune/backend
+
+# 1. Run chat tests (baseline)
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+
+# 2. After consolidation, verify
+python -m pytest tests/unit/test_api_chat.py -v --timeout=120
+python -m pytest tests/unit/ -q --timeout=120
+```
+
+**Verification**:
+
+- Chat endpoints work identically
+- `ChatStateManager` respects capacity limits
+- No module-level mutable dicts remain in `api/chat/`
+
+### Target 6: Split `api/webhooks.py` → `api/webhooks/` package
+
+```bash
+cd solune/backend
+
+# 1. Run webhook tests (baseline)
+python -m pytest tests/unit/test_webhooks.py -v --timeout=120
+
+# 2. After splitting, verify
+python -m pytest tests/unit/test_webhooks.py -v --timeout=120
+python -m pytest tests/unit/ -q --timeout=120
+```
+
+**Verification**:
+
+- `from src.api.webhooks import router` still works
+- Webhook signature verification unchanged
+- All event handlers respond identically
+
+## Running Full Test Suites
+
+### Backend
+
+```bash
+cd solune/backend
+
+# Full unit test suite (5200+ tests, ~7 minutes)
+python -m pytest tests/unit/ -q --timeout=120
+
+# Coverage check (must stay ≥80%)
+python -m pytest tests/unit/ --cov=src --cov-report=term-missing --cov-fail-under=80
+```
+
+### Frontend
+
+```bash
+cd solune/frontend
+
+# Full test suite (2200+ tests, ~2 minutes)
 npm test
 
-# Run only the component test
-npm test -- --reporter=verbose CompactPageHeader
-
-# Run page-specific tests
-npm test -- --reporter=verbose ProjectsPage
-npm test -- --reporter=verbose AgentsPage
-npm test -- --reporter=verbose AgentsPipelinePage
+# Build verification
+npm run build
 ```
-
-## Run Lint & Type Check
-
-```bash
-cd solune/frontend
-
-# ESLint
-npx eslint .
-
-# TypeScript type check
-npx tsc --noEmit
-```
-
-## Verify UI Behavior
-
-1. **Navigate to each of the 6 pages**:
-   - `/projects` — Projects page
-   - `/agents` — Agents page
-   - `/agents/pipeline` — Agents Pipeline page
-   - `/tools` — Tools page
-   - `/chores` — Chores page
-   - `/help` — Help page
-
-2. **Check compact header** on each page:
-   - Header height is ~80–100px (not ~350–450px)
-   - Eyebrow text, title, and badge are visible
-   - Description shows as single line, expands on hover
-   - Stats show as inline chips (not large moonwell cards)
-   - Action buttons are accessible
-
-3. **Check mobile viewport** (Chrome DevTools → 375px width):
-   - Header remains compact
-   - Stats are hidden (or behind a toggle)
-   - Actions are still accessible
-
-4. **Check no regressions**:
-   - Sidebar celestial animations still work
-   - LoginPage decorations (hanging-stars, celestial-float) still work
-   - CelestialLoader animations still work
-   - NotFoundPage and ErrorBoundary decorations still work
 
 ## Key Files Reference
 
-### Create
+### Backend — Split Targets
+
+| Before | After | Lines Reduced |
+|--------|-------|---------------|
+| `src/api/chat.py` (2930 lines) | `src/api/chat/` (10 files) | 2930 → ~10 files × 100-450 lines |
+| `src/api/webhooks.py` (1033 lines) | `src/api/webhooks/` (6 files) | 1033 → ~6 files × 100-300 lines |
+| `src/main.py` (859 lines) | `src/main.py` (~120 lines) + `src/services/bootstrap.py` (~700 lines) | Single file → focused app definition |
+
+### Backend — New Files
 
 | File | Purpose |
 |------|---------|
-| `src/components/common/CompactPageHeader.tsx` | New compact header component |
-| `src/components/common/CompactPageHeader.test.tsx` | Tests for new component |
+| `src/services/proposal_orchestrator.py` | Extracted `confirm_proposal` orchestration logic |
+| `src/services/bootstrap.py` | Extracted lifespan/startup logic from `main.py` |
+| `src/api/chat/state.py` | `ChatStateManager` class |
 
-### Modify
+### Frontend — Split Targets
 
-| File | Changes |
-|------|---------|
-| `src/pages/ProjectsPage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
-| `src/pages/AgentsPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/AgentsPipelinePage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
-| `src/pages/ToolsPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/ChoresPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/HelpPage.tsx` | Swap import (no `note` used) |
-| `src/index.css` | Remove `.dark .projects-catalog-hero .catalog-hero-*` rules |
-
-### Delete
-
-| File | Reason |
-|------|--------|
-| `src/components/common/CelestialCatalogHero.tsx` | Replaced by CompactPageHeader |
-| `src/components/common/CelestialCatalogHero.test.tsx` | Tests for deleted component |
+| Before | After |
+|--------|-------|
+| `src/services/api.ts` (1876 lines) | `src/services/api/` (18 files) |
+| `src/types/index.ts` (1525 lines) | `src/types/` (11 files) |
 
 ### Untouched
 
-| File | Reason |
+| Area | Reason |
 |------|--------|
-| `src/layout/Sidebar.tsx` | Uses `celestial-orbit-spin` independently |
-| `src/layout/AppLayout.tsx` | Uses `celestial-*` classes independently |
-| `src/components/common/CelestialLoader.tsx` | Uses `celestial-orbit-spin` independently |
-| `src/pages/LoginPage.tsx` | Uses `hanging-stars`, `celestial-float`, `celestial-pulse-glow` independently |
-| All components using `.moonwell` | `.moonwell` CSS is retained |
+| Database schema | No schema changes — this is a code-organization refactoring |
+| API endpoints | All endpoints retain the same URL paths, request/response shapes |
+| `ChatPopup.tsx` | Independent component, not part of any monolithic file |
+| Middleware stack | Already well-structured |
 
 ## Troubleshooting
 
-### Build fails with "Cannot find module CelestialCatalogHero"
+### Import errors after split
 
-Ensure all 6 pages have updated their imports from `CelestialCatalogHero` to `CompactPageHeader`.
+If `ModuleNotFoundError` occurs after splitting a file into a package:
 
-### Tests fail referencing "Current Ritual"
+1. Verify the `__init__.py` exists in the new package directory
+2. Check that the barrel re-exports use the correct relative imports
+3. Run `python -c "from src.api.chat import router"` to isolate the error
 
-The `CelestialCatalogHero.test.tsx` file should be deleted, not updated. The `CompactPageHeader.test.tsx` replaces it.
+### Test failures after move
 
-### Dark mode looks broken on ProjectsPage/AgentsPipelinePage
+If tests fail with import errors:
 
-The `.dark .projects-catalog-hero` CSS overrides have been removed. Since `CompactPageHeader` doesn't use the `projects-catalog-hero` className, these overrides are no longer needed. Verify that `CompactPageHeader` renders correctly in both light and dark modes without special overrides.
+1. Check test files for direct imports of moved functions (e.g., `from src.api.chat import _persist_message`)
+2. Update test imports to use the new module paths
+3. Private functions that were imported in tests should be importable from the sub-module
+
+### TypeScript build errors after type split
+
+If `tsc` reports missing types:
+
+1. Check that `types/index.ts` barrel re-exports the moved type
+2. Verify no circular imports between domain type files
+3. Run `npx tsc --noEmit` for detailed error locations
+
+### Bundle size regression
+
+If the frontend bundle grows after splitting:
+
+1. Verify barrel exports don't accidentally import all domains
+2. Check that route-level code splitting still works (`React.lazy()` boundaries)
+3. Use `npx vite-bundle-analyzer` to compare before/after

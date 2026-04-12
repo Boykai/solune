@@ -341,18 +341,18 @@ class TestWebhookDevopsDispatch:
 
         with (
             patch(
-                "src.api.webhooks._resolve_issue_for_pr",
+                "src.api.webhooks.check_runs._resolve_issue_for_pr",
                 return_value=10,
             ),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={
                     "project_id": "PVT_123",
                     "devops_attempts": 0,
                     "devops_active": False,
                 },
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
             patch(
                 "src.services.copilot_polling.auto_merge.dispatch_devops_agent",
                 new_callable=AsyncMock,
@@ -389,7 +389,7 @@ class TestWebhookDevopsDispatch:
         )
 
         with patch(
-            "src.api.webhooks._resolve_issue_for_pr",
+            "src.api.webhooks.check_runs._resolve_issue_for_pr",
             return_value=None,
         ):
             result = await handle_check_run_event(event)
@@ -427,18 +427,18 @@ class TestWebhookAutoMerge:
 
         with (
             patch(
-                "src.api.webhooks._resolve_issue_for_pr",
+                "src.api.webhooks.check_runs._resolve_issue_for_pr",
                 return_value=10,
             ),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={
                     "project_id": "PVT_123",
                     "devops_attempts": 0,
                     "devops_active": False,
                 },
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
             patch(
                 "src.services.copilot_polling.auto_merge._attempt_auto_merge",
                 new_callable=AsyncMock,
@@ -475,7 +475,7 @@ class TestWebhookAutoMerge:
         )
 
         with patch(
-            "src.api.webhooks._resolve_issue_for_pr",
+            "src.api.webhooks.check_runs._resolve_issue_for_pr",
             return_value=None,
         ):
             result = await handle_check_suite_event(event)
@@ -537,16 +537,16 @@ class TestCheckRunDevopsDispatchEdgeCases:
         mock_settings = type("Settings", (), {"github_webhook_token": "test-token"})()
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={
                     "project_id": "PVT_123",
                     "devops_attempts": 0,
                     "devops_active": False,
                 },
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
             patch(
                 "src.services.copilot_polling.auto_merge.dispatch_devops_agent",
                 new_callable=AsyncMock,
@@ -582,8 +582,8 @@ class TestCheckRunDevopsDispatchEdgeCases:
         )
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
-            patch("src.api.webhooks._get_auto_merge_pipeline", return_value=None),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._get_auto_merge_pipeline", return_value=None),
         ):
             result = await handle_check_run_event(event)
 
@@ -616,12 +616,12 @@ class TestCheckRunDevopsDispatchEdgeCases:
         mock_settings = type("Settings", (), {"github_webhook_token": ""})()
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={"project_id": "PVT_123"},
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
         ):
             result = await handle_check_run_event(event)
 
@@ -654,16 +654,16 @@ class TestCheckRunDevopsDispatchEdgeCases:
         mock_settings = type("Settings", (), {"github_webhook_token": "test-token"})()
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={
                     "project_id": "PVT_123",
                     "devops_attempts": 0,
                     "devops_active": False,
                 },
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
             patch(
                 "src.services.copilot_polling.auto_merge.dispatch_devops_agent",
                 new_callable=AsyncMock,
@@ -710,16 +710,16 @@ class TestCheckRunDevopsDispatchEdgeCases:
             return {42: 10, 43: 11}.get(pr_num)
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", side_effect=resolve_issue),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", side_effect=resolve_issue),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={
                     "project_id": "PVT_123",
                     "devops_attempts": 0,
                     "devops_active": False,
                 },
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
             patch(
                 "src.services.copilot_polling.auto_merge.dispatch_devops_agent",
                 new_callable=AsyncMock,
@@ -761,12 +761,12 @@ class TestCheckSuiteAutoMergeEdgeCases:
         mock_settings = type("Settings", (), {"github_webhook_token": "test-token"})()
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={"project_id": "PVT_123"},
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
             patch(
                 "src.services.copilot_polling.auto_merge._attempt_auto_merge",
                 new_callable=AsyncMock,
@@ -803,8 +803,8 @@ class TestCheckSuiteAutoMergeEdgeCases:
         )
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
-            patch("src.api.webhooks._get_auto_merge_pipeline", return_value=None),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._get_auto_merge_pipeline", return_value=None),
         ):
             result = await handle_check_suite_event(event)
 
@@ -837,12 +837,12 @@ class TestCheckSuiteAutoMergeEdgeCases:
         mock_settings = type("Settings", (), {"github_webhook_token": ""})()
 
         with (
-            patch("src.api.webhooks._resolve_issue_for_pr", return_value=10),
+            patch("src.api.webhooks.check_runs._resolve_issue_for_pr", return_value=10),
             patch(
-                "src.api.webhooks._get_auto_merge_pipeline",
+                "src.api.webhooks.check_runs._get_auto_merge_pipeline",
                 return_value={"project_id": "PVT_123"},
             ),
-            patch("src.api.webhooks.get_settings", return_value=mock_settings),
+            patch("src.api.webhooks.check_runs.get_settings", return_value=mock_settings),
         ):
             result = await handle_check_suite_event(event)
 
