@@ -1,20 +1,25 @@
 {
-  "date": "2026-04-04T02:42:56Z",
-  "sha": "a1922916f5c49ce6ebcfa257638e4840fe4c1bec",
+  "date": "2026-04-11T22:00:00Z",
+  "sha": "b183ba318e47ae2958f58aafabc299bc6b580bcc",
   "documents_updated": [
-    "docs/architecture.md"
+    "docs/api-reference.md",
+    "docs/architecture.md",
+    "docs/configuration.md",
+    "docs/pages/README.md",
+    "docs/pages/chat.md",
+    "docs/pages/dashboard.md",
+    "docs/pages/layout.md",
+    "docs/project-structure.md",
+    "docs/roadmap.md",
+    "docs/testing.md",
+    "frontend/README.md"
   ],
   "documents_skipped": [
     "docs/agent-pipeline.md",
-    "docs/api-reference.md",
-    "docs/configuration.md",
     "docs/custom-agents-best-practices.md",
-    "docs/project-structure.md",
     "docs/setup.md",
     "docs/signal-integration.md",
-    "docs/testing.md",
     "docs/troubleshooting.md",
-    "frontend/docs/findings-log.md",
     "README.md"
   ],
   "broken_links_found": 0,

@@ -1,45 +1,31 @@
 # Architecture
 
-Solune is a three-service application — a React frontend, a FastAPI backend, and a Signal messaging sidecar — orchestrated by Docker Compose. The backend manages all GitHub API interactions, AI-powered issue generation, and the autonomous agent pipeline engine. This document describes how these pieces fit together.
+Solune is a three-service application — a React frontend, a FastAPI backend, and a Signal sidecar — orchestrated by Docker Compose. The frontend hosts the authenticated workspace, the backend owns GitHub/API/state orchestration, and the sidecar handles Signal delivery.
 
 ## Overview
 
-Solune is a full-stack web application with a React frontend, a FastAPI backend, and a Signal messaging sidecar. All three services are orchestrated with Docker Compose behind a shared bridge network.
+Solune runs as a full-stack web application with a shared bridge network and a single persistent SQLite database.
 
 ```text
 ┌───────────────────────────┐     ┌──────────────────────────────────┐     ┌──────────────────┐
-│        Frontend            │────▶│            Backend                │────▶│    GitHub API     │
-│  React 19 + Vite 8          │◀────│            FastAPI                │◀────│  GraphQL + REST   │
-│  TypeScript 5.9              │ WS  │                                  │     │                  │
-│  TanStack Query v5          │     │  ┌──────────────────────────┐    │     │  ┌────────────┐  │
-│  dnd-kit (drag-drop)        │     │  │ Workflow Orchestrator     │    │     │  │ Projects   │  │
-│  ErrorBoundary              │     │  │ (4 sub-modules)          │    │     │  │ V2 API     │  │
-└───────────────────────────┘     │  └──────────────────────────┘    │     │  └────────────┘  │
-                                  │  ┌──────────────────────────┐    │     │  ┌────────────┐  │
-                                  │  │ Copilot Polling Service   │    │     │  │ Copilot    │  │
-                                  │  │ (11 sub-modules)         │    │     │  │ Assignment │  │
-                                  │  └──────────────────────────┘    │     │  └────────────┘  │
-                                  │  ┌──────────────────────────┐    │     └──────────────────┘
-                                  │  │ GitHub Projects Service   │    │
-                                  │  │ (11 sub-modules)         │    │     ┌──────────────────┐
+│        Frontend           │────▶│            Backend               │────▶│    GitHub API     │
+│  React 19 + Vite 8        │◀────│            FastAPI               │◀────│  GraphQL + REST   │
+│  React Router 7           │ WS  │                                  │     │                  │
+│  TanStack Query v5        │     │  ┌──────────────────────────┐    │     └──────────────────┘
+│  Tailwind CSS 4           │     │  │ Workflow + Pipeline      │    │
+└───────────────────────────┘     │  │ orchestration services    │    │     ┌──────────────────┐
                                   │  └──────────────────────────┘    │     │ signal-cli-rest- │
                                   │  ┌──────────────────────────┐    │ HTTP │ api (sidecar)    │
-                                  │  │ Signal Bridge             │────│────▶│ Signal Relay     │
-                                  │  │ + Delivery + WS Listener  │◀───│─WS──│                  │
+                                  │  │ Chat agent + plan mode   │────│────▶│ Signal relay      │
+                                  │  │ + conversation storage   │◀───│─WS──│                  │
                                   │  └──────────────────────────┘    │     └──────────────────┘
                                   │  ┌──────────────────────────┐    │
-                                  │  │ AI Completion Providers   │    │
-                                  │  │  ├ Copilot SDK (default)  │    │
-                                  │  │  └ Azure OpenAI (optional)│    │
+                                  │  │ Apps, agents, tools,     │    │
+                                  │  │ chores, metadata         │    │
                                   │  └──────────────────────────┘    │
                                   │  ┌──────────────────────────┐    │
-                                  │  │ SQLite (aiosqlite)        │    │
-                                  │  │ WAL mode, auto-migrated   │    │
-                                  │  │ data/settings.db          │    │
-                                  │  └──────────────────────────┘    │
-                                  │  ┌──────────────────────────┐    │
-                                  │  │ FastAPI DI (dependencies) │    │
-                                  │  │ app.state singletons      │    │
+                                  │  │ SQLite (WAL mode)        │    │
+                                  │  │ migrations 023–044       │    │
                                   │  └──────────────────────────┘    │
                                   └──────────────────────────────────┘
 ```
@@ -49,133 +35,115 @@ Solune is a full-stack web application with a React frontend, a FastAPI backend,
 | Service | Container | Port | Purpose |
 |---------|-----------|------|---------|
 | `backend` | `solune-backend` | 8000 | FastAPI API server |
-| `frontend` | `solune-frontend` | 5173 → 80 | nginx serving React SPA + reverse proxy to `/api/` |
-| `signal-api` | `solune-signal-api` | 8080 (internal) | `bbernhard/signal-cli-rest-api` sidecar (json-rpc mode) |
+| `frontend` | `solune-frontend` | 5173 → 80 | nginx serving the SPA and proxying `/api/` |
+| `signal-api` | `solune-signal-api` | 8080 (internal) | `bbernhard/signal-cli-rest-api` sidecar |
 
-Volumes: `solune-data` (SQLite DB), `signal-cli-config` (Signal protocol state).
+Volumes: `solune-data` for SQLite persistence and `signal-cli-config` for Signal protocol state.
 
 ## Frontend Architecture
 
-The frontend is a single-page React application that provides the visual pipeline builder, Kanban board, chat interface, and settings UI. It communicates with the backend over REST and WebSocket connections, proxied through nginx.
+The frontend is a browser-routed SPA. `App.tsx` wires React Router, TanStack Query, the shared layout shell, and the lazy-loaded page surfaces.
 
-- **Framework**: React 19 with TypeScript 5.9, built by Vite 8
-- **State Management**: TanStack Query v5 for server state; local `useState` for UI state
-- **Real-Time**: Native `WebSocket` connection for live board updates (with polling fallback)
-- **Routing**: Hash-based view switching (`#board`, `#settings`, `#chat`)
-- **Drag-and-Drop**: `@dnd-kit` for pipeline agent reordering within and across stages and execution groups
-- **Styling**: Tailwind CSS 4 (CSS-first config) with dark/light/system theme support (`ThemeProvider`), celestial/cosmic CSS animation system (motion tokens, `@keyframes`, utility classes centralized in `index.css`), `prefers-reduced-motion` support
-- **Error Handling**: Global `ErrorBoundary` (React class component + TanStack `QueryErrorResetBoundary`)
+- **Framework**: React 19 + TypeScript 6, built with Vite 8
+- **Routing**: React Router 7 with page routes such as `/`, `/projects`, `/pipeline`, `/apps`, `/activity`, and `/help`
+- **State management**: TanStack Query v5 for server state plus local React state for UI-only behavior
+- **Real-time updates**: WebSocket + SSE fallbacks for project/pipeline updates; chat streaming over SSE
+- **Styling**: Tailwind CSS 4 with reusable primitives and themed motion utilities
+- **Error handling**: Shared `ErrorBoundary`, route-level retry/reload fallback, and query retry policies
 
-### Key Frontend Modules
+### Frontend Module Map
 
-| Directory | Contents |
-|-----------|----------|
-| `components/auth/` | `LoginButton` — GitHub OAuth login |
-| `components/board/` | `ProjectBoard`, `BoardColumn`, `IssueCard`, `IssueDetailModal`, `ProjectIssueLaunchPanel`, agent config UI (`AgentPresetSelector`, `AgentConfigRow`, `AgentTile`, `AgentSaveBar`, `AddAgentPopover`) |
-| `components/chat/` | `ChatInterface`, `ChatPopup`, `MessageBubble`, `TaskPreview`, `StatusChangePreview`, `IssueRecommendationPreview`, `CommandAutocomplete`, `SystemMessage`, `ChatToolbar`, `VoiceInputButton`, `MentionInput`, `MentionAutocomplete`, `FilePreviewChips`, `MarkdownRenderer`, `ChatMessageSkeleton`, `PipelineWarningBanner`, `PipelineIndicator` |
-| `components/settings/` | `AIPreferences`, `PrimarySettings`, `SettingsSection`, `ProjectSettings`, `SignalConnection`, `McpSettings`, `DynamicDropdown` |
-| `components/common/` | `ErrorBoundary`, `CompactPageHeader` (compact single-row page header), `CelestialLoader` (orbital loading indicator), `ThemedAgentIcon`, `ProjectSelectionEmptyState`, `agentIcons` |
-| `components/agents/` | `AgentsPanel`, `AgentCard`, `AgentAvatar`, `AgentChatFlow`, `AgentInlineEditor`, `AddAgentModal`, `AgentIconPickerModal`, `BulkModelUpdateDialog` |
-| `components/pipeline/` | `PipelineBoard`, `PipelineFlowGraph`, `AgentNode`, `StageCard`, `ExecutionGroupCard`, `ModelSelector`, `PipelineModelDropdown`, `PipelineToolbar`, `SavedWorkflowsList`, `UnsavedChangesDialog` |
-| `components/tools/` | `ToolsPanel`, `ToolSelectorModal`, `ToolCard`, `McpPresetsGallery`, `EditRepoMcpModal`, `UploadMcpModal`, `RepoConfigPanel`, `GitHubMcpConfigGenerator` |
-| `hooks/` | `useAuth`, `useChat`, `useChatHistory`, `useProjects`, `useWorkflow`, `useRealTimeSync`, `useProjectBoard`, `useAppTheme`, `useAgentConfig`, `useAgents`, `useSettings`, `useSettingsForm`, `useBoardRefresh`, `useCommands`, `useCleanup`, `useChores`, `useMcpSettings`, `useMetadata`, `useSidebarState`, `useMediaQuery`, `usePipelineConfig`, `usePipelineBoardMutations`, `usePipelineModelOverride`, `usePipelineReducer`, `useTools`, `useNotifications`, `useVoiceInput`, `useChatProposals`, `useFileUpload`, `useMentionAutocomplete` |
-| `pages/` | `AgentsPage`, `AgentsPipelinePage`, `AppPage`, `ChoresPage`, `LoginPage`, `NotFoundPage`, `ProjectsPage`, `SettingsPage`, `ToolsPage` |
-| `services/` | `api.ts` — centralized HTTP/WS client for all backend endpoints |
+| Area | Current modules |
+|------|-----------------|
+| `components/` | `activity`, `agents`, `apps`, `auth`, `board`, `chat`, `chores`, `command-palette`, `common`, `help`, `layout`, `onboarding`, `pipeline`, `settings`, `tools`, `ui` |
+| `pages/` | `ActivityPage`, `AgentsPage`, `AgentsPipelinePage`, `AppPage`, `AppsPage`, `ChoresPage`, `HelpPage`, `LoginPage`, `NotFoundPage`, `ProjectsPage`, `SettingsPage`, `ToolsPage` |
+| `layout/` | `AppLayout`, `AuthGate`, `Sidebar`, `TopBar`, `Breadcrumb`, `ProjectSelector`, `NotificationBell`, `RateLimitBar`, `PageTransition` |
+| `services/` | `api.ts` plus schema adapters and generated contract helpers |
+
+### Frontend Hooks (grouped by domain)
+
+Solune currently ships **60+ production hooks** in `frontend/src/hooks/`.
+
+| Domain | Hooks |
+|--------|-------|
+| **Activity & analytics** | `useActivityFeed`, `useActivityStats`, `useEntityHistory` |
+| **Agents, tools, metadata, and settings** | `useAgentConfig`, `useAgentTools`, `useAgents`, `useMcpPresets`, `useMcpSettings`, `useMetadata`, `useModels`, `useRepoMcpConfig`, `useSettings`, `useSettingsForm`, `useTools` |
+| **Apps & planning** | `useApps`, `useBuildProgress`, `usePlan` |
+| **Board & project data** | `useAdaptivePolling`, `useBoardControls`, `useBoardDragDrop`, `useBoardProjection`, `useBoardRefresh`, `useProjectBoard`, `useProjects`, `useRealTimeSync`, `useRecentParentIssues` |
+| **Chat & conversation UX** | `useChat`, `useChatHistory`, `useChatPanels`, `useChatProposals`, `useConversations`, `useFileUpload`, `useMentionAutocomplete`, `useSelectedPipeline`, `useVoiceInput` |
+| **Chores, cleanup, and workflow editing** | `useChores`, `useCleanup`, `useCommands`, `usePipelineBoardMutations`, `usePipelineConfig`, `usePipelineModelOverride`, `usePipelineReducer`, `usePipelineValidation`, `useUndoRedo`, `useUndoableDelete`, `useUnsavedChanges`, `useUnsavedPipelineGuard`, `useWorkflow` |
+| **Shared UI utilities** | `useAppTheme`, `useAuth`, `useBreadcrumb`, `useCommandPalette`, `useConfirmation`, `useCountdown`, `useCyclingPlaceholder`, `useFirstErrorFocus`, `useGlobalShortcuts`, `useInfiniteList`, `useMediaQuery`, `useNotifications`, `useOnboarding`, `useScrollLock`, `useSidebarState` |
+
+### Chat surfaces
+
+- **`AppPage`** renders `ChatPanelManager`, a multi-conversation workspace with resizable side-by-side panels on desktop and tabs on mobile.
+- **`ChatPopup`** remains available from every authenticated page as the floating global chat assistant.
+- **`useConversations`** + **`useChatPanels`** separate persisted conversation records from the locally persisted panel layout.
 
 ## Backend Architecture
 
-The backend is the core of Solune — it handles authentication, GitHub API interactions, AI completion, pipeline orchestration, and database management. All endpoints are async, and background tasks run in managed task groups.
+The backend is the operational core of Solune. It handles authentication, GitHub API access, chat execution, pipeline orchestration, app creation flows, and all durable state.
 
-- **Framework**: FastAPI with async endpoints, Pydantic v2 models
-- **Database**: SQLite via `aiosqlite` in WAL mode, auto-migrated at startup (SQL migration files `023` through `039`)
-- **DI**: Singletons registered on `app.state` during lifespan; `dependencies.py` provides `Depends()` getters
-- **Middleware**: `RequestIDMiddleware` for request tracing; CORS middleware; `CSPMiddleware` for Content Security Policy plus companion security headers (including HSTS); `CSRFMiddleware` for double-submit cookie CSRF protection; `RateLimitMiddleware` for request rate limiting
-- **Async Task Safety**: `asyncio.TaskGroup` for background loops (automatic cancellation on shutdown); `TaskRegistry` singleton for fire-and-forget tasks (tracked, drained on shutdown)
-- **Exceptions**: Custom `AppException` hierarchy → `AuthenticationError`, `AuthorizationError`, `NotFoundError`, `ValidationError`, `GitHubAPIError`, `RateLimitError`, `McpValidationError`, `McpLimitExceededError`, `DatabaseError`, `PersistenceError`
+- **Framework**: FastAPI with async endpoints and Pydantic v2 models
+- **Database**: SQLite via `aiosqlite`, WAL mode, migrations `023` through `044`
+- **Dependency injection**: `app.state` singletons accessed through `dependencies.py`
+- **Middleware**: request IDs, CSP/security headers, CSRF, rate limiting, and admin-guard protections
+- **Background execution**: `asyncio.TaskGroup` plus `TaskRegistry` for managed startup/shutdown work
+- **Observability**: structured logging, optional OpenTelemetry, optional Sentry, and alert dispatch hooks
 
 ### Backend Module Layout
 
-| Directory | Purpose |
-|-----------|---------|
-| `api/` | Route handlers: `activity`, `agents`, `apps`, `auth`, `board`, `chat`, `chores`, `cleanup`, `health`, `mcp`, `metadata`, `onboarding`, `pipelines`, `projects`, `settings`, `signal`, `tasks`, `templates`, `tools`, `webhook_models`, `webhooks`, `workflow` |
-| `models/` | Pydantic v2 models: `activity`, `agent`, `agent_creator`, `agents`, `app`, `app_template`, `board`, `build_progress`, `chat`, `chores`, `cleanup`, `guard`, `mcp`, `pagination`, `pipeline`, `pipeline_events`, `pipeline_run`, `pipeline_stage_state`, `plan`, `project`, `recommendation`, `settings`, `signal`, `stage_group`, `task`, `tools`, `user`, `workflow` |
-| `services/` | Business logic (see below) |
-| `services/github_projects/` | GitHub API integration (11 sub-modules): `service`, `graphql`, `agents`, `board`, `branches`, `copilot`, `identities`, `issues`, `projects`, `pull_requests`, `repository` — pooled `githubkit` SDK clients |
-| `services/copilot_polling/` | Background polling loop (11 sub-modules): `state`, `helpers`, `polling_loop`, `agent_output`, `pipeline`, `recovery`, `completion`, `auto_merge`, `label_manager`, `pipeline_state_service`, `state_validation` |
-| `services/workflow_orchestrator/` | Pipeline orchestration: `models` (contexts/state), `config` (async load/persist), `transitions`, `orchestrator` |
-| `services/chores/` | Chore templates, scheduler, counter, chat, template builder, service + `presets/` directory |
-| `services/agents/` | Agent configuration CRUD service (SQLite + GitHub repo merge), Agent MCP Sync (`agent_mcp_sync.py`), and agent catalog browser (`catalog.py`) — keeps `mcp-servers` and `tools: ["*"]` in sync across all `.agent.md` files |
-| `services/app_templates/` | Application template engine: `loader`, `registry`, `renderer` — scaffolds new app projects |
-| `services/mcp_server/` | Model Context Protocol server (6 sub-modules): `auth`, `context`, `middleware`, `prompts`, `resources`, `server` + `tools/` directory |
-| `services/pipelines/` | Pipeline configuration and lifecycle: `pipeline_config`, `service` |
-| `services/tools/` | MCP tool management: `presets`, `service` |
-| `migrations/` | SQL migration files `023` through `039` |
-| `prompts/` | AI prompt templates for issue and task generation |
-| `middleware/` | `RequestIDMiddleware`, `CSPMiddleware` (Content Security Policy + HTTP security headers such as HSTS), `CSRFMiddleware` (double-submit cookie CSRF protection), `RateLimitMiddleware` (request rate limiting), `AdminGuardMiddleware` |
-| `logging_utils.py` | `RequestIDFilter`, `SanitizingFormatter`, `StructuredJsonFormatter` for structured JSON logging |
-| `config.py` | `pydantic-settings` configuration from `.env` |
-| `constants.py` | Status names, agent mappings, labels, cache keys |
-| `dependencies.py` | FastAPI DI helpers |
-| `exceptions.py` | Custom exception classes (`AppException` hierarchy including `PersistenceError`) |
-| `protocols.py` | `Protocol` types for service interfaces (`ModelProvider`, `CacheInvalidationPolicy`) |
+| Area | Current modules |
+|------|-----------------|
+| `api/` | `activity`, `agents`, `apps`, `auth`, `board`, `chat`, `chores`, `cleanup`, `health`, `mcp`, `metadata`, `onboarding`, `pipelines`, `projects`, `settings`, `signal`, `tasks`, `templates`, `tools`, `webhooks`, `workflow` |
+| `models/` | Activity, agent, app, board, chat, chore, cleanup, guard, MCP, pagination, pipeline, plan, project, recommendation, settings, signal, task, tool, user, workflow models |
+| `middleware/` | `admin_guard`, `csp`, `csrf`, `rate_limit`, `request_id` |
+| `migrations/` | SQL migrations `023_consolidated_schema.sql` through `044_conversations.sql` |
 
-### AI Completion Providers
+### Backend services (grouped by responsibility)
 
-The backend uses a pluggable `CompletionProvider` abstraction:
-
-| Provider | Class | Default | Auth |
-|----------|-------|---------|------|
-| GitHub Copilot | `CopilotCompletionProvider` | Yes | User's GitHub OAuth token (per-request) |
-| Azure OpenAI | `AzureOpenAICompletionProvider` | No | Static API key from env vars |
-
-Set via `AI_PROVIDER` env var (`copilot` or `azure_openai`).
+| Responsibility | Services |
+|----------------|----------|
+| **Activity, observability, and alerts** | `activity_logger`, `activity_service`, `alert_dispatcher`, `logging_utils`, `otel_setup`, `rate_limit_tracker` |
+| **Agents, plans, and chat execution** | `agent_creator`, `agent_middleware`, `agent_provider`, `agent_tools`, `agent_tracking`, `chat_agent`, `chat_store`, `guard_service`, `label_classifier`, `plan_agent_provider`, `plan_issue_service`, `plan_parser`, `template_files`, `transcript_detector` |
+| **Apps and templates** | `app_plan_orchestrator`, `app_service`, `app_templates/loader`, `app_templates/registry`, `app_templates/renderer` |
+| **Pipeline lifecycle** | `collision_resolver`, `copilot_polling/*`, `pipeline_estimate`, `pipeline_orchestrator`, `pipeline_state_store`, `pipelines/pipeline_config`, `pipelines/service`, `task_registry`, `workflow_orchestrator/*` |
+| **GitHub, metadata, and persistence** | `cache`, `database`, `done_items_store`, `encryption`, `github_auth`, `github_commit_workflow`, `github_projects/*`, `metadata_service`, `mcp_store`, `model_fetcher`, `pagination`, `session_store`, `settings_store`, `websocket` |
+| **Feature-specific services** | `agents/service`, `agents/catalog`, `agents/agent_mcp_sync`, `chores/chat`, `chores/counter`, `chores/scheduler`, `chores/service`, `chores/template_builder`, `mcp_server/*`, `signal_bridge`, `signal_chat`, `signal_delivery`, `tools/presets`, `tools/service` |
 
 ### ChatAgentService
 
-`ChatAgentService` wraps the Microsoft Agent Framework to power Solune's chat experience. It manages agent sessions, registers tools via MCP, and provides both synchronous and streaming response modes.
+`ChatAgentService` wraps the Microsoft Agent Framework and powers Solune's chat experiences.
 
-**Session management** — `AgentSessionMapping` maintains an in-memory pool of agent sessions. Sessions expire after a configurable TTL (default 3600 seconds) and are evicted using LRU when the pool reaches the maximum of 100 concurrent sessions.
+- Maintains an in-memory pool of agent sessions with configurable TTL and LRU eviction
+- Registers project-scoped MCP tools when a project context is available
+- Supports both standard JSON chat responses and streaming SSE responses
+- Uses `session_id:conversation_id` keys for multi-conversation dashboard chat while leaving the floating popup conversation-unaware
 
-**Tool registration** — When a project context is available, `ChatAgentService` loads MCP tool configurations from the project and registers them with the Agent Framework. This allows the chat agent to use project-specific tools during conversations.
+### Startup lifecycle (`main.py`)
 
-**Dual dispatch** — The service routes requests based on the `ai_enhance` parameter:
+1. Configure logging and the global asyncio exception handler
+2. Open SQLite, run pending migrations, and seed default rows
+3. Register shared services on `app.state`
+4. Resume polling / Signal background loops
+5. Start session cleanup, watchdog, and MCP sync background tasks
+6. On shutdown, drain task registries, stop listeners, and close the database
 
-| `ai_enhance` | Path | Behavior |
-|---------------|------|----------|
-| `true` | Agent Framework | Full reasoning, tool use, multi-turn conversation, streaming |
-| `false` | Fallback | Metadata-only response without agent invocation |
+### nginx reverse proxy
 
-**Streaming** — The `run_stream()` method returns an async iterator of SSE events (`token`, `tool_call`, `tool_result`, `done`, `error`) for real-time response delivery.
-
-### Startup Lifecycle (`main.py`)
-
-1. Install global asyncio exception handler for unhandled async errors
-2. Initialize SQLite database + run pending migrations
-3. Seed `global_settings` row
-4. Load persisted pipeline state from SQLite into L1 caches
-5. Register singleton services on `app.state`
-6. Start Signal WebSocket listener for inbound messages
-7. Auto-resume Copilot polling from the most recent session with a selected project
-8. Run Agent MCP Sync in background via `TaskRegistry` (fire-and-forget)
-9. Start background loops via `asyncio.TaskGroup` — session cleanup loop (exponential backoff on failures) + polling watchdog loop (auto-restart on crash)
-10. On shutdown: drain `TaskRegistry` (30 s timeout) → stop Signal listener → stop polling → close database
-
-### nginx Reverse Proxy
-
-The frontend nginx config (`nginx.conf`):
+The frontend `nginx.conf`:
 
 - Proxies `/api/` to `backend:8000` with WebSocket upgrade support
-- Serves static assets with 1-year cache (`/assets/`)
-- SPA fallback: all non-file routes serve `index.html`
-- Security headers: `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`
-- Health endpoint: `/health` returns 200 OK
+- Serves built assets and SPA fallbacks for browser routes
+- Sets basic browser security headers
+- Exposes `/health` for container health checks
 
 ---
 
-For the rationale behind key design decisions, see the [Architecture Decision Records](decisions/README.md).
+For architecture decisions and rationale, see the [Architecture Decision Records](decisions/README.md).
 
 ## What's next?
 
-- [Agent Pipeline](agent-pipeline.md) — How pipelines orchestrate agents through execution stages
-- [Configuration](configuration.md) — Every environment variable and how to customize your deployment
-- [Project Structure](project-structure.md) — The complete directory layout with file descriptions
+- [Agent Pipeline](agent-pipeline.md) — How execution stages, groups, and recovery work
+- [Configuration](configuration.md) — Every environment variable and deployment switch
+- [Project Structure](project-structure.md) — The up-to-date directory layout
