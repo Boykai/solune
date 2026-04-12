@@ -104,10 +104,10 @@ describe('AgentsPage', () => {
 
     expect(screen.getByText('Board columns')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('Assignments')).toBeInTheDocument();
-    expect(screen.getByText('Mapped states')).toBeInTheDocument();
-    // Both "Assignments" and "Mapped states" show "1" — verify the labels exist
-    expect(screen.getAllByText('1')).toHaveLength(2);
+    const assignmentsLabel = screen.getByText('Assignments');
+    expect(assignmentsLabel.parentElement).toHaveTextContent('1');
+    const mappedStatesLabel = screen.getByText('Mapped states');
+    expect(mappedStatesLabel.parentElement).toHaveTextContent('1');
   });
 
   it('shows "Awaiting repository" badge when no project is selected', () => {

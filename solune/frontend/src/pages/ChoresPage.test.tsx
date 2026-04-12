@@ -91,8 +91,8 @@ describe('ChoresPage', () => {
 
   it('renders stats chips for board columns, project, repository, and automation', () => {
     render(<ChoresPage />);
-    expect(screen.getByText('Board columns')).toBeInTheDocument();
-    expect(screen.getByText('0')).toBeInTheDocument();
+    const boardColumnsLabel = screen.getByText('Board columns');
+    expect(boardColumnsLabel.parentElement).toHaveTextContent('0');
     expect(screen.getByText('Project')).toBeInTheDocument();
     expect(screen.getByText('Unselected')).toBeInTheDocument();
     expect(screen.getByText('Repository')).toBeInTheDocument();
