@@ -117,10 +117,7 @@ python scripts/extract-pipeline-config.py \
   --output config/pipeline-config.json
 
 # Validate the generated config against the JSON schema
-# NOTE: ./scripts/validate-contracts.sh currently validates only OpenAPI → TypeScript
-# type generation and does not accept a pipeline config file path argument.
-# JSON Schema validation for pipeline configs will be added in a later phase.
-# For now, validate manually:
+# (65 contract tests in test_pipeline_config_schema.py also validate this schema)
 python -m jsonschema -i config/pipeline-config.json ../contracts/pipeline-config-schema.json
 ```
 
