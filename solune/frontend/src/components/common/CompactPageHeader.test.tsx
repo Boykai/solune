@@ -48,9 +48,19 @@ describe('CompactPageHeader', () => {
     expect(screen.getByText('New')).toBeInTheDocument();
   });
 
+  it('uses symmetric desktop grid columns so the badge can stay centered without actions', () => {
+    const { container } = render(<CompactPageHeader {...defaultProps} badge="New" />);
+    expect(container.firstElementChild?.firstElementChild).toHaveClass(
+      'md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]'
+    );
+  });
+
   it('renders the badge in its own centered layout slot', () => {
     render(<CompactPageHeader {...defaultProps} badge="New" />);
-    expect(screen.getByText('New').parentElement).toHaveClass('md:justify-self-center');
+    expect(screen.getByText('New').parentElement).toHaveClass(
+      'md:col-start-2',
+      'md:justify-self-center'
+    );
   });
 
   it('does not render a badge element when badge is undefined', () => {
@@ -86,6 +96,19 @@ describe('CompactPageHeader', () => {
     );
     expect(screen.getByTestId('header-action')).toBeInTheDocument();
     expect(screen.getByText('Add Agent')).toBeInTheDocument();
+  });
+
+  it('anchors the actions slot in the trailing desktop grid column', () => {
+    render(
+      <CompactPageHeader
+        {...defaultProps}
+        actions={<button data-testid="header-action">Add Agent</button>}
+      />
+    );
+    expect(screen.getByTestId('header-action').parentElement).toHaveClass(
+      'md:col-start-3',
+      'md:justify-self-end'
+    );
   });
 
   it('applies line-clamp-1 class to description', () => {

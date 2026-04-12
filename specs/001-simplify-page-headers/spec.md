@@ -49,7 +49,7 @@ As a user, I want the page description to appear as a concise single-line subtit
 **Acceptance Scenarios**:
 
 1. **Given** a page provides a description, **When** the header renders, **Then** the description is displayed as a single-line subtitle truncated with an ellipsis if it exceeds one line
-2. **Given** a page description is truncated to one line, **When** the user hovers over the description, **Then** the full description text is revealed (expands or shown via tooltip)
+2. **Given** a page description is truncated to one line, **When** the user hovers over the description, **Then** the description expands in place to reveal the full text
 
 ---
 

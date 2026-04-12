@@ -36,7 +36,7 @@ export function CompactPageHeader({
         className,
       )}
     >
-      <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-start md:gap-4">
+      <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-start md:gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-[0.28em] text-primary/85">{eyebrow}</p>
 
@@ -53,7 +53,7 @@ export function CompactPageHeader({
         </div>
 
         {badge && (
-          <div className="min-w-0 md:justify-self-center">
+          <div className="min-w-0 md:col-start-2 md:justify-self-center">
             <span className="inline-flex max-w-[12rem] items-center truncate rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.18em] text-primary">
               {badge}
             </span>
@@ -61,7 +61,9 @@ export function CompactPageHeader({
         )}
 
         {actions && (
-          <div className="flex shrink-0 items-center gap-2 md:justify-self-end">{actions}</div>
+          <div className="flex shrink-0 items-center gap-2 md:col-start-3 md:justify-self-end">
+            {actions}
+          </div>
         )}
       </div>
 
