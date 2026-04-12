@@ -204,12 +204,22 @@ _recovery_attempt_counts: BoundedDict[int, int] = BoundedDict(
 MAX_RECOVERY_RETRIES: int = 5
 
 # Merge failure counter: tracks consecutive merge failures per issue.
-# When the count exceeds MAX_MERGE_RETRIES the pipeline skips the merge
-# and advances, posting a warning comment on the issue.
+# When the count exceeds MAX_MERGE_RETRIES the pipeline halts and sets
+# an error state, preventing cascading conflicts from advancing past
+# an unmergeable child PR.
 _merge_failure_counts: BoundedDict[int, int] = BoundedDict(
     maxlen=200
 )  # issue_number -> consecutive failure count
 MAX_MERGE_RETRIES: int = 3
+
+# DevOps agent tracking: persistent per-issue state for deduplication
+# across callers (pipeline completion, check_run webhook, post-DevOps
+# retry).  Without persistent tracking, each caller creates a fresh
+# metadata dict and the retry cap is bypassed by concurrent triggers.
+_devops_tracking: BoundedDict[int, dict[str, Any]] = BoundedDict(
+    maxlen=200
+)  # issue_number -> {"active": bool, "attempts": int}
+MAX_DEVOPS_ATTEMPTS: int = 2
 
 # Auto-merge retry tracking: when _attempt_auto_merge returns "retry_later"
 # (e.g. CI still running), we schedule delayed retries.  This dict prevents
