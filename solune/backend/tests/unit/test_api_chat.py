@@ -172,9 +172,15 @@ class TestSendMessageFeatureRequest:
         )
         mock_chat_agent_service.run_plan.return_value = plan_response
 
-        with patch(
-            "src.api.chat.messages._resolve_repository",
-            new=AsyncMock(return_value=("octocat", "hello-world")),
+        with (
+            patch(
+                "src.api.chat.messages._resolve_repository",
+                new=AsyncMock(return_value=("octocat", "hello-world")),
+            ),
+            patch(
+                "src.api.chat.plans._resolve_repository",
+                new=AsyncMock(return_value=("octocat", "hello-world")),
+            ),
         ):
             resp = await client.post(
                 "/api/v1/chat/messages",
