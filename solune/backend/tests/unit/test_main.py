@@ -3,8 +3,8 @@
 Covers:
 - create_app() → correct routers, CORS, exception handlers
 - lifespan startup/shutdown
-- _session_cleanup_loop background task
-- _auto_start_copilot_polling webhook token fallback
+- session_cleanup_loop background task
+- auto_start_copilot_polling webhook token fallback
 """
 
 import asyncio
@@ -14,7 +14,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import ASGITransport, AsyncClient
 
-from src.main import _auto_start_copilot_polling, _session_cleanup_loop, create_app
+from src.main import create_app
+from src.services.bootstrap import auto_start_copilot_polling, session_cleanup_loop
 
 # ── create_app ──────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ class TestLifespan:
         mock_db = AsyncMock()
         mock_app = MagicMock()
 
-        # The background loops (_session_cleanup_loop, _polling_watchdog_loop)
+        # The background loops (session_cleanup_loop, polling_watchdog_loop)
         # run inside an asyncio.TaskGroup, so they must be mocked out.
         async def _noop_loop():
             """Coroutine that yields immediately so the TaskGroup can exit."""
@@ -84,9 +85,9 @@ class TestLifespan:
                 "src.services.database.close_database",
                 new_callable=AsyncMock,
             ) as mock_close,
-            patch("src.main._session_cleanup_loop", side_effect=_noop_loop),
-            patch("src.main._polling_watchdog_loop", side_effect=_noop_loop),
-            patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock),
+            patch("src.main.session_cleanup_loop", side_effect=_noop_loop),
+            patch("src.main.polling_watchdog_loop", side_effect=_noop_loop),
+            patch("src.main.auto_start_copilot_polling", new_callable=AsyncMock),
             patch(
                 "src.services.signal_bridge.start_signal_ws_listener",
                 new_callable=AsyncMock,
@@ -182,7 +183,7 @@ class TestLifespan:
 
 
 class TestSessionCleanupLoop:
-    """Tests for _session_cleanup_loop background task."""
+    """Tests for session_cleanup_loop background task."""
 
     async def test_purges_expired_sessions(self):
         """Should call purge_expired_sessions and log when count > 0."""
@@ -195,8 +196,8 @@ class TestSessionCleanupLoop:
                 raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_fake_sleep),
+            patch("src.services.bootstrap.get_settings") as mock_s,
+            patch("src.services.bootstrap.asyncio.sleep", side_effect=_fake_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
             patch(
                 "src.services.session_store.purge_expired_sessions",
@@ -205,7 +206,7 @@ class TestSessionCleanupLoop:
             ) as mock_purge,
         ):
             mock_s.return_value = MagicMock(session_cleanup_interval=10)
-            await _session_cleanup_loop()
+            await session_cleanup_loop()
             mock_purge.assert_awaited_once()
 
     async def test_handles_exception_in_loop(self):
@@ -219,8 +220,8 @@ class TestSessionCleanupLoop:
                 raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_fake_sleep),
+            patch("src.services.bootstrap.get_settings") as mock_s,
+            patch("src.services.bootstrap.asyncio.sleep", side_effect=_fake_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
             patch(
                 "src.services.session_store.purge_expired_sessions",
@@ -230,7 +231,7 @@ class TestSessionCleanupLoop:
         ):
             mock_s.return_value = MagicMock(session_cleanup_interval=10)
             # Should not raise; should catch and continue until CancelledError
-            await _session_cleanup_loop()
+            await session_cleanup_loop()
 
     async def test_backoff_uses_base_interval_on_success(self):
         """On success (consecutive_failures==0) sleep equals base interval.
@@ -246,12 +247,12 @@ class TestSessionCleanupLoop:
             raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_capture_sleep),
+            patch("src.services.bootstrap.get_settings") as mock_s,
+            patch("src.services.bootstrap.asyncio.sleep", side_effect=_capture_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
         ):
             mock_s.return_value = MagicMock(session_cleanup_interval=3600)
-            await _session_cleanup_loop()
+            await session_cleanup_loop()
 
         # First sleep should be the full configured interval, not capped to 300
         assert sleep_values[0] == 3600
@@ -269,8 +270,8 @@ class TestSessionCleanupLoop:
                 raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_capture_sleep),
+            patch("src.services.bootstrap.get_settings") as mock_s,
+            patch("src.services.bootstrap.asyncio.sleep", side_effect=_capture_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
             patch(
                 "src.services.session_store.purge_expired_sessions",
@@ -279,7 +280,7 @@ class TestSessionCleanupLoop:
             ),
         ):
             mock_s.return_value = MagicMock(session_cleanup_interval=10)
-            await _session_cleanup_loop()
+            await session_cleanup_loop()
 
         # 1st call: consecutive_failures=0 → sleep=10 (base interval)
         assert sleep_values[0] == 10
@@ -353,9 +354,9 @@ class TestShutdownPollingLogging:
                 "src.services.signal_bridge.stop_signal_ws_listener",
                 new_callable=AsyncMock,
             ),
-            patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock),
-            patch("src.main._session_cleanup_loop", side_effect=_noop_loop),
-            patch("src.main._polling_watchdog_loop", side_effect=_noop_loop),
+            patch("src.main.auto_start_copilot_polling", new_callable=AsyncMock),
+            patch("src.main.session_cleanup_loop", side_effect=_noop_loop),
+            patch("src.main.polling_watchdog_loop", side_effect=_noop_loop),
             patch(
                 "src.services.pipeline_state_store.init_pipeline_state_store",
                 new_callable=AsyncMock,
@@ -392,7 +393,7 @@ class TestShutdownPollingLogging:
             assert warning_args.kwargs.get("exc_info") is True
 
 
-# ── _auto_start_copilot_polling webhook token fallback ──────────────────────
+# ── auto_start_copilot_polling webhook token fallback ──────────────────────
 
 
 def _make_mock_db(session_rows=None, project_settings_rows=None):
@@ -415,7 +416,7 @@ def _make_mock_db(session_rows=None, project_settings_rows=None):
 
 
 class TestAutoStartWebhookFallback:
-    """Tests for the webhook-token fallback in _auto_start_copilot_polling."""
+    """Tests for the webhook-token fallback in auto_start_copilot_polling."""
 
     async def test_fallback_starts_polling_with_webhook_token(self):
         """When no sessions exist but GITHUB_WEBHOOK_TOKEN and DEFAULT_REPOSITORY
@@ -440,7 +441,7 @@ class TestAutoStartWebhookFallback:
                 return_value={"is_running": False},
             ),
             patch("src.services.database.get_db", return_value=mock_db),
-            patch("src.main.get_settings", return_value=mock_settings),
+            patch("src.services.bootstrap.get_settings", return_value=mock_settings),
             patch(
                 "src.services.session_store.get_session",
                 new_callable=AsyncMock,
@@ -452,7 +453,7 @@ class TestAutoStartWebhookFallback:
                 return_value=True,
             ) as mock_start,
         ):
-            await _auto_start_copilot_polling()
+            await auto_start_copilot_polling()
 
             mock_start.assert_awaited_once_with(
                 access_token="ghp_test_token",
@@ -478,7 +479,7 @@ class TestAutoStartWebhookFallback:
                 return_value={"is_running": False},
             ),
             patch("src.services.database.get_db", return_value=mock_db),
-            patch("src.main.get_settings", return_value=mock_settings),
+            patch("src.services.bootstrap.get_settings", return_value=mock_settings),
             patch(
                 "src.services.session_store.get_session",
                 new_callable=AsyncMock,
@@ -489,7 +490,7 @@ class TestAutoStartWebhookFallback:
                 new_callable=AsyncMock,
             ) as mock_start,
         ):
-            await _auto_start_copilot_polling()
+            await auto_start_copilot_polling()
             mock_start.assert_not_awaited()
 
     async def test_fallback_skipped_when_no_matching_project(self):
@@ -511,7 +512,7 @@ class TestAutoStartWebhookFallback:
                 return_value={"is_running": False},
             ),
             patch("src.services.database.get_db", return_value=mock_db),
-            patch("src.main.get_settings", return_value=mock_settings),
+            patch("src.services.bootstrap.get_settings", return_value=mock_settings),
             patch(
                 "src.services.session_store.get_session",
                 new_callable=AsyncMock,
@@ -522,7 +523,7 @@ class TestAutoStartWebhookFallback:
                 new_callable=AsyncMock,
             ) as mock_start,
         ):
-            await _auto_start_copilot_polling()
+            await auto_start_copilot_polling()
             mock_start.assert_not_awaited()
 
     async def test_fallback_owner_only_match(self):
@@ -544,7 +545,7 @@ class TestAutoStartWebhookFallback:
                 return_value={"is_running": False},
             ),
             patch("src.services.database.get_db", return_value=mock_db),
-            patch("src.main.get_settings", return_value=mock_settings),
+            patch("src.services.bootstrap.get_settings", return_value=mock_settings),
             patch(
                 "src.services.session_store.get_session",
                 new_callable=AsyncMock,
@@ -556,7 +557,7 @@ class TestAutoStartWebhookFallback:
                 return_value=True,
             ) as mock_start,
         ):
-            await _auto_start_copilot_polling()
+            await auto_start_copilot_polling()
 
             mock_start.assert_awaited_once_with(
                 access_token="ghp_test_token",
@@ -609,7 +610,7 @@ class TestAutoStartWebhookFallback:
                 return_value=True,
             ) as mock_start,
         ):
-            await _auto_start_copilot_polling()
+            await auto_start_copilot_polling()
 
             mock_start.assert_awaited_once_with(
                 access_token="ghp_session_token",
@@ -662,7 +663,7 @@ class TestAutoStartWebhookFallback:
                 return_value={"is_running": False},
             ),
             patch("src.services.database.get_db", return_value=mock_db),
-            patch("src.main.get_settings", return_value=mock_settings),
+            patch("src.services.bootstrap.get_settings", return_value=mock_settings),
             patch(
                 "src.services.session_store.get_session",
                 new_callable=AsyncMock,
@@ -679,7 +680,7 @@ class TestAutoStartWebhookFallback:
                 return_value=True,
             ) as mock_start,
         ):
-            await _auto_start_copilot_polling()
+            await auto_start_copilot_polling()
 
             # Should have used the webhook token fallback
             mock_start.assert_awaited_once_with(
