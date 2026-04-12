@@ -135,10 +135,10 @@ async def test_issue_opened_webhook_accepted():
 
     with (
         patch("src.config.get_settings", return_value=settings),
-        patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
-        patch("src.api.webhooks.get_db", return_value=mock_db),
-        patch("src.api.webhooks.log_event", mock_log_event),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
+        patch("src.api.webhooks.pull_requests.github_projects_service", mock_projects),
+        patch("src.api.webhooks.handlers.get_db", return_value=mock_db),
+        patch("src.api.webhooks.handlers.log_event", mock_log_event),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post(
@@ -169,7 +169,7 @@ async def test_issue_webhook_invalid_signature_rejected():
     transport = ASGITransport(app=_build_full_app())
     with (
         patch("src.config.get_settings", return_value=settings),
-        patch("src.api.webhooks.get_settings", return_value=settings),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post(
@@ -288,10 +288,10 @@ async def test_pr_ready_for_review_webhook_updates_state():
 
     with (
         patch("src.config.get_settings", return_value=settings),
-        patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
-        patch("src.api.webhooks.get_db", return_value=mock_db),
-        patch("src.api.webhooks.log_event", mock_log_event),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
+        patch("src.api.webhooks.pull_requests.github_projects_service", mock_projects),
+        patch("src.api.webhooks.handlers.get_db", return_value=mock_db),
+        patch("src.api.webhooks.handlers.log_event", mock_log_event),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post(
@@ -333,10 +333,10 @@ async def test_pr_merged_webhook_accepted():
 
     with (
         patch("src.config.get_settings", return_value=settings),
-        patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
-        patch("src.api.webhooks.get_db", return_value=mock_db),
-        patch("src.api.webhooks.log_event", mock_log_event),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
+        patch("src.api.webhooks.pull_requests.github_projects_service", mock_projects),
+        patch("src.api.webhooks.handlers.get_db", return_value=mock_db),
+        patch("src.api.webhooks.handlers.log_event", mock_log_event),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             response = await client.post(
@@ -379,10 +379,10 @@ async def test_pr_lifecycle_full_flow():
 
     with (
         patch("src.config.get_settings", return_value=settings),
-        patch("src.api.webhooks.get_settings", return_value=settings),
-        patch("src.api.webhooks.github_projects_service", mock_projects),
-        patch("src.api.webhooks.get_db", return_value=mock_db),
-        patch("src.api.webhooks.log_event", mock_log_event),
+        patch("src.api.webhooks.handlers.get_settings", return_value=settings),
+        patch("src.api.webhooks.pull_requests.github_projects_service", mock_projects),
+        patch("src.api.webhooks.handlers.get_db", return_value=mock_db),
+        patch("src.api.webhooks.handlers.log_event", mock_log_event),
     ):
         async with AsyncClient(transport=transport, base_url="http://testserver") as client:
             # Step 1: PR opened as draft

@@ -44,7 +44,7 @@ async def test_github_webhook_dispatch_handles_random_payloads_without_unhandled
     payload: dict[str, object],
 ) -> None:
     monkeypatch.setattr(
-        "src.api.webhooks.get_settings",
+        "src.api.webhooks.handlers.get_settings",
         lambda: type("S", (), {"github_webhook_secret": "secret"})(),
     )
     monkeypatch.setattr("src.api.webhooks.verify_webhook_signature", lambda *_args: True)
