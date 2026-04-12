@@ -62,6 +62,7 @@ dev = [
     "pip-audit>=2.9.0",
     "bandit>=1.8.0",
     "freezegun>=1.4.0",
+    "jsonschema>=4.23.0",
 ]
 
 [build-system]
