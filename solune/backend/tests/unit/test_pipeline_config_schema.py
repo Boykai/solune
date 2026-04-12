@@ -178,8 +178,9 @@ class TestSchemaRejectsInvalid:
             ],
             "unknown_field": True,
         }
-        with pytest.raises(ValidationError, match="additionalProperties"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=[bad], schema=schema)
+        assert exc_info.value.validator == "additionalProperties"
 
     def test_rejects_invalid_preset_id_pattern(self, schema: dict) -> None:
         bad = {
@@ -287,8 +288,9 @@ class TestSchemaRejectsInvalid:
                 ],
             }
         ]
-        with pytest.raises(ValidationError, match="additionalProperties"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "additionalProperties"
 
     def test_rejects_empty_preset_name(self, schema: dict) -> None:
         bad = [
@@ -298,8 +300,9 @@ class TestSchemaRejectsInvalid:
                 "stages": [{"id": "s1", "name": "S", "order": 0, "groups": []}],
             }
         ]
-        with pytest.raises(ValidationError, match="minLength"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "minLength"
 
     def test_rejects_preset_name_exceeding_max_length(self, schema: dict) -> None:
         bad = [
@@ -309,8 +312,9 @@ class TestSchemaRejectsInvalid:
                 "stages": [{"id": "s1", "name": "S", "order": 0, "groups": []}],
             }
         ]
-        with pytest.raises(ValidationError, match="maxLength"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "maxLength"
 
     def test_rejects_description_exceeding_max_length(self, schema: dict) -> None:
         bad = [
@@ -321,8 +325,9 @@ class TestSchemaRejectsInvalid:
                 "stages": [{"id": "s1", "name": "S", "order": 0, "groups": []}],
             }
         ]
-        with pytest.raises(ValidationError, match="maxLength"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "maxLength"
 
     def test_rejects_negative_tool_count(self, schema: dict) -> None:
         bad = [
@@ -390,8 +395,9 @@ class TestSchemaRejectsInvalid:
                 ],
             }
         ]
-        with pytest.raises(ValidationError, match="additionalProperties"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "additionalProperties"
 
     def test_rejects_execution_group_extra_property(self, schema: dict) -> None:
         bad = [
@@ -414,8 +420,9 @@ class TestSchemaRejectsInvalid:
                 ],
             }
         ]
-        with pytest.raises(ValidationError, match="additionalProperties"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "additionalProperties"
 
     def test_rejects_empty_stage_name(self, schema: dict) -> None:
         bad = [
@@ -425,8 +432,9 @@ class TestSchemaRejectsInvalid:
                 "stages": [{"id": "s1", "name": "", "order": 0, "groups": []}],
             }
         ]
-        with pytest.raises(ValidationError, match="minLength"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "minLength"
 
     def test_rejects_stage_name_exceeding_max_length(self, schema: dict) -> None:
         bad = [
@@ -436,8 +444,9 @@ class TestSchemaRejectsInvalid:
                 "stages": [{"id": "s1", "name": "x" * 101, "order": 0, "groups": []}],
             }
         ]
-        with pytest.raises(ValidationError, match="maxLength"):
+        with pytest.raises(ValidationError) as exc_info:
             validate(instance=bad, schema=schema)
+        assert exc_info.value.validator == "maxLength"
 
 
 # ---------------------------------------------------------------------------

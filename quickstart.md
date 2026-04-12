@@ -2,10 +2,6 @@
 
 **Feature**: Fleet-Dispatch Agent Pipelines via GitHub CLI | **Date**: 2026-04-11
 
-> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
-
-> **Status note (2026-04-11):** The backend conversations and chat APIs are complete. The frontend multi-panel workflow is implemented, but the product surface is still being refined, so expect the UI details in this feature quickstart to evolve.
-
 ## Prerequisites
 
 - `gh` CLI ≥2.80 (with `gh agent-task` support)
@@ -125,7 +121,7 @@ python scripts/extract-pipeline-config.py \
 # type generation and does not accept a pipeline config file path argument.
 # JSON Schema validation for pipeline configs will be added in a later phase.
 # For now, validate manually:
-python -m jsonschema -i config/pipeline-config.json contracts/pipeline-config-schema.json
+python -m jsonschema -i config/pipeline-config.json ../contracts/pipeline-config-schema.json
 ```
 
 ### Inspect the Config
@@ -182,7 +178,8 @@ gh agent-task view TASK_ID --repo owner/repo
 # Or from source: https://bats-core.readthedocs.io/en/stable/installation.html
 
 # Run fleet-dispatch tests
-bats solune/scripts/tests/fleet-dispatch.bats
+cd solune
+bats scripts/tests/fleet-dispatch.bats
 ```
 
 ### Run Python Extraction Tests
