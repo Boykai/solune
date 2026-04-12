@@ -1,165 +1,125 @@
-# Research: Multi-Chat App Page
+# Research: Simplify Page Headers for Focused UI
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Simplify Page Headers | **Date**: 2026-04-11 | **Status**: Complete
 
-## R1: Nullable Foreign Key Strategy for Backward Compatibility
+## R1: CSS Class Removal Safety Analysis
 
-**Decision**: Add `conversation_id TEXT DEFAULT NULL` to `chat_messages`, `chat_proposals`, and `chat_recommendations` via `ALTER TABLE`. No `NOT NULL` constraint.
+**Decision**: Remove only `.dark .projects-catalog-hero .catalog-hero-*` scoped CSS rules from `index.css` (lines ~432–489). Retain all `celestial-*` animation classes, `.moonwell`, and `.hanging-stars`.
 
-**Rationale**: Existing rows have no conversation context — they belong to `ChatPopup` on non-AppPage routes. Making the column nullable preserves all existing data and behavior without backfilling. The `ChatPopup` never sends a `conversation_id`, so its messages continue to work unchanged. Queries that filter by `conversation_id` use `WHERE conversation_id = ?` for scoped results, while global queries (ChatPopup) omit the filter entirely.
+**Rationale**: A thorough codebase search reveals that many CSS classes used within `CelestialCatalogHero` are shared with other components throughout the application. Only the `.projects-catalog-hero`-scoped dark mode overrides are exclusive to the hero component.
 
-SQLite's `ALTER TABLE ... ADD COLUMN` with a `DEFAULT NULL` is an O(1) metadata-only operation — it does not rewrite the table. This means the migration is safe to run on databases with millions of messages.
+**Shared class usage (RETAIN)**:
 
-**Alternatives considered**:
+| CSS Class | Components Using It (Outside CelestialCatalogHero) |
+|-----------|---------------------------------------------------|
+| `moonwell` | AgentCard, AgentIconCatalog, AgentsPanel (6×), ToolCard, ToolsPanel, GitHubMcpConfigGenerator (2×), ChoresSpotlight (2×), PipelineSelector, ChoresToolbar (3×), ActivityPage, AgentsPipelinePage, FeaturedRitualsPanel, ChoreCard, ProjectIssueLaunchPanel, FeatureGuideCard, SavedWorkflowsList (2×), PipelineAnalytics (4×), PipelineStagesOverview, PipelineToolbar |
+| `hanging-stars` | LoginPage.tsx (line 65) |
+| `celestial-orbit-spin` | Sidebar.tsx, AppLayout.tsx, CelestialLoader.tsx, LoginPage.tsx, AnimatedBackground.tsx |
+| `celestial-orbit-spin-reverse` | Same components as `celestial-orbit-spin` |
+| `celestial-twinkle` | CelestialLoadingProgress.tsx, ProjectSelectionEmptyState.tsx, AppLayout.tsx |
+| `celestial-float` | LoginPage.tsx, NotFoundPage.tsx, App.tsx, ErrorBoundary.tsx |
+| `celestial-pulse-glow` | NotificationBell.tsx, LoginPage.tsx, Sidebar.tsx, AppLayout.tsx, CelestialLoader.tsx, TourProgress.tsx |
 
-| Alternative | Why Rejected |
-|-------------|-------------|
-| `NOT NULL DEFAULT ''` (empty string sentinel) | Requires backfilling all existing rows; creates ambiguity between "no conversation" and "empty string"; non-standard FK pattern |
-| Separate `conversation_messages` join table | Over-normalized for SQLite; adds query complexity and JOIN overhead without tangible benefit for this use case |
-| Backfill existing messages into a default conversation | Breaks the "ChatPopup untouched" decision; adds migration complexity; unnecessary since ChatPopup works independently |
-| Add `conversation_id` only to new tables | Prevents filtering existing message types by conversation; breaks the spec requirement of scoping proposals and recommendations |
+**Exclusive to hero (REMOVE)**:
 
----
-
-## R2: Agent Session Key Strategy
-
-**Decision**: Change `AgentSessionMapping` key from `session_id` (string) to `{session_id}:{conversation_id}` (colon-separated composite key). When `conversation_id` is `None`, use the key `{session_id}:_` (underscore sentinel).
-
-**Rationale**: Each conversation needs its own independent agent context so chat history and tool state don't leak between simultaneous conversations. The existing `AgentSessionMapping` already uses string keys and supports TTL-based eviction with LRU semantics. The composite key format is:
-
-- **Simple**: A string concatenation with a known delimiter
-- **Reversible**: Can be split on `:` to recover components (UUIDs don't contain colons)
-- **Non-conflicting**: Colons are not valid UUID characters, and `_` is distinct from any UUID
-- **Backward-compatible**: Existing sessions expire via TTL (3600s); new key format only applies to new requests
-
-**Alternatives considered**:
-
-| Alternative | Why Rejected |
-|-------------|-------------|
-| Nested dict (`dict[str, dict[str, AgentSession]]`) | Requires reworking the eviction and TTL logic throughout `AgentSessionMapping`; increases complexity |
-| Tuple key `(session_id, conversation_id)` | Existing implementation is string-based; tuple keys require changes to serialization, comparison, and hashing patterns |
-| Separate `AgentSessionMapping` per conversation | Memory overhead from multiple mapping instances; harder to manage TTL and capacity globally |
-| Keep single session per user, reset context on conversation switch | Breaks the "independent agent context" requirement; loses state when switching back |
-
----
-
-## R3: Panel Layout Persistence Strategy
-
-**Decision**: Persist panel layout to `localStorage` under key `solune:chat-panels`. Format is a JSON object with a `version` field for future schema migration.
-
-```typescript
-interface PanelLayout {
-  version: 1;
-  panels: Array<{
-    panelId: string;
-    conversationId: string;
-    widthPercent: number;
-  }>;
-}
-```
-
-**Rationale**: Panel layout is ephemeral UI state — no server persistence needed. `localStorage` survives page refreshes (meeting the spec's "browser refresh restores previously open panels" requirement) and is synchronous (no loading states during initial render). A `version` field enables graceful migration if the schema changes in future releases (e.g., adding panel order, scroll position, or collapsed state).
-
-The `solune:` prefix namespaces the key to avoid collisions with other apps on the same domain, consistent with typical localStorage conventions.
+| CSS Rule | Location in index.css |
+|----------|-----------------------|
+| `.dark .projects-catalog-hero.section-aurora` | Line ~432 |
+| `.dark .projects-catalog-hero .catalog-hero-decor` | Line ~448 |
+| `.dark .projects-catalog-hero .catalog-hero-ambient-glow` | Line ~452 |
+| `.dark .projects-catalog-hero .catalog-hero-orbit` | Line ~457 |
+| `.dark .projects-catalog-hero .catalog-hero-moon` | Line ~461 |
+| `.dark .projects-catalog-hero .catalog-hero-aside-moon` | Line ~462 |
+| `.dark .projects-catalog-hero .catalog-hero-aside` | Line ~468 |
+| `.dark .projects-catalog-hero .catalog-hero-aside-sun` | Line ~475 |
+| `.dark .projects-catalog-hero .catalog-hero-aside-orbit-*` | Lines ~479–481 |
+| `.dark .projects-catalog-hero .catalog-hero-aside-core` | Line ~481 |
+| `.dark .projects-catalog-hero .catalog-hero-note` | Line ~485 |
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `sessionStorage` | Doesn't survive tab close or browser restart; violates the "browser refresh restores panels" requirement |
-| Server-side persistence (new endpoint) | Over-engineered for UI layout; adds latency on every resize; requires new backend model/migration |
-| URL query parameters | Clutters the URL; doesn't scale to complex layouts; creates ugly shareable URLs |
-| IndexedDB | Overkill for ~500 bytes of JSON; async API adds unnecessary complexity |
-| React state only (no persistence) | Loses layout on refresh; violates spec requirement |
+| Remove all celestial animation CSS | Breaks 15+ components that use `celestial-*` classes for sidebar, loading, login, error, and background animations |
+| Remove `moonwell` CSS class | Breaks 30+ UI elements across agents, tools, chores, pipeline, and board components |
+| Remove `hanging-stars` CSS | Breaks decorative stars in LoginPage |
+| Keep all hero CSS "just in case" | Leaves ~60 lines of dead CSS; contradicts simplicity principle |
 
 ---
 
-## R4: Multi-Panel Resize Implementation
+## R2: CompactPageHeader Component Architecture
 
-**Decision**: Use CSS flexbox with percentage-based widths and native `mousedown`/`mousemove`/`mouseup` event handlers for resize handles. No external drag library.
+**Decision**: Create a single `CompactPageHeader.tsx` component with a responsive flexbox layout. Use a `<header>` semantic element. Stats render as inline pill/chip elements. Description uses `line-clamp-1` with `group-hover:line-clamp-none` for expand-on-hover.
 
-**Rationale**: The resize interaction is constrained to horizontal dragging between adjacent panels — much simpler than general drag-and-drop. The existing `ChatPopup` component (lines 153–204 of `ChatPopup.tsx`) already implements resize with native mouse events and `requestAnimationFrame` gating. Using the same pattern:
+**Rationale**: The replacement component needs to:
 
-- Keeps the codebase consistent (developers already understand the pattern)
-- Avoids a new dependency for a single use case
-- Provides direct control over performance characteristics
+1. Accept the same props as `CelestialCatalogHero` minus `note` (which is dropped per issue decision)
+2. Use a single-row layout (~80–100px height vs ~350–450px)
+3. Render stats as small chips instead of large moonwell cards
+4. Have no decorative elements (orbits, stars, beams)
 
-The handle renders as a thin vertical bar (4–8px wide) between panels with a `cursor: col-resize` style. During drag:
-
-1. `mousedown` on handle → capture start position and panel widths
-2. `mousemove` (window-level) → calculate delta, update panel `widthPercent` values
-3. `mouseup` (window-level) → commit final widths to state, persist to localStorage
-4. `requestAnimationFrame` gating ensures at most one state update per frame
-
-Touch events (`touchstart`/`touchmove`/`touchend`) follow the same pattern for tablet support, though on mobile (< 768px) the tab interface replaces side-by-side panels entirely.
+The `<header>` element is more semantically correct than the current `<section>` for page headers. The `cn()` utility from `@/lib/utils` is used for conditional className merging, consistent with all other components in the codebase.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `@dnd-kit` (existing dependency) | Designed for sortable lists and pick-up/put-down interactions; resize handles are an anti-pattern in dnd-kit's API |
-| `react-resizable-panels` (new dep) | Adds ~15KB to bundle for a single use case; the native approach is <100 lines |
-| CSS `resize` property | Only works on individual elements; cannot synchronize adjacent panel widths or enforce constraints |
-| CSS Grid with `grid-template-columns` | Possible but less intuitive for dynamic resize; percentage updates require CSS variable manipulation |
+| Keep `<section>` element | `<header>` is more semantically appropriate for page headings; improves accessibility |
+| Use CSS Grid instead of Flexbox | Over-engineered for a simple three-zone layout; flexbox handles the single-row case naturally |
+| Use a UI library card component | Adds dependency on shadcn Card; a simple `<header>` with Tailwind is sufficient |
+| Create separate mobile and desktop header components | Violates DRY; responsive Tailwind classes handle both layouts in one component |
 
 ---
 
-## R5: Mobile Panel Display Strategy
+## R3: Stats Display Strategy
 
-**Decision**: On viewports below 768px, display panels as tabs with a horizontal tab bar at the top of the chat area. The active tab shows the full `ChatPanel`; inactive panels remain mounted but hidden via `display: none`.
+**Decision**: Stats render as inline chips/pills on desktop (always visible) and are hidden behind a toggle on mobile (< 640px). The toggle is a simple button that expands/collapses the stats row.
 
-**Rationale**: Side-by-side panels don't fit on mobile screens — the spec mandates a 320px minimum width per panel, which means only one panel fits on most phones. Tab switching:
+**Rationale**: The issue recommends "Stats on mobile: always visible or collapsible? Recommend hidden behind a toggle on mobile to avoid crowding." Desktop viewports have sufficient width for 2–4 stat chips. Mobile viewports (< 640px) would crowd the header if stats are always visible.
 
-- Preserves conversation state (React Query cache, streaming state, scroll position) without unmounting
-- Uses minimal vertical space (single row of tab buttons)
-- Follows familiar mobile chat app conventions (Slack, Discord, Telegram all use channel/conversation switching)
-- Supports the "Add Chat" button as a `+` tab
+The implementation uses:
 
-The active tab is highlighted with a bottom border and bolder text. Tab labels show the conversation title (truncated to 15 characters).
+- Desktop: `flex flex-wrap gap-2` for inline chips, always visible
+- Mobile: `hidden sm:flex` by default, toggled with a `useState` hook and a small icon button
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Horizontal swipe navigation | Requires gesture handling library; conflicts with horizontal scrolling in markdown code blocks within messages |
-| Accordion/collapsible panels | Unusual UX for chat interfaces; poor discoverability on mobile |
-| Force single panel on mobile | Simplest but entirely removes multi-chat capability on mobile; reduces feature value |
-| Bottom navigation bar | Conflicts with mobile browser chrome (bottom toolbar); less space-efficient than top tabs |
+| Always visible on mobile | Crowds header on phones; pushes actions below fold |
+| Stats removed on mobile entirely | Loses information; no recovery path |
+| Horizontal scrollable row on mobile | Touch-scroll conflicts with page scroll; poor discoverability |
+| Separate stats tooltip on mobile | Non-standard UX; requires precise tap target |
 
 ---
 
-## R6: Conversation Title Auto-Generation
+## R4: Description Display Strategy
 
-**Decision**: Default title is "New Chat". The title can be manually edited via the panel header. No auto-generation from first message content in Phase 1.
+**Decision**: Description renders as a single-line subtitle with `line-clamp-1`. On hover, the description expands to show full text via `group-hover:line-clamp-none`. On mobile, the description also truncates with an expand tap.
 
-**Rationale**: Auto-generating titles from message content (e.g., using the first user message or an AI summary) adds complexity to the initial implementation:
-
-- Requires an additional API call or background job after the first message
-- Introduces timing issues (title appears after a delay)
-- May produce poor titles from short or ambiguous first messages
-
-Manual editing via an inline input in the panel header is simpler and gives users direct control. Auto-generation can be added in a future iteration as an enhancement.
-
-**Alternatives considered**:
-
-| Alternative | Why Rejected (for Phase 1) |
-|-------------|---------------------------|
-| AI-generated title after first message | Adds latency and a background task; can be a follow-up feature |
-| First message truncated as title | Poor titles from short messages ("hi", "help"); requires cleanup logic |
-| Timestamp-based title ("Chat 2026-04-11 10:30") | Not human-friendly; doesn't convey conversation topic |
-
----
-
-## R7: Conversation Deletion Cascade Behavior
-
-**Decision**: When a conversation is deleted, its `conversation_id` references in `chat_messages`, `chat_proposals`, and `chat_recommendations` are set to `NULL` via `ON DELETE SET NULL`. Messages are not deleted — they become "orphaned" (associated with the session but no conversation).
-
-**Rationale**: Cascading deletes (`ON DELETE CASCADE` from conversations to messages) would permanently destroy message history. Setting to `NULL` preserves the messages in the database while removing the conversation container. This is safer and allows recovery. The orphaned messages are invisible in the UI (no conversation to display them in) but remain queryable for analytics or debugging.
+**Rationale**: The issue states "Description demoted to a single-line subtitle (line-clamp-1, expands on hover)." This keeps the header compact while preserving full description accessibility. The `group` + `group-hover` Tailwind pattern is standard and requires no JavaScript for the desktop hover interaction.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `ON DELETE CASCADE` (delete messages too) | Permanently destroys message history; no recovery possible |
-| Soft delete (add `deleted_at` column) | Over-engineered for Phase 1; adds query complexity with `WHERE deleted_at IS NULL` filters |
-| Prevent deletion if messages exist | Poor UX; users should be able to clean up conversations freely |
+| Always show full description | Increases header height beyond 100px target on pages with long descriptions |
+| Tooltip for description | Less discoverable; requires explicit hover/click interaction |
+| Remove description entirely | Loses context for new users; description provides useful page context |
+| Two-line truncation (line-clamp-2) | Still variable height; single-line is more predictable |
+
+---
+
+## R5: Rollout Strategy
+
+**Decision**: Big-bang rollout — replace `CelestialCatalogHero` with `CompactPageHeader` on all 6 pages in a single PR. Delete `CelestialCatalogHero.tsx` after migration.
+
+**Rationale**: The issue recommends "big-bang — all 6 pages share the same component, replacement is prop-compatible." All 6 pages use the exact same component with the same prop interface. The new component accepts a subset of the same props (minus `note`). There is no data model change, no backend change, and no gradual migration benefit.
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Gradual rollout (1 page per PR) | Adds 5 extra PRs; both components coexist with no benefit; more merge conflicts |
+| Feature flag (show old/new header) | Over-engineered for a visual-only, non-data change; adds dead code |
+| A/B test | No metrics infrastructure for header comparison; visual preference is already decided |
