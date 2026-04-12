@@ -170,7 +170,7 @@ class FleetDispatchSubIssue(FleetDispatchModel):
     """Sub-issue metadata for a dispatched agent."""
 
     title: str = Field(..., min_length=1)
-    labels: list[str] = Field(default_factory=list, min_length=1)
+    labels: list[str] = Field(..., min_length=1)
 
 
 class FleetDispatchAgent(FleetDispatchModel):
@@ -192,7 +192,7 @@ class FleetDispatchExecutionGroup(FleetDispatchModel):
     name: str = Field(..., min_length=1)
     order: int = Field(..., ge=0)
     execution_mode: Literal["serial", "parallel"] = Field(..., alias="executionMode")
-    agents: list[FleetDispatchAgent] = Field(default_factory=list, min_length=1)
+    agents: list[FleetDispatchAgent] = Field(..., min_length=1)
 
 
 class FleetDispatchConfig(FleetDispatchModel):
@@ -202,7 +202,7 @@ class FleetDispatchConfig(FleetDispatchModel):
     name: str = Field(..., min_length=1)
     repository: FleetDispatchRepository
     defaults: FleetDispatchDefaults
-    groups: list[FleetDispatchExecutionGroup] = Field(default_factory=list, min_length=1)
+    groups: list[FleetDispatchExecutionGroup] = Field(..., min_length=1)
 
 
 class FleetDispatchStatus(StrEnum):

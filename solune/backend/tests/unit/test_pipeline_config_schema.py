@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from src.models.pipeline import FleetDispatchConfig
 from src.services.workflow_orchestrator.config import (
@@ -91,4 +92,27 @@ class TestFleetDispatchConfigSchema:
         raw["defaults"]["taskTimeoutSeconds"] = 10
 
         with pytest.raises(ValueError):
+            FleetDispatchConfig.model_validate(raw)
+
+    @pytest.mark.parametrize(
+        ("path", "missing_key"),
+        [
+            (("groups",), "groups"),
+            (("groups", 0, "agents"), "agents"),
+            (("groups", 0, "agents", 0, "subIssue", "labels"), "labels"),
+        ],
+    )
+    def test_missing_required_list_fields_raise_validation_error(
+        self, path: tuple[str | int, ...], missing_key: str
+    ) -> None:
+        raw = json.loads(get_default_fleet_dispatch_config_path().read_text())
+        target: dict[str, object] = raw
+        for key in path[:-1]:
+            if isinstance(key, int):
+                target = target[key]  # type: ignore[index]
+            else:
+                target = target[key]  # type: ignore[index]
+        del target[path[-1]]  # type: ignore[index]
+
+        with pytest.raises(ValidationError, match=missing_key):
             FleetDispatchConfig.model_validate(raw)

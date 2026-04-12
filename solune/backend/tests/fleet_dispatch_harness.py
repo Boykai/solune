@@ -15,6 +15,7 @@ import json
 import fcntl
 import os
 import sys
+import time
 from pathlib import Path
 
 state_path = Path(os.environ["FAKE_GH_STATE"])
@@ -22,6 +23,11 @@ log_path = Path(os.environ["FAKE_GH_LOG"])
 lock_path = state_path.with_suffix(".lock")
 fail_agent = os.environ.get("FAKE_GH_FAIL_AGENT", "")
 omit_task_agent = os.environ.get("FAKE_GH_OMIT_TASK_FOR_AGENT", "")
+pending_agent = os.environ.get("FAKE_GH_PENDING_AGENT", "")
+pending_views = int(os.environ.get("FAKE_GH_PENDING_VIEWS", "0"))
+pending_final_state = os.environ.get("FAKE_GH_PENDING_FINAL_STATE", "COMPLETED")
+dispatch_delay_agent = os.environ.get("FAKE_GH_DISPATCH_DELAY_AGENT", "")
+dispatch_delay_seconds = float(os.environ.get("FAKE_GH_DISPATCH_DELAY_SECONDS", "0"))
 args = sys.argv[1:]
 lock_handle = lock_path.open("w", encoding="utf-8")
 fcntl.flock(lock_handle, fcntl.LOCK_EX)
@@ -76,6 +82,13 @@ elif args[:2] == ["agent-task", "list"]:
 elif args[:2] == ["agent-task", "view"]:
     task_id = args[2]
     task = next(task for task in state["tasks"] if task["id"] == task_id)
+    if task.get("remaining_views", 0) > 0:
+        task["remaining_views"] -= 1
+    else:
+        task["state"] = task.get("final_state", task["state"])
+        if task["state"] == "COMPLETED":
+            task["completedAt"] = task.get("completedAt") or "2026-04-12T16:00:05Z"
+    save()
     log(f"task_view:{task_id}")
     print(json.dumps(task))
 elif args[:2] == ["api", "graphql"]:
@@ -107,8 +120,14 @@ elif args[:2] == ["api", "graphql"]:
             "pullRequestNumber": None,
             "pullRequestUrl": None,
         }
+        if pending_agent and agent == pending_agent:
+            task["state"] = "QUEUED"
+            task["remaining_views"] = pending_views
+            task["final_state"] = pending_final_state
         state["tasks"].append(task)
         save()
+        if dispatch_delay_agent and agent == dispatch_delay_agent and dispatch_delay_seconds:
+            time.sleep(dispatch_delay_seconds)
         log(f"dispatch:{issue['title']}")
         print(json.dumps({"data": {"addAssigneesToAssignable": {"assignable": {"id": issue_id, "assignees": {"nodes": [{"login": "copilot-swe-agent"}]}}}}}))
 elif args[:1] == ["api"]:
@@ -176,6 +195,7 @@ def run_script(
     omit_task_for_agent: str | None = None,
     extra_issues: list[dict] | None = None,
     extra_args: list[str] | None = None,
+    extra_env: dict[str, str] | None = None,
     prelock: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     config_path = tmp_path / "fleet.json"
@@ -197,6 +217,8 @@ def run_script(
         env["FAKE_GH_FAIL_AGENT"] = fail_agent
     if omit_task_for_agent:
         env["FAKE_GH_OMIT_TASK_FOR_AGENT"] = omit_task_for_agent
+    if extra_env:
+        env.update(extra_env)
     args = [
         "bash",
         str(SCRIPT_PATH),

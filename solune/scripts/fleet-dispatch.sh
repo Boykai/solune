@@ -221,7 +221,7 @@ monitor_record() {
     return 0
   fi
   started_at="$(jq -r '.startedAt // empty' <<<"$record_json")"
-  started_epoch="$(date -u +%s)"
+  started_epoch="$(fd_timestamp_to_epoch "$started_at")"
   if task_json="$(fd_monitor_task "$OWNER" "$REPO" "$task_id" "$POLL_INTERVAL" "$TASK_TIMEOUT" "$started_epoch")"; then
     status="$(jq -r '.normalizedState // "completed"' <<<"$task_json")"
     completed_at="$(jq -r '.completedAt // empty' <<<"$task_json")"
