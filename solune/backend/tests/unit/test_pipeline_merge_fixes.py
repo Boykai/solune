@@ -304,8 +304,8 @@ class TestMergeRetryLimit:
         _merge_failure_counts.clear()
 
     @pytest.mark.asyncio
-    async def test_advance_pipeline_skips_merge_after_max_retries(self):
-        """After MAX_MERGE_RETRIES failures, posts warning comment and advances pipeline."""
+    async def test_advance_pipeline_halts_after_max_retries(self):
+        """After MAX_MERGE_RETRIES failures, halts pipeline with error state."""
         from src.services.copilot_polling.state import MAX_MERGE_RETRIES, _merge_failure_counts
         from src.services.workflow_orchestrator.models import PipelineState
 
@@ -372,12 +372,13 @@ class TestMergeRetryLimit:
 
         # Warning comment must have been posted.
         mock_cp.github_projects_service.create_issue_comment.assert_awaited()
-        # Failure counter must be cleared after skip.
-        assert _merge_failure_counts.get(10) is None
-        # Pipeline must NOT be blocked.
-        assert result is None or (
-            isinstance(result, dict) and result.get("status") != "merge_blocked"
-        )
+        # Pipeline must be blocked with error state.
+        assert result is not None
+        assert isinstance(result, dict)
+        assert result["status"] == "merge_blocked"
+        # Pipeline error must be set.
+        assert pipeline.error is not None
+        assert "Merge blocked" in pipeline.error
         _merge_failure_counts.clear()
 
     def test_max_merge_retries_constant(self):

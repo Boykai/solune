@@ -57,12 +57,9 @@ async def _get_auto_merge_pipeline(
       Step B: L2 SQLite — ``get_pipeline_state_async(issue_number)``
       Step C: Project-level — ``is_auto_merge_enabled(db, project_id)``
 
-    Note: ``devops_attempts`` and ``devops_active`` are tracked in-memory via
-    the ``pipeline_metadata`` dict passed to ``dispatch_devops_agent``; they
-    are NOT persisted on ``PipelineState``.  Webhook-driven dispatches
-    therefore start from defaults.  Deduplication for the webhook path
-    relies on the ``_pending_post_devops_retries`` guard inside
-    ``schedule_post_devops_merge_retry``.
+    Note: ``devops_attempts`` and ``devops_active`` are now tracked
+    persistently via ``_devops_tracking`` in ``state.py``.
+    ``dispatch_devops_agent`` handles deduplication internally.
     """
     try:
         import src.services.copilot_polling as _cp
@@ -907,16 +904,11 @@ async def handle_check_run_event(payload: CheckRunEvent) -> dict[str, Any]:
         try:
             from src.services.copilot_polling.auto_merge import dispatch_devops_agent
 
-            pipeline_metadata: dict[str, Any] = {
-                "devops_attempts": pipeline.get("devops_attempts", 0),
-                "devops_active": pipeline.get("devops_active", False),
-            }
             dispatched = await dispatch_devops_agent(
                 access_token=access_token,
                 owner=owner,
                 repo=repo_name,
                 issue_number=issue_number,
-                pipeline_metadata=pipeline_metadata,
                 project_id=pipeline.get("project_id", ""),
                 merge_result_context=merge_result_context,
             )

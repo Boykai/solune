@@ -665,6 +665,30 @@ async def recover_stalled_issues(
             agent_name = expected_agent.agent_name
             agent_status = expected_agent.status  # e.g. "Backlog", "Ready"
 
+            # ── Merge-blocked / errored pipeline guard ───────────────────
+            # If the pipeline is halted due to merge failures or has an
+            # error state, the agent's work is done but its PR can't merge.
+            # Re-assigning the agent would create a duplicate PR that also
+            # can't merge, amplifying the problem.
+            if recovery_pipeline and getattr(recovery_pipeline, "error", None):
+                logger.debug(
+                    "Recovery: issue #%d pipeline has error state ('%s') — skipping",
+                    issue_number,
+                    str(recovery_pipeline.error)[:80],
+                )
+                _recovery_last_attempt[issue_number] = now
+                continue
+
+            from .state import _merge_failure_counts
+
+            if _merge_failure_counts.get(issue_number, 0) > 0:
+                logger.debug(
+                    "Recovery: issue #%d has active merge retries — skipping",
+                    issue_number,
+                )
+                _recovery_last_attempt[issue_number] = now
+                continue
+
             # ── Pending assignment check ──────────────────────────────────
             # If the agent was just assigned (by the workflow or a previous
             # recovery), skip — Copilot needs time to create the WIP PR.

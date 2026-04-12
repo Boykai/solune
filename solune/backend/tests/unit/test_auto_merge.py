@@ -20,6 +20,7 @@ from src.services.copilot_polling.auto_merge import (
 from src.services.copilot_polling.state import (
     AUTO_MERGE_RETRY_BASE_DELAY,
     MAX_AUTO_MERGE_RETRIES,
+    _devops_tracking,
 )
 
 
@@ -313,6 +314,13 @@ class TestAttemptAutoMerge:
 class TestDispatchDevopsAgent:
     """Tests for dispatch_devops_agent()."""
 
+    @pytest.fixture(autouse=True)
+    def _clear_devops_tracking(self):
+        """Clear persistent DevOps tracking between tests."""
+        _devops_tracking.clear()
+        yield
+        _devops_tracking.clear()
+
     @pytest.mark.asyncio
     async def test_dispatch_succeeds(self, mock_ws, mock_service):
         """First dispatch should succeed."""
@@ -320,20 +328,18 @@ class TestDispatchDevopsAgent:
             return_value=("ISSUE_NODE_ID", "ITEM_ID")
         )
         mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
-        metadata: dict = {}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
         assert result is True
-        assert metadata["devops_active"] is True
-        assert metadata["devops_attempts"] == 1
+        assert _devops_tracking[10]["active"] is True
+        assert _devops_tracking[10]["attempts"] == 1
         mock_service.assign_copilot_to_issue.assert_awaited_once()
         call_kwargs = mock_service.assign_copilot_to_issue.call_args[1]
         assert call_kwargs["custom_agent"] == "devops"
@@ -341,14 +347,13 @@ class TestDispatchDevopsAgent:
     @pytest.mark.asyncio
     async def test_dedup_skips_when_active(self, mock_ws):
         """Should skip dispatch when DevOps is already active."""
-        metadata: dict = {"devops_active": True, "devops_attempts": 1}
+        _devops_tracking[10] = {"active": True, "attempts": 1}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
@@ -357,14 +362,13 @@ class TestDispatchDevopsAgent:
     @pytest.mark.asyncio
     async def test_retry_cap(self, mock_ws):
         """Should not dispatch after 2 attempts."""
-        metadata: dict = {"devops_active": False, "devops_attempts": 2}
+        _devops_tracking[10] = {"active": False, "attempts": 2}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
@@ -377,14 +381,12 @@ class TestDispatchDevopsAgent:
             return_value=("ISSUE_NODE_ID", "ITEM_ID")
         )
         mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
-        metadata: dict = {}
 
         await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
@@ -772,6 +774,12 @@ class TestSchedulePostDevopsMergeRetry:
 class TestDispatchTriggersPostDevopsRetry:
     """Tests for dispatch_devops_agent() calling schedule_post_devops_merge_retry()."""
 
+    @pytest.fixture(autouse=True)
+    def _clear_devops_tracking(self):
+        _devops_tracking.clear()
+        yield
+        _devops_tracking.clear()
+
     @pytest.mark.asyncio
     async def test_dispatch_triggers_post_devops_retry(self, mock_ws, mock_service):
         """Successful dispatch should schedule post-DevOps retry."""
@@ -779,7 +787,6 @@ class TestDispatchTriggersPostDevopsRetry:
             return_value=("ISSUE_NODE_ID", "ITEM_ID")
         )
         mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
-        metadata: dict = {}
 
         with patch(
             "src.services.copilot_polling.auto_merge.schedule_post_devops_merge_retry"
@@ -789,7 +796,6 @@ class TestDispatchTriggersPostDevopsRetry:
                 owner="owner",
                 repo="repo",
                 issue_number=10,
-                pipeline_metadata=metadata,
                 project_id="PVT_123",
             )
 
@@ -799,7 +805,7 @@ class TestDispatchTriggersPostDevopsRetry:
                 owner="owner",
                 repo="repo",
                 issue_number=10,
-                pipeline_metadata=metadata,
+                pipeline_metadata={},
                 project_id="PVT_123",
             )
 
@@ -807,17 +813,22 @@ class TestDispatchTriggersPostDevopsRetry:
 class TestDevopsCapBroadcast:
     """Tests for DevOps cap-reached broadcast on dispatch_devops_agent()."""
 
+    @pytest.fixture(autouse=True)
+    def _clear_devops_tracking(self):
+        _devops_tracking.clear()
+        yield
+        _devops_tracking.clear()
+
     @pytest.mark.asyncio
     async def test_cap_reached_broadcasts_failure(self, mock_ws):
         """Should broadcast auto_merge_failed with devops_cap_reached when cap is hit."""
-        metadata: dict = {"devops_active": False, "devops_attempts": 2}
+        _devops_tracking[10] = {"active": False, "attempts": 2}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
@@ -1176,20 +1187,24 @@ class TestPostDevopsRetryLoop:
 class TestDispatchDevopsAgentEdgeCases:
     """Edge case tests for dispatch_devops_agent()."""
 
+    @pytest.fixture(autouse=True)
+    def _clear_devops_tracking(self):
+        _devops_tracking.clear()
+        yield
+        _devops_tracking.clear()
+
     @pytest.mark.asyncio
     async def test_node_id_resolution_failure(self, mock_ws, mock_service):
         """When issue node ID resolution raises an exception, dispatch should return False."""
         mock_service.get_issue_node_and_project_item = AsyncMock(
             side_effect=Exception("GraphQL error")
         )
-        metadata: dict = {"devops_active": False, "devops_attempts": 0}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
@@ -1199,14 +1214,12 @@ class TestDispatchDevopsAgentEdgeCases:
     async def test_node_id_returns_none(self, mock_ws, mock_service):
         """When issue node ID resolution returns None, dispatch should return False."""
         mock_service.get_issue_node_and_project_item = AsyncMock(return_value=(None, "ITEM_ID"))
-        metadata: dict = {"devops_active": False, "devops_attempts": 0}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
@@ -1221,19 +1234,17 @@ class TestDispatchDevopsAgentEdgeCases:
         mock_service.assign_copilot_to_issue = AsyncMock(
             side_effect=Exception("Assignment API error")
         )
-        metadata: dict = {"devops_active": False, "devops_attempts": 0}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
         assert result is False
-        assert metadata.get("devops_active") is not True
+        assert _devops_tracking.get(10, {}).get("active") is not True
 
     @pytest.mark.asyncio
     async def test_copilot_assignment_returns_false(self, mock_ws, mock_service):
@@ -1242,19 +1253,17 @@ class TestDispatchDevopsAgentEdgeCases:
             return_value=("ISSUE_NODE_ID", "ITEM_ID")
         )
         mock_service.assign_copilot_to_issue = AsyncMock(return_value=False)
-        metadata: dict = {"devops_active": False, "devops_attempts": 0}
 
         result = await dispatch_devops_agent(
             access_token="token",
             owner="owner",
             repo="repo",
             issue_number=10,
-            pipeline_metadata=metadata,
             project_id="PVT_123",
         )
 
         assert result is False
-        assert metadata.get("devops_active") is not True
+        assert _devops_tracking.get(10, {}).get("active") is not True
 
     @pytest.mark.asyncio
     async def test_merge_result_context_passed_to_instructions(self, mock_ws, mock_service):
@@ -1263,7 +1272,6 @@ class TestDispatchDevopsAgentEdgeCases:
             return_value=("ISSUE_NODE_ID", "ITEM_ID")
         )
         mock_service.assign_copilot_to_issue = AsyncMock(return_value=True)
-        metadata: dict = {"devops_active": False, "devops_attempts": 0}
         context = {
             "reason": "ci_failure",
             "failed_checks": [{"name": "build", "conclusion": "failure"}],
@@ -1278,7 +1286,6 @@ class TestDispatchDevopsAgentEdgeCases:
                 owner="owner",
                 repo="repo",
                 issue_number=10,
-                pipeline_metadata=metadata,
                 project_id="PVT_123",
                 merge_result_context=context,
             )

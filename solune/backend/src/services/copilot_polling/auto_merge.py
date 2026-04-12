@@ -296,22 +296,23 @@ async def dispatch_devops_agent(
     owner: str,
     repo: str,
     issue_number: int,
-    pipeline_metadata: dict[str, Any],
-    project_id: str,
+    pipeline_metadata: dict[str, Any] | None = None,
+    project_id: str = "",
     merge_result_context: dict[str, Any] | None = None,
 ) -> bool:
     """Dispatch the DevOps agent for CI failure / merge conflict recovery.
 
-    Checks deduplication (devops_active) and retry cap (devops_attempts < 2).
-    Resolves the issue node ID and assigns Copilot with the ``devops`` custom
-    agent via ``assign_copilot_to_issue()``.
+    Uses persistent per-issue tracking (``_devops_tracking`` in state.py)
+    for deduplication and retry caps.  This prevents multiple callers
+    (pipeline completion, check_run webhook, post-DevOps retry) from
+    racing and dispatching duplicate DevOps agents.
 
     Args:
         access_token: GitHub access token
         owner: Repository owner
         repo: Repository name
         issue_number: Issue number
-        pipeline_metadata: Pipeline metadata dict (mutated in place)
+        pipeline_metadata: Deprecated — ignored; kept for call-site compat.
         project_id: Project ID for broadcast
         merge_result_context: Context from AutoMergeResult (CI failures, conflicts, etc.)
 
@@ -320,8 +321,11 @@ async def dispatch_devops_agent(
     """
     import src.services.copilot_polling as _cp
 
-    devops_active = pipeline_metadata.get("devops_active", False)
-    devops_attempts = pipeline_metadata.get("devops_attempts", 0)
+    from .state import MAX_DEVOPS_ATTEMPTS, _devops_tracking
+
+    tracking = _devops_tracking.get(issue_number, {"active": False, "attempts": 0})
+    devops_active = tracking["active"]
+    devops_attempts = tracking["attempts"]
 
     if devops_active:
         logger.info(
@@ -330,7 +334,7 @@ async def dispatch_devops_agent(
         )
         return False
 
-    if devops_attempts >= 2:
+    if devops_attempts >= MAX_DEVOPS_ATTEMPTS:
         logger.warning(
             "DevOps retry cap reached for issue #%d (%d attempts)",
             issue_number,
@@ -411,8 +415,10 @@ async def dispatch_devops_agent(
         )
         return False
 
-    pipeline_metadata["devops_active"] = True
-    pipeline_metadata["devops_attempts"] = devops_attempts + 1
+    _devops_tracking[issue_number] = {
+        "active": True,
+        "attempts": devops_attempts + 1,
+    }
 
     # Broadcast devops_triggered event
     await _cp.connection_manager.broadcast_to_project(
@@ -430,7 +436,7 @@ async def dispatch_devops_agent(
         owner=owner,
         repo=repo,
         issue_number=issue_number,
-        pipeline_metadata=pipeline_metadata,
+        pipeline_metadata=pipeline_metadata or {},
         project_id=project_id,
     )
 
@@ -529,6 +535,11 @@ async def _post_devops_retry_loop(
                 poll,
             )
             pipeline_metadata["devops_active"] = False
+            # Update persistent tracking
+            from .state import _devops_tracking
+
+            prev = _devops_tracking.get(issue_number, {"active": False, "attempts": 0})
+            _devops_tracking[issue_number] = {"active": False, "attempts": prev["attempts"]}
 
             merge_result = await _attempt_auto_merge(
                 access_token=access_token,
@@ -564,7 +575,6 @@ async def _post_devops_retry_loop(
                     owner=owner,
                     repo=repo,
                     issue_number=issue_number,
-                    pipeline_metadata=pipeline_metadata,
                     project_id=project_id,
                     merge_result_context=merge_result.context,
                 )
@@ -794,16 +804,11 @@ async def _auto_merge_retry_loop(
                     issue_number,
                     attempt,
                 )
-                pipeline_metadata: dict[str, Any] = {
-                    "devops_attempts": 0,
-                    "devops_active": False,
-                }
                 await dispatch_devops_agent(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     issue_number=issue_number,
-                    pipeline_metadata=pipeline_metadata,
                     project_id=project_id,
                     merge_result_context=retry_result.context,
                 )

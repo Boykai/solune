@@ -1753,19 +1753,22 @@ async def _advance_pipeline(
             _merge_failure_counts[issue_number] = failure_count
 
             if failure_count >= MAX_MERGE_RETRIES:
-                # Exceeded retry limit — skip the merge and advance.
+                # Exceeded retry limit — HALT the pipeline (do NOT advance).
+                # Advancing on merge failure causes cascading conflicts:
+                # subsequent agents branch from a stale main branch missing
+                # this agent's work, producing ever-worsening conflicts and
+                # spawning DevOps fix PRs that also fail.
                 blocked_pr = merge_result.get("pr_number")
                 logger.error(
                     "Safety-net merge for agent '%s' on issue #%d "
-                    "(child PR #%s) failed %d times — skipping merge "
-                    "and advancing pipeline",
+                    "(child PR #%s) failed %d times — halting pipeline. "
+                    "Manual conflict resolution required.",
                     completed_agent,
                     issue_number,
                     blocked_pr,
                     failure_count,
                 )
-                _merge_failure_counts.pop(issue_number, None)
-                # Post a warning comment so users know the merge was skipped.
+                # Post a warning comment so users know the pipeline is halted.
                 try:
                     await _cp.github_projects_service.create_issue_comment(
                         access_token=access_token,
@@ -1773,19 +1776,46 @@ async def _advance_pipeline(
                         repo=repo,
                         issue_number=issue_number,
                         body=(
-                            f"⚠️ Failed to merge child PR #{blocked_pr} for "
-                            f"agent **{completed_agent}** after "
-                            f"{failure_count} attempts. Advancing pipeline — "
-                            f"please resolve merge conflicts manually."
+                            f"🛑 Pipeline halted: failed to merge child PR "
+                            f"#{blocked_pr} for agent **{completed_agent}** "
+                            f"after {failure_count} attempts. Please resolve "
+                            f"merge conflicts manually and re-trigger the "
+                            f"pipeline."
                         ),
                     )
                 except Exception:
                     logger.warning(
-                        "Could not post merge-skip warning on issue #%d",
+                        "Could not post merge-halt warning on issue #%d",
                         issue_number,
                         exc_info=True,
                     )
-                # Do NOT roll back — let the pipeline continue below.
+                # Roll back and set error state to prevent further polling
+                # from re-advancing past this agent.
+                pipeline.current_agent_index -= 1
+                if completed_agent in pipeline.completed_agents:
+                    pipeline.completed_agents.remove(completed_agent)
+                pipeline.current_group_index = _pre_group_idx
+                pipeline.current_agent_index_in_group = _pre_agent_in_group
+                if pipeline.groups and _pre_group_idx < len(pipeline.groups):
+                    _g = pipeline.groups[_pre_group_idx]
+                    if _pre_group_agent_status is None:
+                        _g.agent_statuses.pop(completed_agent, None)
+                    else:
+                        _g.agent_statuses[completed_agent] = _pre_group_agent_status
+                pipeline.error = (
+                    f"Merge blocked: child PR #{blocked_pr} for agent "
+                    f"'{completed_agent}' cannot be merged after "
+                    f"{failure_count} attempts"
+                )
+                _cp.set_pipeline_state(issue_number, pipeline)
+                return {
+                    "status": "merge_blocked",
+                    "issue_number": issue_number,
+                    "task_title": task_title,
+                    "action": "merge_blocked",
+                    "agent_name": completed_agent,
+                    "blocked_pr": blocked_pr,
+                }
             else:
                 logger.warning(
                     "Safety-net merge FAILED for agent '%s' on issue #%d "
@@ -2700,19 +2730,13 @@ async def _transition_after_pipeline_complete(
             elif merge_result.status == "devops_needed":
                 from .auto_merge import dispatch_devops_agent
 
-                # Remove pipeline state before DevOps dispatch; start fresh
-                # metadata for DevOps retry tracking.
+                # Remove pipeline state before DevOps dispatch.
                 _remove_state_and_unregister()
-                pipeline_metadata: dict[str, Any] = {
-                    "devops_attempts": 0,
-                    "devops_active": False,
-                }
                 dispatched = await dispatch_devops_agent(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     issue_number=issue_number,
-                    pipeline_metadata=pipeline_metadata,
                     project_id=project_id,
                     merge_result_context=merge_result.context,
                 )
@@ -2930,16 +2954,11 @@ async def _transition_after_pipeline_complete(
                 from .auto_merge import dispatch_devops_agent
 
                 _remove_state_and_unregister()
-                done_pipeline_metadata: dict[str, Any] = {
-                    "devops_attempts": 0,
-                    "devops_active": False,
-                }
                 await dispatch_devops_agent(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     issue_number=issue_number,
-                    pipeline_metadata=done_pipeline_metadata,
                     project_id=project_id,
                     merge_result_context=done_merge_result.context,
                 )
@@ -3316,16 +3335,11 @@ async def check_in_review_issues(
                         issue_number=task.issue_number,
                     )
                     if merge_result.status == "devops_needed":
-                        pipeline_md: dict[str, Any] = {
-                            "devops_attempts": 0,
-                            "devops_active": False,
-                        }
                         await dispatch_devops_agent(
                             access_token=access_token,
                             owner=task_owner,
                             repo=task_repo,
                             issue_number=task.issue_number,
-                            pipeline_metadata=pipeline_md,
                             project_id=project_id,
                             merge_result_context=merge_result.context,
                         )
