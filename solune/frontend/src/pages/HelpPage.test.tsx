@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { MemoryRouter } from 'react-router-dom';
 import { axe, toHaveNoViolations } from 'jest-axe';
 import { HelpPage } from './HelpPage';
 
 expect.extend(toHaveNoViolations);
+
+const mockRestart = vi.fn();
 
 vi.mock('@/hooks/useOnboarding', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/useOnboarding')>();
@@ -18,7 +20,7 @@ vi.mock('@/hooks/useOnboarding', async (importOriginal) => {
       next: vi.fn(),
       prev: vi.fn(),
       skip: vi.fn(),
-      restart: vi.fn(),
+      restart: mockRestart,
     }),
   };
 });
@@ -28,6 +30,10 @@ vi.mock('@/lib/commands/registry', () => ({
 }));
 
 describe('HelpPage', () => {
+  beforeEach(() => {
+    mockRestart.mockClear();
+  });
+
   it('renders and shows the help center heading', () => {
     render(
       <MemoryRouter>
@@ -54,6 +60,60 @@ describe('HelpPage', () => {
     );
     const heading = screen.getByRole('heading', { level: 2, name: 'Help Center' });
     expect(heading).toBeInTheDocument();
+  });
+
+  it('shows the eyebrow text', () => {
+    render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('// Guidance & support')).toBeInTheDocument();
+  });
+
+  it('shows the description text', () => {
+    render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByText('Everything you need to navigate your celestial workspace.'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the Replay Tour action button', () => {
+    render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+    const replayButton = screen.getByRole('button', { name: /replay tour/i });
+    expect(replayButton).toBeInTheDocument();
+  });
+
+  it('calls restart when the Replay Tour button is clicked', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: /replay tour/i }));
+    expect(mockRestart).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render any stats chips (HelpPage has no stats)', () => {
+    render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+    // The mobile toggle button is only shown when stats are provided
+    expect(screen.queryByRole('button', { name: /show stats/i })).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {

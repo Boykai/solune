@@ -177,15 +177,29 @@ vi.mock('@/components/common/CompactPageHeader', () => ({
   CompactPageHeader: ({
     title,
     description,
+    badge,
+    stats,
     actions,
   }: {
     title: string;
     description: string;
+    badge?: string;
+    stats?: { label: string; value: string }[];
     actions?: React.ReactNode;
   }) => (
     <header>
       <h2>{title}</h2>
       <p>{description}</p>
+      {badge && <span data-testid="header-badge">{badge}</span>}
+      {stats && (
+        <div data-testid="header-stats">
+          {stats.map((s) => (
+            <span key={s.label} data-testid={`stat-${s.label}`}>
+              {s.label}: {s.value}
+            </span>
+          ))}
+        </div>
+      )}
       <div>{actions}</div>
     </header>
   ),
@@ -244,6 +258,11 @@ describe('ProjectsPage', () => {
     mocks.projectBoard.selectedProjectId = 'PVT_1';
     mocks.projectBoard.selectProject = mocks.selectBoardProject;
     mocks.syncStatus = 'connected';
+    mocks.selectedProject = {
+      project_id: 'PVT_1',
+      name: 'Solune',
+      owner_login: 'Boykai',
+    };
   });
 
   it('renders polished status and empty-state controls for filtered views', async () => {
@@ -352,5 +371,36 @@ describe('ProjectsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Refresh board' }));
 
     expect(mocks.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the selected project owner/name as the header badge', () => {
+    render(<ProjectsPage />);
+    const badge = screen.getByTestId('header-badge');
+    expect(badge).toHaveTextContent('Boykai/Solune');
+  });
+
+  it('shows "Awaiting project" badge when no project is selected', () => {
+    mocks.selectedProject = null as unknown as typeof mocks.selectedProject;
+    mocks.projectBoard.selectedProjectId = null;
+
+    render(<ProjectsPage />);
+    const badge = screen.getByTestId('header-badge');
+    expect(badge).toHaveTextContent('Awaiting project');
+  });
+
+  it('passes headerStats with board column and item counts', () => {
+    render(<ProjectsPage />);
+    expect(screen.getByTestId('stat-Board columns')).toHaveTextContent('Board columns: 1');
+    expect(screen.getByTestId('stat-Total items')).toHaveTextContent('Total items: 0');
+  });
+
+  it('passes the assigned pipeline name in headerStats', () => {
+    render(<ProjectsPage />);
+    expect(screen.getByTestId('stat-Pipeline')).toHaveTextContent('Pipeline: Spec Kit Flow');
+  });
+
+  it('passes the selected project name in headerStats', () => {
+    render(<ProjectsPage />);
+    expect(screen.getByTestId('stat-Project')).toHaveTextContent('Project: Solune');
   });
 });
