@@ -52,7 +52,11 @@ export function PipelineStagesOverview({
         </p>
       </div>
       <div className="overflow-x-auto pb-2">
-        <div className="grid min-w-full items-stretch gap-3" style={alignedGridStyle}>
+        <div
+          className="grid min-w-full items-stretch gap-3"
+          style={alignedGridStyle}
+          data-testid="pipeline-stages-grid"
+        >
           {columns.map((col) => {
             const assigned = localMappings[col.status.name] ?? [];
             const dotColor = statusColorToCSS(col.status.color);

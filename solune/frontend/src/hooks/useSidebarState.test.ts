@@ -2,15 +2,39 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSidebarState } from './useSidebarState';
 
+function setMatchMedia(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches,
+      media: '(max-width: 767px)',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
 describe('useSidebarState', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    setMatchMedia(false);
   });
 
   it('defaults to not collapsed', () => {
     const { result } = renderHook(() => useSidebarState());
     expect(result.current.isCollapsed).toBe(false);
+  });
+
+  it('defaults to collapsed on mobile viewports', () => {
+    setMatchMedia(true);
+
+    const { result } = renderHook(() => useSidebarState());
+    expect(result.current.isCollapsed).toBe(true);
   });
 
   it('initializes from localStorage when true', () => {
@@ -25,6 +49,14 @@ describe('useSidebarState', () => {
 
     const { result } = renderHook(() => useSidebarState());
     expect(result.current.isCollapsed).toBe(false);
+  });
+
+  it('keeps mobile sidebars collapsed even when storage says expanded', () => {
+    localStorage.setItem('sidebar-collapsed', 'false');
+    setMatchMedia(true);
+
+    const { result } = renderHook(() => useSidebarState());
+    expect(result.current.isCollapsed).toBe(true);
   });
 
   it('toggle changes state from false to true', () => {
