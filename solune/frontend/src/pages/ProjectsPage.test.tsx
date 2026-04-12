@@ -173,8 +173,8 @@ vi.mock('@/hooks/useBoardControls', () => ({
   useBoardControls: () => mocks.boardControls,
 }));
 
-vi.mock('@/components/common/CelestialCatalogHero', () => ({
-  CelestialCatalogHero: ({
+vi.mock('@/components/common/CompactPageHeader', () => ({
+  CompactPageHeader: ({
     title,
     description,
     actions,

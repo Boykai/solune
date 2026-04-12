@@ -24,7 +24,7 @@ import { PipelineAnalytics } from '@/components/pipeline/PipelineAnalytics';
 import { PipelineRunHistory } from '@/components/pipeline/PipelineRunHistory';
 import { PipelineStagesOverview } from '@/components/pipeline/PipelineStagesOverview';
 import { ProjectSelectionEmptyState } from '@/components/common/ProjectSelectionEmptyState';
-import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
+import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
@@ -104,8 +104,7 @@ export function AgentsPipelinePage() {
   return (
     <div className="projects-page-shell celestial-fade-in flex flex-col gap-5 rounded-[1.5rem] border border-border/70 bg-background/42 p-4 backdrop-blur-sm sm:gap-6 sm:rounded-[1.75rem] sm:p-6 dark:border-border/85 dark:bg-[linear-gradient(180deg,hsl(var(--night)/0.96)_0%,hsl(var(--panel)/0.9)_100%)]">
       {/* Page Header */}
-      <CelestialCatalogHero
-        className="projects-catalog-hero"
+      <CompactPageHeader
         eyebrow="Constellation Flow"
         title="Orchestrate agents across every stage."
         description="Build custom pipelines that route issues through agents as they move across board columns. Create stages, assign agents, pick models, and save reusable workflows."
@@ -114,7 +113,6 @@ export function AgentsPipelinePage() {
             ? `${selectedProject.owner_login}/${selectedProject.name}`
             : 'Awaiting project'
         }
-        note="Design once, assign to a project, and let the pipeline run automatically whenever items transition between board columns."
         stats={[
           {
             label: 'Saved pipelines',
@@ -132,10 +130,10 @@ export function AgentsPipelinePage() {
         ]}
         actions={
           <>
-            <Button variant="default" size="lg" onClick={handleNewPipeline}>
+            <Button variant="default" size="sm" onClick={handleNewPipeline}>
               New pipeline
             </Button>
-            <Button variant="outline" size="lg" asChild>
+            <Button variant="outline" size="sm" asChild>
               <a href="#saved-pipelines">Saved workflows</a>
             </Button>
           </>
