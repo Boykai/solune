@@ -137,7 +137,14 @@ generate_backend_components() {
             local label
             label=$(echo "$name" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | sed 's/Github/GitHub/g')
             local node_id="API_${aidx}"
-            api_defs="${api_defs}        ${node_id}[\"${label}\"]"$'\n'
+
+            if [[ -d "$entry" ]]; then
+                local count
+                count=$(find "$entry" -maxdepth 1 -name '*.py' ! -name '__init__.py' | wc -l | tr -d ' ')
+                api_defs="${api_defs}        ${node_id}[\"${label}<br/>(${count} modules)\"]"$'\n'
+            else
+                api_defs="${api_defs}        ${node_id}[\"${label}\"]"$'\n'
+            fi
             aidx=$((aidx + 1))
         done
     fi
