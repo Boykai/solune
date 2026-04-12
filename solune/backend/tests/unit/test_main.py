@@ -5,6 +5,7 @@ Covers:
 - lifespan startup/shutdown
 - _session_cleanup_loop background task
 - _auto_start_copilot_polling webhook token fallback
+- bootstrap module delegation
 """
 
 import asyncio
@@ -730,3 +731,138 @@ class TestWatchdogGracePeriod:
         # Only the old project should have been unregistered
         assert "PVT_old" in unregistered
         assert "PVT_new" not in unregistered
+
+
+# ── Bootstrap module delegation ─────────────────────────────────────────────
+
+
+class TestBootstrapDelegation:
+    """Verify bootstrap functions delegate to the originals in main.py."""
+
+    async def test_auto_start_copilot_polling_delegates(self):
+        with patch(
+            "src.main._auto_start_copilot_polling",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_fn:
+            from src.services.bootstrap import auto_start_copilot_polling
+
+            result = await auto_start_copilot_polling()
+            mock_fn.assert_awaited_once()
+            assert result is True
+
+    async def test_discover_and_register_delegates(self):
+        with patch(
+            "src.main._discover_and_register_active_projects",
+            new_callable=AsyncMock,
+            return_value=5,
+        ) as mock_fn:
+            from src.services.bootstrap import discover_and_register_active_projects
+
+            result = await discover_and_register_active_projects()
+            mock_fn.assert_awaited_once()
+            assert result == 5
+
+    async def test_restore_app_pipeline_polling_delegates(self):
+        with patch(
+            "src.main._restore_app_pipeline_polling",
+            new_callable=AsyncMock,
+            return_value=2,
+        ) as mock_fn:
+            from src.services.bootstrap import restore_app_pipeline_polling
+
+            result = await restore_app_pipeline_polling()
+            mock_fn.assert_awaited_once()
+            assert result == 2
+
+    async def test_startup_agent_mcp_sync_delegates(self):
+        mock_db = AsyncMock()
+        with patch(
+            "src.main._startup_agent_mcp_sync",
+            new_callable=AsyncMock,
+        ) as mock_fn:
+            from src.services.bootstrap import startup_agent_mcp_sync
+
+            await startup_agent_mcp_sync(mock_db)
+            mock_fn.assert_awaited_once_with(mock_db)
+
+    async def test_session_cleanup_loop_delegates(self):
+        with patch(
+            "src.main._session_cleanup_loop",
+            new_callable=AsyncMock,
+        ) as mock_fn:
+            from src.services.bootstrap import session_cleanup_loop
+
+            await session_cleanup_loop()
+            mock_fn.assert_awaited_once()
+
+    async def test_polling_watchdog_loop_delegates(self):
+        with patch(
+            "src.main._polling_watchdog_loop",
+            new_callable=AsyncMock,
+        ) as mock_fn:
+            from src.services.bootstrap import polling_watchdog_loop
+
+            await polling_watchdog_loop()
+            mock_fn.assert_awaited_once()
+
+
+class TestLifespanChatStateManager:
+    """Verify lifespan registers ChatStateManager on app.state."""
+
+    async def test_chat_state_manager_registered(self):
+        from src.main import lifespan
+
+        mock_db = AsyncMock()
+        mock_app = MagicMock()
+
+        async def _noop_loop():
+            return
+
+        with (
+            patch("src.main.get_settings") as mock_s,
+            patch("src.main.setup_logging"),
+            patch(
+                "src.services.database.init_database",
+                new_callable=AsyncMock,
+                return_value=mock_db,
+            ),
+            patch(
+                "src.services.database.seed_global_settings",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.database.close_database",
+                new_callable=AsyncMock,
+            ),
+            patch("src.main._session_cleanup_loop", side_effect=_noop_loop),
+            patch("src.main._polling_watchdog_loop", side_effect=_noop_loop),
+            patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock),
+            patch(
+                "src.services.signal_bridge.start_signal_ws_listener",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.signal_bridge.stop_signal_ws_listener",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.pipeline_state_store.init_pipeline_state_store",
+                new_callable=AsyncMock,
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                debug=True,
+                session_cleanup_interval=999999,
+                alert_webhook_url="",
+                alert_cooldown_minutes=15,
+                otel_enabled=False,
+                otel_endpoint="http://localhost:4317",
+                otel_service_name="solune-backend",
+                sentry_dsn="",
+            )
+            async with lifespan(mock_app):
+                from src.services.chat_state_manager import ChatStateManager
+
+                csm = mock_app.state.chat_state_manager
+                assert isinstance(csm, ChatStateManager)

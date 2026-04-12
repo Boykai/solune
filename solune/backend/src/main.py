@@ -597,6 +597,12 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         _app.state.github_service = github_projects_service
         _app.state.connection_manager = connection_manager
 
+        # Instantiate ChatStateManager (Phase 1 modularity refactoring)
+        from src.services import chat_store
+        from src.services.chat_state_manager import ChatStateManager
+
+        _app.state.chat_state_manager = ChatStateManager(db, chat_store)
+
         # ── Observability: Alert dispatcher (Phase 5) ──
         from src.services.alert_dispatcher import AlertDispatcher, set_dispatcher
 
