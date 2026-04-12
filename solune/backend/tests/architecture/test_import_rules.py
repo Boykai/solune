@@ -19,6 +19,9 @@ ALLOWLIST: set[tuple[str, str]] = {
     # services → api: plan orchestrator delegates to the shared pipeline
     # launch helper in api/pipelines.py — planned refactor to service layer.
     ("src/services/app_plan_orchestrator.py", "src.api.pipelines"),
+    # services → api: proposal orchestrator uses chat helpers (get_proposal,
+    # add_message, _resolve_repository) — planned migration to service layer.
+    ("src/services/proposal_orchestrator.py", "src.api.chat.helpers"),
 }
 
 

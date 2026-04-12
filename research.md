@@ -1,165 +1,215 @@
-# Research: Multi-Chat App Page
+# Research: Codebase Modularity Review
 
-**Feature**: Multi-Chat App Page | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: Codebase Modularity Review | **Date**: 2026-04-11 | **Status**: Complete
 
-## R1: Nullable Foreign Key Strategy for Backward Compatibility
+## R1: Backend Monolith Split Strategy — `api/chat.py`
 
-**Decision**: Add `conversation_id TEXT DEFAULT NULL` to `chat_messages`, `chat_proposals`, and `chat_recommendations` via `ALTER TABLE`. No `NOT NULL` constraint.
+**Decision**: Split `api/chat.py` (2930 lines, 40 functions) into five domain-scoped modules under a new `api/chat/` package: `messages.py`, `proposals.py`, `plans.py`, `conversations.py`, and `streaming.py`. A top-level `api/chat/__init__.py` re-exports the FastAPI router to maintain backward compatibility with existing imports.
 
-**Rationale**: Existing rows have no conversation context — they belong to `ChatPopup` on non-AppPage routes. Making the column nullable preserves all existing data and behavior without backfilling. The `ChatPopup` never sends a `conversation_id`, so its messages continue to work unchanged. Queries that filter by `conversation_id` use `WHERE conversation_id = ?` for scoped results, while global queries (ChatPopup) omit the filter entirely.
+**Rationale**: `api/chat.py` is the largest backend file and contains five distinct responsibilities that rarely change together:
 
-SQLite's `ALTER TABLE ... ADD COLUMN` with a `DEFAULT NULL` is an O(1) metadata-only operation — it does not rewrite the table. This means the migration is safe to run on databases with millions of messages.
+1. **Message CRUD** — `get_messages`, `add_message`, `clear_messages`, `get_session_messages`, persistence helpers
+2. **Proposal/recommendation handling** — `store_proposal`, `get_proposal`, `confirm_proposal`, `cancel_proposal`
+3. **Plan mode endpoints** — 14 functions for plan CRUD, approval, step management, export
+4. **Conversation CRUD** — `create_conversation`, `list_conversations`, `update_conversation`, `delete_conversation`
+5. **Streaming** — `send_message_stream`, `send_plan_message_stream`, SSE response handling
 
-**Alternatives considered**:
-
-| Alternative | Why Rejected |
-|-------------|-------------|
-| `NOT NULL DEFAULT ''` (empty string sentinel) | Requires backfilling all existing rows; creates ambiguity between "no conversation" and "empty string"; non-standard FK pattern |
-| Separate `conversation_messages` join table | Over-normalized for SQLite; adds query complexity and JOIN overhead without tangible benefit for this use case |
-| Backfill existing messages into a default conversation | Breaks the "ChatPopup untouched" decision; adds migration complexity; unnecessary since ChatPopup works independently |
-| Add `conversation_id` only to new tables | Prevents filtering existing message types by conversation; breaks the spec requirement of scoping proposals and recommendations |
-
----
-
-## R2: Agent Session Key Strategy
-
-**Decision**: Change `AgentSessionMapping` key from `session_id` (string) to `{session_id}:{conversation_id}` (colon-separated composite key). When `conversation_id` is `None`, use the key `{session_id}:_` (underscore sentinel).
-
-**Rationale**: Each conversation needs its own independent agent context so chat history and tool state don't leak between simultaneous conversations. The existing `AgentSessionMapping` already uses string keys and supports TTL-based eviction with LRU semantics. The composite key format is:
-
-- **Simple**: A string concatenation with a known delimiter
-- **Reversible**: Can be split on `:` to recover components (UUIDs don't contain colons)
-- **Non-conflicting**: Colons are not valid UUID characters, and `_` is distinct from any UUID
-- **Backward-compatible**: Existing sessions expire via TTL (3600s); new key format only applies to new requests
+Splitting by responsibility reduces the cognitive load for reviewers (a plan-mode change no longer requires reviewing 2930 lines), enables independent testing per module, and makes `git blame` more useful. The `__init__.py` re-export pattern ensures that existing `from src.api.chat import router` statements continue to work.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Nested dict (`dict[str, dict[str, AgentSession]]`) | Requires reworking the eviction and TTL logic throughout `AgentSessionMapping`; increases complexity |
-| Tuple key `(session_id, conversation_id)` | Existing implementation is string-based; tuple keys require changes to serialization, comparison, and hashing patterns |
-| Separate `AgentSessionMapping` per conversation | Memory overhead from multiple mapping instances; harder to manage TTL and capacity globally |
-| Keep single session per user, reset context on conversation switch | Breaks the "independent agent context" requirement; loses state when switching back |
+| Split by HTTP method (GET/POST/PATCH) | Mixes unrelated domains in each file; doesn't align with how developers think about changes |
+| Keep as one file, add region comments | Doesn't help IDE navigation, test isolation, or review scope |
+| Split into only 2 files (sync + stream) | Still leaves large monoliths; doesn't address the plan-mode bloat |
+| Use APIRouter sub-routers without splitting the file | Organizes routes but doesn't reduce file size or improve testability |
 
 ---
 
-## R3: Panel Layout Persistence Strategy
+## R2: God Function Extraction — `confirm_proposal()`
 
-**Decision**: Persist panel layout to `localStorage` under key `solune:chat-panels`. Format is a JSON object with a `version` field for future schema migration.
+**Decision**: Extract `confirm_proposal()` (348 lines) into a `ProposalOrchestrator` service class in `services/proposal_orchestrator.py`. The class exposes a single `async def confirm(proposal_id, request, session, github_service, connection_manager)` method that internally delegates to focused private methods: `_validate_proposal()`, `_apply_edits()`, `_create_github_issue()`, `_add_to_project()`, `_persist_status()`, `_broadcast_update()`.
 
-```typescript
-interface PanelLayout {
-  version: 1;
-  panels: Array<{
-    panelId: string;
-    conversationId: string;
-    widthPercent: number;
-  }>;
-}
-```
+**Rationale**: A 348-line function that touches GitHub API, SQLite persistence, WebSocket broadcasting, and validation is untestable in isolation — every test must mock all four concerns. Extracting to a service class with focused methods enables:
 
-**Rationale**: Panel layout is ephemeral UI state — no server persistence needed. `localStorage` survives page refreshes (meeting the spec's "browser refresh restores previously open panels" requirement) and is synchronous (no loading states during initial render). A `version` field enables graceful migration if the schema changes in future releases (e.g., adding panel order, scroll position, or collapsed state).
+- **Unit testing** each step independently (e.g., test `_validate_proposal()` without mocking GitHub)
+- **Mocking** the orchestrator as a single dependency in the API layer
+- **Reuse** if proposal confirmation is needed from other entry points (e.g., webhooks, CLI)
+- **Error isolation** — a broadcast failure doesn't need to be handled in the same scope as GitHub API errors
 
-The `solune:` prefix namespaces the key to avoid collisions with other apps on the same domain, consistent with typical localStorage conventions.
+The API endpoint becomes a thin wrapper: resolve dependencies, call `orchestrator.confirm()`, return result.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `sessionStorage` | Doesn't survive tab close or browser restart; violates the "browser refresh restores panels" requirement |
-| Server-side persistence (new endpoint) | Over-engineered for UI layout; adds latency on every resize; requires new backend model/migration |
-| URL query parameters | Clutters the URL; doesn't scale to complex layouts; creates ugly shareable URLs |
-| IndexedDB | Overkill for ~500 bytes of JSON; async API adds unnecessary complexity |
-| React state only (no persistence) | Loses layout on refresh; violates spec requirement |
+| Split into standalone functions (not a class) | Loses shared state (proposal cache, connection references); functions need the same parameters passed repeatedly |
+| Keep in `chat.py` but refactor into smaller private functions | Improves readability but doesn't improve testability — private functions share the module's global state |
+| Event-driven architecture (publish confirmation event) | Over-engineered for synchronous confirmation flow; adds eventual consistency concerns |
 
 ---
 
-## R4: Multi-Panel Resize Implementation
+## R3: Frontend API Client Split Strategy — `services/api.ts`
 
-**Decision**: Use CSS flexbox with percentage-based widths and native `mousedown`/`mousemove`/`mouseup` event handlers for resize handles. No external drag library.
+**Decision**: Split `services/api.ts` (1876 lines, 20 namespace objects) into domain-scoped files under `services/api/`: `auth.ts`, `chat.ts`, `board.ts`, `tasks.ts`, `projects.ts`, `settings.ts`, `workflow.ts`, `metadata.ts`, `agents.ts`, `pipelines.ts`, `chores.ts`, `tools.ts`, `apps.ts`, `activity.ts`. A barrel `services/api/index.ts` re-exports all namespaces. Shared utilities (`apiClient`, `handleApiError`, type helpers) go in `services/api/client.ts`.
 
-**Rationale**: The resize interaction is constrained to horizontal dragging between adjacent panels — much simpler than general drag-and-drop. The existing `ChatPopup` component (lines 153–204 of `ChatPopup.tsx`) already implements resize with native mouse events and `requestAnimationFrame` gating. Using the same pattern:
+**Rationale**: The monolithic `api.ts` makes every change require reviewing 1876 lines. Splitting by domain:
 
-- Keeps the codebase consistent (developers already understand the pattern)
-- Avoids a new dependency for a single use case
-- Provides direct control over performance characteristics
+- Enables **tree-shaking** — unused API domains are excluded from bundles for code-split routes
+- Matches the **backend API module structure** (`api/chat.py`, `api/board.py`, etc.)
+- Makes **code review** focused — a chat API change only touches `api/chat.ts`
+- Keeps **imports stable** via barrel re-exports: `import { chatApi } from '@/services/api'` still works
 
-The handle renders as a thin vertical bar (4–8px wide) between panels with a `cursor: col-resize` style. During drag:
-
-1. `mousedown` on handle → capture start position and panel widths
-2. `mousemove` (window-level) → calculate delta, update panel `widthPercent` values
-3. `mouseup` (window-level) → commit final widths to state, persist to localStorage
-4. `requestAnimationFrame` gating ensures at most one state update per frame
-
-Touch events (`touchstart`/`touchmove`/`touchend`) follow the same pattern for tablet support, though on mobile (< 768px) the tab interface replaces side-by-side panels entirely.
+The shared `client.ts` contains the axios/fetch instance, error handling, and request interceptors — these are genuine cross-cutting concerns that every domain needs.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `@dnd-kit` (existing dependency) | Designed for sortable lists and pick-up/put-down interactions; resize handles are an anti-pattern in dnd-kit's API |
-| `react-resizable-panels` (new dep) | Adds ~15KB to bundle for a single use case; the native approach is <100 lines |
-| CSS `resize` property | Only works on individual elements; cannot synchronize adjacent panel widths or enforce constraints |
-| CSS Grid with `grid-template-columns` | Possible but less intuitive for dynamic resize; percentage updates require CSS variable manipulation |
+| Keep as one file with better comments/regions | Doesn't help tree-shaking or review scope |
+| Split by HTTP method | Mixes unrelated domains; not how developers conceptualize API calls |
+| Auto-generate from OpenAPI spec | No OpenAPI spec exists; creating one is a separate initiative |
+| Use a code-gen tool (e.g., orval) | Requires backend schema first; too large a scope change for this refactoring |
 
 ---
 
-## R5: Mobile Panel Display Strategy
+## R4: Domain-Scoped Types Strategy — `types/index.ts`
 
-**Decision**: On viewports below 768px, display panels as tabs with a horizontal tab bar at the top of the chat area. The active tab shows the full `ChatPanel`; inactive panels remain mounted but hidden via `display: none`.
+**Decision**: Split `types/index.ts` (1525 lines) into domain-scoped files: `types/chat.ts`, `types/board.ts`, `types/pipeline.ts`, `types/agents.ts`, `types/tasks.ts`, `types/projects.ts`, `types/settings.ts`, `types/common.ts`. A barrel `types/index.ts` re-exports everything for backward compatibility.
 
-**Rationale**: Side-by-side panels don't fit on mobile screens — the spec mandates a 320px minimum width per panel, which means only one panel fits on most phones. Tab switching:
+**Rationale**: A single 1525-line type file creates unnecessary merge conflicts when multiple features modify types in different domains. Domain-scoped files:
 
-- Preserves conversation state (React Query cache, streaming state, scroll position) without unmounting
-- Uses minimal vertical space (single row of tab buttons)
-- Follows familiar mobile chat app conventions (Slack, Discord, Telegram all use channel/conversation switching)
-- Supports the "Add Chat" button as a `+` tab
+- Reduce **merge conflicts** — changes to board types don't conflict with chat type changes
+- Improve **IDE navigation** — jump-to-definition lands in the relevant domain file, not line 847 of a mega-file
+- Enable **co-location** — domain types live next to their API client and hooks
+- Maintain **backward compatibility** — the barrel re-export means all existing `import { X } from '@/types'` statements continue working
 
-The active tab is highlighted with a bottom border and bolder text. Tab labels show the conversation title (truncated to 15 characters).
+Shared types (e.g., `PaginatedResponse<T>`, `ApiError`, `UUID`) go in `types/common.ts`.
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| Horizontal swipe navigation | Requires gesture handling library; conflicts with horizontal scrolling in markdown code blocks within messages |
-| Accordion/collapsible panels | Unusual UX for chat interfaces; poor discoverability on mobile |
-| Force single panel on mobile | Simplest but entirely removes multi-chat capability on mobile; reduces feature value |
-| Bottom navigation bar | Conflicts with mobile browser chrome (bottom toolbar); less space-efficient than top tabs |
+| Co-locate types in each component folder | Scatters types too widely; types are shared across hooks, services, and components |
+| Keep one file with region markers | Doesn't reduce merge conflicts or improve navigation |
+| Generate types from backend Pydantic models | Requires a type generation pipeline; separate initiative |
+| Use TypeScript namespaces for grouping | Namespaces are discouraged in modern TS; don't improve file-level organization |
 
 ---
 
-## R6: Conversation Title Auto-Generation
+## R5: Backend Global State Consolidation
 
-**Decision**: Default title is "New Chat". The title can be manually edited via the panel header. No auto-generation from first message content in Phase 1.
+**Decision**: Wrap the four module-level dicts (`_messages`, `_proposals`, `_recommendations`, `_locks`) in a `ChatStateManager` class instantiated during the FastAPI lifespan. Inject via `Depends()` in the same way as `get_github_service`. The manager exposes typed methods: `get_messages(session_id)`, `store_proposal(proposal)`, `get_lock(key)`, etc.
 
-**Rationale**: Auto-generating titles from message content (e.g., using the first user message or an AI summary) adds complexity to the initial implementation:
+**Rationale**: Module-level mutable dicts create three problems:
 
-- Requires an additional API call or background job after the first message
-- Introduces timing issues (title appears after a delay)
-- May produce poor titles from short or ambiguous first messages
+1. **Race conditions** — `_locks` dict is itself unprotected; concurrent requests can create duplicate locks
+2. **No lifecycle management** — dicts grow without bound (the `_locks` dict was already identified as a memory leak target in Harden Phase 1)
+3. **Testing difficulty** — tests must monkey-patch module globals or import-order-dependent state
 
-Manual editing via an inline input in the panel header is simpler and gives users direct control. Auto-generation can be added in a future iteration as an enhancement.
+A `ChatStateManager` class:
 
-**Alternatives considered**:
-
-| Alternative | Why Rejected (for Phase 1) |
-|-------------|---------------------------|
-| AI-generated title after first message | Adds latency and a background task; can be a follow-up feature |
-| First message truncated as title | Poor titles from short messages ("hi", "help"); requires cleanup logic |
-| Timestamp-based title ("Chat 2026-04-11 10:30") | Not human-friendly; doesn't convey conversation topic |
-
----
-
-## R7: Conversation Deletion Cascade Behavior
-
-**Decision**: When a conversation is deleted, its `conversation_id` references in `chat_messages`, `chat_proposals`, and `chat_recommendations` are set to `NULL` via `ON DELETE SET NULL`. Messages are not deleted — they become "orphaned" (associated with the session but no conversation).
-
-**Rationale**: Cascading deletes (`ON DELETE CASCADE` from conversations to messages) would permanently destroy message history. Setting to `NULL` preserves the messages in the database while removing the conversation container. This is safer and allows recovery. The orphaned messages are invisible in the UI (no conversation to display them in) but remain queryable for analytics or debugging.
+- Can be **instantiated with configuration** (max capacity, TTL) from `app.state`
+- Can be **injected and mocked** cleanly in tests
+- Can use **BoundedDict** internally for capacity-limited caches
+- Has a clear **lifecycle** tied to the FastAPI lifespan (create on startup, cleanup on shutdown)
 
 **Alternatives considered**:
 
 | Alternative | Why Rejected |
 |-------------|-------------|
-| `ON DELETE CASCADE` (delete messages too) | Permanently destroys message history; no recovery possible |
-| Soft delete (add `deleted_at` column) | Over-engineered for Phase 1; adds query complexity with `WHERE deleted_at IS NULL` filters |
-| Prevent deletion if messages exist | Poor UX; users should be able to clean up conversations freely |
+| Move dicts to `app.state` directly | Same issues (no encapsulation, no capacity limits); just moves the globals |
+| Use Redis/external cache | Over-engineered for in-process caching; adds infrastructure dependency |
+| Keep globals, add explicit locking | Addresses race conditions but not lifecycle or testing concerns |
+| Singleton pattern via module `__init__` | Still module-level global state; just adds indirection |
+
+---
+
+## R6: Backend Webhooks Split Strategy — `api/webhooks.py`
+
+**Decision**: Split `api/webhooks.py` (1033 lines) into an `api/webhooks/` package: `pull_requests.py` (PR event handlers), `check_runs.py` (CI check handlers), `issues.py` (issue event handlers), `common.py` (signature verification, payload parsing), and `__init__.py` (router re-export).
+
+**Rationale**: Webhook handlers are inherently event-type-scoped — a pull request handler never interacts with a check run handler. The current monolithic file forces developers to read past unrelated handlers to find the one they need. Splitting by GitHub event type:
+
+- Mirrors **GitHub's own event taxonomy** (pull_request, check_run, issues, etc.)
+- Makes **adding new event handlers** straightforward — create a new file, register the route
+- Enables **focused testing** — test PR handlers without loading check run dependencies
+- Keeps **shared utilities** (HMAC verification, payload extraction) in a common module
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Split by webhook source (GitHub, Slack, etc.) | Only GitHub webhooks exist today; premature generalization |
+| Keep as one file with handler registration pattern | Doesn't reduce file size or improve testability |
+| Move to event-driven architecture with pub/sub | Over-engineered for the current webhook volume; adds infrastructure complexity |
+
+---
+
+## R7: Backend `main.py` Bootstrap Extraction
+
+**Decision**: Extract bootstrap logic from `main.py` (859 lines) into `services/bootstrap.py`. The bootstrap module handles: service initialization, migration running, polling loop setup, agent sync scheduling, and cleanup task registration. `main.py` retains only the FastAPI app creation, middleware registration, and router inclusion.
+
+**Rationale**: `main.py` currently mixes two concerns:
+
+1. **App definition** — creating the FastAPI instance, adding middleware, including routers
+2. **Lifecycle management** — initializing services, running migrations, starting background tasks
+
+These change for different reasons and at different frequencies. A developer adding a new middleware shouldn't need to navigate past 400 lines of initialization code. The extraction:
+
+- Makes `main.py` a **declarative app definition** (~100-150 lines)
+- Makes **startup/shutdown testable** independently
+- Follows the **FastAPI lifespan pattern** — bootstrap functions are called from the lifespan context manager
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Move everything to a `create_app()` factory | Still mixes concerns in one function; just moves the code |
+| Use FastAPI event handlers (@app.on_event) | Deprecated in favor of lifespan context manager |
+| Keep as-is with better comments | Doesn't improve testability or review scope |
+
+---
+
+## R8: Frontend Test Layout Consolidation
+
+**Decision**: Standardize on the `__tests__/` subdirectory pattern for all component domains. Co-located `.test.tsx` files in `layout/` should be moved to `layout/__tests__/`. Utility and constant tests remain co-located (they're single files, not test suites).
+
+**Rationale**: The hybrid pattern (some domains use `__tests__/`, layout uses co-located files) reduces discoverability. When a developer looks for tests, they need to check both patterns. The `__tests__/` subdirectory pattern is already dominant (used by 7 component domains) and has advantages:
+
+- **Clean directory listings** — component files aren't interleaved with test files
+- **Glob-friendly** — `**/__tests__/**` reliably finds all tests
+- **Consistent expectations** — new contributors always know where to look
+
+Exception: single-file test modules (e.g., `chat-placeholders.test.ts` in `constants/`) can remain co-located since there's no subdirectory to justify a `__tests__/` folder for one file.
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Standardize on co-located `.test.tsx` everywhere | Would require moving 100+ test files from `__tests__/` directories; larger disruption |
+| Keep hybrid | Continues to cause confusion; inconsistent developer experience |
+| Top-level `tests/` mirror of `src/` | Disconnects tests from components; harder to maintain |
+
+---
+
+## R9: Circular Dependency Resolution in `dependencies.py`
+
+**Decision**: Resolve the `auth.py` ↔ `dependencies.py` circular import by moving the session dependency into `dependencies.py` directly (consolidating the lazy import workaround). The `_get_session_dep()` wrapper and lazy `from src.api.auth import get_session_dep` should be replaced with a direct implementation in `dependencies.py` that uses the session store.
+
+**Rationale**: The current lazy import in `_get_session_dep()` is a symptom of the circular dependency between `dependencies.py` (which provides DI functions) and `auth.py` (which provides session validation). This fragile pattern:
+
+- Hides **runtime import failures** (caught only when the dependency is first resolved)
+- Makes **import order** matter (tests that import auth before dependencies may see different behavior)
+- Adds **indirection** without clear benefit
+
+Consolidating session dependency resolution into `dependencies.py` breaks the cycle cleanly since `auth.py` can then import from `dependencies.py` without dependencies.py needing to import from `auth.py`.
+
+**Alternatives considered**:
+
+| Alternative | Why Rejected |
+|-------------|-------------|
+| Keep the lazy import | Fragile; hides errors; already identified as a problem |
+| Move all DI to `auth.py` | Wrong responsibility — auth should not own non-auth dependencies |
+| Create a third module `di.py` | Just moves the problem; adds another file to maintain |
