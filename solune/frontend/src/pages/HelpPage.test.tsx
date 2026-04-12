@@ -37,6 +37,25 @@ describe('HelpPage', () => {
     expect(screen.getByText('Help Center')).toBeInTheDocument();
   });
 
+  it('renders the compact page header as a <header> element', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+    expect(container.querySelector('header')).toBeInTheDocument();
+  });
+
+  it('renders the title in an h2 heading', () => {
+    render(
+      <MemoryRouter>
+        <HelpPage />
+      </MemoryRouter>,
+    );
+    const heading = screen.getByRole('heading', { level: 2, name: 'Help Center' });
+    expect(heading).toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(
       <MemoryRouter>

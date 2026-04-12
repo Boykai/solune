@@ -11,7 +11,7 @@ import { useChoresListPaginated, useEvaluateChoresTriggers, choreKeys } from '@/
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { ChoresPanel } from '@/components/chores/ChoresPanel';
 import { FeaturedRitualsPanel } from '@/components/chores/FeaturedRitualsPanel';
-import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
+import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { ProjectSelectionEmptyState } from '@/components/common/ProjectSelectionEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -80,12 +80,11 @@ export function ChoresPage() {
 
   return (
     <div className="celestial-fade-in flex flex-col gap-5 rounded-[1.5rem] border border-border/70 bg-background/42 p-4 backdrop-blur-sm sm:gap-6 sm:rounded-[1.75rem] sm:p-6">
-      <CelestialCatalogHero
+      <CompactPageHeader
         eyebrow="Ritual Maintenance"
         title="Turn upkeep into a visible rhythm."
         description="Organize recurring repository chores in the same spacious catalog pattern as agents, with room for templates, automation health, and fast manual interventions."
         badge={repo ? `${repo.owner}/${repo.name}` : 'Awaiting repository'}
-        note="A chore page should feel like a seasonal calendar: templates at the top, active routines in the center, and manual cleanup available without cluttering the rest of the page."
         stats={[
           { label: 'Board columns', value: String(boardData?.columns.length ?? 0) },
           { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
