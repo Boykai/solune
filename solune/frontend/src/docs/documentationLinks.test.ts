@@ -206,7 +206,7 @@ describe('chat documentation updates', () => {
     expect(testing).toContain('backend/tests/');
     expect(testing).toContain('chaos/');
     expect(testing).toContain('frontend/e2e/');
-    expect(quickstart).toContain('Status note');
+    expect(quickstart).toContain('Quickstart');
     expect(spec).toContain('Feature Specification');
     expect(frontendReadme).toContain('# Solune Frontend');
     expect(frontendReadme).toContain('React 19');
