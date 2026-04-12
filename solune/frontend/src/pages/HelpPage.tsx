@@ -1,6 +1,6 @@
 /**
  * HelpPage — /help route with FAQ, feature guides, slash commands, and tour replay.
- * Sections: Hero → Getting Started → FAQ → Feature Guides → Slash Commands
+ * Sections: Header → Getting Started → FAQ → Feature Guides → Slash Commands
  */
 
 import { Play, Kanban, GitBranch, Bot, Wrench, ListChecks, Settings, Boxes, LayoutDashboard, Clock } from '@/lib/icons';
@@ -134,7 +134,7 @@ export function HelpPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-12 pb-16">
-      {/* Hero */}
+      {/* Page Header */}
       <CompactPageHeader
         eyebrow="// Guidance & support"
         title="Help Center"
