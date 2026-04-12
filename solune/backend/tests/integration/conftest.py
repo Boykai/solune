@@ -307,7 +307,13 @@ async def thin_mock_client(
     with ExitStack() as stack:
         stack.enter_context(patch("src.services.database.get_db", return_value=db))
         stack.enter_context(patch("src.services.database._connection", db))
-        stack.enter_context(patch("src.api.chat.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.helpers.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.messages.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.proposals.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.plans.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.conversations.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.streaming.get_db", return_value=db))
+        stack.enter_context(patch("src.api.chat.dispatch.get_db", return_value=db))
         stack.enter_context(patch("src.api.settings.get_db", return_value=db))
         stack.enter_context(patch("src.api.mcp.get_db", return_value=db))
         stack.enter_context(patch("src.api.tools.get_db", return_value=db))
@@ -320,8 +326,15 @@ async def thin_mock_client(
         stack.enter_context(patch("src.api.board.github_projects_service", github_service))
         stack.enter_context(patch("src.api.pipelines.github_projects_service", github_service))
         stack.enter_context(patch("src.api.workflow.github_projects_service", github_service))
-        stack.enter_context(patch("src.api.chat.get_ai_agent_service", return_value=ai_service))
-        stack.enter_context(patch("src.api.chat._trigger_signal_delivery", lambda *_a, **_k: None))
+        stack.enter_context(
+            patch("src.api.chat.messages.get_ai_agent_service", return_value=ai_service)
+        )
+        stack.enter_context(
+            patch("src.api.chat.dispatch._trigger_signal_delivery", lambda *_a, **_k: None)
+        )
+        stack.enter_context(
+            patch("src.api.chat.helpers._trigger_signal_delivery", lambda *_a, **_k: None)
+        )
         stack.enter_context(
             patch(
                 "src.services.copilot_polling.ensure_polling_started",

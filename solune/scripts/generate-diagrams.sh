@@ -115,15 +115,25 @@ generate_backend_components() {
         done
     fi
 
-    # Discover API route modules
+    # Discover API route modules (both .py files and package directories)
     local api_defs=""
     local aidx=0
 
     if [[ -d "$api_dir" ]]; then
-        for entry in "$api_dir"/*.py; do
+        for entry in "$api_dir"/*; do
             local name
-            name=$(basename "$entry" .py)
-            [[ "$name" == "__init__" ]] && continue
+            if [[ -d "$entry" ]]; then
+                name=$(basename "$entry")
+                # Skip __pycache__
+                [[ "$name" == "__pycache__" ]] && continue
+                # Only include directories that have __init__.py (packages)
+                [[ ! -f "$entry/__init__.py" ]] && continue
+            elif [[ -f "$entry" && "$entry" == *.py ]]; then
+                name=$(basename "$entry" .py)
+                [[ "$name" == "__init__" ]] && continue
+            else
+                continue
+            fi
             local label
             label=$(echo "$name" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)}1' | sed 's/Github/GitHub/g')
             local node_id="API_${aidx}"
