@@ -13,7 +13,7 @@ import json
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -200,10 +200,12 @@ class TestSendMessageFeatureRequest:
         resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 422
 
-    async def test_ai_not_configured(self, client, mock_session, mock_ai_agent_service):
+    async def test_ai_not_configured(self, client, mock_session, mock_ai_utilities):
         mock_session.selected_project_id = "PVT_1"
+        mock_bad_settings = Mock()
+        mock_bad_settings.ai_provider = "none"
         with (
-            patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")),
+            patch("src.config.get_settings", return_value=mock_bad_settings),
             patch("src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")),
         ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
@@ -360,12 +362,12 @@ class TestSendMessageTaskGeneration:
         assert resp.status_code == 200
         assert "error" in resp.json()["content"].lower()
 
-    async def test_ai_enhance_off_uses_raw_input(self, client, mock_session, mock_ai_agent_service):
+    async def test_ai_enhance_off_uses_raw_input(self, client, mock_session, mock_ai_utilities):
         """When ai_enhance=False, raw user input is used as description, title is AI-generated."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
-        mock_ai_agent_service.parse_status_change_request.return_value = None
-        mock_ai_agent_service.generate_title_from_description.return_value = "Fix login flow"
+        mock_ai_utilities.detect_feature_request_intent.return_value = False
+        mock_ai_utilities.parse_status_change_request.return_value = None
+        mock_ai_utilities.generate_title_from_description.return_value = "Fix login flow"
 
         user_input = "The login page has a bug where users can't sign in"
         resp = await client.post(
@@ -379,13 +381,13 @@ class TestSendMessageTaskGeneration:
         assert data["action_data"]["proposed_description"] == user_input
 
     async def test_ai_enhance_off_metadata_error_returns_specific_message(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_ai_utilities
     ):
         """When the fallback branch fails after title generation, show a specific error."""
         mock_session.selected_project_id = "PVT_1"
-        mock_ai_agent_service.detect_feature_request_intent.return_value = False
-        mock_ai_agent_service.parse_status_change_request.return_value = None
-        mock_ai_agent_service.generate_title_from_description.return_value = "Some task"
+        mock_ai_utilities.detect_feature_request_intent.return_value = False
+        mock_ai_utilities.parse_status_change_request.return_value = None
+        mock_ai_utilities.generate_title_from_description.return_value = "Some task"
 
         with patch("src.api.chat.AITaskProposal", side_effect=RuntimeError("storage failed")):
             resp = await client.post(
@@ -437,7 +439,9 @@ class TestSendMessageTaskGeneration:
         mock_session.selected_project_id = "PVT_1"
         user_input = "Investigate why the login flow gets stuck after redirect"
 
-        with patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")):
+        mock_bad_settings = Mock()
+        mock_bad_settings.ai_provider = "none"
+        with patch("src.config.get_settings", return_value=mock_bad_settings):
             resp = await client.post(
                 "/api/v1/chat/messages",
                 json={"content": user_input, "ai_enhance": False},
@@ -859,23 +863,22 @@ class TestPlanModeEndpoints:
 
 class TestTranscriptHelpers:
     async def test_handle_transcript_upload_returns_none_without_files(
-        self, mock_session, mock_ai_agent_service
+        self, mock_session, mock_ai_utilities
     ):
         from src.api.chat import _handle_transcript_upload
 
         result = await _handle_transcript_upload(
             mock_session,
-            mock_ai_agent_service,
             "Roadmap",
             None,
             None,
         )
 
         assert result is None
-        mock_ai_agent_service.analyze_transcript.assert_not_called()
+        mock_ai_utilities.analyze_transcript.assert_not_called()
 
     async def test_handle_transcript_upload_success_with_metadata_fallback(
-        self, mock_session, mock_ai_agent_service
+        self, mock_session, mock_ai_utilities
     ):
         from src.api.chat import _handle_transcript_upload
 
@@ -889,7 +892,7 @@ class TestTranscriptHelpers:
             mock_session.session_id,
             technical_notes="T" * 320,
         )
-        mock_ai_agent_service.analyze_transcript.return_value = recommendation
+        mock_ai_utilities.analyze_transcript.return_value = recommendation
         stored: dict[str, IssueRecommendation] = {}
 
         async def capture_recommendation(rec: IssueRecommendation) -> None:
@@ -911,10 +914,13 @@ class TestTranscriptHelpers:
                 ),
                 patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
                 patch("src.api.chat._trigger_signal_delivery") as trigger_signal,
+                patch(
+                    "src.services.ai_utilities.analyze_transcript",
+                    mock_ai_utilities.analyze_transcript,
+                ),
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
-                    mock_ai_agent_service,
                     "Roadmap",
                     "pipe-1",
                     [f"/uploads/{filename}"],
@@ -928,7 +934,7 @@ class TestTranscriptHelpers:
         assert message.action_data["file_urls"] == [f"/uploads/{filename}"]
         assert "Technical Notes:" in message.content
         assert message.action_data["status"] == "pending"
-        mock_ai_agent_service.analyze_transcript.assert_awaited_once_with(
+        mock_ai_utilities.analyze_transcript.assert_awaited_once_with(
             transcript_content="speaker 1: hello\nspeaker 2: ship it",
             project_name="Roadmap",
             session_id=str(mock_session.session_id),
@@ -941,7 +947,7 @@ class TestTranscriptHelpers:
         trigger_signal.assert_called_once()
 
     async def test_handle_transcript_upload_returns_error_message_when_analysis_fails(
-        self, mock_session, mock_ai_agent_service
+        self, mock_session, mock_ai_utilities
     ):
         from src.api.chat import _handle_transcript_upload
 
@@ -950,7 +956,7 @@ class TestTranscriptHelpers:
         filename = f"{uuid4().hex[:8]}-transcript.txt"
         file_path = upload_dir / filename
         file_path.write_text("speaker 1: hello", encoding="utf-8")
-        mock_ai_agent_service.analyze_transcript.side_effect = TimeoutError("upstream timeout")
+        mock_ai_utilities.analyze_transcript.side_effect = TimeoutError("upstream timeout")
 
         try:
             with (
@@ -966,10 +972,13 @@ class TestTranscriptHelpers:
                     "src.api.chat.store_recommendation", new_callable=AsyncMock
                 ) as store_recommendation,
                 patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
+                patch(
+                    "src.services.ai_utilities.analyze_transcript",
+                    mock_ai_utilities.analyze_transcript,
+                ),
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
-                    mock_ai_agent_service,
                     "Roadmap",
                     None,
                     [f"/uploads/{filename}"],
@@ -984,7 +993,7 @@ class TestTranscriptHelpers:
         add_message.assert_awaited_once()
 
     async def test_handle_transcript_upload_skips_oversized_files(
-        self, mock_session, mock_ai_agent_service
+        self, mock_session, mock_ai_utilities
     ):
         from src.api.chat import _handle_transcript_upload
 
@@ -1004,7 +1013,6 @@ class TestTranscriptHelpers:
             ):
                 result = await _handle_transcript_upload(
                     mock_session,
-                    mock_ai_agent_service,
                     "Roadmap",
                     None,
                     [f"/uploads/{filename}"],
@@ -1014,7 +1022,7 @@ class TestTranscriptHelpers:
 
         assert result is None
         detect_transcript.assert_not_called()
-        mock_ai_agent_service.analyze_transcript.assert_not_called()
+        mock_ai_utilities.analyze_transcript.assert_not_called()
 
     async def test_extract_transcript_content_returns_first_detected_transcript(self):
         from src.api.chat import _extract_transcript_content
@@ -2445,7 +2453,7 @@ class TestErrorMessageSanitization:
     exception details to the end user (information leakage)."""
 
     async def test_agent_command_error_does_not_leak_exception(
-        self, client, mock_session, mock_ai_agent_service
+        self, client, mock_session, mock_ai_utilities
     ):
         """#agent command errors must not include raw exception text."""
         mock_session.selected_project_id = "PVT_1"

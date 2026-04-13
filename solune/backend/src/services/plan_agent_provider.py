@@ -191,7 +191,7 @@ async def create_plan_session(
         SessionConfig,
     )
 
-    from src.services.completion_providers import get_copilot_client_pool
+    from src.services.agent_provider import get_copilot_client_pool
 
     profile = SPECKIT_AGENT_PROFILES.get(agent_profile, PLAN_AGENT_PROFILE)
     system_prompt = instructions or profile.get("system_prompt", PLAN_SYSTEM_INSTRUCTIONS)

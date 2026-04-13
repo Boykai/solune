@@ -3,6 +3,10 @@
 Replaces the old ``CompletionProvider`` + ``create_completion_provider`` pattern
 with a Microsoft Agent Framework Agent.
 
+Also hosts the shared :class:`CopilotClientPool` (previously in the removed
+``completion_providers`` module) and a lightweight :func:`call_completion`
+helper for direct LLM completions outside the agent-framework flow.
+
 Supported providers:
 - ``copilot``: Uses ``GitHubCopilotAgent`` (per-user OAuth token).
 - ``azure_openai``: Uses ``Agent`` with ``AzureAIClient``.
@@ -10,12 +14,296 @@ Supported providers:
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+import hashlib
+from typing import TYPE_CHECKING, Any, cast
 
 from src.config import get_settings
 from src.logging_utils import get_logger
+from src.utils import BoundedDict
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from azure.ai.inference.models import ChatRequestMessage
+    from openai.types.chat import ChatCompletionMessageParam
+
+# ── CopilotClientPool (relocated from completion_providers.py) ───────
+
+_copilot_client_pool: CopilotClientPool | None = None
+
+
+class CopilotClientPool:
+    """Shared, bounded cache of CopilotClient instances keyed by token hash.
+
+    Used by both the agent provider and the model fetcher to avoid
+    duplicate client creation. Each unique GitHub token maps to exactly one
+    CopilotClient, regardless of which service requests it.
+
+    Thread-safe via asyncio.Lock for concurrent get_or_create calls.
+    Memory-safe via BoundedDict with FIFO eviction when capacity is reached.
+    """
+
+    def __init__(self, maxlen: int = 50) -> None:
+        self._clients: BoundedDict[str, Any] = BoundedDict(maxlen=maxlen)
+        self._lock: asyncio.Lock | None = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    @staticmethod
+    def _token_key(github_token: str) -> str:
+        """Return a stable hash of the token for use as a cache key.
+
+        Avoids keeping raw tokens as dict keys where they could be
+        exposed by debug tooling or log dumps.
+        """
+        return hashlib.sha256(github_token.encode()).hexdigest()[:16]
+
+    async def get_or_create(self, github_token: str) -> Any:
+        """Get cached or create new CopilotClient for a given token."""
+        key = self._token_key(github_token)
+        if key in self._clients:
+            return self._clients[key]
+
+        async with self._get_lock():
+            # Double-check after acquiring lock
+            if key in self._clients:
+                return self._clients[key]
+
+            from copilot import CopilotClient
+            from copilot.types import CopilotClientOptions
+
+            options = CopilotClientOptions(github_token=github_token, auto_start=False)
+            client = CopilotClient(options=options)
+            await client.start()
+            self._clients[key] = client
+            logger.info(
+                "Created new CopilotClient (pool size: %d/%d)",
+                len(self._clients),
+                self._clients._maxlen,
+            )
+            return client
+
+    async def cleanup(self) -> None:
+        """Stop all cached CopilotClient instances. Call on app shutdown."""
+        for _token_hash, client in list(self._clients.items()):
+            try:
+                await client.stop()
+            except Exception as e:
+                logger.warning("Error stopping CopilotClient: %s", e)
+        self._clients.clear()
+        logger.info("Cleaned up all CopilotClient instances")
+
+    async def remove(self, github_token: str) -> None:
+        """Stop and remove a single client by token."""
+        key = self._token_key(github_token)
+        client = self._clients.pop(key, None)
+        if client:
+            try:
+                await client.stop()
+            except Exception as e:
+                logger.warning("Error stopping CopilotClient: %s", e)
+
+
+def get_copilot_client_pool() -> CopilotClientPool:
+    """Return the shared Copilot client pool, creating it on first use."""
+    global _copilot_client_pool
+    if _copilot_client_pool is None:
+        _copilot_client_pool = CopilotClientPool()
+    return _copilot_client_pool
+
+
+# ── Lightweight completion helper ────────────────────────────────────
+
+
+async def call_completion(
+    *,
+    messages: list[dict[str, str]],
+    temperature: float = 0.7,
+    max_tokens: int = 1000,
+    github_token: str | None = None,
+) -> str:
+    """Execute a direct LLM completion outside the agent-framework flow.
+
+    Selects the configured AI provider (``copilot`` or ``azure_openai``)
+    and returns the assistant's response content.
+
+    Args:
+        messages: Chat messages ``[{"role": "system"|"user", "content": "..."}]``.
+        temperature: Sampling temperature.
+        max_tokens: Maximum response tokens.
+        github_token: GitHub OAuth token (required for Copilot provider).
+
+    Returns:
+        The assistant's response content.
+    """
+    settings = get_settings()
+    provider = settings.ai_provider
+
+    if provider == "copilot":
+        return await _copilot_completion(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            github_token=github_token,
+        )
+    elif provider == "azure_openai":
+        return await _azure_completion(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    else:
+        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")
+
+
+async def _copilot_completion(
+    *,
+    messages: list[dict[str, str]],
+    temperature: float = 0.7,
+    max_tokens: int = 1000,
+    github_token: str | None = None,
+) -> str:
+    """Run a single completion using the GitHub Copilot SDK."""
+    if not github_token:
+        raise ValueError(
+            "GitHub OAuth token required for Copilot provider. "
+            "Ensure user is authenticated via GitHub OAuth."
+        )
+
+    settings = get_settings()
+    model = settings.copilot_model
+
+    client = await get_copilot_client_pool().get_or_create(github_token)
+
+    from copilot.generated.session_events import SessionEventType
+    from copilot.types import PermissionHandler, SessionConfig
+
+    system_content = ""
+    user_content = ""
+    for msg in messages:
+        if msg["role"] == "system":
+            system_content = msg["content"]
+        elif msg["role"] == "user":
+            user_content = msg["content"]
+
+    config: SessionConfig = {
+        "model": model,
+        "on_permission_request": PermissionHandler.approve_all,
+    }
+    if system_content:
+        config["system_message"] = {"mode": "replace", "content": system_content}
+
+    session = await client.create_session(config)
+    done = asyncio.Event()
+    result_content: list[str] = []
+    error_content: list[str] = []
+
+    def on_event(event: Any) -> None:
+        try:
+            etype = event.type
+            if etype == SessionEventType.ASSISTANT_MESSAGE:
+                content = getattr(event.data, "content", None)
+                if content:
+                    result_content.append(content)
+            elif etype == SessionEventType.SESSION_IDLE:
+                done.set()
+            elif etype == SessionEventType.SESSION_ERROR:
+                error_msg = getattr(event.data, "message", str(event.data))
+                error_content.append(error_msg)
+                done.set()
+        except Exception as e:
+            logger.warning("Error processing Copilot event: %s", e)
+            done.set()
+
+    session.on(on_event)
+    await session.send(user_content)
+
+    try:
+        await asyncio.wait_for(done.wait(), timeout=120)
+    except TimeoutError:
+        logger.warning("Copilot completion timed out after 120s")
+    finally:
+        try:
+            await session.destroy()
+        except Exception as e:
+            logger.warning("Error destroying Copilot session: %s", e)
+
+    if error_content:
+        raise ValueError(f"Copilot API error: {error_content[0]}")
+
+    return "".join(result_content) if result_content else ""
+
+
+async def _azure_completion(
+    *,
+    messages: list[dict[str, str]],
+    temperature: float = 0.7,
+    max_tokens: int = 1000,
+) -> str:
+    """Run a single completion using Azure OpenAI."""
+    settings = get_settings()
+
+    if not settings.azure_openai_endpoint or not settings.azure_openai_key:
+        raise ValueError(
+            "Azure OpenAI credentials not configured. "
+            "Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY in .env"
+        )
+
+    deployment = settings.azure_openai_deployment
+
+    try:
+        from openai import AzureOpenAI
+
+        client = AzureOpenAI(
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_key,
+            api_version="2024-02-15-preview",
+        )
+        openai_messages = cast(list[ChatCompletionMessageParam], messages)
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model=deployment,
+            messages=openai_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    except ImportError:
+        from azure.ai.inference import ChatCompletionsClient
+        from azure.ai.inference.models import SystemMessage, UserMessage
+        from azure.core.credentials import AzureKeyCredential
+
+        assert settings.azure_openai_endpoint is not None
+        assert settings.azure_openai_key is not None
+        ai_client = ChatCompletionsClient(
+            endpoint=settings.azure_openai_endpoint,
+            credential=AzureKeyCredential(settings.azure_openai_key),
+        )
+        inference_messages = cast(
+            list[ChatRequestMessage],
+            [
+                (
+                    SystemMessage(content=m["content"])
+                    if m["role"] == "system"
+                    else UserMessage(content=m["content"])
+                )
+                for m in messages
+            ],
+        )
+        response = await asyncio.to_thread(
+            ai_client.complete,
+            model=deployment,
+            messages=inference_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+    if not response.choices:
+        return ""
+    return response.choices[0].message.content or ""
 
 
 def _wrap_copilot_tools_with_runtime_state(
@@ -196,8 +484,6 @@ async def _create_copilot_agent(
 
     from agent_framework_github_copilot import GitHubCopilotAgent, GitHubCopilotOptions
     from copilot import PermissionHandler
-
-    from src.services.completion_providers import get_copilot_client_pool
 
     settings = get_settings()
     effective_tools = _wrap_copilot_tools_with_runtime_state(tools, tool_runtime_state)

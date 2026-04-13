@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.models.settings import ModelOption, ModelsResponse
-from src.services.completion_providers import CopilotClientPool, get_copilot_client_pool
+from src.services.agent_provider import CopilotClientPool, get_copilot_client_pool
 from src.utils import BoundedDict
 
 logger = get_logger(__name__)

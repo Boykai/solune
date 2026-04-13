@@ -100,9 +100,6 @@ ignore = [
     "E501",   # line too long (handled by ruff format)
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/unit/test_ai_agent.py" = ["E402"]  # Allow late imports for mocking
-
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
 

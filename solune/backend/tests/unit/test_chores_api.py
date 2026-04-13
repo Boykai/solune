@@ -689,10 +689,9 @@ class TestChoreChat:
     @pytest.mark.anyio
     async def test_first_message_creates_conversation(self, client):
         """First chat message should return a conversation_id."""
-        mock_ai = AsyncMock(name="AIAgentService")
-        mock_ai._call_completion.return_value = "What kind of bugs should be covered?"
+        mock_completion = AsyncMock(return_value="What kind of bugs should be covered?")
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await client.post(
                 "/api/v1/chores/PVT_1/chat",
                 json={"content": "run a bug bash", "conversation_id": None},
@@ -708,13 +707,14 @@ class TestChoreChat:
     @pytest.mark.anyio
     async def test_subsequent_message_continues_conversation(self, client):
         """Continuing a conversation should reuse the same conversation_id."""
-        mock_ai = AsyncMock(name="AIAgentService")
-        mock_ai._call_completion.side_effect = [
-            "Tell me more about scope",
-            "Got it, here's more detail needed",
-        ]
+        mock_completion = AsyncMock(
+            side_effect=[
+                "Tell me more about scope",
+                "Got it, here's more detail needed",
+            ]
+        )
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             # First message
             resp1 = await client.post(
                 "/api/v1/chores/PVT_1/chat",
@@ -742,10 +742,9 @@ class TestChoreChat:
             "---\nname: Bug Bash\n---\n\n## Bug Bash\n\nRun bug bash weekly.\n"
             "```"
         )
-        mock_ai = AsyncMock(name="AIAgentService")
-        mock_ai._call_completion.return_value = template_response
+        mock_completion = AsyncMock(return_value=template_response)
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await client.post(
                 "/api/v1/chores/PVT_1/chat",
                 json={"content": "bug bash weekly", "conversation_id": None},
@@ -760,10 +759,9 @@ class TestChoreChat:
     @pytest.mark.anyio
     async def test_ai_failure_returns_500(self, client):
         """When the AI service fails, return 500."""
-        mock_ai = AsyncMock(name="AIAgentService")
-        mock_ai._call_completion.side_effect = RuntimeError("AI service down")
+        mock_completion = AsyncMock(side_effect=RuntimeError("AI service down"))
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await client.post(
                 "/api/v1/chores/PVT_1/chat",
                 json={"content": "test", "conversation_id": None},

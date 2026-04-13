@@ -654,12 +654,14 @@ async def _run_ai_pipeline(
     try:
         chat_agent_service = get_chat_agent_service()
     except Exception:
-        # Fall back to legacy service
+        # Legacy fallback: check if any AI provider is configured
         try:
-            from src.services.ai_agent import get_ai_agent_service
+            from src.config import get_settings as _get_settings
 
-            get_ai_agent_service()
-        except ValueError:
+            _s = _get_settings()
+            if _s.ai_provider not in ("copilot", "azure_openai"):
+                raise ValueError("no provider")
+        except (ValueError, Exception):
             pass
         await _reply(
             source_phone,

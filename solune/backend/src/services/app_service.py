@@ -160,9 +160,7 @@ async def _enhance_app_descriptions(
     Returns ``(repo_description, full_description)``.
     Falls back to the original description for both on any error.
     """
-    from src.services.ai_agent import get_ai_agent_service
-
-    ai_service = get_ai_agent_service()
+    from src.services.agent_provider import call_completion
 
     messages = [
         {
@@ -187,7 +185,7 @@ async def _enhance_app_descriptions(
     ]
 
     try:
-        response = await ai_service._call_completion(
+        response = await call_completion(
             messages=messages,
             github_token=access_token,
             temperature=0.5,

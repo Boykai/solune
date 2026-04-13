@@ -1890,10 +1890,9 @@ class TestChat:
 
     async def test_chat_first_message_creates_session(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value="What should the agent do?")
+        mock_completion = AsyncMock(return_value="What should the agent do?")
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await service.chat(
                 project_id=PROJECT_ID,
                 message="I want a code reviewer",
@@ -1918,10 +1917,9 @@ class TestChat:
         _chat_session_timestamps[sid] = time.monotonic()
 
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value="Got it, what tools?")
+        mock_completion = AsyncMock(return_value="Got it, what tools?")
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await service.chat(
                 project_id=PROJECT_ID,
                 message="It should review PRs",
@@ -1941,10 +1939,9 @@ class TestChat:
             '{"name": "PR Reviewer", "description": "Reviews PRs", '
             '"system_prompt": "You review PRs.", "tools": ["read"]}\n```'
         )
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value=complete_reply)
+        mock_completion = AsyncMock(return_value=complete_reply)
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await service.chat(
                 project_id=PROJECT_ID,
                 message="Create a PR reviewer",
@@ -1961,11 +1958,10 @@ class TestChat:
 
     async def test_chat_ai_failure_propagates(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(side_effect=RuntimeError("AI offline"))
+        mock_completion = AsyncMock(side_effect=RuntimeError("AI offline"))
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             pytest.raises(RuntimeError, match="AI offline"),
         ):
             await service.chat(
@@ -1987,10 +1983,9 @@ class TestChat:
         assert "session-0" in _chat_sessions
 
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value="hello")
+        mock_completion = AsyncMock(return_value="hello")
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             await service.chat(
                 project_id=PROJECT_ID,
                 message="new session",
@@ -2005,10 +2000,9 @@ class TestChat:
     async def test_chat_non_string_response_converted(self, mock_db):
         """If AI returns non-string, it should be converted via str()."""
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value=12345)
+        mock_completion = AsyncMock(return_value=12345)
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             resp = await service.chat(
                 project_id=PROJECT_ID,
                 message="test",
@@ -2037,11 +2031,10 @@ class TestEnhanceAgentContent:
             '{"system_prompt": "Enhanced prompt.", "description": "A smart bot", '
             '"tools": ["read", "search"]}'
         )
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value=ai_response)
+        mock_completion = AsyncMock(return_value=ai_response)
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             patch.object(service, "_gather_agent_examples", AsyncMock(return_value=[])),
         ):
             result = await service._enhance_agent_content(
@@ -2061,11 +2054,10 @@ class TestEnhanceAgentContent:
         ai_response = (
             '```json\n{"system_prompt": "Prompt.", "description": "Desc", "tools": []}\n```'
         )
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value=ai_response)
+        mock_completion = AsyncMock(return_value=ai_response)
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             patch.object(service, "_gather_agent_examples", AsyncMock(return_value=[])),
         ):
             result = await service._enhance_agent_content(
@@ -2080,11 +2072,10 @@ class TestEnhanceAgentContent:
 
     async def test_enhancement_invalid_json_raises(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value="not json at all")
+        mock_completion = AsyncMock(return_value="not json at all")
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             patch.object(service, "_gather_agent_examples", AsyncMock(return_value=[])),
             pytest.raises((json.JSONDecodeError, AttributeError)),
         ):
@@ -2099,13 +2090,12 @@ class TestEnhanceAgentContent:
     async def test_enhancement_with_examples(self, mock_db):
         service = AgentsService(mock_db)
         ai_response = '{"system_prompt": "EP", "description": "D", "tools": []}'
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value=ai_response)
+        mock_completion = AsyncMock(return_value=ai_response)
 
         examples = ["### reviewer.agent.md\n```\ncontent\n```"]
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             patch.object(service, "_gather_agent_examples", AsyncMock(return_value=examples)),
         ):
             result = await service._enhance_agent_content(
@@ -2117,7 +2107,7 @@ class TestEnhanceAgentContent:
             )
 
         # Verify examples were included in the system message
-        call_args = mock_ai._call_completion.call_args
+        call_args = mock_completion.call_args
         messages = call_args.kwargs["messages"]
         system_msg = messages[0]["content"]
         assert "Reference" in system_msg
@@ -2127,11 +2117,10 @@ class TestEnhanceAgentContent:
     async def test_enhancement_non_list_tools_returns_empty_list(self, mock_db):
         service = AgentsService(mock_db)
         ai_response = '{"system_prompt": "P", "description": "D", "tools": "not-a-list"}'
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value=ai_response)
+        mock_completion = AsyncMock(return_value=ai_response)
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             patch.object(service, "_gather_agent_examples", AsyncMock(return_value=[])),
         ):
             result = await service._enhance_agent_content(
@@ -2230,12 +2219,11 @@ class TestAutoGenerateMetadata:
 
     async def test_successful_metadata_generation(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(
+        mock_completion = AsyncMock(
             return_value='{"description": "Reviews PRs", "tools": ["read", "github/*"]}'
         )
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._auto_generate_metadata(
                 name="PR Reviewer",
                 system_prompt="Review pull requests.",
@@ -2247,12 +2235,11 @@ class TestAutoGenerateMetadata:
 
     async def test_metadata_strips_markdown_fences(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(
+        mock_completion = AsyncMock(
             return_value='```json\n{"description": "Desc", "tools": []}\n```'
         )
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._auto_generate_metadata(
                 name="Bot",
                 system_prompt="Do things.",
@@ -2263,10 +2250,9 @@ class TestAutoGenerateMetadata:
 
     async def test_metadata_invalid_json_returns_fallback(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value="garbage response")
+        mock_completion = AsyncMock(return_value="garbage response")
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._auto_generate_metadata(
                 name="Fallback Bot",
                 system_prompt="stuff",
@@ -2278,12 +2264,9 @@ class TestAutoGenerateMetadata:
 
     async def test_metadata_non_list_tools_returns_empty(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(
-            return_value='{"description": "D", "tools": "string-not-list"}'
-        )
+        mock_completion = AsyncMock(return_value='{"description": "D", "tools": "string-not-list"}')
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._auto_generate_metadata(
                 name="X",
                 system_prompt="Y",
@@ -2301,12 +2284,11 @@ class TestGenerateRichDescriptions:
 
     async def test_successful_description_generation(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(
+        mock_completion = AsyncMock(
             return_value='{"issue_body": "## Issue\\nDetails", "pr_body": "## PR\\nChanges"}'
         )
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._generate_rich_descriptions(
                 name="Bot",
                 slug="bot",
@@ -2321,12 +2303,11 @@ class TestGenerateRichDescriptions:
 
     async def test_description_strips_markdown_fences(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(
+        mock_completion = AsyncMock(
             return_value='```json\n{"issue_body": "issue", "pr_body": "pr"}\n```'
         )
 
-        with patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._generate_rich_descriptions(
                 name="Bot",
                 slug="bot",
@@ -2341,11 +2322,10 @@ class TestGenerateRichDescriptions:
 
     async def test_description_invalid_json_raises(self, mock_db):
         service = AgentsService(mock_db)
-        mock_ai = AsyncMock()
-        mock_ai._call_completion = AsyncMock(return_value="not json")
+        mock_completion = AsyncMock(return_value="not json")
 
         with (
-            patch("src.services.ai_agent.get_ai_agent_service", return_value=mock_ai),
+            patch("src.services.agent_provider.call_completion", mock_completion),
             pytest.raises((json.JSONDecodeError, AttributeError)),
         ):
             await service._generate_rich_descriptions(

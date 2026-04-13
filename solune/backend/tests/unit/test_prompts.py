@@ -1,26 +1,32 @@
 """Unit tests for prompt construction functions.
 
 Covers:
-- create_issue_generation_prompt()
-- create_feature_request_detection_prompt()
-- create_task_generation_prompt()
-- create_status_change_prompt()
+- _create_issue_generation_prompt()
+- _create_feature_request_detection_prompt()
+- _create_task_generation_prompt()
+- _create_status_change_prompt()
 """
 
 from datetime import timedelta
 
 from src.constants import LABELS
-from src.prompts.issue_generation import (
+from src.services.ai_utilities import (
     FEATURE_REQUEST_DETECTION_PROMPT,
     ISSUE_GENERATION_SYSTEM_PROMPT,
-    create_feature_request_detection_prompt,
-    create_issue_generation_prompt,
-)
-from src.prompts.task_generation import (
     STATUS_CHANGE_SYSTEM_PROMPT,
     TASK_GENERATION_SYSTEM_PROMPT,
-    create_status_change_prompt,
-    create_task_generation_prompt,
+)
+from src.services.ai_utilities import (
+    _create_feature_request_detection_prompt as create_feature_request_detection_prompt,
+)
+from src.services.ai_utilities import (
+    _create_issue_generation_prompt as create_issue_generation_prompt,
+)
+from src.services.ai_utilities import (
+    _create_status_change_prompt as create_status_change_prompt,
+)
+from src.services.ai_utilities import (
+    _create_task_generation_prompt as create_task_generation_prompt,
 )
 from src.utils import utcnow
 

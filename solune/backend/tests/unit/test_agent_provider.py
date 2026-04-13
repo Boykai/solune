@@ -57,7 +57,7 @@ class TestCreateAgentCopilot:
                 },
             ),
             patch(
-                "src.services.completion_providers.get_copilot_client_pool",
+                "src.services.agent_provider.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
         ):
@@ -179,7 +179,7 @@ class TestCreateAgentToolsAndInstructions:
                 },
             ),
             patch(
-                "src.services.completion_providers.get_copilot_client_pool",
+                "src.services.agent_provider.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
         ):
@@ -221,7 +221,7 @@ class TestCreateAgentToolsAndInstructions:
                 },
             ),
             patch(
-                "src.services.completion_providers.get_copilot_client_pool",
+                "src.services.agent_provider.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
         ):
@@ -265,7 +265,7 @@ class TestCreateAgentToolsAndInstructions:
                 },
             ),
             patch(
-                "src.services.completion_providers.get_copilot_client_pool",
+                "src.services.agent_provider.get_copilot_client_pool",
                 return_value=mock_pool,
             ),
         ):

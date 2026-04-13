@@ -1,334 +1,207 @@
-# Implementation Plan: Simplify Page Headers for Focused UI
+# Implementation Plan: Remove Dead Code & Tech Debt
 
-**Branch**: `copilot/speckitplan-create-compact-header` | **Date**: 2026-04-11 | **Spec**: [#1398](https://github.com/Boykai/solune/issues/1398)
-**Input**: Parent issue #1398 — Replace CelestialCatalogHero hero sections (~20% viewport, ~350–450px) with compact single-row page headers across 6 pages.
+**Branch**: `copilot/remove-dead-code-tech-debt` | **Date**: 2026-04-13 | **Spec**: GitHub Issue #1630
+**Input**: Parent issue Boykai/solune#1630 — Remove Dead Code & Tech Debt
 
 ## Summary
 
-Replace the large `CelestialCatalogHero` component (~350–450px tall) with a new `CompactPageHeader` component (~80–100px tall) across all 6 pages that use it. The compact header uses a single-row layout: eyebrow + title on the left, badge in the center, action buttons on the right. Stats are rendered as small pill/chip elements instead of large moonwell cards. All decorative celestial elements (orbits, stars, beams, "Current Ritual" aside) are removed from page headers. After migration, `CelestialCatalogHero.tsx` is deleted and orphaned CSS exclusively used by the hero component is removed.
-
-| Phase | Scope | Key Output |
-|-------|-------|------------|
-| 1 | New compact header component | `CompactPageHeader.tsx` in `components/common/` |
-| 2 | Replace hero in 6 pages (parallel) | Updated `ProjectsPage`, `AgentsPage`, `AgentsPipelinePage`, `ToolsPage`, `ChoresPage`, `HelpPage` |
-| 3 | Clean up dead code | Delete `CelestialCatalogHero.tsx`, remove orphaned `catalog-hero-*` / `.projects-catalog-hero` CSS from `index.css` |
-| 4 | Verification | `vitest run`, `eslint`, `tsc --noEmit`, visual smoke test |
+Remove 5 deprecated backend modules (marked for v0.3.0 removal) that are still lazily imported in active code, migrate their consumers to the current `ChatAgentService` and `agent_provider` abstractions, guard unstructured frontend console logging behind `import.meta.env.DEV`, evaluate a stale pipeline field, convert singleton TODO markers to a tracked issue, and consolidate misplaced root-level spec files into the mono-spec directory structure.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x (React 18)
-**Primary Dependencies**: React 18 + Tailwind CSS 4 + `cn()` utility from `@/lib/utils`
-**Storage**: N/A (frontend-only change)
-**Testing**: Vitest (statements ≥60%, branches ≥52%, functions ≥50%)
-**Target Platform**: SPA in modern browsers (desktop + mobile)
-**Project Type**: Web application (frontend-only change)
-**Performance Goals**: Reclaim ~270–370px of vertical space per page; no new dependencies; reduced DOM node count per page
-**Constraints**: Prop-compatible replacement (same props minus `note`); theme preserved in sidebar/global chrome; `moonwell` CSS class retained (used by 30+ other components); `celestial-*` animation classes retained (used by Sidebar, AppLayout, LoginPage, CelestialLoader, etc.); `hanging-stars` retained (used by LoginPage)
-**Scale/Scope**: 1 component created, 6 pages modified, 1 component + 1 test file deleted, 1 CSS file cleaned up
+**Language/Version**: Python 3.12+ (backend); TypeScript/React (frontend)
+**Primary Dependencies**: FastAPI, Pydantic, Microsoft Agent Framework (`ChatAgentService`), Vite (frontend build)
+**Storage**: N/A — no schema or persistence changes; `pipeline_metadata` field evaluation may defer removal pending data-migration analysis
+**Testing**: `pytest` (backend: `uv run pytest tests/`); Vitest (frontend: `npm run test`); `pyright` type checking; `ruff` linting
+**Target Platform**: Linux server (backend); browser SPA (frontend)
+**Project Type**: Web application (backend + frontend monorepo under `solune/`)
+**Performance Goals**: N/A — cleanup-only; no new runtime paths
+**Constraints**: Zero behavioral regressions; all existing tests must pass; no new type errors; OpenAPI schema unaffected
+**Scale/Scope**: ~5 deprecated modules removed, ~12 consumer files migrated, ~3 frontend files guarded, ~6 root-level files relocated
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Specification-First | ✅ PASS | Feature fully specified in parent issue #1398 with phases, file list, and explicit decisions |
-| II. Template-Driven Workflow | ✅ PASS | This plan follows `plan-template.md`; supplementary artifacts generated per workflow |
-| III. Agent-Orchestrated Execution | ✅ PASS | Plan agent produces plan; implement agent will execute phased tasks |
-| IV. Test Optionality | ✅ PASS | Tests included for the new component; existing CelestialCatalogHero tests replaced with CompactPageHeader tests |
-| V. Simplicity and DRY | ✅ PASS | Single shared component replaces single shared component; net code reduction (~119 lines deleted, ~50 lines added); no new abstractions |
+- **I. Specification-First Development**: PASS — The parent issue (#1630) provides a structured specification with phased requirements, explicit scope boundaries, exclusion list, and verification criteria. This plan follows the issue as the authoritative spec.
+- **II. Template-Driven Workflow**: PASS — This plan and all Phase 0/1 artifacts reside in `specs/003-remove-dead-code-tech-debt/` using the canonical Speckit artifact set.
+- **III. Agent-Orchestrated Execution**: PASS — The plan decomposes into six independent/dependent phases suitable for single-responsibility agent execution. Each phase has clear inputs, outputs, and handoff criteria.
+- **IV. Test Optionality with Clarity**: PASS — No new tests are mandated. Existing test suites serve as regression gates. Tests for deprecated modules (`test_ai_agent.py`, `test_completion_providers.py`, `test_issue_generation_prompt.py`, `test_task_generation_prompt.py`, `test_transcript_analysis_prompt.py`) are removed alongside their subjects. Test fixtures (`mock_ai_agent_service`) are removed from `conftest.py`.
+- **V. Simplicity and DRY**: PASS — The plan removes complexity (deprecated abstractions) rather than adding it. Migration paths use existing `ChatAgentService` and `agent_provider` patterns already established in the codebase.
 
-**Gate Result**: PASS — no violations. Proceed to Phase 0.
-
-### Post-Design Re-Check
-
-| Principle | Status | Notes |
-|-----------|--------|-------|
-| I. Specification-First | ✅ PASS | All design artifacts trace back to parent issue requirements |
-| II. Template-Driven Workflow | ✅ PASS | All artifacts follow canonical templates |
-| III. Agent-Orchestrated Execution | ✅ PASS | Clear phase boundaries; Phases 1–3 sequential, Phase 2 pages are parallel |
-| IV. Test Optionality | ✅ PASS | New component tested; hero tests replaced with header tests |
-| V. Simplicity and DRY | ✅ PASS | CompactPageHeader is simpler (fewer lines, no decorative DOM, no aside panel); no new dependencies |
-
-**Post-Design Gate Result**: PASS — no violations.
+**Post-Phase-1 Re-check**: PASS — No constitution violations introduced by the design. The phased approach maintains simplicity and avoids premature abstraction. The deferred singleton DI refactor (TODO-018) is correctly scoped out per the Simplicity principle.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-plan.md              # This file (speckit.plan output)
-research.md          # Phase 0 output (technical decisions)
-data-model.md        # Phase 1 output (component interface definitions)
-quickstart.md        # Phase 1 output (developer guide)
-contracts/           # Phase 1 output (component API spec)
-└── compact-page-header-api.yaml
+specs/003-remove-dead-code-tech-debt/
+├── plan.md              # This file
+├── research.md          # Phase 0 output — migration path research
+├── data-model.md        # Phase 1 output — affected modules and dependency map
+├── quickstart.md        # Phase 1 output — execution guide for each phase
+├── contracts/           # Phase 1 output — N/A (OpenAPI schema unaffected)
+└── tasks.md             # Phase 2 output (NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
 
 ```text
-solune/frontend/src/
-├── components/common/
-│   ├── CompactPageHeader.tsx              # CREATE — new compact header component
-│   ├── CompactPageHeader.test.tsx         # CREATE — tests for new component
-│   ├── CelestialCatalogHero.tsx           # DELETE after Phase 2
-│   └── CelestialCatalogHero.test.tsx      # DELETE after Phase 2
-├── pages/
-│   ├── ProjectsPage.tsx                   # MODIFY — swap CelestialCatalogHero → CompactPageHeader
-│   ├── AgentsPage.tsx                     # MODIFY — same
-│   ├── AgentsPipelinePage.tsx             # MODIFY — same
-│   ├── ToolsPage.tsx                      # MODIFY — same
-│   ├── ChoresPage.tsx                     # MODIFY — same
-│   └── HelpPage.tsx                       # MODIFY — same
-└── index.css                              # MODIFY — remove orphaned .projects-catalog-hero and catalog-hero-* CSS rules
+solune/backend/
+├── src/
+│   ├── api/
+│   │   ├── chat.py                      # Phase 2: migrate get_ai_agent_service → ChatAgentService
+│   │   └── pipelines.py                 # Phase 2: migrate analyze_transcript() usage
+│   ├── prompts/
+│   │   ├── issue_generation.py          # Phase 1: DELETE
+│   │   ├── task_generation.py           # Phase 1: DELETE
+│   │   └── transcript_analysis.py       # Phase 1: DELETE
+│   └── services/
+│       ├── ai_agent.py                  # Phase 2: DELETE (after consumer migration)
+│       ├── completion_providers.py       # Phase 3: DELETE (after consumer migration)
+│       ├── chat_agent.py                # Migration target (ChatAgentService)
+│       ├── agent_provider.py            # Phase 3: relocate get_copilot_client_pool
+│       ├── plan_agent_provider.py       # Phase 3: update lazy import
+│       ├── model_fetcher.py             # Phase 3: update direct import
+│       ├── label_classifier.py          # Phase 3: update lazy imports
+│       ├── app_service.py               # Phase 2: replace lazy import
+│       ├── agent_creator.py             # Phase 2: migrate generate_agent_config()
+│       ├── signal_chat.py               # Phase 2: replace existence check
+│       ├── agents/service.py            # Phase 2: migrate _call_completion() usage
+│       ├── chores/chat.py               # Phase 2: migrate _call_completion() usage
+│       ├── workflow_orchestrator/
+│       │   └── orchestrator.py          # Phase 2: migrate type + factory
+│       └── copilot_polling/
+│           └── auto_merge.py            # Phase 4: evaluate pipeline_metadata
+├── tests/
+│   ├── conftest.py                      # Phase 2: remove AIAgentService import + fixture
+│   └── unit/
+│       ├── test_ai_agent.py             # Phase 2: DELETE
+│       ├── test_completion_providers.py  # Phase 3: DELETE
+│       ├── test_issue_generation_prompt.py   # Phase 1: DELETE
+│       ├── test_task_generation_prompt.py    # Phase 1: DELETE
+│       └── test_transcript_analysis_prompt.py # Phase 1: DELETE
+
+solune/frontend/
+└── src/
+    ├── services/api.ts                  # Phase 5: wrap console.debug in DEV guard
+    └── hooks/usePipelineConfig.ts       # Phase 5: wrap console.warn in DEV guard
 ```
 
-**Structure Decision**: Frontend-only change. All files in `solune/frontend/src/`. New component follows existing pattern in `components/common/`. No new directories.
+**Structure Decision**: Existing web application monorepo structure (`solune/backend/`, `solune/frontend/`). This feature modifies and deletes files in-place; no new directories or modules are introduced.
+
+## Phase Execution Plan
+
+### Phase 1 — Remove Deprecated Prompt Modules (parallel with Phase 2)
+
+**Goal**: Delete 3 prompt files only imported by the already-deprecated `ai_agent.py`.
+
+| Step | Action | File |
+|------|--------|------|
+| 1.1 | Delete deprecated prompt module | `src/prompts/issue_generation.py` |
+| 1.2 | Delete deprecated prompt module | `src/prompts/task_generation.py` |
+| 1.3 | Delete deprecated prompt module | `src/prompts/transcript_analysis.py` |
+| 1.4 | Verify no `prompts/__init__.py` re-exports (confirmed: none exist) | `src/prompts/__init__.py` |
+| 1.5 | Delete test for issue_generation prompt | `tests/unit/test_issue_generation_prompt.py` |
+| 1.6 | Delete test for task_generation prompt | `tests/unit/test_task_generation_prompt.py` |
+| 1.7 | Delete test for transcript_analysis prompt | `tests/unit/test_transcript_analysis_prompt.py` |
+
+**Verification**: `uv run pytest tests/ --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — existing tests pass (prompt module tests removed alongside modules).
+
+### Phase 2 — Remove AIAgentService (depends on Phase 1)
+
+**Goal**: Migrate all consumers of the deprecated `AIAgentService` / `get_ai_agent_service()` to `ChatAgentService` or inline equivalents, then delete `ai_agent.py`.
+
+| Step | Action | File | Details |
+|------|--------|------|---------|
+| 2.1 | Replace lazy import | `src/api/chat.py` (L46, L50) | Replace `get_ai_agent_service` with `get_chat_agent_service`; adapt `identify_target_task()` call |
+| 2.2 | Replace lazy import | `src/services/app_service.py` (L163) | Replace lazy `get_ai_agent_service` import |
+| 2.3 | Migrate `_call_completion()` calls | `src/services/chores/chat.py` (L158, L193) | Replace with `ChatAgentService.run()` or direct agent-provider completion |
+| 2.4 | Migrate `_call_completion()` calls | `src/services/agents/service.py` (L1373, L1507, L1630, L1691) | Replace 4 lazy imports with `ChatAgentService` equivalents |
+| 2.5 | Migrate `analyze_transcript()` | `src/api/pipelines.py` (L333) | Move logic into `ChatAgentService` or a standalone utility |
+| 2.6 | Migrate type + factory | `src/services/workflow_orchestrator/orchestrator.py` (L52, L3060) | Replace `AIAgentService` type hint and `get_ai_agent_service()` call |
+| 2.7 | Migrate `generate_agent_config()` | `src/services/agent_creator.py` (L28, L467) | Move logic to `ChatAgentService` or inline |
+| 2.8 | Remove existence check | `src/services/signal_chat.py` (L659) | Replace with `get_chat_agent_service()` or configuration check |
+| 2.9 | Remove import + fixture | `tests/conftest.py` (L67, L204–207) | Remove `AIAgentService` import and `mock_ai_agent_service` fixture |
+| 2.10 | Update dependent tests | Various test files | Update any tests that depend on `mock_ai_agent_service` fixture |
+| 2.11 | Delete deprecated service | `src/services/ai_agent.py` | Remove after all consumers migrated |
+| 2.12 | Delete deprecated test | `tests/unit/test_ai_agent.py` | Remove alongside service |
+| 2.13 | Grep verification | `grep -rn "ai_agent" src/ tests/` | Zero hits expected |
+
+**Verification**: Full `pytest` pass; `pyright` no new errors; `ruff check` clean.
+
+### Phase 3 — Remove completion_providers.py (depends on Phase 2)
+
+**Goal**: Migrate 4 services still importing from the deprecated provider, relocate `CopilotClientPool` / `get_copilot_client_pool` into `agent_provider.py`, then delete `completion_providers.py`.
+
+| Step | Action | File | Details |
+|------|--------|------|---------|
+| 3.1 | Relocate `CopilotClientPool` + `get_copilot_client_pool` | `src/services/agent_provider.py` | Move/inline from `completion_providers.py`; these are the only non-deprecated symbols |
+| 3.2 | Update lazy import | `src/services/agent_provider.py` (L200) | Point to local definition |
+| 3.3 | Update lazy import | `src/services/plan_agent_provider.py` (L194) | Import from `agent_provider` |
+| 3.4 | Update direct import | `src/services/model_fetcher.py` (L17) | Import from `agent_provider` |
+| 3.5 | Migrate `create_completion_provider()` | `src/services/label_classifier.py` (L101, L157) | Replace with `agent_provider`-based completion or inline equivalent |
+| 3.6 | Delete deprecated provider | `src/services/completion_providers.py` | Remove after all consumers migrated |
+| 3.7 | Delete deprecated test | `tests/unit/test_completion_providers.py` | Remove alongside module |
+| 3.8 | Grep verification | `grep -rn "completion_providers" src/ tests/` | Zero hits expected |
+
+**Verification**: Full `pytest` pass; `pyright` no new errors; `ruff check` clean.
+
+### Phase 4 — Minor Backend Cleanup (parallel with Phase 3)
+
+| Step | Action | File | Details |
+|------|--------|------|---------|
+| 4.1 | Evaluate `pipeline_metadata` field | `src/services/copilot_polling/auto_merge.py` | Field is wired through `dispatch_devops_agent()` → `schedule_post_devops_merge_retry()` → `_post_devops_retry_loop()` with active mutation (`devops_active = False`). **Decision**: Keep for now — removal requires data-migration analysis and call-site audit across the retry flow. Document as deferred. |
+| 4.2 | Convert singleton TODOs | `src/services/chores/service.py`, `src/services/agents/service.py` | Confirm TODO markers exist; if present, convert to tracked issue reference (TODO-018). If not found at specified lines, skip. |
+
+**Verification**: `ruff check`; `pyright`.
+
+### Phase 5 — Frontend Logging Cleanup (independent, parallel with all)
+
+| Step | Action | File | Details |
+|------|--------|------|---------|
+| 5.1 | Wrap `console.debug()` in DEV guard | `api.ts` (L462, L477, L641) | `if (import.meta.env.DEV) { console.debug(...) }` |
+| 5.2 | Verify tooltip already guarded | `tooltip.tsx` (L52) | Already wrapped in `import.meta.env.DEV` — no change needed |
+| 5.3 | Wrap `console.warn()` in DEV guard | `usePipelineConfig.ts` (L170) | `if (import.meta.env.DEV) { console.warn(...) }` |
+
+**Verification**: `npm run lint`; `npm run type-check`; `npm run test`.
+
+### Phase 6 — Repository Organization (independent, parallel with all)
+
+| Step | Action | Details |
+|------|--------|---------|
+| 6.1 | Create `specs/000-simplify-page-headers/` | New directory for root-level spec files |
+| 6.2 | Move root-level spec files | `plan.md`, `spec.md`, `tasks.md`, `data-model.md`, `research.md`, `quickstart.md` → `specs/000-simplify-page-headers/` |
+| 6.3 | Verify mono-spec consistency | Structure matches `specs/001-fleet-dispatch-pipelines/` pattern |
+
+**Verification**: All spec file paths resolve; no broken references.
+
+## Verification Matrix
+
+| Check | Command | After Phase |
+|-------|---------|-------------|
+| Backend tests | `cd solune/backend && uv run pytest tests/ --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` | 1, 2, 3, 4 |
+| Type checking | `cd solune/backend && uv run pyright src/` | 2, 3, 4 |
+| Lint | `cd solune/backend && uv run ruff check src/ tests/` | 2, 3, 4 |
+| Frontend tests | `cd solune/frontend && npm run test` | 5 |
+| Frontend lint | `cd solune/frontend && npm run lint` | 5 |
+| Frontend types | `cd solune/frontend && npm run type-check` | 5 |
+| Dead code grep | `grep -rn "ai_agent\|completion_providers\|issue_generation\|task_generation\|transcript_analysis" solune/backend/src/ solune/backend/tests/` | 3 |
+| OpenAPI schema | `validate-contracts.sh` | 3 |
+| Docker builds | Backend and frontend Dockerfiles | Final |
 
-## Complexity Tracking
-
-> No Constitution Check violations — this section is intentionally empty.
-
----
-
-## Phase 0: Research
-
-### R1: CSS Class Removal Safety Analysis
-
-**Decision**: Remove only `catalog-hero-*` scoped CSS rules from `index.css` (the `.dark .projects-catalog-hero .catalog-hero-*` block, lines ~432–489). Retain all `celestial-*` animation classes, `moonwell`, and `hanging-stars`.
-
-**Rationale**: Codebase analysis reveals that the following classes are referenced outside `CelestialCatalogHero.tsx` and **CANNOT** be safely removed:
-
-| CSS Class | Used Outside Hero By |
-|-----------|---------------------|
-| `moonwell` | AgentCard, AgentIconCatalog, AgentsPanel, ToolCard, ToolsPanel, ChoresSpotlight, PipelineSelector, PipelineAnalytics, PipelineToolbar, ChoresToolbar, ChoreCard, ProjectIssueLaunchPanel, FeatureGuideCard, SavedWorkflowsList, ActivityPage, GitHubMcpConfigGenerator, AgentsPipelinePage (30+ references) |
-| `hanging-stars` | LoginPage.tsx (line 65) |
-| `celestial-orbit-spin` | Sidebar, AppLayout, CelestialLoader, LoginPage, AnimatedBackground |
-| `celestial-twinkle` | CelestialLoadingProgress, ProjectSelectionEmptyState, AppLayout |
-| `celestial-float` | LoginPage, NotFoundPage, App.tsx, ErrorBoundary |
-| `celestial-pulse-glow` | NotificationBell, LoginPage, Sidebar, AppLayout, CelestialLoader, TourProgress |
-
-Only the `.dark .projects-catalog-hero .catalog-hero-*` override block (lines 432–489 of `index.css`) is exclusively scoped to `CelestialCatalogHero` via the `projects-catalog-hero` className applied only in `ProjectsPage.tsx` and `AgentsPipelinePage.tsx`.
-
-**Alternatives considered**:
-
-- Remove all celestial animation CSS: Breaks 15+ other components that use these classes.
-- Remove `moonwell` CSS: Breaks 30+ components across the application.
-- Remove `hanging-stars`: Breaks LoginPage decorative elements.
-
-### R2: CompactPageHeader Component Design
-
-**Decision**: Single-row flexbox layout with three zones: left (eyebrow + title + description), center (badge), right (actions). Stats rendered as inline chip/pill elements beneath the title row. No decorative elements.
-
-**Rationale**: The issue specifies: "Single-row layout: eyebrow + title on left, badge center, action buttons right" and "Stats rendered as small pill/chip elements". Height target is 80–100px. The `note` prop is dropped (the "Current Ritual" aside consumed ~22rem on LG screens and duplicated the description).
-
-**Alternatives considered**:
-
-- Two-row layout (title row + stats row): Exceeds 100px height target on pages with many stats.
-- Description as tooltip only: Reduces discoverability; issue recommends "single-line subtitle with line-clamp-1 and expand on hover".
-- Keep moonwell cards for stats: Contradicts the issue's decision to use inline chips.
-
-### R3: Stats on Mobile Strategy
-
-**Decision**: Hide stats behind a toggle on mobile viewports (< 640px) to avoid crowding the compact header. On desktop, stats are always visible as inline chips.
-
-**Rationale**: The issue states "Stats on mobile: always visible or collapsible? Recommend hidden behind a toggle on mobile to avoid crowding." Following this recommendation keeps the header compact on mobile while preserving full information access.
-
-**Alternatives considered**:
-
-- Always visible on mobile: Crowds the header on small screens; may push actions below the fold.
-- Remove stats on mobile entirely: Loses information without recovery path.
-- Collapsible accordion: Over-engineered for 2–4 stat chips.
-
-### R4: Rollout Strategy
-
-**Decision**: Big-bang rollout — replace all 6 pages simultaneously in a single PR.
-
-**Rationale**: The issue states "Recommend big-bang — all 6 pages share the same component, replacement is prop-compatible." Since `CompactPageHeader` accepts a superset of props (minus `note`), all pages can be migrated in one pass. Gradual rollout would require maintaining both components temporarily with no benefit.
-
-**Alternatives considered**:
-
-- Gradual rollout (one page at a time): Adds unnecessary complexity; both components would coexist temporarily.
-- Feature flag: Over-engineered for a visual-only change with no data model impact.
-
----
-
-## Phase 1: Design & Contracts
-
-### 1.1 — CompactPageHeader Props Interface
-
-```typescript
-interface CompactPageHeaderStat {
-  label: string;
-  value: string;
-}
-
-interface CompactPageHeaderProps {
-  eyebrow: string;          // Small uppercase label above title
-  title: string;            // Main heading text
-  description: string;      // Subtitle (line-clamp-1, expands on hover)
-  badge?: string;           // Optional badge in center zone
-  stats?: CompactPageHeaderStat[];  // Inline chip/pill stats
-  actions?: ReactNode;      // Action buttons in right zone
-  className?: string;       // Additional CSS classes
-}
-```
-
-**Prop changes from CelestialCatalogHero**:
-
-- ❌ `note` — removed (duplicated description in aside panel)
-- All other props retained with same types
-
-### 1.2 — CompactPageHeader Layout
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  ⬡ EYEBROW  [badge]                          [Action] [Act]│
-│  Title Text Here                                            │
-│  Description as single-line subtitle...                     │
-│  [stat chip] [stat chip] [stat chip]                        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-- **Container**: `<header>` element, border + rounded + backdrop-blur (matches existing page shell style)
-- **Height**: ~80–100px (responsive, content-driven)
-- **Left zone**: Eyebrow (uppercase, primary color) + title (text-2xl) + description (text-sm, line-clamp-1, expands on hover via group-hover:line-clamp-none)
-- **Center zone**: Badge as pill (same style as current hero badge)
-- **Right zone**: Actions (flexbox row)
-- **Stats row**: Inline chips below the title/description area, small pill styling
-
-### 1.3 — Page Migration Mapping
-
-Each page drops `note` and changes the import. No other prop changes needed.
-
-| Page | Current Import | Line | Props to Drop |
-|------|---------------|------|---------------|
-| `ProjectsPage.tsx` | `CelestialCatalogHero` | 33, 323 | `note` |
-| `AgentsPage.tsx` | `CelestialCatalogHero` | 16, 93 | `note` |
-| `AgentsPipelinePage.tsx` | `CelestialCatalogHero` | 27, 107 | `note`, `className="projects-catalog-hero"` |
-| `ToolsPage.tsx` | `CelestialCatalogHero` | 10, 32 | `note` |
-| `ChoresPage.tsx` | `CelestialCatalogHero` | 14, 83 | `note` |
-| `HelpPage.tsx` | `CelestialCatalogHero` | 7, 138 | (no `note` used) |
-
-### 1.4 — CSS Cleanup Scope
-
-Lines to remove from `index.css`:
-
-```css
-/* Lines ~432–489: .dark .projects-catalog-hero overrides */
-.dark .projects-catalog-hero.section-aurora { ... }
-.dark .projects-catalog-hero .catalog-hero-decor { ... }
-.dark .projects-catalog-hero .catalog-hero-ambient-glow { ... }
-.dark .projects-catalog-hero .catalog-hero-orbit { ... }
-.dark .projects-catalog-hero .catalog-hero-moon, ...
-.dark .projects-catalog-hero .catalog-hero-aside { ... }
-.dark .projects-catalog-hero .catalog-hero-aside-sun { ... }
-.dark .projects-catalog-hero .catalog-hero-aside-orbit-outer, ...
-.dark .projects-catalog-hero .catalog-hero-note { ... }
-```
-
-**NOT removed** (still referenced elsewhere):
-
-- `.moonwell` (lines ~593–607)
-- `.hanging-stars` (lines ~1547–1590)
-- `.celestial-twinkle`, `.celestial-pulse-glow`, `.celestial-orbit-spin`, `.celestial-float` (lines ~1647–1700)
-- All `@keyframes` for celestial animations
-
----
-
-## Execution Phases
-
-### Phase 1: Create CompactPageHeader Component
-
-| # | Task | File | Action |
-|---|------|------|--------|
-| 1.1 | Create component | `components/common/CompactPageHeader.tsx` | New compact header with single-row layout |
-| 1.2 | Create tests | `components/common/CompactPageHeader.test.tsx` | Render tests, prop forwarding, accessibility |
-
-**Acceptance**: Component renders correctly with all props. Tests pass. Height is ~80–100px.
-
-### Phase 2: Replace Hero in 6 Pages (parallel)
-
-| # | Task | File | Action |
-|---|------|------|--------|
-| 2.1 | Update import + JSX | `pages/ProjectsPage.tsx` | Swap `CelestialCatalogHero` → `CompactPageHeader`, drop `note` |
-| 2.2 | Update import + JSX | `pages/AgentsPage.tsx` | Same |
-| 2.3 | Update import + JSX | `pages/AgentsPipelinePage.tsx` | Same, also drop `className="projects-catalog-hero"` |
-| 2.4 | Update import + JSX | `pages/ToolsPage.tsx` | Same |
-| 2.5 | Update import + JSX | `pages/ChoresPage.tsx` | Same |
-| 2.6 | Update import + JSX | `pages/HelpPage.tsx` | Same (no `note` to drop) |
-
-**Acceptance**: All 6 pages render with compact header. No TypeScript errors. Existing page tests still pass.
-
-### Phase 3: Clean Up Dead Code
-
-| # | Task | File | Action |
-|---|------|------|--------|
-| 3.1 | Delete component | `components/common/CelestialCatalogHero.tsx` | Remove file (119 lines) |
-| 3.2 | Delete test file | `components/common/CelestialCatalogHero.test.tsx` | Remove file (110 lines) |
-| 3.3 | Remove orphaned CSS | `index.css` | Remove `.dark .projects-catalog-hero .catalog-hero-*` rules (lines ~432–489) |
-
-**Acceptance**: No references to `CelestialCatalogHero` in codebase. No orphaned CSS. Build and lint pass.
-
-### Phase 4: Verification
-
-| # | Task | Command | Expected |
-|---|------|---------|----------|
-| 4.1 | Frontend tests | `npx vitest run` | All tests pass |
-| 4.2 | Lint check | `npx eslint .` | No errors |
-| 4.3 | Type check | `npx tsc --noEmit` | No errors |
-| 4.4 | Visual smoke test | Docker + browser on all 6 pages | Compact headers render correctly |
-| 4.5 | Mobile viewport test | Chrome DevTools responsive mode | Stats hidden behind toggle; header stays compact |
-
-**Acceptance**: Zero test failures, zero lint errors, zero type errors. All 6 pages visually correct.
-
----
-
-## Risk Assessment
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Removing CSS used elsewhere | Low | High | Verified: only `catalog-hero-*` scoped rules are removed; all shared classes retained |
-| Pages depend on hero's large height for layout | Low | Medium | Compact header is content-driven height; page content flows normally below it |
-| `note` prop removal breaks TypeScript | Very Low | Low | `note` was optional in CelestialCatalogHeroProps; CompactPageHeader simply omits it |
-| Existing page tests reference CelestialCatalogHero internals | Low | Medium | Tests reference text content, not component internals; text content is preserved |
-| Mobile stats toggle adds complexity | Low | Low | Simple `useState` toggle with Tailwind responsive classes |
-
-## Dependencies
-
-```text
-Phase 1 (Component)
-  1.1 create CompactPageHeader ──→ 1.2 create tests
-
-Phase 2 (Page Migration) ── depends on Phase 1
-  1.1 CompactPageHeader ──→ 2.1 ProjectsPage
-                         ──→ 2.2 AgentsPage        (all parallel)
-                         ──→ 2.3 AgentsPipelinePage
-                         ──→ 2.4 ToolsPage
-                         ──→ 2.5 ChoresPage
-                         ──→ 2.6 HelpPage
-
-Phase 3 (Cleanup) ── depends on Phase 2 (all pages migrated)
-  2.1–2.6 done ──→ 3.1 delete CelestialCatalogHero.tsx
-               ──→ 3.2 delete CelestialCatalogHero.test.tsx
-               ──→ 3.3 remove orphaned CSS
-
-Phase 4 (Verification) ── depends on Phase 3
-  3.1–3.3 done ──→ 4.1–4.5 full verification
-```
-
-## Decisions Log
+## Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| Drop `note` prop | Duplicated page description; consumed ~22rem on LG screens; "Current Ritual" aside removed per issue |
-| Keep `moonwell` CSS | Used by 30+ other components (AgentCard, ToolCard, PipelineAnalytics, etc.) |
-| Keep `celestial-*` animations | Used by Sidebar, AppLayout, CelestialLoader, LoginPage, AnimatedBackground, etc. |
-| Keep `hanging-stars` CSS | Used by LoginPage.tsx (line 65) |
-| Remove `catalog-hero-*` CSS | Only used within CelestialCatalogHero (orphaned after deletion) |
-| Big-bang rollout | All 6 pages share same component; prop-compatible replacement; no benefit to gradual rollout |
-| Description as line-clamp-1 subtitle | Per issue recommendation; expands on hover for full text |
-| Stats as inline chips | Per issue recommendation; replaces large moonwell cards |
-| Mobile stats behind toggle | Per issue recommendation; avoids crowding compact header on small viewports |
-| Use `<header>` element | More semantic than `<section>` for page headers; improves accessibility |
+| **Excluded**: Circular import workarounds in `dependencies.py` and `github_projects/service.py` | Intentional and documented; not dead code |
+| **Excluded**: Auto-generated OpenAPI types in `openapi-generated.d.ts` | Managed by contract pipeline; not manual code |
+| **Excluded**: Frontend structural cleanup | No dead components, hooks, routes, or unused deps found |
+| **Deferred**: Singleton DI refactor (TODO-018) | Replacing module-level singletons with FastAPI DI is a larger architecture change — recommend separate issue |
+| **Deferred**: `pipeline_metadata` removal in `auto_merge.py` | Field is actively mutated in retry flow; removal requires data-migration analysis |
+| **tooltip.tsx already guarded** | `console.warn()` at L52 is already inside `import.meta.env.DEV` check — no change needed |
+
+## Complexity Tracking
+
+> No constitution violations found. No complexity justifications required.
