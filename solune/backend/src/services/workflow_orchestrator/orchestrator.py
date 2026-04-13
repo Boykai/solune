@@ -87,10 +87,13 @@ class WorkflowOrchestrator:
 
     def __init__(
         self,
-        github_service: "GitHubProjectsService",
-        legacy_github_service: "GitHubProjectsService | None" = None,
+        github_service_or_legacy_dependency: "GitHubProjectsService | None" = None,
+        github_service: "GitHubProjectsService | None" = None,
     ):
-        self.github = legacy_github_service or github_service
+        resolved_github_service = github_service or github_service_or_legacy_dependency
+        if resolved_github_service is None:
+            raise TypeError("github_service is required")
+        self.github = resolved_github_service
         self.fleet_dispatch = FleetDispatchService()
 
     # ──────────────────────────────────────────────────────────────────
