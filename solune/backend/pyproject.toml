@@ -18,7 +18,7 @@ dependencies = [
     "openai>=2.26.0,<3",
     "azure-ai-inference>=1.0.0b9,<2",
     # Microsoft Agent Framework (v0.2.0 — intelligent chat agent)
-    "agent-framework-core>=1.0.0b1",
+    "agent-framework-core>=1.0.1",
     "agent-framework-azure-ai>=1.0.0b1",
     "agent-framework-github-copilot>=1.0.0b1",
     # SSE streaming for real-time agent responses
