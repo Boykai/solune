@@ -221,7 +221,51 @@ The polling service's "Check In Review" step acts as a safety net: on each cycle
 it verifies that Copilot has been requested as a reviewer for every "In Review"
 issue, converting draft PRs and requesting reviews as needed.
 
-## Pipeline Reconstruction
+## Fleet Dispatch
+
+Pipelines default to **fleet dispatch** mode for agent assignment. Instead of relying on the Copilot Workspace to discover agent instructions organically, fleet dispatch renders a per-agent instruction template and passes the full context (issue body, comments, parent issue metadata, and branch references) directly to the coding agent via a custom instruction payload.
+
+### How It Works
+
+1. The `FleetDispatchService` loads the canonical agent registry from `scripts/pipelines/fleet-dispatch.json`.
+2. For each agent in a pipeline stage, the service resolves an instruction template from `scripts/pipelines/templates/` (with a generic fallback for unknown agents).
+3. The template is rendered with issue-specific placeholders: `{{ISSUE_TITLE}}`, `{{ISSUE_BODY}}`, `{{ISSUE_COMMENTS}}`, `{{PARENT_ISSUE_NUMBER}}`, `{{PARENT_ISSUE_URL}}`, `{{BASE_REF}}`, and `{{PR_BRANCH}}`.
+4. The rendered instructions are passed to the GitHub Copilot coding agent assignment, giving each agent full context about its task.
+
+### Built-in Instruction Templates
+
+Templates reside in `scripts/pipelines/templates/` and correspond to the built-in agent set:
+
+| Template | Agent |
+|----------|-------|
+| `speckit.specify.md` | `speckit.specify` |
+| `speckit.plan.md` | `speckit.plan` |
+| `speckit.tasks.md` | `speckit.tasks` |
+| `speckit.implement.md` | `speckit.implement` |
+| `speckit.analyze.md` | `speckit.analyze` |
+| `copilot-review.md` | `copilot-review` |
+| `linter.md` | `linter` |
+| `tester.md` | `tester` |
+| `devops.md` | `devops` |
+| `judge.md` | `judge` |
+| `quality-assurance.md` | `quality-assurance` |
+| `generic.md` | Fallback for unrecognized agents |
+
+### CLI Dispatch
+
+The `scripts/fleet-dispatch.sh` script provides a command-line interface for fleet dispatch outside the Solune web UI. It shares a common library (`scripts/lib/fleet_dispatch_common.sh`) and supports the same template rendering and agent assignment flow.
+
+### Pipeline Launcher
+
+The `pipeline_launcher` service bootstraps new pipelines after parent issue creation:
+
+- Creates sub-issues for all agents in the pipeline
+- Determines initial agents from the configuration
+- Supports optional **queue mode** — if another pipeline is already active for the same project, the new pipeline is queued and started automatically when the active one completes
+- Assigns initial agents (parallel or sequential depending on the first execution group)
+- Starts polling and returns a `PipelineLaunchResult` with the initial state
+
+## Pipeline Recovery
 
 On server restart, the system reconstructs state from:
 
@@ -229,6 +273,8 @@ On server restart, the system reconstructs state from:
 - `Done!` markers from issue comments
 - Sub-issue mappings from `[agent-name]` title prefixes
 - Main branch discovery by scanning linked PRs
+
+The `copilot_polling/recovery` module provides **self-healing recovery** for stalled pipelines. It reconstructs pipeline state from issue labels, the database, or both, assigning a confidence level (high, medium, low, or ambiguous) and flagging cases that need manual review. Recovery attempts are rate-limited with a per-issue cooldown to prevent thrashing. Cross-repo pipeline restart recovery is also supported — if a pipeline stalls because an agent was working in a different repository, the recovery module detects the situation and re-assigns the agent.
 
 ## Configuration
 

@@ -55,14 +55,14 @@ The frontend is a browser-routed SPA. `App.tsx` wires React Router, TanStack Que
 
 | Area | Current modules |
 |------|-----------------|
-| `components/` | `activity`, `agents`, `apps`, `auth`, `board`, `chat`, `chores`, `command-palette`, `common`, `help`, `layout`, `onboarding`, `pipeline`, `settings`, `tools`, `ui` |
+| `components/` | `activity`, `agents`, `apps`, `auth`, `board`, `chat`, `chores`, `command-palette`, `common`, `help`, `onboarding`, `pipeline`, `settings`, `tools`, `ui` |
 | `pages/` | `ActivityPage`, `AgentsPage`, `AgentsPipelinePage`, `AppPage`, `AppsPage`, `ChoresPage`, `HelpPage`, `LoginPage`, `NotFoundPage`, `ProjectsPage`, `SettingsPage`, `ToolsPage` |
 | `layout/` | `AppLayout`, `AuthGate`, `Sidebar`, `TopBar`, `Breadcrumb`, `ProjectSelector`, `NotificationBell`, `RateLimitBar`, `PageTransition` |
 | `services/` | `api.ts` plus schema adapters and generated contract helpers |
 
 ### Frontend Hooks (grouped by domain)
 
-Solune currently ships **60+ production hooks** in `frontend/src/hooks/`.
+Solune currently ships **63 production hooks** in `frontend/src/hooks/`.
 
 | Domain | Hooks |
 |--------|-------|
@@ -105,9 +105,9 @@ The backend is the operational core of Solune. It handles authentication, GitHub
 | Responsibility | Services |
 |----------------|----------|
 | **Activity, observability, and alerts** | `activity_logger`, `activity_service`, `alert_dispatcher`, `logging_utils`, `otel_setup`, `rate_limit_tracker` |
-| **Agents, plans, and chat execution** | `agent_creator`, `agent_middleware`, `agent_provider`, `agent_tools`, `agent_tracking`, `chat_agent`, `chat_store`, `guard_service`, `label_classifier`, `plan_agent_provider`, `plan_issue_service`, `plan_parser`, `template_files`, `transcript_detector` |
+| **Agents, plans, and chat execution** | `agent_creator`, `agent_middleware`, `agent_provider`, `agent_tools`, `agent_tracking`, `ai_utilities`, `chat_agent`, `chat_store`, `guard_service`, `label_classifier`, `plan_agent_provider`, `plan_issue_service`, `plan_parser`, `template_files`, `transcript_detector` |
 | **Apps and templates** | `app_plan_orchestrator`, `app_service`, `app_templates/loader`, `app_templates/registry`, `app_templates/renderer` |
-| **Pipeline lifecycle** | `collision_resolver`, `copilot_polling/*`, `pipeline_estimate`, `pipeline_orchestrator`, `pipeline_state_store`, `pipelines/pipeline_config`, `pipelines/service`, `task_registry`, `workflow_orchestrator/*` |
+| **Pipeline lifecycle** | `collision_resolver`, `copilot_polling/*`, `fleet_dispatch`, `pipeline_estimate`, `pipeline_launcher`, `pipeline_orchestrator`, `pipeline_state_store`, `pipelines/pipeline_config`, `pipelines/service`, `task_registry`, `workflow_orchestrator/*` |
 | **GitHub, metadata, and persistence** | `cache`, `database`, `done_items_store`, `encryption`, `github_auth`, `github_commit_workflow`, `github_projects/*`, `metadata_service`, `mcp_store`, `model_fetcher`, `pagination`, `session_store`, `settings_store`, `websocket` |
 | **Feature-specific services** | `agents/service`, `agents/catalog`, `agents/agent_mcp_sync`, `chores/chat`, `chores/counter`, `chores/scheduler`, `chores/service`, `chores/template_builder`, `mcp_server/*`, `signal_bridge`, `signal_chat`, `signal_delivery`, `tools/presets`, `tools/service` |
 

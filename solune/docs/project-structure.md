@@ -11,7 +11,7 @@ solune/
 ├── backend/                # FastAPI application, tests, and migrations
 ├── docs/                   # Product, architecture, and operational documentation
 ├── frontend/               # React 19 + Vite 8 SPA
-├── scripts/                # Repo maintenance, OpenAPI export, and hook helpers
+├── scripts/                # Repo maintenance, OpenAPI export, fleet dispatch, and hook helpers
 └── specs/                  # Spec Kit-generated feature specs
 ```
 
@@ -64,9 +64,9 @@ backend/
 | Group | Current services |
 |-------|------------------|
 | **Activity / ops** | `activity_logger.py`, `activity_service.py`, `alert_dispatcher.py`, `otel_setup.py`, `rate_limit_tracker.py` |
-| **Agent + chat flows** | `agent_creator.py`, `agent_middleware.py`, `agent_provider.py`, `agent_tools.py`, `agent_tracking.py`, `chat_agent.py`, `chat_store.py`, `guard_service.py`, `label_classifier.py`, `plan_agent_provider.py`, `plan_issue_service.py`, `plan_parser.py`, `template_files.py`, `transcript_detector.py` |
+| **Agent + chat flows** | `agent_creator.py`, `agent_middleware.py`, `agent_provider.py`, `agent_tools.py`, `agent_tracking.py`, `ai_utilities.py`, `chat_agent.py`, `chat_store.py`, `guard_service.py`, `label_classifier.py`, `plan_agent_provider.py`, `plan_issue_service.py`, `plan_parser.py`, `template_files.py`, `transcript_detector.py` |
 | **Apps** | `app_plan_orchestrator.py`, `app_service.py`, `app_templates/` |
-| **Pipelines** | `collision_resolver.py`, `copilot_polling/`, `pipeline_estimate.py`, `pipeline_orchestrator.py`, `pipeline_state_store.py`, `pipelines/`, `task_registry.py`, `workflow_orchestrator/` |
+| **Pipelines** | `collision_resolver.py`, `copilot_polling/`, `fleet_dispatch.py`, `pipeline_estimate.py`, `pipeline_launcher.py`, `pipeline_orchestrator.py`, `pipeline_state_store.py`, `pipelines/`, `task_registry.py`, `workflow_orchestrator/` |
 | **Persistence / integrations** | `cache.py`, `database.py`, `done_items_store.py`, `encryption.py`, `github_auth.py`, `github_commit_workflow.py`, `github_projects/`, `mcp_store.py`, `metadata_service.py`, `model_fetcher.py`, `pagination.py`, `session_store.py`, `settings_store.py`, `signal_bridge.py`, `signal_chat.py`, `signal_delivery.py`, `websocket.py` |
 | **Feature packages** | `agents/`, `chores/`, `mcp_server/`, `tools/` |
 
@@ -115,7 +115,6 @@ frontend/
 - `command-palette/`
 - `common/`
 - `help/`
-- `layout/`
 - `onboarding/`
 - `pipeline/`
 - `settings/`
@@ -158,6 +157,8 @@ Solune currently ships **63 production hooks** in `frontend/src/hooks/`.
 - `backend/tests/` includes `architecture`, `chaos`, `concurrency`, `e2e`, `fuzz`, `integration`, `performance`, `property`, and `unit` coverage.
 - `frontend/e2e/` includes route, responsive-layout, chat, agents, MCP, settings, and pipeline monitoring specs.
 - `scripts/export-openapi.py` regenerates `backend/openapi.json` when backend dependencies are available.
+- `scripts/fleet-dispatch.sh` is the CLI entry point for fleet-based agent dispatch (see [Agent Pipeline](agent-pipeline.md)).
+- `scripts/pipelines/` holds the canonical fleet dispatch configuration (`fleet-dispatch.json`), the JSON schema for pipeline configs, and per-agent instruction templates.
 
 ---
 
