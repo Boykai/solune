@@ -419,6 +419,19 @@ async def set_pipeline_state(issue_number: int, state: Any) -> None:
     state.  Uses ``ON CONFLICT … DO UPDATE`` to preserve the original
     ``created_at`` timestamp on updates.
     """
+    # Preserve non-empty repository coordinates from existing cached state
+    # when the incoming state has empty fields (many constructors don't set them).
+    if not getattr(state, "repository_owner", "") or not getattr(state, "repository_name", ""):
+        existing = _pipeline_states.get(issue_number)
+        if existing is not None:
+            if not getattr(state, "repository_owner", "") and getattr(
+                existing, "repository_owner", ""
+            ):
+                state.repository_owner = existing.repository_owner
+            if not getattr(state, "repository_name", "") and getattr(
+                existing, "repository_name", ""
+            ):
+                state.repository_name = existing.repository_name
     async with _get_store_lock():
         if _db is not None:
             try:
