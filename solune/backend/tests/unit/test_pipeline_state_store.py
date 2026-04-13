@@ -806,6 +806,109 @@ class TestRowConversionCorruptTimestamp:
         assert state.issue_number == 999
 
 
+class TestRepositoryFieldPersistence:
+    """Tests for repository_owner / repository_name round-trip and defaults."""
+
+    async def test_repository_fields_round_trip(self, mock_db: aiosqlite.Connection):
+        """repository_owner/name survive set_pipeline_state → clear L1 → get_pipeline_state_async."""
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        state = PipelineState(
+            issue_number=42,
+            project_id="PVT_kitton",
+            status="Backlog",
+            agents=["copilot"],
+            repository_owner="Boykai",
+            repository_name="kitton",
+        )
+
+        # Wire the async store to the mock DB
+        store._db = mock_db
+        try:
+            await store.set_pipeline_state(42, state)
+
+            # Clear L1 cache so get_pipeline_state_async must reload from SQLite
+            store._pipeline_states.pop(42, None)
+
+            reloaded = await store.get_pipeline_state_async(42)
+            assert reloaded is not None
+            assert reloaded.repository_owner == "Boykai"
+            assert reloaded.repository_name == "kitton"
+        finally:
+            store._db = None
+
+    async def test_missing_repository_fields_default_to_empty(self, mock_db: aiosqlite.Connection):
+        """Legacy rows without repository fields default to empty strings."""
+        metadata = {
+            "agents": ["tester"],
+            "current_agent_index": 0,
+            "completed_agents": [],
+        }
+        await mock_db.execute(
+            """INSERT INTO pipeline_states
+               (issue_number, project_id, status, agent_name, agent_instance_id,
+                pr_number, pr_url, sub_issues, metadata, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+            (
+                43,
+                "PVT_test",
+                "Ready",
+                "tester",
+                None,
+                None,
+                None,
+                "{}",
+                json.dumps(metadata),
+            ),
+        )
+        await mock_db.commit()
+
+        cursor = await mock_db.execute(
+            "SELECT * FROM pipeline_states WHERE issue_number = ?", (43,)
+        )
+        row = await cursor.fetchone()
+        state = store._row_to_pipeline_state(row)
+        assert state.repository_owner == ""
+        assert state.repository_name == ""
+
+    async def test_write_preserves_existing_repo_coords(self, mock_db: aiosqlite.Connection):
+        """set_pipeline_state must not erase repo coords when new state has empty fields."""
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        # Seed L1 cache with a state that has repo coords
+        existing = PipelineState(
+            issue_number=50,
+            project_id="PVT_cross",
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner="Boykai",
+            repository_name="kitton",
+        )
+        store._pipeline_states[50] = existing
+
+        # Simulate a constructor that forgot to set repo fields
+        updated = PipelineState(
+            issue_number=50,
+            project_id="PVT_cross",
+            status="In Progress",
+            agents=["speckit.implement"],
+            current_agent_index=1,
+            completed_agents=["speckit.implement"],
+        )
+        assert updated.repository_owner == ""
+        assert updated.repository_name == ""
+
+        store._db = mock_db
+        try:
+            await store.set_pipeline_state(50, updated)
+        finally:
+            store._db = None
+
+        # Repo coords should be preserved from the existing state
+        assert updated.repository_owner == "Boykai"
+        assert updated.repository_name == "kitton"
+
+
 # ── Bounded project launch locks ────────────────────────────────
 
 

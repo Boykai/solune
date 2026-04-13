@@ -12,6 +12,11 @@ logger = get_logger(__name__)
 
 _FLEET_EXCLUDED_AGENTS = frozenset({"copilot-review", "human"})
 
+# Agent slugs that map to GitHub's built-in Copilot coding agent.
+# These bypass custom agent files and instruction templates — the parent
+# issue body is passed as the prompt directly.
+_BUILTIN_COPILOT_SLUGS = frozenset({"copilot"})
+
 
 @dataclass(frozen=True)
 class FleetDispatchPayload:
@@ -19,7 +24,7 @@ class FleetDispatchPayload:
 
     custom_agent: str
     custom_instructions: str
-    template_path: Path
+    template_path: Path | None
 
 
 @lru_cache(maxsize=1)
@@ -72,23 +77,28 @@ class FleetDispatchService:
         if parent_issue_url is None:
             parent_issue_url = f"https://github.com/{owner}/{repo}/issues/{parent_issue_number}"
 
-        try:
-            custom_instructions = self.render_template(
-                template_path=template_path,
-                issue_data=issue_data,
-                base_ref=base_ref,
-                parent_issue_number=parent_issue_number,
-                parent_issue_url=parent_issue_url,
-                existing_pr=existing_pr,
-            )
-        except Exception:
-            logger.warning(
-                "Failed to render fleet dispatch template for agent '%s' from %s",
-                agent_slug,
-                template_path,
-                exc_info=True,
-            )
-            custom_instructions = fallback_instructions
+        # Built-in Copilot agents use the parent issue body as the prompt
+        # directly — no instruction template wrapping.
+        if template_path is None:
+            custom_instructions = str(issue_data.get("body") or "")
+        else:
+            try:
+                custom_instructions = self.render_template(
+                    template_path=template_path,
+                    issue_data=issue_data,
+                    base_ref=base_ref,
+                    parent_issue_number=parent_issue_number,
+                    parent_issue_url=parent_issue_url,
+                    existing_pr=existing_pr,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to render fleet dispatch template for agent '%s' from %s",
+                    agent_slug,
+                    template_path,
+                    exc_info=True,
+                )
+                custom_instructions = fallback_instructions
 
         return FleetDispatchPayload(
             custom_agent=custom_agent,
@@ -214,7 +224,14 @@ class FleetDispatchService:
         agent_slug: str,
         assignment_config: dict[str, Any] | None = None,
     ) -> str:
-        """Resolve the custom agent id for fleet-backed dispatch."""
+        """Resolve the custom agent id for fleet-backed dispatch.
+
+        Built-in Copilot slugs (e.g. ``"copilot"``) return ``""`` so that
+        GitHub uses its native coding agent with no custom agent file.
+        """
+
+        if agent_slug in _BUILTIN_COPILOT_SLUGS:
+            return ""
 
         configured = self._first_config_value(assignment_config, "customAgent", "custom_agent")
         if configured:
@@ -230,8 +247,15 @@ class FleetDispatchService:
         self,
         agent_slug: str,
         assignment_config: dict[str, Any] | None = None,
-    ) -> Path:
-        """Resolve the instruction template path for an agent, with generic fallback."""
+    ) -> Path | None:
+        """Resolve the instruction template path for an agent, with generic fallback.
+
+        Returns ``None`` for built-in Copilot slugs — they receive the parent
+        issue body as-is with no template wrapping.
+        """
+
+        if agent_slug in _BUILTIN_COPILOT_SLUGS:
+            return None
 
         configured = self._first_config_value(
             assignment_config,
