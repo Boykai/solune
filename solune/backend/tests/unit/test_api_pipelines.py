@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -48,6 +49,30 @@ async def _create_pipeline(
         github_user_id=github_user_id,
     )
     return pipeline.id
+
+
+async def _get_preset_pipeline_id(
+    mock_db,
+    preset_id: str,
+    *,
+    project_id: str = "PVT_1",
+    github_user_id: str = "12345",
+) -> str:
+    """Seed presets when needed and return the matching preset pipeline id."""
+    service = PipelineService(mock_db)
+    await service.seed_presets(project_id, github_user_id=github_user_id)
+    cursor = await mock_db.execute(
+        """
+        SELECT id
+        FROM pipeline_configs
+        WHERE preset_id = ? AND github_user_id = ?
+        LIMIT 1
+        """,
+        (preset_id, github_user_id),
+    )
+    row = await cursor.fetchone()
+    assert row is not None
+    return row["id"]
 
 
 class TestLaunchPipelineIssue:
@@ -118,6 +143,61 @@ class TestLaunchPipelineIssue:
             "agent_count": 1,
             "pipeline_name": "Imported Issue Pipeline",
         }
+
+    @pytest.mark.anyio
+    async def test_launch_uses_github_copilot_preset_as_actionable_stage(
+        self, client, mock_db, mock_github_service
+    ):
+        """The built-in GitHub Copilot preset launches from an actionable workflow status."""
+        pipeline_id = await _get_preset_pipeline_id(
+            mock_db,
+            "github-copilot",
+            project_id="PVT_1",
+        )
+        mock_github_service.create_issue.return_value = {
+            "number": 43,
+            "node_id": "I_node_43",
+            "html_url": "https://github.com/owner/repo/issues/43",
+        }
+
+        mock_orchestrator = AsyncMock()
+
+        async def add_to_project(ctx, recommendation=None):
+            ctx.project_item_id = "PVTI_43"
+            return "PVTI_43"
+
+        mock_orchestrator.add_to_project_with_backlog.side_effect = add_to_project
+        mock_orchestrator.create_all_sub_issues.return_value = {}
+        mock_orchestrator.assign_agent_for_status.return_value = True
+
+        with (
+            patch(
+                "src.api.pipelines.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.api.pipelines.github_projects_service", mock_github_service),
+            patch(
+                "src.api.pipelines.get_workflow_config", new_callable=AsyncMock, return_value=None
+            ),
+            patch("src.api.pipelines.set_workflow_config", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_workflow_orchestrator", return_value=mock_orchestrator),
+            patch("src.services.copilot_polling.ensure_polling_started", new_callable=AsyncMock),
+            patch("src.api.pipelines.get_pipeline_state", return_value=None),
+            patch("src.api.pipelines.log_event", new_callable=AsyncMock),
+        ):
+            resp = await client.post(
+                "/api/v1/pipelines/PVT_1/launch",
+                json={
+                    "issue_description": "# Build the feature\n\nUse the Copilot preset.",
+                    "pipeline_id": pipeline_id,
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        mock_orchestrator.assign_agent_for_status.assert_awaited_once()
+        assert mock_orchestrator.assign_agent_for_status.await_args.args[1] == "In Progress"
 
     @pytest.mark.anyio
     async def test_launch_rejects_whitespace_only_description(self, client, mock_db):
@@ -769,6 +849,92 @@ class TestSeedPresets:
         data = resp.json()
         assert data["seeded"] == []
         assert len(data["skipped"]) == data["total"]
+
+    @pytest.mark.anyio
+    async def test_seed_presets_refreshes_existing_github_copilot_definition(self, mock_db):
+        """Seeding updates existing preset rows when built-in definitions change."""
+        await mock_db.execute(
+            """
+            INSERT INTO pipeline_configs
+                (id, project_id, name, description, stages, is_preset, preset_id, github_user_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+            """,
+            (
+                "preset-copilot-old",
+                "PVT_PRESETS_SYNC",
+                "GitHub Copilot",
+                "Single-stage pipeline powered by GitHub Copilot",
+                json.dumps(
+                    [
+                        {
+                            "id": "preset-gc-stage-1",
+                            "name": "Execute",
+                            "order": 0,
+                            "groups": [
+                                {
+                                    "id": "preset-gc-group-1",
+                                    "order": 0,
+                                    "execution_mode": "sequential",
+                                    "agents": [
+                                        {
+                                            "id": "preset-gc-agent-1",
+                                            "agent_slug": "copilot",
+                                            "agent_display_name": "GitHub Copilot",
+                                            "model_id": "",
+                                            "model_name": "",
+                                            "tool_ids": [],
+                                            "tool_count": 0,
+                                            "config": {},
+                                        }
+                                    ],
+                                }
+                            ],
+                            "agents": [
+                                {
+                                    "id": "preset-gc-agent-1",
+                                    "agent_slug": "copilot",
+                                    "agent_display_name": "GitHub Copilot",
+                                    "model_id": "",
+                                    "model_name": "",
+                                    "tool_ids": [],
+                                    "tool_count": 0,
+                                    "config": {},
+                                }
+                            ],
+                            "execution_mode": "sequential",
+                        }
+                    ]
+                ),
+                "github-copilot",
+                "12345",
+                "2026-04-13T00:00:00Z",
+                "2026-04-13T00:00:00Z",
+            ),
+        )
+        await mock_db.commit()
+
+        result = await PipelineService(mock_db).seed_presets(
+            "PVT_PRESETS_SYNC",
+            github_user_id="12345",
+        )
+
+        assert "github-copilot" in result["skipped"]
+        assert "github-copilot" not in result["seeded"]
+
+        cursor = await mock_db.execute(
+            """
+            SELECT stages
+            FROM pipeline_configs
+            WHERE preset_id = ? AND github_user_id = ?
+            LIMIT 1
+            """,
+            ("github-copilot", "12345"),
+        )
+        row = await cursor.fetchone()
+        assert row is not None
+
+        stages = json.loads(row["stages"])
+        assert stages[0]["name"] == "In Progress"
 
 
 class TestPipelineAssignment:

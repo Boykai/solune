@@ -127,7 +127,7 @@ _PRESET_DEFINITIONS = [
         "stages": [
             _grouped_stage(
                 "preset-gc-stage-1",
-                "Execute",
+                "In Progress",
                 0,
                 "preset-gc-group-1",
                 [_agent("preset-gc-agent-1", "copilot", "GitHub Copilot")],
@@ -620,29 +620,65 @@ class PipelineService:
         """Idempotently seed preset pipeline configurations for a user."""
         seeded: list[str] = []
         skipped: list[str] = []
+        did_update_existing = False
 
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
         for preset in _PRESET_DEFINITIONS:
             preset_id = preset["preset_id"]
+            stages_json = json.dumps(preset["stages"])
             # Check if already seeded for this user
             if github_user_id:
                 cursor = await self._db.execute(
-                    "SELECT id FROM pipeline_configs WHERE preset_id = ? AND (github_user_id = ? OR github_user_id = '')",
-                    (preset_id, github_user_id),
+                    """
+                    SELECT id, name, description, stages, is_preset
+                    FROM pipeline_configs
+                    WHERE preset_id = ? AND (github_user_id = ? OR github_user_id = '')
+                    ORDER BY CASE WHEN project_id = ? THEN 0 ELSE 1 END,
+                             CASE WHEN github_user_id = ? THEN 0 ELSE 1 END,
+                             updated_at DESC
+                    LIMIT 1
+                    """,
+                    (preset_id, github_user_id, project_id, github_user_id),
                 )
             else:
                 cursor = await self._db.execute(
-                    "SELECT id FROM pipeline_configs WHERE preset_id = ? AND project_id = ?",
+                    """
+                    SELECT id, name, description, stages, is_preset
+                    FROM pipeline_configs
+                    WHERE preset_id = ? AND project_id = ?
+                    LIMIT 1
+                    """,
                     (preset_id, project_id),
                 )
             existing = await cursor.fetchone()
             if existing:
+                existing_row = dict(existing)
+                if (
+                    existing_row.get("name") != preset["name"]
+                    or (existing_row.get("description") or "") != preset["description"]
+                    or (existing_row.get("stages") or "[]") != stages_json
+                    or int(existing_row.get("is_preset") or 0) != 1
+                ):
+                    await self._db.execute(
+                        """
+                        UPDATE pipeline_configs
+                        SET name = ?, description = ?, stages = ?, is_preset = 1, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            preset["name"],
+                            preset["description"],
+                            stages_json,
+                            now,
+                            existing_row["id"],
+                        ),
+                    )
+                    did_update_existing = True
                 skipped.append(preset_id)
                 continue
 
             pipeline_id = str(uuid.uuid4())
-            stages_json = json.dumps(preset["stages"])
             try:
                 await self._db.execute(
                     """
@@ -666,7 +702,7 @@ class PipelineService:
             except aiosqlite.IntegrityError:
                 skipped.append(preset_id)
 
-        if seeded:
+        if seeded or did_update_existing:
             await self._db.commit()
 
         return {"seeded": seeded, "skipped": skipped, "total": len(seeded) + len(skipped)}
