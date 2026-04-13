@@ -16,6 +16,12 @@
       "pattern": "^https://github\\.com/Boykai/solune/blob/main/"
     },
     {
+      "pattern": "^https://aka\\.ms/deploytoazurebutton$"
+    },
+    {
+      "pattern": "^https://portal\\.azure\\.com/#create/Microsoft\\.Template/uri/"
+    },
+    {
       "pattern": "^https?://localhost"
     }
   ],
