@@ -177,7 +177,7 @@
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies — can start immediately. All tasks are file deletions with no code dependents.
-- **Foundational (Phase 2)**: Depends on Phase 1 completion — deleted files must be gone before removing their model/config imports.
+- **Foundational (Phase 2)**: No strict dependency on Phase 1 — Phase 1 deletes standalone files (scripts, CLI plugin, fleet_dispatch.py) that are not imported by the model/config files modified in Phase 2. However, completing Phase 1 first provides a cleaner working tree.
 - **US1 (Phase 3)**: Depends on Phase 2 — fleet models and config must be removed before cleaning orchestrator imports.
 - **US2 (Phase 4)**: Depends on Phases 3, 5–9 — codebase-wide sweep should run after all modifications are complete.
 - **US3 (Phase 5)**: Can start after Phase 2 (delete fleet test files immediately); test file modifications depend on corresponding source changes in Phases 3, 6–8.
@@ -202,7 +202,7 @@
 - File deletions before code modifications
 - Import removal before logic changes
 - Backend before frontend (API fields drive type definitions)
-- Code changes before test changes
+- Code changes before test *modifications* (test file *deletions* can happen early since they remove entire files)
 
 ### Parallel Opportunities
 
