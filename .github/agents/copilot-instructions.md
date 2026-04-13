@@ -203,6 +203,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - N/A for this feature; header content comes from existing page/query state and no persistence model changes are required (001-simplify-page-headers)
 - Python 3.12+ (backend); TypeScript/React (frontend) + FastAPI, Pydantic, Microsoft Agent Framework (`ChatAgentService`), Vite (frontend build) (003-remove-dead-code-tech-debt)
 - N/A — no schema or persistence changes; `pipeline_metadata` field evaluation may defer removal pending data-migration analysis (003-remove-dead-code-tech-debt)
+- Markdown (documentation); Bash (existing scripts); Python 3.12+ / TypeScript (codebase under documentation) + `markdownlint` (markdown style), `markdown-link-check` (link validation), `generate-diagrams.sh` (Mermaid diagram generation), `documentationLinks.test.ts` (internal link verification) (005-librarian)
+- N/A — file-based documentation; `.last-refresh` JSON metadata file (005-librarian)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)

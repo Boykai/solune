@@ -1,206 +1,233 @@
-# Implementation Plan: Remove Dead Code & Tech Debt
+# Implementation Plan: Librarian Documentation Refresh
 
-**Branch**: `copilot/remove-dead-code-tech-debt` | **Date**: 2026-04-13 | **Spec**: GitHub Issue #1630
-**Input**: Parent issue Boykai/solune#1630 — Remove Dead Code & Tech Debt
+**Branch**: `copilot/add-implementation-plan` | **Date**: 2026-04-13 | **Spec**: [GitHub Issue #1728](https://github.com/Boykai/solune/issues/1728)
+**Input**: Parent issue Boykai/solune#1728 — Librarian
 
 ## Summary
 
-Remove 5 deprecated backend modules (marked for v0.3.0 removal) that are still lazily imported in active code, migrate their consumers to the current `ChatAgentService` and `agent_provider` abstractions, guard unstructured frontend console logging behind `import.meta.env.DEV`, evaluate a stale pipeline field, convert singleton TODO markers to a tracked issue, and consolidate misplaced root-level spec files into the mono-spec directory structure.
+Execute a full Librarian documentation refresh cycle: build a change manifest from the last baseline (`b183ba31`, 2026-04-11) through the current `main` HEAD, infer focus shifts from recent development activity, update the README and all documentation files to match the current codebase reality, validate consistency (links, terminology, diagrams), and stamp a new baseline for the next cycle. This is a process-execution feature — no new application code is written; only documentation and metadata files are created or updated.
 
 ## Technical Context
 
-**Language/Version**: Python 3.12+ (backend); TypeScript/React (frontend)
-**Primary Dependencies**: FastAPI, Pydantic, Microsoft Agent Framework (`ChatAgentService`), Vite (frontend build)
-**Storage**: N/A — no schema or persistence changes; `pipeline_metadata` field evaluation may defer removal pending data-migration analysis
-**Testing**: `pytest` (backend: `uv run pytest tests/`); Vitest (frontend: `npm run test`); `pyright` type checking; `ruff` linting
-**Target Platform**: Linux server (backend); browser SPA (frontend)
-**Project Type**: Web application (backend + frontend monorepo under `solune/`)
-**Performance Goals**: N/A — cleanup-only; no new runtime paths
-**Constraints**: Zero behavioral regressions; all existing tests must pass; no new type errors; OpenAPI schema unaffected
-**Scale/Scope**: ~5 deprecated modules removed, ~12 consumer files migrated, ~3 frontend files guarded, ~6 root-level files relocated
+**Language/Version**: Markdown (documentation); Bash (existing scripts); Python 3.12+ / TypeScript (codebase under documentation)
+**Primary Dependencies**: `markdownlint` (markdown style), `markdown-link-check` (link validation), `generate-diagrams.sh` (Mermaid diagram generation), `documentationLinks.test.ts` (internal link verification)
+**Storage**: N/A — file-based documentation; `.last-refresh` JSON metadata file
+**Testing**: `cd solune/frontend && npm test -- --run src/docs/documentationLinks.test.ts` (link validation); `markdownlint` (style); `generate-diagrams.sh --check` (diagram freshness)
+**Target Platform**: GitHub-rendered Markdown; developer workstations
+**Project Type**: Documentation refresh (no application code changes)
+**Performance Goals**: N/A — documentation-only
+**Constraints**: Zero broken links post-refresh; all documented features must match the running application; all config keys in docs must exist in code; no references to removed features
+**Scale/Scope**: ~43 markdown files in `solune/docs/`, 5 Mermaid diagrams, 1 root README, 1 frontend README, 1 CHANGELOG, 7 ADRs, 15 page guides, 4 verification checklists
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **I. Specification-First Development**: PASS — The parent issue (#1630) provides a structured specification with phased requirements, explicit scope boundaries, exclusion list, and verification criteria. This plan follows the issue as the authoritative spec.
-- **II. Template-Driven Workflow**: PASS — This plan and all Phase 0/1 artifacts reside in `specs/003-remove-dead-code-tech-debt/` using the canonical Speckit artifact set.
-- **III. Agent-Orchestrated Execution**: PASS — The plan decomposes into six independent/dependent phases suitable for single-responsibility agent execution. Each phase has clear inputs, outputs, and handoff criteria.
-- **IV. Test Optionality with Clarity**: PASS — No new tests are mandated. Existing test suites serve as regression gates. Tests for deprecated modules (`test_ai_agent.py`, `test_completion_providers.py`, `test_issue_generation_prompt.py`, `test_task_generation_prompt.py`, `test_transcript_analysis_prompt.py`) are removed alongside their subjects. Test fixtures (`mock_ai_agent_service`) are removed from `conftest.py`.
-- **V. Simplicity and DRY**: PASS — The plan removes complexity (deprecated abstractions) rather than adding it. Migration paths use existing `ChatAgentService` and `agent_provider` patterns already established in the codebase.
+- **I. Specification-First Development**: PASS — The parent issue (#1728) provides a structured specification with 7 phased requirements, explicit principles, verification checklist, and cadence guidelines. This plan follows the issue as the authoritative spec.
+- **II. Template-Driven Workflow**: PASS — This plan and all Phase 0/1 artifacts reside in `specs/005-librarian/` using the canonical Speckit artifact set. The documentation refresh itself uses existing templates (`.change-manifest.md`, `doc-refresh-verification.md`, `OWNERS.md` doc-to-source mapping).
+- **III. Agent-Orchestrated Execution**: PASS — The plan decomposes into 7 sequential phases suitable for single-responsibility agent execution. The `archivist` agent handles Phases 1–7 content work; the `linter` agent handles Phase 5 validation. Each phase has clear inputs, outputs, and handoff criteria.
+- **IV. Test Optionality with Clarity**: PASS — No new tests are mandated. Existing validation tools (`documentationLinks.test.ts`, `markdownlint`, `markdown-link-check`, `generate-diagrams.sh --check`) serve as quality gates. The verification checklist in Phase 7 provides the manual validation layer.
+- **V. Simplicity and DRY**: PASS — The plan reuses 100% of existing tooling and file formats. No new scripts, frameworks, or abstractions are introduced. The refresh follows the exact process described in the issue and already demonstrated in the previous cycle (2026-04-11).
 
-**Post-Phase-1 Re-check**: PASS — No constitution violations introduced by the design. The phased approach maintains simplicity and avoids premature abstraction. The deferred singleton DI refactor (TODO-018) is correctly scoped out per the Simplicity principle.
+**Post-Phase-1 Re-check**: PASS — No constitution violations introduced by the design. All phases operate on existing documentation infrastructure. No complexity justifications required.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/003-remove-dead-code-tech-debt/
+specs/005-librarian/
 ├── plan.md              # This file
-├── research.md          # Phase 0 output — migration path research
-├── data-model.md        # Phase 1 output — affected modules and dependency map
+├── research.md          # Phase 0 output — tooling and strategy research
+├── data-model.md        # Phase 1 output — change manifest and document model
 ├── quickstart.md        # Phase 1 output — execution guide for each phase
-├── contracts/           # Phase 1 output — N/A (OpenAPI schema unaffected)
+├── contracts/           # Phase 1 output — refresh-cycle-contract.yaml
 └── tasks.md             # Phase 2 output (NOT created by /speckit.plan)
 ```
 
-### Source Code (repository root)
+### Source Files (documentation under refresh)
 
 ```text
-solune/backend/
-├── src/
-│   ├── api/
-│   │   ├── chat.py                      # Phase 2: migrate get_ai_agent_service → ChatAgentService
-│   │   └── pipelines.py                 # Phase 2: migrate analyze_transcript() usage
-│   ├── prompts/
-│   │   ├── issue_generation.py          # Phase 1: DELETE
-│   │   ├── task_generation.py           # Phase 1: DELETE
-│   │   └── transcript_analysis.py       # Phase 1: DELETE
-│   └── services/
-│       ├── ai_agent.py                  # Phase 2: DELETE (after consumer migration)
-│       ├── completion_providers.py       # Phase 3: DELETE (after consumer migration)
-│       ├── chat_agent.py                # Migration target (ChatAgentService)
-│       ├── agent_provider.py            # Phase 3: relocate get_copilot_client_pool
-│       ├── plan_agent_provider.py       # Phase 3: update lazy import
-│       ├── model_fetcher.py             # Phase 3: update direct import
-│       ├── label_classifier.py          # Phase 3: update lazy imports
-│       ├── app_service.py               # Phase 2: replace lazy import
-│       ├── agent_creator.py             # Phase 2: migrate generate_agent_config()
-│       ├── signal_chat.py               # Phase 2: replace existence check
-│       ├── agents/service.py            # Phase 2: migrate _call_completion() usage
-│       ├── chores/chat.py               # Phase 2: migrate _call_completion() usage
-│       ├── workflow_orchestrator/
-│       │   └── orchestrator.py          # Phase 2: migrate type + factory
-│       └── copilot_polling/
-│           └── auto_merge.py            # Phase 4: evaluate pipeline_metadata
-├── tests/
-│   ├── conftest.py                      # Phase 2: remove AIAgentService import + fixture
-│   └── unit/
-│       ├── test_ai_agent.py             # Phase 2: DELETE
-│       ├── test_completion_providers.py  # Phase 3: DELETE
-│       ├── test_issue_generation_prompt.py   # Phase 1: DELETE
-│       ├── test_task_generation_prompt.py    # Phase 1: DELETE
-│       └── test_transcript_analysis_prompt.py # Phase 1: DELETE
-
-solune/frontend/
-└── src/
-    ├── services/api.ts                  # Phase 5: wrap console.debug in DEV guard
-    └── hooks/usePipelineConfig.ts       # Phase 5: wrap console.warn in DEV guard
+solune/
+├── README.md                               # Phase 3: revalidate project description + features
+├── CHANGELOG.md                            # Phase 1: parse for change harvest; Phase 7: update
+├── docs/
+│   ├── .last-refresh                       # Phase 1: read baseline; Phase 7: stamp new baseline
+│   ├── .change-manifest.md                 # Phase 1: compile new manifest
+│   ├── OWNERS.md                           # Phase 4: doc-to-source mapping reference
+│   ├── api-reference.md                    # Phase 4: diff against backend/src/api/
+│   ├── architecture.md                     # Phase 4: diff against module structure
+│   ├── configuration.md                    # Phase 4: diff against backend/src/config.py
+│   ├── project-structure.md                # Phase 4: diff against filesystem
+│   ├── setup.md                            # Phase 4: verify setup steps
+│   ├── testing.md                          # Phase 4: diff against test structure
+│   ├── agent-pipeline.md                   # Phase 4: diff against orchestrator
+│   ├── signal-integration.md               # Phase 4: diff against signal bridge
+│   ├── custom-agents-best-practices.md     # Phase 4: review for accuracy
+│   ├── roadmap.md                          # Phase 4: shipped vs. aspirational
+│   ├── architectures/                      # Phase 5: regenerate diagrams
+│   │   ├── backend-components.mmd
+│   │   ├── data-flow.mmd
+│   │   ├── deployment.mmd
+│   │   ├── frontend-components.mmd
+│   │   └── high-level.mmd
+│   ├── checklists/
+│   │   ├── doc-refresh-verification.md     # Phase 7: reset and re-verify
+│   │   ├── weekly-sweep.md
+│   │   ├── monthly-review.md
+│   │   └── quarterly-audit.md
+│   ├── decisions/                          # Phase 4: check for new ADRs
+│   │   ├── 001-githubkit-sdk.md
+│   │   ├── 002-sqlite-wal-auto-migrations.md
+│   │   ├── 003-copilot-default-ai-provider.md
+│   │   ├── 004-pluggable-completion-provider.md
+│   │   ├── 005-sub-issue-per-agent-pipeline.md
+│   │   └── 006-signal-sidecar.md
+│   └── pages/                              # Phase 4: diff against frontend pages
+│       ├── README.md
+│       ├── activity.md, agents.md, apps.md, chat.md, chores.md
+│       ├── dashboard.md, help.md, layout.md, login.md
+│       ├── not-found.md, pipeline.md, projects.md
+│       ├── settings.md, tools.md
+├── frontend/
+│   ├── README.md                           # Phase 4: diff against frontend structure
+│   └── docs/findings-log.md               # Phase 4: review for staleness
+├── scripts/
+│   └── generate-diagrams.sh               # Phase 5: diagram regeneration tool
+└── .pre-commit-config.yaml                 # Phase 5: existing validation hooks
 ```
 
-**Structure Decision**: Existing web application monorepo structure (`solune/backend/`, `solune/frontend/`). This feature modifies and deletes files in-place; no new directories or modules are introduced.
+**Structure Decision**: No new directories or files are introduced to the source tree. The refresh operates entirely on the existing documentation structure under `solune/docs/`, `solune/README.md`, and `solune/frontend/README.md`. The only new files are in `specs/005-librarian/` (plan artifacts) and updates to existing documentation/metadata files.
 
 ## Phase Execution Plan
 
-### Phase 1 — Remove Deprecated Prompt Modules (parallel with Phase 2)
+### Phase 1 — Build the Change Manifest
 
-**Goal**: Delete 3 prompt files only imported by the already-deprecated `ai_agent.py`.
-
-| Step | Action | File |
-|------|--------|------|
-| 1.1 | Delete deprecated prompt module | `src/prompts/issue_generation.py` |
-| 1.2 | Delete deprecated prompt module | `src/prompts/task_generation.py` |
-| 1.3 | Delete deprecated prompt module | `src/prompts/transcript_analysis.py` |
-| 1.4 | Verify no `prompts/__init__.py` re-exports (confirmed: none exist) | `src/prompts/__init__.py` |
-| 1.5 | Delete test for issue_generation prompt | `tests/unit/test_issue_generation_prompt.py` |
-| 1.6 | Delete test for task_generation prompt | `tests/unit/test_task_generation_prompt.py` |
-| 1.7 | Delete test for transcript_analysis prompt | `tests/unit/test_transcript_analysis_prompt.py` |
-
-**Verification**: `uv run pytest tests/ --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` — existing tests pass (prompt module tests removed alongside modules).
-
-### Phase 2 — Remove AIAgentService (depends on Phase 1)
-
-**Goal**: Migrate all consumers of the deprecated `AIAgentService` / `get_ai_agent_service()` to `ChatAgentService` or inline equivalents, then delete `ai_agent.py`.
-
-| Step | Action | File | Details |
-|------|--------|------|---------|
-| 2.1 | Replace lazy import | `src/api/chat.py` (L46, L50) | Replace `get_ai_agent_service` with `get_chat_agent_service`; adapt `identify_target_task()` call |
-| 2.2 | Replace lazy import | `src/services/app_service.py` (L163) | Replace lazy `get_ai_agent_service` import |
-| 2.3 | Migrate `_call_completion()` calls | `src/services/chores/chat.py` (L158, L193) | Replace with `ChatAgentService.run()` or direct agent-provider completion |
-| 2.4 | Migrate `_call_completion()` calls | `src/services/agents/service.py` (L1373, L1507, L1630, L1691) | Replace 4 lazy imports with `ChatAgentService` equivalents |
-| 2.5 | Migrate `analyze_transcript()` | `src/api/pipelines.py` (L333) | Move logic into `ChatAgentService` or a standalone utility |
-| 2.6 | Migrate type + factory | `src/services/workflow_orchestrator/orchestrator.py` (L52, L3060) | Replace `AIAgentService` type hint and `get_ai_agent_service()` call |
-| 2.7 | Migrate `generate_agent_config()` | `src/services/agent_creator.py` (L28, L467) | Move logic to `ChatAgentService` or inline |
-| 2.8 | Remove existence check | `src/services/signal_chat.py` (L659) | Replace with `get_chat_agent_service()` or configuration check |
-| 2.9 | Remove import + fixture | `tests/conftest.py` (L67, L204–207) | Remove `AIAgentService` import and `mock_ai_agent_service` fixture |
-| 2.10 | Update dependent tests | Various test files | Update any tests that depend on `mock_ai_agent_service` fixture |
-| 2.11 | Delete deprecated service | `src/services/ai_agent.py` | Remove after all consumers migrated |
-| 2.12 | Delete deprecated test | `tests/unit/test_ai_agent.py` | Remove alongside service |
-| 2.13 | Grep verification | `grep -rn "ai_agent" src/ tests/` | Zero hits expected |
-
-**Verification**: Full `pytest` pass; `pyright` no new errors; `ruff check` clean.
-
-### Phase 3 — Remove completion_providers.py (depends on Phase 2)
-
-**Goal**: Migrate 4 services still importing from the deprecated provider, relocate `CopilotClientPool` / `get_copilot_client_pool` into `agent_provider.py`, then delete `completion_providers.py`.
-
-| Step | Action | File | Details |
-|------|--------|------|---------|
-| 3.1 | Relocate `CopilotClientPool` + `get_copilot_client_pool` | `src/services/agent_provider.py` | Move/inline from `completion_providers.py`; these are the only non-deprecated symbols |
-| 3.2 | Update lazy import | `src/services/agent_provider.py` (L200) | Point to local definition |
-| 3.3 | Update lazy import | `src/services/plan_agent_provider.py` (L194) | Import from `agent_provider` |
-| 3.4 | Update direct import | `src/services/model_fetcher.py` (L17) | Import from `agent_provider` |
-| 3.5 | Migrate `create_completion_provider()` | `src/services/label_classifier.py` (L101, L157) | Replace with `agent_provider`-based completion or inline equivalent |
-| 3.6 | Delete deprecated provider | `src/services/completion_providers.py` | Remove after all consumers migrated |
-| 3.7 | Delete deprecated test | `tests/unit/test_completion_providers.py` | Remove alongside module |
-| 3.8 | Grep verification | `grep -rn "completion_providers" src/ tests/` | Zero hits expected |
-
-**Verification**: Full `pytest` pass; `pyright` no new errors; `ruff check` clean.
-
-### Phase 4 — Minor Backend Cleanup (parallel with Phase 3)
-
-| Step | Action | File | Details |
-|------|--------|------|---------|
-| 4.1 | Evaluate `pipeline_metadata` field | `src/services/copilot_polling/auto_merge.py` | Field is wired through `dispatch_devops_agent()` → `schedule_post_devops_merge_retry()` → `_post_devops_retry_loop()` with active mutation (`devops_active = False`). **Decision**: Keep for now — removal requires data-migration analysis and call-site audit across the retry flow. Document as deferred. |
-| 4.2 | Convert singleton TODOs | `src/services/chores/service.py`, `src/services/agents/service.py` | Confirm TODO markers exist; if present, convert to tracked issue reference (TODO-018). If not found at specified lines, skip. |
-
-**Verification**: `ruff check`; `pyright`.
-
-### Phase 5 — Frontend Logging Cleanup (independent, parallel with all)
-
-| Step | Action | File | Details |
-|------|--------|------|---------|
-| 5.1 | Wrap `console.debug()` in DEV guard | `api.ts` (L462, L477, L641) | `if (import.meta.env.DEV) { console.debug(...) }` |
-| 5.2 | Verify tooltip already guarded | `tooltip.tsx` (L52) | Already wrapped in `import.meta.env.DEV` — no change needed |
-| 5.3 | Wrap `console.warn()` in DEV guard | `usePipelineConfig.ts` (L170) | `if (import.meta.env.DEV) { console.warn(...) }` |
-
-**Verification**: `npm run lint`; `npm run type-check`; `npm run test`.
-
-### Phase 6 — Repository Organization (independent, parallel with all)
+**Goal**: Catalog everything that changed since the last refresh (2026-04-11, baseline `b183ba31`).
 
 | Step | Action | Details |
 |------|--------|---------|
-| 6.1 | Create `specs/000-simplify-page-headers/` | New directory for root-level spec files |
-| 6.2 | Move root-level spec files | `plan.md`, `spec.md`, `tasks.md`, `data-model.md`, `research.md`, `quickstart.md` → `specs/000-simplify-page-headers/` |
-| 6.3 | Verify mono-spec consistency | Structure matches `specs/001-fleet-dispatch-pipelines/` pattern |
+| 1.1 | Read baseline from `.last-refresh` | Parse JSON: `date`, `sha`, `documents_updated`, `documents_skipped` |
+| 1.2 | Harvest from CHANGELOG | Parse `[Unreleased]` section of `solune/CHANGELOG.md` for Added/Changed/Fixed entries since 2026-04-11 |
+| 1.3 | Harvest from code diffs | `git diff --stat b183ba31..HEAD` and `git log --oneline --since=2026-04-11` on `main` |
+| 1.4 | Scan for new specs/ADRs | Check `specs/` for new feature directories; check `docs/decisions/` for new ADR files |
+| 1.5 | Flag high-signal changes | New/deleted entry points, public modules, config schema changes, dependency bumps, data model changes, build/deploy script changes |
+| 1.6 | Compile manifest | Categorize findings into 6 categories: New capabilities, Changed behavior, Removed functionality, Architectural changes, UX changes, Config/ops changes |
+| 1.7 | Write `.change-manifest.md` | Update `solune/docs/.change-manifest.md` with new refresh window, baseline SHAs, categorized findings, and source analysis paths |
 
-**Verification**: All spec file paths resolve; no broken references.
+**Output**: Updated `solune/docs/.change-manifest.md`
+
+### Phase 2 — Infer Focus Shifts
+
+**Goal**: Understand how the product has evolved since last refresh.
+
+| Step | Action | Details |
+|------|--------|---------|
+| 2.1 | Measure change density | Group manifest items by functional area (chat, agents, pipeline, tools, chores, admin, infra) |
+| 2.2 | Detect narrative shifts | Answer: new top-level capability? Feature reduced/removed? Value proposition shifted? Primary workflow changed? New user personas? |
+| 2.3 | Prioritize updates | Assign P0–P4 to each doc based on triggers: P0 (pitch/workflow changed), P1 (feature add/change/remove), P2 (architecture/structure), P3 (config/setup/ops), P4 (bug fixes/edge cases) |
+
+**Output**: Priority-annotated manifest entries guiding Phase 3–4 work order
+
+### Phase 3 — Update the README
+
+**Goal**: Ensure `solune/README.md` reflects the current product accurately.
+
+| Step | Action | Details |
+|------|--------|---------|
+| 3.1 | Revalidate project description | Does the elevator pitch still describe what Solune does today? |
+| 3.2 | Audit feature list | Add newly shipped capabilities; remove/mark deprecated features; reorder by importance |
+| 3.3 | Verify getting-started instructions | Cross-check prerequisites against `pyproject.toml`, `package.json`, and Dockerfiles |
+| 3.4 | Update visual/structural references | Verify badge URLs, status links, and architecture-at-a-glance references |
+
+**Verification**: README accurately describes current capabilities. All links resolve.
+
+### Phase 4 — Update Documentation Files
+
+**Goal**: Each doc page is accurate to the current codebase.
+
+| Step | Action | Files | Source of Truth |
+|------|--------|-------|----------------|
+| 4.1 | Diff API reference | `docs/api-reference.md` | `backend/src/api/*.py` — list all `@router.*` decorators |
+| 4.2 | Diff configuration reference | `docs/configuration.md` | `backend/src/config.py` — extract all config keys |
+| 4.3 | Diff architecture overview | `docs/architecture.md` | `backend/src/`, `docker-compose.yml` — list modules + topology |
+| 4.4 | Verify setup guide | `docs/setup.md` | `pyproject.toml`, `package.json`, Dockerfiles |
+| 4.5 | Diff project structure | `docs/project-structure.md` | Repository filesystem — `find`/`tree` output |
+| 4.6 | Diff testing reference | `docs/testing.md` | `tests/`, `.github/workflows/ci.yml` |
+| 4.7 | Diff page guides | `docs/pages/*.md` | `frontend/src/pages/*.tsx` |
+| 4.8 | Diff agent pipeline docs | `docs/agent-pipeline.md` | `backend/src/services/workflow_orchestrator/` |
+| 4.9 | Diff signal integration | `docs/signal-integration.md` | `backend/src/services/signal_bridge.py` |
+| 4.10 | Review custom agents guide | `docs/custom-agents-best-practices.md` | Agent authoring patterns in code |
+| 4.11 | Update roadmap | `docs/roadmap.md` | CHANGELOG shipped items vs. aspirational items |
+| 4.12 | Check for new ADRs | `docs/decisions/` | Any new architectural decisions since last refresh |
+| 4.13 | Update frontend README | `frontend/README.md` | Frontend source structure |
+| 4.14 | Review findings log | `frontend/docs/findings-log.md` | Staleness check |
+
+**Rewrite rule**: For each affected doc — identify gaps (missing, stale, dead), rewrite sections naturally (don't patch with "UPDATE:" notes).
+
+**Verification**: All docs match their source of truth per OWNERS.md mapping.
+
+### Phase 5 — Validate Consistency
+
+**Goal**: Docs are internally consistent and all references resolve.
+
+| Step | Action | Tool/Command |
+|------|--------|-------------|
+| 5.1 | Validate internal links | `cd solune/frontend && npm test -- --run src/docs/documentationLinks.test.ts` |
+| 5.2 | Validate external URLs | `markdown-link-check` via pre-commit or manual run |
+| 5.3 | Terminology audit | Grep docs for deprecated terms from change manifest (see research.md R5) |
+| 5.4 | Regenerate diagrams | `cd solune && ./scripts/generate-diagrams.sh` |
+| 5.5 | Verify diagram freshness | `cd solune && ./scripts/generate-diagrams.sh --check` |
+| 5.6 | Markdown style validation | `markdownlint` via pre-commit or manual run |
+
+**Verification**: 0 broken links; 0 stale terms; diagrams up-to-date; markdown lint clean.
+
+### Phase 6 — Verify Against Running Application
+
+**Goal**: Docs match the actual user experience.
+
+| Step | Action | Details |
+|------|--------|---------|
+| 6.1 | Smoke-test documented workflows | Pick 3–5 key user flows from docs and verify against running app or code wiring |
+| 6.2 | Verify config/setup docs | Confirm documented env vars exist in `backend/src/config.py`; confirm defaults match |
+| 6.3 | Verify API docs | Compare 3–5 documented endpoints against actual FastAPI router definitions |
+
+**Note**: Full running-application verification depends on environment access. Code-level verification (routing wiring, config schema comparison) is always possible and is the minimum bar.
+
+### Phase 7 — Stamp & Reset Baseline
+
+**Goal**: Record the refresh so the next cycle starts clean.
+
+| Step | Action | Details |
+|------|--------|---------|
+| 7.1 | Update `.last-refresh` | New JSON: `date` (current), `sha` (main HEAD), `documents_updated`, `documents_skipped`, `broken_links_found`, `manual_followups` |
+| 7.2 | Reset verification checklist | Update `docs/checklists/doc-refresh-verification.md`: new dates, new SHA range, re-verify all 8 items |
+| 7.3 | Update CHANGELOG | Add Documentation section to `[Unreleased]` noting which docs were updated |
+| 7.4 | Commit all changes | Single commit: `docs: librarian refresh for YYYY-MM-DD` |
+
+**Verification**: `.last-refresh` updated; verification checklist all-PASS; CHANGELOG updated.
 
 ## Verification Matrix
 
 | Check | Command | After Phase |
 |-------|---------|-------------|
-| Backend tests | `cd solune/backend && uv run pytest tests/ --ignore=tests/property --ignore=tests/fuzz --ignore=tests/chaos --ignore=tests/concurrency` | 1, 2, 3, 4 |
-| Type checking | `cd solune/backend && uv run pyright src/` | 2, 3, 4 |
-| Lint | `cd solune/backend && uv run ruff check src/ tests/` | 2, 3, 4 |
-| Frontend tests | `cd solune/frontend && npm run test` | 5 |
-| Frontend lint | `cd solune/frontend && npm run lint` | 5 |
-| Frontend types | `cd solune/frontend && npm run type-check` | 5 |
-| Dead code grep | `grep -rn "ai_agent\|completion_providers\|issue_generation\|task_generation\|transcript_analysis" solune/backend/src/ solune/backend/tests/` | 3 |
-| OpenAPI schema | `validate-contracts.sh` | 3 |
-| Docker builds | Backend and frontend Dockerfiles | Final |
+| Internal links | `cd solune/frontend && npm test -- --run src/docs/documentationLinks.test.ts` | 4, 5 |
+| Markdown lint | `markdownlint solune/docs/**/*.md solune/README.md` | 3, 4, 5 |
+| External links | `markdown-link-check` on changed files | 5 |
+| Diagram freshness | `cd solune && ./scripts/generate-diagrams.sh --check` | 5 |
+| Config key completeness | Grep `backend/src/config.py` for all env vars → diff against `docs/configuration.md` | 4 |
+| API endpoint completeness | Grep `backend/src/api/*.py` for `@router.*` → diff against `docs/api-reference.md` | 4 |
+| Stale terminology | Grep docs for deprecated terms from manifest | 5 |
 
 ## Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| **Excluded**: Circular import workarounds in `dependencies.py` and `github_projects/service.py` | Intentional and documented; not dead code |
-| **Excluded**: Auto-generated OpenAPI types in `openapi-generated.d.ts` | Managed by contract pipeline; not manual code |
-| **Excluded**: Frontend structural cleanup | No dead components, hooks, routes, or unused deps found |
-| **Deferred**: Singleton DI refactor (TODO-018) | Replacing module-level singletons with FastAPI DI is a larger architecture change — recommend separate issue |
-| **Deferred**: `pipeline_metadata` removal in `auto_merge.py` | Field is actively mutated in retry flow; removal requires data-migration analysis |
-| **tooltip.tsx already guarded** | `console.warn()` at L52 is already inside `import.meta.env.DEV` check — no change needed |
+| **Reuse existing tooling** | All link validation, diagram generation, and markdown linting tools are already in the repository and CI. No new tools needed. |
+| **Reuse OWNERS.md doc-to-source mapping** | The mapping is comprehensive, manually curated, and specifically designed for the Librarian refresh process. |
+| **Reuse `.change-manifest.md` format** | Previous cycle established the format; consistency between cycles aids comparison. |
+| **Code-level verification over running-app** | Phase 6 can be satisfied by comparing code wiring (routes, config schema, component structure) when a running instance is unavailable. |
+| **No new ADRs** | This feature introduces no architectural decisions; it executes an existing process. |
 
 ## Complexity Tracking
 
