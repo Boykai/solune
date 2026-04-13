@@ -202,7 +202,7 @@ export function AppLayout() {
     <OnboardingProvider>
     <RateLimitProvider>
     <SyncStatusProvider>
-      <div className="celestial-shell starfield relative flex h-screen overflow-hidden bg-background text-foreground">
+      <div className="celestial-shell starfield relative flex h-dvh overflow-hidden bg-background text-foreground">
         <div className="pointer-events-none absolute inset-0 opacity-90">
           <div className="absolute left-[-10rem] top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-primary/12 blur-3xl celestial-pulse-glow" />
           <div className="absolute right-[-6rem] top-6 h-[18rem] w-[18rem] rounded-full bg-gold/10 blur-3xl" />
@@ -232,7 +232,7 @@ export function AppLayout() {
           projectsLoading={projectsLoading}
           onSelectProject={selectProject}
         />
-        <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
           <BreadcrumbProvider>
             <TopBar
               isDarkMode={isDarkMode}
@@ -245,7 +245,7 @@ export function AppLayout() {
               onMarkAllRead={markAllRead}
             />
             <SignalBannerBar />
-            <main className="relative flex-1 overflow-auto overscroll-y-contain px-2 pb-2">
+            <main className="relative flex min-h-0 flex-1 flex-col overflow-auto overscroll-y-contain px-2 pb-2">
               <PageTransition />
             </main>
           </BreadcrumbProvider>

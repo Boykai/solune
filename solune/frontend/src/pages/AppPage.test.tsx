@@ -19,9 +19,10 @@ describe('AppPage', () => {
     expect(screen.queryByText('Daily affirmations for delivery')).not.toBeInTheDocument();
   });
 
-  it('renders at full viewport height', () => {
+  it('fills the available app layout height without introducing another viewport lock', () => {
     render(<AppPage />);
     const container = screen.getByTestId('chat-panel-manager').parentElement;
-    expect(container).toHaveClass('overflow-hidden');
+    expect(container).toHaveClass('h-full', 'min-h-0', 'overflow-hidden');
+    expect(container).not.toHaveClass('h-[calc(100vh-4rem)]');
   });
 });
