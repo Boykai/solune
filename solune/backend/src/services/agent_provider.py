@@ -16,13 +16,17 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from src.config import get_settings
 from src.logging_utils import get_logger
 from src.utils import BoundedDict
 
 logger = get_logger(__name__)
+
+if TYPE_CHECKING:
+    from azure.ai.inference.models import ChatRequestMessage
+    from openai.types.chat import ChatCompletionMessageParam
 
 # ── CopilotClientPool (relocated from completion_providers.py) ───────
 
@@ -153,9 +157,7 @@ async def call_completion(
             max_tokens=max_tokens,
         )
     else:
-        raise ValueError(
-            f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'."
-        )
+        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")
 
 
 async def _copilot_completion(
@@ -261,10 +263,11 @@ async def _azure_completion(
             api_key=settings.azure_openai_key,
             api_version="2024-02-15-preview",
         )
+        openai_messages = cast(list[ChatCompletionMessageParam], messages)
         response = await asyncio.to_thread(
             client.chat.completions.create,
             model=deployment,
-            messages=messages,
+            messages=openai_messages,
             temperature=temperature,
             max_tokens=max_tokens,
         )
@@ -279,14 +282,17 @@ async def _azure_completion(
             endpoint=settings.azure_openai_endpoint,
             credential=AzureKeyCredential(settings.azure_openai_key),
         )
-        inference_messages = [
-            (
-                SystemMessage(content=m["content"])
-                if m["role"] == "system"
-                else UserMessage(content=m["content"])
-            )
-            for m in messages
-        ]
+        inference_messages = cast(
+            list[ChatRequestMessage],
+            [
+                (
+                    SystemMessage(content=m["content"])
+                    if m["role"] == "system"
+                    else UserMessage(content=m["content"])
+                )
+                for m in messages
+            ],
+        )
         response = await asyncio.to_thread(
             ai_client.complete,
             model=deployment,

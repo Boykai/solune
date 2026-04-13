@@ -202,14 +202,8 @@ def mock_github_auth_service() -> AsyncMock:
 
 
 @pytest.fixture
-def mock_ai_agent_service() -> AsyncMock:
-    """AsyncMock replacing the standalone functions in ``ai_utilities``.
-
-    Preserves the fixture name for backward compatibility with tests
-    that reference ``mock_ai_agent_service`` as a parameter name.
-    The mock uses ``ai_utilities`` as its spec so attribute access
-    mirrors the module's public API.
-    """
+def mock_ai_utilities() -> AsyncMock:
+    """AsyncMock replacing the standalone functions in ``ai_utilities``."""
     return AsyncMock(name="ai_utilities", spec=ai_utilities)
 
 
@@ -407,7 +401,7 @@ async def client(
     mock_settings: Settings,
     mock_github_service: AsyncMock,
     mock_github_auth_service: AsyncMock,
-    mock_ai_agent_service: AsyncMock,
+    mock_ai_utilities: AsyncMock,
     mock_chat_agent_service: AsyncMock,
     mock_websocket_manager: AsyncMock,
 ):
@@ -459,13 +453,30 @@ async def client(
         patch("src.api.auth.github_auth_service", mock_github_auth_service),
         patch("src.api.projects.github_auth_service", mock_github_auth_service),
         # AI utilities — patch standalone functions used by chat.py fallback
-        patch("src.services.ai_utilities.detect_feature_request_intent", mock_ai_agent_service.detect_feature_request_intent),
-        patch("src.services.ai_utilities.generate_issue_recommendation", mock_ai_agent_service.generate_issue_recommendation),
-        patch("src.services.ai_utilities.analyze_transcript", mock_ai_agent_service.analyze_transcript),
-        patch("src.services.ai_utilities.parse_status_change_request", mock_ai_agent_service.parse_status_change_request),
-        patch("src.services.ai_utilities.identify_target_task", mock_ai_agent_service.identify_target_task),
-        patch("src.services.ai_utilities.generate_title_from_description", mock_ai_agent_service.generate_title_from_description),
-        patch("src.services.ai_utilities.generate_task_from_description", mock_ai_agent_service.generate_task_from_description),
+        patch(
+            "src.services.ai_utilities.detect_feature_request_intent",
+            mock_ai_utilities.detect_feature_request_intent,
+        ),
+        patch(
+            "src.services.ai_utilities.generate_issue_recommendation",
+            mock_ai_utilities.generate_issue_recommendation,
+        ),
+        patch("src.services.ai_utilities.analyze_transcript", mock_ai_utilities.analyze_transcript),
+        patch(
+            "src.services.ai_utilities.parse_status_change_request",
+            mock_ai_utilities.parse_status_change_request,
+        ),
+        patch(
+            "src.services.ai_utilities.identify_target_task", mock_ai_utilities.identify_target_task
+        ),
+        patch(
+            "src.services.ai_utilities.generate_title_from_description",
+            mock_ai_utilities.generate_title_from_description,
+        ),
+        patch(
+            "src.services.ai_utilities.generate_task_from_description",
+            mock_ai_utilities.generate_task_from_description,
+        ),
         # Chat agent service (v0.2.0 — agent-framework powered)
         patch("src.api.chat.get_chat_agent_service", return_value=mock_chat_agent_service),
         # connection_manager — patched in every API module that broadcasts
@@ -531,7 +542,7 @@ def make_mock_github_auth_service(**overrides) -> AsyncMock:
     return mock
 
 
-def make_mock_ai_agent_service(**overrides) -> AsyncMock:
+def make_mock_ai_utilities(**overrides) -> AsyncMock:
     """Create a pre-configured ai_utilities mock with spec."""
     mock = AsyncMock(name="ai_utilities", spec=ai_utilities)
     for method_name, return_value in overrides.items():

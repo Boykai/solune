@@ -707,10 +707,12 @@ class TestChoreChat:
     @pytest.mark.anyio
     async def test_subsequent_message_continues_conversation(self, client):
         """Continuing a conversation should reuse the same conversation_id."""
-        mock_completion = AsyncMock(side_effect=[
-            "Tell me more about scope",
-            "Got it, here's more detail needed",
-        ])
+        mock_completion = AsyncMock(
+            side_effect=[
+                "Tell me more about scope",
+                "Got it, here's more detail needed",
+            ]
+        )
 
         with patch("src.services.agent_provider.call_completion", mock_completion):
             # First message

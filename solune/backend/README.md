@@ -95,10 +95,10 @@ src/
 │   │   ├── transitions.py     #   Pipeline state, branch tracking, sub-issue maps
 │   │   └── orchestrator.py    #   WorkflowOrchestrator class, assign_agent_for_status()
 │   │
-│   ├── ai_agent.py            # AI issue generation via pluggable CompletionProvider
+│   ├── ai_utilities.py        # Standalone AI completion helpers for issue/task/chat fallbacks
 │   ├── agent_tracking.py      # Durable agent pipeline tracking (issue body markdown table)
 │   ├── cache.py               # In-memory TTL cache (for GitHub API responses)
-│   ├── completion_providers.py # Pluggable LLM providers (Copilot SDK / Azure OpenAI)
+│   ├── agent_provider.py      # Agent factory plus shared Copilot/Azure completion access
 │   ├── database.py            # aiosqlite connection, WAL mode, schema migrations
 │   ├── github_auth.py         # OAuth token exchange
 │   ├── session_store.py       # Session CRUD (async SQLite)
@@ -106,9 +106,8 @@ src/
 │   ├── task_registry.py       # Centralized fire-and-forget asyncio.Task tracking + drain
 │   └── websocket.py           # WebSocket connection manager, broadcast
 │
-└── prompts/                   # Prompt templates for AI completion providers
-    ├── issue_generation.py    # System/user prompts for issue creation (concise JSON output)
-    └── task_generation.py     # Task generation prompts
+└── prompts/                   # Shared agent instructions and prompt text
+    └── agent_instructions.py  # Canonical agent instruction blocks
 ```
 
 ## Key Services
@@ -232,14 +231,12 @@ SQLite database lifecycle management:
 - `close_database()` — Graceful shutdown
 - `run_migrations()` — Executes numbered SQL migration files in order, tracked by `schema_version` table
 
-### Completion Providers (`completion_providers.py`)
+### AI completion helpers (`agent_provider.py`, `ai_utilities.py`)
 
-Pluggable AI completion layer used by `ai_agent.py` for issue generation:
+The backend now keeps direct LLM access in two focused modules:
 
-- **`CompletionProvider`** — Abstract base class defining `async complete(system_prompt, user_prompt, github_token) -> str`
-- **`CopilotCompletionProvider`** (default) — Uses `github-copilot-sdk` (`CopilotClient`, `SessionConfig`, `MessageOptions`). Caches clients per GitHub token hash. Creates a session with `system_message={"mode": "replace", "content": ...}`, sends the prompt, gathers `ASSISTANT_MESSAGE` events, and joins them. 120s timeout.
-- **`AzureOpenAICompletionProvider`** (optional) — Uses `openai` SDK (or `azure-ai-inference` fallback). Static API key from env vars. `API_VERSION = "2024-02-15-preview"`.
-- **`create_completion_provider()`** — Factory that reads `settings.ai_provider` and returns the appropriate provider instance.
+- **`agent_provider.py`** — Creates Microsoft Agent Framework agents, owns the shared `CopilotClientPool`, and exposes `call_completion()` for direct Copilot/Azure OpenAI completions.
+- **`ai_utilities.py`** — Hosts the standalone prompt builders and AI fallback helpers used for issue recommendation, transcript analysis, status parsing, and task/title generation.
 
 ### GitHub Projects Service (`services/github_projects/`)
 

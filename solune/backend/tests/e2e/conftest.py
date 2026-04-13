@@ -72,7 +72,7 @@ def mock_chat_agent_service():
 
 
 @pytest.fixture
-def mock_ai_agent_service():
+def mock_ai_utilities():
     """AsyncMock replacing the standalone functions in ``ai_utilities``."""
     from src.services import ai_utilities
 
@@ -93,7 +93,7 @@ async def e2e_app(
     test_db: aiosqlite.Connection,
     mock_github_projects_service: AsyncMock,
     mock_chat_agent_service: AsyncMock,
-    mock_ai_agent_service: AsyncMock,
+    mock_ai_utilities: AsyncMock,
     mock_connection_manager: AsyncMock,
 ):
     """Fully-wired FastAPI application for authenticated E2E testing.
@@ -145,13 +145,30 @@ async def e2e_app(
             return_value=_MOCK_GITHUB_USER,
         ),
         # ── AI / chat agent services ──
-        patch("src.services.ai_utilities.detect_feature_request_intent", mock_ai_agent_service.detect_feature_request_intent),
-        patch("src.services.ai_utilities.generate_issue_recommendation", mock_ai_agent_service.generate_issue_recommendation),
-        patch("src.services.ai_utilities.analyze_transcript", mock_ai_agent_service.analyze_transcript),
-        patch("src.services.ai_utilities.parse_status_change_request", mock_ai_agent_service.parse_status_change_request),
-        patch("src.services.ai_utilities.identify_target_task", mock_ai_agent_service.identify_target_task),
-        patch("src.services.ai_utilities.generate_title_from_description", mock_ai_agent_service.generate_title_from_description),
-        patch("src.services.ai_utilities.generate_task_from_description", mock_ai_agent_service.generate_task_from_description),
+        patch(
+            "src.services.ai_utilities.detect_feature_request_intent",
+            mock_ai_utilities.detect_feature_request_intent,
+        ),
+        patch(
+            "src.services.ai_utilities.generate_issue_recommendation",
+            mock_ai_utilities.generate_issue_recommendation,
+        ),
+        patch("src.services.ai_utilities.analyze_transcript", mock_ai_utilities.analyze_transcript),
+        patch(
+            "src.services.ai_utilities.parse_status_change_request",
+            mock_ai_utilities.parse_status_change_request,
+        ),
+        patch(
+            "src.services.ai_utilities.identify_target_task", mock_ai_utilities.identify_target_task
+        ),
+        patch(
+            "src.services.ai_utilities.generate_title_from_description",
+            mock_ai_utilities.generate_title_from_description,
+        ),
+        patch(
+            "src.services.ai_utilities.generate_task_from_description",
+            mock_ai_utilities.generate_task_from_description,
+        ),
         patch("src.api.chat.get_chat_agent_service", return_value=mock_chat_agent_service),
         # ── WebSocket connection_manager ──
         patch("src.api.projects.connection_manager", mock_connection_manager),

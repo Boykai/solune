@@ -12,7 +12,7 @@ from pathlib import Path
 SHARDS: dict[str, list[str]] = {
     "auth-and-projects": [
         "src/services/github_auth.py",
-        "src/services/completion_providers.py",
+        "src/services/agent_provider.py",
         "src/services/model_fetcher.py",
         "src/services/github_projects/",
     ],
@@ -40,7 +40,7 @@ SHARDS: dict[str, list[str]] = {
         "src/services/websocket.py",
     ],
     "agents-and-integrations": [
-        "src/services/ai_agent.py",
+        "src/services/ai_utilities.py",
         "src/services/agent_creator.py",
         "src/services/github_commit_workflow.py",
         "src/services/signal_bridge.py",

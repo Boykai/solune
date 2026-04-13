@@ -15,9 +15,17 @@ from src.services.ai_utilities import (
     ISSUE_GENERATION_SYSTEM_PROMPT,
     STATUS_CHANGE_SYSTEM_PROMPT,
     TASK_GENERATION_SYSTEM_PROMPT,
+)
+from src.services.ai_utilities import (
     _create_feature_request_detection_prompt as create_feature_request_detection_prompt,
+)
+from src.services.ai_utilities import (
     _create_issue_generation_prompt as create_issue_generation_prompt,
+)
+from src.services.ai_utilities import (
     _create_status_change_prompt as create_status_change_prompt,
+)
+from src.services.ai_utilities import (
     _create_task_generation_prompt as create_task_generation_prompt,
 )
 from src.utils import utcnow

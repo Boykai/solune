@@ -88,8 +88,9 @@ class WorkflowOrchestrator:
     def __init__(
         self,
         github_service: "GitHubProjectsService",
+        legacy_github_service: "GitHubProjectsService | None" = None,
     ):
-        self.github = github_service
+        self.github = legacy_github_service or github_service
         self.fleet_dispatch = FleetDispatchService()
 
     # ──────────────────────────────────────────────────────────────────

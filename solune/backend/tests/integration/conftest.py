@@ -194,7 +194,7 @@ async def thin_mock_client(
         async def revoke_session(self, session_id: str) -> None:
             await _revoke_session(session_id)
 
-    class _AIAgentStub:
+    class _AIUtilitiesStub:
         async def detect_feature_request_intent(self, *_args, **_kwargs) -> bool:
             return False
 
@@ -319,9 +319,24 @@ async def thin_mock_client(
         stack.enter_context(patch("src.api.board.github_projects_service", github_service))
         stack.enter_context(patch("src.api.pipelines.github_projects_service", github_service))
         stack.enter_context(patch("src.api.workflow.github_projects_service", github_service))
-        stack.enter_context(patch("src.services.ai_utilities.detect_feature_request_intent", AsyncMock(return_value=False)))
-        stack.enter_context(patch("src.services.ai_utilities.parse_status_change_request", AsyncMock(return_value=None)))
-        stack.enter_context(patch("src.services.ai_utilities.generate_title_from_description", AsyncMock(return_value="Generated task title")))
+        stack.enter_context(
+            patch(
+                "src.services.ai_utilities.detect_feature_request_intent",
+                AsyncMock(return_value=False),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "src.services.ai_utilities.parse_status_change_request",
+                AsyncMock(return_value=None),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "src.services.ai_utilities.generate_title_from_description",
+                AsyncMock(return_value="Generated task title"),
+            )
+        )
         stack.enter_context(patch("src.api.chat._trigger_signal_delivery", lambda *_a, **_k: None))
         stack.enter_context(
             patch(
