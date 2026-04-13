@@ -26,7 +26,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from src.api.workflow import _check_duplicate, _recent_requests
+from src.api.workflow import (
+    _check_duplicate,
+    _get_pipeline_agent_statuses,
+    _recent_requests,
+    _serialize_pipeline_state,
+)
 from src.models.agent import AgentAssignment, AgentSource, AvailableAgent
 from src.models.chat import (
     IssueRecommendation,
@@ -68,6 +73,14 @@ def _workflow_config(**kw) -> WorkflowConfiguration:
 
 
 @dataclass
+class FakePipelineGroup:
+    group_id: str = "group-1"
+    execution_mode: str = "sequential"
+    agents: list[str] = field(default_factory=list)
+    agent_statuses: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class FakePipelineState:
     """Lightweight stand-in for PipelineState (a dataclass in orchestrator)."""
 
@@ -79,12 +92,27 @@ class FakePipelineState:
     completed_agents: list[str] = field(default_factory=list)
     started_at: datetime | None = None
     error: str | None = None
+    failed_agents: list[str] = field(default_factory=list)
+    groups: list[FakePipelineGroup] = field(default_factory=list)
+    current_group_index: int = 0
+    current_agent_index_in_group: int = 0
+    agent_task_ids: dict[str, str] = field(default_factory=dict)
+    queued: bool = False
 
     @property
     def current_agent(self) -> str | None:
         if self.current_agent_index < len(self.agents):
             return self.agents[self.current_agent_index]
         return None
+
+    @property
+    def current_agents(self) -> list[str]:
+        if self.groups and self.current_group_index < len(self.groups):
+            group = self.groups[self.current_group_index]
+            if group.execution_mode == "parallel":
+                return list(group.agents)
+        agent = self.current_agent
+        return [agent] if agent else []
 
     @property
     def is_complete(self) -> bool:
@@ -309,6 +337,164 @@ class TestGetPipelineStateForIssue:
         with patch(f"{WF}.get_pipeline_state", return_value=None):
             resp = await client.get("/api/v1/workflow/pipeline-states/999")
         assert resp.status_code == 404
+
+
+class TestPipelineStateSerialization:
+    def test_serialize_pipeline_state_reports_fleet_without_task_ids(self):
+        state = FakePipelineState(agents=["speckit.specify"], agent_task_ids={})
+
+        payload = _serialize_pipeline_state(state)
+
+        assert payload["dispatch_backend"] == "fleet"
+
+    def test_parallel_group_statuses_preserve_pending_agents(self):
+        state = FakePipelineState(
+            agents=["speckit.specify", "speckit.tasks"],
+            groups=[
+                FakePipelineGroup(
+                    execution_mode="parallel",
+                    agents=["speckit.specify", "speckit.tasks"],
+                    agent_statuses={
+                        "speckit.specify": "active",
+                        "speckit.tasks": "pending",
+                    },
+                )
+            ],
+        )
+
+        statuses = _get_pipeline_agent_statuses(state)
+
+        assert statuses == {
+            "speckit.specify": "active",
+            "speckit.tasks": "pending",
+        }
+
+
+class TestRetryPipeline:
+    async def test_retry_current_agent_clears_failure_markers(
+        self, client, mock_session, mock_websocket_manager
+    ):
+        mock_session.selected_project_id = TEST_PROJECT_ID
+        state_box = {
+            "state": FakePipelineState(
+                error="dispatch failed",
+                failed_agents=["copilot-coding"],
+                agent_task_ids={"copilot-coding": "task-old"},
+            )
+        }
+
+        def fake_get_pipeline_state(_issue_number: int):
+            return state_box["state"]
+
+        def fake_set_pipeline_state(_issue_number: int, new_state):
+            state_box["state"] = new_state
+
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+
+        with (
+            patch(f"{WF}.get_pipeline_state", side_effect=fake_get_pipeline_state),
+            patch(f"{WF}.set_pipeline_state", side_effect=fake_set_pipeline_state),
+            patch(
+                f"{WF}.get_workflow_config", new_callable=AsyncMock, return_value=_workflow_config()
+            ),
+            patch(
+                f"{WF}.resolve_repository", new_callable=AsyncMock, return_value=("owner", "repo")
+            ),
+            patch(f"{WF}.get_effective_user_settings", new_callable=AsyncMock) as mock_settings,
+            patch(
+                f"{WF}.github_projects_service.get_issue_with_comments",
+                new_callable=AsyncMock,
+                return_value={"node_id": "I_42", "html_url": "https://example.test/issues/42"},
+            ),
+            patch(f"{WF}.get_workflow_orchestrator", return_value=mock_orchestrator),
+        ):
+            mock_settings.return_value = MagicMock(
+                ai=MagicMock(model="gpt-5.4", agent_model="gpt-5.4", reasoning_effort="high")
+            )
+            resp = await client.post("/api/v1/workflow/pipeline/42/retry")
+
+        assert resp.status_code == 200
+        assert resp.json()["agent"] == "copilot-coding"
+        assert state_box["state"].failed_agents == []
+        assert state_box["state"].agent_task_ids == {}
+        assert state_box["state"].error is None
+        assert mock_orchestrator.assign_agent_for_status.await_args.kwargs["agent_index"] == 0
+        mock_websocket_manager.broadcast_to_project.assert_awaited_once()
+
+    async def test_retry_specific_parallel_agent_uses_requested_agent(
+        self, client, mock_session, mock_websocket_manager
+    ):
+        mock_session.selected_project_id = TEST_PROJECT_ID
+        state_box = {
+            "state": FakePipelineState(
+                status="Ready",
+                agents=["architect", "tester"],
+                current_agent_index=0,
+                failed_agents=["tester"],
+                groups=[
+                    FakePipelineGroup(
+                        execution_mode="parallel",
+                        agents=["architect", "tester"],
+                        agent_statuses={"architect": "active", "tester": "failed"},
+                    )
+                ],
+                agent_task_ids={"tester": "task-old"},
+            )
+        }
+
+        def fake_get_pipeline_state(_issue_number: int):
+            return state_box["state"]
+
+        def fake_set_pipeline_state(_issue_number: int, new_state):
+            state_box["state"] = new_state
+
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.assign_agent_for_status = AsyncMock(return_value=True)
+
+        with (
+            patch(f"{WF}.get_pipeline_state", side_effect=fake_get_pipeline_state),
+            patch(f"{WF}.set_pipeline_state", side_effect=fake_set_pipeline_state),
+            patch(
+                f"{WF}.get_workflow_config", new_callable=AsyncMock, return_value=_workflow_config()
+            ),
+            patch(
+                f"{WF}.resolve_repository", new_callable=AsyncMock, return_value=("owner", "repo")
+            ),
+            patch(f"{WF}.get_effective_user_settings", new_callable=AsyncMock) as mock_settings,
+            patch(
+                f"{WF}.github_projects_service.get_issue_with_comments",
+                new_callable=AsyncMock,
+                return_value={"node_id": "I_42", "html_url": "https://example.test/issues/42"},
+            ),
+            patch(f"{WF}.get_workflow_orchestrator", return_value=mock_orchestrator),
+        ):
+            mock_settings.return_value = MagicMock(
+                ai=MagicMock(model="gpt-5.4", agent_model="gpt-5.4", reasoning_effort="high")
+            )
+            resp = await client.post("/api/v1/workflow/pipeline/42/retry/tester")
+
+        assert resp.status_code == 200
+        assert resp.json()["agent"] == "tester"
+        assert state_box["state"].failed_agents == []
+        assert state_box["state"].agent_task_ids == {}
+        assert state_box["state"].groups[0].agent_statuses["tester"] == "active"
+        assert mock_orchestrator.assign_agent_for_status.await_args.kwargs["agent_index"] == 1
+        broadcast_payload = mock_websocket_manager.broadcast_to_project.await_args.args[1]
+        assert broadcast_payload["agent_name"] == "tester"
+
+    async def test_retry_rejects_out_of_order_sequential_agent(self, client, mock_session):
+        mock_session.selected_project_id = TEST_PROJECT_ID
+        state = FakePipelineState(agents=["architect", "tester"], current_agent_index=0)
+
+        with patch(f"{WF}.get_pipeline_state", return_value=state):
+            resp = await client.post(
+                "/api/v1/workflow/pipeline/42/retry",
+                params={"agent": "tester"},
+            )
+
+        assert resp.status_code == 422
+        assert "Only the current agent 'architect' can be retried" in resp.json()["error"]
 
 
 # ── Notify In Review ───────────────────────────────────────────────────────

@@ -229,6 +229,40 @@ class TestUpdateIssueState:
         assert result is False
 
 
+class TestFindIssueByLabels:
+    """Tests for find_issue_by_labels."""
+
+    @pytest.fixture
+    def service(self):
+        return GitHubProjectsService()
+
+    @pytest.mark.asyncio
+    async def test_pages_oldest_results_until_non_pr_issue_found(self, service):
+        first_page = Mock(status_code=200)
+        first_page.json.return_value = [
+            {"number": index, "pull_request": {"url": f"https://example/{index}"}}
+            for index in range(1, 101)
+        ]
+        second_page = Mock(status_code=200)
+        second_page.json.return_value = [{"number": 7, "title": "Reusable issue"}]
+        service._rest_response = AsyncMock(side_effect=[first_page, second_page])
+
+        result = await service.find_issue_by_labels(
+            "tok",
+            "owner",
+            "repo",
+            ["fleet-dispatch", "fleet-parent:42", "fleet-agent:speckit.specify"],
+        )
+
+        assert result == {"number": 7, "title": "Reusable issue"}
+        first_call = service._rest_response.await_args_list[0]
+        second_call = service._rest_response.await_args_list[1]
+        assert first_call.kwargs["params"]["sort"] == "created"
+        assert first_call.kwargs["params"]["direction"] == "asc"
+        assert first_call.kwargs["params"]["page"] == 1
+        assert second_call.kwargs["params"]["page"] == 2
+
+
 # ---------------------------------------------------------------------------
 # create_issue_comment
 # ---------------------------------------------------------------------------

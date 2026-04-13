@@ -197,6 +197,8 @@ class PipelineState:
     auto_merge: bool = False
     # Maps agent_slug → config dict for runtime config access (e.g. delay_seconds)
     agent_configs: dict[str, dict] = field(default_factory=dict)
+    # Maps agent_slug → GitHub coding-agent task id when fleet-style dispatch resolves one
+    agent_task_ids: dict[str, str] = field(default_factory=dict)
 
     # 1. KEEP THIS (OR ADD IT BACK) - The system needs a single agent name for logging/labels
     @property

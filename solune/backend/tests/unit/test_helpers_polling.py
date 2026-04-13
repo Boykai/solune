@@ -244,6 +244,24 @@ class TestCheckAgentDoneOnSubOrParent:
         # Only called once — didn't need to check sub
         mock_gps.check_agent_completion_comment.assert_awaited_once()
 
+    async def test_returns_true_when_task_state_is_completed(self):
+        """A completed fleet task is treated as completion even before the Done marker appears."""
+        mock_gps = MagicMock()
+        mock_gps.get_agent_task = AsyncMock(return_value={"id": "task-1", "state": "SUCCEEDED"})
+        mock_gps.check_agent_completion_comment = AsyncMock(return_value=False)
+        pipeline = SimpleNamespace(agent_task_ids={"architect": "task-1"})
+
+        with _base_patches(mock_gps):
+            from src.services.copilot_polling.helpers import (
+                _check_agent_done_on_sub_or_parent,
+            )
+
+            result = await _check_agent_done_on_sub_or_parent(
+                "tok", "o", "r", 10, "architect", pipeline=pipeline
+            )
+        assert result is True
+        mock_gps.check_agent_completion_comment.assert_not_awaited()
+
     async def test_returns_false_when_no_sub_and_parent_not_done(self):
         """When sub == parent and parent is not done, returns False."""
         mock_gps = MagicMock()

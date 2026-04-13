@@ -54,6 +54,7 @@ from src.services.cache import (
     get_user_projects_cache_key,
 )
 from src.services.database import get_db
+from src.services.pipeline_launcher import start_pipeline
 from src.services.settings_store import get_effective_user_settings
 from src.services.workflow_orchestrator import (
     WorkflowContext,
@@ -1881,59 +1882,25 @@ async def confirm_proposal(
 
             orchestrator = get_workflow_orchestrator()
 
-            # Create all sub-issues upfront so the user can see the full pipeline.
-            agent_sub_issues = await orchestrator.create_all_sub_issues(ctx)
-            if agent_sub_issues:
-                from src.services.workflow_orchestrator import (
-                    PipelineState,
-                    set_pipeline_state,
-                )
-
-                # Populate agents for the initial status so the polling loop
-                # doesn't see an empty list and immediately consider the
-                # pipeline "complete" (is_complete = 0 >= len([]) = True).
-                initial_agents = get_agent_slugs(config, backlog_status)
-                pipeline_state = PipelineState(
-                    issue_number=issue_number,
-                    project_id=project_id,
-                    status=backlog_status,
-                    agents=initial_agents,
-                    agent_sub_issues=agent_sub_issues,
-                    started_at=utcnow(),
-                )
-                set_pipeline_state(issue_number, pipeline_state)
-                logger.info(
-                    "Pre-created %d sub-issues for issue #%d",
-                    len(agent_sub_issues),
-                    issue_number,
-                )
-
-            await orchestrator.assign_agent_for_status(ctx, backlog_status, agent_index=0)
+            launch_result = await start_pipeline(
+                ctx,
+                config,
+                orchestrator,
+                caller="confirm_proposal",
+                get_agent_slugs_fn=get_agent_slugs,
+            )
 
             # Send agent_assigned WebSocket notification
-            backlog_slugs = get_agent_slugs(config, backlog_status)
-            if backlog_slugs:
+            if launch_result.initial_agent and not launch_result.error:
                 await connection_manager.broadcast_to_project(
                     project_id,
                     {
                         "type": "agent_assigned",
                         "issue_number": issue_number,
-                        "agent_name": backlog_slugs[0],
-                        "status": backlog_status,
+                        "agent_name": launch_result.initial_agent,
+                        "status": launch_result.status_name,
                     },
                 )
-
-            # Ensure Copilot polling is running so the pipeline advances
-            # after agents complete their work (creates PRs).
-            from src.services.copilot_polling import ensure_polling_started
-
-            await ensure_polling_started(
-                access_token=session.access_token,
-                project_id=project_id,
-                owner=owner,
-                repo=repo,
-                caller="confirm_proposal",
-            )
 
         except Exception as e:
             logger.warning(
