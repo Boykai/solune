@@ -57,6 +57,14 @@ function saveLayout(panels: PanelState[]): void {
   }
 }
 
+function clearLayout(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // localStorage may be full or disabled — ignore
+  }
+}
+
 export interface UseChatPanelsReturn {
   panels: PanelState[];
   addPanel: (conversationId: string) => void;
@@ -76,10 +84,12 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
     return [];
   });
 
-  // Initialize with a default panel when initialConversationId becomes available.
-  // This effect only fires once when the conversation ID is first provided.
-  // The setState is guarded by a condition (prev.length === 0) so it's idempotent.
+  // Initialize with a default panel when the active conversation is known and no
+  // panels remain. This also recovers from stale persisted layouts that get
+  // reconciled down to an empty set after startup.
   useEffect(() => {
+    if (!initialConversationId || panels.length > 0) return;
+
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initialization pattern: async ID not available at first render
     setPanels((prev) => {
       if (prev.length === 0 && initialConversationId) {
@@ -87,13 +97,18 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
       }
       return prev;
     });
-  }, [initialConversationId]);
+  }, [initialConversationId, panels.length]);
 
   // Debounced persist to localStorage
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (panels.length === 0) return;
     clearTimeout(saveTimerRef.current);
+
+    if (panels.length === 0) {
+      clearLayout();
+      return;
+    }
+
     saveTimerRef.current = setTimeout(() => saveLayout(panels), 300);
     return () => clearTimeout(saveTimerRef.current);
   }, [panels]);

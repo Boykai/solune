@@ -1094,6 +1094,63 @@ async def clear_messages(
     return {"message": "Chat history cleared"}
 
 
+async def _validate_chat_conversation(
+    session: UserSession,
+    conversation_id: UUID | None,
+) -> None:
+    """Ensure the requested conversation exists and belongs to the active session."""
+    if conversation_id is None:
+        return
+
+    from src.services import chat_store
+
+    try:
+        db = get_db()
+        conversation = await chat_store.get_conversation_by_id(db, str(conversation_id))
+    except Exception as exc:
+        handle_service_error(exc, "validate conversation")
+
+    if conversation is None or conversation["session_id"] != str(session.session_id):
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+
+
+async def _validate_chat_pipeline(
+    session: UserSession,
+    project_id: str,
+    pipeline_id: str | None,
+) -> None:
+    """Ensure any selected pipeline still exists and is accessible."""
+    if not pipeline_id:
+        return
+
+    from src.services.pipelines.service import PipelineService
+
+    try:
+        db = get_db()
+        pipeline_svc = PipelineService(db)
+        pipeline = await pipeline_svc.get_pipeline(
+            project_id,
+            pipeline_id,
+            github_user_id=session.github_user_id,
+        )
+        if pipeline is None:
+            raise ValidationError(f"Pipeline not found: {pipeline_id}")
+    except ValidationError:
+        raise
+    except Exception as exc:
+        handle_service_error(exc, "validate pipeline")
+
+
+async def _validate_chat_request_context(
+    session: UserSession,
+    selected_project_id: str,
+    chat_request: ChatMessageRequest,
+) -> None:
+    """Validate request-scoped chat references before persisting any messages."""
+    await _validate_chat_conversation(session, chat_request.conversation_id)
+    await _validate_chat_pipeline(session, selected_project_id, chat_request.pipeline_id)
+
+
 @router.post("/messages", response_model=ChatMessage)
 @limiter.limit("10/minute")
 async def send_message(
@@ -1110,24 +1167,7 @@ async def send_message(
     if chat_request.content.strip().lower().startswith("/plan"):
         return await send_plan_message(request, chat_request, session)
 
-    # Validate pipeline_id if provided
-    if chat_request.pipeline_id:
-        from src.services.pipelines.service import PipelineService
-
-        try:
-            db = get_db()
-            pipeline_svc = PipelineService(db)
-            pipeline = await pipeline_svc.get_pipeline(
-                selected_project_id,
-                chat_request.pipeline_id,
-                github_user_id=session.github_user_id,
-            )
-            if pipeline is None:
-                raise ValidationError(f"Pipeline not found: {chat_request.pipeline_id}")
-        except ValidationError:
-            raise
-        except Exception as exc:
-            handle_service_error(exc, "validate pipeline")
+    await _validate_chat_request_context(session, selected_project_id, chat_request)
 
     # Check that AI provider is configured (utility functions handle completion internally)
     ai_available = False
@@ -1491,6 +1531,8 @@ async def send_message_stream(
 
     if chat_request.content.strip().lower().startswith("/plan"):
         return await send_plan_message_stream(request, chat_request, session)
+
+    await _validate_chat_request_context(session, selected_project_id, chat_request)
 
     # Streaming requires the agent — reject unsupported options early.
     if not getattr(chat_request, "ai_enhance", True):
@@ -2072,6 +2114,8 @@ async def send_plan_message(
             content={"detail": "Please provide a feature description after /plan."},
         )
 
+    await _validate_chat_request_context(session, selected_project_id, chat_request)
+
     try:
         owner, repo = await _resolve_repository(session)
     except Exception:
@@ -2146,6 +2190,8 @@ async def send_plan_message_stream(
             status_code=400,
             content={"detail": "Please provide a feature description after /plan."},
         )
+
+    await _validate_chat_request_context(session, selected_project_id, chat_request)
 
     try:
         owner, repo = await _resolve_repository(session)

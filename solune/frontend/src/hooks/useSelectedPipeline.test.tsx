@@ -93,7 +93,7 @@ describe('useSelectedPipeline', () => {
     expect(result.current.pipelineName).toBe('Full Review Pipeline');
   });
 
-  it('returns Unknown Pipeline when the assigned id is missing from the list', async () => {
+  it('treats a missing assigned pipeline as no active assignment', async () => {
     mockGetAssignment.mockResolvedValue({ project_id: 'project-1', pipeline_id: 'pipeline-9' });
     mockList.mockResolvedValue({
       pipelines: [{ id: 'pipeline-1', name: 'Full Review Pipeline' }],
@@ -107,8 +107,9 @@ describe('useSelectedPipeline', () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(result.current.hasAssignment).toBe(true);
-    expect(result.current.pipelineName).toBe('Unknown Pipeline');
+    expect(result.current.hasAssignment).toBe(false);
+    expect(result.current.pipelineId).toBe('');
+    expect(result.current.pipelineName).toBe('');
   });
 
   it('disables queries when projectId is null', () => {

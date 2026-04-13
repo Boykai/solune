@@ -300,6 +300,30 @@ describe('useAuth', () => {
         expect(result.current.error).not.toBeNull();
       });
     });
+
+    it('updates the auth error across refetches without crashing', async () => {
+      mockAuthApi.getCurrentUser
+        .mockRejectedValueOnce(new api.ApiError(500, { error: 'Server error 1' }))
+        .mockRejectedValueOnce(new api.ApiError(500, { error: 'Server error 2' }));
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => {
+        expect(result.current.error?.message).toBe('Server error 1');
+      });
+
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      await waitFor(() => {
+        expect(result.current.error?.message).toBe('Server error 2');
+      });
+
+      expect(mockAuthApi.getCurrentUser).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('loading states', () => {

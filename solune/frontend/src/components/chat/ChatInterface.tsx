@@ -214,6 +214,13 @@ export function ChatInterface({
     );
   }, []);
 
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) return;
+
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+  }, []);
+
   const handleViewportScroll = useCallback(() => {
     const viewport = messagesViewportRef.current;
     if (!viewport) return;
@@ -222,14 +229,14 @@ export function ChatInterface({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    scrollMessagesToBottom();
+  }, [messages, scrollMessagesToBottom]);
 
   useEffect(() => {
     if ((isStreaming || streamingError || streamingContent) && shouldFollowStream) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      scrollMessagesToBottom();
     }
-  }, [isStreaming, shouldFollowStream, streamingContent, streamingError]);
+  }, [isStreaming, scrollMessagesToBottom, shouldFollowStream, streamingContent, streamingError]);
 
   // Update autocomplete state when input changes.
   // Derive filtered commands internally via useCommands() so autocomplete

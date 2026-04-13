@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { render } from '@testing-library/react';
+import { within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { MemoryRouter } from 'react-router-dom';
@@ -134,6 +135,27 @@ describe('Sidebar', () => {
     expect(aside).toHaveAttribute('aria-label', 'Sidebar navigation');
     expect(aside).not.toHaveAttribute('aria-modal');
     expect(aside).not.toHaveAttribute('role', 'dialog');
+  });
+
+  it('uses an internal scroll surface on desktop so tall nav content stays reachable', () => {
+    renderSidebar();
+
+    const aside = screen.getByLabelText('Sidebar navigation');
+    const scrollSurface = within(aside).getByTestId('sidebar-scroll-surface');
+
+    expect(aside.className).toContain('overflow-hidden');
+    expect(scrollSurface.className).toContain('overflow-y-auto');
+    expect(scrollSurface.className).toContain('overscroll-y-contain');
+  });
+
+  it('uses the same scroll surface for the mobile overlay sidebar', () => {
+    renderSidebar({ isMobile: true, isCollapsed: false });
+
+    const aside = screen.getByLabelText('Sidebar navigation');
+    const scrollSurface = within(aside).getByTestId('sidebar-scroll-surface');
+
+    expect(aside.className).toContain('overflow-hidden');
+    expect(scrollSurface.className).toContain('overflow-y-auto');
   });
 
   it('calls onToggle when mobile backdrop is clicked', () => {

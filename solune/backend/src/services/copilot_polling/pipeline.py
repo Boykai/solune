@@ -2544,6 +2544,183 @@ async def _advance_pipeline(
     }
 
 
+async def _resolve_main_pr_for_done_transition(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    sub_issues: list[dict],
+) -> tuple[int | None, dict | None]:
+    """Resolve the parent issue's main PR without creating or mutating PR state."""
+    main_branch_info = _cp.get_issue_main_branch(issue_number)
+    if main_branch_info and main_branch_info.get("pr_number"):
+        pr_number = int(main_branch_info["pr_number"])
+        pr_details = await _cp.github_projects_service.get_pull_request(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        if pr_details:
+            return pr_number, pr_details
+
+    candidate_pr_numbers: list[int] = []
+    seen_pr_numbers: set[int] = set()
+
+    async def _collect_linked_prs(target_issue_number: int) -> None:
+        linked_prs = await _cp.github_projects_service.get_linked_pull_requests(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=target_issue_number,
+        )
+        for pr in linked_prs or []:
+            pr_number = pr.get("number")
+            if not pr_number:
+                continue
+            pr_number = int(pr_number)
+            if pr_number in seen_pr_numbers:
+                continue
+            seen_pr_numbers.add(pr_number)
+            candidate_pr_numbers.append(pr_number)
+
+    await _collect_linked_prs(issue_number)
+    for sub_issue in sub_issues:
+        sub_issue_number = sub_issue.get("number")
+        if not sub_issue_number or int(sub_issue_number) == issue_number:
+            continue
+        await _collect_linked_prs(int(sub_issue_number))
+
+    if not candidate_pr_numbers:
+        return None, None
+
+    default_branch = "main"
+    try:
+        repo_info = await _cp.github_projects_service.get_repository_info(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+        )
+        default_branch = repo_info.get("default_branch", "main") or "main"
+    except Exception:
+        logger.debug(
+            "Falling back to default branch 'main' while resolving main PR for issue #%d",
+            issue_number,
+            exc_info=True,
+        )
+
+    for pr_number in candidate_pr_numbers:
+        pr_details = await _cp.github_projects_service.get_pull_request(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            pr_number=pr_number,
+        )
+        if not pr_details:
+            continue
+        if pr_details.get("base_ref") == default_branch:
+            return pr_number, pr_details
+
+    return None, None
+
+
+async def _close_parent_issue_if_main_pr_merged_and_sub_issues_completed(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+) -> bool:
+    """Close the parent issue when terminal GitHub state already shows completion."""
+    try:
+        sub_issues = await _cp.github_projects_service.get_sub_issues(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+        )
+        if not sub_issues:
+            logger.info(
+                "Done transition: issue #%d has no sub-issues to validate; leaving parent open",
+                issue_number,
+            )
+            return False
+
+        pr_number, pr_details = await _resolve_main_pr_for_done_transition(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            sub_issues=sub_issues,
+        )
+        if not pr_details:
+            logger.info(
+                "Done transition: no main PR resolved for issue #%d; leaving parent open",
+                issue_number,
+            )
+            return False
+
+        pr_state = str(pr_details.get("state") or "").upper()
+        if pr_state != "MERGED":
+            logger.info(
+                "Done transition: main PR #%s for issue #%d is %s; leaving parent open",
+                pr_number,
+                issue_number,
+                pr_state or "unknown",
+            )
+            return False
+
+        incomplete_sub_issues: list[str] = []
+        for sub_issue in sub_issues:
+            sub_issue_number = sub_issue.get("number")
+            sub_issue_state = str(sub_issue.get("state") or "").lower()
+            sub_issue_reason = str(sub_issue.get("state_reason") or "").lower()
+            if sub_issue_state != "closed" or sub_issue_reason != "completed":
+                incomplete_sub_issues.append(
+                    str(sub_issue_number or sub_issue.get("id") or "unknown")
+                )
+
+        if incomplete_sub_issues:
+            logger.info(
+                "Done transition: issue #%d still has incomplete sub-issues %s; leaving parent open",
+                issue_number,
+                ", ".join(incomplete_sub_issues),
+            )
+            return False
+
+        closed = await _cp.github_projects_service.update_issue_state(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            state="closed",
+            state_reason="completed",
+        )
+        if not closed:
+            logger.warning(
+                "Done transition: failed to close parent issue #%d after merged main PR validation",
+                issue_number,
+            )
+            return False
+
+        from src.services.workflow_orchestrator.transitions import clear_issue_main_branch
+
+        clear_issue_main_branch(issue_number)
+        logger.info(
+            "Closed parent issue #%d as completed after merged main PR #%s and %d completed sub-issues",
+            issue_number,
+            pr_number,
+            len(sub_issues),
+        )
+        return True
+    except Exception:
+        logger.debug(
+            "Done transition: could not validate merged-parent completion for issue #%d",
+            issue_number,
+            exc_info=True,
+        )
+        return False
+
+
 async def _transition_after_pipeline_complete(
     access_token: str,
     project_id: str,
@@ -2925,103 +3102,115 @@ async def _transition_after_pipeline_complete(
 
     if to_status.lower() == _done_status_name:
         _auto_merge_handled = True
-        _done_auto_merge_active = False
-        try:
-            from src.services.database import get_db
-            from src.services.settings_store import is_auto_merge_enabled
+        parent_issue_closed = await _close_parent_issue_if_main_pr_merged_and_sub_issues_completed(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+        )
 
-            db = get_db()
-            _done_auto_merge_active = await is_auto_merge_enabled(db, project_id)
-        except Exception:
-            pass
-        # Also honour pipeline-level auto-merge (captured before state removal).
-        _done_auto_merge_active = _done_auto_merge_active or _pipeline_auto_merge
-
-        if not _done_auto_merge_active:
+        if parent_issue_closed:
             _remove_state_and_unregister()
+        else:
+            _done_auto_merge_active = False
+            try:
+                from src.services.database import get_db
+                from src.services.settings_store import is_auto_merge_enabled
 
-        if _done_auto_merge_active:
-            from .auto_merge import _attempt_auto_merge
+                db = get_db()
+                _done_auto_merge_active = await is_auto_merge_enabled(db, project_id)
+            except Exception:
+                pass
+            # Also honour pipeline-level auto-merge (captured before state removal).
+            _done_auto_merge_active = _done_auto_merge_active or _pipeline_auto_merge
 
-            logger.info(
-                "Auto-merge retry on Done transition for issue #%d",
-                issue_number,
-            )
-            done_merge_result = await _attempt_auto_merge(
-                access_token=access_token,
-                owner=owner,
-                repo=repo,
-                issue_number=issue_number,
-            )
+            if not _done_auto_merge_active:
+                _remove_state_and_unregister()
 
-            if done_merge_result.status == "merged":
-                # Close the parent issue
-                try:
-                    await _cp.github_projects_service.update_issue_state(
+            if _done_auto_merge_active:
+                from .auto_merge import _attempt_auto_merge
+
+                logger.info(
+                    "Auto-merge retry on Done transition for issue #%d",
+                    issue_number,
+                )
+                done_merge_result = await _attempt_auto_merge(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                )
+
+                if done_merge_result.status == "merged":
+                    # Close the parent issue
+                    try:
+                        await _cp.github_projects_service.update_issue_state(
+                            access_token=access_token,
+                            owner=owner,
+                            repo=repo,
+                            issue_number=issue_number,
+                            state="closed",
+                            state_reason="completed",
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Auto-merge (Done): failed to close issue #%d",
+                            issue_number,
+                            exc_info=True,
+                        )
+
+                    from src.services.workflow_orchestrator.transitions import (
+                        clear_issue_main_branch,
+                    )
+
+                    clear_issue_main_branch(issue_number)
+
+                    await _cp.connection_manager.broadcast_to_project(
+                        project_id,
+                        {
+                            "type": "auto_merge_completed",
+                            "issue_number": issue_number,
+                            "pr_number": done_merge_result.pr_number,
+                            "merge_commit": done_merge_result.merge_commit,
+                        },
+                    )
+                    logger.info(
+                        "Auto-merge (Done) completed for issue #%d (PR #%s)",
+                        issue_number,
+                        done_merge_result.pr_number,
+                    )
+                    _remove_state_and_unregister()
+                elif done_merge_result.status == "devops_needed":
+                    from .auto_merge import dispatch_devops_agent
+
+                    _remove_state_and_unregister()
+                    await dispatch_devops_agent(
                         access_token=access_token,
                         owner=owner,
                         repo=repo,
                         issue_number=issue_number,
-                        state="closed",
-                        state_reason="completed",
+                        project_id=project_id,
+                        merge_result_context=done_merge_result.context,
                     )
-                except Exception:
+                elif done_merge_result.status == "merge_failed":
+                    _remove_state_and_unregister()
                     logger.warning(
-                        "Auto-merge (Done): failed to close issue #%d",
+                        "Auto-merge (Done) failed for issue #%d: %s",
                         issue_number,
-                        exc_info=True,
+                        done_merge_result.error,
                     )
+                elif done_merge_result.status == "retry_later":
+                    from .auto_merge import schedule_auto_merge_retry
 
-                from src.services.workflow_orchestrator.transitions import clear_issue_main_branch
-
-                clear_issue_main_branch(issue_number)
-
-                await _cp.connection_manager.broadcast_to_project(
-                    project_id,
-                    {
-                        "type": "auto_merge_completed",
-                        "issue_number": issue_number,
-                        "pr_number": done_merge_result.pr_number,
-                        "merge_commit": done_merge_result.merge_commit,
-                    },
-                )
-                logger.info(
-                    "Auto-merge (Done) completed for issue #%d (PR #%s)",
-                    issue_number,
-                    done_merge_result.pr_number,
-                )
-                _remove_state_and_unregister()
-            elif done_merge_result.status == "devops_needed":
-                from .auto_merge import dispatch_devops_agent
-
-                _remove_state_and_unregister()
-                await dispatch_devops_agent(
-                    access_token=access_token,
-                    owner=owner,
-                    repo=repo,
-                    issue_number=issue_number,
-                    project_id=project_id,
-                    merge_result_context=done_merge_result.context,
-                )
-            elif done_merge_result.status == "merge_failed":
-                _remove_state_and_unregister()
-                logger.warning(
-                    "Auto-merge (Done) failed for issue #%d: %s",
-                    issue_number,
-                    done_merge_result.error,
-                )
-            elif done_merge_result.status == "retry_later":
-                from .auto_merge import schedule_auto_merge_retry
-
-                schedule_auto_merge_retry(
-                    access_token=access_token,
-                    owner=owner,
-                    repo=repo,
-                    issue_number=issue_number,
-                    project_id=project_id,
-                    item_id=item_id,
-                    task_title=task_title,
-                )
+                    schedule_auto_merge_retry(
+                        access_token=access_token,
+                        owner=owner,
+                        repo=repo,
+                        issue_number=issue_number,
+                        project_id=project_id,
+                        item_id=item_id,
+                        task_title=task_title,
+                    )
 
     # For transitions that did not enter any auto-merge block (e.g. other
     # statuses), remove pipeline state immediately.

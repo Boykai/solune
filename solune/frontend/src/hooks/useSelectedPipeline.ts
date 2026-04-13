@@ -37,18 +37,15 @@ export function useSelectedPipeline(projectId: string | null): SelectedPipelineS
 
   const pipelineId = assignment?.pipeline_id ?? '';
 
-  const pipelineName = useMemo(() => {
-    if (!pipelineId || !pipelineList?.pipelines) return '';
-    const match = pipelineList.pipelines.find((p) => p.id === pipelineId);
-    // Assigned pipeline was deleted — surface "Unknown Pipeline"
-    if (!match) return 'Unknown Pipeline';
-    return match.name;
+  const assignedPipeline = useMemo(() => {
+    if (!pipelineId || !pipelineList?.pipelines) return null;
+    return pipelineList.pipelines.find((p) => p.id === pipelineId) ?? null;
   }, [pipelineId, pipelineList]);
 
   return {
-    pipelineId,
-    pipelineName,
+    pipelineId: assignedPipeline ? pipelineId : '',
+    pipelineName: assignedPipeline?.name ?? '',
     isLoading: assignmentLoading || listLoading,
-    hasAssignment: pipelineId !== '',
+    hasAssignment: assignedPipeline !== null,
   };
 }

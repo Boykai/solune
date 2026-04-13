@@ -21,7 +21,7 @@ interface UseAuthReturn {
 
 export function useAuth(): UseAuthReturn {
   const queryClient = useQueryClient();
-  const [error, setError] = useState<Error | null>(null);
+  const [logoutError, setLogoutError] = useState<Error | null>(null);
 
   // After OAuth callback redirect, the cookie is already set by the backend.
   // Clean the URL path if we landed on /auth/callback so the user sees a clean URL.
@@ -54,6 +54,7 @@ export function useAuth(): UseAuthReturn {
   const logoutMutation = useMutation({
     mutationFn: authApi.logout,
     onSuccess: () => {
+      setLogoutError(null);
       queryClient.setQueryData(['auth', 'me'], null);
       queryClient.removeQueries({ queryKey: modelKeys.all });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -68,7 +69,7 @@ export function useAuth(): UseAuthReturn {
       }
     },
     onError: (err) => {
-      setError(err as Error);
+      setLogoutError(err as Error);
     },
   });
 
@@ -89,14 +90,10 @@ export function useAuth(): UseAuthReturn {
     });
   }, [queryClient, user]);
 
-  // Handle auth errors (401 means not logged in, which is expected)
-  const [prevQueryError, setPrevQueryError] = useState(queryError);
-  if (queryError !== prevQueryError) {
-    setPrevQueryError(queryError);
-    if (queryError && !(queryError instanceof ApiError && queryError.status === 401)) {
-      setError(queryError as Error);
-    }
-  }
+  const authError =
+    queryError && !(queryError instanceof ApiError && queryError.status === 401)
+      ? (queryError as Error)
+      : null;
 
   // Auto-logout: when any API call returns 401 (session/token expired),
   // clear the cached user so the app shows the login screen immediately
@@ -119,7 +116,7 @@ export function useAuth(): UseAuthReturn {
     user: user ?? null,
     isLoading,
     isAuthenticated: !!user,
-    error,
+    error: logoutError ?? authError,
     login,
     logout,
     refetch,

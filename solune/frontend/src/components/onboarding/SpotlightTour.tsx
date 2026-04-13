@@ -22,6 +22,67 @@ import {
   TimelineStarsIcon,
 } from '@/assets/onboarding/icons';
 
+const TOUR_SCROLL_MARGIN = 24;
+
+function findScrollContainer(target: HTMLElement): HTMLElement | null {
+  let current = target.parentElement;
+
+  while (current) {
+    const { overflowY } = window.getComputedStyle(current);
+    const isScrollable =
+      (overflowY === 'auto' || overflowY === 'scroll')
+      && current.scrollHeight > current.clientHeight;
+
+    if (isScrollable) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function scrollTargetIntoView(target: HTMLElement): void {
+  const container = findScrollContainer(target);
+  if (!container) {
+    return;
+  }
+
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const maxScrollTop = container.scrollHeight - container.clientHeight;
+
+  if (maxScrollTop <= 0) {
+    return;
+  }
+
+  let nextScrollTop = container.scrollTop;
+
+  if (targetRect.top < containerRect.top + TOUR_SCROLL_MARGIN) {
+    nextScrollTop += targetRect.top - containerRect.top - TOUR_SCROLL_MARGIN;
+  } else if (targetRect.bottom > containerRect.bottom - TOUR_SCROLL_MARGIN) {
+    nextScrollTop += targetRect.bottom - containerRect.bottom + TOUR_SCROLL_MARGIN;
+  }
+
+  nextScrollTop = Math.min(Math.max(0, nextScrollTop), maxScrollTop);
+
+  if (Math.abs(nextScrollTop - container.scrollTop) < 1) {
+    return;
+  }
+
+  container.scrollTo({ top: nextScrollTop, behavior: 'smooth' });
+}
+
+function resetShellScroll(): void {
+  const shell = document.querySelector('.celestial-shell');
+  if (!(shell instanceof HTMLElement) || shell.scrollTop === 0) {
+    return;
+  }
+
+  shell.scrollTo({ top: 0, behavior: 'auto' });
+}
+
 const TOUR_STEPS: TourStep[] = [
   {
     id: 1,
@@ -169,10 +230,12 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
   // On step change: scroll target into view, retry if missing, fall back to centered
   useEffect(() => {
     if (!isActive || !step?.targetSelector) {
+      resetShellScroll();
       setTargetMissing(false);
       return;
     }
 
+    resetShellScroll();
     setTargetMissing(false);
     let attempt = 0;
     const MAX_RETRIES = 4;
@@ -180,8 +243,9 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
 
     function tryFind() {
       const el = document.querySelector(`[data-tour-step="${step.targetSelector}"]`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (el instanceof HTMLElement) {
+        scrollTargetIntoView(el);
+        resetShellScroll();
         setTargetMissing(false);
         return;
       }
