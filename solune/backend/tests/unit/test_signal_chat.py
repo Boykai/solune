@@ -462,9 +462,7 @@ class TestRunAiPipeline:
         # Patch AI provider config to be invalid so ai-not-configured path is hit
         mock_settings = Mock()
         mock_settings.ai_provider = "none"
-        monkeypatch.setattr(
-            "src.config.get_settings", Mock(return_value=mock_settings)
-        )
+        monkeypatch.setattr("src.config.get_settings", Mock(return_value=mock_settings))
         monkeypatch.setattr(
             "src.services.chat_agent.get_chat_agent_service", Mock(side_effect=ValueError)
         )

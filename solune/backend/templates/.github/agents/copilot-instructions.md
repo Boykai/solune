@@ -57,7 +57,7 @@ Last updated: 2026-04-04
 - **Storage:** SQLite via `aiosqlite` in WAL mode. Migrations currently run through `039_user_scoped_configs.sql`, with the consolidated schema at `023`, and are applied automatically on startup from `solune/backend/src/migrations/`.
 - **Tailwind v4:** CSS-first config lives in `solune/frontend/src/index.css`. Do not add `tailwind.config.js` or `postcss.config.js` unless the build model changes.
 - **Repository resolution:** Use the shared `resolve_repository()` helper in `solune/backend/src/utils.py`. Avoid ad-hoc owner/repo fallback logic.
-- **AI providers:** `completion_providers.py` abstracts GitHub Copilot SDK (default, user OAuth token) and Azure OpenAI (static keys, optional). Selected via `AI_PROVIDER` env var.
+- **AI completions:** `agent_provider.py` owns GitHub Copilot / Azure OpenAI access and the shared client pool, while `ai_utilities.py` contains standalone prompt-driven fallback helpers. Provider selection still uses `AI_PROVIDER`.
 - **Agent pipelines:** Configured in SQLite (`pipeline_configs`) and executed by `solune/backend/src/services/copilot_polling/` + `solune/backend/src/services/workflow_orchestrator/`.
 - **Pipeline state:** `solune/backend/src/services/pipeline_state_store.py` persists pipeline execution state across restarts.
 - **Chores:** `solune/backend/src/services/chores/` manages scheduled recurring tasks.
@@ -82,7 +82,7 @@ solune/
     middleware/       Request middleware (request_id context var)
     migrations/       SQL schema migrations (001–039, run on startup)
     models/           Pydantic request/response models
-    prompts/          AI prompt templates (issue_generation, task_generation, transcript_analysis)
+    prompts/          Shared agent instructions and prompt text
     services/         Business logic
       agents/         Agent config CRUD
       chores/         Scheduled chores (scheduler, counter, chat, template)

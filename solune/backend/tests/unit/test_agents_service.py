@@ -2264,9 +2264,7 @@ class TestAutoGenerateMetadata:
 
     async def test_metadata_non_list_tools_returns_empty(self, mock_db):
         service = AgentsService(mock_db)
-        mock_completion = AsyncMock(
-            return_value='{"description": "D", "tools": "string-not-list"}'
-        )
+        mock_completion = AsyncMock(return_value='{"description": "D", "tools": "string-not-list"}')
 
         with patch("src.services.agent_provider.call_completion", mock_completion):
             result = await service._auto_generate_metadata(

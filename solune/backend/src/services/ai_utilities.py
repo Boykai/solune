@@ -761,9 +761,7 @@ def _parse_issue_recommendation_response(
 
     original_context = original_input
 
-    metadata = _parse_issue_metadata(
-        data.get("metadata", {}), metadata_context=metadata_context
-    )
+    metadata = _parse_issue_metadata(data.get("metadata", {}), metadata_context=metadata_context)
 
     return IssueRecommendation(
         session_id=UUID(session_id),
@@ -782,9 +780,7 @@ def _parse_issue_recommendation_response(
 # ── Public API ───────────────────────────────────────────────────────
 
 
-async def detect_feature_request_intent(
-    user_input: str, github_token: str | None = None
-) -> bool:
+async def detect_feature_request_intent(user_input: str, github_token: str | None = None) -> bool:
     """Detect if user input is a feature request.
 
     Args:
@@ -963,9 +959,7 @@ async def parse_status_change_request(
     """
     from src.services.agent_provider import call_completion
 
-    prompt_messages = _create_status_change_prompt(
-        user_input, available_tasks, available_statuses
-    )
+    prompt_messages = _create_status_change_prompt(user_input, available_tasks, available_statuses)
 
     try:
         messages = [
