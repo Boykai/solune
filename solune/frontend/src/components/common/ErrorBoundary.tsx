@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { getErrorHint } from '@/utils/errorHints';
 import { Lightbulb } from '@/lib/icons';
+import { logger } from '@/lib/logger';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -29,7 +30,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error('ErrorBoundary caught:', error, info.componentStack);
+    logger.captureException(error, { componentStack: info.componentStack });
   }
 
   private handleReset = (): void => {

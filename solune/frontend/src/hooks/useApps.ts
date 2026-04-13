@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { ApiError, appsApi } from '@/services/api';
 import { useInfiniteList } from '@/hooks/useInfiniteList';
 import { useUndoableDelete } from '@/hooks/useUndoableDelete';
+import { getErrorMessage, isApiError } from '@/utils/errorUtils';
 import type {
   App,
   AppAssetInventory,
@@ -30,20 +31,7 @@ export const appKeys = {
 };
 
 /** Type guard to check if an error is an ApiError. */
-export function isApiError(error: unknown): error is ApiError {
-  return error instanceof ApiError;
-}
-
-/** Extract a user-friendly message from an error. */
-export function getErrorMessage(error: unknown, fallback: string): string {
-  if (isApiError(error)) {
-    return error.error?.error ?? error.message ?? fallback;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return fallback;
-}
+export { getErrorMessage, isApiError };
 
 /** Fetch all applications. */
 export function useApps() {

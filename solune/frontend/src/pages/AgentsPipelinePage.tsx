@@ -28,6 +28,7 @@ import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
+import { logger } from '@/lib/logger';
 
 export function AgentsPipelinePage() {
   const { user } = useAuth();
@@ -77,7 +78,7 @@ export function AgentsPipelinePage() {
         queryClient.invalidateQueries({ queryKey: pipelineKeys.list(projectId) });
       })
       .catch((err) => {
-        console.warn('Failed to seed preset pipelines:', err);
+        logger.warn('pipelines', 'Failed to seed preset pipelines', { error: err, projectId });
       });
   }, [projectId, queryClient]);
 

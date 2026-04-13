@@ -7,6 +7,7 @@ Covers:
 - Config fields respect environment variables
 """
 
+import logging
 from unittest.mock import MagicMock, patch
 
 
@@ -65,6 +66,55 @@ class TestOtelSetupNoOp:
         assert otel_mod._tracer is None
         assert otel_mod._meter is None
         mock_warning.assert_called_once()
+
+    def test_init_otel_attaches_logging_handler(self):
+        import src.services.otel_setup as otel_mod
+
+        otel_mod._tracer = None
+        otel_mod._meter = None
+        otel_mod._logger_provider = None
+
+        mock_handler = MagicMock(spec=logging.Handler)
+
+        with (
+            patch("opentelemetry.exporter.otlp.proto.grpc.trace_exporter.OTLPSpanExporter"),
+            patch("opentelemetry.exporter.otlp.proto.grpc.metric_exporter.OTLPMetricExporter"),
+            patch("opentelemetry.exporter.otlp.proto.grpc._log_exporter.OTLPLogExporter"),
+            patch("opentelemetry.sdk._logs.LoggerProvider") as mock_logger_provider_cls,
+            patch("opentelemetry.sdk._logs.LoggingHandler", return_value=mock_handler),
+            patch("opentelemetry.sdk.trace.TracerProvider") as mock_tracer_provider_cls,
+            patch("opentelemetry.sdk.trace.export.BatchSpanProcessor"),
+            patch("opentelemetry.sdk.metrics.export.PeriodicExportingMetricReader"),
+            patch("opentelemetry.sdk.metrics.MeterProvider"),
+            patch(
+                "opentelemetry.instrumentation.fastapi.FastAPIInstrumentor"
+            ) as fastapi_instrumentor,
+            patch(
+                "opentelemetry.instrumentation.httpx.HTTPXClientInstrumentor"
+            ) as httpx_instrumentor,
+            patch(
+                "opentelemetry.instrumentation.sqlite3.SQLite3Instrumentor"
+            ) as sqlite_instrumentor,
+            patch("opentelemetry.trace.set_tracer_provider"),
+            patch("opentelemetry.metrics.set_meter_provider"),
+            patch("opentelemetry._logs.set_logger_provider"),
+            patch("opentelemetry.trace.get_tracer", return_value=MagicMock()),
+            patch("opentelemetry.metrics.get_meter", return_value=MagicMock()),
+            patch.object(logging.getLogger(), "addHandler") as mock_add_handler,
+        ):
+            mock_logger_provider = MagicMock()
+            mock_logger_provider_cls.return_value = mock_logger_provider
+            mock_tracer_provider_cls.return_value = MagicMock()
+            fastapi_instrumentor.return_value.instrument.return_value = None
+            httpx_instrumentor.return_value.instrument.return_value = None
+            sqlite_instrumentor.return_value.instrument.return_value = None
+
+            tracer, meter = otel_mod.init_otel("solune-backend", "http://localhost:4317")
+
+        assert tracer is not None
+        assert meter is not None
+        mock_logger_provider.add_log_record_processor.assert_called_once()
+        mock_add_handler.assert_called_once_with(mock_handler)
 
 
 class TestObservabilityConfigDefaults:

@@ -5,10 +5,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ExternalLink, Play, Square, Trash2, RefreshCw } from '@/lib/icons';
-import { useApp, useStartApp, useStopApp, useUndoableDeleteApp, getErrorMessage } from '@/hooks/useApps';
+import { useApp, useStartApp, useStopApp, useUndoableDeleteApp } from '@/hooks/useApps';
 import { CelestialLoader } from '@/components/common/CelestialLoader';
 import { useConfirmation } from '@/hooks/useConfirmation';
 import { isRateLimitApiError } from '@/utils/rateLimit';
+import { getErrorMessage } from '@/utils/errorUtils';
 import { Tooltip } from '@/components/ui/tooltip';
 import { EntityHistoryPanel } from '@/components/activity/EntityHistoryPanel';
 import { useAuth } from '@/hooks/useAuth';

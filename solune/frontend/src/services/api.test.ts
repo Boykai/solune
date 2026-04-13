@@ -318,8 +318,13 @@ describe('onAuthExpired', () => {
     expect(throwingListener).toHaveBeenCalledOnce();
     expect(healthyListener).toHaveBeenCalledOnce();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Auth-expired listener threw:',
-      expect.any(Error)
+      '[auth] Auth-expired listener threw',
+      {
+        error: expect.objectContaining({
+          message: 'listener boom',
+          name: 'Error',
+        }),
+      }
     );
 
     unsubThrowing();

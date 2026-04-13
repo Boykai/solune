@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from datetime import UTC, datetime
 
@@ -401,6 +402,7 @@ class PipelineService:
         github_user_id: str = "",
     ) -> PipelineConfigListResponse:
         """List all pipeline configurations for a user with enriched summaries."""
+        start = time.monotonic()
         allowed_sort = {"updated_at", "name", "created_at"}
         allowed_order = {"asc", "desc"}
         sort_col = sort if sort in allowed_sort else "updated_at"
@@ -446,6 +448,15 @@ class PipelineService:
                 )
             )
 
+        logger.info(
+            "Listed %d pipeline configurations for project %s",
+            len(summaries),
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.list",
+            },
+        )
         return PipelineConfigListResponse(pipelines=summaries, total=len(summaries))
 
     # ── Get ───────────────────────────────────────────────────────────
@@ -457,6 +468,7 @@ class PipelineService:
         github_user_id: str = "",
     ) -> PipelineConfig | None:
         """Get a single pipeline configuration by ID."""
+        start = time.monotonic()
         if github_user_id:
             cursor = await self._db.execute(
                 "SELECT * FROM pipeline_configs WHERE id = ? AND (github_user_id = ? OR github_user_id = '')",
@@ -470,6 +482,15 @@ class PipelineService:
         row = await cursor.fetchone()
         if row is None:
             return None
+        logger.info(
+            "Loaded pipeline %s for project %s",
+            pipeline_id,
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.get",
+            },
+        )
         return self._row_to_config(dict(row))
 
     # ── Create ────────────────────────────────────────────────────────
@@ -485,6 +506,7 @@ class PipelineService:
         Raises:
             ValueError: If a pipeline with the same name already exists.
         """
+        start = time.monotonic()
         pipeline_id = str(uuid.uuid4())
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         normalized_stages = list(body.stages)
@@ -517,6 +539,15 @@ class PipelineService:
         pipeline = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
         if pipeline is None:
             raise RuntimeError(f"Pipeline {pipeline_id} was not found after creation")
+        logger.info(
+            "Created pipeline %s for project %s",
+            pipeline_id,
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.create",
+            },
+        )
         return pipeline
 
     # ── Update ────────────────────────────────────────────────────────
@@ -534,6 +565,7 @@ class PipelineService:
         Raises ValueError on duplicate name.
         Raises PermissionError if the pipeline is a preset.
         """
+        start = time.monotonic()
         existing = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
         if existing is None:
             return None
@@ -586,7 +618,17 @@ class PipelineService:
                 f"A pipeline named '{updates.get('name', '')}' already exists."
             ) from exc
 
-        return await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
+        updated = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
+        logger.info(
+            "Updated pipeline %s for project %s",
+            pipeline_id,
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.update",
+            },
+        )
+        return updated
 
     # ── Delete ────────────────────────────────────────────────────────
 
@@ -597,6 +639,7 @@ class PipelineService:
         github_user_id: str = "",
     ) -> bool:
         """Delete a pipeline configuration. Returns True if deleted."""
+        start = time.monotonic()
         if github_user_id:
             cursor = await self._db.execute(
                 "DELETE FROM pipeline_configs WHERE id = ? AND (github_user_id = ? OR github_user_id = '')",
@@ -608,7 +651,17 @@ class PipelineService:
                 (pipeline_id, project_id),
             )
         await self._db.commit()
-        return cursor.rowcount > 0
+        deleted = cursor.rowcount > 0
+        logger.info(
+            "Deleted pipeline %s for project %s",
+            pipeline_id,
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.delete",
+            },
+        )
+        return deleted
 
     # ── Presets ───────────────────────────────────────────────────────
 
@@ -618,6 +671,7 @@ class PipelineService:
         github_user_id: str = "",
     ) -> dict:
         """Idempotently seed preset pipeline configurations for a user."""
+        start = time.monotonic()
         seeded: list[str] = []
         skipped: list[str] = []
 
@@ -669,6 +723,15 @@ class PipelineService:
         if seeded:
             await self._db.commit()
 
+        logger.info(
+            "Seeded %d preset pipelines for project %s",
+            len(seeded),
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.seed_presets",
+            },
+        )
         return {"seeded": seeded, "skipped": skipped, "total": len(seeded) + len(skipped)}
 
     # ── Assignment ───────────────────────────────────────────────────
@@ -708,6 +771,7 @@ class PipelineService:
 
         Raises ValueError if pipeline_id is non-empty and doesn't exist.
         """
+        start = time.monotonic()
         if pipeline_id:
             existing = await self.get_pipeline(
                 project_id,
@@ -729,5 +793,13 @@ class PipelineService:
             (_CANONICAL_PROJECT_SETTINGS_USER, project_id, now, pipeline_id),
         )
         await self._db.commit()
-
-        return await self.get_assignment(project_id)
+        assignment = await self.get_assignment(project_id)
+        logger.info(
+            "Updated pipeline assignment for project %s",
+            project_id,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipelines.set_assignment",
+            },
+        )
+        return assignment

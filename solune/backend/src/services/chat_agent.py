@@ -368,6 +368,7 @@ class ChatAgentService:
             ChatMessage with the agent's response, including action_type and
             action_data when the agent invoked an action tool.
         """
+        start = time.monotonic()
         agent_session = await self._session_mapping.get_or_create(
             self._agent_key(session_id, conversation_id)
         )
@@ -430,9 +431,26 @@ class ChatAgentService:
                 result.action_type = ActionType(session_action_type)
                 result.action_data = session_action_data
                 result.content = _normalize_assistant_content(result.content, session_action_type)
+            logger.info(
+                "Chat agent run completed for session %s",
+                sid,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "operation": "chat_agent.run",
+                },
+            )
             return result
         except Exception as e:
-            logger.error("Agent run failed: %s", e, exc_info=True)
+            logger.error(
+                "Agent run failed: %s",
+                e,
+                exc_info=True,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "error_type": type(e).__name__,
+                    "operation": "chat_agent.run",
+                },
+            )
             # Invalidate the session so the next attempt gets a fresh one
             # instead of resuming a potentially stuck Copilot session.
             await self._session_mapping.invalidate(sid)
@@ -469,6 +487,7 @@ class ChatAgentService:
         Yields:
             Dicts with ``event`` and ``data`` keys for SSE serialization.
         """
+        start = time.monotonic()
         agent_session = await self._session_mapping.get_or_create(
             self._agent_key(session_id, conversation_id)
         )
@@ -588,13 +607,30 @@ class ChatAgentService:
                 action_type=ActionType(action_type) if action_type else None,
                 action_data=action_data,
             )
+            logger.info(
+                "Chat agent stream completed for session %s",
+                session_id,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "operation": "chat_agent.run_stream",
+                },
+            )
             yield {
                 "event": "done",
                 "data": final_msg.model_dump_json(),
             }
 
         except Exception as e:
-            logger.error("Agent stream failed: %s", e, exc_info=True)
+            logger.error(
+                "Agent stream failed: %s",
+                e,
+                exc_info=True,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "error_type": type(e).__name__,
+                    "operation": "chat_agent.run_stream",
+                },
+            )
             await self._session_mapping.invalidate(str(session_id))
             yield {
                 "event": "error",
@@ -622,6 +658,7 @@ class ChatAgentService:
         Sets ``is_plan_mode=True`` and ``repo_owner``/``repo_name`` in
         session state so follow-up messages auto-delegate.
         """
+        start = time.monotonic()
         agent_session = await self._session_mapping.get_or_create(str(session_id))
         effective_pipeline_id = selected_pipeline_id or agent_session.state.get(
             "selected_pipeline_id"
@@ -684,9 +721,26 @@ class ChatAgentService:
                         result.content,
                         recovered_action_type,
                     )
+            logger.info(
+                "Plan agent run completed for session %s",
+                sid,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "operation": "chat_agent.run_plan",
+                },
+            )
             return result
         except Exception as e:
-            logger.error("Plan agent run failed: %s", e, exc_info=True)
+            logger.error(
+                "Plan agent run failed: %s",
+                e,
+                exc_info=True,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "error_type": type(e).__name__,
+                    "operation": "chat_agent.run_plan",
+                },
+            )
             await self._session_mapping.invalidate(sid)
             return ChatMessage(
                 session_id=session_id,
@@ -712,6 +766,7 @@ class ChatAgentService:
 
         Yields SSE events including ``thinking`` events for phase-aware UI.
         """
+        start = time.monotonic()
         agent_session = await self._session_mapping.get_or_create(str(session_id))
 
         # Determine thinking phase based on whether we are refining
@@ -883,13 +938,30 @@ class ChatAgentService:
                 action_type=ActionType(action_type) if action_type else None,
                 action_data=action_data,
             )
+            logger.info(
+                "Plan agent stream completed for session %s",
+                session_id,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "operation": "chat_agent.run_plan_stream",
+                },
+            )
             yield {
                 "event": "done",
                 "data": final_msg.model_dump_json(),
             }
 
         except Exception as e:
-            logger.error("Plan agent stream failed: %s", e, exc_info=True)
+            logger.error(
+                "Plan agent stream failed: %s",
+                e,
+                exc_info=True,
+                extra={
+                    "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                    "error_type": type(e).__name__,
+                    "operation": "chat_agent.run_plan_stream",
+                },
+            )
             await self._session_mapping.invalidate(str(session_id))
             yield {
                 "event": "error",
