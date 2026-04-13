@@ -203,6 +203,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - N/A for this feature; header content comes from existing page/query state and no persistence model changes are required (001-simplify-page-headers)
 - Python 3.12+ (backend); TypeScript/React (frontend) + FastAPI, Pydantic, Microsoft Agent Framework (`ChatAgentService`), Vite (frontend build) (003-remove-dead-code-tech-debt)
 - N/A — no schema or persistence changes; `pipeline_metadata` field evaluation may defer removal pending data-migration analysis (003-remove-dead-code-tech-debt)
+- Python 3.12+ (backend); TypeScript 5.x / React 18 (frontend) + FastAPI, Pydantic, aiosqlite (backend); React, TanStack Query, Tailwind CSS (frontend) (004-remove-chore-templates)
+- SQLite via aiosqlite — migration `045_chore_description.sql` renames column + drops column + strips YAML (004-remove-chore-templates)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
