@@ -161,12 +161,11 @@ class TestClassifyLabels:
     async def test_successful_classification(self):
         """Happy path: AI returns valid labels."""
         ai_response = json.dumps({"labels": ["enhancement", "backend", "performance"]})
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
 
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
         ):
             result = await classify_labels(
                 title="Optimize database queries",
@@ -184,12 +183,10 @@ class TestClassifyLabels:
     @pytest.mark.anyio
     async def test_fallback_on_ai_failure(self):
         """When the AI call raises, fallback labels are returned."""
-        mock_provider = AsyncMock()
-        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("AI unavailable"),
         ):
             result = await classify_labels(
                 title="Some issue",
@@ -201,12 +198,11 @@ class TestClassifyLabels:
     @pytest.mark.anyio
     async def test_fallback_on_invalid_json(self):
         """When the AI returns garbage, fallback labels are returned."""
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = "this is not json"
 
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value="this is not json",
         ):
             result = await classify_labels(
                 title="Some issue",
@@ -218,31 +214,28 @@ class TestClassifyLabels:
     @pytest.mark.anyio
     async def test_empty_title_returns_fallback_without_ai_call(self):
         """When title is blank, skip the AI call entirely."""
-        mock_provider = AsyncMock()
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
-        ):
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+        ) as mock_completion:
             result = await classify_labels(
                 title="   ",
                 description="",
                 github_token="tok",
             )
 
-        mock_provider.complete.assert_not_called()
+        mock_completion.assert_not_called()
         assert result == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
 
     @pytest.mark.anyio
     async def test_ai_returns_invalid_labels_filtered(self):
         """Invalid labels in the AI response are removed."""
         ai_response = json.dumps({"labels": ["bug", "MADE_UP", "frontend"]})
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
 
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
         ):
             result = await classify_labels(
                 title="Fix login",
@@ -257,31 +250,28 @@ class TestClassifyLabels:
     async def test_description_only_triggers_ai(self):
         """Non-empty title with whitespace description still calls AI."""
         ai_response = json.dumps({"labels": ["feature", "backend"]})
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
 
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
-        ):
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
+        ) as mock_completion:
             result = await classify_labels(
                 title="Add caching layer",
                 description="   ",
                 github_token="tok",
             )
 
-        mock_provider.complete.assert_called_once()
+        mock_completion.assert_called_once()
         assert "feature" in result
 
     @pytest.mark.anyio
     async def test_custom_fallback_labels_on_failure(self):
         """When classification fails, caller-supplied fallback_labels are returned."""
-        mock_provider = AsyncMock()
-        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("AI unavailable"),
         ):
             result = await classify_labels(
                 title="Some issue",
@@ -294,19 +284,18 @@ class TestClassifyLabels:
     @pytest.mark.anyio
     async def test_empty_title_with_description_returns_fallback(self):
         """When title is blank (even with a description), skip the AI call."""
-        mock_provider = AsyncMock()
 
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
-        ):
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+        ) as mock_completion:
             result = await classify_labels(
                 title="   ",
                 description="Some description here",
                 github_token="tok",
             )
 
-        mock_provider.complete.assert_not_called()
+        mock_completion.assert_not_called()
         assert result == [ALWAYS_INCLUDED_LABEL, DEFAULT_TYPE_LABEL]
 
     @pytest.mark.anyio
@@ -317,13 +306,11 @@ class TestClassifyLabels:
             await asyncio.sleep(60)
             return json.dumps({"labels": ["bug"]})
 
-        mock_provider = AsyncMock()
-        mock_provider.complete.side_effect = slow_complete
-
         with (
             patch(
-                "src.services.completion_providers.create_completion_provider",
-                return_value=mock_provider,
+                "src.services.agent_provider.call_completion",
+                new_callable=AsyncMock,
+                side_effect=slow_complete,
             ),
             patch(
                 "src.services.label_classifier._CLASSIFICATION_TIMEOUT_SECONDS",
@@ -341,15 +328,14 @@ class TestClassifyLabels:
     async def test_description_truncated_in_prompt(self):
         """Descriptions longer than 2,000 chars are truncated before the AI call."""
         ai_response = json.dumps({"labels": ["feature", "backend"]})
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
 
         long_desc = "x" * 5_000
 
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
-        ):
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
+        ) as mock_completion:
             result = await classify_labels(
                 title="Big issue",
                 description=long_desc,
@@ -357,8 +343,8 @@ class TestClassifyLabels:
             )
 
         # Verify the prompt was called and description was truncated.
-        mock_provider.complete.assert_called_once()
-        messages = mock_provider.complete.call_args.kwargs["messages"]
+        mock_completion.assert_called_once()
+        messages = mock_completion.call_args.kwargs["messages"]
         user_msg = messages[1]["content"]
         # The description portion should not contain the full 5,000 chars.
         assert len(user_msg) < 5_000
@@ -480,12 +466,10 @@ class TestClassifyLabelsWithPriority:
                 "priority": "P0",
             }
         )
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
         ):
             result = await classify_labels_with_priority(
                 title="Critical security vulnerability in authentication module",
@@ -506,12 +490,10 @@ class TestClassifyLabelsWithPriority:
                 "labels": ["feature", "frontend"],
             }
         )
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
         ):
             result = await classify_labels_with_priority(
                 title="Add pagination to user list",
@@ -524,12 +506,10 @@ class TestClassifyLabelsWithPriority:
     @pytest.mark.anyio
     async def test_ai_failure_returns_fallback_with_no_priority(self):
         """On AI failure, fallback labels returned with priority=None."""
-        mock_provider = AsyncMock()
-        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("AI unavailable"),
         ):
             result = await classify_labels_with_priority(
                 title="Some issue",
@@ -547,13 +527,11 @@ class TestClassifyLabelsWithPriority:
             await asyncio.sleep(60)
             return json.dumps({"labels": ["bug"], "priority": "P1"})
 
-        mock_provider = AsyncMock()
-        mock_provider.complete.side_effect = slow_complete
-
         with (
             patch(
-                "src.services.completion_providers.create_completion_provider",
-                return_value=mock_provider,
+                "src.services.agent_provider.call_completion",
+                new_callable=AsyncMock,
+                side_effect=slow_complete,
             ),
             patch(
                 "src.services.label_classifier._CLASSIFICATION_TIMEOUT_SECONDS",
@@ -577,12 +555,10 @@ class TestClassifyLabelsWithPriority:
                 "priority": "urgent",
             }
         )
-        mock_provider = AsyncMock()
-        mock_provider.complete.return_value = ai_response
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            return_value=ai_response,
         ):
             result = await classify_labels_with_priority(
                 title="Some urgent issue",
@@ -605,12 +581,10 @@ class TestClassifyLabelsWithPriority:
     @pytest.mark.anyio
     async def test_custom_fallback_on_failure(self):
         """Custom fallback labels are used on failure."""
-        mock_provider = AsyncMock()
-        mock_provider.complete.side_effect = RuntimeError("AI unavailable")
-
         with patch(
-            "src.services.completion_providers.create_completion_provider",
-            return_value=mock_provider,
+            "src.services.agent_provider.call_completion",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("AI unavailable"),
         ):
             result = await classify_labels_with_priority(
                 title="Some issue",

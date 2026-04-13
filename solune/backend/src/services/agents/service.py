@@ -1370,9 +1370,7 @@ class AgentsService:
         access_token: str,
     ) -> AgentChatResponse:
         """Multi-turn chat for sparse-to-rich agent content refinement."""
-        from src.services.ai_agent import get_ai_agent_service
-
-        ai_service = get_ai_agent_service()
+        from src.services.agent_provider import call_completion
 
         # Prune expired sessions before accessing
         _prune_expired_sessions()
@@ -1408,7 +1406,7 @@ class AgentsService:
         history.append({"role": "user", "content": message})
 
         try:
-            response = await ai_service._call_completion(
+            response = await call_completion(
                 messages=history,
                 github_token=access_token,
                 max_tokens=2000,
@@ -1504,9 +1502,7 @@ class AgentsService:
 
         Returns ``{"system_prompt": str, "description": str, "tools": list[str]}``.
         """
-        from src.services.ai_agent import get_ai_agent_service
-
-        ai_service = get_ai_agent_service()
+        from src.services.agent_provider import call_completion
 
         # Gather examples from existing agents in the repo
         examples = await self._gather_agent_examples(owner, repo, access_token)
@@ -1548,7 +1544,7 @@ class AgentsService:
             },
         ]
 
-        response = await ai_service._call_completion(
+        response = await call_completion(
             messages=messages,
             github_token=access_token,
             temperature=0.5,
@@ -1627,9 +1623,7 @@ class AgentsService:
 
         Returns ``{"description": str, "tools": list[str]}``.
         """
-        from src.services.ai_agent import get_ai_agent_service
-
-        ai_service = get_ai_agent_service()
+        from src.services.agent_provider import call_completion
 
         messages = [
             {
@@ -1652,7 +1646,7 @@ class AgentsService:
             },
         ]
 
-        response = await ai_service._call_completion(
+        response = await call_completion(
             messages=messages,
             github_token=access_token,
             temperature=0.3,
@@ -1688,9 +1682,8 @@ class AgentsService:
 
         Returns ``{"issue_body": str, "pr_body": str}``.
         """
-        from src.services.ai_agent import get_ai_agent_service
+        from src.services.agent_provider import call_completion
 
-        ai_service = get_ai_agent_service()
         tools_display = ", ".join(f"`{t}`" for t in tools) if tools else "all (default)"
 
         messages = [
@@ -1725,7 +1718,7 @@ class AgentsService:
             },
         ]
 
-        response = await ai_service._call_completion(
+        response = await call_completion(
             messages=messages,
             github_token=access_token,
             temperature=0.4,

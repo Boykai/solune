@@ -49,7 +49,6 @@ from .transitions import (
 )
 
 if TYPE_CHECKING:
-    from src.services.ai_agent import AIAgentService
     from src.services.github_projects import GitHubProjectsService
 
 logger = get_logger(__name__)
@@ -88,10 +87,8 @@ class WorkflowOrchestrator:
 
     def __init__(
         self,
-        ai_service: "AIAgentService",
         github_service: "GitHubProjectsService",
     ):
-        self.ai = ai_service
         self.github = github_service
         self.fleet_dispatch = FleetDispatchService()
 
@@ -3057,11 +3054,9 @@ def get_workflow_orchestrator() -> WorkflowOrchestrator:
     """Get or create the global workflow orchestrator instance."""
     global _orchestrator_instance
     if _orchestrator_instance is None:
-        from src.services.ai_agent import get_ai_agent_service
         from src.services.github_projects import github_projects_service
 
         _orchestrator_instance = WorkflowOrchestrator(
-            ai_service=get_ai_agent_service(),
             github_service=github_projects_service,
         )
     return _orchestrator_instance

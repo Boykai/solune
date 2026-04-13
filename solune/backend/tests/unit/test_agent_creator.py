@@ -508,15 +508,13 @@ class TestHandleAgentCommandAdminGate:
         )
         await seeded_db.commit()
 
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            mock_service = AsyncMock()
-            mock_service.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "TestAgent",
                 "description": "A test agent",
                 "system_prompt": "You are a test agent.",
                 "tools": ["search_code"],
             }
-            mock_ai.return_value = mock_service
 
             result = await handle_agent_command(
                 message="#agent Create a test agent #Done",
@@ -621,10 +619,8 @@ class TestExceptionPaths:
         )
         await mock_db.commit()
 
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            mock_service = AsyncMock()
-            mock_service.generate_agent_config.side_effect = ConnectionError("Network unreachable")
-            mock_ai.return_value = mock_service
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.side_effect = ConnectionError("Network unreachable")
 
             result = await handle_agent_command(
                 message="#agent Create a reviewer #Done",
@@ -689,15 +685,13 @@ class TestConfigParsing:
         )
         await mock_db.commit()
 
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            mock_service = AsyncMock()
-            mock_service.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "BadTools",
                 "description": "Agent with bad tools",
                 "system_prompt": "You are a test.",
                 "tools": "not-a-list",
             }
-            mock_ai.return_value = mock_service
 
             result = await handle_agent_command(
                 message="#agent Create agent #Done",
@@ -846,15 +840,13 @@ class TestStatusResolution:
     # T025
     async def test_case_insensitive_match_resolves(self, admin_db: aiosqlite.Connection):
         """Status provided as 'in-progress' matches 'In Progress' column."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "Reviewer",
                 "description": "Reviews code",
                 "system_prompt": "You review code.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             result = await handle_agent_command(
                 message="#agent Reviews code #in-progress",
@@ -909,15 +901,13 @@ class TestStatusResolution:
     # T027
     async def test_no_match_proposes_new_column(self, admin_db: aiosqlite.Connection):
         """Unrecognized status results in a new column proposal."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "Triager",
                 "description": "Triages issues",
                 "system_prompt": "You triage issues.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             result = await handle_agent_command(
                 message="#agent Triages issues #brand-new-status",
@@ -972,22 +962,22 @@ class TestCreationPipeline:
 
     def _ai_mock(self, name: str = "TestBot"):
         """Return a patched AI service mock with valid generate_agent_config."""
-        patcher = patch("src.services.agent_creator.get_ai_agent_service")
-        mock_ai = patcher.start()
-        svc = AsyncMock()
-        svc.generate_agent_config.return_value = {
+        gen_patcher = patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock)
+        mock_gen = gen_patcher.start()
+        mock_gen.return_value = {
             "name": name,
             "description": "A test bot",
             "system_prompt": "You are a test bot.",
             "tools": ["tool1"],
         }
-        svc.edit_agent_config.return_value = {
+        edit_patcher = patch("src.services.agent_creator.edit_agent_config", new_callable=AsyncMock)
+        mock_edit = edit_patcher.start()
+        mock_edit.return_value = {
             "name": name,
             "description": "Edited",
             "system_prompt": "Edited prompt.",
         }
-        mock_ai.return_value = svc
-        return patcher, svc
+        return gen_patcher, edit_patcher, mock_gen, mock_edit
 
     def _gps_mock(self):
         """Return a patched github_projects_service mock with all pipeline methods."""
@@ -1025,7 +1015,7 @@ class TestCreationPipeline:
         name: str = "TestBot",
     ) -> str:
         """Drive the conversation through to the preview step."""
-        ai_patcher, _ = self._ai_mock(name)
+        gen_patcher, edit_patcher, _, _ = self._ai_mock(name)
         try:
             result = await handle_agent_command(
                 message=f"#agent Build a {name} #Done",
@@ -1039,7 +1029,8 @@ class TestCreationPipeline:
                 project_columns=["Todo", "In Progress", "Done"],
             )
         finally:
-            ai_patcher.stop()
+            gen_patcher.stop()
+            edit_patcher.stop()
         return result
 
     # T028
@@ -1185,10 +1176,8 @@ class TestAIServiceFailures:
     # T031
     async def test_generate_config_raises_clears_session(self, admin_db: aiosqlite.Connection):
         """When generate_agent_config raises, session is cleared and error returned."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.side_effect = RuntimeError("AI down")
-            mock_ai.return_value = svc
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.side_effect = RuntimeError("AI down")
 
             result = await handle_agent_command(
                 message="#agent Build a bot #Done",
@@ -1210,15 +1199,13 @@ class TestAIServiceFailures:
     async def test_edit_config_fails_preserves_preview(self, admin_db: aiosqlite.Connection):
         """When edit_agent_config fails, error returned but preview preserved."""
         # First get to preview
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "EditBot",
                 "description": "Test",
                 "system_prompt": "Prompt.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             await handle_agent_command(
                 message="#agent Build a bot #Done",
@@ -1238,10 +1225,8 @@ class TestAIServiceFailures:
         original_name = state_before.preview.name
 
         # Now try an edit that fails
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai2:
-            svc2 = AsyncMock()
-            svc2.edit_agent_config.side_effect = RuntimeError("Edit failed")
-            mock_ai2.return_value = svc2
+        with patch("src.services.agent_creator.edit_agent_config", new_callable=AsyncMock) as mock_edit:
+            mock_edit.side_effect = RuntimeError("Edit failed")
 
             result = await handle_agent_command(
                 message="change name to FooBot",
@@ -1266,15 +1251,13 @@ class TestAIServiceFailures:
     # T032b
     async def test_edit_can_retry_after_failure(self, admin_db: aiosqlite.Connection):
         """A failed edit keeps the preview so a later retry can still succeed."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "RetryBot",
                 "description": "Test",
                 "system_prompt": "Prompt.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             initial_result = await handle_agent_command(
                 message="#agent Build a bot #Done",
@@ -1291,10 +1274,8 @@ class TestAIServiceFailures:
         assert "Agent Preview" in initial_result
         assert "RetryBot" in initial_result
 
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai_fail:
-            failing_service = AsyncMock()
-            failing_service.edit_agent_config.side_effect = RuntimeError("Edit failed")
-            mock_ai_fail.return_value = failing_service
+        with patch("src.services.agent_creator.edit_agent_config", new_callable=AsyncMock) as mock_edit_fail:
+            mock_edit_fail.side_effect = RuntimeError("Edit failed")
 
             failed_result = await handle_agent_command(
                 message="change name to FooBot",
@@ -1310,15 +1291,13 @@ class TestAIServiceFailures:
 
         assert "Error" in failed_result
 
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai_retry:
-            retry_service = AsyncMock()
-            retry_service.edit_agent_config.return_value = {
+        with patch("src.services.agent_creator.edit_agent_config", new_callable=AsyncMock) as mock_edit_retry:
+            mock_edit_retry.return_value = {
                 "name": "RetryBotV2",
                 "description": "Updated",
                 "system_prompt": "Updated prompt.",
                 "tools": [],
             }
-            mock_ai_retry.return_value = retry_service
 
             retry_result = await handle_agent_command(
                 message="change name to RetryBotV2",
@@ -1343,15 +1322,13 @@ class TestAIServiceFailures:
     # T033
     async def test_ai_returns_string_tools_defaults_to_empty(self, admin_db: aiosqlite.Connection):
         """When AI returns a non-list for tools, it defaults to empty list."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "ToolBot",
                 "description": "A bot",
                 "system_prompt": "Prompt.",
                 "tools": "not-a-list",
             }
-            mock_ai.return_value = svc
 
             result = await handle_agent_command(
                 message="#agent Build a bot #Done",
@@ -1422,15 +1399,13 @@ class TestStatusSelectionFlow:
         assert "Multiple columns" in result
 
         # Respond with valid number
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "Reviewer",
                 "description": "Reviews",
                 "system_prompt": "You review.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             result2 = await handle_agent_command(
                 message="1",
@@ -1465,15 +1440,13 @@ class TestStatusSelectionFlow:
         assert "Which status column" in result
 
         # Respond with free text
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "Agent",
                 "description": "An agent",
                 "system_prompt": "You are an agent.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             result2 = await handle_agent_command(
                 message="custom-status",
@@ -1524,15 +1497,13 @@ class TestEditFlow:
     async def test_successful_edit_updates_preview(self, admin_db: aiosqlite.Connection):
         """Successful edit updates the preview and sets step to EDIT_LOOP."""
         # Get to preview
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "OldName",
                 "description": "Old desc",
                 "system_prompt": "Old prompt.",
                 "tools": ["tool1"],
             }
-            mock_ai.return_value = svc
 
             await handle_agent_command(
                 message="#agent Build a bot #Done",
@@ -1547,14 +1518,12 @@ class TestEditFlow:
             )
 
         # Now send an edit
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai2:
-            svc2 = AsyncMock()
-            svc2.edit_agent_config.return_value = {
+        with patch("src.services.agent_creator.edit_agent_config", new_callable=AsyncMock) as mock_edit:
+            mock_edit.return_value = {
                 "name": "NewName",
                 "description": "New desc",
                 "system_prompt": "New prompt.",
             }
-            mock_ai2.return_value = svc2
 
             result = await handle_agent_command(
                 message="change the name to NewName",
@@ -1593,15 +1562,13 @@ class TestEditFlow:
 
     async def test_missing_context_returns_error(self, admin_db: aiosqlite.Connection):
         """Pipeline with missing project_id returns error."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "Bot",
                 "description": "A bot",
                 "system_prompt": "Prompt.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             await handle_agent_command(
                 message="#agent Build a bot #Done",
@@ -1750,15 +1717,13 @@ class TestExistingSessionDoneStep:
         state.step = CreationStep.DONE
         _agent_sessions["sess-done2"] = state
 
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "FreshBot",
                 "description": "Fresh",
                 "system_prompt": "Fresh prompt.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
 
             result = await handle_agent_command(
                 message="#agent Build a fresh bot #Done",
@@ -1830,9 +1795,7 @@ class TestProjectSelection:
 
     async def test_prompt_project_selection_message(self, admin_db):
         """When no project_id is provided, user is prompted for project."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            mock_ai.return_value = svc
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock):
 
             result = await handle_agent_command(
                 message="#agent A bot for security",
@@ -1972,17 +1935,15 @@ class TestFullPipelineSuccess:
         _agent_sessions.clear()
 
     def _ai_mock(self, name="FullBot"):
-        patcher = patch("src.services.agent_creator.get_ai_agent_service")
-        mock_ai = patcher.start()
-        svc = AsyncMock()
-        svc.generate_agent_config.return_value = {
+        gen_patcher = patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock)
+        mock_gen = gen_patcher.start()
+        mock_gen.return_value = {
             "name": name,
             "description": "A full bot",
             "system_prompt": "You are a full bot.",
             "tools": ["tool1"],
         }
-        mock_ai.return_value = svc
-        return patcher, svc
+        return gen_patcher, mock_gen
 
     def _gps_mock(self):
         patcher = patch("src.services.agent_creator.github_projects_service")
@@ -2012,7 +1973,7 @@ class TestFullPipelineSuccess:
         return patcher, mock_gps
 
     async def _drive_to_preview(self, admin_db, session_key, *, name="FullBot"):
-        ai_patcher, _ = self._ai_mock(name)
+        gen_patcher, _ = self._ai_mock(name)
         try:
             result = await handle_agent_command(
                 message=f"#agent Build a {name} #Done",
@@ -2026,7 +1987,7 @@ class TestFullPipelineSuccess:
                 project_columns=["Todo", "In Progress", "Done"],
             )
         finally:
-            ai_patcher.stop()
+            gen_patcher.stop()
         return result
 
     async def test_full_success_pipeline(self, admin_db):
@@ -2166,15 +2127,13 @@ class TestFullPipelineSuccess:
 
     async def test_new_column_pipeline(self, admin_db):
         """Pipeline with a new column shows 'Create project column' step."""
-        with patch("src.services.agent_creator.get_ai_agent_service") as mock_ai:
-            svc = AsyncMock()
-            svc.generate_agent_config.return_value = {
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+            mock_gen.return_value = {
                 "name": "NewColBot",
                 "description": "A bot",
                 "system_prompt": "Prompt.",
                 "tools": [],
             }
-            mock_ai.return_value = svc
             await handle_agent_command(
                 message="#agent Build a bot #brand-new-status",
                 session_key="sess-newcol",

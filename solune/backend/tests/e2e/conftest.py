@@ -73,10 +73,10 @@ def mock_chat_agent_service():
 
 @pytest.fixture
 def mock_ai_agent_service():
-    """AsyncMock with AIAgentService spec."""
-    from src.services.ai_agent import AIAgentService
+    """AsyncMock replacing the standalone functions in ``ai_utilities``."""
+    from src.services import ai_utilities
 
-    return AsyncMock(name="AIAgentService", spec=AIAgentService)
+    return AsyncMock(name="ai_utilities", spec=ai_utilities)
 
 
 @pytest.fixture
@@ -145,7 +145,13 @@ async def e2e_app(
             return_value=_MOCK_GITHUB_USER,
         ),
         # ── AI / chat agent services ──
-        patch("src.api.chat.get_ai_agent_service", return_value=mock_ai_agent_service),
+        patch("src.services.ai_utilities.detect_feature_request_intent", mock_ai_agent_service.detect_feature_request_intent),
+        patch("src.services.ai_utilities.generate_issue_recommendation", mock_ai_agent_service.generate_issue_recommendation),
+        patch("src.services.ai_utilities.analyze_transcript", mock_ai_agent_service.analyze_transcript),
+        patch("src.services.ai_utilities.parse_status_change_request", mock_ai_agent_service.parse_status_change_request),
+        patch("src.services.ai_utilities.identify_target_task", mock_ai_agent_service.identify_target_task),
+        patch("src.services.ai_utilities.generate_title_from_description", mock_ai_agent_service.generate_title_from_description),
+        patch("src.services.ai_utilities.generate_task_from_description", mock_ai_agent_service.generate_task_from_description),
         patch("src.api.chat.get_chat_agent_service", return_value=mock_chat_agent_service),
         # ── WebSocket connection_manager ──
         patch("src.api.projects.connection_manager", mock_connection_manager),

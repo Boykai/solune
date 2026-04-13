@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import ExitStack, asynccontextmanager
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import aiosqlite
 import pytest
@@ -274,7 +274,6 @@ async def thin_mock_client(
             return None
 
     auth_service = _GitHubAuthStub()
-    ai_service = _AIAgentStub()
     github_service = _GitHubProjectsStub()
 
     async def _create_session_from_token(_token: str) -> UserSession:
@@ -296,7 +295,7 @@ async def thin_mock_client(
         return True
 
     db = await _create_integration_db()
-    orchestrator = WorkflowOrchestrator(ai_service, github_service)
+    orchestrator = WorkflowOrchestrator(github_service)
     app = create_app()
     app.router.lifespan_context = _noop_lifespan
     app.state.db = db
@@ -320,7 +319,9 @@ async def thin_mock_client(
         stack.enter_context(patch("src.api.board.github_projects_service", github_service))
         stack.enter_context(patch("src.api.pipelines.github_projects_service", github_service))
         stack.enter_context(patch("src.api.workflow.github_projects_service", github_service))
-        stack.enter_context(patch("src.api.chat.get_ai_agent_service", return_value=ai_service))
+        stack.enter_context(patch("src.services.ai_utilities.detect_feature_request_intent", AsyncMock(return_value=False)))
+        stack.enter_context(patch("src.services.ai_utilities.parse_status_change_request", AsyncMock(return_value=None)))
+        stack.enter_context(patch("src.services.ai_utilities.generate_title_from_description", AsyncMock(return_value="Generated task title")))
         stack.enter_context(patch("src.api.chat._trigger_signal_delivery", lambda *_a, **_k: None))
         stack.enter_context(
             patch(

@@ -155,7 +155,7 @@ async def generate_chat_response(
 
     Returns (conversation_id, response_text, template_ready, template_content).
     """
-    from src.services.ai_agent import get_ai_agent_service
+    from src.services.agent_provider import call_completion
 
     if not ai_enhance:
         # Metadata-only path: generate front matter, preserve user body verbatim
@@ -164,8 +164,7 @@ async def generate_chat_response(
     conv_id, messages = get_or_create_conversation(conversation_id)
     add_user_message(conv_id, user_content)
 
-    ai_service = get_ai_agent_service()
-    response = await ai_service._call_completion(
+    response = await call_completion(
         messages=messages,
         temperature=0.7,
         max_tokens=2000,
@@ -190,7 +189,7 @@ async def _generate_metadata_only(
 
     Returns (conversation_id, response_text, template_ready, template_content).
     """
-    from src.services.ai_agent import get_ai_agent_service
+    from src.services.agent_provider import call_completion
 
     messages = [
         {"role": "system", "content": METADATA_ONLY_SYSTEM_PROMPT},
@@ -204,8 +203,7 @@ async def _generate_metadata_only(
         },
     ]
 
-    ai_service = get_ai_agent_service()
-    response = await ai_service._call_completion(
+    response = await call_completion(
         messages=messages,
         temperature=0.3,
         max_tokens=2000,

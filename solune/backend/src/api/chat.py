@@ -7,7 +7,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
@@ -43,16 +43,13 @@ from src.models.recommendation import (
 )
 from src.models.user import UserSession
 from src.models.workflow import WorkflowConfiguration
-from src.services.ai_agent import get_ai_agent_service
-from src.services.chat_agent import get_chat_agent_service
-
-if TYPE_CHECKING:
-    from src.services.ai_agent import AIAgentService
+from src.services import ai_utilities
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
     get_user_projects_cache_key,
 )
+from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db
 from src.services.pipeline_launcher import start_pipeline
 from src.services.settings_store import get_effective_user_settings
@@ -363,7 +360,6 @@ async def _handle_agent_command(
 
 async def _handle_transcript_upload(
     session: UserSession,
-    ai_service: AIAgentService,
     project_name: str,
     pipeline_id: str | None,
     file_urls: list[str] | None,
@@ -434,7 +430,7 @@ async def _handle_transcript_upload(
             except Exception as md_err:
                 logger.warning("Metadata fetch for transcript prompt failed: %s", md_err)
 
-            recommendation = await ai_service.analyze_transcript(
+            recommendation = await ai_utilities.analyze_transcript(
                 transcript_content=content,
                 project_name=project_name,
                 session_id=str(session.session_id),
@@ -512,7 +508,6 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
 async def _handle_feature_request(
     session: UserSession,
     content: str,
-    ai_service: AIAgentService,
     project_name: str,
     pipeline_id: str | None,
     ai_enhance: bool,
@@ -523,7 +518,7 @@ async def _handle_feature_request(
     Returns an assistant ChatMessage if the intent was a feature request, None otherwise.
     """
     try:
-        is_feature_request = await ai_service.detect_feature_request_intent(
+        is_feature_request = await ai_utilities.detect_feature_request_intent(
             content, github_token=session.access_token
         )
     except Exception as e:
@@ -546,7 +541,7 @@ async def _handle_feature_request(
         except Exception as md_err:
             logger.warning("Metadata fetch for prompt injection failed: %s", md_err)
 
-        recommendation = await ai_service.generate_issue_recommendation(
+        recommendation = await ai_utilities.generate_issue_recommendation(
             user_input=content,
             project_name=project_name,
             session_id=str(session.session_id),
@@ -623,7 +618,6 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
 async def _handle_status_change(
     session: UserSession,
     content: str,
-    ai_service: AIAgentService,
     current_tasks: list,
     project_columns: list[str],
     cached_projects: list | None,
@@ -634,7 +628,7 @@ async def _handle_status_change(
 
     Returns an assistant ChatMessage if a status change was detected, None otherwise.
     """
-    status_change = await ai_service.parse_status_change_request(
+    status_change = await ai_utilities.parse_status_change_request(
         user_input=content,
         available_tasks=[t.title for t in current_tasks],
         available_statuses=(project_columns or DEFAULT_STATUS_COLUMNS),
@@ -643,7 +637,7 @@ async def _handle_status_change(
     if not status_change:
         return None
 
-    target_task = ai_service.identify_target_task(
+    target_task = ai_utilities.identify_target_task(
         task_reference=status_change.task_reference,
         available_tasks=current_tasks,
     )
@@ -703,7 +697,6 @@ async def _handle_status_change(
 async def _handle_task_generation(
     session: UserSession,
     content: str,
-    ai_service: AIAgentService,
     project_name: str,
     ai_enhance: bool,
     pipeline_id: str | None,
@@ -714,7 +707,7 @@ async def _handle_task_generation(
     """
     if not ai_enhance:
         try:
-            title = await ai_service.generate_title_from_description(
+            title = await ai_utilities.generate_title_from_description(
                 user_input=content,
                 project_name=project_name,
                 github_token=session.access_token,
@@ -761,7 +754,7 @@ async def _handle_task_generation(
 
     # Full AI pipeline: generate both title and description via AI
     try:
-        generated = await ai_service.generate_task_from_description(
+        generated = await ai_utilities.generate_task_from_description(
             user_input=content,
             project_name=project_name,
             github_token=session.access_token,
@@ -1136,11 +1129,15 @@ async def send_message(
         except Exception as exc:
             handle_service_error(exc, "validate pipeline")
 
-    # Try to get AI service (optional) — used for ai_enhance=False fallback
-    ai_service = None
+    # Check that AI provider is configured (utility functions handle completion internally)
+    ai_available = False
     try:
-        ai_service = get_ai_agent_service()
-    except ValueError:
+        from src.config import get_settings as _get_settings
+
+        _settings = _get_settings()
+        if _settings.ai_provider in ("copilot", "azure_openai"):
+            ai_available = True
+    except Exception:
         pass
 
     # Try to get the new ChatAgentService
@@ -1150,7 +1147,7 @@ async def send_message(
     except Exception:
         pass
 
-    if ai_service is None and chat_agent_service is None:
+    if not ai_available and chat_agent_service is None:
         # Neither service available — return error
         error_msg = ChatMessage(
             session_id=session.session_id,
@@ -1207,11 +1204,10 @@ async def send_message(
 
     # ── ai_enhance=False bypass — preserves v0.1.x behaviour ────────
     if not chat_request.ai_enhance:
-        if ai_service is not None:
+        if ai_available:
             return await _handle_task_generation(
                 session,
                 content,
-                ai_service,
                 project_name,
                 chat_request.ai_enhance,
                 chat_request.pipeline_id,
@@ -1288,13 +1284,12 @@ async def send_message(
         return assistant_message
 
     # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
-    if ai_service is None:
+    if not ai_available:
         raise RuntimeError("AI service is required for fallback priority dispatch")
 
     # Priority 0.5: Transcript upload → issue recommendation
     transcript_msg = await _handle_transcript_upload(
         session,
-        ai_service,
         project_name,
         chat_request.pipeline_id,
         chat_request.file_urls,
@@ -1306,7 +1301,6 @@ async def send_message(
     feature_msg = await _handle_feature_request(
         session,
         content,
-        ai_service,
         project_name,
         chat_request.pipeline_id,
         chat_request.ai_enhance,
@@ -1319,7 +1313,6 @@ async def send_message(
     status_msg = await _handle_status_change(
         session,
         content,
-        ai_service,
         current_tasks,
         project_columns,
         cached_projects,
@@ -1333,7 +1326,6 @@ async def send_message(
     return await _handle_task_generation(
         session,
         content,
-        ai_service,
         project_name,
         chat_request.ai_enhance,
         chat_request.pipeline_id,

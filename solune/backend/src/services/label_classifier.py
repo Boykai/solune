@@ -98,13 +98,12 @@ async def classify_labels(
         return fallback
 
     try:
-        from src.services.completion_providers import create_completion_provider
+        from src.services.agent_provider import call_completion
 
-        provider = create_completion_provider()
         messages = build_label_classification_prompt(title, description)
 
         raw_response = await asyncio.wait_for(
-            provider.complete(
+            call_completion(
                 messages=messages,
                 temperature=0.3,
                 max_tokens=200,
@@ -154,13 +153,12 @@ async def classify_labels_with_priority(
         return ClassificationResult(labels=fallback, priority=None)
 
     try:
-        from src.services.completion_providers import create_completion_provider
+        from src.services.agent_provider import call_completion
 
-        provider = create_completion_provider()
         messages = build_label_classification_with_priority_prompt(title, description)
 
         raw_response = await asyncio.wait_for(
-            provider.complete(
+            call_completion(
                 messages=messages,
                 temperature=0.3,
                 max_tokens=256,

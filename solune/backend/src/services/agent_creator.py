@@ -25,7 +25,7 @@ from src.models.agent_creator import (
     CreationStep,
     PipelineStepResult,
 )
-from src.services.ai_agent import get_ai_agent_service
+from src.services.ai_utilities import edit_agent_config, generate_agent_config
 from src.services.github_projects import github_projects_service
 from src.utils import BoundedDict, utcnow
 
@@ -464,10 +464,8 @@ async def _generate_and_present_preview(
     access_token: str,
 ) -> str:
     """Call the AI service to generate a preview and format it for display."""
-    ai_service = get_ai_agent_service()
-
     try:
-        config = await ai_service.generate_agent_config(
+        config = await generate_agent_config(
             description=state.raw_description,
             status_column=state.resolved_status or "",
             github_token=access_token,
@@ -569,7 +567,6 @@ async def _apply_edit(
     if not state.preview:
         return "No preview to edit. Type `#agent <description>` to start over."
 
-    ai_service = get_ai_agent_service()
     current_config = {
         "name": state.preview.name,
         "description": state.preview.description,
@@ -577,7 +574,7 @@ async def _apply_edit(
     }
 
     try:
-        updated = await ai_service.edit_agent_config(
+        updated = await edit_agent_config(
             current_config=current_config,
             edit_instruction=edit_instruction,
             github_token=access_token,
