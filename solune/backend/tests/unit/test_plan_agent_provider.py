@@ -280,7 +280,7 @@ class TestCreatePlanSession:
         mock_pool.get_or_create = AsyncMock(return_value=mock_client)
 
         with patch(
-            "src.services.completion_providers.get_copilot_client_pool",
+            "src.services.agent_provider.get_copilot_client_pool",
             return_value=mock_pool,
         ):
             session = await create_plan_session(
@@ -302,7 +302,7 @@ class TestCreatePlanSession:
         mock_pool.get_or_create = AsyncMock(return_value=mock_client)
 
         with patch(
-            "src.services.completion_providers.get_copilot_client_pool",
+            "src.services.agent_provider.get_copilot_client_pool",
             return_value=mock_pool,
         ):
             session = await create_plan_session(
@@ -323,7 +323,7 @@ class TestCreatePlanSession:
         mock_pool.get_or_create = AsyncMock(return_value=mock_client)
 
         with patch(
-            "src.services.completion_providers.get_copilot_client_pool",
+            "src.services.agent_provider.get_copilot_client_pool",
             return_value=mock_pool,
         ):
             await create_plan_session(
@@ -346,7 +346,7 @@ class TestCreatePlanSession:
         mock_pool.get_or_create = AsyncMock(return_value=mock_client)
 
         with patch(
-            "src.services.completion_providers.get_copilot_client_pool",
+            "src.services.agent_provider.get_copilot_client_pool",
             return_value=mock_pool,
         ):
             await create_plan_session(

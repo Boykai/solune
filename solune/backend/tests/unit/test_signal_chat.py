@@ -459,8 +459,11 @@ class TestRunAiPipeline:
         monkeypatch.setattr(
             signal_chat, "_get_user_access_token", AsyncMock(return_value="token-1")
         )
+        # Patch AI provider config to be invalid so ai-not-configured path is hit
+        mock_settings = Mock()
+        mock_settings.ai_provider = "none"
         monkeypatch.setattr(
-            "src.services.ai_agent.get_ai_agent_service", Mock(side_effect=ValueError)
+            "src.config.get_settings", Mock(return_value=mock_settings)
         )
         monkeypatch.setattr(
             "src.services.chat_agent.get_chat_agent_service", Mock(side_effect=ValueError)

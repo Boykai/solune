@@ -13,7 +13,7 @@ import json
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -202,8 +202,10 @@ class TestSendMessageFeatureRequest:
 
     async def test_ai_not_configured(self, client, mock_session, mock_ai_agent_service):
         mock_session.selected_project_id = "PVT_1"
+        mock_bad_settings = Mock()
+        mock_bad_settings.ai_provider = "none"
         with (
-            patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")),
+            patch("src.config.get_settings", return_value=mock_bad_settings),
             patch("src.api.chat.get_chat_agent_service", side_effect=ValueError("not configured")),
         ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
@@ -437,7 +439,9 @@ class TestSendMessageTaskGeneration:
         mock_session.selected_project_id = "PVT_1"
         user_input = "Investigate why the login flow gets stuck after redirect"
 
-        with patch("src.api.chat.get_ai_agent_service", side_effect=ValueError("not configured")):
+        mock_bad_settings = Mock()
+        mock_bad_settings.ai_provider = "none"
+        with patch("src.config.get_settings", return_value=mock_bad_settings):
             resp = await client.post(
                 "/api/v1/chat/messages",
                 json={"content": user_input, "ai_enhance": False},
