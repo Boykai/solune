@@ -6,6 +6,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { WS_FALLBACK_POLL_MS, WS_CONNECTION_TIMEOUT_MS } from '@/constants';
+import { logger } from '@/lib/logger';
 
 /** Maximum reconnection delay in milliseconds (30 seconds). */
 const MAX_RECONNECT_DELAY_MS = 30_000;
@@ -123,7 +124,7 @@ export function useRealTimeSync(
 
 
       } catch (e) {
-        console.error('Failed to parse WebSocket message:', e);
+        logger.error('websocket', 'Failed to parse WebSocket message', { error: e });
       }
     },
     [projectId, queryClient]

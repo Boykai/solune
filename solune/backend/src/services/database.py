@@ -1,6 +1,7 @@
 """SQLite database connection, initialization, and migration runner."""
 
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,6 +26,7 @@ async def init_database() -> aiosqlite.Connection:
     Returns the persistent connection. Called once during FastAPI lifespan startup.
     """
     global _connection
+    start = time.monotonic()
 
     settings = get_settings()
     db_path = settings.database_path
@@ -41,7 +43,11 @@ async def init_database() -> aiosqlite.Connection:
         except OSError:
             logger.warning("Could not set database directory permissions to 0700")
 
-    logger.info("Initializing database at %s", db_path)
+    logger.info(
+        "Initializing database at %s",
+        db_path,
+        extra={"operation": "database.init"},
+    )
 
     # Open persistent connection
     db = await aiosqlite.connect(db_path)
@@ -67,7 +73,14 @@ async def init_database() -> aiosqlite.Connection:
     await _run_migrations(db)
 
     _connection = db
-    logger.info("Database initialized at %s", db_path)
+    logger.info(
+        "Database initialized at %s",
+        db_path,
+        extra={
+            "duration_ms": round((time.monotonic() - start) * 1000, 1),
+            "operation": "database.init",
+        },
+    )
     return db
 
 
@@ -146,6 +159,7 @@ async def _run_migrations(db: aiosqlite.Connection) -> None:
     4. If DB version > app version, refuse to start
     5. Apply pending migrations sequentially in transactions
     """
+    start = time.monotonic()
     # Ensure schema_version table exists
     await db.execute(
         """
@@ -218,7 +232,14 @@ async def _run_migrations(db: aiosqlite.Connection) -> None:
             raise
 
     await _reconcile_known_schema_drifts(db)
-    logger.info("All migrations applied. Schema version: %d", current_version)
+    logger.info(
+        "All migrations applied. Schema version: %d",
+        current_version,
+        extra={
+            "duration_ms": round((time.monotonic() - start) * 1000, 1),
+            "operation": "database.run_migrations",
+        },
+    )
 
 
 async def _reconcile_known_schema_drifts(db: aiosqlite.Connection) -> None:

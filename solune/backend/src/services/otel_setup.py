@@ -13,6 +13,7 @@ from src.logging_utils import get_logger
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Meter
+    from opentelemetry.sdk._logs import LoggerProvider
     from opentelemetry.sdk.trace import SpanProcessor
     from opentelemetry.trace import Tracer
 
@@ -20,6 +21,7 @@ logger = get_logger(__name__)
 
 _tracer: Tracer | None = None
 _meter: Meter | None = None
+_logger_provider: LoggerProvider | None = None
 
 
 if TYPE_CHECKING:
@@ -57,14 +59,19 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
 
     Returns the active ``(Tracer, Meter)`` tuple.
     """
-    global _tracer, _meter
+    global _tracer, _meter, _logger_provider
 
-    from opentelemetry import metrics, trace
+    import logging
+
+    from opentelemetry import _logs, metrics, trace
+    from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
     from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
+    from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+    from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
     from opentelemetry.sdk.resources import Resource
@@ -87,6 +94,14 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
         meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
         metrics.set_meter_provider(meter_provider)
 
+        # ── Logs ──
+        logger_provider = LoggerProvider(resource=resource)
+        log_exporter = OTLPLogExporter(endpoint=endpoint, insecure=True)
+        logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
+        _logs.set_logger_provider(logger_provider)
+        logging_handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
+        logging.getLogger().addHandler(logging_handler)
+
         # ── Auto-instrumentation ──
         FastAPIInstrumentor().instrument()
         HTTPXClientInstrumentor().instrument()
@@ -94,6 +109,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
 
         _tracer = trace.get_tracer(service_name)
         _meter = metrics.get_meter(service_name)
+        _logger_provider = logger_provider
 
         logger.info(
             "OpenTelemetry initialised: service=%s endpoint=%s",
@@ -104,6 +120,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
     except Exception as exc:
         _tracer = None
         _meter = None
+        _logger_provider = None
         logger.warning(
             "OpenTelemetry initialisation failed; continuing without telemetry: %s",
             exc,

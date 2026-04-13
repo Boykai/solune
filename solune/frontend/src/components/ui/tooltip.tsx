@@ -13,6 +13,7 @@ import * as React from 'react';
 import * as RadixTooltip from '@radix-ui/react-tooltip';
 import { cn } from '@/lib/utils';
 import { tooltipContent, type TooltipEntry } from '@/constants/tooltip-content';
+import { logger } from '@/lib/logger';
 
 // ---------------------------------------------------------------------------
 // Re-export the provider for App.tsx
@@ -49,7 +50,7 @@ function resolveEntry(props: TooltipProps): TooltipEntry | null {
     const entry = tooltipContent[props.contentKey];
     if (!entry) {
       if (import.meta.env.DEV) {
-        console.warn(`[Tooltip] No registry entry for key "${props.contentKey}"`);
+        logger.debug('tooltip', 'No registry entry for key', { contentKey: props.contentKey });
       }
       return null;
     }

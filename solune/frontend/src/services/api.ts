@@ -101,6 +101,7 @@ import { PipelineStateInfoSchema } from '@/services/schemas/pipeline';
 import { ProjectListResponseSchema } from '@/services/schemas/projects';
 import { EffectiveUserSettingsSchema } from '@/services/schemas/settings';
 import { validateResponse } from '@/services/schemas/validate';
+import { logger } from '@/lib/logger';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -175,6 +176,16 @@ function normalizeApiError(response: Response, payload: unknown): APIError {
   };
 }
 
+function extractStreamErrorCode(payload: unknown): string | number | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const code = record.error_code ?? record.code ?? record.status_code;
+  return typeof code === 'string' || typeof code === 'number' ? code : undefined;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -213,7 +224,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
         try {
           fn();
         } catch (listenerError) {
-          console.error('Auth-expired listener threw:', listenerError);
+          logger.error('auth', 'Auth-expired listener threw', { error: listenerError });
         }
       });
     }
@@ -459,7 +470,7 @@ export const chatApi = {
         try {
           parsed = JSON.parse(trimmedData);
         } catch {
-          console.debug('[SSE] Failed to parse event data:', trimmedData);
+          logger.debug('sse', 'Failed to parse event data', { eventType });
           return;
         }
 
@@ -474,7 +485,10 @@ export const chatApi = {
           const errorData = tryParseJson(parsed.data, parsed) ?? parsed;
           let details: Record<string, unknown> = {};
           if (typeof errorData !== 'object' || errorData === null) {
-            console.debug('[SSE] Unexpected error payload shape:', errorData);
+            logger.debug('sse', 'Unexpected error payload shape', {
+              errorCode: extractStreamErrorCode(errorData),
+              eventType,
+            });
           } else {
             details = errorData as Record<string, unknown>;
           }
@@ -638,7 +652,7 @@ export const chatApi = {
         try {
           parsed = JSON.parse(trimmedData);
         } catch {
-          console.debug('[SSE] Failed to parse plan event data:', trimmedData);
+          logger.debug('sse', 'Failed to parse plan event data', { eventType });
           return;
         }
 

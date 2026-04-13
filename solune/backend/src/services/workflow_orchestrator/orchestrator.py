@@ -1,5 +1,6 @@
 """WorkflowOrchestrator class — orchestrates the full GitHub issue creation and status workflow."""
 
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -641,7 +642,12 @@ class WorkflowOrchestrator:
         Raises:
             Exception: If issue creation fails
         """
-        logger.info("Creating GitHub issue: %s", recommendation.title)
+        start = time.monotonic()
+        logger.info(
+            "Creating GitHub issue: %s",
+            recommendation.title,
+            extra={"operation": "workflow.create_issue_from_recommendation"},
+        )
         ctx.current_state = WorkflowState.CREATING
 
         # Pre-create fixed pipeline labels (idempotent, non-blocking)
@@ -731,6 +737,10 @@ class WorkflowOrchestrator:
                 "assignees": recommendation.metadata.assignees,
                 "milestone": recommendation.metadata.milestone,
                 "branch": recommendation.metadata.branch,
+            },
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "workflow.create_issue_from_recommendation",
             },
         )
         return issue
@@ -2246,6 +2256,7 @@ class WorkflowOrchestrator:
         Returns:
             True if agent assignment succeeded
         """
+        start = time.monotonic()
         config = ctx.config or await get_workflow_config(ctx.project_id)
         if not config:
             logger.warning("No workflow config for project %s", ctx.project_id)
@@ -2290,6 +2301,7 @@ class WorkflowOrchestrator:
             len(agents),
             status,
             ctx.issue_number,
+            extra={"operation": "workflow.assign_agent_for_status"},
         )
 
         from src.services.database import get_db
@@ -2394,6 +2406,16 @@ class WorkflowOrchestrator:
             except Exception:
                 logger.debug("Activity logging skipped for agent trigger (non-fatal)")
 
+        logger.info(
+            "Agent assignment for status '%s' on issue #%s completed=%s",
+            status,
+            ctx.issue_number,
+            result,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "workflow.assign_agent_for_status",
+            },
+        )
         return result
 
     # ──────────────────────────────────────────────────────────────────

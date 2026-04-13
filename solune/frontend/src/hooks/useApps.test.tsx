@@ -3,11 +3,12 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { createMockApi, type MockApiShape } from '@/test/setup';
+import { getErrorMessage } from '@/utils/errorUtils';
 
 vi.mock('@/services/api', () => createMockApi());
 
 import * as api from '@/services/api';
-import { useApps, useCreateApp, useDeleteApp, isApiError, getErrorMessage } from './useApps';
+import { useApps, useCreateApp, useDeleteApp, isApiError } from './useApps';
 
 const mockApi = api as unknown as MockApiShape;
 const mockAppsApi = mockApi.appsApi;

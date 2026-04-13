@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { workflowApi, choresApi } from '@/services/api';
 import { countParentIssues } from '@/utils/parentIssueCount';
+import { logger } from '@/lib/logger';
 
 export function ChoresPage() {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ export function ChoresPage() {
         queryClient.invalidateQueries({ queryKey: choreKeys.list(projectId) });
       })
       .catch((err) => {
-        console.warn('Failed to seed preset chores:', err);
+        logger.warn('chores', 'Failed to seed preset chores', { error: err, projectId });
       });
   }, [projectId, queryClient]);
 
