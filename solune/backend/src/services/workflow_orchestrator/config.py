@@ -3,13 +3,11 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import aiosqlite
 
 from src.logging_utils import get_logger
 from src.models.agent import AgentAssignment
-from src.models.pipeline import FleetDispatchConfig
 from src.models.workflow import (
     ExecutionGroupMapping,
     WorkflowConfiguration,
@@ -44,7 +42,6 @@ _transitions: list[WorkflowTransition] = []
 _workflow_configs: BoundedDict[str, WorkflowConfiguration] = BoundedDict(maxlen=100)
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-_DEFAULT_FLEET_DISPATCH_CONFIG = _REPO_ROOT / "scripts" / "pipelines" / "fleet-dispatch.json"
 
 
 async def get_workflow_config(project_id: str) -> WorkflowConfiguration | None:
@@ -117,43 +114,6 @@ def deduplicate_agent_mappings[AgentT](
                 result[key] = agents
             # else keep existing (it already has agents, or both are empty)
     return result
-
-
-def get_default_fleet_dispatch_config_path() -> Path:
-    """Return the repository path for the canonical fleet-dispatch JSON config."""
-
-    return _DEFAULT_FLEET_DISPATCH_CONFIG
-
-
-def load_fleet_dispatch_config(path: str | Path | None = None) -> FleetDispatchConfig:
-    """Load and validate the canonical fleet-dispatch JSON config."""
-
-    config_path = Path(path) if path is not None else get_default_fleet_dispatch_config_path()
-    with config_path.open("r", encoding="utf-8") as fh:
-        raw = json.load(fh)
-    if isinstance(raw, dict):
-        raw.pop("$schema", None)
-    return FleetDispatchConfig.model_validate(raw)
-
-
-def build_pipeline_stages_from_fleet_config(
-    config: FleetDispatchConfig,
-) -> list[dict[str, Any]]:
-    """Flatten fleet-dispatch groups into pipeline_orchestrator stage definitions."""
-
-    stages: list[dict[str, Any]] = []
-    for group in sorted(config.groups, key=lambda item: item.order):
-        is_parallel = group.execution_mode == "parallel"
-        stages.extend(
-            {
-                "name": agent.slug,
-                "agent": agent.custom_agent or agent.slug,
-                "group": group.order,
-                "parallel": is_parallel,
-            }
-            for agent in group.agents
-        )
-    return stages
 
 
 async def load_user_agent_mappings(

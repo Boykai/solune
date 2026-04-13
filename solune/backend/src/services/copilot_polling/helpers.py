@@ -177,55 +177,6 @@ def _get_sub_issue_number(
     return parent_issue_number
 
 
-def _get_agent_task_id(pipeline: Any, agent_name: str) -> str | None:
-    """Return a stored fleet task id for an agent if one exists."""
-
-    task_ids = getattr(pipeline, "agent_task_ids", None) or {}
-    task_id = task_ids.get(agent_name)
-    return str(task_id) if task_id else None
-
-
-async def _check_agent_task_status(
-    access_token: str,
-    owner: str,
-    repo: str,
-    agent_name: str,
-    pipeline: "object | None" = None,
-) -> str | None:
-    """Best-effort fetch and normalize the current task state for one agent."""
-
-    task_id = _get_agent_task_id(pipeline, agent_name)
-    if not task_id:
-        return None
-
-    get_task = getattr(_cp.github_projects_service, "get_agent_task", None)
-    if get_task is None:
-        return None
-
-    try:
-        task = await get_task(
-            access_token=access_token,
-            owner=owner,
-            repo=repo,
-            task_id=task_id,
-        )
-    except Exception as e:
-        logger.warning(
-            "Failed to check task '%s' for agent '%s': %s",
-            task_id,
-            agent_name,
-            e,
-        )
-        return None
-
-    if not task:
-        return None
-
-    from src.services.fleet_dispatch import FleetDispatchService
-
-    return FleetDispatchService.normalize_task_state(str(task.get("state") or ""))
-
-
 async def _check_agent_done_on_sub_or_parent(
     access_token: str,
     owner: str,
@@ -233,7 +184,6 @@ async def _check_agent_done_on_sub_or_parent(
     parent_issue_number: int,
     agent_name: str,
     pipeline: "object | None" = None,
-    task_state: str | None = None,
 ) -> bool:
     """Check if an agent's Done! marker exists on the parent issue (preferred) or sub-issue.
 
@@ -267,17 +217,6 @@ async def _check_agent_done_on_sub_or_parent(
             parent_issue_number=parent_issue_number,
             pipeline=pipeline,
         )
-
-    if task_state is None:
-        task_state = await _check_agent_task_status(
-            access_token=access_token,
-            owner=owner,
-            repo=repo,
-            agent_name=agent_name,
-            pipeline=pipeline,
-        )
-    if task_state == "completed":
-        return True
 
     # Check parent issue first (new canonical location for Done! markers)
     done = await _cp.github_projects_service.check_agent_completion_comment(

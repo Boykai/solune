@@ -197,8 +197,6 @@ class PipelineState:
     auto_merge: bool = False
     # Maps agent_slug → config dict for runtime config access (e.g. delay_seconds)
     agent_configs: dict[str, dict] = field(default_factory=dict)
-    # Maps agent_slug → GitHub coding-agent task id when fleet-style dispatch resolves one
-    agent_task_ids: dict[str, str] = field(default_factory=dict)
     # Repository coordinates — persisted so cross-repo pipelines survive restarts
     repository_owner: str = ""
     repository_name: str = ""

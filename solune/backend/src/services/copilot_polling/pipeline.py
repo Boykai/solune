@@ -733,32 +733,6 @@ async def _process_pipeline_completion(
         if agent in pipeline.completed_agents or agent in pipeline.failed_agents:
             continue
 
-        task_state = await _cp._check_agent_task_status(
-            access_token=access_token,
-            owner=task_owner,
-            repo=task_repo,
-            agent_name=agent,
-            pipeline=pipeline,
-        )
-        if task_state == "failed":
-            logger.warning(
-                "Fleet task failed for agent '%s' on issue #%d",
-                agent,
-                task.issue_number,
-            )
-            if agent not in pipeline.failed_agents:
-                pipeline.failed_agents.append(agent)
-            current_group = None
-            if pipeline.groups and pipeline.current_group_index < len(pipeline.groups):
-                current_group = pipeline.groups[pipeline.current_group_index]
-                current_group.agent_statuses[agent] = "failed"
-            if (
-                current_group is None or current_group.execution_mode != "parallel"
-            ) and not getattr(pipeline, "error", None):
-                pipeline.error = f"Fleet task failed for agent '{agent}'"
-            _cp.set_pipeline_state(task.issue_number, pipeline)
-            continue
-
         # Check if THIS specific agent is finished
         completed = await _cp._check_agent_done_on_sub_or_parent(
             access_token=access_token,
@@ -767,7 +741,6 @@ async def _process_pipeline_completion(
             parent_issue_number=task.issue_number,
             agent_name=agent,
             pipeline=pipeline,
-            task_state=task_state,
         )
 
         if completed:

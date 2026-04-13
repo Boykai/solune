@@ -25,7 +25,6 @@ from src.models.workflow import (
 from src.services.agents.service import AgentsService
 from src.services.copilot_polling.polling_loop import PollingStatus
 from src.services.database import get_db
-from src.services.fleet_dispatch import FleetDispatchService
 from src.services.github_projects import github_projects_service
 from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
@@ -149,28 +148,8 @@ def _serialize_pipeline_state(state) -> dict:
         "started_at": state.started_at.isoformat() if state.started_at else None,
         "error": state.error,
         "queued": state.queued,
-        "agent_task_ids": dict(getattr(state, "agent_task_ids", {})),
-        "dispatch_backend": _infer_dispatch_backend(state),
         "agent_statuses": agent_statuses,
     }
-
-
-def _infer_dispatch_backend(state) -> str:
-    """Infer the backend for the current or most recent pipeline step."""
-
-    candidate_agents = [agent for agent in getattr(state, "current_agents", []) if agent]
-    if not candidate_agents:
-        current_agent = getattr(state, "current_agent", None)
-        if current_agent:
-            candidate_agents = [current_agent]
-    if not candidate_agents:
-        completed_agents = getattr(state, "completed_agents", [])
-        if completed_agents:
-            candidate_agents = [completed_agents[-1]]
-
-    if any(FleetDispatchService.is_fleet_eligible(agent) for agent in candidate_agents):
-        return "fleet"
-    return "classic"
 
 
 def _get_pipeline_agent_statuses(state) -> dict[str, str]:
@@ -250,10 +229,6 @@ def _prepare_pipeline_state_for_retry(issue_number: int, state, agent_name: str)
     failed_agents = getattr(state, "failed_agents", None)
     if failed_agents is not None:
         state.failed_agents = [agent for agent in failed_agents if agent != agent_name]
-
-    agent_task_ids = getattr(state, "agent_task_ids", None)
-    if agent_task_ids is not None:
-        state.agent_task_ids.pop(agent_name, None)
 
     groups = getattr(state, "groups", [])
     group_index = getattr(state, "current_group_index", 0)

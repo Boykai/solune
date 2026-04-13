@@ -251,7 +251,7 @@ class TestFindIssueByLabels:
             "tok",
             "owner",
             "repo",
-            ["fleet-dispatch", "fleet-parent:42", "fleet-agent:speckit.specify"],
+            ["bug", "priority:high", "team:backend"],
         )
 
         assert result == {"number": 7, "title": "Reusable issue"}

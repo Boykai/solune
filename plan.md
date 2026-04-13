@@ -173,7 +173,7 @@ solune/frontend/
 |------|--------|---------|
 | 6.1 | Create `specs/000-simplify-page-headers/` | New directory for root-level spec files |
 | 6.2 | Move root-level spec files | `plan.md`, `spec.md`, `tasks.md`, `data-model.md`, `research.md`, `quickstart.md` → `specs/000-simplify-page-headers/` |
-| 6.3 | Verify mono-spec consistency | Structure matches `specs/001-fleet-dispatch-pipelines/` pattern |
+| 6.3 | Verify mono-spec consistency | Structure matches existing `specs/` pattern |
 
 **Verification**: All spec file paths resolve; no broken references.
 

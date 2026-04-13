@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from src.utils import BoundedDict
-
     _T = TypeVar("_T")
 
     class _ServiceMixin:
@@ -22,7 +20,6 @@ if TYPE_CHECKING:
 
         _cycle_cache: dict[str, object]
         _cycle_cache_hit_count: int
-        _agent_task_endpoint_cache: BoundedDict[str, str | None]
 
         async def _rest(
             self,

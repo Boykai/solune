@@ -21,7 +21,6 @@ from src.models.workflow import (
 )
 from src.services.activity_logger import log_event
 from src.services.agent_tracking import append_tracking_to_body, parse_tracking_from_body
-from src.services.fleet_dispatch import FleetDispatchService
 from src.utils import BoundedDict, utcnow
 
 from .config import _transitions, get_workflow_config
@@ -94,7 +93,6 @@ class WorkflowOrchestrator:
         if resolved_github_service is None:
             raise TypeError("github_service is required")
         self.github = resolved_github_service
-        self.fleet_dispatch = FleetDispatchService()
 
     # ──────────────────────────────────────────────────────────────────
     # HELPER: Format Issue Body
@@ -348,7 +346,6 @@ class WorkflowOrchestrator:
         return [
             "ai-generated",
             "sub-issue",
-            *self.fleet_dispatch.build_fleet_sub_issue_labels(parent_issue_number, agent_name),
         ]
 
     @staticmethod
@@ -388,39 +385,6 @@ class WorkflowOrchestrator:
                 ctx.issue_number,
                 e,
             )
-
-    async def _find_reusable_fleet_sub_issue(
-        self,
-        ctx: WorkflowContext,
-        agent_name: str,
-    ) -> dict | None:
-        """Look up an existing fleet-labeled sub-issue for resume/retry flows."""
-
-        if ctx.issue_number is None or not ctx.repository_owner:
-            return None
-
-        find_issue = getattr(self.github, "find_issue_by_labels", None)
-        if find_issue is None:
-            return None
-
-        try:
-            return await find_issue(
-                access_token=ctx.access_token,
-                owner=ctx.repository_owner,
-                repo=ctx.repository_name,
-                labels=self.fleet_dispatch.build_fleet_sub_issue_labels(
-                    ctx.issue_number,
-                    agent_name,
-                ),
-            )
-        except Exception as e:
-            logger.warning(
-                "Failed to look up reusable fleet sub-issue for agent '%s' on issue #%s: %s",
-                agent_name,
-                ctx.issue_number,
-                e,
-            )
-            return None
 
     # ──────────────────────────────────────────────────────────────────
     # HELPER: Create All Sub-Issues Upfront
@@ -487,7 +451,6 @@ class WorkflowOrchestrator:
         for agent_name in all_agents:
             try:
                 labels = self._build_sub_issue_labels(ctx.issue_number, agent_name)
-                reused_sub_issue = await self._find_reusable_fleet_sub_issue(ctx, agent_name)
 
                 # Extract delay_seconds for human agent sub-issue body
                 agent_delay: int | None = None
@@ -503,41 +466,32 @@ class WorkflowOrchestrator:
                             agent_delay = None
 
                 sub_issue: dict | None = None
-                if reused_sub_issue:
-                    agent_sub_issues[agent_name] = self._sub_issue_info_from_issue(reused_sub_issue)
-                    logger.info(
-                        "Reusing fleet sub-issue #%d for agent '%s' (parent #%d)",
-                        agent_sub_issues[agent_name].get("number"),
-                        agent_name,
-                        ctx.issue_number,
-                    )
-                else:
-                    sub_body = self.github.tailor_body_for_agent(
-                        parent_body=parent_body,
-                        agent_name=agent_name,
-                        parent_issue_number=ctx.issue_number,
-                        parent_title=parent_title,
-                        delay_seconds=agent_delay,
-                    )
+                sub_body = self.github.tailor_body_for_agent(
+                    parent_body=parent_body,
+                    agent_name=agent_name,
+                    parent_issue_number=ctx.issue_number,
+                    parent_title=parent_title,
+                    delay_seconds=agent_delay,
+                )
 
-                    await self._ensure_sub_issue_labels(ctx, labels)
-                    sub_issue = await self.github.create_sub_issue(
-                        access_token=ctx.access_token,
-                        owner=ctx.repository_owner,
-                        repo=ctx.repository_name,
-                        parent_issue_number=ctx.issue_number,
-                        title=f"[{agent_name}] {parent_title}",
-                        body=sub_body,
-                        labels=labels,
-                    )
+                await self._ensure_sub_issue_labels(ctx, labels)
+                sub_issue = await self.github.create_sub_issue(
+                    access_token=ctx.access_token,
+                    owner=ctx.repository_owner,
+                    repo=ctx.repository_name,
+                    parent_issue_number=ctx.issue_number,
+                    title=f"[{agent_name}] {parent_title}",
+                    body=sub_body,
+                    labels=labels,
+                )
 
-                    agent_sub_issues[agent_name] = self._sub_issue_info_from_issue(sub_issue)
-                    logger.info(
-                        "Created sub-issue #%d for agent '%s' (parent #%d)",
-                        sub_issue.get("number"),
-                        agent_name,
-                        ctx.issue_number,
-                    )
+                agent_sub_issues[agent_name] = self._sub_issue_info_from_issue(sub_issue)
+                logger.info(
+                    "Created sub-issue #%d for agent '%s' (parent #%d)",
+                    sub_issue.get("number"),
+                    agent_name,
+                    ctx.issue_number,
+                )
 
                 # Assign Human sub-issues to the parent issue creator
                 if agent_name == "human":
@@ -1289,21 +1243,6 @@ class WorkflowOrchestrator:
                 )
 
         if sub_issue_info is None:
-            reusable_issue = await self._find_reusable_fleet_sub_issue(ctx, agent_name)
-            if reusable_issue:
-                sub_issue_info = self._sub_issue_info_from_issue(reusable_issue)
-                sub_issue_node_id = sub_issue_info.get("node_id", ctx.issue_id)
-                sub_issue_number = sub_issue_info.get("number", ctx.issue_number)
-                global_subs = get_issue_sub_issues(ctx.issue_number)
-                global_subs[agent_name] = sub_issue_info
-                set_issue_sub_issues(ctx.issue_number, global_subs)
-                logger.info(
-                    "Reused fleet sub-issue #%d for agent '%s' during on-demand lookup",
-                    sub_issue_number,
-                    agent_name,
-                )
-
-        if sub_issue_info is None:
             # On-the-fly sub-issue creation
             logger.warning(
                 "No pre-created sub-issue for agent '%s' on issue #%d — "
@@ -1486,9 +1425,6 @@ class WorkflowOrchestrator:
                 recovered_at=existing_pipeline.recovered_at if existing_pipeline else None,
                 auto_merge=existing_pipeline.auto_merge if existing_pipeline else False,
                 agent_configs=(dict(existing_pipeline.agent_configs) if existing_pipeline else {}),
-                agent_task_ids=(
-                    dict(existing_pipeline.agent_task_ids) if existing_pipeline else {}
-                ),
             ),
         )
 
@@ -1752,9 +1688,6 @@ class WorkflowOrchestrator:
                 agent_configs=(
                     dict(_existing_pipeline_cr.agent_configs) if _existing_pipeline_cr else {}
                 ),
-                agent_task_ids=(
-                    dict(_existing_pipeline_cr.agent_task_ids) if _existing_pipeline_cr else {}
-                ),
             ),
         )
 
@@ -1810,8 +1743,6 @@ class WorkflowOrchestrator:
         # Fetch issue context for the agent's custom instructions
         custom_instructions = ""
         custom_agent = agent_name
-        instruction_issue_title = ""
-        resolved_task_id: str | None = None
         instruction_issue_number = sub_issue_number if sub_issue_info else ctx.issue_number
         if instruction_issue_number:
             try:
@@ -1821,32 +1752,11 @@ class WorkflowOrchestrator:
                     repo=ctx.repository_name,
                     issue_number=instruction_issue_number,
                 )
-                instruction_issue_title = str(issue_data.get("title") or "")
                 custom_instructions = self.github.format_issue_context_as_prompt(
                     issue_data,
                     agent_name=agent_name,
                     existing_pr=existing_pr,
                 )
-                if self.fleet_dispatch.is_fleet_eligible(agent_name):
-                    fleet_payload = self.fleet_dispatch.build_dispatch_payload(
-                        issue_data=issue_data,
-                        agent_slug=agent_name,
-                        owner=ctx.repository_owner,
-                        repo=ctx.repository_name,
-                        base_ref=base_ref,
-                        parent_issue_number=ctx.issue_number,
-                        assignment_config=assignment_config,
-                        existing_pr=existing_pr,
-                        parent_issue_url=ctx.issue_url,
-                        fallback_instructions=custom_instructions,
-                    )
-                    custom_agent = fleet_payload.custom_agent
-                    custom_instructions = fleet_payload.custom_instructions
-                    logger.info(
-                        "Prepared fleet dispatch instructions for agent '%s' from %s",
-                        agent_name,
-                        fleet_payload.template_path,
-                    )
                 logger.info(
                     "Prepared custom instructions for agent '%s' from issue #%d "
                     "(length: %d chars, existing_pr: %s)",
@@ -2032,22 +1942,6 @@ class WorkflowOrchestrator:
                 _, recovery_2, _ = _polling_state_objects()
                 recovery_2[ctx.issue_number] = utcnow()
 
-                if self.fleet_dispatch.is_fleet_eligible(agent_name) and instruction_issue_title:
-                    resolved_task_id = await self.fleet_dispatch.resolve_task_id(
-                        github_service=self.github,
-                        access_token=ctx.access_token,
-                        owner=ctx.repository_owner,
-                        repo=ctx.repository_name,
-                        agent_slug=agent_name,
-                        issue_title=instruction_issue_title,
-                    )
-                    if resolved_task_id:
-                        logger.info(
-                            "Resolved fleet task '%s' for agent '%s' on issue #%s",
-                            resolved_task_id,
-                            agent_name,
-                            ctx.issue_number,
-                        )
             else:
                 logger.warning(
                     "Failed to assign agent '%s' to issue #%s",
@@ -2082,11 +1976,6 @@ class WorkflowOrchestrator:
             existing_failed_agents = (
                 list(existing_pipeline.failed_agents) if existing_pipeline else []
             )
-            existing_task_ids = dict(existing_pipeline.agent_task_ids) if existing_pipeline else {}
-            if success and self.fleet_dispatch.is_fleet_eligible(agent_name):
-                existing_task_ids.pop(agent_name, None)
-                if resolved_task_id:
-                    existing_task_ids[agent_name] = resolved_task_id
 
             # For parallel groups, preserve existing completed_agents to avoid
             # marking earlier agents as completed before they actually finish.
@@ -2140,7 +2029,6 @@ class WorkflowOrchestrator:
                     agent_configs=(
                         dict(existing_pipeline.agent_configs) if existing_pipeline else {}
                     ),
-                    agent_task_ids=existing_task_ids,
                 ),
             )
 
