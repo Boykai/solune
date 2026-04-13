@@ -1,8 +1,10 @@
-"""Webhooks API sub-package.
+"""Webhooks API sub-package."""
 
-Splits the monolithic webhooks.py into event-type-specific modules:
-- router.py: Main webhook dispatcher and deduplication
-- utils.py: Signature verification and shared utilities
-- pull_requests.py: Pull request event handlers
-- check_runs.py: Check run and check suite handlers
-"""
+from src.api.webhooks.router import router  # noqa: F401
+
+# Re-export for backward compatibility
+from src.api.webhooks.utils import (  # noqa: F401
+    classify_pull_request_activity,
+    extract_issue_number_from_pr,
+    verify_webhook_signature,
+)
