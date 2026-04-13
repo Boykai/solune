@@ -48,7 +48,7 @@ Solune is a three-service Docker Compose application — a React frontend, a Fas
 
 | Component | Stack |
 |-----------|-------|
-| **Frontend** | React 19, TypeScript 5.9, Vite 8, TanStack Query v5, Tailwind CSS 4 |
+| **Frontend** | React 19, TypeScript 6, Vite 8, TanStack Query v5, Tailwind CSS 4 |
 | **Backend** | Python 3.12+, FastAPI, Pydantic v2, aiosqlite (SQLite WAL), githubkit |
 | **Signal** | signal-cli-rest-api (Docker sidecar) |
 | **AI** | GitHub Copilot SDK (default, OAuth) or Azure OpenAI (optional) |

@@ -31,6 +31,13 @@
 - Modal workflows across apps, tools, agents, and pipeline confirmations now share more consistent overlay, focus, and submission behavior.
 - Primary route transitions and not-found recovery now provide smoother visual continuity and better navigation suggestions.
 
+### Documentation
+
+- Librarian refresh for 2026-04-11 → 2026-04-13: updated architecture, project structure, and agent pipeline docs to document fleet dispatch, pipeline launcher, compact page headers, AI utilities consolidation, and polling recovery.
+- Updated change manifest with 6 categorized change scopes and refreshed verification checklist.
+- Corrected TypeScript version in README from 5.9 to 6.
+- Removed stale `components/layout/` directory reference from frontend module maps.
+
 ## [0.1.0] — 2026-03-17
 
 ### Added

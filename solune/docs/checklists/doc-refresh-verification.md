@@ -1,50 +1,50 @@
 # Documentation Refresh Verification Checklist
 
-**Refresh Date**: 2026-04-11
-**Refresh Window**: 2026-04-04 → 2026-04-11
-**Performed By**: architect / copilot
+**Refresh Date**: 2026-04-13
+**Refresh Window**: 2026-04-11 → 2026-04-13
+**Performed By**: copilot (speckit.implement)
 
 ## Verification Items
 
 - [x] Change manifest accounted for all commits since last baseline
-  - SHA range: `a1922916f5c49ce6ebcfa257638e4840fe4c1bec..b183ba318e47ae2958f58aafabc299bc6b580bcc`
-  - Commit count: n/a (the prior baseline SHA recorded in `.last-refresh` is not present in the fetched history for this branch snapshot)
-  - Notes: `.change-manifest.md` now records the previous baseline and the new refresh baseline.
+  - SHA range: `b183ba318e47ae2958f58aafabc299bc6b580bcc..c7df969c9dcd0fdd0f5af0e614510e151edab43a`
+  - Commit count: 10
+  - Notes: `.change-manifest.md` records 6 change categories covering fleet dispatch, compact headers, dead code removal, chat/pipeline fixes, dependency updates, and speckit specifications.
 
 - [x] All internal doc links resolve
   - Tool: `cd solune/frontend && npm test -- --run src/docs/documentationLinks.test.ts`
   - Broken links found: 0
-  - Notes: Internal markdown links for the refreshed docs all pass. Pre-existing external README deploy links were outside this refresh scope.
+  - Notes: All 8 documentation link tests pass including manifest file references and verification checklist alignment.
 
 - [x] All documented features exist in the running application
-  - Features smoke-tested: dashboard multi-chat routing, floating chat popup, current frontend page inventory, current backend API router inventory
-  - Notes: Verified against the live route/component wiring in `frontend/src/App.tsx`, `frontend/src/pages/AppPage.tsx`, `frontend/src/components/chat/ChatPanelManager.tsx`, `frontend/src/components/chat/ChatPopup.tsx`, and the FastAPI router files under `backend/src/api/`.
+  - Features smoke-tested: fleet dispatch service (`fleet_dispatch.py`), pipeline launcher (`pipeline_launcher.py`), compact page headers (`CompactPageHeader.tsx`), AI utilities consolidation (`ai_utilities.py`), polling recovery (`copilot_polling/recovery.py`)
+  - Notes: Verified against backend service directory, frontend component directory, and scripts directory.
 
 - [x] All config keys in docs exist in the config schema
   - Keys checked: 53 backend settings + 1 frontend Vite variable
   - Missing from code: none
-  - Notes: Compared `docs/configuration.md` against `backend/src/config.py` and the frontend `VITE_API_BASE_URL` contract.
+  - Notes: No new config keys were added in this refresh window. Existing `docs/configuration.md` remains accurate.
 
 - [x] Getting-started guide runs clean from a fresh environment
   - Environment: fresh sandbox clone
-  - Notes: Verified the documented frontend validation path with `npm test -- --run src/docs/documentationLinks.test.ts` and `npm run build`. Backend quickstart commands were cross-checked against `pyproject.toml`, router/config files, and migration names.
+  - Notes: Documentation link tests and diagram generation both pass from a fresh clone.
 
 - [x] No references to removed features remain in docs
-  - Removed features: dashboard welcome hero, quick-access cards, standalone `/chat` page, outdated migration ranges
-  - Grep results: clean in refreshed docs; historical references remain only in this manifest as audit notes
-  - Notes: Updated the affected docs to describe the current chat workspace and route structure.
+  - Removed features: `CelestialCatalogHero` component, `ai_agent.py`, `completion_providers.py`, `issue_generation.py`, `task_generation.py`, `transcript_analysis.py`, `components/layout/` directory
+  - Grep results: clean in all docs except historical ADR-004 (which correctly documents the original decision)
+  - Notes: Updated architecture.md and project-structure.md to reflect current module names.
 
 - [x] README feature list matches current capabilities in priority order
-  - Notes: Reviewed existing README coverage and added `frontend/README.md` for current frontend architecture and commands without changing the already-accurate root README.
+  - Notes: Updated TypeScript version from 5.9 to 6 in README.md to match `package.json`.
 
 - [x] New baseline (tag or metadata) is set for next cycle
   - Tag: none
   - .last-refresh updated: yes
-  - Notes: `.last-refresh` now points at baseline `b183ba318e47ae2958f58aafabc299bc6b580bcc` with the refreshed document list.
+  - Notes: `.last-refresh` now points at baseline `c7df969c9dcd0fdd0f5af0e614510e151edab43a` with the refreshed document list.
 
 - [x] Changelog updated with documentation changes
-  - Section added: no
-  - Notes: `CHANGELOG.md` was reviewed and did not require edits for this refresh window; the manifest/checklist now capture the documentation refresh state instead.
+  - Section added: yes (Documentation section under [Unreleased])
+  - Notes: Added documentation refresh entry to CHANGELOG.md [Unreleased] section.
 
 ## Overall Status
 
