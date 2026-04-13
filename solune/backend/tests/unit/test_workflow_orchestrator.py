@@ -2526,6 +2526,29 @@ class TestCreateAllSubIssues:
         result = await orch.create_all_sub_issues(ctx)
         assert "a1" in result  # sub-issue still returned despite project add failure
 
+    @pytest.mark.asyncio
+    async def test_reuses_existing_fleet_sub_issue(self):
+        orch = _make_orch()
+        cfg = _make_config(agent_mappings={"Backlog": [AgentAssignment(slug="agent-a")]})
+        orch.github.find_issue_by_labels = AsyncMock(
+            return_value={
+                "number": 88,
+                "node_id": "N88",
+                "html_url": "http://88",
+                "labels": [
+                    {"name": "fleet-dispatch"},
+                    {"name": "fleet-parent:10"},
+                    {"name": "fleet-agent:agent-a"},
+                ],
+            }
+        )
+        ctx = _make_ctx(config=cfg)
+
+        result = await orch.create_all_sub_issues(ctx)
+
+        assert result["agent-a"]["number"] == 88
+        orch.github.create_sub_issue.assert_not_awaited()
+
 
 # ────────────────────────────────────────────────────────────────────
 # execute_full_workflow  (~97 uncovered lines)
@@ -3900,3 +3923,88 @@ class TestResolveEffectiveModel:
 
         call_kwargs = mock_github.assign_copilot_to_issue.call_args.kwargs
         assert call_kwargs["model"] == "gemini-1.5-pro"
+
+    @pytest.mark.asyncio
+    async def test_assignment_config_can_override_fleet_custom_agent(self):
+        """Fleet-backed assignments honor customAgent overrides from assignment config."""
+        mock_github = Mock()
+        mock_github.get_issue_with_comments = AsyncMock(
+            return_value={"title": "T", "body": "B", "comments": []}
+        )
+        mock_github.format_issue_context_as_prompt = Mock(return_value="Prompt")
+        mock_github.assign_copilot_to_issue = AsyncMock(return_value=True)
+        mock_github.find_existing_pr_for_issue = AsyncMock(return_value=None)
+
+        orch = WorkflowOrchestrator(Mock(), mock_github)
+
+        ctx = WorkflowContext(
+            session_id="test",
+            project_id="P1",
+            access_token="tok",
+            repository_owner="owner",
+            repository_name="repo",
+            issue_id="I_1",
+            issue_number=10,
+            project_item_id="PVTI_1",
+        )
+        ctx.config = WorkflowConfiguration(
+            project_id="P1",
+            repository_owner="owner",
+            repository_name="repo",
+            agent_mappings={
+                "Backlog": [
+                    AgentAssignment(
+                        slug="repo.custom-agent",
+                        config={
+                            "customAgent": "repo-special-agent",
+                            "instructionTemplate": "solune/scripts/pipelines/templates/generic.md",
+                        },
+                    )
+                ],
+            },
+        )
+
+        await orch.assign_agent_for_status(ctx, "Backlog", 0)
+
+        call_kwargs = mock_github.assign_copilot_to_issue.call_args.kwargs
+        assert call_kwargs["custom_agent"] == "repo-special-agent"
+        assert "## Issue Title\nT" in call_kwargs["custom_instructions"]
+
+    @pytest.mark.asyncio
+    async def test_fleet_assignment_records_resolved_task_id(self):
+        """Successful fleet-backed assignment stores the resolved task id in pipeline state."""
+        mock_github = Mock()
+        mock_github.get_issue_with_comments = AsyncMock(
+            return_value={"title": "T", "body": "B", "comments": []}
+        )
+        mock_github.format_issue_context_as_prompt = Mock(return_value="Prompt")
+        mock_github.assign_copilot_to_issue = AsyncMock(return_value=True)
+        mock_github.find_existing_pr_for_issue = AsyncMock(return_value=None)
+
+        orch = WorkflowOrchestrator(Mock(), mock_github)
+        orch.fleet_dispatch.resolve_task_id = AsyncMock(return_value="task-123")
+
+        ctx = WorkflowContext(
+            session_id="test",
+            project_id="P1",
+            access_token="tok",
+            repository_owner="owner",
+            repository_name="repo",
+            issue_id="I_1",
+            issue_number=10,
+            project_item_id="PVTI_1",
+        )
+        ctx.config = WorkflowConfiguration(
+            project_id="P1",
+            repository_owner="owner",
+            repository_name="repo",
+            agent_mappings={
+                "Backlog": [AgentAssignment(slug="speckit.specify", config=None)],
+            },
+        )
+
+        await orch.assign_agent_for_status(ctx, "Backlog", 0)
+
+        state = get_pipeline_state(10)
+        assert state is not None
+        assert state.agent_task_ids == {"speckit.specify": "task-123"}

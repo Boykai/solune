@@ -573,6 +573,9 @@ export interface PipelineStateInfo {
   started_at: string | null;
   error: string | null;
   queued: boolean;
+  agent_task_ids: Record<string, string>;
+  dispatch_backend: 'fleet' | 'classic';
+  agent_statuses: Record<string, string>;
 }
 
 // ============ Board Types ============

@@ -69,6 +69,7 @@ class GitHubProjectsService(
         self._coalesced_hit_count: int = 0
         self._cycle_cache_hit_count: int = 0
         self._cycle_cache: dict[str, object] = {}
+        self._agent_task_endpoint_cache: BoundedDict[str, str | None] = BoundedDict(maxlen=256)
 
     def clear_cycle_cache(self) -> None:
         """Clear the per-poll-cycle cache.

@@ -424,6 +424,23 @@ class TestPipelineStateCRUD:
         assert recovered.prerequisite_issues == [10, 20, 30]
         assert recovered.auto_merge is True
 
+    async def test_set_preserves_agent_task_ids(self, db):
+        """agent_task_ids round-trip through SQLite metadata correctly."""
+        await store.init_pipeline_state_store(db)
+        state = _make_pipeline_state(
+            issue_number=202,
+            agent_task_ids={"speckit.specify": "task-123", "tester": "task-456"},
+        )
+        await store.set_pipeline_state(202, state)
+
+        store._pipeline_states.clear()
+        recovered = await store.get_pipeline_state_async(202)
+        assert recovered is not None
+        assert recovered.agent_task_ids == {
+            "speckit.specify": "task-123",
+            "tester": "task-456",
+        }
+
     async def test_empty_prerequisite_issues_defaults_to_empty_list(self, db):
         """PipelineState with no prerequisite_issues deserializes as empty list."""
         await store.init_pipeline_state_store(db)

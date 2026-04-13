@@ -131,6 +131,196 @@ def _build_pipeline_agent_mappings(
     return mappings
 
 
+def _serialize_pipeline_state(state) -> dict:
+    """Serialize runtime pipeline state for API responses."""
+
+    agent_statuses = _get_pipeline_agent_statuses(state)
+
+    return {
+        "issue_number": state.issue_number,
+        "project_id": state.project_id,
+        "status": state.status,
+        "agents": state.agents,
+        "current_agent_index": state.current_agent_index,
+        "current_agent": state.current_agent,
+        "completed_agents": state.completed_agents,
+        "is_complete": state.is_complete,
+        "started_at": state.started_at.isoformat() if state.started_at else None,
+        "error": state.error,
+        "queued": state.queued,
+        "agent_task_ids": dict(getattr(state, "agent_task_ids", {})),
+        "dispatch_backend": "fleet" if getattr(state, "agent_task_ids", {}) else "classic",
+        "agent_statuses": agent_statuses,
+    }
+
+
+def _get_pipeline_agent_statuses(state) -> dict[str, str]:
+    """Compute the per-agent runtime state shown to the UI."""
+
+    agent_statuses = dict.fromkeys(state.agents, "pending")
+    for agent in state.completed_agents:
+        agent_statuses[agent] = "completed"
+    for agent in getattr(state, "failed_agents", []):
+        agent_statuses[agent] = "failed"
+
+    if getattr(state, "groups", None):
+        for group in state.groups:
+            for agent_name, status in group.agent_statuses.items():
+                agent_statuses[agent_name] = status
+
+    for agent in state.current_agents:
+        if agent and agent_statuses.get(agent) not in {"completed", "failed"}:
+            agent_statuses[agent] = "active"
+
+    return agent_statuses
+
+
+def _resolve_retry_agent(state, requested_agent: str | None) -> tuple[str, int]:
+    """Validate and resolve which agent can be retried for the current pipeline state."""
+
+    current_agent = state.current_agent
+    if not current_agent:
+        raise ValidationError("No pending agent to retry")
+
+    if not requested_agent:
+        return current_agent, state.current_agent_index
+
+    if requested_agent not in state.agents:
+        raise ValidationError(
+            f"Agent '{requested_agent}' is not part of the current pipeline status"
+        )
+
+    agent_statuses = _get_pipeline_agent_statuses(state)
+    requested_status = agent_statuses.get(requested_agent, "pending")
+    if requested_status == "completed":
+        raise ValidationError(f"Agent '{requested_agent}' has already completed")
+
+    groups = getattr(state, "groups", [])
+    group_index = getattr(state, "current_group_index", 0)
+    if groups and 0 <= group_index < len(groups):
+        current_group = groups[group_index]
+        if current_group.execution_mode == "parallel":
+            if requested_agent not in current_group.agents:
+                raise ValidationError(
+                    f"Agent '{requested_agent}' is not in the current parallel group"
+                )
+        elif requested_agent != current_agent:
+            raise ValidationError(
+                f"Only the current agent '{current_agent}' can be retried in sequential execution"
+            )
+    elif requested_agent != current_agent:
+        raise ValidationError(
+            f"Only the current agent '{current_agent}' can be retried in sequential execution"
+        )
+
+    return requested_agent, state.agents.index(requested_agent)
+
+
+def _prepare_pipeline_state_for_retry(issue_number: int, state, agent_name: str) -> None:
+    """Clear transient failure markers before re-dispatching an agent."""
+
+    state.error = None
+
+    failed_agents = getattr(state, "failed_agents", None)
+    if failed_agents is not None:
+        state.failed_agents = [agent for agent in failed_agents if agent != agent_name]
+
+    agent_task_ids = getattr(state, "agent_task_ids", None)
+    if agent_task_ids is not None:
+        state.agent_task_ids.pop(agent_name, None)
+
+    groups = getattr(state, "groups", [])
+    group_index = getattr(state, "current_group_index", 0)
+    if groups and 0 <= group_index < len(groups):
+        current_group = groups[group_index]
+        if agent_name in current_group.agent_statuses:
+            current_group.agent_statuses[agent_name] = "pending"
+
+    set_pipeline_state(issue_number, state)
+
+
+def _finalize_pipeline_retry_state(issue_number: int, agent_name: str, success: bool) -> None:
+    """Reconcile visible retry state after the orchestrator attempt finishes."""
+
+    latest_state = get_pipeline_state(issue_number)
+    if not latest_state:
+        return
+
+    failed_agents = getattr(latest_state, "failed_agents", None)
+    if failed_agents is not None:
+        if success:
+            latest_state.failed_agents = [agent for agent in failed_agents if agent != agent_name]
+        elif agent_name not in failed_agents:
+            failed_agents.append(agent_name)
+
+    groups = getattr(latest_state, "groups", [])
+    group_index = getattr(latest_state, "current_group_index", 0)
+    if groups and 0 <= group_index < len(groups):
+        current_group = groups[group_index]
+        if agent_name in current_group.agent_statuses:
+            current_group.agent_statuses[agent_name] = "active" if success else "failed"
+
+    if success:
+        latest_state.error = None
+    elif not latest_state.error:
+        latest_state.error = f"Failed to assign agent '{agent_name}'"
+
+    set_pipeline_state(issue_number, latest_state)
+
+
+async def _build_retry_context(session: UserSession, state, issue_number: int) -> WorkflowContext:
+    """Build the workflow context needed to retry an agent assignment."""
+
+    config = await get_workflow_config(state.project_id)
+    if not config:
+        raise ValidationError("No workflow configuration found for this project")
+
+    owner, repo = await resolve_repository(session.access_token, state.project_id)
+
+    try:
+        effective_user_settings = await get_effective_user_settings(
+            get_db(), session.github_user_id
+        )
+        user_chat_model = effective_user_settings.ai.model
+        user_agent_model = effective_user_settings.ai.agent_model
+        user_reasoning_effort = effective_user_settings.ai.reasoning_effort
+    except Exception:
+        logger.warning(
+            "Could not load effective user settings for session %s; user_chat_model left empty",
+            session.session_id,
+        )
+        user_chat_model = ""
+        user_agent_model = ""
+        user_reasoning_effort = ""
+
+    ctx = WorkflowContext(
+        session_id=str(session.session_id),
+        project_id=state.project_id,
+        access_token=session.access_token,
+        repository_owner=owner,
+        repository_name=repo,
+        config=config,
+        user_chat_model=user_chat_model,
+        user_agent_model=user_agent_model,
+        user_reasoning_effort=user_reasoning_effort,
+    )
+
+    try:
+        issue_data = await github_projects_service.get_issue_with_comments(
+            access_token=session.access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+        )
+        ctx.issue_id = issue_data.get("node_id", "")
+        ctx.issue_number = issue_number
+        ctx.issue_url = issue_data.get("html_url", "")
+    except Exception as e:
+        handle_service_error(e, f"fetch issue #{issue_number}", ValidationError)
+
+    return ctx
+
+
 async def _apply_selected_pipeline(
     config: WorkflowConfiguration,
     project_id: str,
@@ -479,12 +669,18 @@ async def retry_pipeline(
     request: Request,
     issue_number: int,
     session: Annotated[UserSession, Depends(get_session_dep)],
+    agent: Annotated[
+        str | None,
+        Query(description="Optional agent slug to retry within the current pipeline stage"),
+    ] = None,
 ) -> dict:
     """
     Retry a failed or stalled agent assignment for an issue.
 
     Looks up the pipeline state for the given issue number and retries
-    the current agent assignment. This is useful when:
+    the current agent assignment. When the current stage is running in
+    parallel, a specific active or failed agent can be retried by slug.
+    This is useful when:
     - Agent assignment failed due to transient errors
     - The pipeline is stuck after a network failure
     - The user wants to manually kick off the next agent
@@ -504,64 +700,10 @@ async def retry_pipeline(
     if state.is_complete:
         return {"message": "Pipeline already complete", "issue_number": issue_number}
 
-    current_agent = state.current_agent
-    if not current_agent:
-        return {"message": "No pending agent to retry", "issue_number": issue_number}
+    current_agent, retry_agent_index = _resolve_retry_agent(state, agent)
+    ctx = await _build_retry_context(session, state, issue_number)
 
-    # Get config and build context
-    config = await get_workflow_config(state.project_id)
-    if not config:
-        raise ValidationError("No workflow configuration found for this project")
-
-    # Resolve repository info
-    owner, repo = await resolve_repository(session.access_token, project_id)
-
-    # Resolve user's effective AI model for the model-precedence chain
-    try:
-        effective_user_settings = await get_effective_user_settings(
-            get_db(), session.github_user_id
-        )
-        user_chat_model = effective_user_settings.ai.model
-        user_agent_model = effective_user_settings.ai.agent_model
-        user_reasoning_effort = effective_user_settings.ai.reasoning_effort
-    except Exception:
-        logger.warning(
-            "Could not load effective user settings for session %s; user_chat_model left empty",
-            session.session_id,
-        )
-        user_chat_model = ""
-        user_agent_model = ""
-        user_reasoning_effort = ""
-
-    ctx = WorkflowContext(
-        session_id=str(session.session_id),
-        project_id=state.project_id,
-        access_token=session.access_token,
-        repository_owner=owner,
-        repository_name=repo,
-        config=config,
-        user_chat_model=user_chat_model,
-        user_agent_model=user_agent_model,
-        user_reasoning_effort=user_reasoning_effort,
-    )
-
-    # Get issue info
-    try:
-        issue_data = await github_projects_service.get_issue_with_comments(
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            issue_number=issue_number,
-        )
-        ctx.issue_id = issue_data.get("node_id", "")
-        ctx.issue_number = issue_number
-        ctx.issue_url = issue_data.get("html_url", "")
-    except Exception as e:
-        handle_service_error(e, f"fetch issue #{issue_number}", ValidationError)
-
-    # Clear the error state so retry proceeds
-    state.error = None
-    set_pipeline_state(issue_number, state)
+    _prepare_pipeline_state_for_retry(issue_number, state, current_agent)
 
     # Clear any pending assignment dedup guards for this agent
     try:
@@ -575,8 +717,9 @@ async def retry_pipeline(
     # Retry the assignment
     orchestrator = get_workflow_orchestrator()
     success = await orchestrator.assign_agent_for_status(
-        ctx, state.status, agent_index=state.current_agent_index
+        ctx, state.status, agent_index=retry_agent_index
     )
+    _finalize_pipeline_retry_state(issue_number, current_agent, success)
 
     if success:
         logger.info(
@@ -614,6 +757,23 @@ async def retry_pipeline(
             "agent": current_agent,
             "success": False,
         }
+
+
+@router.post("/pipeline/{issue_number}/retry/{agent_slug}")
+async def retry_pipeline_agent(
+    request: Request,
+    issue_number: int,
+    agent_slug: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> dict:
+    """Retry a specific agent in the current pipeline stage."""
+
+    return await retry_pipeline(
+        request=request,
+        issue_number=issue_number,
+        session=session,
+        agent=agent_slug,
+    )
 
 
 @router.get("/config", response_model=WorkflowConfiguration)
@@ -803,18 +963,7 @@ async def list_pipeline_states(
     project_states = {}
     if session.selected_project_id:
         project_states = {
-            k: {
-                "issue_number": v.issue_number,
-                "project_id": v.project_id,
-                "status": v.status,
-                "agents": v.agents,
-                "current_agent_index": v.current_agent_index,
-                "current_agent": v.current_agent,
-                "completed_agents": v.completed_agents,
-                "is_complete": v.is_complete,
-                "started_at": v.started_at.isoformat() if v.started_at else None,
-                "error": v.error,
-            }
+            k: _serialize_pipeline_state(v)
             for k, v in all_states.items()
             if v.project_id == session.selected_project_id
         }
@@ -844,18 +993,7 @@ async def get_pipeline_state_for_issue(
     if session.selected_project_id and state.project_id != session.selected_project_id:
         raise NotFoundError(f"No pipeline state found for issue #{issue_number}")
 
-    return {
-        "issue_number": state.issue_number,
-        "project_id": state.project_id,
-        "status": state.status,
-        "agents": state.agents,
-        "current_agent_index": state.current_agent_index,
-        "current_agent": state.current_agent,
-        "completed_agents": state.completed_agents,
-        "is_complete": state.is_complete,
-        "started_at": state.started_at.isoformat() if state.started_at else None,
-        "error": state.error,
-    }
+    return _serialize_pipeline_state(state)
 
 
 @router.post("/notify/in-review")

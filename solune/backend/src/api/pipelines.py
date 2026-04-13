@@ -30,12 +30,12 @@ from src.services.activity_logger import log_event
 from src.services.agent_tracking import append_tracking_to_body
 from src.services.database import get_db
 from src.services.github_projects import github_projects_service
+from src.services.pipeline_launcher import start_pipeline
 from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
 from src.services.workflow_orchestrator import (
     WorkflowContext,
     count_active_pipelines_for_project,
-    get_agent_configs,
     get_agent_slugs,
     get_pipeline_state,
     get_project_launch_lock,
@@ -50,7 +50,7 @@ from src.services.workflow_orchestrator.config import (
     load_pipeline_as_agent_mappings,
     resolve_project_pipeline_mappings,
 )
-from src.utils import resolve_repository, utcnow
+from src.utils import resolve_repository
 
 if TYPE_CHECKING:
     from src.services.copilot_polling.pipeline_state_service import PipelineRunService
@@ -315,9 +315,6 @@ async def execute_pipeline_launch(
             is required for new-repo / external-repo apps whose project has
             no items yet.
     """
-    from src.services.copilot_polling import ensure_polling_started
-    from src.services.workflow_orchestrator import PipelineState, find_next_actionable_status
-
     issue_description = _normalize_issue_description(issue_description)
     ctx: WorkflowContext | None = None
     if target_repo:
@@ -482,71 +479,26 @@ async def execute_pipeline_launch(
             logger.warning("Failed to set pipeline metadata", exc_info=True)
 
         status_name = config.status_backlog
-        agent_sub_issues = await orchestrator.create_all_sub_issues(ctx)
+        launch_result = await start_pipeline(
+            ctx,
+            config,
+            orchestrator,
+            caller="pipeline_issue_launch",
+            enable_queue_mode_gate=True,
+            use_app_scoped_polling=bool(target_repo),
+            register_project_monitoring=bool(target_repo),
+            auto_merge=auto_merge,
+            prerequisite_issues=prerequisite_issues or [],
+            get_agent_slugs_fn=get_agent_slugs,
+            set_pipeline_state_fn=set_pipeline_state,
+            count_active_pipelines_for_project_fn=count_active_pipelines_for_project,
+            get_project_launch_lock_fn=get_project_launch_lock,
+            get_queued_pipelines_for_project_fn=get_queued_pipelines_for_project,
+        )
+        status_name = launch_result.status_name
 
-        if not get_agent_slugs(config, status_name):
-            next_status = find_next_actionable_status(config, status_name)
-            if next_status and ctx.project_item_id:
-                await github_projects_service.update_item_status_by_name(
-                    access_token=session.access_token,
-                    project_id=project_id,
-                    item_id=ctx.project_item_id,
-                    status_name=next_status,
-                )
-                status_name = next_status
-
-        # ── Queue mode gate ──
-        # Acquire a per-project lock so concurrent launches cannot both
-        # see active_count == 0 and bypass the queue.  The lock covers
-        # the count-check *and* the state registration atomically.
-        from src.services.settings_store import is_queue_mode_enabled
-
-        queue_enabled = await is_queue_mode_enabled(get_db(), project_id)
-        should_queue = False
-        if agent_sub_issues and ctx.issue_number is not None:
-            if queue_enabled:
-                async with get_project_launch_lock(project_id):
-                    active_count = count_active_pipelines_for_project(
-                        project_id, exclude_issue=ctx.issue_number
-                    )
-                    should_queue = active_count > 0
-
-                    # Register pipeline state under the lock with the correct
-                    # queued flag so the next concurrent launch sees it immediately.
-                    set_pipeline_state(
-                        ctx.issue_number,
-                        PipelineState(
-                            issue_number=ctx.issue_number,
-                            project_id=project_id,
-                            status=status_name,
-                            agents=get_agent_slugs(config, status_name),
-                            agent_sub_issues=agent_sub_issues,
-                            started_at=utcnow(),
-                            queued=should_queue,
-                            auto_merge=auto_merge,
-                            prerequisite_issues=prerequisite_issues or [],
-                            agent_configs=get_agent_configs(config),
-                        ),
-                    )
-            else:
-                set_pipeline_state(
-                    ctx.issue_number,
-                    PipelineState(
-                        issue_number=ctx.issue_number,
-                        project_id=project_id,
-                        status=status_name,
-                        agents=get_agent_slugs(config, status_name),
-                        agent_sub_issues=agent_sub_issues,
-                        started_at=utcnow(),
-                        queued=False,
-                        auto_merge=auto_merge,
-                        prerequisite_issues=prerequisite_issues or [],
-                        agent_configs=get_agent_configs(config),
-                    ),
-                )
-
-        if should_queue and ctx.issue_number is not None:
-            queue_position = len(get_queued_pipelines_for_project(project_id))
+        if launch_result.queued and ctx.issue_number is not None:
+            queue_position = launch_result.queue_position or 0
             logger.info(
                 "Pipeline for issue #%d queued (position #%d) — queue mode ON for project %s",
                 ctx.issue_number,
@@ -565,37 +517,6 @@ async def execute_pipeline_launch(
                     "It will start automatically when the active pipeline reaches In Review or Done."
                 ),
             )
-
-        await orchestrator.assign_agent_for_status(ctx, status_name, agent_index=0)
-
-        # For new-repo / external-repo apps the main polling loop may already
-        # be running for the Solune project.  Start a secondary scoped loop
-        # that monitors only this pipeline and auto-stops on completion.
-        if target_repo and ctx.issue_number is not None:
-            from src.services.copilot_polling import ensure_app_pipeline_polling
-
-            await ensure_app_pipeline_polling(
-                access_token=session.access_token,
-                project_id=project_id,
-                owner=owner,
-                repo=repo,
-                parent_issue_number=ctx.issue_number,
-            )
-        else:
-            await ensure_polling_started(
-                access_token=session.access_token,
-                project_id=project_id,
-                owner=owner,
-                repo=repo,
-                caller="pipeline_issue_launch",
-            )
-
-        # Always register the project for multi-project monitoring so the
-        # main polling loop picks it up even if the loop was already running
-        # for a different project.
-        from src.services.copilot_polling import register_project
-
-        register_project(project_id, owner, repo, session.access_token)
 
         agent_count = _count_configured_agents(config)
         await log_event(
@@ -619,7 +540,7 @@ async def execute_pipeline_launch(
         pipeline_state = (
             get_pipeline_state(ctx.issue_number) if ctx.issue_number is not None else None
         )
-        if pipeline_state and pipeline_state.error:
+        if launch_result.error or (pipeline_state and pipeline_state.error):
             return WorkflowResult(
                 success=False,
                 issue_id=ctx.issue_id,

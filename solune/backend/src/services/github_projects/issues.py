@@ -21,6 +21,88 @@ logger = get_logger(__name__)
 class IssuesMixin(_ServiceMixin):
     """Issue CRUD, sub-issues, comments, assignment, and project attachment."""
 
+    async def ensure_labels_exist(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        labels: list[str],
+    ) -> None:
+        """Create any missing labels needed for workflow-managed issues."""
+
+        seen: set[str] = set()
+        for label in labels:
+            if not label or label in seen:
+                continue
+            seen.add(label)
+            try:
+                response = await self._rest_response(
+                    access_token,
+                    "POST",
+                    f"/repos/{owner}/{repo}/labels",
+                    json={
+                        "name": label,
+                        "color": "bfd4f2",
+                        "description": "Managed by Solune workflow automation",
+                    },
+                )
+                if response.status_code in (200, 201, 422):
+                    continue
+                logger.warning(
+                    "Failed to ensure label '%s' in %s/%s: %d %s",
+                    label,
+                    owner,
+                    repo,
+                    response.status_code,
+                    response.text[:200] if getattr(response, "text", None) else "",
+                )
+            except Exception as e:
+                logger.warning(
+                    "Failed to ensure label '%s' in %s/%s: %s",
+                    label,
+                    owner,
+                    repo,
+                    e,
+                )
+
+    async def find_issue_by_labels(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        labels: list[str],
+        state: str = "all",
+    ) -> dict | None:
+        """Find the oldest issue matching all labels, excluding pull requests."""
+
+        response = await self._rest_response(
+            access_token,
+            "GET",
+            f"/repos/{owner}/{repo}/issues",
+            params={
+                "state": state,
+                "per_page": 100,
+                "labels": ",".join(labels),
+            },
+        )
+        if response.status_code != 200:
+            logger.debug(
+                "Issue lookup by labels failed for %s/%s labels=%s: %d",
+                owner,
+                repo,
+                labels,
+                response.status_code,
+            )
+            return None
+
+        payload = response.json()
+        if not isinstance(payload, list):
+            return None
+
+        issues = [item for item in payload if isinstance(item, dict) and "pull_request" not in item]
+        issues.sort(key=lambda item: int(item.get("number") or 0))
+        return issues[0] if issues else None
+
     # ──────────────────────────────────────────────────────────────────
     # Issue Creation and Project Attachment (T018-T020, T036-T037, T043)
     # ──────────────────────────────────────────────────────────────────

@@ -12,4 +12,7 @@ export const PipelineStateInfoSchema = z.object({
   started_at: z.string().nullable(),
   error: z.string().nullable(),
   queued: z.boolean().optional().default(false),
+  agent_task_ids: z.record(z.string(), z.string()).optional().default({}),
+  dispatch_backend: z.enum(['fleet', 'classic']).optional().default('classic'),
+  agent_statuses: z.record(z.string(), z.string()).optional().default({}),
 });
