@@ -1,7 +1,7 @@
-import { test, expect } from './authenticated-fixtures';
+import { test, expect, type MockApiState } from './authenticated-fixtures';
 import { VIEWPORTS } from './viewports';
 
-function seedRecentInteractions(mockApi: any) {
+function seedRecentInteractions(mockApi: MockApiState) {
   const board = mockApi.boardDataByProject.PVT_test123;
   const baseItem = board.columns[0].items[0];
 

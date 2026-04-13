@@ -42,11 +42,10 @@ export function ChatPanelManager() {
     deleteConversation,
     refetch: refetchConversations,
   } = useConversations();
-  const [initialConvId, setInitialConvId] = useState<string | undefined>(undefined);
-  const [bootstrapRetryToken, setBootstrapRetryToken] = useState(0);
+  const [provisionalConversationId, setProvisionalConversationId] = useState<string | undefined>(undefined);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-  const [isBootstrapping, setIsBootstrapping] = useState(false);
   const bootstrapRunIdRef = useRef(0);
+  const seededConversationId = provisionalConversationId ?? conversations[0]?.conversation_id;
 
   const {
     panels,
@@ -55,7 +54,7 @@ export function ChatPanelManager() {
     resizePanels,
     removeStalePanels,
     containerRef,
-  } = useChatPanels(initialConvId);
+  } = useChatPanels(seededConversationId);
 
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -64,95 +63,63 @@ export function ChatPanelManager() {
   useEffect(() => {
     if (isConversationsLoading || conversationsError || panels.length === 0) return;
 
-    const validIds = buildKnownConversationIds(conversations, initialConvId);
+    const validIds = buildKnownConversationIds(conversations, provisionalConversationId);
     const hasStalePanels = panels.some((panel) => !validIds.has(panel.conversationId));
 
     if (!hasStalePanels) return;
 
     removeStalePanels(validIds);
-  }, [conversations, conversationsError, initialConvId, isConversationsLoading, panels, removeStalePanels]);
+  }, [conversations, conversationsError, provisionalConversationId, isConversationsLoading, panels, removeStalePanels]);
 
   // Bootstrap the first visible panel from an existing conversation or create one when the
   // current session is genuinely empty. Failures surface a retry UI instead of an endless
   // loading placeholder.
   useEffect(() => {
-    if (isConversationsLoading) return;
+    if (isConversationsLoading || conversationsError || bootstrapError) return;
 
-    if (conversationsError) {
-      if (panels.length === 0) {
-        setBootstrapError(
-          getBootstrapErrorMessage(conversationsError, 'Could not load chat conversations.'),
-        );
-        setIsBootstrapping(false);
-      }
-      return;
-    }
-
-    const validIds = buildKnownConversationIds(conversations, initialConvId);
+    const validIds = buildKnownConversationIds(conversations, provisionalConversationId);
     const hasStalePanels = panels.some((panel) => !validIds.has(panel.conversationId));
     if (hasStalePanels) {
       return;
     }
 
-    if (panels.length > 0) {
-      setBootstrapError(null);
-      setIsBootstrapping(false);
-      return;
-    }
-
-    if (initialConvId) {
-      setBootstrapError(null);
-      return;
-    }
-
-    if (conversations.length > 0) {
-      const nextConversationId = conversations[0].conversation_id;
-      setBootstrapError(null);
-      if (initialConvId !== nextConversationId) {
-        setInitialConvId(nextConversationId);
-      }
+    if (panels.length > 0 || seededConversationId) {
       return;
     }
 
     const currentRunId = bootstrapRunIdRef.current + 1;
     bootstrapRunIdRef.current = currentRunId;
 
-    setBootstrapError(null);
-    setIsBootstrapping(true);
-
     let cancelled = false;
 
     void createConversation('New Chat')
       .then((conversation) => {
         if (cancelled || bootstrapRunIdRef.current !== currentRunId) return;
-        setInitialConvId(conversation.conversation_id);
+        setProvisionalConversationId(conversation.conversation_id);
       })
       .catch((error) => {
         if (cancelled || bootstrapRunIdRef.current !== currentRunId) return;
         setBootstrapError(getBootstrapErrorMessage(error, "Couldn't start your chat."));
-      })
-      .finally(() => {
-        if (cancelled || bootstrapRunIdRef.current !== currentRunId) return;
-        setIsBootstrapping(false);
       });
 
     return () => {
       cancelled = true;
     };
   }, [
-    bootstrapRetryToken,
+    bootstrapError,
     conversations,
     conversationsError,
     createConversation,
-    initialConvId,
     isConversationsLoading,
     panels,
+    provisionalConversationId,
+    seededConversationId,
   ]);
 
   const handleRetryBootstrap = useCallback(() => {
+    bootstrapRunIdRef.current += 1;
     setBootstrapError(null);
-    setInitialConvId(undefined);
-    setBootstrapRetryToken((current) => current + 1);
+    setProvisionalConversationId(undefined);
     void refetchConversations();
   }, [refetchConversations]);
 
@@ -280,9 +247,15 @@ export function ChatPanelManager() {
     : activeTabIndex;
 
   const bootstrapFailureMessage = bootstrapError
-    ?? (panels.length === 0 && conversationsError
+    ?? (panels.length === 0 && !seededConversationId && conversationsError
       ? getBootstrapErrorMessage(conversationsError, 'Could not load chat conversations.')
       : null);
+
+  const isBootstrapping =
+    !isConversationsLoading
+    && !bootstrapFailureMessage
+    && panels.length === 0
+    && !seededConversationId;
 
   if (panels.length === 0) {
     if (bootstrapFailureMessage) {
@@ -310,7 +283,7 @@ export function ChatPanelManager() {
       <div className="flex h-full items-center justify-center text-muted-foreground">
         <div className="text-center">
           <p className="mb-2 text-lg">
-            {conversations.length > 0 || initialConvId ? 'Opening your chat...' : 'Starting your chat...'}
+            {conversations.length > 0 || seededConversationId ? 'Opening your chat...' : 'Starting your chat...'}
           </p>
           {isBootstrapping && <p className="text-sm text-muted-foreground/80">Creating a conversation for this session.</p>}
         </div>
