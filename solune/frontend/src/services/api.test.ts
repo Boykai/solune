@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   ApiError,
   onAuthExpired,
@@ -33,6 +33,24 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     statusText: status === 200 ? 'OK' : 'Error',
     json: () => Promise.resolve(body),
+    headers: new Headers(),
+  } as unknown as Response;
+}
+
+function streamingResponse(chunks: string[], status = 200): Response {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      chunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk)));
+      controller.close();
+    },
+  });
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    body,
     headers: new Headers(),
   } as unknown as Response;
 }
@@ -209,6 +227,53 @@ describe('network error handling', () => {
   });
 });
 
+describe('stream logging sanitization', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock('@/lib/logger');
+  });
+
+  it('logs only event metadata for unexpected SSE error payloads', async () => {
+    const debugSpy = vi.fn();
+    vi.doMock('@/lib/logger', () => ({
+      logger: {
+        debug: debugSpy,
+        error: vi.fn(),
+        warn: vi.fn(),
+        captureException: vi.fn(),
+      },
+    }));
+
+    try {
+      const { chatApi: mockedChatApi } = await import('./api');
+      const onToken = vi.fn();
+      const onDone = vi.fn();
+      const onError = vi.fn();
+
+      mockFetch.mockResolvedValueOnce(
+        streamingResponse([
+          'event: error\n',
+          'data: {"data":"\\"raw user content that should not be logged\\"","message":"Stream failed"}\n\n',
+        ])
+      );
+
+      await mockedChatApi.sendMessageStream({ content: 'hello' } as never, onToken, onDone, onError);
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Stream failed' }));
+      expect(debugSpy).toHaveBeenCalledWith('sse', 'Unexpected error payload shape', {
+        errorCode: undefined,
+        eventType: 'error',
+      });
+      expect(JSON.stringify(debugSpy.mock.calls)).not.toContain('raw user content');
+    } finally {
+      vi.resetModules();
+    }
+  });
+});
+
 // ── HTTP error responses ───────────────────────────────────────────────
 
 describe('HTTP error responses', () => {
@@ -318,8 +383,13 @@ describe('onAuthExpired', () => {
     expect(throwingListener).toHaveBeenCalledOnce();
     expect(healthyListener).toHaveBeenCalledOnce();
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Auth-expired listener threw:',
-      expect.any(Error)
+      '[auth] Auth-expired listener threw',
+      {
+        error: expect.objectContaining({
+          message: 'listener boom',
+          name: 'Error',
+        }),
+      }
     );
 
     unsubThrowing();

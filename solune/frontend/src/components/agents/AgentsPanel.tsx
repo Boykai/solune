@@ -24,7 +24,7 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { UnsavedChangesDialog } from '@/components/pipeline/UnsavedChangesDialog';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
 import { formatAgentName } from '@/utils/formatAgentName';
-import { getErrorMessage } from '@/hooks/useApps';
+import { getErrorMessage } from '@/utils/errorUtils';
 
 interface AgentsPanelProps {
   projectId: string;

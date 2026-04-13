@@ -11,12 +11,11 @@ import { usePipelineValidation } from './usePipelineValidation';
 import { usePipelineModelOverride } from './usePipelineModelOverride';
 import { pipelineReducer, initialState, computeSnapshot } from './usePipelineReducer';
 import { useInfiniteList } from '@/hooks/useInfiniteList';
+import { logger } from '@/lib/logger';
+import { getErrorMessage } from '@/utils/errorUtils';
 import type { PipelineConfig, PipelineConfigListResponse, PaginatedResponse, PipelineConfigSummary } from '@/types';
 
 const MAX_UNDO_STACK = 50;
-
-const errMsg = (e: unknown, fallback: string) =>
-  e instanceof Error ? e.message : fallback;
 
 const buildPayload = (p: PipelineConfig) => ({
   name: p.name, description: p.description, stages: p.stages,
@@ -167,8 +166,8 @@ export function usePipelineConfig(projectId: string | null) {
       await queryClient.invalidateQueries({ queryKey: pipelineKeys.assignment(projectId) });
       toast.success('Pipeline assigned');
     } catch (err) {
-      console.warn('Pipeline assignment failed:', err);
-      toast.error(errMsg(err, 'Failed to assign pipeline'), { duration: Infinity });
+      logger.warn('pipelines', 'Pipeline assignment failed', { error: err, projectId });
+      toast.error(getErrorMessage(err, 'Failed to assign pipeline'), { duration: Infinity });
     }
   }, [projectId, queryClient]);
 
@@ -198,7 +197,7 @@ export function usePipelineConfig(projectId: string | null) {
       clearUndoRedo();
       resetPending();
     } catch (err) {
-      dispatch({ type: 'SET_ERROR', error: errMsg(err, 'Failed to load pipeline') });
+      dispatch({ type: 'SET_ERROR', error: getErrorMessage(err, 'Failed to load pipeline') });
     }
   }, [projectId, clearUndoRedo, resetPending]);
 
@@ -219,8 +218,9 @@ export function usePipelineConfig(projectId: string | null) {
       toast.success('Pipeline saved');
       return true;
     } catch (err) {
-      dispatch({ type: 'SAVE_FAILURE', error: errMsg(err, 'Failed to save pipeline') });
-      toast.error(errMsg(err, 'Failed to save pipeline'), { duration: Infinity });
+      const message = getErrorMessage(err, 'Failed to save pipeline');
+      dispatch({ type: 'SAVE_FAILURE', error: message });
+      toast.error(message, { duration: Infinity });
       return false;
     }
   }, [state.pipeline, state.editingPipelineId, projectId, validatePipeline, queryClient]);
@@ -234,8 +234,9 @@ export function usePipelineConfig(projectId: string | null) {
       queryClient.invalidateQueries({ queryKey: pipelineKeys.list(projectId) });
       toast.success('Pipeline saved as copy');
     } catch (err) {
-      dispatch({ type: 'SAVE_FAILURE', error: errMsg(err, 'Failed to save copy') });
-      toast.error(errMsg(err, 'Failed to save copy'), { duration: Infinity });
+      const message = getErrorMessage(err, 'Failed to save copy');
+      dispatch({ type: 'SAVE_FAILURE', error: message });
+      toast.error(message, { duration: Infinity });
     }
   }, [state.pipeline, projectId, queryClient]);
 
@@ -262,8 +263,9 @@ export function usePipelineConfig(projectId: string | null) {
       toast.success('Pipeline duplicated');
       return saved;
     } catch (err) {
-      dispatch({ type: 'SAVE_FAILURE', error: errMsg(err, 'Failed to copy pipeline') });
-      toast.error(errMsg(err, 'Failed to copy pipeline'), { duration: Infinity });
+      const message = getErrorMessage(err, 'Failed to copy pipeline');
+      dispatch({ type: 'SAVE_FAILURE', error: message });
+      toast.error(message, { duration: Infinity });
       return null;
     }
   }, [existingPipelineNames, projectId, queryClient]);
@@ -293,7 +295,7 @@ export function usePipelineConfig(projectId: string | null) {
       resetPending();
       queryClient.invalidateQueries({ queryKey: pipelineKeys.list(projectId) });
     } catch (err) {
-      const message = errMsg(err, 'Failed to delete pipeline');
+      const message = getErrorMessage(err, 'Failed to delete pipeline');
       // Rollback optimistic update
       if (listSnapshot) {
         queryClient.setQueryData(listQueryKey, listSnapshot);

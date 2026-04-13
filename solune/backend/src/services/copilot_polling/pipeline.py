@@ -2,6 +2,7 @@
 
 import asyncio
 import math
+import time
 from datetime import datetime
 from typing import Any
 
@@ -62,6 +63,7 @@ async def _dequeue_next_pipeline(
         project_id: Project ID to check for queued pipelines
         trigger: Description of what triggered the dequeue (for logging)
     """
+    start = time.monotonic()
     from src.services.database import get_db
     from src.services.settings_store import is_queue_mode_enabled
 
@@ -129,6 +131,7 @@ async def _dequeue_next_pipeline(
                 trigger,
                 project_id,
                 len(queued),
+                extra={"operation": "pipeline.dequeue_next"},
             )
 
             # Mark as no longer queued
@@ -157,6 +160,10 @@ async def _dequeue_next_pipeline(
         logger.info(
             "Dequeued pipeline for issue #%d — agent assignment started",
             next_pipeline.issue_number,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipeline.dequeue_next",
+            },
         )
     except Exception:
         logger.error(
@@ -164,6 +171,10 @@ async def _dequeue_next_pipeline(
             project_id,
             trigger,
             exc_info=True,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "operation": "pipeline.dequeue_next",
+            },
         )
 
 
@@ -3841,22 +3852,26 @@ async def execute_pipeline_concurrent(
     """
     pipeline_id = pipeline_config.get("pipeline_id", "unknown")
     project_id = context.get("project_id", "")
+    start = time.monotonic()
 
     logger.info(
         "Executing concurrent pipeline %s for project %s (group %s)",
         pipeline_id,
         project_id,
         concurrent_group_id,
+        extra={"operation": "pipeline.execute_concurrent"},
     )
 
     try:
         # Execute the pipeline (the actual orchestration is handled upstream)
+        duration_ms = round((time.monotonic() - start) * 1000, 1)
         return {
             "pipeline_id": pipeline_id,
             "project_id": project_id,
             "status": "completed",
             "execution_mode": "concurrent",
             "concurrent_group_id": concurrent_group_id,
+            "duration_ms": duration_ms,
             "is_isolated": True,
         }
     except Exception as exc:
@@ -3867,6 +3882,11 @@ async def execute_pipeline_concurrent(
             concurrent_group_id,
             exc,
             exc_info=True,
+            extra={
+                "duration_ms": round((time.monotonic() - start) * 1000, 1),
+                "error_type": type(exc).__name__,
+                "operation": "pipeline.execute_concurrent",
+            },
         )
         return {
             "pipeline_id": pipeline_id,

@@ -7,6 +7,7 @@ import pytest
 
 from src.logging_utils import (
     MAX_LOG_MESSAGE_LENGTH,
+    STRUCTURED_FIELDS,
     RequestIDFilter,
     SanitizingFormatter,
     StructuredJsonFormatter,
@@ -211,6 +212,32 @@ class TestStructuredJsonFormatter:
         assert "exception" in parsed
         assert "ValueError" in parsed["exception"]
 
+    def test_includes_all_declared_structured_fields(self) -> None:
+        formatter = StructuredJsonFormatter()
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="Structured log",
+            args=(),
+            exc_info=None,
+        )
+        record.__dict__.update(
+            {
+                "request_id": "req-123",
+                "operation": "sync",
+                "duration_ms": 12.5,
+                "error_type": "ValueError",
+                "status_code": 502,
+            }
+        )
+
+        parsed = json.loads(formatter.format(record))
+
+        for field in STRUCTURED_FIELDS:
+            assert parsed[field] == record.__dict__[field]
+
 
 # ---------------------------------------------------------------------------
 # RequestIDFilter
@@ -312,6 +339,9 @@ class TestHandleServiceError:
         with caplog.at_level(logging.ERROR, logger="error_handler"), pytest.raises(GitHubAPIError):
             handle_service_error(exc, "test op")
         assert "internal detail" in caplog.text
+        record = next(record for record in caplog.records if record.name == "error_handler")
+        assert record.operation == "test op"
+        assert record.error_type == "RuntimeError"
 
     def test_raises_value_error_with_positional_message(self) -> None:
         """ValueError (non-AppException) is constructed with a positional arg."""

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, endpoint: string): T {
   if (!import.meta.env.DEV) {
@@ -8,7 +9,7 @@ export function validateResponse<T>(schema: z.ZodType<T>, data: unknown, endpoin
   try {
     return schema.parse(data);
   } catch (error) {
-    console.error(`[API Schema Validation] ${endpoint}:`, error);
+    logger.warn('schema', `API schema validation failed for ${endpoint}`, { error });
     throw error;
   }
 }

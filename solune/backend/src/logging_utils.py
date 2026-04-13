@@ -45,6 +45,9 @@ if TYPE_CHECKING:
 
 _F = TypeVar("_F", bound=Callable[..., Awaitable[Any]])
 
+STRUCTURED_FIELDS = frozenset({"duration_ms", "error_type", "operation", "status_code"})
+STRUCTURED_FIELD_NAMES = tuple(sorted(STRUCTURED_FIELDS))
+
 # ---------------------------------------------------------------------------
 # Sensitive-data redaction patterns
 # ---------------------------------------------------------------------------
@@ -161,7 +164,7 @@ class StructuredJsonFormatter(logging.Formatter):
             }
 
             # Include structured extra fields from extra={} kwargs
-            for key in ("operation", "duration_ms", "error_type", "status_code"):
+            for key in STRUCTURED_FIELD_NAMES:
                 val = getattr(record, key, None)
                 if val is not None:
                     entry[key] = val
@@ -257,6 +260,10 @@ def handle_service_error(
         operation,
         exc,
         exc_info=True,
+        extra={
+            "error_type": type(exc).__name__,
+            "operation": operation,
+        },
     )
 
     msg = f"Failed to {operation}"

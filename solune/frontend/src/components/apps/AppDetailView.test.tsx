@@ -25,7 +25,6 @@ vi.mock('@/hooks/useApps', () => ({
   useStartApp: () => ({ mutate: mocks.startMutate, isPending: false }),
   useStopApp: () => ({ mutate: mocks.stopMutate, isPending: false }),
   useUndoableDeleteApp: () => ({ deleteApp: mocks.deleteApp, pendingIds: new Set<string>() }),
-  getErrorMessage: mocks.getErrorMessage,
 }));
 
 vi.mock('@/hooks/useConfirmation', () => ({
@@ -38,6 +37,10 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('@/utils/rateLimit', () => ({
   isRateLimitApiError: mocks.isRateLimitApiError,
+}));
+
+vi.mock('@/utils/errorUtils', () => ({
+  getErrorMessage: mocks.getErrorMessage,
 }));
 
 vi.mock('./AppPreview', () => ({

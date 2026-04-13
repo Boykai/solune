@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 import { validateResponse } from './validate';
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    warn: vi.fn(),
+  },
+}));
 
 const TestSchema = z.object({ name: z.string(), value: z.number() });
 
@@ -23,13 +30,13 @@ describe('validateResponse', () => {
   });
 
   it('throws and logs on invalid data in dev mode', () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const invalidData = { name: 123 };
 
     expect(() => validateResponse(TestSchema, invalidData, 'test-endpoint')).toThrow();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '[API Schema Validation] test-endpoint:',
-      expect.any(Error)
+    expect(logger.warn).toHaveBeenCalledWith(
+      'schema',
+      'API schema validation failed for test-endpoint',
+      { error: expect.any(Error) }
     );
   });
 
