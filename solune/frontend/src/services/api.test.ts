@@ -37,6 +37,24 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
+function streamingResponse(chunks: string[], status = 200): Response {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      chunks.forEach((chunk) => controller.enqueue(encoder.encode(chunk)));
+      controller.close();
+    },
+  });
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? 'OK' : 'Error',
+    body,
+    headers: new Headers(),
+  } as unknown as Response;
+}
+
 // ── Setup ──────────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -206,6 +224,46 @@ describe('network error handling', () => {
   it('appsApi.list rejects when fetch throws', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('Offline'));
     await expect(appsApi.list()).rejects.toThrow('Offline');
+  });
+});
+
+describe('stream logging sanitization', () => {
+  it('logs only event metadata for unexpected SSE error payloads', async () => {
+    vi.resetModules();
+    const debugSpy = vi.fn();
+    vi.doMock('@/lib/logger', () => ({
+      logger: {
+        debug: debugSpy,
+        error: vi.fn(),
+        warn: vi.fn(),
+        captureException: vi.fn(),
+      },
+    }));
+
+    try {
+      const { chatApi: mockedChatApi } = await import('./api');
+      const onToken = vi.fn();
+      const onDone = vi.fn();
+      const onError = vi.fn();
+
+      mockFetch.mockResolvedValueOnce(
+        streamingResponse([
+          'event: error\n',
+          'data: {"data":"\\"raw user content that should not be logged\\"","message":"Stream failed"}\n\n',
+        ])
+      );
+
+      await mockedChatApi.sendMessageStream({ content: 'hello' } as never, onToken, onDone, onError);
+
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Stream failed' }));
+      expect(debugSpy).toHaveBeenCalledWith('sse', 'Unexpected error payload shape', {
+        errorCode: undefined,
+        eventType: 'error',
+      });
+      expect(JSON.stringify(debugSpy.mock.calls)).not.toContain('raw user content');
+    } finally {
+      vi.doUnmock('@/lib/logger');
+    }
   });
 });
 

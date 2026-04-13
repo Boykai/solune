@@ -4,8 +4,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useRealTimeSync } from './useRealTimeSync';
 import type { ReactNode } from 'react';
+import { logger } from '@/lib/logger';
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+  },
+}));
+
+import { useRealTimeSync } from './useRealTimeSync';
 
 // Store mock WebSocket instances
 let mockWebSocketInstances: MockWebSocket[] = [];
@@ -312,8 +320,6 @@ describe('useRealTimeSync', () => {
     });
 
     it('should handle invalid JSON message gracefully', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       renderHook(() => useRealTimeSync('PVT_123'), {
         wrapper: createWrapper(),
       });
@@ -329,8 +335,11 @@ describe('useRealTimeSync', () => {
         );
       });
 
-      expect(consoleSpy).toHaveBeenCalled();
-      consoleSpy.mockRestore();
+      expect(logger.error).toHaveBeenCalledWith(
+        'websocket',
+        'Failed to parse WebSocket message',
+        { error: expect.any(SyntaxError) }
+      );
     });
 
     it('should ignore unknown message types', async () => {

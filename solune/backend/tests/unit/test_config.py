@@ -7,7 +7,9 @@ Covers:
 - Constants and cache key helpers
 """
 
-from src.config import Settings, get_settings
+import logging
+
+from src.config import Settings, get_settings, setup_logging
 from src.constants import (
     AGENT_DISPLAY_NAMES,
     AGENT_OUTPUT_FILES,
@@ -172,6 +174,40 @@ class TestGetSettings:
         second = get_settings()
         assert first is second
         get_settings.cache_clear()
+
+
+class TestSetupLogging:
+    """Tests for setup_logging()."""
+
+    def test_suppresses_expected_noisy_loggers(self):
+        logger_names = (
+            "httpx",
+            "httpcore",
+            "aiosqlite",
+            "uvicorn",
+            "uvicorn.access",
+            "uvicorn.error",
+            "asyncio",
+            "watchfiles",
+        )
+        root = logging.getLogger()
+        original_handlers = root.handlers[:]
+        original_root_level = root.level
+        original_levels = {name: logging.getLogger(name).level for name in logger_names}
+
+        try:
+            setup_logging(debug=False, structured=False)
+
+            for name in logger_names:
+                assert logging.getLogger(name).level == logging.WARNING
+        finally:
+            for handler in root.handlers[:]:
+                root.removeHandler(handler)
+            for handler in original_handlers:
+                root.addHandler(handler)
+            root.setLevel(original_root_level)
+            for name, level in original_levels.items():
+                logging.getLogger(name).setLevel(level)
 
 
 # =============================================================================
