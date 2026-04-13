@@ -1,104 +1,109 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Modernize Logging Practices
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `003-modernize-logging` | **Date**: 2026-04-13 | **Spec**: `specs/003-modernize-logging/spec.md`
+**Input**: Parent Issue #1643 — Modernize Logging Practices
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Modernize logging across backend and frontend. Backend: define a canonical `STRUCTURED_FIELDS` set in `logging_utils.py`, expand structured extra fields (`operation`, `duration_ms`, `error_type`, `status_code`) across all service-layer log calls, silence 5 additional noisy third-party loggers, and add an OTel `LoggerProvider` bridge gated behind the existing `otel_enabled` flag. Frontend: create a centralized `logger.ts` utility with env gating, sensitive-key redaction, and APM hook; replace all 13 raw `console.*` calls with logger equivalents (sanitizing SSE/WebSocket payloads); consolidate duplicate error-extraction utilities into `src/utils/errorUtils.ts`.
+
+| Phase | Scope | Key Output |
+|-------|-------|------------|
+| 1 | Backend: Expand structured logging fields | `logging_utils.py` STRUCTURED_FIELDS, service-layer extra fields |
+| 2 | Backend: Silence noisy loggers | 5 new `setLevel(WARNING)` lines in `config.py` |
+| 3 | Backend: OTel logs bridge | `otel_setup.py` LoggerProvider + LoggingHandler |
+| 4 | Frontend: Logger utility | `src/lib/logger.ts` + `src/lib/logger.test.ts` |
+| 5 | Frontend: Replace raw console calls (depends on Phase 4) | 13 call sites updated across 8 files |
+| 6 | Frontend: Consolidate error utilities | `src/utils/errorUtils.ts` |
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.12+ (backend), TypeScript 5.x (frontend)
+**Primary Dependencies**: Backend: FastAPI, stdlib `logging`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp`. Frontend: React 18, Vite, Vitest
+**Storage**: N/A (logging infrastructure, no data-layer changes)
+**Testing**: Backend: `pytest` + `ruff` + `pyright`. Frontend: Vitest + ESLint + `tsc --noEmit`
+**Target Platform**: Linux server (backend), modern browsers (frontend SPA)
+**Project Type**: Web application (backend + frontend)
+**Performance Goals**: Zero-cost when OTel disabled; logger utility adds <1ms per call; no new runtime dependencies in frontend
+**Constraints**: Backend stays stdlib `logging` (no structlog/loguru); SSE/WebSocket logs must not expose user content; OTel bridge must not block the application if collector is unreachable
+**Scale/Scope**: Backend: 3 files modified (logging_utils.py, config.py, otel_setup.py) + structured fields in ~10 service files. Frontend: 1 file created (logger.ts + tests), 8 files modified (console replacements), 1 file created (errorUtils.ts), 2 files modified (import updates)
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **I. Specification-First Development**: PASS — `specs/003-modernize-logging/spec.md` defines 6 prioritized user stories with independent acceptance scenarios and Given-When-Then criteria. Scope boundaries and out-of-scope items are declared.
+- **II. Template-Driven Workflow**: PASS — all Phase 0/1 artifacts (`plan.md`, `research.md`, `data-model.md`, `quickstart.md`, `contracts/`) follow canonical templates within `specs/003-modernize-logging/`.
+- **III. Agent-Orchestrated Execution**: PASS — this plan is produced by the `speckit.plan` agent, consuming the spec as input and producing planning artifacts for the `speckit.tasks` agent.
+- **IV. Test Optionality with Clarity**: PASS — the spec explicitly requests frontend logger tests (`logger.test.ts`). Backend structured fields are verified via existing `pytest` and structured log spot-checks. No unnecessary test mandates.
+- **V. Simplicity and DRY**: PASS — the frontend logger is a thin wrapper (no third-party library). Error utility consolidation removes duplication. Backend stays on stdlib logging. No premature abstractions.
+
+**Post-Phase 1 Re-check**: PASS — `research.md` resolves all technical decisions without introducing complexity exceptions. `data-model.md` describes only the logger API shape and structured fields set (no new data entities). No constitution violations.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/003-modernize-logging/
+├── plan.md              # This file
+├── spec.md              # Feature specification
+├── research.md          # Phase 0: research decisions
+├── data-model.md        # Phase 1: structured fields + logger API shape
+├── quickstart.md        # Phase 1: verification guide
+├── contracts/
+│   └── logger-api.yaml  # Phase 1: frontend logger contract
+└── tasks.md             # Phase 2 output (NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
+solune/backend/src/
+├── logging_utils.py            # STRUCTURED_FIELDS set, handle_service_error extra, @handle_github_errors extra
+├── config.py                   # 5 additional setLevel(WARNING) lines
 ├── services/
-├── cli/
-└── lib/
+│   ├── otel_setup.py           # LoggerProvider + OTLPLogExporter + LoggingHandler
+│   ├── database.py             # extra={"operation": ..., "duration_ms": ...}
+│   ├── ai_agent.py             # extra={"operation": ..., "duration_ms": ...}
+│   ├── chat_agent.py           # extra={"operation": ..., "duration_ms": ...}
+│   ├── pipeline_orchestrator.py # extra={"operation": ..., "duration_ms": ...}
+│   ├── copilot_polling/
+│   │   └── pipeline.py         # extra={"operation": ..., "duration_ms": ...}
+│   ├── workflow_orchestrator/
+│   │   └── orchestrator.py     # extra={"operation": ..., "duration_ms": ...}
+│   ├── pipelines/service.py    # extra={"operation": ..., "duration_ms": ...}
+│   ├── github_projects/service.py
+│   ├── tools/service.py
+│   ├── chores/service.py
+│   └── agents/service.py
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+solune/backend/pyproject.toml   # opentelemetry-exporter-otlp-proto-grpc optional dep
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+solune/frontend/src/
+├── lib/
+│   ├── logger.ts               # NEW: centralized logger utility
+│   └── logger.test.ts          # NEW: logger tests
+├── utils/
+│   └── errorUtils.ts           # NEW: consolidated getErrorMessage()
+├── main.tsx                    # Replace console.error → logger.error
+├── components/
+│   ├── common/ErrorBoundary.tsx # Replace console.error → logger.captureException
+│   └── ui/tooltip.tsx          # Replace console.warn → logger.warn
+├── services/
+│   ├── api.ts                  # Replace console.error/debug → logger.error/debug
+│   └── schemas/validate.ts     # Replace console.error → logger.warn
+├── hooks/
+│   ├── useRealTimeSync.ts      # Replace console.error → logger.error
+│   ├── usePipelineConfig.ts    # Replace console.warn + import getErrorMessage
+│   └── useApps.ts              # Import getErrorMessage from errorUtils
+└── pages/
+    ├── ChoresPage.tsx           # Replace console.warn → logger.warn
+    └── AgentsPipelinePage.tsx   # Replace console.warn → logger.warn
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application layout. Backend changes modify existing files within `solune/backend/src/`. Frontend changes add 2 new files (`logger.ts`, `errorUtils.ts`) and modify 10 existing files. No new directories created.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+No constitution violations or complexity exceptions are required at plan time.

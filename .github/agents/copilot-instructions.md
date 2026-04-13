@@ -201,6 +201,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - GitHub Issues/agent-task state plus repository JSON/template files; existing SQLite-backed pipeline configs remain the backend source of persistence (001-fleet-dispatch-pipelines)
 - TypeScript `~6.0.2` with React `19.2.x` JSX via Vite `8.0.x` + React 19, React Router 7, Vite 8, Tailwind CSS 4, TanStack React Query 5, Radix UI primitives, `clsx`, `tailwind-merge` (001-simplify-page-headers)
 - N/A for this feature; header content comes from existing page/query state and no persistence model changes are required (001-simplify-page-headers)
+- Python 3.12+ (backend), TypeScript 5.x (frontend) + Backend: FastAPI, stdlib `logging`, `opentelemetry-sdk`, `opentelemetry-exporter-otlp`. Frontend: React 18, Vite, Vitest (003-modernize-logging)
+- N/A (logging infrastructure, no data-layer changes) (003-modernize-logging)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
