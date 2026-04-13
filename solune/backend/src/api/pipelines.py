@@ -330,10 +330,9 @@ async def execute_pipeline_launch(
     detection = detect_transcript("pasted_content.txt", issue_description)
     if detection.is_transcript:
         try:
-            from src.services.ai_agent import get_ai_agent_service
+            from src.services.ai_utilities import analyze_transcript
 
-            ai_service = get_ai_agent_service()
-            recommendation = await ai_service.analyze_transcript(
+            recommendation = await analyze_transcript(
                 transcript_content=issue_description,
                 project_name=project_id,
                 session_id=str(session.session_id),
