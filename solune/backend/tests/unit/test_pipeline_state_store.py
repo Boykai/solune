@@ -805,6 +805,79 @@ class TestRowConversionCorruptTimestamp:
         assert state.started_at is None
         assert state.issue_number == 999
 
+    async def test_repository_fields_round_trip(self, mock_db: aiosqlite.Connection):
+        """repository_owner/name survive persist → reload."""
+        metadata = {
+            "agents": ["copilot"],
+            "current_agent_index": 0,
+            "completed_agents": [],
+            "started_at": None,
+            "error": None,
+            "agent_assigned_sha": "",
+            "repository_owner": "Boykai",
+            "repository_name": "kitton",
+        }
+        await mock_db.execute(
+            """INSERT INTO pipeline_states
+               (issue_number, project_id, status, agent_name, agent_instance_id,
+                pr_number, pr_url, sub_issues, metadata, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+            (
+                42,
+                "PVT_kitton",
+                "Backlog",
+                "copilot",
+                None,
+                None,
+                None,
+                "{}",
+                json.dumps(metadata),
+            ),
+        )
+        await mock_db.commit()
+
+        cursor = await mock_db.execute(
+            "SELECT * FROM pipeline_states WHERE issue_number = ?", (42,)
+        )
+        row = await cursor.fetchone()
+        state = store._row_to_pipeline_state(row)
+        assert state.repository_owner == "Boykai"
+        assert state.repository_name == "kitton"
+
+    async def test_missing_repository_fields_default_to_empty(self, mock_db: aiosqlite.Connection):
+        """Legacy rows without repository fields default to empty strings."""
+        metadata = {
+            "agents": ["tester"],
+            "current_agent_index": 0,
+            "completed_agents": [],
+        }
+        await mock_db.execute(
+            """INSERT INTO pipeline_states
+               (issue_number, project_id, status, agent_name, agent_instance_id,
+                pr_number, pr_url, sub_issues, metadata, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+            (
+                43,
+                "PVT_test",
+                "Ready",
+                "tester",
+                None,
+                None,
+                None,
+                "{}",
+                json.dumps(metadata),
+            ),
+        )
+        await mock_db.commit()
+
+        cursor = await mock_db.execute(
+            "SELECT * FROM pipeline_states WHERE issue_number = ?", (43,)
+        )
+        row = await cursor.fetchone()
+        state = store._row_to_pipeline_state(row)
+        assert state.repository_owner == ""
+        assert state.repository_name == ""
+
 
 # ── Bounded project launch locks ────────────────────────────────
 

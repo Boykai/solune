@@ -185,10 +185,16 @@ async def _discover_and_register_active_projects() -> int:
 
     # Collect distinct project_ids from in-memory pipeline state cache
     active_project_ids: set[str] = set()
+    # Build a lookup from pipeline state's embedded repo info (primary source)
+    state_repo_map: dict[str, tuple[str, str]] = {}
     for state in get_all_pipeline_states().values():
         pid = getattr(state, "project_id", None)
         if pid:
             active_project_ids.add(pid)
+            owner = getattr(state, "repository_owner", "") or ""
+            repo = getattr(state, "repository_name", "") or ""
+            if owner and repo and pid not in state_repo_map:
+                state_repo_map[pid] = (owner, repo)
 
     if not active_project_ids:
         return 0
@@ -245,7 +251,12 @@ async def _discover_and_register_active_projects() -> int:
 
     registered_count = 0
     for pid in active_project_ids:
-        owner, repo = project_repo_map.get(pid, (default_owner, default_repo))
+        # Prefer repo info embedded in pipeline state (survives restarts
+        # for cross-repo pipelines), then fall back to project_settings,
+        # then to the default repo.
+        owner, repo = state_repo_map.get(
+            pid, project_repo_map.get(pid, (default_owner, default_repo))
+        )
         if not owner or not repo:
             continue
         if register_project(pid, owner, repo, token):
@@ -327,7 +338,14 @@ async def _restore_app_pipeline_polling() -> int:
         if getattr(state, "is_complete", False):
             continue
 
-        owner, repo = project_repo_map.get(pid, (default_owner, default_repo))
+        # Prefer repo info embedded in pipeline state (primary source for
+        # cross-repo pipelines), then fall back to project_settings lookup.
+        state_owner = getattr(state, "repository_owner", "") or ""
+        state_repo = getattr(state, "repository_name", "") or ""
+        if state_owner and state_repo:
+            owner, repo = state_owner, state_repo
+        else:
+            owner, repo = project_repo_map.get(pid, (default_owner, default_repo))
         if not owner or not repo:
             continue
 

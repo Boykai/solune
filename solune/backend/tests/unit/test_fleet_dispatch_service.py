@@ -170,3 +170,30 @@ class TestFleetDispatchService:
         )
 
         assert status == "completed"
+
+    def test_copilot_slug_is_fleet_eligible(self) -> None:
+        assert FleetDispatchService.is_fleet_eligible("copilot") is True
+
+    def test_resolve_custom_agent_returns_empty_for_copilot(self) -> None:
+        service = FleetDispatchService()
+        assert service.resolve_custom_agent("copilot") == ""
+
+    def test_resolve_template_path_returns_none_for_copilot(self) -> None:
+        service = FleetDispatchService()
+        assert service.resolve_template_path("copilot") is None
+
+    def test_build_dispatch_payload_copilot_uses_issue_body(self) -> None:
+        service = FleetDispatchService()
+        issue_body = "Apply all Dependabot updates that pass tests."
+        payload = service.build_dispatch_payload(
+            issue_data={"title": "Dependabot Updates", "body": issue_body, "comments": []},
+            agent_slug="copilot",
+            owner="Boykai",
+            repo="solune",
+            base_ref="main",
+            parent_issue_number=1708,
+        )
+
+        assert payload.custom_agent == ""
+        assert payload.template_path is None
+        assert payload.custom_instructions == issue_body
