@@ -321,8 +321,12 @@ async def thin_mock_client(
         stack.enter_context(patch("src.api.board.github_projects_service", github_service))
         stack.enter_context(patch("src.api.pipelines.github_projects_service", github_service))
         stack.enter_context(patch("src.api.workflow.github_projects_service", github_service))
-        stack.enter_context(patch("src.api.chat.messages.get_ai_agent_service", return_value=ai_service))
-        stack.enter_context(patch("src.api.chat.persistence._trigger_signal_delivery", lambda *_a, **_k: None))
+        stack.enter_context(
+            patch("src.api.chat.messages.get_ai_agent_service", return_value=ai_service)
+        )
+        stack.enter_context(
+            patch("src.api.chat.persistence._trigger_signal_delivery", lambda *_a, **_k: None)
+        )
         stack.enter_context(
             patch(
                 "src.services.copilot_polling.ensure_polling_started",
