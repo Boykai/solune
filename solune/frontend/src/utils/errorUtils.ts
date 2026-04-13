@@ -6,10 +6,10 @@ export function isApiError(error: unknown): error is ApiError {
 
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (isApiError(error)) {
-    return error.error?.error ?? error.message ?? fallback;
+    return error.error?.error || error.message || fallback;
   }
   if (error instanceof Error) {
-    return error.message;
+    return error.message || fallback;
   }
   return fallback;
 }
