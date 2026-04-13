@@ -21,6 +21,8 @@ vi.mock('@/hooks/useOnboarding', async (importOriginal) => {
 });
 
 describe('SpotlightTour', () => {
+  const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
+
   beforeEach(() => {
     onboardingState.isActive = true;
     onboardingState.currentStep = 0;
@@ -32,6 +34,12 @@ describe('SpotlightTour', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    if (originalScrollTo) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo);
+      return;
+    }
+
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
   });
 
   it('renders the first tour step', () => {

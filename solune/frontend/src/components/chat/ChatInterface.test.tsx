@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 import { render, screen } from '@/test/test-utils';
 import { ChatInterface } from './ChatInterface';
@@ -195,6 +195,7 @@ function renderChat(overrides: Partial<React.ComponentProps<typeof ChatInterface
 // ── Tests ──
 
 describe('ChatInterface', () => {
+  const originalScrollTo = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollTo');
   const scrollTo = vi.fn(function scrollTo(
     this: HTMLElement,
     options?: number | ScrollToOptions,
@@ -209,9 +210,21 @@ describe('ChatInterface', () => {
     }
   });
 
-  Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
-    configurable: true,
-    value: scrollTo,
+  beforeEach(() => {
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    });
+  });
+
+  afterEach(() => {
+    scrollTo.mockClear();
+    if (originalScrollTo) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollTo', originalScrollTo);
+      return;
+    }
+
+    Reflect.deleteProperty(HTMLElement.prototype, 'scrollTo');
   });
 
   it('renders the New Chat button when messages exist', () => {

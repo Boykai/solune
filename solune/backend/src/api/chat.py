@@ -1116,7 +1116,6 @@ async def _validate_chat_conversation(
         conversation = await chat_store.get_conversation_by_id(db, str(conversation_id))
     except Exception as exc:
         handle_service_error(exc, "validate conversation")
-        return
 
     if conversation is None or conversation["session_id"] != str(session.session_id):
         raise NotFoundError(f"Conversation {conversation_id} not found")

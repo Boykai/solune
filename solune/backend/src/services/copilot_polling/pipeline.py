@@ -2674,9 +2674,7 @@ async def _close_parent_issue_if_main_pr_merged_and_sub_issues_completed(
             sub_issue_number = sub_issue.get("number")
             sub_issue_state = str(sub_issue.get("state") or "").lower()
             sub_issue_reason = str(sub_issue.get("state_reason") or "").lower()
-            if sub_issue_state != "closed" or (
-                sub_issue_reason and sub_issue_reason != "completed"
-            ):
+            if sub_issue_state != "closed" or sub_issue_reason != "completed":
                 incomplete_sub_issues.append(
                     str(sub_issue_number or sub_issue.get("id") or "unknown")
                 )

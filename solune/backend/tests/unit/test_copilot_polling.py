@@ -2983,6 +2983,53 @@ class TestTransitionAfterPipelineComplete:
     @patch("src.services.copilot_polling.connection_manager")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     @patch("src.services.copilot_polling.remove_pipeline_state")
+    async def test_done_transition_keeps_parent_open_when_closed_sub_issue_lacks_completed_reason(
+        self,
+        mock_remove,
+        mock_config,
+        mock_ws,
+        mock_service,
+        mock_main_branch,
+    ):
+        """Done transition should not close the parent issue if a closed sub-issue lacks a completed reason."""
+        mock_service.update_item_status_by_name = AsyncMock(return_value=True)
+        mock_service.get_pull_request = AsyncMock(return_value={"state": "MERGED"})
+        mock_service.get_sub_issues = AsyncMock(
+            return_value=[
+                {"number": 1001, "state": "closed", "state_reason": "completed"},
+                {"number": 1002, "state": "closed"},
+            ]
+        )
+        mock_service.update_issue_state = AsyncMock(return_value=True)
+        mock_config.return_value = MagicMock(agent_mappings={})
+        mock_ws.broadcast_to_project = AsyncMock()
+
+        result = await _transition_after_pipeline_complete(
+            access_token="token",
+            project_id="PVT_123",
+            item_id="PVTI_123",
+            owner="owner",
+            repo="repo",
+            issue_number=42,
+            issue_node_id="I_123",
+            from_status="In Review",
+            to_status="Done",
+            task_title="Test Issue",
+        )
+
+        assert result["status"] == "success"
+        mock_service.update_issue_state.assert_not_awaited()
+        mock_remove.assert_called_once_with(42)
+
+    @pytest.mark.asyncio
+    @patch(
+        "src.services.copilot_polling.get_issue_main_branch",
+        return_value={"branch": "copilot/feature-42", "pr_number": 500},
+    )
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.connection_manager")
+    @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.services.copilot_polling.remove_pipeline_state")
     async def test_done_transition_keeps_parent_open_when_main_pr_is_not_merged(
         self,
         mock_remove,
