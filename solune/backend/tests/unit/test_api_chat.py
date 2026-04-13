@@ -203,8 +203,14 @@ class TestSendMessageFeatureRequest:
     async def test_ai_not_configured(self, client, mock_session, mock_ai_agent_service):
         mock_session.selected_project_id = "PVT_1"
         with (
-            patch("src.api.chat.messages.get_ai_agent_service", side_effect=ValueError("not configured")),
-            patch("src.api.chat.messages.get_chat_agent_service", side_effect=ValueError("not configured")),
+            patch(
+                "src.api.chat.messages.get_ai_agent_service",
+                side_effect=ValueError("not configured"),
+            ),
+            patch(
+                "src.api.chat.messages.get_chat_agent_service",
+                side_effect=ValueError("not configured"),
+            ),
         ):
             resp = await client.post("/api/v1/chat/messages", json={"content": "add dark mode"})
         assert resp.status_code == 200
@@ -387,7 +393,9 @@ class TestSendMessageTaskGeneration:
         mock_ai_agent_service.parse_status_change_request.return_value = None
         mock_ai_agent_service.generate_title_from_description.return_value = "Some task"
 
-        with patch("src.api.chat.messages.AITaskProposal", side_effect=RuntimeError("storage failed")):
+        with patch(
+            "src.api.chat.messages.AITaskProposal", side_effect=RuntimeError("storage failed")
+        ):
             resp = await client.post(
                 "/api/v1/chat/messages",
                 json={"content": "some task", "ai_enhance": False},
@@ -437,7 +445,9 @@ class TestSendMessageTaskGeneration:
         mock_session.selected_project_id = "PVT_1"
         user_input = "Investigate why the login flow gets stuck after redirect"
 
-        with patch("src.api.chat.messages.get_ai_agent_service", side_effect=ValueError("not configured")):
+        with patch(
+            "src.api.chat.messages.get_ai_agent_service", side_effect=ValueError("not configured")
+        ):
             resp = await client.post(
                 "/api/v1/chat/messages",
                 json={"content": user_input, "ai_enhance": False},
@@ -909,7 +919,9 @@ class TestTranscriptHelpers:
                     "src.api.chat.persistence.store_recommendation",
                     new=AsyncMock(side_effect=capture_recommendation),
                 ),
-                patch("src.api.chat.persistence.add_message", new_callable=AsyncMock) as add_message,
+                patch(
+                    "src.api.chat.persistence.add_message", new_callable=AsyncMock
+                ) as add_message,
                 patch("src.api.chat.persistence._trigger_signal_delivery") as trigger_signal,
             ):
                 message = await _handle_transcript_upload(
@@ -965,7 +977,9 @@ class TestTranscriptHelpers:
                 patch(
                     "src.api.chat.persistence.store_recommendation", new_callable=AsyncMock
                 ) as store_recommendation,
-                patch("src.api.chat.persistence.add_message", new_callable=AsyncMock) as add_message,
+                patch(
+                    "src.api.chat.persistence.add_message", new_callable=AsyncMock
+                ) as add_message,
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
@@ -1306,7 +1320,11 @@ class TestConfirmProposal:
 
         # Patch workflow functions to avoid side effects
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -1701,7 +1719,11 @@ class TestConfirmProposalEdgeCases:
         mock_github_service.add_issue_to_project.return_value = "PVTI_20"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -1744,7 +1766,11 @@ class TestConfirmProposalEdgeCases:
         mock_github_service.add_issue_to_project.return_value = "PVTI_21"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -1789,8 +1815,14 @@ class TestConfirmProposalEdgeCases:
         }
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock
+            ) as mock_set_config,
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=["easy"]),
             patch(
@@ -1876,7 +1908,11 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_30"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -1916,7 +1952,11 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_31"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -2020,7 +2060,11 @@ class TestConfirmProposalPreservesFullDescription:
         mock_github_service.add_issue_to_project.return_value = "PVTI_32"
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -2103,8 +2147,14 @@ class TestConfirmProposalFallbacks:
                 "src.config.get_settings",
                 return_value=SimpleNamespace(default_assignee="copilot-swe-agent"),
             ),
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock
+            ) as mock_set_config,
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
             patch(
@@ -2187,7 +2237,9 @@ class TestConfirmProposalFallbacks:
                 new_callable=AsyncMock,
                 return_value=existing_config,
             ),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch(
+                "src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock
+            ) as mock_set_config,
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=["copilot-swe-agent"]),
             patch(
@@ -2261,8 +2313,14 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
-            patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock) as mock_set_config,
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch(
+                "src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock
+            ) as mock_set_config,
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
             patch(
@@ -2331,7 +2389,11 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=["copilot-swe-agent"]),
@@ -2402,7 +2464,11 @@ class TestConfirmProposalFallbacks:
         )
 
         with (
-            patch("src.api.chat.proposals.get_workflow_config", new_callable=AsyncMock, return_value=None),
+            patch(
+                "src.api.chat.proposals.get_workflow_config",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
             patch("src.api.chat.proposals.set_workflow_config", new_callable=AsyncMock),
             patch("src.api.chat.proposals.get_workflow_orchestrator") as mock_orch,
             patch("src.api.chat.proposals.get_agent_slugs", return_value=[]),
@@ -2520,7 +2586,9 @@ class TestErrorMessageSanitization:
 
         with (
             patch(
-                "src.api.chat.messages.resolve_repository", new_callable=AsyncMock, return_value=("o", "r")
+                "src.api.chat.messages.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("o", "r"),
             ),
         ):
             resp = await client.post(

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import types
 
 import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from src.api.webhooks import github_webhook
+from src.api.webhooks.dispatch import github_webhook
 from src.exceptions import AppException
 
 json_scalar = st.none() | st.booleans() | st.integers() | st.text(max_size=20)
@@ -44,10 +45,10 @@ async def test_github_webhook_dispatch_handles_random_payloads_without_unhandled
     payload: dict[str, object],
 ) -> None:
     monkeypatch.setattr(
-        "src.api.webhooks.get_settings",
-        lambda: type("S", (), {"github_webhook_secret": "secret"})(),
+        "src.api.webhooks.dispatch.get_settings",
+        lambda: types.SimpleNamespace(github_webhook_secret="secret"),
     )
-    monkeypatch.setattr("src.api.webhooks.verify_webhook_signature", lambda *_args: True)
+    monkeypatch.setattr("src.api.webhooks.dispatch.verify_webhook_signature", lambda *_args: True)
 
     request = FakeRequest(payload)
 

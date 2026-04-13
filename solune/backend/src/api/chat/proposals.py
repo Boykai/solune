@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from src.api.auth import get_session_dep
+from src.api.chat import persistence as _persistence
 from src.constants import GITHUB_ISSUE_BODY_MAX_LENGTH
 from src.dependencies import (
     get_connection_manager,
@@ -29,9 +30,7 @@ from src.services.workflow_orchestrator import (
     get_workflow_orchestrator,
     set_workflow_config,
 )
-from src.utils import resolve_repository, utcnow
-
-from src.api.chat import persistence as _persistence
+from src.utils import utcnow
 
 logger = get_logger(__name__)
 router = APIRouter()

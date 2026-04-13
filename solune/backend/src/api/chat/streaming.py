@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 
 from src.api.auth import get_session_dep
+from src.api.chat import persistence as _persistence
+from src.api.chat.messages import _extract_transcript_content, _post_process_agent_response
 from src.dependencies import require_selected_project
 from src.logging_utils import get_logger
 from src.middleware.rate_limit import limiter
@@ -16,9 +18,6 @@ from src.models.user import UserSession
 from src.services.cache import cache, get_project_items_cache_key, get_user_projects_cache_key
 from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db
-
-from src.api.chat import persistence as _persistence
-from src.api.chat.messages import _extract_transcript_content, _post_process_agent_response
 
 logger = get_logger(__name__)
 router = APIRouter()
