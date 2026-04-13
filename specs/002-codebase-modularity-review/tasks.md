@@ -3,7 +3,7 @@
 **Input**: Design documents from `specs/002-codebase-modularity-review/`
 **Prerequisites**: `specs/002-codebase-modularity-review/spec.md`
 
-**Tests**: Tests are NOT explicitly requested in the feature specification. Test tasks are omitted. Each refactoring must ensure all existing tests continue to pass (FR-007, SC-004).
+**Tests**: Dedicated test-writing tasks are NOT explicitly requested in the feature specification. Verification tasks (T009, T010, T099, T100) confirm existing tests continue to pass after each refactoring step (FR-007, SC-004).
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing. Each user story corresponds to one of the top-6 refactoring targets. User Story 7 (test layout standardization) is a cross-cutting concern.
 
