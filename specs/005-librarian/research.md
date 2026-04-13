@@ -49,6 +49,7 @@
 **Decision**: Use the existing `markdown-link-check` (configured in `.markdown-link-check.json`) for external URL validation and the frontend `documentationLinks.test.ts` for internal relative link validation. Both are already integrated into CI.
 
 **Rationale**: The repository has comprehensive link validation infrastructure already in place:
+
 1. **Pre-commit hook** runs `markdown-link-check` on changed markdown files
 2. **CI workflow** (`ci.yml`) has a dedicated "Docs Lint" job running both `markdownlint` and `markdown-link-check`
 3. **Frontend test** (`src/docs/documentationLinks.test.ts`) validates internal `.md` links and heading fragments
@@ -71,6 +72,7 @@ No new tooling is needed — the refresh process invokes existing tools.
 **Decision**: Run `solune/scripts/generate-diagrams.sh` to regenerate all Mermaid diagrams. The script has built-in change detection — it only updates files when content actually differs. Use `--check` mode to verify freshness without overwriting.
 
 **Rationale**: The repository already has a diagram generation script that:
+
 1. Discovers backend API modules (both `*.py` files and sub-package directories with `__init__.py`)
 2. Generates 5 Mermaid diagrams: `backend-components.mmd`, `frontend-components.mmd`, `data-flow.mmd`, `deployment.mmd`, `high-level.mmd`
 3. Supports `--check` flag for CI verification (exits non-zero if diagrams are stale)
@@ -93,6 +95,7 @@ No new tooling is needed — the refresh process invokes existing tools.
 **Rationale**: The CHANGELOG `[Unreleased]` section documents concept changes (e.g., "ChatPanelManager" replacing dashboard hero, modal workflow consolidation). The `.change-manifest.md` records specific concept removals ("dashboard welcome hero", "quick-access cards", "standalone `/chat` page"). A targeted grep for these known terms is more efficient than a full NLP analysis.
 
 **Key terms to check** (from current CHANGELOG):
+
 - "quick-access cards" → removed
 - "dashboard welcome hero" → removed
 - "standalone /chat page" → replaced by ChatPanelManager workspace

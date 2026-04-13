@@ -47,6 +47,7 @@ ls -la docs/decisions/
 ```
 
 Update `docs/.change-manifest.md` with findings categorized into:
+
 - New capabilities
 - Changed behavior
 - Removed functionality
@@ -57,6 +58,7 @@ Update `docs/.change-manifest.md` with findings categorized into:
 ### Step 2: Infer Focus Shifts (Phase 2)
 
 Review the manifest and answer:
+
 1. Has a new top-level capability been added?
 2. Has a feature been reduced, removed, or folded into another?
 3. Has the primary workflow changed?
@@ -67,6 +69,7 @@ Assign priorities (P0–P4) to each affected documentation file.
 ### Step 3: Update the README (Phase 3)
 
 Review and update `README.md`:
+
 1. Revalidate the project description
 2. Audit the feature list (add shipped, remove deprecated)
 3. Verify getting-started instructions against current dependencies
@@ -88,6 +91,7 @@ find . -maxdepth 3 -type d -not -path './.git/*' -not -path './node_modules/*' |
 ```
 
 For each affected doc:
+
 1. Read the current doc
 2. Diff against its source of truth
 3. Identify gaps: **missing**, **stale**, **dead**
@@ -112,11 +116,13 @@ grep -rn "quick-access cards\|dashboard welcome hero\|standalone /chat" docs/ RE
 ### Step 6: Verify Against Running Application (Phase 6)
 
 If a running instance is available:
+
 1. Smoke-test 3–5 documented user flows
 2. Verify documented env vars against `backend/src/config.py`
 3. Compare 3–5 documented API endpoints against FastAPI router definitions
 
 If no running instance:
+
 ```bash
 # Code-level verification of routes
 grep -rn "APIRouter\|@router\." backend/src/api/ | head -30
@@ -206,6 +212,7 @@ cd frontend && npm test -- --run src/docs/documentationLinks.test.ts && cd ..
 ### Baseline SHA not found in git history
 
 If the SHA in `.last-refresh` isn't in your local history (shallow clone), fetch more history:
+
 ```bash
 git fetch --unshallow origin
 ```
@@ -213,6 +220,7 @@ git fetch --unshallow origin
 ### Link validation test fails
 
 Run the test directly to see which links are broken:
+
 ```bash
 cd frontend && npm test -- --run --reporter=verbose src/docs/documentationLinks.test.ts
 ```
@@ -220,6 +228,7 @@ cd frontend && npm test -- --run --reporter=verbose src/docs/documentationLinks.
 ### Diagram generation fails
 
 Ensure the script has execute permissions:
+
 ```bash
 chmod +x scripts/generate-diagrams.sh
 ./scripts/generate-diagrams.sh
