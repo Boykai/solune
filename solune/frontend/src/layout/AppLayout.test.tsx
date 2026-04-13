@@ -178,6 +178,15 @@ describe('AppLayout', () => {
     expect(screen.getByRole('main')).toBeInTheDocument();
   });
 
+  it('uses a shrinkable in-app scroll container for routed pages', () => {
+    const { container } = renderAppLayout();
+    const shell = container.querySelector('.celestial-shell');
+
+    expect(shell).toBeInTheDocument();
+    expect(shell).toHaveClass('h-dvh');
+    expect(screen.getByRole('main')).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col', 'overflow-auto');
+  });
+
   it('auto-collapses the sidebar on the first mobile render when it starts expanded', () => {
     mockUseMediaQuery.mockReturnValue(true);
 

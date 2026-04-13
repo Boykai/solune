@@ -6,7 +6,7 @@ import { ChatPanelManager } from '@/components/chat/ChatPanelManager';
 
 export function AppPage() {
   return (
-    <div className="h-[calc(100vh-4rem)] w-full overflow-hidden">
+    <div className="h-full min-h-0 w-full overflow-hidden">
       <ChatPanelManager />
     </div>
   );
