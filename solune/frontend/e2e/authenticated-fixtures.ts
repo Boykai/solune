@@ -128,6 +128,16 @@ const MOCK_CHAT_HISTORY = {
   messages: [],
 };
 
+function createMockConversation(conversationId: string, title = 'New Chat') {
+  return {
+    conversation_id: conversationId,
+    session_id: 'chat-session-1',
+    title,
+    created_at: NOW,
+    updated_at: NOW,
+  };
+}
+
 const MOCK_WORKFLOW_CONFIG = {
   project_id: 'PVT_test123',
   repository_owner: 'test-user',
@@ -441,6 +451,8 @@ function createMockApiState() {
     boardDataByProject: {
       PVT_test123: clone(MOCK_BOARD_DATA),
     },
+    conversations: [] as Array<ReturnType<typeof createMockConversation>>,
+    chatMessagesByConversation: {} as Record<string, { messages: Array<Record<string, unknown>> }>,
     chatHistory: clone(MOCK_CHAT_HISTORY),
     settingsUser: clone(MOCK_SETTINGS_USER),
     settingsGlobal: clone(MOCK_SETTINGS_GLOBAL),
@@ -615,11 +627,65 @@ async function handleApiRoute(route: Route, mockApi: MockApiState) {
     return json(route, mockApi.boardProjects);
   }
 
+  if (pathname === '/api/v1/chat/conversations') {
+    if (method === 'POST') {
+      const request = readRequestBody(route);
+      const title = typeof request.title === 'string' && request.title.trim()
+        ? request.title.trim()
+        : 'New Chat';
+      const conversation = createMockConversation(
+        `conv-${mockApi.conversations.length + 1}`,
+        title,
+      );
+      mockApi.conversations = [conversation, ...mockApi.conversations];
+      mockApi.chatMessagesByConversation[conversation.conversation_id] = { messages: [] };
+      return json(route, conversation, 201);
+    }
+
+    return json(route, { conversations: clone(mockApi.conversations) });
+  }
+
+  const conversationMatch = pathname.match(/\/chat\/conversations\/([^/]+)$/);
+  if (conversationMatch && method === 'PATCH') {
+    const conversationId = conversationMatch[1];
+    const request = readRequestBody(route);
+    const conversation = mockApi.conversations.find((entry) => entry.conversation_id === conversationId);
+    if (!conversation) {
+      return json(route, { detail: 'Conversation not found' }, 404);
+    }
+    if (typeof request.title === 'string' && request.title.trim()) {
+      conversation.title = request.title.trim();
+      conversation.updated_at = new Date().toISOString();
+    }
+    return json(route, conversation);
+  }
+
+  if (conversationMatch && method === 'DELETE') {
+    const conversationId = conversationMatch[1];
+    mockApi.conversations = mockApi.conversations.filter(
+      (entry) => entry.conversation_id !== conversationId,
+    );
+    delete mockApi.chatMessagesByConversation[conversationId];
+    return json(route, { message: `Conversation ${conversationId} deleted` });
+  }
+
+  const conversationId = url.searchParams.get('conversation_id');
+
   if (pathname === '/api/v1/chat/messages' && method === 'GET') {
+    if (conversationId) {
+      return json(
+        route,
+        clone(mockApi.chatMessagesByConversation[conversationId] ?? { messages: [] }),
+      );
+    }
     return json(route, mockApi.chatHistory);
   }
 
   if (pathname === '/api/v1/chat/messages' && method === 'DELETE') {
+    if (conversationId) {
+      mockApi.chatMessagesByConversation[conversationId] = { messages: [] };
+      return json(route, { message: 'Chat cleared' });
+    }
     mockApi.chatHistory.messages = [];
     return json(route, { message: 'Chat cleared' });
   }
@@ -627,17 +693,26 @@ async function handleApiRoute(route: Route, mockApi: MockApiState) {
   if (pathname === '/api/v1/chat/messages' && method === 'POST') {
     const request = readRequestBody(route);
     const content = typeof request.content === 'string' ? request.content : 'Untitled request';
+    const requestConversationId =
+      typeof request.conversation_id === 'string' ? request.conversation_id : null;
     const userMessage = {
       message_id: `msg-user-${mockApi.chatHistory.messages.length + 1}`,
       session_id: 'chat-session-1',
       sender_type: 'user',
       content,
+      conversation_id: requestConversationId,
       timestamp: new Date().toISOString(),
     };
     const responseMessage = clone(mockApi.nextChatResponse);
     responseMessage.content = `I drafted an issue recommendation for: ${content}`;
     responseMessage.timestamp = new Date().toISOString();
-    mockApi.chatHistory.messages.push(userMessage, responseMessage);
+    if (requestConversationId) {
+      const conversationMessages = mockApi.chatMessagesByConversation[requestConversationId] ?? { messages: [] };
+      conversationMessages.messages.push(userMessage, responseMessage);
+      mockApi.chatMessagesByConversation[requestConversationId] = conversationMessages;
+    } else {
+      mockApi.chatHistory.messages.push(userMessage, responseMessage);
+    }
     return json(route, responseMessage);
   }
 

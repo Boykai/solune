@@ -26,6 +26,10 @@ const MARGIN = 16;
 const TOOLTIP_WIDTH = 340;
 const TOOLTIP_HEIGHT_EST = 260;
 
+function focusWithoutScroll(element: HTMLElement | null | undefined): void {
+  element?.focus({ preventScroll: true });
+}
+
 function computePosition(
   targetRect: DOMRect | null,
   placement: TourStepPlacement,
@@ -137,10 +141,10 @@ export function SpotlightTooltip({
 
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
-        last.focus();
+        focusWithoutScroll(last);
       } else if (!e.shiftKey && document.activeElement === last) {
         e.preventDefault();
-        first.focus();
+        focusWithoutScroll(first);
       }
     };
 
@@ -152,7 +156,7 @@ export function SpotlightTooltip({
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement;
     return () => {
-      previousFocusRef.current?.focus();
+      focusWithoutScroll(previousFocusRef.current);
     };
   }, []);
 
@@ -160,7 +164,7 @@ export function SpotlightTooltip({
   useEffect(() => {
     const timer = requestAnimationFrame(() => {
       const firstBtn = tooltipRef.current?.querySelector<HTMLElement>('button');
-      firstBtn?.focus();
+      focusWithoutScroll(firstBtn);
     });
     return () => cancelAnimationFrame(timer);
   }, [currentStep]);

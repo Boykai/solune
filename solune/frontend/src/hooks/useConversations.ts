@@ -13,6 +13,7 @@ export function useConversations() {
     data: conversationsData,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ['conversations'],
     queryFn: conversationApi.list,
@@ -49,6 +50,7 @@ export function useConversations() {
     updateConversation: (conversationId: string, title: string) =>
       updateMutation.mutateAsync({ conversationId, title }),
     deleteConversation: deleteMutation.mutateAsync,
+    refetch,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

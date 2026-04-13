@@ -783,6 +783,34 @@ class TestPipelineAssignment:
         assert resp.json() == {"project_id": "PVT_ASSIGNMENT", "pipeline_id": ""}
 
     @pytest.mark.anyio
+    async def test_get_assignment_clears_stale_pipeline_reference(self, mock_db):
+        """Deleted pipeline assignments are cleared instead of being returned to the client."""
+        await mock_db.execute(
+            """
+            INSERT INTO project_settings (github_user_id, project_id, updated_at, assigned_pipeline_id)
+            VALUES (?, ?, ?, ?)
+            """,
+            ("__workflow__", "PVT_ASSIGNMENT", "2026-04-13T00:00:00Z", "missing-pipeline"),
+        )
+        await mock_db.commit()
+
+        assignment = await PipelineService(mock_db).get_assignment("PVT_ASSIGNMENT")
+
+        assert assignment.pipeline_id == ""
+
+        cursor = await mock_db.execute(
+            """
+            SELECT assigned_pipeline_id
+            FROM project_settings
+            WHERE github_user_id = ? AND project_id = ?
+            LIMIT 1
+            """,
+            ("__workflow__", "PVT_ASSIGNMENT"),
+        )
+        row = await cursor.fetchone()
+        assert row["assigned_pipeline_id"] == ""
+
+    @pytest.mark.anyio
     async def test_set_assignment_persists_selected_pipeline(self, client, mock_db):
         """Setting an assignment stores the selected pipeline for the project."""
         pipeline_id = await _create_pipeline(mock_db, project_id="PVT_ASSIGNMENT")

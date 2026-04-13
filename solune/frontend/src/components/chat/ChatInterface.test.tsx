@@ -195,11 +195,23 @@ function renderChat(overrides: Partial<React.ComponentProps<typeof ChatInterface
 // ── Tests ──
 
 describe('ChatInterface', () => {
-  const scrollIntoView = vi.fn();
+  const scrollTo = vi.fn(function scrollTo(
+    this: HTMLElement,
+    options?: number | ScrollToOptions,
+  ) {
+    if (typeof options === 'number') {
+      this.scrollTop = options;
+      return;
+    }
 
-  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    if (options?.top != null) {
+      this.scrollTop = options.top;
+    }
+  });
+
+  Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
     configurable: true,
-    value: scrollIntoView,
+    value: scrollTo,
   });
 
   it('renders the New Chat button when messages exist', () => {
@@ -285,7 +297,7 @@ describe('ChatInterface', () => {
   });
 
   it('pauses auto-follow when the user scrolls away from the bottom', () => {
-    scrollIntoView.mockClear();
+    scrollTo.mockClear();
     const baseMessages = [createMessage({ content: 'User prompt' })];
 
     const { rerender } = renderChat({
@@ -299,7 +311,7 @@ describe('ChatInterface', () => {
     Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 200, writable: true });
 
     fireEvent.scroll(viewport);
-    scrollIntoView.mockClear();
+    scrollTo.mockClear();
 
     rerender(
       <ChatInterface
@@ -320,11 +332,11 @@ describe('ChatInterface', () => {
       />
     );
 
-    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 
   it('resumes auto-follow after the user scrolls back to the bottom', () => {
-    scrollIntoView.mockClear();
+    scrollTo.mockClear();
     const baseMessages = [createMessage({ content: 'User prompt' })];
 
     const { rerender } = renderChat({
@@ -338,7 +350,7 @@ describe('ChatInterface', () => {
     Object.defineProperty(viewport, 'scrollTop', { configurable: true, value: 200, writable: true });
 
     fireEvent.scroll(viewport);
-    scrollIntoView.mockClear();
+    scrollTo.mockClear();
 
     viewport.scrollTop = 300;
     fireEvent.scroll(viewport);
@@ -362,6 +374,6 @@ describe('ChatInterface', () => {
       />
     );
 
-    expect(scrollIntoView).toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalled();
   });
 });

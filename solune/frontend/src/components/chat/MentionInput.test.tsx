@@ -107,6 +107,19 @@ describe('MentionInput', () => {
     expect(screen.queryByText('Type here')).not.toBeInTheDocument();
   });
 
+  it('focuses without scrolling on mount and via the imperative handle', () => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus').mockImplementation(() => {});
+    const { ref } = renderMentionInput();
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+
+    act(() => {
+      ref.current?.focus();
+    });
+
+    expect(focus).toHaveBeenLastCalledWith({ preventScroll: true });
+  });
+
   it('removes mention tokens from hook state when backspacing over a token', () => {
     const onTextChange = vi.fn();
     const onTokenRemove = vi.fn();

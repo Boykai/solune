@@ -693,6 +693,36 @@ class PipelineService:
             pipeline_id = row_dict.get("assigned_pipeline_id", "") or ""
         else:
             pipeline_id = ""
+
+        if pipeline_id:
+            exists_cursor = await self._db.execute(
+                "SELECT 1 FROM pipeline_configs WHERE id = ? LIMIT 1",
+                (pipeline_id,),
+            )
+            exists = await exists_cursor.fetchone()
+
+            if exists is None:
+                logger.warning(
+                    "Assigned pipeline %s not found for project %s; clearing stale assignment",
+                    pipeline_id,
+                    project_id,
+                )
+                await self._db.execute(
+                    """
+                    UPDATE project_settings
+                    SET assigned_pipeline_id = '',
+                        updated_at = ?
+                    WHERE github_user_id = ? AND project_id = ?
+                    """,
+                    (
+                        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        _CANONICAL_PROJECT_SETTINGS_USER,
+                        project_id,
+                    ),
+                )
+                await self._db.commit()
+                pipeline_id = ""
+
         return ProjectPipelineAssignment(
             project_id=project_id,
             pipeline_id=pipeline_id,

@@ -7,6 +7,10 @@ import { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardR
 import { cn } from '@/lib/utils';
 import { MENTION_TOKEN_VALID } from '@/hooks/useMentionAutocomplete';
 
+function focusWithoutScroll(element: HTMLDivElement | null): void {
+  element?.focus({ preventScroll: true });
+}
+
 export interface MentionInputHandle {
   focus: () => void;
   clear: () => void;
@@ -67,7 +71,7 @@ export const MentionInput = forwardRef<MentionInputHandle, MentionInputProps>(
     // Expose imperative handle
     useImperativeHandle(ref, () => ({
       focus() {
-        divRef.current?.focus();
+        focusWithoutScroll(divRef.current);
       },
       clear() {
         if (divRef.current) {
@@ -100,8 +104,8 @@ export const MentionInput = forwardRef<MentionInputHandle, MentionInputProps>(
 
     // Focus on mount
     useEffect(() => {
-      divRef.current?.focus();
-  }, []);
+      focusWithoutScroll(divRef.current);
+    }, []);
 
     // Sync isEmpty when value prop changes (render-time adjustment)
     const [prevValue, setPrevValue] = useState(value);

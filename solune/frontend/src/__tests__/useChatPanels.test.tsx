@@ -77,6 +77,25 @@ describe('useChatPanels', () => {
       expect(result.current.panels).toHaveLength(1);
       expect(result.current.panels[0].panelId).toBe('existing');
     });
+
+    it('recreates a default panel when stale persisted panels are removed after bootstrap', () => {
+      const saved: PanelState[] = [
+        { panelId: 'stale-1', conversationId: 'conv-stale', widthPercent: 100 },
+      ];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, panels: saved }));
+
+      const { result } = renderHook(() => useChatPanels('conv-current'));
+
+      expect(result.current.panels).toHaveLength(1);
+      expect(result.current.panels[0].conversationId).toBe('conv-stale');
+
+      act(() => {
+        result.current.removeStalePanels(new Set(['conv-current']));
+      });
+
+      expect(result.current.panels).toHaveLength(1);
+      expect(result.current.panels[0].conversationId).toBe('conv-current');
+    });
   });
 
   describe('addPanel', () => {
@@ -174,6 +193,23 @@ describe('useChatPanels', () => {
 
     it('does not persist empty panels', () => {
       renderHook(() => useChatPanels());
+      act(() => vi.advanceTimersByTime(400));
+
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
+    it('clears a previously saved layout when panels become empty', () => {
+      const saved: PanelState[] = [
+        { panelId: 'stale-1', conversationId: 'conv-stale', widthPercent: 100 },
+      ];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, panels: saved }));
+
+      const { result } = renderHook(() => useChatPanels());
+
+      act(() => {
+        result.current.removeStalePanels(new Set());
+      });
+
       act(() => vi.advanceTimersByTime(400));
 
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull();

@@ -614,6 +614,24 @@ class TestSendMessageStream:
         assert "streaming is disabled" in resp.json()["detail"].lower()
         mock_chat_agent_service.run_stream.assert_not_called()
 
+    async def test_stream_rejects_missing_pipeline_before_agent_run(
+        self, client, mock_session, mock_chat_agent_service
+    ):
+        mock_session.selected_project_id = "PVT_1"
+
+        with patch(
+            "src.services.pipelines.service.PipelineService.get_pipeline",
+            new=AsyncMock(return_value=None),
+        ):
+            resp = await client.post(
+                "/api/v1/chat/messages/stream",
+                json={"content": "fix the login bug", "pipeline_id": "missing-pipeline"},
+            )
+
+        assert resp.status_code == 422
+        assert resp.json()["error"] == "Pipeline not found: missing-pipeline"
+        mock_chat_agent_service.run_stream.assert_not_called()
+
 
 # ── Plan mode endpoints ───────────────────────────────────────────────────────
 
@@ -2808,3 +2826,51 @@ class TestConversationOwnership:
 
         resp = await client.delete("/api/v1/chat/conversations/foreign-conv")
         assert resp.status_code == 404
+
+    async def test_send_message_other_sessions_conversation_returns_404(
+        self, client, mock_db, mock_session, mock_chat_agent_service
+    ):
+        """POST /chat/messages rejects conversations owned by a different session."""
+        from src.services import chat_store
+
+        mock_session.selected_project_id = "PVT_1"
+        foreign_conversation_id = str(uuid4())
+        await chat_store.save_conversation(
+            mock_db,
+            "other-session-id",
+            foreign_conversation_id,
+            "Foreign Chat",
+        )
+
+        resp = await client.post(
+            "/api/v1/chat/messages",
+            json={"content": "fix the auth bug", "conversation_id": foreign_conversation_id},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["error"] == f"Conversation {foreign_conversation_id} not found"
+        mock_chat_agent_service.run.assert_not_called()
+
+    async def test_send_message_stream_other_sessions_conversation_returns_404(
+        self, client, mock_db, mock_session, mock_chat_agent_service
+    ):
+        """POST /chat/messages/stream rejects conversations owned by a different session."""
+        from src.services import chat_store
+
+        mock_session.selected_project_id = "PVT_1"
+        foreign_conversation_id = str(uuid4())
+        await chat_store.save_conversation(
+            mock_db,
+            "other-session-id",
+            foreign_conversation_id,
+            "Foreign Chat",
+        )
+
+        resp = await client.post(
+            "/api/v1/chat/messages/stream",
+            json={"content": "fix the auth bug", "conversation_id": foreign_conversation_id},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["error"] == f"Conversation {foreign_conversation_id} not found"
+        mock_chat_agent_service.run_stream.assert_not_called()

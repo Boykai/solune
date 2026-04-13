@@ -14,10 +14,39 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 const MIN_WIDTH_PX = 320;
 
+function getBootstrapErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function buildKnownConversationIds(
+  conversations: Array<{ conversation_id: string }>,
+  provisionalConversationId?: string,
+): Set<string> {
+  const validIds = new Set(conversations.map((conversation) => conversation.conversation_id));
+  if (provisionalConversationId) {
+    validIds.add(provisionalConversationId);
+  }
+  return validIds;
+}
+
 export function ChatPanelManager() {
-  const { conversations, isLoading: isConversationsLoading, createConversation, deleteConversation } = useConversations();
-  const [isInitialized, setIsInitialized] = useState(false);
+  const {
+    conversations,
+    isLoading: isConversationsLoading,
+    error: conversationsError,
+    createConversation,
+    deleteConversation,
+    refetch: refetchConversations,
+  } = useConversations();
   const [initialConvId, setInitialConvId] = useState<string | undefined>(undefined);
+  const [bootstrapRetryToken, setBootstrapRetryToken] = useState(0);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const bootstrapRunIdRef = useRef(0);
 
   const {
     panels,
@@ -33,28 +62,99 @@ export function ChatPanelManager() {
 
   // Reconcile panels against loaded conversations to drop stale entries
   useEffect(() => {
-    if (isConversationsLoading || panels.length === 0) return;
-    const validIds = new Set(conversations.map((c) => c.conversation_id));
+    if (isConversationsLoading || conversationsError || panels.length === 0) return;
+
+    const validIds = buildKnownConversationIds(conversations, initialConvId);
+    const hasStalePanels = panels.some((panel) => !validIds.has(panel.conversationId));
+
+    if (!hasStalePanels) return;
+
     removeStalePanels(validIds);
-  }, [conversations, isConversationsLoading, panels.length, removeStalePanels]);
+  }, [conversations, conversationsError, initialConvId, isConversationsLoading, panels, removeStalePanels]);
 
-  // Create a default conversation on first mount if there are no panels
+  // Bootstrap the first visible panel from an existing conversation or create one when the
+  // current session is genuinely empty. Failures surface a retry UI instead of an endless
+  // loading placeholder.
   useEffect(() => {
-    if (isInitialized && panels.length > 0) return;
+    if (isConversationsLoading) return;
 
-    const init = async () => {
+    if (conversationsError) {
       if (panels.length === 0) {
-        try {
-          const conv = await createConversation('New Chat');
-          setInitialConvId(conv.conversation_id);
-        } catch {
-          // fallback — will show empty state
-        }
+        setBootstrapError(
+          getBootstrapErrorMessage(conversationsError, 'Could not load chat conversations.'),
+        );
+        setIsBootstrapping(false);
       }
-      setIsInitialized(true);
+      return;
+    }
+
+    const validIds = buildKnownConversationIds(conversations, initialConvId);
+    const hasStalePanels = panels.some((panel) => !validIds.has(panel.conversationId));
+    if (hasStalePanels) {
+      return;
+    }
+
+    if (panels.length > 0) {
+      setBootstrapError(null);
+      setIsBootstrapping(false);
+      return;
+    }
+
+    if (initialConvId) {
+      setBootstrapError(null);
+      return;
+    }
+
+    if (conversations.length > 0) {
+      const nextConversationId = conversations[0].conversation_id;
+      setBootstrapError(null);
+      if (initialConvId !== nextConversationId) {
+        setInitialConvId(nextConversationId);
+      }
+      return;
+    }
+
+    const currentRunId = bootstrapRunIdRef.current + 1;
+    bootstrapRunIdRef.current = currentRunId;
+
+    setBootstrapError(null);
+    setIsBootstrapping(true);
+
+    let cancelled = false;
+
+    void createConversation('New Chat')
+      .then((conversation) => {
+        if (cancelled || bootstrapRunIdRef.current !== currentRunId) return;
+        setInitialConvId(conversation.conversation_id);
+      })
+      .catch((error) => {
+        if (cancelled || bootstrapRunIdRef.current !== currentRunId) return;
+        setBootstrapError(getBootstrapErrorMessage(error, "Couldn't start your chat."));
+      })
+      .finally(() => {
+        if (cancelled || bootstrapRunIdRef.current !== currentRunId) return;
+        setIsBootstrapping(false);
+      });
+
+    return () => {
+      cancelled = true;
     };
-    init();
-  }, [isInitialized, panels.length, createConversation]);
+  }, [
+    bootstrapRetryToken,
+    conversations,
+    conversationsError,
+    createConversation,
+    initialConvId,
+    isConversationsLoading,
+    panels,
+  ]);
+
+  const handleRetryBootstrap = useCallback(() => {
+    setBootstrapError(null);
+    setInitialConvId(undefined);
+    setBootstrapRetryToken((current) => current + 1);
+    void refetchConversations();
+  }, [refetchConversations]);
 
   const handleAddPanel = useCallback(async () => {
     try {
@@ -179,11 +279,40 @@ export function ChatPanelManager() {
     ? panels.length - 1
     : activeTabIndex;
 
+  const bootstrapFailureMessage = bootstrapError
+    ?? (panels.length === 0 && conversationsError
+      ? getBootstrapErrorMessage(conversationsError, 'Could not load chat conversations.')
+      : null);
+
   if (panels.length === 0) {
+    if (bootstrapFailureMessage) {
+      return (
+        <div className="flex h-full items-center justify-center px-6 py-10" data-testid="chat-bootstrap-error">
+          <div
+            role="alert"
+            className="celestial-panel w-full max-w-md rounded-[1.5rem] border border-border/80 px-6 py-5 text-center shadow-lg"
+          >
+            <p className="text-lg font-medium text-foreground">Could not start your chat</p>
+            <p className="mt-2 text-sm text-muted-foreground">{bootstrapFailureMessage}</p>
+            <button
+              type="button"
+              onClick={handleRetryBootstrap}
+              className="mt-4 inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
         <div className="text-center">
-          <p className="mb-2 text-lg">Starting your chat...</p>
+          <p className="mb-2 text-lg">
+            {conversations.length > 0 || initialConvId ? 'Opening your chat...' : 'Starting your chat...'}
+          </p>
+          {isBootstrapping && <p className="text-sm text-muted-foreground/80">Creating a conversation for this session.</p>}
         </div>
       </div>
     );
