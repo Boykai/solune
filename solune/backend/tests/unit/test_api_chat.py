@@ -914,6 +914,10 @@ class TestTranscriptHelpers:
                 ),
                 patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
                 patch("src.api.chat._trigger_signal_delivery") as trigger_signal,
+                patch(
+                    "src.services.ai_utilities.analyze_transcript",
+                    mock_ai_agent_service.analyze_transcript,
+                ),
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
@@ -968,6 +972,10 @@ class TestTranscriptHelpers:
                     "src.api.chat.store_recommendation", new_callable=AsyncMock
                 ) as store_recommendation,
                 patch("src.api.chat.add_message", new_callable=AsyncMock) as add_message,
+                patch(
+                    "src.services.ai_utilities.analyze_transcript",
+                    mock_ai_agent_service.analyze_transcript,
+                ),
             ):
                 message = await _handle_transcript_upload(
                     mock_session,

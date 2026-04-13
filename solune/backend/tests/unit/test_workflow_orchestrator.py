@@ -94,7 +94,7 @@ class TestHandleReadyStatusWithAgentMappings:
     @pytest.fixture
     def orchestrator(self, mock_ai_service, mock_github_service):
         """Create WorkflowOrchestrator with mocked services."""
-        return WorkflowOrchestrator(mock_ai_service, mock_github_service)
+        return WorkflowOrchestrator(mock_github_service)
 
     @pytest.fixture
     def workflow_context(self):
@@ -363,7 +363,7 @@ class TestAssignAgentForStatus:
 
     @pytest.fixture
     def orchestrator(self, mock_ai_service, mock_github_service):
-        return WorkflowOrchestrator(mock_ai_service, mock_github_service)
+        return WorkflowOrchestrator(mock_github_service)
 
     @pytest.fixture
     def workflow_context(self):
@@ -979,7 +979,7 @@ class TestCreateIssueFromRecommendation:
 
     @pytest.fixture
     def orchestrator(self, mock_ai_service, mock_github_service):
-        return WorkflowOrchestrator(mock_ai_service, mock_github_service)
+        return WorkflowOrchestrator(mock_github_service)
 
     @pytest.fixture
     def workflow_context(self):
@@ -1116,7 +1116,7 @@ class TestAddToProjectWithBacklog:
 
     @pytest.fixture
     def orchestrator(self, mock_ai_service, mock_github_service):
-        return WorkflowOrchestrator(mock_ai_service, mock_github_service)
+        return WorkflowOrchestrator(mock_github_service)
 
     @pytest.fixture
     def workflow_context(self):
@@ -1290,7 +1290,7 @@ class TestLogTransition:
 
     @pytest.fixture
     def orchestrator(self):
-        return WorkflowOrchestrator(Mock(), Mock())
+        return WorkflowOrchestrator(Mock())
 
     def _make_ctx(self, **overrides):
         defaults = {
@@ -1360,7 +1360,7 @@ class TestFormatIssueBody:
 
     @pytest.fixture
     def orchestrator(self):
-        return WorkflowOrchestrator(Mock(), Mock())
+        return WorkflowOrchestrator(Mock())
 
     def test_basic_body(self, orchestrator):
         rec = IssueRecommendation(
@@ -1530,7 +1530,7 @@ class TestGetTransitions:
 
     @pytest.mark.asyncio
     async def test_returns_filtered_by_issue_id(self):
-        orch = WorkflowOrchestrator(Mock(), Mock())
+        orch = WorkflowOrchestrator(Mock())
         ctx = WorkflowContext(
             session_id="s",
             project_id="p",
@@ -1572,7 +1572,7 @@ class TestDetectCompletionSignal:
 
     @pytest.fixture
     def orch(self):
-        return WorkflowOrchestrator(Mock(), Mock())
+        return WorkflowOrchestrator(Mock())
 
     def test_closed_state(self, orch):
         assert orch.detect_completion_signal({"state": "closed"}) is True
@@ -1710,7 +1710,7 @@ class TestAssignAgentGuardClauses:
 
     @pytest.fixture
     def orch(self):
-        return WorkflowOrchestrator(Mock(), Mock())
+        return WorkflowOrchestrator(Mock())
 
     @pytest.mark.asyncio
     async def test_no_issue_id_raises(self, orch):
@@ -2061,7 +2061,7 @@ class TestFormatIssueBodyTechnicalNotes:
 
     @pytest.fixture
     def orch(self):
-        return WorkflowOrchestrator(Mock(), Mock())
+        return WorkflowOrchestrator(Mock())
 
     def test_body_with_technical_notes(self, orch):
         rec = IssueRecommendation(
@@ -3651,7 +3651,7 @@ class TestResolveEffectiveModel:
 
     @pytest.fixture
     def orchestrator(self):
-        return WorkflowOrchestrator(Mock(), Mock())
+        return WorkflowOrchestrator(Mock())
 
     @pytest.fixture(autouse=True)
     def clear_assignment_state(self):

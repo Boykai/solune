@@ -34,7 +34,7 @@ class TestAnalyzeTranscript:
         return AsyncMock(return_value=VALID_AI_RESPONSE)
 
     async def test_happy_path(self, mock_completion):
-        with patch("src.services.ai_utilities.call_completion", mock_completion):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             rec = await analyze_transcript(
                 transcript_content="Alice: Dark mode please\nBob: Agreed",
                 project_name="MyProject",
@@ -47,7 +47,7 @@ class TestAnalyzeTranscript:
 
     async def test_original_input_truncated_to_500_chars(self, mock_completion):
         long_transcript = "A" * 1000
-        with patch("src.services.ai_utilities.call_completion", mock_completion):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             rec = await analyze_transcript(
                 transcript_content=long_transcript,
                 project_name="Proj",
@@ -59,7 +59,7 @@ class TestAnalyzeTranscript:
 
     async def test_short_transcript_not_truncated(self, mock_completion):
         short = "Alice: Hello"
-        with patch("src.services.ai_utilities.call_completion", mock_completion):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             rec = await analyze_transcript(
                 transcript_content=short,
                 project_name="Proj",
@@ -69,7 +69,7 @@ class TestAnalyzeTranscript:
 
     async def test_auth_error_raises_value_error(self):
         mock_fail = AsyncMock(side_effect=RuntimeError("401 Unauthorized"))
-        with patch("src.services.ai_utilities.call_completion", mock_fail):
+        with patch("src.services.agent_provider.call_completion", mock_fail):
             with pytest.raises(ValueError, match="authentication failed"):
                 await analyze_transcript(
                     transcript_content="content",
@@ -79,7 +79,7 @@ class TestAnalyzeTranscript:
 
     async def test_not_found_error_raises_value_error(self):
         mock_fail = AsyncMock(side_effect=RuntimeError("404 Resource not found"))
-        with patch("src.services.ai_utilities.call_completion", mock_fail):
+        with patch("src.services.agent_provider.call_completion", mock_fail):
             with pytest.raises(ValueError, match="not found"):
                 await analyze_transcript(
                     transcript_content="content",
@@ -89,7 +89,7 @@ class TestAnalyzeTranscript:
 
     async def test_generic_error_raises_value_error(self):
         mock_fail = AsyncMock(side_effect=RuntimeError("connection timeout"))
-        with patch("src.services.ai_utilities.call_completion", mock_fail):
+        with patch("src.services.agent_provider.call_completion", mock_fail):
             with pytest.raises(ValueError, match="Failed to analyse transcript"):
                 await analyze_transcript(
                     transcript_content="content",
@@ -98,7 +98,7 @@ class TestAnalyzeTranscript:
                 )
 
     async def test_metadata_context_passed_through(self, mock_completion):
-        with patch("src.services.ai_utilities.call_completion", mock_completion):
+        with patch("src.services.agent_provider.call_completion", mock_completion):
             rec = await analyze_transcript(
                 transcript_content="Alice: Needs dark mode",
                 project_name="Proj",
