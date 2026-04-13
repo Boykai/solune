@@ -11,8 +11,8 @@
 
 **Purpose**: Establish the sub-package scaffolding, re-export shims, and shared utilities that every refactoring target depends on.
 
-- [ ] T001 Create backend chat sub-package directory and `__init__.py` with re-exports in `solune/backend/src/api/chat/__init__.py`
-- [ ] T002 [P] Create backend webhooks sub-package directory and `__init__.py` with re-exports in `solune/backend/src/api/webhooks/__init__.py`
+- [x] T001 Create backend chat sub-package directory and `__init__.py` with re-exports in `solune/backend/src/api/chat/__init__.py`
+- [x] T002 [P] Create backend webhooks sub-package directory and `__init__.py` with re-exports in `solune/backend/src/api/webhooks/__init__.py`
 - [ ] T003 [P] Create frontend domain API module directory and barrel `index.ts` with re-exports in `solune/frontend/src/services/api/index.ts`
 - [ ] T004 [P] Create frontend domain types directory and barrel `index.ts` with re-exports in `solune/frontend/src/types/index.ts` (temporary shim)
 
@@ -24,8 +24,8 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Extract shared chat types, constants, and persistence-retry config from `solune/backend/src/api/chat.py` (lines 70-102) into `solune/backend/src/api/chat/constants.py`
-- [ ] T006 [P] Extract SQLite persistence helpers (message CRUD, proposal persistence, recommendation persistence) from `solune/backend/src/api/chat.py` (lines 89-286) into `solune/backend/src/api/chat/persistence.py`
+- [x] T005 Extract shared chat types, constants, and persistence-retry config from `solune/backend/src/api/chat.py` (lines 70-102) into `solune/backend/src/api/chat/constants.py`
+- [x] T006 [P] Extract SQLite persistence helpers (message CRUD, proposal persistence, recommendation persistence) from `solune/backend/src/api/chat.py` (lines 89-286) into `solune/backend/src/api/chat/persistence.py`
 - [ ] T007 [P] Extract shared API infrastructure (ApiError class, getCsrfToken, normalizeApiError, onAuthExpired, STATE_CHANGING_METHODS) from `solune/frontend/src/services/api.ts` (lines 105-230) into `solune/frontend/src/services/api/client.ts`
 - [ ] T008 [P] Extract shared/cross-domain TypeScript types (User, AuthResponse, APIError, common enums, utility types) from `solune/frontend/src/types/index.ts` into `solune/frontend/src/types/shared.ts`
 - [ ] T009 Verify all existing backend tests pass after persistence and constants extraction (`uv run pytest` from `solune/backend/`)
@@ -43,14 +43,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Extract message endpoints (create_conversation, list_conversations, update_conversation, delete_conversation, get_messages, clear_messages, send_message) from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/messages.py`
-- [ ] T012 [US1] Extract streaming endpoint (send_message_stream and SSE helpers) from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/streaming.py`
-- [ ] T013 [US1] Extract proposal endpoints (confirm_proposal, cancel_proposal) and recommendation logic from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/proposals.py`
-- [ ] T014 [US1] Extract plan endpoints (send_plan_message, send_plan_message_stream, get_plan_endpoint, plan step CRUD) from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/plans.py`
-- [ ] T015 [US1] Extract file upload endpoint and validation helpers from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/uploads.py`
-- [ ] T016 [US1] Update `solune/backend/src/api/chat/__init__.py` to compose the combined router from all sub-module routers, preserving all URL prefixes and tags
-- [ ] T017 [US1] Update `solune/backend/src/api/__init__.py` (or wherever the chat router is registered) to import from the new `chat` package instead of the old monolithic file
-- [ ] T018 [US1] Remove the original monolithic `solune/backend/src/api/chat.py` file after all routes are migrated and verified
+- [x] T011 [US1] Extract message endpoints (create_conversation, list_conversations, update_conversation, delete_conversation, get_messages, clear_messages, send_message) from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/messages.py`
+- [x] T012 [US1] Extract streaming endpoint (send_message_stream and SSE helpers) from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/streaming.py`
+- [x] T013 [US1] Extract proposal endpoints (confirm_proposal, cancel_proposal) and recommendation logic from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/proposals.py`
+- [x] T014 [US1] Extract plan endpoints (send_plan_message, send_plan_message_stream, get_plan_endpoint, plan step CRUD) from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/plans.py`
+- [x] T015 [US1] Extract file upload endpoint and validation helpers from `solune/backend/src/api/chat.py` into `solune/backend/src/api/chat/uploads.py`
+- [x] T016 [US1] Update `solune/backend/src/api/chat/__init__.py` to compose the combined router from all sub-module routers, preserving all URL prefixes and tags
+- [x] T017 [US1] Update `solune/backend/src/api/__init__.py` (or wherever the chat router is registered) to import from the new `chat` package instead of the old monolithic file
+- [x] T018 [US1] Remove the original monolithic `solune/backend/src/api/chat.py` file after all routes are migrated and verified
 - [ ] T019 [US1] Verify no single file in `solune/backend/src/api/chat/` exceeds 600 lines (SC-001) and all existing tests pass
 
 **Checkpoint**: User Story 1 delivers the single biggest backend maintainability win. All chat endpoints work identically to before.
@@ -172,13 +172,13 @@
 
 ### Implementation for User Story 6
 
-- [ ] T075 [P] [US6] Extract webhook signature verification and shared utilities (verify_webhook_signature, extract_issue_number_from_pr, classify_pull_request_activity) from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/utils.py`
-- [ ] T076 [P] [US6] Extract `_processed_delivery_ids` deduplication state and the main `github_webhook()` router dispatcher from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/router.py`
-- [ ] T077 [P] [US6] Extract pull request event handlers (handle_pull_request_event, handle_copilot_pr_ready, update_issue_status_for_copilot_pr, _resolve_issue_for_pr, _get_auto_merge_pipeline) from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/pull_requests.py`
-- [ ] T078 [P] [US6] Extract check run and check suite handlers (handle_check_run_event, handle_check_suite_event) from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/check_runs.py`
-- [ ] T079 [US6] Update `solune/backend/src/api/webhooks/__init__.py` to compose the combined router from sub-module routers, preserving the `/github` endpoint path and webhook signature verification
-- [ ] T080 [US6] Update `solune/backend/src/api/__init__.py` (or wherever the webhook router is registered) to import from the new `webhooks` package
-- [ ] T081 [US6] Remove the original monolithic `solune/backend/src/api/webhooks.py` file after all handlers are migrated and verified
+- [x] T075 [P] [US6] Extract webhook signature verification and shared utilities (verify_webhook_signature, extract_issue_number_from_pr, classify_pull_request_activity) from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/utils.py`
+- [x] T076 [P] [US6] Extract `_processed_delivery_ids` deduplication state and the main `github_webhook()` router dispatcher from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/router.py`
+- [x] T077 [P] [US6] Extract pull request event handlers (handle_pull_request_event, handle_copilot_pr_ready, update_issue_status_for_copilot_pr, _resolve_issue_for_pr, _get_auto_merge_pipeline) from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/pull_requests.py`
+- [x] T078 [P] [US6] Extract check run and check suite handlers (handle_check_run_event, handle_check_suite_event) from `solune/backend/src/api/webhooks.py` into `solune/backend/src/api/webhooks/check_runs.py`
+- [x] T079 [US6] Update `solune/backend/src/api/webhooks/__init__.py` to compose the combined router from sub-module routers, preserving the `/github` endpoint path and webhook signature verification
+- [x] T080 [US6] Update `solune/backend/src/api/__init__.py` (or wherever the webhook router is registered) to import from the new `webhooks` package
+- [x] T081 [US6] Remove the original monolithic `solune/backend/src/api/webhooks.py` file after all handlers are migrated and verified
 - [ ] T082 [US6] Verify all existing webhook-related tests pass and all webhook event types are handled identically
 
 **Checkpoint**: User Story 6 makes webhook handling modular and extensible. Each event type is independently testable.
