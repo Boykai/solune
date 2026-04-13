@@ -1,0 +1,336 @@
+openapi: "3.1.0"
+info:
+  title: Chores API (Post-Template Removal)
+  version: "2.0.0"
+  description: |
+    Updated chores API after removing ISSUE_TEMPLATE integration.
+    Chore descriptions are stored in the database only.
+    Template-related endpoints have been removed.
+
+paths:
+  /api/chores/{project_id}/seed-presets:
+    post:
+      summary: Seed built-in chore presets
+      operationId: seedChorePresets
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Presets seeded
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chore"
+
+  /api/chores/evaluate-triggers:
+    post:
+      summary: Evaluate all active chores for trigger conditions
+      operationId: evaluateChoresTriggers
+      responses:
+        "200":
+          description: Trigger evaluation results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerEvaluationResult"
+
+  # REMOVED: GET /{project_id}/templates — no longer lists repo templates
+
+  /api/chores/{project_id}/chore-names:
+    get:
+      summary: List chore names for a project
+      operationId: listChoreNames
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of chore names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /api/chores/{project_id}:
+    get:
+      summary: List all chores for a project
+      operationId: listChores
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated chore list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Chore"
+
+    post:
+      summary: Create a new chore (DB only, no PR)
+      operationId: createChore
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreCreate"
+      responses:
+        "200":
+          description: Created chore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+  /api/chores/{project_id}/{chore_id}:
+    patch:
+      summary: Update chore configuration (schedule, status, description)
+      operationId: updateChore
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chore_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChoreUpdate"
+      responses:
+        "200":
+          description: Updated chore
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chore"
+
+    delete:
+      summary: Delete a chore
+      operationId: deleteChore
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chore_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+
+  /api/chores/{project_id}/{chore_id}/trigger:
+    post:
+      summary: Manually trigger a chore (uses execute_pipeline_launch)
+      operationId: triggerChore
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: chore_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trigger result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChoreTriggerResult"
+
+  /api/chores/{project_id}/chat:
+    post:
+      summary: Chat endpoint for chore refinement
+      operationId: choreChat
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chat response
+
+  # REMOVED: PUT /{project_id}/{chore_id}/inline-update — no SHA/PR logic
+  # REMOVED: POST /{project_id}/create-with-merge — no auto-merge flow
+
+components:
+  schemas:
+    Chore:
+      type: object
+      required:
+        - id
+        - project_id
+        - name
+        - description
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        project_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          description: "Plain text chore description (formerly template_content)"
+        # template_path: REMOVED
+        # template_content: RENAMED to description
+        schedule_type:
+          type: string
+          enum: [time, count]
+          nullable: true
+        schedule_value:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [active, paused]
+        last_triggered_at:
+          type: string
+          nullable: true
+        last_triggered_count:
+          type: integer
+        current_issue_number:
+          type: integer
+          nullable: true
+        current_issue_node_id:
+          type: string
+          nullable: true
+        pr_number:
+          type: integer
+          nullable: true
+        pr_url:
+          type: string
+          nullable: true
+        tracking_issue_number:
+          type: integer
+          nullable: true
+        execution_count:
+          type: integer
+        ai_enhance_enabled:
+          type: boolean
+        agent_pipeline_id:
+          type: string
+        is_preset:
+          type: boolean
+        preset_id:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+
+    ChoreCreate:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          description: "Plain text description (formerly template_content)"
+
+    ChoreUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          description: "Updated description (saves to DB only, no PR)"
+        schedule_type:
+          type: string
+          enum: [time, count]
+          nullable: true
+        schedule_value:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [active, paused]
+        ai_enhance_enabled:
+          type: boolean
+        agent_pipeline_id:
+          type: string
+
+    ChoreTriggerResult:
+      type: object
+      properties:
+        chore_id:
+          type: string
+        chore_name:
+          type: string
+        triggered:
+          type: boolean
+        skip_reason:
+          type: string
+          nullable: true
+        issue_number:
+          type: integer
+          nullable: true
+        issue_url:
+          type: string
+          nullable: true
+
+    TriggerEvaluationResult:
+      type: object
+      properties:
+        evaluated:
+          type: integer
+        triggered:
+          type: integer
+        skipped:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChoreTriggerResult"
