@@ -1,10 +1,7 @@
 /**
- * Shared cross-domain types.
- *
- * Contains types used across multiple domains:
- * - APIError, User, AuthResponse
- * - Common enums and utility types
+ * Placeholder module reserved for future shared types that will be
+ * extracted from multiple domains.
  */
 
-// Placeholder — will be populated during the types extraction phase.
+// Intentionally empty for now; kept as a module until shared types are added.
 export {};
