@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   ApiError,
   onAuthExpired,
@@ -228,8 +228,15 @@ describe('network error handling', () => {
 });
 
 describe('stream logging sanitization', () => {
-  it('logs only event metadata for unexpected SSE error payloads', async () => {
+  beforeEach(() => {
     vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock('@/lib/logger');
+  });
+
+  it('logs only event metadata for unexpected SSE error payloads', async () => {
     const debugSpy = vi.fn();
     vi.doMock('@/lib/logger', () => ({
       logger: {
@@ -262,7 +269,7 @@ describe('stream logging sanitization', () => {
       });
       expect(JSON.stringify(debugSpy.mock.calls)).not.toContain('raw user content');
     } finally {
-      vi.doUnmock('@/lib/logger');
+      vi.resetModules();
     }
   });
 });

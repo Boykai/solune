@@ -196,10 +196,12 @@ class TestSetupLogging:
         original_levels = {name: logging.getLogger(name).level for name in logger_names}
 
         try:
-            setup_logging(debug=False, structured=False)
+            for debug in (False, True):
+                for structured in (False, True):
+                    setup_logging(debug=debug, structured=structured)
 
-            for name in logger_names:
-                assert logging.getLogger(name).level == logging.WARNING
+                    for name in logger_names:
+                        assert logging.getLogger(name).level == logging.WARNING
         finally:
             for handler in root.handlers[:]:
                 root.removeHandler(handler)
