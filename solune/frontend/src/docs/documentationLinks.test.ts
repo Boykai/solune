@@ -106,6 +106,12 @@ function extractChecklistItems(markdown: string, heading: string): string[] {
   return Array.from(section.matchAll(/^- \[[ x]\] (.+)$/gm), (match) => match[1].trim());
 }
 
+function normalizeChecklistItems(items: string[]): string[] {
+  return items.map((item) =>
+    item.replace('../../solune/docs/checklists/doc-refresh-verification.md', '../../docs/checklists/doc-refresh-verification.md'),
+  );
+}
+
 function extractAffectedDocs(markdown: string): string[] {
   return Array.from(markdown.matchAll(/Affected Docs: (.+)$/gm), (match) => match[1])
     .flatMap((docs) => docs.split(','))
@@ -233,5 +239,21 @@ describe('librarian documentation workflow', () => {
 
     expect(affectedDocs).not.toEqual([]);
     expect(affectedDocs.filter((docPath) => !existsSync(resolve(repoRoot, docPath)))).toEqual([]);
+  });
+
+  it('keeps the scaffolded Librarian issue template aligned with the live repository template', () => {
+    const repoTemplate = readWorkspaceFile('.github/ISSUE_TEMPLATE/chore-librarian.md');
+    const scaffoldTemplate = readWorkspaceFile(
+      'solune/backend/templates/.github/ISSUE_TEMPLATE/chore-documentation-sweep.md',
+    );
+
+    expect(normalizeChecklistItems(extractChecklistItems(repoTemplate, 'Phase Checklist'))).toEqual(
+      normalizeChecklistItems(extractChecklistItems(scaffoldTemplate, 'Phase Checklist')),
+    );
+    expect(scaffoldTemplate).toContain('**📖 Execution Guide**');
+    expect(scaffoldTemplate).toContain('**✅ Verification Template**');
+    expect(scaffoldTemplate).toContain(
+      '[`docs/checklists/doc-refresh-verification.md`](../../docs/checklists/doc-refresh-verification.md)',
+    );
   });
 });

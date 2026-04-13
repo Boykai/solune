@@ -10,6 +10,20 @@ assignees: ''
 
 A repeatable process for keeping project documentation accurate as software evolves. Language-agnostic, structure-agnostic, applicable to any codebase. Detects what changed, infers how the product's focus shifted, and rewrites docs to match reality.
 
+> **📖 Execution Guide**: Follow the phase sections in this issue template from top to bottom.
+> **✅ Verification Template**: [`docs/checklists/doc-refresh-verification.md`](../../docs/checklists/doc-refresh-verification.md)
+
+### Phase Checklist
+
+- [ ] **Phase 1** — Build the Change Manifest (establish baseline, harvest changes, compile 6-category manifest)
+- [ ] **Phase 2** — Infer Focus Shifts (measure change density, detect narrative shifts, assign P0–P4 priorities)
+- [ ] **Phase 3** — Update the README (revalidate description, audit features, verify quickstart, update visuals)
+- [ ] **Phase 4** — Update Documentation Files (map docs to source of truth, diff and rewrite, update structural docs)
+- [ ] **Phase 5** — Validate Consistency (link validation, terminology audit, diagram freshness, code sample checks)
+- [ ] **Phase 6** — Verify Against the Running Application (smoke-test workflows, verify config, verify API docs)
+- [ ] **Phase 7** — Stamp & Reset Baseline (commit changes, update changelog, set new `.last-refresh` and git tag)
+- [ ] **Verification Checklist** — Complete [`doc-refresh-verification.md`](../../docs/checklists/doc-refresh-verification.md) and append to `.change-manifest.md`
+
 ---
 
 ### Principles
