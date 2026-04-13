@@ -96,6 +96,66 @@ class TestFleetDispatchService:
         assert task_id == "task-2"
 
     @pytest.mark.asyncio
+    async def test_resolve_task_id_ignores_slug_only_match_when_title_is_available(self) -> None:
+        service = FleetDispatchService()
+        github = Mock()
+        github.list_agent_tasks = AsyncMock(
+            return_value=[
+                {
+                    "id": "task-1",
+                    "name": "[speckit.specify] Parent Title",
+                    "createdAt": "2026-04-12T09:00:00Z",
+                },
+                {
+                    "id": "task-2",
+                    "name": "[speckit.specify] Different Title",
+                    "createdAt": "2026-04-12T10:00:00Z",
+                },
+            ]
+        )
+
+        task_id = await service.resolve_task_id(
+            github_service=github,
+            access_token="tok",
+            owner="Boykai",
+            repo="solune",
+            agent_slug="speckit.specify",
+            issue_title="Parent Title",
+        )
+
+        assert task_id == "task-1"
+
+    @pytest.mark.asyncio
+    async def test_resolve_task_id_falls_back_to_slug_when_title_is_empty(self) -> None:
+        service = FleetDispatchService()
+        github = Mock()
+        github.list_agent_tasks = AsyncMock(
+            return_value=[
+                {
+                    "id": "task-1",
+                    "name": "[speckit.specify] Parent Title",
+                    "createdAt": "2026-04-12T09:00:00Z",
+                },
+                {
+                    "id": "task-2",
+                    "name": "[speckit.specify] Different Title",
+                    "createdAt": "2026-04-12T10:00:00Z",
+                },
+            ]
+        )
+
+        task_id = await service.resolve_task_id(
+            github_service=github,
+            access_token="tok",
+            owner="Boykai",
+            repo="solune",
+            agent_slug="speckit.specify",
+            issue_title="",
+        )
+
+        assert task_id == "task-2"
+
+    @pytest.mark.asyncio
     async def test_get_task_status_normalizes_state(self) -> None:
         service = FleetDispatchService()
         github = Mock()

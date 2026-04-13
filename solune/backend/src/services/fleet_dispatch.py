@@ -314,8 +314,8 @@ class FleetDispatchService:
         normalized_title: str,
     ) -> bool:
         name = str(task.get("name") or "").lower()
-        if normalized_title and normalized_title in name:
-            return True
+        if normalized_title:
+            return normalized_slug in name and normalized_title in name
         return normalized_slug in name
 
     @staticmethod

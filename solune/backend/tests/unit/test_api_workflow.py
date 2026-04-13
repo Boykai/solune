@@ -26,7 +26,12 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from src.api.workflow import _check_duplicate, _recent_requests
+from src.api.workflow import (
+    _check_duplicate,
+    _get_pipeline_agent_statuses,
+    _recent_requests,
+    _serialize_pipeline_state,
+)
 from src.models.agent import AgentAssignment, AgentSource, AvailableAgent
 from src.models.chat import (
     IssueRecommendation,
@@ -332,6 +337,37 @@ class TestGetPipelineStateForIssue:
         with patch(f"{WF}.get_pipeline_state", return_value=None):
             resp = await client.get("/api/v1/workflow/pipeline-states/999")
         assert resp.status_code == 404
+
+
+class TestPipelineStateSerialization:
+    def test_serialize_pipeline_state_reports_fleet_without_task_ids(self):
+        state = FakePipelineState(agents=["speckit.specify"], agent_task_ids={})
+
+        payload = _serialize_pipeline_state(state)
+
+        assert payload["dispatch_backend"] == "fleet"
+
+    def test_parallel_group_statuses_preserve_pending_agents(self):
+        state = FakePipelineState(
+            agents=["speckit.specify", "speckit.tasks"],
+            groups=[
+                FakePipelineGroup(
+                    execution_mode="parallel",
+                    agents=["speckit.specify", "speckit.tasks"],
+                    agent_statuses={
+                        "speckit.specify": "active",
+                        "speckit.tasks": "pending",
+                    },
+                )
+            ],
+        )
+
+        statuses = _get_pipeline_agent_statuses(state)
+
+        assert statuses == {
+            "speckit.specify": "active",
+            "speckit.tasks": "pending",
+        }
 
 
 class TestRetryPipeline:

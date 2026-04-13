@@ -75,33 +75,46 @@ class IssuesMixin(_ServiceMixin):
     ) -> dict | None:
         """Find the oldest issue matching all labels, excluding pull requests."""
 
-        response = await self._rest_response(
-            access_token,
-            "GET",
-            f"/repos/{owner}/{repo}/issues",
-            params={
-                "state": state,
-                "per_page": 100,
-                "labels": ",".join(labels),
-            },
-        )
-        if response.status_code != 200:
-            logger.debug(
-                "Issue lookup by labels failed for %s/%s labels=%s: %d",
-                owner,
-                repo,
-                labels,
-                response.status_code,
+        per_page = 100
+        page = 1
+
+        while True:
+            response = await self._rest_response(
+                access_token,
+                "GET",
+                f"/repos/{owner}/{repo}/issues",
+                params={
+                    "state": state,
+                    "per_page": per_page,
+                    "page": page,
+                    "labels": ",".join(labels),
+                    "sort": "created",
+                    "direction": "asc",
+                },
             )
-            return None
+            if response.status_code != 200:
+                logger.debug(
+                    "Issue lookup by labels failed for %s/%s labels=%s page=%d: %d",
+                    owner,
+                    repo,
+                    labels,
+                    page,
+                    response.status_code,
+                )
+                return None
 
-        payload = response.json()
-        if not isinstance(payload, list):
-            return None
+            payload = response.json()
+            if not isinstance(payload, list):
+                return None
 
-        issues = [item for item in payload if isinstance(item, dict) and "pull_request" not in item]
-        issues.sort(key=lambda item: int(item.get("number") or 0))
-        return issues[0] if issues else None
+            for item in payload:
+                if isinstance(item, dict) and "pull_request" not in item:
+                    return item
+
+            if len(payload) < per_page:
+                return None
+
+            page += 1
 
     # ──────────────────────────────────────────────────────────────────
     # Issue Creation and Project Attachment (T018-T020, T036-T037, T043)

@@ -25,6 +25,7 @@ from src.models.workflow import (
 from src.services.agents.service import AgentsService
 from src.services.copilot_polling.polling_loop import PollingStatus
 from src.services.database import get_db
+from src.services.fleet_dispatch import FleetDispatchService
 from src.services.github_projects import github_projects_service
 from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
@@ -149,9 +150,27 @@ def _serialize_pipeline_state(state) -> dict:
         "error": state.error,
         "queued": state.queued,
         "agent_task_ids": dict(getattr(state, "agent_task_ids", {})),
-        "dispatch_backend": "fleet" if getattr(state, "agent_task_ids", {}) else "classic",
+        "dispatch_backend": _infer_dispatch_backend(state),
         "agent_statuses": agent_statuses,
     }
+
+
+def _infer_dispatch_backend(state) -> str:
+    """Infer the backend for the current or most recent pipeline step."""
+
+    candidate_agents = [agent for agent in getattr(state, "current_agents", []) if agent]
+    if not candidate_agents:
+        current_agent = getattr(state, "current_agent", None)
+        if current_agent:
+            candidate_agents = [current_agent]
+    if not candidate_agents:
+        completed_agents = getattr(state, "completed_agents", [])
+        if completed_agents:
+            candidate_agents = [completed_agents[-1]]
+
+    if any(FleetDispatchService.is_fleet_eligible(agent) for agent in candidate_agents):
+        return "fleet"
+    return "classic"
 
 
 def _get_pipeline_agent_statuses(state) -> dict[str, str]:
@@ -163,14 +182,21 @@ def _get_pipeline_agent_statuses(state) -> dict[str, str]:
     for agent in getattr(state, "failed_agents", []):
         agent_statuses[agent] = "failed"
 
-    if getattr(state, "groups", None):
-        for group in state.groups:
+    groups = getattr(state, "groups", None)
+    if groups:
+        for group in groups:
             for agent_name, status in group.agent_statuses.items():
                 agent_statuses[agent_name] = status
 
-    for agent in state.current_agents:
-        if agent and agent_statuses.get(agent) not in {"completed", "failed"}:
-            agent_statuses[agent] = "active"
+        group_index = getattr(state, "current_group_index", 0)
+        if 0 <= group_index < len(groups):
+            current_group = groups[group_index]
+            if current_group.execution_mode == "parallel":
+                return agent_statuses
+
+    current_agent = getattr(state, "current_agent", None)
+    if current_agent and agent_statuses.get(current_agent) not in {"completed", "failed"}:
+        agent_statuses[current_agent] = "active"
 
     return agent_statuses
 
