@@ -1795,7 +1795,7 @@ class TestProjectSelection:
 
     async def test_prompt_project_selection_message(self, admin_db):
         """When no project_id is provided, user is prompted for project."""
-        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock) as mock_gen:
+        with patch("src.services.agent_creator.generate_agent_config", new_callable=AsyncMock):
 
             result = await handle_agent_command(
                 message="#agent A bot for security",

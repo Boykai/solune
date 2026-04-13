@@ -869,7 +869,6 @@ class TestTranscriptHelpers:
 
         result = await _handle_transcript_upload(
             mock_session,
-            mock_ai_agent_service,
             "Roadmap",
             None,
             None,
@@ -918,7 +917,6 @@ class TestTranscriptHelpers:
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
-                    mock_ai_agent_service,
                     "Roadmap",
                     "pipe-1",
                     [f"/uploads/{filename}"],
@@ -973,7 +971,6 @@ class TestTranscriptHelpers:
             ):
                 message = await _handle_transcript_upload(
                     mock_session,
-                    mock_ai_agent_service,
                     "Roadmap",
                     None,
                     [f"/uploads/{filename}"],
@@ -1008,7 +1005,6 @@ class TestTranscriptHelpers:
             ):
                 result = await _handle_transcript_upload(
                     mock_session,
-                    mock_ai_agent_service,
                     "Roadmap",
                     None,
                     [f"/uploads/{filename}"],

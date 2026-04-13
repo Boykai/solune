@@ -166,7 +166,7 @@ class TestClassifyLabels:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             return_value=ai_response,
-        ) as mock_completion:
+        ):
             result = await classify_labels(
                 title="Optimize database queries",
                 description="Slow queries on dashboard",
@@ -187,7 +187,7 @@ class TestClassifyLabels:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             side_effect=RuntimeError("AI unavailable"),
-        ) as mock_completion:
+        ):
             result = await classify_labels(
                 title="Some issue",
                 github_token="tok",
@@ -203,7 +203,7 @@ class TestClassifyLabels:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             return_value="this is not json",
-        ) as mock_completion:
+        ):
             result = await classify_labels(
                 title="Some issue",
                 github_token="tok",
@@ -236,7 +236,7 @@ class TestClassifyLabels:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             return_value=ai_response,
-        ) as mock_completion:
+        ):
             result = await classify_labels(
                 title="Fix login",
                 github_token="tok",
@@ -272,7 +272,7 @@ class TestClassifyLabels:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             side_effect=RuntimeError("AI unavailable"),
-        ) as mock_completion:
+        ):
             result = await classify_labels(
                 title="Some issue",
                 github_token="tok",
@@ -470,7 +470,7 @@ class TestClassifyLabelsWithPriority:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             return_value=ai_response,
-        ) as mock_completion:
+        ):
             result = await classify_labels_with_priority(
                 title="Critical security vulnerability in authentication module",
                 description="Production system compromised",
@@ -494,7 +494,7 @@ class TestClassifyLabelsWithPriority:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             return_value=ai_response,
-        ) as mock_completion:
+        ):
             result = await classify_labels_with_priority(
                 title="Add pagination to user list",
                 github_token="tok",
@@ -510,7 +510,7 @@ class TestClassifyLabelsWithPriority:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             side_effect=RuntimeError("AI unavailable"),
-        ) as mock_completion:
+        ):
             result = await classify_labels_with_priority(
                 title="Some issue",
                 github_token="tok",
@@ -559,7 +559,7 @@ class TestClassifyLabelsWithPriority:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             return_value=ai_response,
-        ) as mock_completion:
+        ):
             result = await classify_labels_with_priority(
                 title="Some urgent issue",
                 github_token="tok",
@@ -585,7 +585,7 @@ class TestClassifyLabelsWithPriority:
             "src.services.agent_provider.call_completion",
             new_callable=AsyncMock,
             side_effect=RuntimeError("AI unavailable"),
-        ) as mock_completion:
+        ):
             result = await classify_labels_with_priority(
                 title="Some issue",
                 github_token="tok",

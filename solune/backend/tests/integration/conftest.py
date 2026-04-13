@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import ExitStack, asynccontextmanager
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import aiosqlite
 import pytest
@@ -274,7 +274,6 @@ async def thin_mock_client(
             return None
 
     auth_service = _GitHubAuthStub()
-    ai_service = _AIAgentStub()
     github_service = _GitHubProjectsStub()
 
     async def _create_session_from_token(_token: str) -> UserSession:

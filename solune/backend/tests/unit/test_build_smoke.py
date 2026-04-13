@@ -43,8 +43,8 @@ class TestCriticalImports:
         from src.main import app  # noqa: F401
 
     def test_copilot_provider_imports(self) -> None:
-        """CopilotCompletionProvider must be importable (SDK import breakage)."""
-        from src.services.completion_providers import CopilotCompletionProvider  # noqa: F401
+        """CopilotClientPool must be importable (SDK import breakage)."""
+        from src.services.agent_provider import CopilotClientPool  # noqa: F401
 
     def test_config_loads(self) -> None:
         """Settings must instantiate without missing env var errors in test mode."""

@@ -7,7 +7,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
@@ -44,13 +44,12 @@ from src.models.recommendation import (
 from src.models.user import UserSession
 from src.models.workflow import WorkflowConfiguration
 from src.services import ai_utilities
-from src.services.chat_agent import get_chat_agent_service
-
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
     get_user_projects_cache_key,
 )
+from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db
 from src.services.pipeline_launcher import start_pipeline
 from src.services.settings_store import get_effective_user_settings
