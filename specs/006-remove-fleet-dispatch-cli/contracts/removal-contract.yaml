@@ -1,0 +1,53 @@
+# Removal Contract: Fleet Dispatch & Copilot CLI
+# This contract documents the API surface changes from the fleet dispatch removal.
+# No new endpoints are created; this documents field removals from existing responses.
+
+openapi: 3.0.3
+info:
+  title: Fleet Dispatch Removal — API Surface Changes
+  version: 0.0.0
+  description: >
+    Documents fields removed from the workflow API response after fleet dispatch
+    removal. No new endpoints or schemas are introduced.
+
+paths:
+  /api/workflow/{issue_number}/state:
+    get:
+      summary: Get pipeline state for an issue
+      description: >
+        Returns the current pipeline execution state. After fleet removal,
+        the `agent_task_ids` and `dispatch_backend` fields are no longer
+        included in the response.
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pipeline state (fleet fields removed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  # ... existing fields preserved ...
+                  # REMOVED: agent_task_ids (Record<string, string>)
+                  # REMOVED: dispatch_backend ('fleet' | 'classic')
+                  status:
+                    type: string
+                    description: Pipeline status
+                  agents:
+                    type: object
+                    description: Agent execution states
+
+# Summary of removed API fields:
+# 1. agent_task_ids: dict[str, str] — mapped agent slugs to GitHub task IDs
+#    Used only by fleet dispatch flows; never consumed by frontend components
+#
+# 2. dispatch_backend: 'fleet' | 'classic' — indicated dispatch method
+#    Frontend type existed but no component referenced it
+#
+# Backward compatibility: Clients that destructure these fields will get
+# undefined/missing values, which is safe given zero UI consumers.
