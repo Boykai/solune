@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
 
 from src.api.auth import get_session_dep
-from src.logging_utils import get_logger
-from src.models.user import UserSession
-
 from src.api.chat.constants import (
     ALLOWED_TYPES,
     BLOCKED_TYPES,
     MAX_FILE_SIZE_BYTES,
     FileUploadResponse,
 )
+from src.logging_utils import get_logger
+from src.models.user import UserSession
 
 logger = get_logger(__name__)
 router = APIRouter()

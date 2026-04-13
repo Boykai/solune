@@ -457,7 +457,9 @@ async def client(
         # Chat agent service (v0.2.0 — agent-framework powered)
         patch("src.api.chat.messages.get_chat_agent_service", return_value=mock_chat_agent_service),
         patch("src.api.chat.plans.get_chat_agent_service", return_value=mock_chat_agent_service),
-        patch("src.api.chat.streaming.get_chat_agent_service", return_value=mock_chat_agent_service),
+        patch(
+            "src.api.chat.streaming.get_chat_agent_service", return_value=mock_chat_agent_service
+        ),
         # connection_manager — patched in every API module that broadcasts
         patch("src.api.projects.connection_manager", mock_websocket_manager),
         patch("src.api.tasks.connection_manager", mock_websocket_manager),

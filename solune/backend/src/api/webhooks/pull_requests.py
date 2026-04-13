@@ -1,6 +1,6 @@
 """Pull request webhook event handlers."""
 
-from typing import Any, cast
+from typing import Any
 
 from src.api.webhook_models import PullRequestEvent
 from src.api.webhooks.utils import extract_issue_number_from_pr

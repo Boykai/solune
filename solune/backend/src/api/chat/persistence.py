@@ -6,6 +6,14 @@ import asyncio
 import json
 from uuid import UUID
 
+from src.api.chat.constants import (
+    _PERSIST_BASE_DELAY,
+    _PERSIST_MAX_RETRIES,
+    _locks,
+    _messages,
+    _proposals,
+    _recommendations,
+)
 from src.logging_utils import get_logger
 from src.models.chat import ActionType, ChatMessage, SenderType
 from src.models.recommendation import (
@@ -16,15 +24,6 @@ from src.models.recommendation import (
 )
 from src.models.user import UserSession
 from src.services.database import get_db
-
-from src.api.chat.constants import (
-    _PERSIST_BASE_DELAY,
-    _PERSIST_MAX_RETRIES,
-    _locks,
-    _messages,
-    _proposals,
-    _recommendations,
-)
 
 logger = get_logger(__name__)
 

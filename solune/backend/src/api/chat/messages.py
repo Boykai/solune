@@ -41,6 +41,8 @@ from src.services.chat_agent import get_chat_agent_service
 
 if TYPE_CHECKING:
     from src.services.ai_agent import AIAgentService
+from src.api.chat import persistence as _persistence
+from src.api.chat.constants import MAX_FILE_SIZE_BYTES, _messages
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
@@ -48,9 +50,6 @@ from src.services.cache import (
 )
 from src.services.database import get_db
 from src.utils import resolve_repository, utcnow
-
-from src.api.chat.constants import MAX_FILE_SIZE_BYTES, _messages
-from src.api.chat import persistence as _persistence
 
 logger = get_logger(__name__)
 router = APIRouter()
