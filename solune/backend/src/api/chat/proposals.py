@@ -31,7 +31,7 @@ from src.services.workflow_orchestrator import (
 )
 from src.utils import resolve_repository, utcnow
 
-from src.api.chat.persistence import add_message, get_proposal, _trigger_signal_delivery
+from src.api.chat import persistence as _persistence
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -46,7 +46,7 @@ async def confirm_proposal(
     connection_manager=Depends(get_connection_manager),  # noqa: B008
 ) -> AITaskProposal:
     """Confirm an AI task proposal and create the task."""
-    proposal = await get_proposal(proposal_id)
+    proposal = await _persistence.get_proposal(proposal_id)
 
     if not proposal:
         raise NotFoundError(f"Proposal not found: {proposal_id}")
@@ -177,8 +177,8 @@ async def confirm_proposal(
                 "status": ProposalStatus.CONFIRMED.value,
             },
         )
-        await add_message(session.session_id, confirm_message)
-        _trigger_signal_delivery(session, confirm_message)
+        await _persistence.add_message(session.session_id, confirm_message)
+        _persistence._trigger_signal_delivery(session, confirm_message)
 
         logger.info(
             "Created issue #%d from proposal %s: %s",
@@ -392,7 +392,7 @@ async def cancel_proposal(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> dict:
     """Cancel an AI task proposal."""
-    proposal = await get_proposal(proposal_id)
+    proposal = await _persistence.get_proposal(proposal_id)
 
     if not proposal:
         raise NotFoundError(f"Proposal not found: {proposal_id}")
@@ -415,6 +415,6 @@ async def cancel_proposal(
         sender_type=SenderType.SYSTEM,
         content="Task creation cancelled.",
     )
-    await add_message(session.session_id, cancel_message)
+    await _persistence.add_message(session.session_id, cancel_message)
 
     return {"message": "Proposal cancelled"}

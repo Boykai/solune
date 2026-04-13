@@ -46,6 +46,11 @@ from src.api.chat.messages import (  # noqa: F401
 )
 from src.api.chat.uploads import upload_file  # noqa: F401
 
+# Re-export for test backward compatibility (chat_mod.X access patterns)
+from pathlib import Path  # noqa: F401
+from src.services.cache import cache  # noqa: F401
+from src.services.database import get_db  # noqa: F401
+
 router = APIRouter()
 router.include_router(messages_router)
 router.include_router(streaming_router)

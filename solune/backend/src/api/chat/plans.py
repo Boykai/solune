@@ -17,7 +17,7 @@ from src.services.cache import cache, get_user_projects_cache_key
 from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db
 
-from src.api.chat.persistence import add_message, _trigger_signal_delivery
+from src.api.chat import persistence as _persistence
 from src.api.chat.messages import _resolve_repository
 
 logger = get_logger(__name__)
@@ -82,7 +82,7 @@ async def send_plan_message(
         content=chat_request.content,
         conversation_id=chat_request.conversation_id,
     )
-    await add_message(session.session_id, user_message)
+    await _persistence.add_message(session.session_id, user_message)
 
     result = await chat_agent_svc.run_plan(
         message=content,
@@ -97,7 +97,7 @@ async def send_plan_message(
         db=get_db(),
     )
     result.conversation_id = chat_request.conversation_id
-    await add_message(session.session_id, result)
+    await _persistence.add_message(session.session_id, result)
     return result
 
 
@@ -157,7 +157,7 @@ async def send_plan_message_stream(
         content=chat_request.content,
         conversation_id=chat_request.conversation_id,
     )
-    await add_message(session.session_id, user_message)
+    await _persistence.add_message(session.session_id, user_message)
 
     async def event_generator():
         async for event in chat_agent_svc.run_plan_stream(
@@ -176,7 +176,7 @@ async def send_plan_message_stream(
                 try:
                     assistant_message = ChatMessage.model_validate_json(event["data"])
                     assistant_message.conversation_id = chat_request.conversation_id
-                    await add_message(session.session_id, assistant_message)
+                    await _persistence.add_message(session.session_id, assistant_message)
                     yield {
                         "event": "done",
                         "data": assistant_message.model_dump_json(),
@@ -408,8 +408,8 @@ async def approve_plan_endpoint(
                 "status": "completed",
             },
         )
-        await add_message(session.session_id, confirm_message)
-        _trigger_signal_delivery(session, confirm_message)
+        await _persistence.add_message(session.session_id, confirm_message)
+        _persistence._trigger_signal_delivery(session, confirm_message)
 
     # Re-fetch for accurate state
     updated_plan = await chat_store.get_plan(db, plan_id)

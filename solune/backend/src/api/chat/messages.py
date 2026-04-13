@@ -50,13 +50,7 @@ from src.services.database import get_db
 from src.utils import resolve_repository, utcnow
 
 from src.api.chat.constants import MAX_FILE_SIZE_BYTES, _messages
-from src.api.chat.persistence import (
-    add_message,
-    get_session_messages,
-    store_proposal,
-    store_recommendation,
-    _trigger_signal_delivery,
-)
+from src.api.chat import persistence as _persistence
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -114,8 +108,8 @@ async def _handle_agent_command(
         content=agent_response_text,
         conversation_id=conversation_id,
     )
-    await add_message(session.session_id, agent_msg)
-    _trigger_signal_delivery(session, agent_msg, project_name)
+    await _persistence.add_message(session.session_id, agent_msg)
+    _persistence._trigger_signal_delivery(session, agent_msg, project_name)
     return agent_msg
 
 
@@ -203,7 +197,7 @@ async def _handle_transcript_upload(
             recommendation.selected_pipeline_id = pipeline_id or None
             recommendation.file_urls = file_urls or []
 
-            await store_recommendation(recommendation)
+            await _persistence.store_recommendation(recommendation)
 
             requirements_preview = "\n".join(
                 f"- {req}" for req in recommendation.functional_requirements
@@ -244,8 +238,8 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
                     "pipeline_id": pipeline_id,
                 },
             )
-            await add_message(session.session_id, assistant_message)
-            _trigger_signal_delivery(session, assistant_message, project_name)
+            await _persistence.add_message(session.session_id, assistant_message)
+            _persistence._trigger_signal_delivery(session, assistant_message, project_name)
 
             logger.info(
                 "Generated transcript recommendation %s: %s",
@@ -261,7 +255,7 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
                 sender_type=SenderType.ASSISTANT,
                 content=f"I couldn't extract requirements from the uploaded transcript ({type(e).__name__}). Please try again or paste the transcript content directly.",
             )
-            await add_message(session.session_id, error_message)
+            await _persistence.add_message(session.session_id, error_message)
             return error_message
 
     return None
@@ -315,7 +309,7 @@ async def _handle_feature_request(
         recommendation.selected_pipeline_id = pipeline_id or None
         recommendation.file_urls = file_urls or []
 
-        await store_recommendation(recommendation)
+        await _persistence.store_recommendation(recommendation)
 
         requirements_preview = "\n".join(
             f"- {req}" for req in recommendation.functional_requirements
@@ -357,8 +351,8 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
                 "pipeline_id": pipeline_id,
             },
         )
-        await add_message(session.session_id, assistant_message)
-        _trigger_signal_delivery(session, assistant_message, project_name)
+        await _persistence.add_message(session.session_id, assistant_message)
+        _persistence._trigger_signal_delivery(session, assistant_message, project_name)
 
         logger.info(
             "Generated issue recommendation %s: %s",
@@ -374,7 +368,7 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
             sender_type=SenderType.ASSISTANT,
             content="I couldn't generate an issue recommendation from your feature request. Please try again with more detail.",
         )
-        await add_message(session.session_id, error_message)
+        await _persistence.add_message(session.session_id, error_message)
         return error_message
 
 
@@ -412,7 +406,7 @@ async def _handle_status_change(
             sender_type=SenderType.ASSISTANT,
             content=f"I couldn't find a task matching '{status_change.task_reference}'. Please try again with a more specific task name.",
         )
-        await add_message(session.session_id, error_message)
+        await _persistence.add_message(session.session_id, error_message)
         return error_message
 
     target_status = status_change.target_status
@@ -435,7 +429,7 @@ async def _handle_status_change(
         proposed_title=target_task.title,
         proposed_description=f"Move from '{target_task.status}' to '{target_status}'",
     )
-    await store_proposal(proposal)
+    await _persistence.store_proposal(proposal)
 
     assistant_message = ChatMessage(
         session_id=session.session_id,
@@ -453,8 +447,8 @@ async def _handle_status_change(
             "status": ProposalStatus.PENDING.value,
         },
     )
-    await add_message(session.session_id, assistant_message)
-    _trigger_signal_delivery(session, assistant_message, project_name)
+    await _persistence.add_message(session.session_id, assistant_message)
+    _persistence._trigger_signal_delivery(session, assistant_message, project_name)
     return assistant_message
 
 
@@ -485,7 +479,7 @@ async def _handle_task_generation(
                 proposed_description=content,
                 selected_pipeline_id=pipeline_id or None,
             )
-            await store_proposal(proposal)
+            await _persistence.store_proposal(proposal)
 
             description_preview = content[:200]
             if len(content) > 200:
@@ -503,8 +497,8 @@ async def _handle_task_generation(
                     "status": ProposalStatus.PENDING.value,
                 },
             )
-            await add_message(session.session_id, assistant_message)
-            _trigger_signal_delivery(session, assistant_message, project_name)
+            await _persistence.add_message(session.session_id, assistant_message)
+            _persistence._trigger_signal_delivery(session, assistant_message, project_name)
             return assistant_message
 
         except Exception as e:
@@ -514,7 +508,7 @@ async def _handle_task_generation(
                 sender_type=SenderType.ASSISTANT,
                 content="I couldn't generate metadata for your request. Your input was preserved — please try again.",
             )
-            await add_message(session.session_id, error_message)
+            await _persistence.add_message(session.session_id, error_message)
             return error_message
 
     # Full AI pipeline: generate both title and description via AI
@@ -532,7 +526,7 @@ async def _handle_task_generation(
             proposed_description=generated.description,
             selected_pipeline_id=pipeline_id or None,
         )
-        await store_proposal(proposal)
+        await _persistence.store_proposal(proposal)
 
         assistant_message = ChatMessage(
             session_id=session.session_id,
@@ -551,8 +545,8 @@ async def _handle_task_generation(
                 "status": ProposalStatus.PENDING.value,
             },
         )
-        await add_message(session.session_id, assistant_message)
-        _trigger_signal_delivery(session, assistant_message, project_name)
+        await _persistence.add_message(session.session_id, assistant_message)
+        _persistence._trigger_signal_delivery(session, assistant_message, project_name)
         return assistant_message
 
     except Exception as e:
@@ -599,7 +593,7 @@ async def _handle_task_generation(
             sender_type=SenderType.ASSISTANT,
             content=user_hint,
         )
-        await add_message(session.session_id, error_message)
+        await _persistence.add_message(session.session_id, error_message)
         return error_message
 
 
@@ -837,7 +831,7 @@ async def send_message(
             content="AI features are not configured. Please set up your AI provider credentials (GitHub Copilot OAuth or Azure OpenAI) to use chat functionality.",
             conversation_id=chat_request.conversation_id,
         )
-        await add_message(session.session_id, error_msg)
+        await _persistence.add_message(session.session_id, error_msg)
         return error_msg
 
     # Create user message
@@ -847,7 +841,7 @@ async def send_message(
         content=chat_request.content,
         conversation_id=chat_request.conversation_id,
     )
-    await add_message(session.session_id, user_message)
+    await _persistence.add_message(session.session_id, user_message)
 
     # Get project details for context
     project_name = "Unknown Project"
@@ -917,7 +911,7 @@ async def send_message(
             selected_project_id=selected_project_id,
             user_content=content,
         )
-        await add_message(session.session_id, assistant_msg)
+        await _persistence.add_message(session.session_id, assistant_msg)
         return assistant_msg
 
     # ── Agent-powered dispatch (v0.2.0) ──────────────────────────────
@@ -962,8 +956,8 @@ async def send_message(
             user_content=content,
         )
 
-        await add_message(session.session_id, assistant_message)
-        _trigger_signal_delivery(session, assistant_message, project_name)
+        await _persistence.add_message(session.session_id, assistant_message)
+        _persistence._trigger_signal_delivery(session, assistant_message, project_name)
         return assistant_message
 
     # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
@@ -1097,7 +1091,7 @@ async def _post_process_agent_response(
             proposed_description=proposed_description,
             selected_pipeline_id=pipeline_id or None,
         )
-        await store_proposal(proposal)
+        await _persistence.store_proposal(proposal)
         action_data["proposed_description"] = proposed_description
         action_data["proposal_id"] = str(proposal.proposal_id)
         action_data["status"] = ProposalStatus.PENDING.value
@@ -1116,7 +1110,7 @@ async def _post_process_agent_response(
         )
         recommendation.selected_pipeline_id = pipeline_id or None
         recommendation.file_urls = file_urls or []
-        await store_recommendation(recommendation)
+        await _persistence.store_recommendation(recommendation)
         action_data["recommendation_id"] = str(recommendation.recommendation_id)
         action_data["status"] = RecommendationStatus.PENDING.value
         action_data["file_urls"] = file_urls
@@ -1145,7 +1139,7 @@ async def _post_process_agent_response(
             proposed_title=action_data.get("task_title", ""),
             proposed_description=f"Move from '{action_data.get('current_status', '')}' to '{target_status}'",
         )
-        await store_proposal(proposal)
+        await _persistence.store_proposal(proposal)
         action_data["proposal_id"] = str(proposal.proposal_id)
         action_data["status_option_id"] = status_option_id
         action_data["status_field_id"] = status_field_id

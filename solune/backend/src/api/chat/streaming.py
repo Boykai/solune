@@ -17,7 +17,7 @@ from src.services.cache import cache, get_project_items_cache_key, get_user_proj
 from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db
 
-from src.api.chat.persistence import add_message, _trigger_signal_delivery
+from src.api.chat import persistence as _persistence
 from src.api.chat.messages import _extract_transcript_content, _post_process_agent_response
 
 logger = get_logger(__name__)
@@ -79,7 +79,7 @@ async def send_message_stream(
         content=chat_request.content,
         conversation_id=chat_request.conversation_id,
     )
-    await add_message(session.session_id, user_message)
+    await _persistence.add_message(session.session_id, user_message)
 
     # Get project details
     project_name = "Unknown Project"
@@ -133,8 +133,8 @@ async def send_message_stream(
                         selected_project_id=selected_project_id,
                         user_content=chat_request.content,
                     )
-                    await add_message(session.session_id, assistant_message)
-                    _trigger_signal_delivery(session, assistant_message, project_name)
+                    await _persistence.add_message(session.session_id, assistant_message)
+                    _persistence._trigger_signal_delivery(session, assistant_message, project_name)
                     yield {
                         "event": "done",
                         "data": assistant_message.model_dump_json(),
