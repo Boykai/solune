@@ -112,20 +112,6 @@ if TYPE_CHECKING:
         async def get_pr_timeline_events(
             self, access_token: str, owner: str, repo: str, issue_number: int
         ) -> list[dict[str, Any]]: ...
-        async def list_agent_tasks(
-            self,
-            access_token: str,
-            owner: str,
-            repo: str,
-            limit: int = 100,
-        ) -> list[dict[str, Any]]: ...
-        async def get_agent_task(
-            self,
-            access_token: str,
-            owner: str,
-            repo: str,
-            task_id: str,
-        ) -> dict[str, Any] | None: ...
 
 else:
     _ServiceMixin = object
