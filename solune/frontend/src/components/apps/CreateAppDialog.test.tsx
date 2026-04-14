@@ -63,6 +63,7 @@ describe('CreateAppDialog — project_id scoping (T015)', () => {
     expect(payload!.repo_type).toBe('same-repo');
     expect(payload!.pipeline_id).toBe('pipe-1');
     expect(payload!.project_id).toBe('PVT_proj123');
+    expect(payload!.branch).toBe('main');
   });
 
   it('new-repo payload omits project_id', async () => {
@@ -76,7 +77,7 @@ describe('CreateAppDialog — project_id scoping (T015)', () => {
     expect(payload!.project_id).toBeUndefined();
   });
 
-  it('external-repo payload omits project_id', async () => {
+  it('external-repo payload defaults branch to main', async () => {
     const user = userEvent.setup();
     renderDialog({ initialRepoType: 'external-repo' });
 
@@ -95,5 +96,6 @@ describe('CreateAppDialog — project_id scoping (T015)', () => {
     expect(payload).toBeDefined();
     expect(payload!.repo_type).toBe('external-repo');
     expect(payload!.project_id).toBeUndefined();
+    expect(payload!.branch).toBe('main');
   });
 });

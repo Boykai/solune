@@ -10,7 +10,8 @@ import { useProjectBoard } from '@/hooks/useProjectBoard';
 import { useChoresListPaginated, useEvaluateChoresTriggers, choreKeys } from '@/hooks/useChores';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { ChoresPanel } from '@/components/chores/ChoresPanel';
-import { FeaturedRitualsPanel } from '@/components/chores/FeaturedRitualsPanel';
+import { AddChoreModal } from '@/components/chores/AddChoreModal';
+import { CleanUpButton } from '@/components/board/CleanUpButton';
 import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { ProjectSelectionEmptyState } from '@/components/common/ProjectSelectionEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,8 +49,9 @@ export function ChoresPage() {
   }, [projectId, queryClient]);
 
   const { boardData } = useProjectBoard({ selectedProjectId: projectId });
-  const { allItems: chores, isLoading: choresLoading } = useChoresListPaginated(projectId);
+  const { isLoading: choresLoading } = useChoresListPaginated(projectId);
   const [isAnyDirty, setIsAnyDirty] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const parentIssueCount = useMemo(() => countParentIssues(boardData), [boardData]);
 
@@ -92,31 +94,21 @@ export function ChoresPage() {
           { label: 'Automation mode', value: projectId ? 'Live' : 'Idle' },
         ]}
         actions={
-          <>
-            <Button variant="default" size="lg" asChild>
-              <a href="#chores-catalog">Plan recurring work</a>
-            </Button>
-            <Button variant="outline" size="lg" asChild>
-              <a href="#chore-templates">Review upkeep cadence</a>
-            </Button>
-          </>
+          projectId ? (
+            <>
+              <CleanUpButton
+                key={`${projectId}:${owner ?? ''}/${repoName ?? ''}`}
+                owner={owner}
+                repo={repoName}
+                projectId={projectId}
+              />
+              <Button variant="default" size="lg" onClick={() => setShowAddModal(true)}>
+                + Create Chore
+              </Button>
+            </>
+          ) : undefined
         }
       />
-
-      {/* Featured Rituals Panel */}
-      {projectId && (
-        <section className="ritual-stage rounded-[1.55rem] p-4 sm:rounded-[1.85rem] sm:p-6">
-          <div className="mb-4">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">
-              Featured Rituals
-            </p>
-            <h4 className="mt-1 text-[1.15rem] font-display font-medium leading-tight">
-              Key chore highlights
-            </h4>
-          </div>
-          <FeaturedRitualsPanel chores={chores ?? []} parentIssueCount={parentIssueCount} />
-        </section>
-      )}
 
       {/* No project selected */}
       {!projectId && (
@@ -146,8 +138,6 @@ export function ChoresPage() {
           ) : (
             <ChoresPanel
               projectId={projectId}
-              owner={owner}
-              repo={repoName}
               parentIssueCount={parentIssueCount}
               onDirtyChange={setIsAnyDirty}
             />
@@ -174,6 +164,14 @@ export function ChoresPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {projectId && (
+        <AddChoreModal
+          projectId={projectId}
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+        />
       )}
     </div>
   );

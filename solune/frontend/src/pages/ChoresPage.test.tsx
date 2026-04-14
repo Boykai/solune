@@ -63,6 +63,16 @@ describe('ChoresPage', () => {
     expect(container.querySelector('header')).toBeInTheDocument();
   });
 
+  it('does not render "Plan recurring work" button', () => {
+    render(<ChoresPage />);
+    expect(screen.queryByText('Plan recurring work')).not.toBeInTheDocument();
+  });
+
+  it('does not render "Featured Rituals" section', () => {
+    render(<ChoresPage />);
+    expect(screen.queryByText('Featured Rituals')).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<ChoresPage />);
     await expectNoA11yViolations(container);
