@@ -1738,7 +1738,6 @@ class WorkflowOrchestrator:
             ),
             None,
         )
-        assignment_config = getattr(original_assignment, "config", None)
 
         # Fetch issue context for the agent's custom instructions
         custom_instructions = ""
