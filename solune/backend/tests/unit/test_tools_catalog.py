@@ -26,7 +26,6 @@ from src.models.tools import (
 from src.services.cache import InMemoryCache
 from src.services.tools.catalog import (
     CATALOG_CACHE_KEY,
-    _fetch_glama_servers,
     _map_catalog_fetch_error,
     _normalize_server,
     _slugify,
@@ -536,6 +535,7 @@ class TestMapCatalogFetchError:
 
 class TestFetchGlamaServers:
     async def test_invalid_json_returns_502_catalog_error(self):
+        mock_cache = InMemoryCache()
         request = httpx.Request("GET", "https://glama.ai/api/mcp/v1/servers")
         response = httpx.Response(200, request=request, text="not json")
 
@@ -554,12 +554,13 @@ class TestFetchGlamaServers:
 
         with patch("src.services.tools.catalog.httpx.AsyncClient", MockClient):
             with pytest.raises(CatalogUnavailableError) as exc_info:
-                await _fetch_glama_servers()
+                await list_catalog_servers("proj-1", set(), cache_instance=mock_cache)
 
         assert exc_info.value.status_code == 502
         assert exc_info.value.message == "MCP catalog upstream returned an invalid response."
 
     async def test_fetch_disables_redirects(self):
+        mock_cache = InMemoryCache()
         request = httpx.Request("GET", "https://glama.ai/api/mcp/v1/servers")
         response = httpx.Response(200, request=request, json=[])
         captured_kwargs: dict[str, object] = {}
@@ -578,9 +579,14 @@ class TestFetchGlamaServers:
                 return response
 
         with patch("src.services.tools.catalog.httpx.AsyncClient", MockClient):
-            result = await _fetch_glama_servers(query="github")
+            result = await list_catalog_servers(
+                "proj-1",
+                set(),
+                query="github",
+                cache_instance=mock_cache,
+            )
 
-        assert result == []
+        assert result.count == 0
         assert captured_kwargs["follow_redirects"] is False
 
 
