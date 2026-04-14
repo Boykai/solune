@@ -86,7 +86,8 @@ The stored JSON remains wrapped in the existing root structure:
 {
   "mcpServers": {
     "<normalized-server-name>": {
-      "...mapped install config...": true
+      "type": "http",
+      "url": "https://example.com/mcp"
     }
   }
 }

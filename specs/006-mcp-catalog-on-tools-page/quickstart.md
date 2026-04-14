@@ -60,14 +60,14 @@ Add or extend tests around:
 
 - `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_tools.py`
 - `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_service.py`
-- `/home/runner/work/solune/solune/solune/backend/tests/unit/test_catalog.py`
-- New catalog-specific tool tests if separation improves readability
+- `/home/runner/work/solune/solune/solune/backend/tests/unit/test_catalog.py` (reference pattern from the existing agents catalog tests)
+- A new tools-catalog-specific backend test module if the implementation is split out for clarity
 
 Run targeted backend validation:
 
 ```bash
 cd /home/runner/work/solune/solune/solune/backend
-uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py tests/unit/test_catalog.py -q
+uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py tests/unit/test_catalog.py tests/unit/test_tools_catalog.py -q
 ```
 
 ### Frontend
