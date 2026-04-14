@@ -118,4 +118,21 @@ describe('ChoresPage — with selected project', () => {
 
     expect(screen.getByRole('dialog')).toHaveTextContent('Add Chore Modal');
   });
+
+  it('does not auto-reopen the modal after project changes back', () => {
+    const { rerender } = render(<ChoresPage />);
+
+    // Open the modal
+    fireEvent.click(screen.getByRole('button', { name: /\+ create chore/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Simulate project deselection then re-selection
+    projectsState.selectedProject = null;
+    rerender(<ChoresPage />);
+
+    projectsState.selectedProject = { project_id: 'PVT_1', name: 'Project Alpha' };
+    rerender(<ChoresPage />);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });

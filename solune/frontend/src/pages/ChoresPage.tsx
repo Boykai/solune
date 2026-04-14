@@ -61,6 +61,16 @@ export function ChoresPage() {
   const { isLoading: choresLoading } = useChoresListPaginated(projectId, defaultChoreFilters);
   const [isAnyDirty, setIsAnyDirty] = useState(false);
   const [addModalProjectId, setAddModalProjectId] = useState<string | null>(null);
+
+  // Reset modal state when projectId changes so the modal does not auto-reopen
+  // when the user deselects and re-selects the same project.
+  // Uses render-time state adjustment (React-recommended) instead of useEffect.
+  const prevProjectRef = useRef(projectId);
+  if (prevProjectRef.current !== projectId) {
+    prevProjectRef.current = projectId;
+    setAddModalProjectId(null);
+  }
+
   const showAddModal = !!projectId && addModalProjectId === projectId;
 
   const parentIssueCount = useMemo(() => countParentIssues(boardData), [boardData]);
