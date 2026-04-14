@@ -18,6 +18,7 @@ import type {
   McpToolConfigListResponse,
   McpToolSyncResult,
   PaginatedResponse,
+  CatalogMcpServerListResponse,
 } from '@/types';
 
 function formatMutationError(error: unknown, action: string): string {
@@ -33,6 +34,12 @@ export const toolKeys = {
   list: (projectId: string) => [...toolKeys.all, 'list', projectId] as const,
   detail: (projectId: string, toolId: string) =>
     [...toolKeys.all, 'detail', projectId, toolId] as const,
+};
+
+export const catalogKeys = {
+  all: ['mcp-catalog'] as const,
+  browse: (projectId: string, query: string, category: string) =>
+    [...catalogKeys.all, 'browse', projectId, query, category] as const,
 };
 
 const STALE_TIME_TOOLS = 30_000; // 30 seconds
@@ -295,5 +302,57 @@ export function useToolsListPaginated(projectId: string | null | undefined) {
         queryClient.invalidateQueries({ queryKey: toolKeys.list(projectId) });
       }
     },
+  };
+}
+
+const STALE_TIME_CATALOG = 60_000; // 1 minute
+
+export function useMcpCatalog(
+  projectId: string | null | undefined,
+  query: string,
+  category: string,
+) {
+  const result = useQuery<CatalogMcpServerListResponse, ApiError>({
+    queryKey: catalogKeys.browse(projectId ?? '', query, category),
+    queryFn: () => toolsApi.browseCatalog(projectId!, { query, category }),
+    staleTime: STALE_TIME_CATALOG,
+    enabled: !!projectId,
+  });
+
+  return {
+    data: result.data,
+    servers: result.data?.servers ?? [],
+    isLoading: result.isLoading,
+    isError: result.isError,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+export function useImportMcpServer(projectId: string | null | undefined) {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation<McpToolConfig, ApiError, string>({
+    mutationFn: (catalogServerId: string) =>
+      toolsApi.importFromCatalog(projectId!, { catalog_server_id: catalogServerId }),
+    onSuccess: () => {
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: toolKeys.list(projectId) });
+        queryClient.invalidateQueries({ queryKey: repoMcpKeys.detail(projectId) });
+        queryClient.invalidateQueries({ queryKey: catalogKeys.all });
+      }
+      toast.success('MCP server imported from catalog');
+    },
+    onError: (error) => {
+      toast.error(error.message || 'Failed to import MCP server');
+    },
+  });
+
+  return {
+    importServer: mutation.mutateAsync,
+    isImporting: mutation.isPending,
+    importingId: mutation.variables ?? null,
+    importError: mutation.error ? formatMutationError(mutation.error, 'import MCP server') : null,
+    reset: mutation.reset,
   };
 }

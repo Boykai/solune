@@ -1488,6 +1488,41 @@ export interface ToolDeleteResult {
   affected_agents: ToolChip[];
 }
 
+// ============ MCP Catalog Types ============
+
+export interface CatalogInstallConfig {
+  transport: string;
+  url?: string | null;
+  command?: string | null;
+  args?: string[];
+  env?: Record<string, unknown>;
+  headers?: Record<string, unknown>;
+  tools?: string[];
+}
+
+export interface CatalogMcpServer {
+  id: string;
+  name: string;
+  description: string;
+  repo_url?: string | null;
+  category?: string | null;
+  server_type: string;
+  install_config: CatalogInstallConfig;
+  quality_score?: string | null;
+  already_installed: boolean;
+}
+
+export interface CatalogMcpServerListResponse {
+  servers: CatalogMcpServer[];
+  count: number;
+  query?: string | null;
+  category?: string | null;
+}
+
+export interface ImportCatalogMcpRequest {
+  catalog_server_id: string;
+}
+
 // ============ Onboarding Tour & Help Types (042) ============
 
 export type TourStepPlacement = 'top' | 'bottom' | 'left' | 'right';
