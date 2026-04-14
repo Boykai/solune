@@ -204,8 +204,8 @@ async def delete_repo_server(
 async def browse_catalog(
     project_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-    query: str = Query(default="", max_length=200),
-    category: str = Query(default="", max_length=100),
+    query: Annotated[str, Query(max_length=200)] = "",
+    category: Annotated[str, Query(max_length=100)] = "",
 ) -> CatalogMcpServerListResponse:
     """Browse/search external MCP servers from the Glama catalog."""
     from src.services.tools.catalog import list_catalog_servers
@@ -242,7 +242,7 @@ async def import_from_catalog(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> McpToolConfigResponse:
     """Import a catalog MCP server into the project's tool archive."""
-    from src.services.tools.catalog import list_catalog_servers, build_import_config
+    from src.services.tools.catalog import build_import_config, list_catalog_servers
 
     service = _get_service()
     tools_result = await service.list_tools(
@@ -284,9 +284,7 @@ async def import_from_catalog(
     except ValidationError:
         raise
     except Exception as exc:
-        raise ValidationError(
-            f"Could not map catalog install config: {exc}"
-        ) from exc
+        raise ValidationError(f"Could not map catalog install config: {exc}") from exc
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
