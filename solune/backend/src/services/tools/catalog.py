@@ -56,6 +56,8 @@ def validate_upstream_url(url: str) -> None:
         raise ValueError("Only HTTPS upstream URLs are allowed.")
     if parsed.hostname not in _ALLOWED_UPSTREAM_HOSTS:
         raise ValueError(f"Upstream host '{parsed.hostname}' is not in the allowed list.")
+    if parsed.port is not None and parsed.port != 443:
+        raise ValueError("Only standard HTTPS port (443) is allowed for upstream URLs.")
 
 
 # ── Upstream fetching ────────────────────────────────────────────────────
@@ -170,7 +172,7 @@ def _map_catalog_fetch_error(exc: Exception) -> CatalogUnavailableError:
     if isinstance(exc, httpx.HTTPStatusError):
         upstream_status = exc.response.status_code
         reason = f"The MCP catalog returned HTTP {upstream_status}."
-        if upstream_status == 404:
+        if upstream_status == status.HTTP_404_NOT_FOUND:
             reason = "The MCP catalog index could not be found upstream."
         return CatalogUnavailableError(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -254,9 +256,7 @@ def build_import_config(server: CatalogMcpServer) -> McpToolConfigCreate:
 
     if transport in ("http", "sse"):
         if not cfg.url:
-            raise ValidationError(
-                f"Catalog server '{server.name}' ({transport}) requires a URL."
-            )
+            raise ValidationError(f"Catalog server '{server.name}' ({transport}) requires a URL.")
         server_config: dict[str, object] = {"type": transport, "url": cfg.url}
         if cfg.headers:
             server_config["headers"] = cfg.headers
@@ -283,9 +283,12 @@ def build_import_config(server: CatalogMcpServer) -> McpToolConfigCreate:
             f"Unsupported transport '{transport}' for catalog server '{server.name}'."
         )
 
-    config_content = json.dumps(
-        {"mcpServers": {server_name: server_config}},
-        indent=2,
+    config_content = (
+        json.dumps(
+            {"mcpServers": {server_name: server_config}},
+            indent=2,
+        )
+        + "\n"
     )
 
     return McpToolConfigCreate(

@@ -22,14 +22,12 @@ from src.models.tools import (
 )
 from src.services.cache import InMemoryCache
 from src.services.tools.catalog import (
-    CATALOG_CACHE_KEY,
     _normalize_server,
     _slugify,
     build_import_config,
     list_catalog_servers,
     validate_upstream_url,
 )
-
 
 # ── Helper fixtures ──────────────────────────────────────────────────────
 
@@ -60,6 +58,23 @@ SAMPLE_STDIO_SERVER = {
 }
 
 
+# ── Unit Tests: _slugify ─────────────────────────────────────────────────
+
+
+class TestSlugify:
+    def test_basic_name(self):
+        assert _slugify("GitHub MCP") == "github-mcp"
+
+    def test_special_characters(self):
+        assert _slugify("My_Server-v2.0") == "my-server-v2-0"
+
+    def test_all_special_chars_returns_empty(self):
+        assert _slugify("!!!") == ""
+
+    def test_leading_trailing_hyphens_stripped(self):
+        assert _slugify("--hello--") == "hello"
+
+
 # ── Unit Tests: _normalize_server ────────────────────────────────────────
 
 
@@ -85,32 +100,55 @@ class TestNormalizeServer:
         assert _normalize_server({"description": "no name"}) is None
 
     def test_infers_transport_from_url(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"url": "https://example.com/mcp"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"url": "https://example.com/mcp"},
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "http"
 
     def test_infers_transport_from_command(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"command": "npx", "args": ["-y", "some-pkg"]},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"command": "npx", "args": ["-y", "some-pkg"]},
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "stdio"
 
     def test_quality_score_converted_to_string(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "quality_score": 95,
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "quality_score": 95,
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.quality_score == "95"
+
+    def test_json_string_install_config(self):
+        """install_config provided as a JSON string should be parsed."""
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": '{"transport": "http", "url": "https://example.com/mcp"}',
+            }
+        )
+        assert server is not None
+        assert server.install_config.transport == "http"
+        assert server.install_config.url == "https://example.com/mcp"
+
+    def test_name_with_only_special_chars_and_no_id_returns_none(self):
+        """Server with unparseable name and no explicit id should be skipped."""
+        assert _normalize_server({"name": "!!!"}) is None
 
 
 # ── Unit Tests: build_import_config ──────────────────────────────────────
@@ -132,7 +170,7 @@ class TestBuildImportConfig:
         assert result.name == "Test HTTP"
         parsed = json.loads(result.config_content)
         assert "mcpServers" in parsed
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "http"
         assert server_config["url"] == "https://example.com/mcp"
 
@@ -149,7 +187,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "sse"
         assert server_config["url"] == "https://example.com/sse"
 
@@ -167,7 +205,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "stdio"
         assert server_config["command"] == "npx"
         assert server_config["args"] == ["-y", "test-pkg"]
@@ -205,6 +243,21 @@ class TestBuildImportConfig:
         with pytest.raises(ValidationError, match="Unsupported transport"):
             build_import_config(server)
 
+    def test_config_content_has_trailing_newline(self):
+        """config_content should end with a newline, matching presets pattern."""
+        server = CatalogMcpServer(
+            id="test",
+            name="Newline Test",
+            description="Check trailing newline",
+            server_type="http",
+            install_config=CatalogInstallConfig(
+                transport="http",
+                url="https://example.com/mcp",
+            ),
+        )
+        result = build_import_config(server)
+        assert result.config_content.endswith("\n")
+
 
 # ── Unit Tests: validate_upstream_url ────────────────────────────────────
 
@@ -220,6 +273,13 @@ class TestValidateUpstreamUrl:
     def test_non_allowed_host_rejected(self):
         with pytest.raises(ValueError, match="not in the allowed list"):
             validate_upstream_url("https://evil.example.com/api")
+
+    def test_non_standard_port_rejected(self):
+        with pytest.raises(ValueError, match="standard HTTPS port"):
+            validate_upstream_url("https://glama.ai:8443/api/mcp/v1/servers")
+
+    def test_explicit_443_allowed(self):
+        validate_upstream_url("https://glama.ai:443/api/mcp/v1/servers")
 
 
 # ── Integration: list_catalog_servers ────────────────────────────────────
@@ -280,6 +340,7 @@ class TestListCatalogServers:
             # Expire the cache entry
             for entry in mock_cache._cache.values():
                 from datetime import timedelta
+
                 entry.expires_at = entry.expires_at - timedelta(hours=2)
 
             result = await list_catalog_servers(
@@ -348,9 +409,7 @@ class TestBrowseCatalogApi:
             patch(
                 "src.api.tools._get_service",
                 return_value=MagicMock(
-                    list_tools=AsyncMock(
-                        return_value=MagicMock(tools=[])
-                    ),
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
                 ),
             ),
             patch(
@@ -368,16 +427,17 @@ class TestBrowseCatalogApi:
 
     async def test_browse_catalog_with_query(self, client):
         mock_servers = CatalogMcpServerListResponse(
-            servers=[], count=0, query="github", category=None,
+            servers=[],
+            count=0,
+            query="github",
+            category=None,
         )
 
         with (
             patch(
                 "src.api.tools._get_service",
                 return_value=MagicMock(
-                    list_tools=AsyncMock(
-                        return_value=MagicMock(tools=[])
-                    ),
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
                 ),
             ),
             patch(
@@ -396,9 +456,7 @@ class TestBrowseCatalogApi:
             patch(
                 "src.api.tools._get_service",
                 return_value=MagicMock(
-                    list_tools=AsyncMock(
-                        return_value=MagicMock(tools=[])
-                    ),
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
                 ),
             ),
             patch(
