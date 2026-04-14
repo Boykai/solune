@@ -357,6 +357,12 @@ async def create_app(
     )
     await db.commit()
 
+    # Flush WAL to disk so the app record survives an ungraceful shutdown.
+    try:
+        await db.execute("PRAGMA wal_checkpoint(PASSIVE);")
+    except Exception:
+        logger.warning("WAL checkpoint after app creation failed", exc_info=True)
+
     logger.info(
         "Created app '%s' — scaffold committed to %s/%s:%s (oid=%s)",
         payload.name,
@@ -592,6 +598,12 @@ async def create_app_with_new_repo(
         ),
     )
     await db.commit()
+
+    # Flush WAL to disk so the app record survives an ungraceful shutdown.
+    try:
+        await db.execute("PRAGMA wal_checkpoint(PASSIVE);")
+    except Exception:
+        logger.warning("WAL checkpoint after new-repo app creation failed", exc_info=True)
 
     logger.info(
         "Created app '%s' with new repo %s (project=%s)",
