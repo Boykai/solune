@@ -26,6 +26,8 @@ function createMockTool(overrides: Partial<McpToolConfig> = {}): McpToolConfig {
 const mockUseToolsList = vi.fn();
 const mockUseToolsListPaginated = vi.fn();
 const mockUseUndoableDeleteTool = vi.fn();
+const mockUseMcpCatalog = vi.fn();
+const mockUseImportMcpServer = vi.fn();
 const mockUseRepoMcpConfig = vi.fn();
 const mockUseMcpPresets = vi.fn();
 const mockUseConfirmation = vi.fn();
@@ -34,6 +36,8 @@ vi.mock('@/hooks/useTools', () => ({
   useToolsList: (...args: unknown[]) => mockUseToolsList(...args),
   useToolsListPaginated: (...args: unknown[]) => mockUseToolsListPaginated(...args),
   useUndoableDeleteTool: (...args: unknown[]) => mockUseUndoableDeleteTool(...args),
+  useMcpCatalog: (...args: unknown[]) => mockUseMcpCatalog(...args),
+  useImportMcpServer: (...args: unknown[]) => mockUseImportMcpServer(...args),
 }));
 
 vi.mock('@/hooks/useRepoMcpConfig', () => ({
@@ -110,6 +114,20 @@ describe('ToolsPanel', () => {
     mockUseToolsList.mockReturnValue({ ...defaultToolsListReturn });
     mockUseToolsListPaginated.mockReturnValue({ ...defaultPaginatedReturn });
     mockUseUndoableDeleteTool.mockReturnValue({ deleteTool: vi.fn() });
+    mockUseMcpCatalog.mockReturnValue({
+      servers: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    mockUseImportMcpServer.mockReturnValue({
+      importServer: vi.fn(),
+      isImporting: false,
+      importingId: null,
+      importError: null,
+      reset: vi.fn(),
+    });
     mockUseRepoMcpConfig.mockReturnValue({ ...defaultRepoConfigReturn });
     mockUseMcpPresets.mockReturnValue({ ...defaultPresetsReturn });
     mockUseConfirmation.mockReturnValue({ confirm: vi.fn() });
@@ -193,6 +211,11 @@ describe('ToolsPanel', () => {
   it('renders the presets gallery section', () => {
     render(<ToolsPanel projectId="proj-1" />);
     expect(screen.getByText('Quick-add MCP presets')).toBeInTheDocument();
+  });
+
+  it('renders the MCP catalog browse section', () => {
+    render(<ToolsPanel projectId="proj-1" />);
+    expect(screen.getByText('Browse MCP Servers')).toBeInTheDocument();
   });
 
   it('renders the GitHub config generator section', () => {
