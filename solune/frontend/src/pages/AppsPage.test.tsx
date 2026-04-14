@@ -57,6 +57,7 @@ vi.mock('@/hooks/useApps', () => ({
   useStartApp: () => ({ mutate: mocks.startMutate, isPending: false }),
   useStopApp: () => ({ mutate: mocks.stopMutate, isPending: false }),
   useDeleteApp: () => ({ mutate: mocks.deleteMutate, isPending: false }),
+  useUndoableDeleteApp: () => ({ deleteApp: mocks.deleteMutate }),
   getErrorMessage: (_err: unknown, fallback: string) => fallback,
 }));
 
@@ -132,6 +133,15 @@ describe('AppsPage', () => {
     expect(mocks.createReset).toHaveBeenCalledOnce();
   });
 
+  it('does not render Target Branch or Name Override fields in the create dialog', async () => {
+    render(<AppsPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+
+    expect(screen.queryByLabelText(/target branch/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/name override/i)).not.toBeInTheDocument();
+  });
+
   it('submits a trimmed payload and navigates to the created app on success', async () => {
     mocks.createMutate.mockImplementation(
       (
@@ -158,7 +168,7 @@ describe('AppsPage', () => {
         name: 'my-awesome-app',
         display_name: 'My Awesome App',
         description: 'Sample app',
-        branch: 'app/my-awesome-app',
+        branch: 'main',
         ai_enhance: true,
         repo_type: 'same-repo',
       },
