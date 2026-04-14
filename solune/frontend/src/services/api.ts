@@ -75,6 +75,8 @@ import type {
   McpPresetListResponse,
   ToolChip,
   ToolDeleteResult,
+  CatalogMcpServerListResponse,
+  ImportCatalogMcpRequest,
   FileUploadResponse,
   PipelineStateInfo,
   PaginatedResponse,
@@ -1728,6 +1730,24 @@ export const toolsApi = {
     const qs = confirm ? '?confirm=true' : '';
     return request<ToolDeleteResult>(`/tools/${projectId}/${toolId}${qs}`, {
       method: 'DELETE',
+    });
+  },
+
+  browseCatalog(
+    projectId: string,
+    params?: { query?: string; category?: string },
+  ): Promise<CatalogMcpServerListResponse> {
+    const qs = new URLSearchParams();
+    if (params?.query) qs.set('query', params.query);
+    if (params?.category) qs.set('category', params.category);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return request<CatalogMcpServerListResponse>(`/tools/${projectId}/catalog${suffix}`);
+  },
+
+  importFromCatalog(projectId: string, data: ImportCatalogMcpRequest): Promise<McpToolConfig> {
+    return request<McpToolConfig>(`/tools/${projectId}/catalog/import`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };

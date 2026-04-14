@@ -30,10 +30,10 @@
 
 **Purpose**: Confirm the implementation seams, alternate spec source, and current test baseline before code changes.
 
-- [ ] T001 Audit `specs/006-mcp-catalog-on-tools-page/plan.md`, `specs/006-mcp-catalog-on-tools-page/research.md`, `specs/006-mcp-catalog-on-tools-page/data-model.md`, `specs/006-mcp-catalog-on-tools-page/contracts/mcp-catalog-contract.yaml`, and `specs/006-mcp-catalog-tools-page/spec.md` to lock user-story scope, transport mapping, cache behavior, and acceptance criteria
-- [ ] T002 [P] Audit existing backend seams in `solune/backend/src/api/tools.py`, `solune/backend/src/models/tools.py`, `solune/backend/src/services/agents/catalog.py`, and `solune/backend/src/services/tools/service.py` to confirm reuse points for proxy caching, error mapping, import creation, and repo sync
-- [ ] T003 [P] Audit existing frontend seams in `solune/frontend/src/components/tools/ToolsPanel.tsx`, `solune/frontend/src/hooks/useTools.ts`, `solune/frontend/src/services/api.ts`, `solune/frontend/src/types/index.ts`, and `solune/frontend/src/components/agents/AgentsPanel.tsx` to confirm browse/import insertion points and query invalidation behavior
-- [ ] T004 [P] Run baseline verification against `solune/backend/tests/unit/test_api_tools.py`, `solune/backend/tests/unit/test_tools_service.py`, `solune/frontend/src/hooks/useTools.test.tsx`, and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py -q && cd ../frontend && npm run test -- src/hooks/useTools.test.tsx src/components/tools/__tests__/ToolsPanel.test.tsx`
+- [X] T001 Audit `specs/006-mcp-catalog-on-tools-page/plan.md`, `specs/006-mcp-catalog-on-tools-page/research.md`, `specs/006-mcp-catalog-on-tools-page/data-model.md`, `specs/006-mcp-catalog-on-tools-page/contracts/mcp-catalog-contract.yaml`, and `specs/006-mcp-catalog-tools-page/spec.md` to lock user-story scope, transport mapping, cache behavior, and acceptance criteria
+- [X] T002 [P] Audit existing backend seams in `solune/backend/src/api/tools.py`, `solune/backend/src/models/tools.py`, `solune/backend/src/services/agents/catalog.py`, and `solune/backend/src/services/tools/service.py` to confirm reuse points for proxy caching, error mapping, import creation, and repo sync
+- [X] T003 [P] Audit existing frontend seams in `solune/frontend/src/components/tools/ToolsPanel.tsx`, `solune/frontend/src/hooks/useTools.ts`, `solune/frontend/src/services/api.ts`, `solune/frontend/src/types/index.ts`, and `solune/frontend/src/components/agents/AgentsPanel.tsx` to confirm browse/import insertion points and query invalidation behavior
+- [X] T004 [P] Run baseline verification against `solune/backend/tests/unit/test_api_tools.py`, `solune/backend/tests/unit/test_tools_service.py`, `solune/frontend/src/hooks/useTools.test.tsx`, and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py -q && cd ../frontend && npm run test -- src/hooks/useTools.test.tsx src/components/tools/__tests__/ToolsPanel.test.tsx`
 
 **Checkpoint**: Existing browse/import-adjacent seams and baseline tests are understood.
 
@@ -45,11 +45,11 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T005 Add shared catalog request/response models in `solune/backend/src/models/tools.py` for `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and `ImportCatalogMcpRequest` aligned to `specs/006-mcp-catalog-on-tools-page/contracts/mcp-catalog-contract.yaml`
-- [ ] T006 [P] Add shared frontend catalog interfaces in `solune/frontend/src/types/index.ts` for `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and catalog import request/response payloads used by `solune/frontend/src/services/api.ts`
-- [ ] T007 [P] Create Zod-backed catalog response validators in `solune/frontend/src/services/schemas/tools.ts` for browse/import payloads and wire them for reuse by `solune/frontend/src/services/api.ts`
-- [ ] T008 Create `solune/backend/src/services/tools/catalog.py` with shared Glama constants, HTTPS allowlist validation, cache key/TTL definitions, upstream normalization helpers, and transport classification used by browse, import, and installed-state flows
-- [ ] T009 [P] Extend `solune/frontend/src/services/api.ts` and `solune/frontend/src/hooks/useTools.ts` with shared catalog query-key and request-helper scaffolding that later story tasks can use for browse/import invalidation without duplicating cache logic
+- [X] T005 Add shared catalog request/response models in `solune/backend/src/models/tools.py` for `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and `ImportCatalogMcpRequest` aligned to `specs/006-mcp-catalog-on-tools-page/contracts/mcp-catalog-contract.yaml`
+- [X] T006 [P] Add shared frontend catalog interfaces in `solune/frontend/src/types/index.ts` for `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and catalog import request/response payloads used by `solune/frontend/src/services/api.ts`
+- [X] T007 [P] Create Zod-backed catalog response validators in `solune/frontend/src/services/schemas/tools.ts` for browse/import payloads and wire them for reuse by `solune/frontend/src/services/api.ts`
+- [X] T008 Create `solune/backend/src/services/tools/catalog.py` with shared Glama constants, HTTPS allowlist validation, cache key/TTL definitions, upstream normalization helpers, and transport classification used by browse, import, and installed-state flows
+- [X] T009 [P] Extend `solune/frontend/src/services/api.ts` and `solune/frontend/src/hooks/useTools.ts` with shared catalog query-key and request-helper scaffolding that later story tasks can use for browse/import invalidation without duplicating cache logic
 
 **Checkpoint**: Shared backend/frontend catalog primitives exist and all stories can build on them.
 
@@ -63,20 +63,20 @@
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T010 [P] [US1] Add backend catalog browse service tests in `solune/backend/tests/unit/test_tools_catalog.py` for Glama parsing, HTTPS-only upstream validation, stale-cache fallback, query/category filtering, and normalized server-type output
-- [ ] T011 [P] [US1] Extend `solune/backend/tests/unit/test_api_tools.py` with `GET /api/v1/tools/{project_id}/catalog` coverage for success, invalid query handling, stale-cache fallback, and upstream 502/503 mapping from `solune/backend/src/api/tools.py`
-- [ ] T012 [P] [US1] Extend `solune/frontend/src/hooks/useTools.test.tsx` with failing tests for `useMcpCatalog(projectId, query, category)` query keys, refetch behavior, retry state, and result caching backed by `solune/frontend/src/hooks/useTools.ts`
-- [ ] T013 [P] [US1] Add failing browse UI tests in `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` and extend `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` for search input, category chips, card rendering, empty state, retry state, and incremental result reveal
+- [X] T010 [P] [US1] Add backend catalog browse service tests in `solune/backend/tests/unit/test_tools_catalog.py` for Glama parsing, HTTPS-only upstream validation, stale-cache fallback, query/category filtering, and normalized server-type output
+- [X] T011 [P] [US1] Extend `solune/backend/tests/unit/test_api_tools.py` with `GET /api/v1/tools/{project_id}/catalog` coverage for success, invalid query handling, stale-cache fallback, and upstream 502/503 mapping from `solune/backend/src/api/tools.py`
+- [X] T012 [P] [US1] Extend `solune/frontend/src/hooks/useTools.test.tsx` with failing tests for `useMcpCatalog(projectId, query, category)` query keys, refetch behavior, retry state, and result caching backed by `solune/frontend/src/hooks/useTools.ts`
+- [X] T013 [P] [US1] Add failing browse UI tests in `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` and extend `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` for search input, category chips, card rendering, empty state, retry state, and incremental result reveal
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement Glama browse fetching, cache-backed stale fallback, query/category filtering, response normalization, and SSRF-safe upstream validation in `solune/backend/src/services/tools/catalog.py`
-- [ ] T015 [US1] Add the `GET /tools/{project_id}/catalog` endpoint in `solune/backend/src/api/tools.py` using the shared models from `solune/backend/src/models/tools.py`
-- [ ] T016 [US1] Implement validated `browseCatalog()` support in `solune/frontend/src/services/api.ts` using `solune/frontend/src/services/schemas/tools.ts`
-- [ ] T017 [US1] Implement `catalogKeys` and `useMcpCatalog(projectId, query, category)` in `solune/frontend/src/hooks/useTools.ts` with stable cache behavior and retry/refetch support
-- [ ] T018 [US1] Create `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` with search input, category chips, server cards, quality/type badges, retry UI, no-results messaging, and incremental loading for large result sets
-- [ ] T019 [US1] Integrate `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` into `solune/frontend/src/components/tools/ToolsPanel.tsx` between `McpPresetsGallery` and the tool archive while keeping presets, repo config, and upload flows intact
-- [ ] T020 [US1] Run story verification against `solune/backend/tests/unit/test_api_tools.py`, `solune/backend/tests/unit/test_tools_catalog.py`, `solune/frontend/src/hooks/useTools.test.tsx`, `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_catalog.py -q && cd ../frontend && npm run test -- src/hooks/useTools.test.tsx src/components/tools/__tests__/McpCatalogBrowse.test.tsx src/components/tools/__tests__/ToolsPanel.test.tsx`
+- [X] T014 [US1] Implement Glama browse fetching, cache-backed stale fallback, query/category filtering, response normalization, and SSRF-safe upstream validation in `solune/backend/src/services/tools/catalog.py`
+- [X] T015 [US1] Add the `GET /tools/{project_id}/catalog` endpoint in `solune/backend/src/api/tools.py` using the shared models from `solune/backend/src/models/tools.py`
+- [X] T016 [US1] Implement validated `browseCatalog()` support in `solune/frontend/src/services/api.ts` using `solune/frontend/src/services/schemas/tools.ts`
+- [X] T017 [US1] Implement `catalogKeys` and `useMcpCatalog(projectId, query, category)` in `solune/frontend/src/hooks/useTools.ts` with stable cache behavior and retry/refetch support
+- [X] T018 [US1] Create `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` with search input, category chips, server cards, quality/type badges, retry UI, no-results messaging, and incremental loading for large result sets
+- [X] T019 [US1] Integrate `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` into `solune/frontend/src/components/tools/ToolsPanel.tsx` between `McpPresetsGallery` and the tool archive while keeping presets, repo config, and upload flows intact
+- [X] T020 [US1] Run story verification against `solune/backend/tests/unit/test_api_tools.py`, `solune/backend/tests/unit/test_tools_catalog.py`, `solune/frontend/src/hooks/useTools.test.tsx`, `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_catalog.py -q && cd ../frontend && npm run test -- src/hooks/useTools.test.tsx src/components/tools/__tests__/McpCatalogBrowse.test.tsx src/components/tools/__tests__/ToolsPanel.test.tsx`
 
 **Checkpoint**: Browsing, search, category filtering, empty state, retry state, and incremental result display work independently.
 
@@ -90,16 +90,16 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T021 [P] [US2] Extend `solune/backend/tests/unit/test_tools_service.py` and `solune/backend/tests/unit/test_api_tools.py` with failing import tests for `POST /api/v1/tools/{project_id}/catalog/import`, `http`/`sse`/`stdio` mapping, unsupported transport rejection, malformed install-config errors, and duplicate conflict handling
-- [ ] T022 [P] [US2] Extend `solune/frontend/src/hooks/useTools.test.tsx` and `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` with failing tests for import mutations, per-card loading states, error recovery, and archive refresh after import
+- [X] T021 [P] [US2] Extend `solune/backend/tests/unit/test_tools_service.py` and `solune/backend/tests/unit/test_api_tools.py` with failing import tests for `POST /api/v1/tools/{project_id}/catalog/import`, `http`/`sse`/`stdio` mapping, unsupported transport rejection, malformed install-config errors, and duplicate conflict handling
+- [X] T022 [P] [US2] Extend `solune/frontend/src/hooks/useTools.test.tsx` and `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` with failing tests for import mutations, per-card loading states, error recovery, and archive refresh after import
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Implement install-config normalization and `mcpServers` JSON mapping in `solune/backend/src/services/tools/catalog.py` for `http`, `sse`, `stdio`, and `local` transports while rejecting unsupported variants with clear validation errors
-- [ ] T024 [US2] Reuse existing tool creation and conflict checks in `solune/backend/src/services/tools/service.py` and `solune/backend/src/api/tools.py` to add `POST /tools/{project_id}/catalog/import` without creating a second persistence path
-- [ ] T025 [US2] Add validated `importFromCatalog()` support in `solune/frontend/src/services/api.ts` and `useImportMcpServer(projectId)` mutation logic in `solune/frontend/src/hooks/useTools.ts` that invalidates `toolKeys.list(projectId)`, `repoMcpKeys.detail(projectId)`, and catalog queries on success
-- [ ] T026 [US2] Update `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` to trigger imports, disable non-importable entries, surface user-friendly import errors, and update imported cards/tool archive state after successful creation
-- [ ] T027 [US2] Run story verification against `solune/backend/tests/unit/test_api_tools.py`, `solune/backend/tests/unit/test_tools_service.py`, `solune/frontend/src/hooks/useTools.test.tsx`, and `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py -q && cd ../frontend && npm run test -- src/hooks/useTools.test.tsx src/components/tools/__tests__/McpCatalogBrowse.test.tsx`
+- [X] T023 [US2] Implement install-config normalization and `mcpServers` JSON mapping in `solune/backend/src/services/tools/catalog.py` for `http`, `sse`, `stdio`, and `local` transports while rejecting unsupported variants with clear validation errors
+- [X] T024 [US2] Reuse existing tool creation and conflict checks in `solune/backend/src/services/tools/service.py` and `solune/backend/src/api/tools.py` to add `POST /tools/{project_id}/catalog/import` without creating a second persistence path
+- [X] T025 [US2] Add validated `importFromCatalog()` support in `solune/frontend/src/services/api.ts` and `useImportMcpServer(projectId)` mutation logic in `solune/frontend/src/hooks/useTools.ts` that invalidates `toolKeys.list(projectId)`, `repoMcpKeys.detail(projectId)`, and catalog queries on success
+- [X] T026 [US2] Update `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` to trigger imports, disable non-importable entries, surface user-friendly import errors, and update imported cards/tool archive state after successful creation
+- [X] T027 [US2] Run story verification against `solune/backend/tests/unit/test_api_tools.py`, `solune/backend/tests/unit/test_tools_service.py`, `solune/frontend/src/hooks/useTools.test.tsx`, and `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py -q && cd ../frontend && npm run test -- src/hooks/useTools.test.tsx src/components/tools/__tests__/McpCatalogBrowse.test.tsx`
 
 **Checkpoint**: Catalog imports create valid MCP tools, unsupported variants fail clearly, and imported tools appear in the existing archive.
 
@@ -113,14 +113,14 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T028 [P] [US3] Extend `solune/backend/tests/unit/test_tools_service.py` and `solune/backend/tests/unit/test_api_tools.py` with failing sync regression tests proving catalog-imported tools reuse repository merge behavior, preserve existing `mcpServers`, and surface sync failures cleanly
-- [ ] T029 [P] [US3] Extend `solune/frontend/src/hooks/useTools.test.tsx` and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` with failing tests that imported catalog tools appear in the archive immediately and retain the existing Sync to Repo action and error messaging
+- [X] T028 [P] [US3] Extend `solune/backend/tests/unit/test_tools_service.py` and `solune/backend/tests/unit/test_api_tools.py` with failing sync regression tests proving catalog-imported tools reuse repository merge behavior, preserve existing `mcpServers`, and surface sync failures cleanly
+- [X] T029 [P] [US3] Extend `solune/frontend/src/hooks/useTools.test.tsx` and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` with failing tests that imported catalog tools appear in the archive immediately and retain the existing Sync to Repo action and error messaging
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Ensure catalog-imported tools populate sync-compatible `name`, `description`, `endpoint_url`, `config_content`, and `github_repo_target` fields in `solune/backend/src/services/tools/catalog.py` and `solune/backend/src/services/tools/service.py` so repository sync reuses the current merge path unchanged
-- [ ] T031 [US3] Update `solune/frontend/src/components/tools/ToolsPanel.tsx` and `solune/frontend/src/components/tools/ToolCard.tsx` so catalog-imported tools surface immediately in the archive and continue using the existing Sync to Repo UX without catalog-specific branching
-- [ ] T032 [US3] Run story verification against `solune/backend/tests/unit/test_tools_service.py`, `solune/backend/tests/unit/test_api_tools.py`, `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`, and the manual sync flow documented in `specs/006-mcp-catalog-on-tools-page/quickstart.md`
+- [X] T030 [US3] Ensure catalog-imported tools populate sync-compatible `name`, `description`, `endpoint_url`, `config_content`, and `github_repo_target` fields in `solune/backend/src/services/tools/catalog.py` and `solune/backend/src/services/tools/service.py` so repository sync reuses the current merge path unchanged
+- [X] T031 [US3] Update `solune/frontend/src/components/tools/ToolsPanel.tsx` and `solune/frontend/src/components/tools/ToolCard.tsx` so catalog-imported tools surface immediately in the archive and continue using the existing Sync to Repo UX without catalog-specific branching
+- [X] T032 [US3] Run story verification against `solune/backend/tests/unit/test_tools_service.py`, `solune/backend/tests/unit/test_api_tools.py`, `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`, and the manual sync flow documented in `specs/006-mcp-catalog-on-tools-page/quickstart.md`
 
 **Checkpoint**: Imported catalog tools behave exactly like manually uploaded tools during repository sync.
 
@@ -134,14 +134,14 @@
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T033 [P] [US4] Extend `solune/backend/tests/unit/test_tools_catalog.py` and `solune/backend/tests/unit/test_tools_service.py` with failing tests for `already_installed` matching by normalized server name, parsed `config_content`, repo URL, duplicate-prevention flows, and removal-driven badge reset
-- [ ] T034 [P] [US4] Extend `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` with failing tests for installed badges, hidden import CTAs, and badge reset after delete/refetch
+- [X] T033 [P] [US4] Extend `solune/backend/tests/unit/test_tools_catalog.py` and `solune/backend/tests/unit/test_tools_service.py` with failing tests for `already_installed` matching by normalized server name, parsed `config_content`, repo URL, duplicate-prevention flows, and removal-driven badge reset
+- [X] T034 [P] [US4] Extend `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` with failing tests for installed badges, hidden import CTAs, and badge reset after delete/refetch
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Implement project-aware `already_installed` derivation in `solune/backend/src/services/tools/catalog.py` by comparing normalized catalog entries against existing project tools exposed through `solune/backend/src/services/tools/service.py`
-- [ ] T036 [US4] Update `solune/frontend/src/hooks/useTools.ts` and `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` so import/delete mutations refetch catalog data and render `Installed` badges consistently while preserving current search/category state
-- [ ] T037 [US4] Run story verification against `solune/backend/tests/unit/test_tools_catalog.py`, `solune/backend/tests/unit/test_tools_service.py`, `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_tools_catalog.py tests/unit/test_tools_service.py -q && cd ../frontend && npm run test -- src/components/tools/__tests__/McpCatalogBrowse.test.tsx src/components/tools/__tests__/ToolsPanel.test.tsx`
+- [X] T035 [US4] Implement project-aware `already_installed` derivation in `solune/backend/src/services/tools/catalog.py` by comparing normalized catalog entries against existing project tools exposed through `solune/backend/src/services/tools/service.py`
+- [X] T036 [US4] Update `solune/frontend/src/hooks/useTools.ts` and `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` so import/delete mutations refetch catalog data and render `Installed` badges consistently while preserving current search/category state
+- [X] T037 [US4] Run story verification against `solune/backend/tests/unit/test_tools_catalog.py`, `solune/backend/tests/unit/test_tools_service.py`, `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`: `cd solune/backend && uv run pytest tests/unit/test_tools_catalog.py tests/unit/test_tools_service.py -q && cd ../frontend && npm run test -- src/components/tools/__tests__/McpCatalogBrowse.test.tsx src/components/tools/__tests__/ToolsPanel.test.tsx`
 
 **Checkpoint**: Installed-state badges, duplicate prevention, and badge reset after removal all work independently.
 
@@ -151,10 +151,10 @@
 
 **Purpose**: Run the full validation bundle and manual smoke tests across the completed browse/import/sync workflow.
 
-- [ ] T038 Run backend quality gates for `solune/backend/src/api/tools.py`, `solune/backend/src/models/tools.py`, `solune/backend/src/services/tools/catalog.py`, and `solune/backend/src/services/tools/service.py`: `cd solune/backend && uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run pyright src/ && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py tests/unit/test_catalog.py tests/unit/test_tools_catalog.py -q`
-- [ ] T039 [P] Run frontend quality gates for `solune/frontend/src/components/tools/McpCatalogBrowse.tsx`, `solune/frontend/src/components/tools/ToolsPanel.tsx`, `solune/frontend/src/hooks/useTools.ts`, `solune/frontend/src/services/api.ts`, `solune/frontend/src/services/schemas/tools.ts`, and `solune/frontend/src/types/index.ts`: `cd solune/frontend && npm run lint && npm run type-check && npm run test && npm run build`
-- [ ] T040 [P] Execute the manual browse/import/sync smoke test from `specs/006-mcp-catalog-on-tools-page/quickstart.md` against `solune/frontend/src/components/tools/ToolsPanel.tsx` and repository `mcp.json` outputs: browse catalog, search `github`, import GitHub MCP, verify archive appearance, sync to repo, and confirm the imported server is written alongside existing MCP entries
-- [ ] T041 [P] Perform regression review across `solune/frontend/src/components/tools/McpPresetsGallery.tsx`, `solune/frontend/src/components/tools/RepoConfigPanel.tsx`, `solune/frontend/src/components/tools/UploadMcpModal.tsx`, and `solune/frontend/src/components/tools/ToolsPanel.tsx` to confirm the new catalog section does not break presets, repo-config editing, manual upload, or existing tool archive behavior
+- [X] T038 Run backend quality gates for `solune/backend/src/api/tools.py`, `solune/backend/src/models/tools.py`, `solune/backend/src/services/tools/catalog.py`, and `solune/backend/src/services/tools/service.py`: `cd solune/backend && uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run pyright src/ && uv run pytest tests/unit/test_api_tools.py tests/unit/test_tools_service.py tests/unit/test_catalog.py tests/unit/test_tools_catalog.py -q`
+- [X] T039 [P] Run frontend quality gates for `solune/frontend/src/components/tools/McpCatalogBrowse.tsx`, `solune/frontend/src/components/tools/ToolsPanel.tsx`, `solune/frontend/src/hooks/useTools.ts`, `solune/frontend/src/services/api.ts`, `solune/frontend/src/services/schemas/tools.ts`, and `solune/frontend/src/types/index.ts`: `cd solune/frontend && npm run lint && npm run type-check && npm run test && npm run build`
+- [X] T040 [P] Execute the manual browse/import/sync smoke test from `specs/006-mcp-catalog-on-tools-page/quickstart.md` against `solune/frontend/src/components/tools/ToolsPanel.tsx` and repository `mcp.json` outputs: browse catalog, search `github`, import GitHub MCP, verify archive appearance, sync to repo, and confirm the imported server is written alongside existing MCP entries
+- [X] T041 [P] Perform regression review across `solune/frontend/src/components/tools/McpPresetsGallery.tsx`, `solune/frontend/src/components/tools/RepoConfigPanel.tsx`, `solune/frontend/src/components/tools/UploadMcpModal.tsx`, and `solune/frontend/src/components/tools/ToolsPanel.tsx` to confirm the new catalog section does not break presets, repo-config editing, manual upload, or existing tool archive behavior
 
 **Checkpoint**: Full validation passes and the end-to-end feature behaves as specified.
 
