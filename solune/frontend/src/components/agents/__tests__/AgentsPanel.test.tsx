@@ -154,7 +154,9 @@ describe('AgentsPanel', () => {
     mockUseCatalogAgents.mockReturnValue({
       data: [],
       isLoading: false,
+      isFetching: false,
       isError: false,
+      refetch: vi.fn(),
     });
     mockUseImportAgent.mockReturnValue({
       mutateAsync: vi.fn(),

@@ -63,6 +63,7 @@ export function AgentsPanel({
     data: catalogAgents,
     error: catalogError,
     isLoading: catalogLoading,
+    isFetching: catalogFetching,
     isError: catalogIsError,
     refetch: refetchCatalog,
   } = useCatalogAgents(projectId);
@@ -280,10 +281,10 @@ export function AgentsPanel({
           variant="outline"
           size="lg"
           onClick={() => void refetchCatalog()}
-          disabled={catalogLoading}
+          disabled={catalogFetching}
         >
           <RefreshCw className="mr-2 h-4 w-4" />
-          {catalogLoading ? 'Refreshing agents…' : 'Refresh agents'}
+          {catalogFetching ? 'Refreshing agents…' : 'Refresh agents'}
         </Button>
         <Button
           onClick={handleOpenAddModal}
