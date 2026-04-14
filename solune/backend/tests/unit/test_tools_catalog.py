@@ -34,7 +34,6 @@ from src.services.tools.catalog import (
     validate_upstream_url,
 )
 
-
 # ── Helper fixtures ──────────────────────────────────────────────────────
 
 SAMPLE_GLAMA_SERVER = {
@@ -112,30 +111,36 @@ class TestNormalizeServer:
         assert _normalize_server({"description": "no name"}) is None
 
     def test_infers_transport_from_url(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"url": "https://example.com/mcp"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"url": "https://example.com/mcp"},
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "http"
 
     def test_infers_transport_from_command(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"command": "npx", "args": ["-y", "some-pkg"]},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"command": "npx", "args": ["-y", "some-pkg"]},
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "stdio"
 
     def test_quality_score_converted_to_string(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "quality_score": 95,
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "quality_score": 95,
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.quality_score == "95"
 
@@ -311,7 +316,7 @@ class TestBuildImportConfig:
         assert result.name == "Test HTTP"
         parsed = json.loads(result.config_content)
         assert "mcpServers" in parsed
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "http"
         assert server_config["url"] == "https://example.com/mcp"
 
@@ -328,7 +333,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "sse"
         assert server_config["url"] == "https://example.com/sse"
 
@@ -346,7 +351,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "stdio"
         assert server_config["command"] == "npx"
         assert server_config["args"] == ["-y", "test-pkg"]
@@ -603,6 +608,7 @@ class TestListCatalogServers:
             # Expire the cache entry
             for entry in mock_cache._cache.values():
                 from datetime import timedelta
+
                 entry.expires_at = entry.expires_at - timedelta(hours=2)
 
             result = await list_catalog_servers(
@@ -742,9 +748,7 @@ class TestBrowseCatalogApi:
             patch(
                 "src.api.tools._get_service",
                 return_value=MagicMock(
-                    list_tools=AsyncMock(
-                        return_value=MagicMock(tools=[])
-                    ),
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
                 ),
             ),
             patch(
@@ -762,16 +766,17 @@ class TestBrowseCatalogApi:
 
     async def test_browse_catalog_with_query(self, client):
         mock_servers = CatalogMcpServerListResponse(
-            servers=[], count=0, query="github", category=None,
+            servers=[],
+            count=0,
+            query="github",
+            category=None,
         )
 
         with (
             patch(
                 "src.api.tools._get_service",
                 return_value=MagicMock(
-                    list_tools=AsyncMock(
-                        return_value=MagicMock(tools=[])
-                    ),
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
                 ),
             ),
             patch(
@@ -790,9 +795,7 @@ class TestBrowseCatalogApi:
             patch(
                 "src.api.tools._get_service",
                 return_value=MagicMock(
-                    list_tools=AsyncMock(
-                        return_value=MagicMock(tools=[])
-                    ),
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
                 ),
             ),
             patch(
