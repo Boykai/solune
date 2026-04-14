@@ -188,6 +188,37 @@ describe('request URL and header construction', () => {
     const [, opts] = mockFetch.mock.calls[0];
     expect(opts.headers['X-CSRF-Token']).toBeUndefined();
   });
+
+  it('toolsApi.browseCatalog includes query parameters', async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        servers: [],
+        count: 0,
+        query: 'github',
+        category: 'Developer Tools',
+      })
+    );
+
+    await toolsApi.browseCatalog('proj-1', {
+      query: 'github',
+      category: 'Developer Tools',
+    });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/tools/proj-1/catalog?query=github&category=Developer+Tools');
+    expect(opts.method ?? 'GET').toBe('GET');
+  });
+
+  it('toolsApi.importFromCatalog sends POST body', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: 'tool-1', name: 'GitHub MCP' }));
+
+    await toolsApi.importFromCatalog('proj-1', { catalog_server_id: 'github-mcp' });
+
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toContain('/tools/proj-1/catalog/import');
+    expect(opts.method).toBe('POST');
+    expect(JSON.parse(opts.body)).toEqual({ catalog_server_id: 'github-mcp' });
+  });
 });
 
 // ── Network error handling ─────────────────────────────────────────────
@@ -206,6 +237,15 @@ describe('network error handling', () => {
   it('appsApi.list rejects when fetch throws', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('Offline'));
     await expect(appsApi.list()).rejects.toThrow('Offline');
+  });
+
+  it('toolsApi.browseCatalog rejects invalid catalog payloads in development', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockFetch.mockResolvedValueOnce(jsonResponse({ count: 1 }));
+
+    await expect(toolsApi.browseCatalog('proj-1')).rejects.toThrow();
+
+    expect(consoleError).toHaveBeenCalled();
   });
 });
 

@@ -1,102 +1,78 @@
-# Feature Specification: Page Updates
+# Feature Specification: MCP Catalog on Tools Page
 
-**Feature Branch**: `006-page-updates`
-**Created**: 2026-04-14
-**Status**: Draft
-**Input**: User description: "Page Updates — Chores and Apps page improvements including UI cleanup, bug fixes, and new functionality"
+**Feature Branch**: `006-mcp-catalog-tools-page`  
+**Created**: 2026-04-14  
+**Status**: Draft  
+**Input**: User description: "Add an MCP Catalog section to the Tools page, mirroring the existing Agents Catalog pattern. Users browse 21,000+ external MCP servers via the Glama API, import them as tool configs, and sync to their repo's mcp.json."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — Chores Page Cleanup (Priority: P1)
+### User Story 1 - Browse MCP Server Catalog (Priority: P1)
 
-As a user managing chores, I want the Chores page to be streamlined so that I only see relevant controls and chore definitions are saved directly in the database rather than through GitHub Templates and pull requests.
+A user navigates to the Tools page and scrolls to the new "Browse MCP Catalog" section. They see a searchable, categorized catalog of 21,000+ external MCP servers sourced from the Glama API. They can type a search query (e.g., "github") or select a category chip (e.g., "Developer Tools", "Cloud", "Database") to filter results. Each server card displays its name, description, quality score (A/B/C), and server type badge (local/remote). The user can quickly find MCP servers relevant to their project needs.
 
-**Why this priority**: The Chores page has accumulated outdated UI elements (GitHub Template support, Featured rituals, Plan recurring work, Upkeep studio) and has a critical scroll bug on the "Review upkeep cadence" button that blocks usability. Fixing these issues restores core page functionality and removes confusion from deprecated workflows.
+**Why this priority**: Browsing the catalog is the foundational user journey — without it, no other feature (import, sync) is possible. It delivers immediate discovery value and makes the 21,000+ server ecosystem accessible to users.
 
-**Independent Test**: Can be fully tested by navigating to the Chores page, verifying removed sections are absent, confirming the scroll bug is resolved, and verifying that chore creation and management works through the database-backed flow.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user navigates to the Chores page, **When** the page loads, **Then** there is no mention of GitHub Templates, no option to create PRs for saving chore definitions, and no "Featured rituals" section visible.
-2. **Given** a user navigates to the Chores page, **When** the page loads, **Then** the "Plan recurring work" button is not present.
-3. **Given** a user navigates to the Chores page, **When** the page loads, **Then** the "Upkeep studio" section is not present.
-4. **Given** a user clicks the "Review upkeep cadence" button, **When** the associated panel or view opens, **Then** the page does not jump or scroll unexpectedly, the bottom of the page content is fully visible, and the user can scroll freely to the top without refreshing.
-5. **Given** a user navigates to the Chores page, **When** looking at the "Ritual Maintenance" section, **Then** the "Clean up" and "+ Create chore" controls are located within that section.
-6. **Given** a user creates a new chore, **When** they save the chore definition, **Then** the definition is persisted in the database (not via a GitHub Template or pull request).
-
----
-
-### User Story 2 — Create App Experience Simplification (Priority: P2)
-
-As a user creating a new app, I want the Create App form to be simpler and more intuitive by removing unnecessary fields and reorganizing advanced settings.
-
-**Why this priority**: Streamlining the Create App flow reduces friction for new users and prevents confusion from irrelevant options. Defaulting to the main branch eliminates a decision point that most users don't need to customize.
-
-**Independent Test**: Can be fully tested by opening the Create App experience, verifying the "Target branch" section is absent (with the system defaulting to main), verifying "New Repository Settings" appears under "Advanced options", and confirming "Name override" is not present in "Advanced options".
+**Independent Test**: Can be fully tested by navigating to the Tools page, viewing the catalog section, performing search queries, and applying category filters. Delivers value by letting users discover MCP servers even before importing them.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user opens the Create App experience, **When** the form loads, **Then** there is no "Target branch" section visible, and the system defaults to the main branch.
-2. **Given** a user opens the Create App experience, **When** they expand the "Advanced options" section, **Then** "New Repository Settings" controls are located within that section.
-3. **Given** a user opens the Create App experience, **When** they expand the "Advanced options" section, **Then** the "Name override" field is not present.
+1. **Given** a user is on the Tools page, **When** they scroll to the "Browse MCP Catalog" section, **Then** they see a search input, category filter chips, and a grid of MCP server cards with name, description, quality score, and type badge.
+2. **Given** the catalog section is visible, **When** the user types "github" into the search input, **Then** the server card grid updates to show only servers matching "github" in their name or description.
+3. **Given** the catalog section is visible, **When** the user selects the "Database" category chip, **Then** the server card grid filters to show only servers in the Database category.
+4. **Given** the catalog section is visible, **When** the user combines a search query with a category filter, **Then** the results reflect both the text query and the selected category.
+5. **Given** a search query returns no results, **When** the user views the catalog, **Then** a clear "No servers found" message is displayed with suggestions to adjust the query.
 
 ---
 
-### User Story 3 — App Tile Management (Priority: P2)
+### User Story 2 - Import MCP Server from Catalog (Priority: P1)
 
-As a user managing apps, I want to be able to delete apps directly from the App tiles and see their current status at a glance, so I can keep my workspace organized and stay informed.
+A user finds an MCP server they want to use and clicks the "Import" button on its catalog card. The system creates a new MCP tool configuration in the project using the server's install configuration data. After import, the card updates to show an "Installed" badge instead of the "Import" button, and the imported server appears in the project's existing tool list. The import process automatically maps the server's configuration to the correct format based on its type (HTTP, stdio, or SSE).
 
-**Why this priority**: Delete functionality and status visibility are core management capabilities that reduce the need for workarounds and improve day-to-day workflow efficiency.
+**Why this priority**: Import is the core action that converts browsing into value — users need to be able to add discovered servers to their project. Without import, the catalog is read-only and delivers limited utility.
 
-**Independent Test**: Can be fully tested by viewing App tiles, confirming a delete button is present on each tile, verifying that deleting an app removes it, and checking that app status indicators reflect whether a GitHub Parent Issue is executing in the app's project.
+**Independent Test**: Can be fully tested by browsing the catalog, clicking "Import" on a server card, verifying the card shows "Installed", and confirming the new tool configuration appears in the project's tool list.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user views the Apps page, **When** looking at any App tile, **Then** a delete button is visible on the tile.
-2. **Given** a user clicks the delete button on an App tile, **When** they confirm the deletion, **Then** the app is removed and no longer appears in the list.
-3. **Given** an app has an active GitHub Parent Issue executing in its project, **When** the user views the App tile, **Then** a status indicator shows that the app has active execution in progress.
-4. **Given** an app has no active GitHub Parent Issue, **When** the user views the App tile, **Then** the status indicator reflects an idle or inactive state.
+1. **Given** a user sees an MCP server card with an "Import" button, **When** they click "Import", **Then** a new tool configuration is created in the project and the card updates to display an "Installed" badge.
+2. **Given** the user imports an HTTP-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted HTTP configuration snippet.
+3. **Given** the user imports a stdio-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted command-based configuration snippet.
+4. **Given** the user imports an SSE-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted SSE configuration snippet.
+5. **Given** a server is already imported (shows "Installed" badge), **When** the user views that server's card, **Then** the "Import" button is not available and the "Installed" badge is shown instead.
+6. **Given** the import process encounters an error, **When** the user clicks "Import", **Then** a user-friendly error message is displayed and the card returns to its original state.
 
 ---
 
-### User Story 4 — App Detail View and History (Priority: P3)
+### User Story 3 - Sync Imported MCP Server to Repository (Priority: P2)
 
-As a user, I want to select an app and see detailed information about its GitHub Project and Agent Pipeline, and I want the History section to include Agent Pipeline updates so I can track all activity in one place.
+After importing an MCP server, the user can sync it to their repository's `mcp.json` file using the existing "Sync to Repo" functionality. This ensures that the next agent execution automatically picks up the new MCP server without manual configuration file editing.
 
-**Why this priority**: Detailed app views and comprehensive history provide transparency into what agents are doing within each app's project, reducing the need to switch between Solune and GitHub to get a full picture.
+**Why this priority**: Syncing completes the end-to-end workflow from discovery to activation. It builds on existing "Sync to Repo" infrastructure and requires import (P1) to be functional first.
 
-**Independent Test**: Can be fully tested by selecting an app, verifying that detailed GitHub Project and Agent Pipeline information is displayed, and checking the History section for Agent Pipeline update entries similar to the Activity page format.
+**Independent Test**: Can be tested by importing an MCP server, triggering "Sync to Repo" on the imported tool, and verifying the server's configuration appears in the repository's `mcp.json` file.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user selects an app from the Apps page, **When** the app detail view opens, **Then** information about the app's GitHub Project is displayed (project name, status, link).
-2. **Given** a user selects an app from the Apps page, **When** the app detail view opens, **Then** Agent Pipeline information is displayed (pipeline status, recent runs).
-3. **Given** an app has Agent Pipeline activity, **When** the user views the app's History section, **Then** Agent Pipeline updates appear in the history feed in a format consistent with the Activity page.
-4. **Given** an app has no Agent Pipeline activity, **When** the user views the app's History section, **Then** the history still loads correctly and indicates no pipeline updates are available.
+1. **Given** the user has imported an MCP server from the catalog, **When** they click "Sync to Repo" on the imported tool, **Then** the server's configuration is written to the repository's `mcp.json` file.
+2. **Given** the `mcp.json` file already contains other tool configurations, **When** the user syncs a newly imported server, **Then** the new configuration is added alongside existing entries without overwriting them.
+3. **Given** the sync operation fails (e.g., permission error), **When** the user attempts to sync, **Then** a user-friendly error message explains the issue.
 
 ---
 
-### Edge Cases
+### User Story 4 - Already-Installed Detection (Priority: P2)
 
-- What happens when a user tries to delete an app that has an active GitHub Parent Issue executing? The system should warn the user and require confirmation before proceeding.
-- What happens when app status cannot be determined (e.g., GitHub API is unreachable)? The status indicator should show an "unknown" or "unavailable" state rather than failing silently.
-- What happens when the "Review upkeep cadence" panel content exceeds the viewport? The page must remain scrollable and not lock the user out of navigation.
-- What happens when a user creates a chore after GitHub Template support is removed? The system should use the database-backed flow exclusively with no remnant references to templates.
-- What happens when the "Advanced options" section in Create App has no other settings besides "New Repository Settings"? The section should still render correctly and be collapsible.
+When browsing the catalog, servers that have already been imported into the current project display an "Installed" badge on their catalog card. This prevents duplicate imports and provides at-a-glance awareness of which servers are already configured.
 
-## Requirements *(mandatory)*
+**Why this priority**: Duplicate prevention improves the user experience by providing clear visual feedback about project state, but it is an enhancement to the core browse/import flow.
 
-### Functional Requirements
+**Independent Test**: Can be tested by importing one or more servers, then browsing or searching the catalog and verifying that imported servers show the "Installed" badge while non-imported servers show the "Import" button.
 
-#### Chores Page
+**Acceptance Scenarios**:
 
-- **FR-001**: System MUST remove all UI references to GitHub Templates for chore definitions, including any option to create pull requests for saving chore templates.
-- **FR-002**: System MUST remove the "Featured rituals" section from the Chores page.
-- **FR-003**: System MUST remove the "Plan recurring work" button from the Chores page.
-- **FR-004**: System MUST fix the "Review upkeep cadence" button so that activating it does not cause the page to jump, does not cut off the bottom of the page, and allows the user to scroll back to the top without refreshing.
-- **FR-005**: System MUST relocate the "Clean up" and "+ Create chore" controls into the "Ritual Maintenance" section.
-- **FR-006**: System MUST remove the "Upkeep studio" section from the Chores page.
-- **FR-007**: System MUST persist chore definitions in the database instead of through GitHub Templates or pull requests.
+1. **Given** the user has previously imported server "GitHub MCP", **When** they browse the catalog or search for "GitHub", **Then** the "GitHub MCP" card shows an "Installed" badge.
+2. **Given** the user has not imported server "Slack MCP", **When** they browse the catalog, **Then** the "Slack MCP" card shows an "Import" button.
+3. **Given** the user removes a previously imported server from the tool list, **When** they browse the catalog, **Then** the removed server's card reverts to showing the "Import" button.
 
 #### Apps — Create App Experience
 
@@ -104,7 +80,12 @@ As a user, I want to select an app and see detailed information about its GitHub
 - **FR-009**: System MUST move the "New Repository Settings" controls into the "Advanced options" section of the Create App experience.
 - **FR-010**: System MUST remove the "Name override" field from the "Advanced options" section of the Create App experience.
 
-#### Apps — Tile Management
+- What happens when the external catalog data source is temporarily unavailable? The system displays cached results (if available) with a notice that results may not be current, or a clear error message with a retry option if no cache is available.
+- What happens when the user searches with special characters or extremely long queries? The system sanitizes input and either returns relevant results or a "No servers found" message without errors.
+- What happens when the catalog returns a server with an unrecognized server type? The system skips the unrecognized server or displays it without an import option, logging a warning for administrators.
+- What happens when two users simultaneously import the same server for the same project? The system handles the duplicate gracefully — either preventing the second import or treating it as idempotent.
+- What happens when a catalog server's install configuration is missing or malformed? The import button is disabled or the system shows an informative error explaining the server cannot be imported at this time.
+- What happens when the catalog has thousands of results for a broad query? The system paginates results or loads them incrementally to maintain performance.
 
 - **FR-011**: System MUST display a delete button on each App tile.
 - **FR-012**: System MUST allow users to delete an app via the tile delete button, with a confirmation step before deletion.
@@ -112,33 +93,49 @@ As a user, I want to select an app and see detailed information about its GitHub
 
 #### Apps — Detail View and History
 
-- **FR-014**: System MUST show detailed GitHub Project information when a user selects an app (project name, status, link to project).
-- **FR-015**: System MUST show Agent Pipeline information when a user selects an app (pipeline status, recent pipeline runs).
-- **FR-016**: System MUST include Agent Pipeline updates in the app's History section, displayed in a format consistent with the Activity page.
+- **FR-001**: System MUST display a "Browse MCP Catalog" section on the Tools page, positioned between the presets gallery and the tool archive section.
+- **FR-002**: System MUST retrieve MCP server listings from the Glama API, including server name, description, repository URL, category, server type, install configuration, and quality score.
+- **FR-003**: System MUST provide a text search input that filters catalog servers by name and description.
+- **FR-004**: System MUST provide category filter chips (e.g., Developer Tools, Cloud, Database, Search) to filter catalog servers by category.
+- **FR-005**: System MUST display each catalog server as a card showing: name, description, quality score (A/B/C), and server type badge (local/remote/HTTP).
+- **FR-006**: System MUST provide an "Import" button on each server card that creates a new MCP tool configuration in the project.
+- **FR-007**: System MUST map imported server configurations to the correct format based on server type:
+  - HTTP type → HTTP configuration format
+  - stdio type → command-based configuration format
+  - SSE type → SSE configuration format
+- **FR-008**: System MUST display an "Installed" badge on catalog cards for servers that have already been imported into the current project.
+- **FR-009**: System MUST allow imported MCP servers to be synced to the repository's `mcp.json` file using the existing "Sync to Repo" flow.
+- **FR-010**: System MUST cache catalog data with a 1-hour time-to-live (TTL) to reduce external API calls, with stale-fallback behavior when the cache expires and the external source is unavailable.
+- **FR-011**: System MUST validate all external URLs to prevent server-side request forgery (SSRF) attacks when proxying catalog data.
+- **FR-012**: System MUST handle external API failures gracefully by displaying cached results when available, or showing a user-friendly error message with a retry option.
+- **FR-013**: System MUST support pagination or incremental loading for large catalog result sets to maintain responsive performance.
+- **FR-014**: System MUST prevent duplicate imports of the same catalog server within a single project.
 
 ### Key Entities
 
-- **Chore**: A recurring task definition with a description, schedule, and configuration. Previously backed by GitHub Templates; now persisted exclusively in the database.
-- **App**: A configured application within Solune, associated with a GitHub repository and project. Contains metadata including target branch (now defaulting to main), repository settings, and execution status.
-- **App Status**: The current execution state of an app, derived from whether a GitHub Parent Issue is actively running in the app's associated project.
-- **Agent Pipeline**: An automated workflow that executes within an app's context. Pipeline runs and updates are tracked and surfaced in the app's History.
+- **CatalogMcpServer**: Represents an external MCP server from the catalog. Key attributes: unique identifier, name, description, repository URL, category, server type (local/remote/HTTP), install configuration (structured data), quality score (A/B/C), and whether it is already installed in the current project.
+- **McpToolConfig** (existing): Represents an MCP tool configuration within a project. The import process creates a new McpToolConfig from a CatalogMcpServer's install configuration. Existing CRUD, sync-to-repo, and UI infrastructure is reused.
+
+### Assumptions
+
+- The Glama API (`GET https://glama.ai/api/mcp/v1/servers?query=`) remains free, publicly accessible, and does not require authentication.
+- The Glama API response includes all necessary fields: server name, description, repository URL, category, server type, install configuration, and quality score.
+- Microsoft's ~25 MCP servers (Azure, GitHub, Playwright, Foundry, etc.) are included in the Glama API dataset and can be surfaced via category or tag filtering rather than as a separate data source.
+- The existing "Sync to Repo" flow and McpToolConfig CRUD infrastructure are stable and do not require modification to support imported catalog servers.
+- Per-agent MCP assignment (attaching specific MCPs to specific agent configuration files) is explicitly out of scope for this feature and will be addressed in a future enhancement.
+- No scraping of mcpservers.org, mcp.so, or opentools.com — only the Glama API is used as the data source.
+- Standard web application performance expectations apply (page loads under 3 seconds, search results under 2 seconds).
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Users can navigate the entire Chores page without encountering scroll bugs, page jumps, or content cutoff — 100% of page content is accessible without requiring a browser refresh.
-- **SC-002**: Zero references to GitHub Templates or PR-based chore saving remain visible anywhere in the Chores page UI.
-- **SC-003**: Users can complete the Create App flow in fewer steps than before, with the "Target branch" decision removed and settings reorganized under "Advanced options".
-- **SC-004**: Users can delete an app from the Apps page in under 3 clicks (click delete → confirm → done).
-- **SC-005**: Users can determine the execution status of any app at a glance from the App tiles without opening a detail view.
-- **SC-006**: Users can view comprehensive app details (GitHub Project info and Agent Pipeline info) by selecting an app, without needing to navigate to GitHub separately.
-- **SC-007**: Agent Pipeline updates appear in app History within the same refresh cycle as other activity entries, consistent with the Activity page format.
-
-## Assumptions
-
-- Chore definitions already have a database-backed storage mechanism available or in progress (per the requirement that definitions are "now saved in the database").
-- The "Ritual Maintenance" section already exists on the Chores page as a target for relocated controls.
-- The Activity page already displays Agent Pipeline updates in a defined format that can be reused for the app History section.
-- App deletion is a soft-delete or includes appropriate cleanup of associated resources (GitHub issues, pipelines) to avoid orphaned data.
-- The "Review upkeep cadence" scroll bug is a front-end layout or overflow issue, not a backend data problem.
+- **SC-001**: Users can discover and browse 21,000+ MCP servers from the catalog section on the Tools page.
+- **SC-002**: Users can find relevant MCP servers using text search with results appearing in under 2 seconds.
+- **SC-003**: Users can filter servers by category using filter chips, with filtered results appearing in under 2 seconds.
+- **SC-004**: Users can import an MCP server from the catalog into their project in under 3 clicks (navigate to catalog → find server → click Import).
+- **SC-005**: Imported servers are correctly formatted based on their type (HTTP, stdio, SSE) and appear in the project's tool list immediately after import.
+- **SC-006**: Already-imported servers display an "Installed" badge in the catalog, preventing unintentional duplicate imports.
+- **SC-007**: Imported MCP servers can be synced to the repository's `mcp.json` file using the existing sync flow, and subsequent agent executions automatically pick up the new server.
+- **SC-008**: The catalog remains functional when the external data source experiences intermittent outages, by serving cached results within the TTL window.
+- **SC-009**: 90% of users who browse the catalog can successfully import at least one MCP server on their first attempt without assistance.

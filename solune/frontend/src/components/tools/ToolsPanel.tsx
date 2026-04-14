@@ -17,6 +17,7 @@ import { UploadMcpModal } from './UploadMcpModal';
 import { RepoConfigPanel } from './RepoConfigPanel';
 import { McpPresetsGallery } from './McpPresetsGallery';
 import { GitHubMcpConfigGenerator } from './GitHubMcpConfigGenerator';
+import { McpCatalogBrowse } from './McpCatalogBrowse';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CelestialLoader } from '@/components/common/CelestialLoader';
@@ -268,6 +269,8 @@ export function ToolsPanel({ projectId }: ToolsPanelProps) {
         />
         <GitHubMcpConfigGenerator tools={tools} />
       </div>
+
+      <McpCatalogBrowse projectId={projectId} />
 
       <div className="ritual-stage flex flex-col gap-4 rounded-[1.55rem] p-4 sm:rounded-[1.8rem] sm:p-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
