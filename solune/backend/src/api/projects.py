@@ -22,7 +22,6 @@ from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
     cached_fetch,
-    compute_data_hash,
     get_project_items_cache_key,
     get_user_projects_cache_key,
 )
@@ -384,103 +383,28 @@ async def websocket_subscribe(
 
     await connection_manager.connect(websocket, project_id)
 
-    stale_revalidation_count = 0  # tracks consecutive stale returns
-    STALE_REVALIDATION_LIMIT = 10  # revalidate after this many stale returns
-
-    async def send_tasks(*, force_refresh: bool = False):
-        """Fetch and send current tasks, using cache when possible.
-
-        NOTE: Evaluated for migration to ``cached_fetch()`` (Phase 2, Task 2.2).
-        **Not migrated** because the stale-revalidation counter pattern
-        (``stale_revalidation_count`` / ``STALE_REVALIDATION_LIMIT``) is
-        stateful across calls and controls *when* to bypass cache — a
-        fetch-scheduling concern that ``cached_fetch()`` should not own.
-        The ``data_hash_fn`` extension covers the hash-diffing portion,
-        but the counter introduces call-frequency-dependent state that
-        would require single-caller parameters, violating YAGNI.
-        See research.md Task 6 for full rationale.
-        """
-        nonlocal stale_revalidation_count
-        cache_key = get_project_items_cache_key(project_id)
-        try:
-            # Use cache for periodic refreshes to avoid hammering the API.
-            # Only bypass cache on initial connection (force_refresh=True).
-            if not force_refresh:
-                cached = cache.get(cache_key)
-                if cached is not None:
-                    stale_revalidation_count = 0
-                    return cached
-
-                # When the cache has expired, serve stale data to avoid
-                # triggering a fresh API call on every periodic check.
-                # However, allow a real fetch every N stale cycles so
-                # connected clients eventually pick up external changes
-                # rather than staying permanently stale.
-                stale = cache.get_stale(cache_key)
-                if stale is not None:
-                    stale_revalidation_count += 1
-                    if stale_revalidation_count < STALE_REVALIDATION_LIMIT:
-                        logger.debug(
-                            "WebSocket periodic check using stale cache for project %s (%d/%d)",
-                            project_id,
-                            stale_revalidation_count,
-                            STALE_REVALIDATION_LIMIT,
-                        )
-                        return stale
-                    # Revalidation threshold reached — fall through to fetch
-                    logger.debug(
-                        "Stale revalidation limit reached for project %s, fetching fresh data",
-                        project_id,
-                    )
-                    stale_revalidation_count = 0
-
-            tasks = await github_projects_service.get_project_items(
-                session.access_token, project_id
-            )
-            # Compare fetched data against previously cached entry using
-            # data_hash (FR-004 change detection).  When the data is
-            # unchanged we refresh the TTL instead of storing a new entry,
-            # keeping the stale-revalidation counter at zero and avoiding
-            # unnecessary downstream refresh messages.
-            tasks_payload = [t.model_dump(mode="json") for t in tasks]
-            new_hash = compute_data_hash(tasks_payload)
-            existing_entry = cache.get_entry(cache_key)
-            if existing_entry is not None and existing_entry.data_hash == new_hash:
-                cache.refresh_ttl(cache_key)
-                logger.debug(
-                    "Refreshed cache TTL for project %s — data unchanged",
-                    project_id,
-                )
-            else:
-                cache.set(cache_key, tasks, data_hash=new_hash)
-            stale_revalidation_count = 0
-            return tasks
-        except Exception as e:
-            logger.error("Failed to fetch tasks for WebSocket: %s", e)
-            # On fetch failure, fall back to stale data if available
-            stale = cache.get_stale(cache_key)
-            if stale is not None:
-                logger.debug("Serving stale data after fetch failure for project %s", project_id)
-                return stale
-            return None
-
     try:
-        # Send all current tasks immediately on connection (bypass cache)
-        tasks = await send_tasks(force_refresh=True)
-        if tasks is not None:
-            await websocket.send_json(
-                {
-                    "type": "initial_data",
-                    "project_id": project_id,
-                    "tasks": [task.model_dump(mode="json") for task in tasks],
-                    "count": len(tasks),
-                }
-            )
-            logger.info(
-                "Sent %d initial tasks to WebSocket for project %s",
-                len(tasks),
-                project_id,
-            )
+        # Send a lightweight handshake on connection.  The frontend no
+        # longer consumes the full tasks payload from the WebSocket — it
+        # relies on REST queries (board data) for rendering.  Sending
+        # only a count avoids the 1 MB frame-size crash on large
+        # projects (722+ items) while preserving the initial_data
+        # contract the frontend expects.
+        cache_key = get_project_items_cache_key(project_id)
+        cached_tasks = cache.get(cache_key)
+        item_count = len(cached_tasks) if cached_tasks is not None else 0
+        await websocket.send_json(
+            {
+                "type": "initial_data",
+                "project_id": project_id,
+                "count": item_count,
+            }
+        )
+        logger.info(
+            "Sent lightweight initial_data (%d items) to WebSocket for project %s",
+            item_count,
+            project_id,
+        )
 
         # Keep connection alive and periodically push cached data.
         # Actual GitHub API calls are governed by the cache TTL (default
@@ -502,24 +426,25 @@ async def websocket_subscribe(
                 # Check if we need to refresh
                 current_time = asyncio.get_running_loop().time()
                 if current_time - last_refresh >= refresh_interval:
-                    # Refresh and send updated tasks
-                    tasks = await send_tasks()
-                    if tasks is not None:
-                        tasks_payload = [task.model_dump(mode="json") for task in tasks]
-                        current_hash = compute_data_hash(tasks_payload)
-
-                        if current_hash != last_sent_hash:
+                    # Periodic refresh: check the cache entry's hash to
+                    # detect changes without re-fetching or re-serialising
+                    # all project items.  The cache is populated by the
+                    # regular REST endpoints and Copilot polling; we just
+                    # piggyback on its data_hash for change detection.
+                    entry = cache.get_entry(cache_key)
+                    if entry is not None and entry.data_hash is not None:
+                        if entry.data_hash != last_sent_hash:
+                            item_count = len(entry.value) if isinstance(entry.value, list) else 0
                             await websocket.send_json(
                                 {
                                     "type": "refresh",
                                     "project_id": project_id,
-                                    "tasks": tasks_payload,
-                                    "count": len(tasks),
+                                    "count": item_count,
                                 }
                             )
-                            last_sent_hash = current_hash
+                            last_sent_hash = entry.data_hash
                             logger.debug(
-                                "Refreshed %d tasks for project %s", len(tasks), project_id
+                                "Refreshed %d tasks for project %s", item_count, project_id
                             )
                         else:
                             logger.debug(

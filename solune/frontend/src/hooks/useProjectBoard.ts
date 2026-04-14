@@ -23,6 +23,9 @@ interface UseProjectBoardOptions {
   onProjectSelect?: (projectId: string) => void;
   /** Optional adaptive polling configuration overrides */
   adaptivePollingConfig?: AdaptivePollingConfig;
+  /** When true, board data is fetched once but adaptive polling is disabled.
+   *  Useful for layout-level consumers that only need a snapshot (e.g. sidebar). */
+  disablePolling?: boolean;
 }
 
 interface UseProjectBoardReturn {
@@ -53,7 +56,7 @@ interface UseProjectBoardReturn {
 }
 
 export function useProjectBoard(options: UseProjectBoardOptions = {}): UseProjectBoardReturn {
-  const { selectedProjectId: externalProjectId, onProjectSelect, adaptivePollingConfig } = options;
+  const { selectedProjectId: externalProjectId, onProjectSelect, adaptivePollingConfig, disablePolling } = options;
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const previousDataRef = useRef<string | null>(null);
 
@@ -110,7 +113,7 @@ export function useProjectBoard(options: UseProjectBoardOptions = {}): UseProjec
     },
     enabled: !!selectedProjectId,
     staleTime: STALE_TIME_SHORT,
-    refetchInterval: getRefetchInterval,
+    refetchInterval: disablePolling ? false : getRefetchInterval,
   });
 
   const selectProject = useCallback(

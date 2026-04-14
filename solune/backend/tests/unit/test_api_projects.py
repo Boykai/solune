@@ -620,14 +620,13 @@ class TestWebSocketSubscribe:
         self, mock_session, mock_github_service, mock_websocket_manager
     ):
         """T018: WebSocket subscribe handles a timeout cycle followed by
-        disconnection, calling get_project_items for the initial fetch."""
+        disconnection, sending only lightweight messages (no get_project_items)."""
         from fastapi import WebSocketDisconnect
 
         from src.api.projects import websocket_subscribe
         from src.constants import SESSION_COOKIE_NAME
 
         p = _project()
-        t = _task()
 
         mock_ws = AsyncMock()
         mock_ws.cookies = {SESSION_COOKIE_NAME: "test-session-id"}
@@ -658,18 +657,19 @@ class TestWebSocketSubscribe:
         ):
             mock_cache.get.side_effect = [
                 [p],  # project access check (list of projects)
-                None,  # send_tasks initial force_refresh → cache miss
-                None,  # periodic send_tasks → cache miss
+                None,  # initial_data cache lookup → cache miss (count=0)
             ]
-            mock_cache.get_stale.return_value = None
             mock_cache.get_entry.return_value = None
-            mock_github_service.get_project_items = AsyncMock(return_value=[t])
 
             await websocket_subscribe(mock_ws, "PVT_abc")
 
-        # The endpoint should have called get_project_items for the initial
-        # force_refresh and been invoked in send_tasks
-        mock_github_service.get_project_items.assert_called()
+        # The lightweight endpoint should NOT call get_project_items
+        mock_github_service.get_project_items.assert_not_called()
+
+        # Should have sent the initial_data handshake
+        mock_ws.send_json.assert_any_call(
+            {"type": "initial_data", "project_id": "PVT_abc", "count": 0}
+        )
 
 
 # ── New coverage tests ──────────────────────────────────────────────────────

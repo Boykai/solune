@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -185,6 +186,12 @@ class BoardMixin(_ServiceMixin):
         )
 
         milestone_data = content.get("milestone")
+        raw_body = content.get("body") or ""
+        # Truncate body to 200 chars — the board card only renders
+        # an 80-char snippet; the modal can use the GitHub URL for
+        # full content.  This reduces the board payload significantly
+        # (avg body was 5,577 bytes → now ≤200 bytes per item).
+        truncated_body = (raw_body[:200] + "…") if len(raw_body) > 200 else raw_body
         return BoardItem(
             item_id=item["id"],
             content_id=content.get("id"),
@@ -193,7 +200,7 @@ class BoardMixin(_ServiceMixin):
             number=content.get("number"),
             repository=repository,
             url=content.get("url"),
-            body=content.get("body"),
+            body=truncated_body,
             status=status_name or "No Status",
             status_option_id=status_option_id,
             assignees=assignees,
@@ -385,13 +392,26 @@ class BoardMixin(_ServiceMixin):
         if project_meta is None:
             raise ValueError(f"Project not found: {project_id}")
 
-        # Fetch sub-issues for each issue item
-        for board_item in all_items:
+        # Fetch sub-issues for parent issue items in parallel.
+        # Items carrying the "sub-issue" label are themselves sub-issues
+        # and never have their own children — skip them to avoid wasted
+        # REST calls (typically reduces 722 → ~52 calls).
+        from src.constants import SUB_ISSUE_LABEL as _SUB_ISSUE_LABEL
+
+        _sem = asyncio.Semaphore(20)
+
+        def _is_sub_issue_label(board_item) -> bool:
+            return any(lb.name == _SUB_ISSUE_LABEL for lb in board_item.labels)
+
+        async def _fetch_sub_issues_for(board_item):
             if (
-                board_item.content_type == ContentType.ISSUE
-                and board_item.number is not None
-                and board_item.repository
+                board_item.content_type != ContentType.ISSUE
+                or board_item.number is None
+                or not board_item.repository
+                or _is_sub_issue_label(board_item)
             ):
+                return
+            async with _sem:
                 try:
                     raw_sub_issues = await self.get_sub_issues(
                         access_token=access_token,
@@ -430,6 +450,8 @@ class BoardMixin(_ServiceMixin):
                         board_item.number,
                         e,
                     )
+
+        await asyncio.gather(*[_fetch_sub_issues_for(item) for item in all_items])
 
         # ── Reconciliation: supplement items that the project's items()
         # connection may not yet include due to a known GitHub API bug
@@ -665,7 +687,9 @@ class BoardMixin(_ServiceMixin):
                 number=issue.get("number"),
                 repository=repository,
                 url=issue.get("url"),
-                body=issue.get("body"),
+                body=((issue.get("body") or "")[:200] + "…")
+                if len(issue.get("body") or "") > 200
+                else (issue.get("body") or ""),
                 status=status_name or "No Status",
                 status_option_id=status_option_id,
                 assignees=assignees,
@@ -675,13 +699,20 @@ class BoardMixin(_ServiceMixin):
                 linked_prs=linked_prs,
             )
 
-            # Fetch sub-issues for the reconciled item
-            if board_item.number and repository:
+            reconciled_items.append(board_item)
+
+        # Fetch sub-issues for reconciled items in parallel
+        _sem = asyncio.Semaphore(20)
+
+        async def _fetch_reconciled_sub_issues(board_item):
+            if not board_item.number or not board_item.repository:
+                return
+            async with _sem:
                 try:
                     raw_sub_issues = await self.get_sub_issues(
                         access_token=access_token,
-                        owner=repository.owner,
-                        repo=repository.name,
+                        owner=board_item.repository.owner,
+                        repo=board_item.repository.name,
                         issue_number=board_item.number,
                     )
                     for si in raw_sub_issues:
@@ -715,6 +746,6 @@ class BoardMixin(_ServiceMixin):
                         e,
                     )
 
-            reconciled_items.append(board_item)
+        await asyncio.gather(*[_fetch_reconciled_sub_issues(item) for item in reconciled_items])
 
         return reconciled_items
