@@ -146,164 +146,198 @@ class TestNormalizeServer:
         assert server.quality_score == "95"
 
     def test_title_field_used_as_name(self):
-        server = _normalize_server({
-            "id": "test",
-            "title": "Title Based",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "title": "Title Based",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.name == "Title Based"
 
     def test_summary_field_used_as_description(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "summary": "A summary field",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "summary": "A summary field",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.description == "A summary field"
 
     def test_description_defaults_to_name(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Fallback Name",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Fallback Name",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.description == "Fallback Name"
 
     def test_repository_field_used_as_repo_url(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "repository": "https://github.com/test/repo",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "repository": "https://github.com/test/repo",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.repo_url == "https://github.com/test/repo"
 
     def test_github_url_field_used_as_repo_url(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "github_url": "https://github.com/test/repo2",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "github_url": "https://github.com/test/repo2",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.repo_url == "https://github.com/test/repo2"
 
     def test_non_https_repo_url_is_dropped(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "repo_url": "javascript:alert(1)",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "repo_url": "javascript:alert(1)",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.repo_url is None
 
     def test_tags_fallback_for_category(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "tags": ["AI", "Search"],
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "tags": ["AI", "Search"],
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.category == "AI"
 
     def test_category_preferred_over_tags(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "category": "Developer Tools",
-            "tags": ["AI", "Search"],
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "category": "Developer Tools",
+                "tags": ["AI", "Search"],
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.category == "Developer Tools"
 
     def test_json_string_install_config(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": '{"transport": "http", "url": "https://example.com/mcp"}',
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": '{"transport": "http", "url": "https://example.com/mcp"}',
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "http"
         assert server.install_config.url == "https://example.com/mcp"
 
     def test_invalid_json_string_config_defaults_to_unknown_transport(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": "not valid json",
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": "not valid json",
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "unknown"
 
     def test_config_field_alias(self):
         """Upstream may use 'config' instead of 'install_config'."""
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "config": {"transport": "sse", "url": "https://example.com/sse"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "config": {"transport": "sse", "url": "https://example.com/sse"},
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "sse"
 
     def test_type_field_alias_for_transport(self):
         """Upstream may use 'type' instead of 'transport' in config."""
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"type": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"type": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "http"
 
     def test_unsupported_transport_maps_to_remote_server_type(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"transport": "grpc", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"transport": "grpc", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.server_type == "remote"
 
     def test_no_install_config_at_all(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+            }
+        )
         assert server is not None
         assert server.install_config.transport == "unknown"
         assert server.server_type == "remote"
 
     def test_id_generated_from_name_if_missing(self):
-        server = _normalize_server({
-            "name": "My Cool Server",
-            "install_config": {"transport": "http", "url": "https://example.com"},
-        })
+        server = _normalize_server(
+            {
+                "name": "My Cool Server",
+                "install_config": {"transport": "http", "url": "https://example.com"},
+            }
+        )
         assert server is not None
         assert server.id == "my-cool-server"
 
     def test_non_list_args_treated_as_empty(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"transport": "stdio", "command": "npx", "args": "invalid"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"transport": "stdio", "command": "npx", "args": "invalid"},
+            }
+        )
         assert server is not None
         assert server.install_config.args == []
 
     def test_non_dict_env_treated_as_empty(self):
-        server = _normalize_server({
-            "id": "test",
-            "name": "Test",
-            "install_config": {"transport": "http", "url": "https://x.com", "env": "invalid"},
-        })
+        server = _normalize_server(
+            {
+                "id": "test",
+                "name": "Test",
+                "install_config": {"transport": "http", "url": "https://x.com", "env": "invalid"},
+            }
+        )
         assert server is not None
         assert server.install_config.env == {}
 
