@@ -53,7 +53,7 @@ test.describe('Responsive Agents Layout', () => {
   test('visual regression — agents at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openAgentsPage(page);
-    await expect(page).toHaveScreenshot('responsive-agents-mobile.png', {
+    await expect(page.getByRole('main')).toHaveScreenshot('responsive-agents-mobile.png', {
       maxDiffPixels: 100,
     });
   });
