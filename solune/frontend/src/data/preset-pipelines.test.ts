@@ -169,4 +169,20 @@ describe('PRESET_PIPELINES', () => {
     }
     expect(new Set(allIds).size).toBe(allIds.length);
   });
+
+  it('does not contain retired preset IDs', () => {
+    const retiredIds = ['easy', 'medium', 'hard', 'expert', 'github-copilot'];
+    const currentIds = PRESET_PIPELINES.map((p) => p.presetId);
+    for (const retired of retiredIds) {
+      expect(currentIds).not.toContain(retired);
+    }
+  });
+
+  it('does not contain retired preset names', () => {
+    const retiredNames = ['Easy', 'Medium', 'Hard', 'Expert', 'GitHub Copilot'];
+    const currentNames = PRESET_PIPELINES.map((p) => p.name);
+    for (const retired of retiredNames) {
+      expect(currentNames).not.toContain(retired);
+    }
+  });
 });

@@ -662,4 +662,51 @@ describe('AgentsPanel', () => {
     expect(screen.getByText('octo/widgets')).toBeInTheDocument();
     expect(screen.getByText('.github/agents/catalog-agent.agent.md')).toBeInTheDocument();
   });
+
+  it('renders "Refresh agents" button instead of legacy "Refresh models" text', () => {
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+    expect(screen.getByRole('button', { name: /refresh agents/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh models/i })).not.toBeInTheDocument();
+  });
+
+  it('renders "+ Add Agent" button at top of panel', () => {
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+    expect(screen.getByRole('button', { name: /\+ add agent/i })).toBeInTheDocument();
+  });
+
+  it('renders Agent PRs section above Browse catalog section when both present', () => {
+    mockUsePendingAgentsList.mockReturnValue({
+      data: [createAgent({ id: 'p1', slug: 'beta', name: 'Beta', status: 'pending_pr' })],
+      isLoading: false,
+    });
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Test',
+          source_url: 'https://example.test/alpha',
+          already_imported: false,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    const { container } = render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+    const html = container.innerHTML;
+    const pendingIdx = html.indexOf('Agent PRs waiting on main');
+    const browseIdx = html.indexOf('Browse Awesome Copilot Agents');
+    expect(pendingIdx).toBeGreaterThan(-1);
+    expect(browseIdx).toBeGreaterThan(-1);
+    expect(pendingIdx).toBeLessThan(browseIdx);
+  });
+
+  it('does not render Agent Archive section or Orbital map', () => {
+    const { container } = render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+    expect(container.textContent).not.toContain('Agent Archive');
+    expect(container.textContent).not.toContain('Orbital map');
+  });
 });
