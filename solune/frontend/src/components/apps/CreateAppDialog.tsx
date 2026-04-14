@@ -155,8 +155,9 @@ export function CreateAppDialog({
     }
   }, []);
 
-  const validateDisplayName = useCallback((value: string): string | null => {
+  const validateDisplayName = useCallback((value: string, slug: string): string | null => {
     if (!value.trim()) return 'Display name is required.';
+    if (!slug) return 'Display name must include at least one letter or number.';
     return null;
   }, []);
 
@@ -179,7 +180,7 @@ export function CreateAppDialog({
       const trimmedDescription = description.trim();
       const name = derivedName;
 
-      const newNameError = validateDisplayName(displayName);
+      const newNameError = validateDisplayName(displayName, name);
       const newDescError = validateDescription(description);
       setNameError(newNameError);
       setDescriptionError(newDescError);
@@ -335,7 +336,7 @@ export function CreateAppDialog({
                   setDisplayName(e.target.value);
                   if (nameError) setNameError(null);
                 }}
-                onBlur={() => setNameError(validateDisplayName(displayName))}
+                onBlur={() => setNameError(validateDisplayName(displayName, derivedName))}
                 aria-invalid={!!nameError}
                 aria-describedby={nameError ? 'app-name-error' : undefined}
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"

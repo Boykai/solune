@@ -161,4 +161,14 @@ describe('CreateAppDialog — removed fields and layout changes', () => {
     expect(payload).toBeDefined();
     expect(payload!.branch).toBeUndefined();
   });
+
+  it('rejects display names that cannot produce a slug', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initialRepoType: 'same-repo' });
+
+    await fillAndSubmit(user, { displayName: '!!!' });
+
+    expect(screen.getByText('Display name must include at least one letter or number.')).toBeInTheDocument();
+    expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+  });
 });

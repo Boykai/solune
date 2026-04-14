@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@/test/test-utils';
+import { fireEvent, render, screen } from '@/test/test-utils';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 import { ChoresPage } from './ChoresPage';
+
+const selectProjectMock = vi.fn();
+const projectsState = {
+  projects: [] as Array<{ project_id: string; name: string }>,
+  selectedProject: null as { project_id: string; name: string } | null,
+  isLoading: false,
+  selectProject: selectProjectMock,
+};
 
 vi.mock('@tanstack/react-query', async () => {
   const actual =
@@ -19,12 +27,7 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/hooks/useProjects', () => ({
-  useProjects: () => ({
-    projects: [],
-    selectedProject: null,
-    isLoading: false,
-    selectProject: vi.fn(),
-  }),
+  useProjects: () => projectsState,
 }));
 
 vi.mock('@/hooks/useProjectBoard', () => ({
@@ -41,12 +44,28 @@ vi.mock('@/hooks/useUnsavedChanges', () => ({
   useUnsavedChanges: () => ({ isBlocked: false, blocker: undefined }),
 }));
 
+vi.mock('@/components/chores/AddChoreModal', () => ({
+  AddChoreModal: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div role="dialog">Add Chore Modal</div> : null,
+}));
+
+vi.mock('@/components/chores/ChoresPanel', () => ({
+  ChoresPanel: () => <div>Chores Panel</div>,
+}));
+
 vi.mock('@/services/api', () => ({
   choresApi: { seedPresets: vi.fn().mockResolvedValue(undefined) },
   workflowApi: {},
 }));
 
 describe('ChoresPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    projectsState.projects = [];
+    projectsState.selectedProject = null;
+    projectsState.isLoading = false;
+  });
+
   it('renders without crashing', () => {
     render(<ChoresPage />);
     expect(document.body).toBeDefined();
@@ -87,11 +106,16 @@ describe('ChoresPage', () => {
 describe('ChoresPage — with selected project', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    projectsState.selectedProject = { project_id: 'PVT_1', name: 'Project Alpha' };
   });
 
-  it('does not render "+ Create Chore" button without a selected project', () => {
+  it('renders "+ Create Chore" and opens the modal', () => {
     render(<ChoresPage />);
-    // Without a selected project, the button should not appear
-    expect(screen.queryByRole('button', { name: /create chore/i })).not.toBeInTheDocument();
+    const createButton = screen.getByRole('button', { name: /\+ create chore/i });
+    expect(createButton).toBeInTheDocument();
+
+    fireEvent.click(createButton);
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Add Chore Modal');
   });
 });

@@ -7,7 +7,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectBoard } from '@/hooks/useProjectBoard';
-import { useChoresListPaginated, useEvaluateChoresTriggers, choreKeys } from '@/hooks/useChores';
+import {
+  useChoresListPaginated,
+  useEvaluateChoresTriggers,
+  choreKeys,
+  type ChoresFilterParams,
+} from '@/hooks/useChores';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { ChoresPanel } from '@/components/chores/ChoresPanel';
 import { AddChoreModal } from '@/components/chores/AddChoreModal';
@@ -49,9 +54,14 @@ export function ChoresPage() {
   }, [projectId, queryClient]);
 
   const { boardData } = useProjectBoard({ selectedProjectId: projectId });
-  const { isLoading: choresLoading } = useChoresListPaginated(projectId);
+  const defaultChoreFilters = useMemo<ChoresFilterParams>(
+    () => ({ sort: 'attention', order: 'asc' }),
+    []
+  );
+  const { isLoading: choresLoading } = useChoresListPaginated(projectId, defaultChoreFilters);
   const [isAnyDirty, setIsAnyDirty] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [addModalProjectId, setAddModalProjectId] = useState<string | null>(null);
+  const showAddModal = !!projectId && addModalProjectId === projectId;
 
   const parentIssueCount = useMemo(() => countParentIssues(boardData), [boardData]);
 
@@ -102,7 +112,7 @@ export function ChoresPage() {
                 repo={repoName}
                 projectId={projectId}
               />
-              <Button variant="default" size="lg" onClick={() => setShowAddModal(true)}>
+              <Button variant="default" size="lg" onClick={() => setAddModalProjectId(projectId)}>
                 + Create Chore
               </Button>
             </>
@@ -170,7 +180,7 @@ export function ChoresPage() {
         <AddChoreModal
           projectId={projectId}
           isOpen={showAddModal}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => setAddModalProjectId(null)}
         />
       )}
     </div>
