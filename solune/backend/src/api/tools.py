@@ -11,6 +11,8 @@ from src.dependencies import verify_project_access
 from src.exceptions import AppException, GitHubAPIError, NotFoundError, ValidationError
 from src.logging_utils import get_logger, handle_service_error
 from src.models.tools import (
+    CatalogMcpServerListResponse,
+    ImportCatalogMcpRequest,
     McpPresetListResponse,
     McpToolConfigCreate,
     McpToolConfigListResponse,
@@ -189,6 +191,135 @@ async def delete_repo_server(
         raise ValidationError(str(exc)) from exc
     except RuntimeError as exc:
         handle_service_error(exc, "delete repository MCP server", GitHubAPIError)
+
+
+# ── Catalog Browse / Import ──
+
+
+@router.get(
+    "/{project_id}/catalog",
+    response_model=CatalogMcpServerListResponse,
+    dependencies=[Depends(verify_project_access)],
+)
+async def browse_catalog(
+    project_id: str,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+    query: str = Query(default="", max_length=200),
+    category: str = Query(default="", max_length=100),
+) -> CatalogMcpServerListResponse:
+    """Browse/search external MCP servers from the Glama catalog."""
+    from src.services.tools.catalog import list_catalog_servers
+
+    service = _get_service()
+    tools_result = await service.list_tools(
+        project_id=project_id,
+        github_user_id=session.github_user_id,
+    )
+    existing_names = {t.name for t in tools_result.tools}
+
+    try:
+        return await list_catalog_servers(
+            project_id,
+            existing_names,
+            query=query,
+            category=category,
+        )
+    except AppException:
+        raise
+    except Exception as exc:
+        handle_service_error(exc, "browse MCP catalog", AppException)
+
+
+@router.post(
+    "/{project_id}/catalog/import",
+    response_model=McpToolConfigResponse,
+    status_code=201,
+    dependencies=[Depends(verify_project_access)],
+)
+async def import_from_catalog(
+    project_id: str,
+    data: ImportCatalogMcpRequest,
+    session: Annotated[UserSession, Depends(get_session_dep)],
+) -> McpToolConfigResponse:
+    """Import a catalog MCP server into the project's tool archive."""
+    from src.services.tools.catalog import list_catalog_servers, build_import_config
+
+    service = _get_service()
+    tools_result = await service.list_tools(
+        project_id=project_id,
+        github_user_id=session.github_user_id,
+    )
+    existing_names = {t.name for t in tools_result.tools}
+
+    try:
+        catalog_result = await list_catalog_servers(
+            project_id,
+            existing_names,
+        )
+    except AppException:
+        raise
+    except Exception as exc:
+        handle_service_error(exc, "fetch catalog for import", AppException)
+
+    # Find the requested server in the catalog
+    target = None
+    for server in catalog_result.servers:
+        if server.id == data.catalog_server_id:
+            target = server
+            break
+
+    if target is None:
+        raise NotFoundError(
+            f"Catalog server '{data.catalog_server_id}' not found in the current catalog results."
+        )
+
+    if target.already_installed:
+        raise AppException(
+            f"Server '{target.name}' is already imported into this project.",
+            status_code=409,
+        )
+
+    try:
+        create_data = build_import_config(target)
+    except ValidationError:
+        raise
+    except Exception as exc:
+        raise ValidationError(
+            f"Could not map catalog install config: {exc}"
+        ) from exc
+
+    try:
+        owner, repo = await resolve_repository(session.access_token, project_id)
+    except Exception as exc:
+        handle_service_error(exc, "resolve repository for project", ValidationError)
+
+    try:
+        result = await service.create_tool(
+            project_id=project_id,
+            github_user_id=session.github_user_id,
+            data=create_data,
+            owner=owner,
+            repo=repo,
+            access_token=session.access_token,
+        )
+    except (DuplicateToolNameError, DuplicateToolServerNameError) as exc:
+        raise AppException(str(exc), status_code=409) from exc
+    except ValueError as exc:
+        raise ValidationError(str(exc)) from exc
+
+    await log_event(
+        get_db(),
+        event_type="tool_crud",
+        entity_type="tool",
+        entity_id=result.id,
+        project_id=project_id,
+        actor=session.github_username,
+        action="imported",
+        summary=f"Tool '{create_data.name}' imported from catalog",
+        detail={"entity_name": create_data.name, "catalog_server_id": data.catalog_server_id},
+    )
+
+    return result
 
 
 # ── Create Tool ──
