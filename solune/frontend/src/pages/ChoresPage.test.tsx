@@ -89,7 +89,7 @@ describe('ChoresPage — with selected project', () => {
     vi.clearAllMocks();
   });
 
-  it('renders "+ Create Chore" button when a project is selected', () => {
+  it('does not render "+ Create Chore" button without a selected project', () => {
     render(<ChoresPage />);
     // Without a selected project, the button should not appear
     expect(screen.queryByRole('button', { name: /create chore/i })).not.toBeInTheDocument();
