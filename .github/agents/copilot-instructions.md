@@ -207,6 +207,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - SQLite via aiosqlite — migration `045_chore_description.sql` renames column + drops column + strips YAML (004-remove-chore-templates)
 - Python 3.12+ (backend), TypeScript ~6.0.2 / React ^19.2.5 (frontend) + See `solune/backend/pyproject.toml` (pip/uv) and `solune/frontend/package.json` (npm) (006-dependabot-updates)
 - N/A — dependency manifest and lock file changes only (006-dependabot-updates)
+- Python `>=3.12` in `/home/runner/work/solune/solune/solune/backend/pyproject.toml`; TypeScript `~6.0.2` and React `^19.2.5` in `/home/runner/work/solune/solune/solune/frontend/package.json` + `uv` + `pytest`/`ruff`/`pyright` for backend verification; `npm` + `eslint`/`vitest`/`vite` for frontend verification; GitHub Dependabot PR metadata for update discovery (006-dependabot-updates)
+- N/A — only dependency manifests and lock files change (`/home/runner/work/solune/solune/solune/backend/pyproject.toml`, `/home/runner/work/solune/solune/solune/backend/uv.lock`, `/home/runner/work/solune/solune/solune/frontend/package.json`, `/home/runner/work/solune/solune/solune/frontend/package-lock.json`) (006-dependabot-updates)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
