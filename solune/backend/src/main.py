@@ -19,14 +19,17 @@ logger = get_logger(__name__)
 
 
 async def _auto_start_copilot_polling() -> bool:
-    """Resume Copilot polling after a restart using a persisted session.
+    """Resume Copilot polling after a restart using persisted sessions.
 
     The copilot polling loop is an in-memory ``asyncio.Task`` that is
     normally started when a user selects a project in the UI.  After a
-    container restart the task is lost.  This helper finds the most
-    recently updated session that already has a ``selected_project_id``
-    and automatically re-starts the polling loop so agent pipelines
-    continue without manual intervention.
+    container restart the task is lost.  This helper finds **all**
+    sessions that have a ``selected_project_id`` and registers each
+    project (with its session token) for multi-project monitoring before
+    starting the polling loop.
+
+    This ensures that pipelines for *every* project with an active
+    session are resumed — not just the most recently selected one.
 
     **Fallback (no sessions):** When no user sessions exist (e.g. fresh
     container, sessions expired), the system falls back to the
@@ -36,7 +39,9 @@ async def _auto_start_copilot_polling() -> bool:
     session.
     """
     from src.services.copilot_polling import ensure_polling_started, get_polling_status
+    from src.services.copilot_polling.state import register_project
     from src.services.database import get_db
+    from src.services.pipeline_state_store import get_all_pipeline_states
     from src.services.session_store import get_session
     from src.utils import resolve_repository
 
@@ -48,46 +53,73 @@ async def _auto_start_copilot_polling() -> bool:
 
         db = get_db()
 
-        # ── Strategy 1: Use a persisted user session ──
+        # Collect project_ids that have active (non-complete) pipeline states.
+        active_project_ids: set[str] = set()
+        for state in get_all_pipeline_states().values():
+            pid = getattr(state, "project_id", None)
+            if pid and not getattr(state, "is_complete", False):
+                active_project_ids.add(pid)
+
+        # ── Strategy 1: Use persisted user sessions ──
+        # Query ALL sessions (not just the most recent) so that every
+        # project with an active pipeline can be registered for
+        # multi-project monitoring with its own access token.
         cursor = await db.execute(
             """
-            SELECT session_id FROM user_sessions
+            SELECT session_id, selected_project_id FROM user_sessions
             WHERE selected_project_id IS NOT NULL
             ORDER BY updated_at DESC
-            LIMIT 1
             """,
         )
-        row = await cursor.fetchone()
+        rows = await cursor.fetchall()
 
-        if row is not None:
+        first_started = False
+        for row in rows:
             session = await get_session(db, row["session_id"])
-            if session and session.selected_project_id:
-                try:
-                    owner, repo = await resolve_repository(
-                        session.access_token, session.selected_project_id
-                    )
-                except Exception as e:
-                    logger.warning(
-                        "Could not resolve repo for project %s — trying webhook token fallback: %s",
+            if not session or not session.selected_project_id:
+                continue
+
+            # Only register projects that have active pipeline states so
+            # we don't spin up polling for stale/completed projects.
+            if active_project_ids and session.selected_project_id not in active_project_ids:
+                continue
+
+            try:
+                owner, repo = await resolve_repository(
+                    session.access_token, session.selected_project_id
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not resolve repo for project %s — skipping: %s",
+                    session.selected_project_id,
+                    e,
+                )
+                continue
+
+            # Register this project for multi-project monitoring
+            register_project(session.selected_project_id, owner, repo, session.access_token)
+
+            # Start the main polling loop once (it round-robins through
+            # all registered projects).
+            if not first_started:
+                started = await ensure_polling_started(
+                    access_token=session.access_token,
+                    project_id=session.selected_project_id,
+                    owner=owner,
+                    repo=repo,
+                    caller="lifespan_auto_start",
+                )
+                if started:
+                    logger.info(
+                        "Auto-started Copilot polling for project %s (%s/%s)",
                         session.selected_project_id,
-                        e,
+                        owner,
+                        repo,
                     )
-                else:
-                    started = await ensure_polling_started(
-                        access_token=session.access_token,
-                        project_id=session.selected_project_id,
-                        owner=owner,
-                        repo=repo,
-                        caller="lifespan_auto_start",
-                    )
-                    if started:
-                        logger.info(
-                            "Auto-started Copilot polling for project %s (%s/%s)",
-                            session.selected_project_id,
-                            owner,
-                            repo,
-                        )
-                    return started
+                    first_started = True
+
+        if first_started:
+            return True
 
         # ── Strategy 2: Webhook token + project_settings fallback ──
         # When no UI session exists, use GITHUB_WEBHOOK_TOKEN and discover
