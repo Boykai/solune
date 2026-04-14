@@ -705,7 +705,6 @@ describe('AgentsPanel', () => {
   });
 
   it('does not render Agent Archive section or Orbital map', () => {
-    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
     const { container } = render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
     expect(container.textContent).not.toContain('Agent Archive');
     expect(container.textContent).not.toContain('Orbital map');
