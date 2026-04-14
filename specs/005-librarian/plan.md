@@ -232,12 +232,3 @@ solune/
 ## Complexity Tracking
 
 > No constitution violations found. No complexity justifications required.
-
-## Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| `execute_pipeline_launch()` coupling to API-layer imports | `trigger_chore()` would need API-layer imports | Research R1 confirms function is standalone; construct `UserSession` from available fields |
-| Migration YAML stripping misses edge cases | Some chores retain front matter | Use proven `_strip_front_matter()` regex; validate with test data |
-| Preset content quality after stripping | Presets lose GitHub Issue Template metadata | Metadata was only for GitHub UI; not needed for DB-stored descriptions |
-| Frontend type changes break at runtime | API returns `description` but frontend expects `template_content` | Deploy backend + frontend atomically; type-check catches mismatches |

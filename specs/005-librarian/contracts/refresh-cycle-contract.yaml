@@ -1,0 +1,114 @@
+# Refresh Cycle Contract
+#
+# Defines the inputs, outputs, and validation criteria for each phase
+# of the Librarian documentation refresh cycle. This is a process contract,
+# not an API contract — it specifies what each phase produces and how
+# success is measured.
+
+refresh_cycle:
+  name: Librarian Documentation Refresh
+  version: "1.0"
+  cadence: bi-weekly
+  reference: "https://github.com/Boykai/solune/issues/1728"
+
+phases:
+  - name: "Phase 1 — Build the Change Manifest"
+    inputs:
+      - path: "solune/docs/.last-refresh"
+        format: JSON
+        description: "Previous baseline SHA and date"
+      - path: "solune/CHANGELOG.md"
+        format: Markdown
+        description: "Structured change log entries"
+      - source: "git log / git diff"
+        description: "Code changes since baseline"
+    outputs:
+      - path: "solune/docs/.change-manifest.md"
+        format: Markdown
+        description: "Categorized change manifest"
+    validation:
+      - "Manifest covers all commits between baseline SHA and current HEAD"
+      - "All findings categorized into 6 categories"
+
+  - name: "Phase 2 — Infer Focus Shifts"
+    inputs:
+      - path: "solune/docs/.change-manifest.md"
+        format: Markdown
+        description: "Change manifest from Phase 1"
+    outputs:
+      - description: "Priority annotations (P0–P4) on manifest entries"
+    validation:
+      - "Each affected doc file has a priority assignment"
+      - "Narrative shift questions answered"
+
+  - name: "Phase 3 — Update the README"
+    inputs:
+      - path: "solune/README.md"
+        format: Markdown
+        description: "Current project README"
+      - description: "Focus shift analysis from Phase 2"
+    outputs:
+      - path: "solune/README.md"
+        format: Markdown
+        description: "Updated README"
+    validation:
+      - "Project description reflects current capabilities"
+      - "Feature list ordered by current importance"
+      - "Getting-started prerequisites match dependency manifests"
+      - "All badge URLs and status links resolve"
+
+  - name: "Phase 4 — Update Documentation Files"
+    inputs:
+      - path: "solune/docs/OWNERS.md"
+        format: Markdown
+        description: "Doc-to-source mapping reference"
+      - description: "Priority-ordered doc files from Phase 2"
+    outputs:
+      - description: "Updated documentation files per OWNERS.md mapping"
+    validation:
+      - "Each P0–P2 doc file diffed against source of truth"
+      - "Gaps identified as missing, stale, or dead"
+      - "Affected sections rewritten (not patched)"
+
+  - name: "Phase 5 — Validate Consistency"
+    inputs:
+      - description: "All updated documentation from Phases 3–4"
+    outputs:
+      - description: "Validation report (links, terms, diagrams, style)"
+    validation:
+      - command: "cd solune/frontend && npm test -- --run src/docs/documentationLinks.test.ts"
+        description: "Internal link validation passes"
+      - command: "cd solune && ./scripts/generate-diagrams.sh --check"
+        description: "Diagrams are up-to-date"
+      - description: "No deprecated terminology found in docs"
+      - description: "Markdown lint clean"
+
+  - name: "Phase 6 — Verify Against Running Application"
+    inputs:
+      - description: "Updated documentation from Phases 3–4"
+      - description: "Running application or source code"
+    outputs:
+      - description: "Smoke-test results for 3–5 key workflows"
+    validation:
+      - "Documented workflows match code wiring"
+      - "Config keys in docs exist in config schema"
+      - "API endpoints in docs exist in router definitions"
+
+  - name: "Phase 7 — Stamp & Reset Baseline"
+    inputs:
+      - description: "All documentation changes from Phases 3–6"
+    outputs:
+      - path: "solune/docs/.last-refresh"
+        format: JSON
+        description: "Updated baseline metadata"
+      - path: "solune/docs/checklists/doc-refresh-verification.md"
+        format: Markdown
+        description: "Completed verification checklist"
+      - path: "solune/CHANGELOG.md"
+        format: Markdown
+        description: "Documentation section added to [Unreleased]"
+    validation:
+      - ".last-refresh points to current main HEAD"
+      - "All 9 verification checklist items marked PASS"
+      - "CHANGELOG documents which docs were updated"
+      - "Single commit with conventional message: docs: librarian refresh for YYYY-MM-DD"
