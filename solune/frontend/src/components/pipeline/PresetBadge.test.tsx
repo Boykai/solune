@@ -15,6 +15,16 @@ describe('PresetBadge', () => {
     expect(screen.getByText('GitHub')).toBeInTheDocument();
   });
 
+  it('renders default preset with correct label', () => {
+    render(<PresetBadge presetId="default" />);
+    expect(screen.getByText('Default')).toBeInTheDocument();
+  });
+
+  it('renders app-builder preset with correct label', () => {
+    render(<PresetBadge presetId="app-builder" />);
+    expect(screen.getByText('App Builder')).toBeInTheDocument();
+  });
+
   it('renders unknown preset with presetId as label', () => {
     render(<PresetBadge presetId="custom-preset" />);
     expect(screen.getByText('custom-preset')).toBeInTheDocument();

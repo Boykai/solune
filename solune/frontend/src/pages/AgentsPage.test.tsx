@@ -72,4 +72,21 @@ describe('AgentsPage', () => {
     const { container } = render(<AgentsPage />);
     await expectNoA11yViolations(container);
   });
+
+  it('does not render Orbital map section', () => {
+    const { container } = render(<AgentsPage />);
+    expect(container.textContent).not.toContain('Orbital map');
+    expect(container.textContent).not.toContain('orbital-map');
+  });
+
+  it('does not render Agent Archive section', () => {
+    const { container } = render(<AgentsPage />);
+    expect(container.textContent).not.toContain('Agent Archive');
+  });
+
+  it('renders Curate agent rituals and Review assignments action buttons', () => {
+    render(<AgentsPage />);
+    expect(screen.getByText('Curate agent rituals')).toBeInTheDocument();
+    expect(screen.getByText('Review assignments')).toBeInTheDocument();
+  });
 });

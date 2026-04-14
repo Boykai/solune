@@ -54,7 +54,7 @@ describe('PRESET_PIPELINES', () => {
     ]);
   });
 
-  it('has default preset with 10 agents', () => {
+  it('has default preset with 10 agents in correct order', () => {
     const defaultPreset = PRESET_PIPELINES.find((p) => p.presetId === 'default')!;
     expect(defaultPreset).toBeDefined();
     expect(defaultPreset.name).toBe('Default');
@@ -62,9 +62,21 @@ describe('PRESET_PIPELINES', () => {
     expect(defaultPreset.stages[0].name).toBe('In progress');
     const agents = defaultPreset.stages[0].groups![0].agents;
     expect(agents).toHaveLength(10);
+    expect(agents.map((a) => a.agent_slug)).toEqual([
+      'speckit.specify',
+      'speckit.plan',
+      'speckit.tasks',
+      'speckit.analyze',
+      'speckit.implement',
+      'quality-assurance',
+      'tester',
+      'linter',
+      'copilot-review',
+      'judge',
+    ]);
   });
 
-  it('has app-builder preset with architect agent', () => {
+  it('has app-builder preset with 11 agents including architect in correct order', () => {
     const appBuilder = PRESET_PIPELINES.find((p) => p.presetId === 'app-builder')!;
     expect(appBuilder).toBeDefined();
     expect(appBuilder.name).toBe('App Builder');
@@ -72,7 +84,19 @@ describe('PRESET_PIPELINES', () => {
     expect(appBuilder.stages[0].name).toBe('In progress');
     const agents = appBuilder.stages[0].groups![0].agents;
     expect(agents).toHaveLength(11);
-    expect(agents.some((a) => a.agent_slug === 'architect')).toBe(true);
+    expect(agents.map((a) => a.agent_slug)).toEqual([
+      'speckit.specify',
+      'speckit.plan',
+      'speckit.tasks',
+      'speckit.analyze',
+      'speckit.implement',
+      'architect',
+      'quality-assurance',
+      'tester',
+      'linter',
+      'copilot-review',
+      'judge',
+    ]);
   });
 
   it('all stages have valid order', () => {
@@ -118,5 +142,31 @@ describe('PRESET_PIPELINES', () => {
   it('preset IDs are unique', () => {
     const ids = PRESET_PIPELINES.map((p) => p.presetId);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('all agents use Auto mode (empty model_id)', () => {
+    for (const preset of PRESET_PIPELINES) {
+      for (const stage of preset.stages) {
+        for (const group of stage.groups ?? []) {
+          for (const agent of group.agents) {
+            expect(agent.model_id).toBe('');
+          }
+        }
+      }
+    }
+  });
+
+  it('all agent IDs are globally unique across all presets', () => {
+    const allIds: string[] = [];
+    for (const preset of PRESET_PIPELINES) {
+      for (const stage of preset.stages) {
+        for (const group of stage.groups ?? []) {
+          for (const agent of group.agents) {
+            allIds.push(agent.id);
+          }
+        }
+      }
+    }
+    expect(new Set(allIds).size).toBe(allIds.length);
   });
 });
