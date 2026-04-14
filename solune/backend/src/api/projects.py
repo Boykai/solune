@@ -289,6 +289,15 @@ async def select_project(
     # Auto-start Copilot polling for this project
     await _start_copilot_polling(session, project_id)
 
+    # Fire-and-forget prefetch of agent data so the first GET /workflow/agents
+    # hits a warm cache.  Errors are silently swallowed.
+    from src.services.task_registry import task_registry
+
+    task_registry.create_task(
+        _prefetch_agents(session.access_token, project_id),
+        name=f"prefetch-agents-{project_id}",
+    )
+
     return UserResponse.from_session(session)
 
 
@@ -326,6 +335,26 @@ async def _start_copilot_polling(session: UserSession, project_id: str) -> None:
         delay_seconds=45,
         caller="select_project",
     )
+
+
+async def _prefetch_agents(access_token: str, project_id: str) -> None:
+    """Pre-warm the AgentsService repo-agents cache after project selection."""
+    try:
+        owner, repo = await resolve_repository(access_token, project_id)
+    except Exception:
+        return
+    try:
+        from src.services.agents.service import AgentsService
+
+        svc = AgentsService(get_db())
+        await svc.list_agents(
+            project_id=project_id,
+            owner=owner,
+            repo=repo,
+            access_token=access_token,
+        )
+    except Exception:
+        pass  # Best-effort; errors logged inside list_agents
 
 
 @router.websocket("/{project_id}/subscribe")

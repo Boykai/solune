@@ -210,26 +210,36 @@ async def verify_project_access(
 ) -> None:
     """Verify the authenticated user has access to *project_id*.
 
-    Fetches the user's project list and confirms *project_id* is included.
+    Checks the cross-request user-projects cache first (populated by
+    list_projects, select_project, etc.) to avoid a redundant GraphQL call.
+    Falls back to a live ``list_user_projects`` query on cache miss.
     Raises HTTP 403 if the user does not own or have access to the project.
     """
-    svc = get_github_service(request)
-    try:
-        projects = await svc.list_user_projects(session.access_token, session.github_username)
-        if any(p.project_id == project_id for p in projects):
-            # Stash on request state so downstream handlers can reuse without
-            # a second GraphQL call (e.g. get_project() during POST /select).
-            request.state.verified_projects = projects
-            return
-    except Exception as e:
-        logger.warning(
-            "Failed to verify project access for user=%s project=%s: %s",
-            session.github_username,
-            project_id,
-            e,
-            exc_info=True,
-        )
-        raise AuthorizationError("Unable to verify project access") from e
+    from src.services.cache import cache, get_user_projects_cache_key
+
+    cache_key = get_user_projects_cache_key(session.github_user_id)
+    projects = cache.get(cache_key)
+
+    if projects is None:
+        svc = get_github_service(request)
+        try:
+            projects = await svc.list_user_projects(session.access_token, session.github_username)
+            cache.set(cache_key, projects)
+        except Exception as e:
+            logger.warning(
+                "Failed to verify project access for user=%s project=%s: %s",
+                session.github_username,
+                project_id,
+                e,
+                exc_info=True,
+            )
+            raise AuthorizationError("Unable to verify project access") from e
+
+    if any(p.project_id == project_id for p in projects):
+        # Stash on request state so downstream handlers can reuse without
+        # a second GraphQL call (e.g. get_project() during POST /select).
+        request.state.verified_projects = projects
+        return
 
     raise AuthorizationError("You do not have access to this project")
 

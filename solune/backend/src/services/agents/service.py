@@ -7,6 +7,7 @@ unmerged PRs and deletion bookkeeping.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -429,27 +430,42 @@ class AgentsService:
             logger.debug("Could not read .github/agents/ from %s/%s: %s", owner, repo, e)
             return [], False
 
-        agents: list[Agent] = []
+        # Identify agent files that need their content fetched.
+        agent_entries: list[tuple[str, str, str]] = []  # (name, slug, inline_content)
         for entry in tree_entries:
             name = entry.get("name", "")
             if not name.endswith(".agent.md"):
                 continue
-
             slug = name.removesuffix(".agent.md")
-            content = entry.get("content", "")
-            if not content:
-                # Fetch content individually
-                try:
-                    file_data = await github_projects_service.get_file_content(
-                        access_token=access_token,
-                        owner=owner,
-                        repo=repo,
-                        path=f".github/agents/{name}",
-                    )
-                    content = file_data.get("content", "") if file_data else ""
-                except Exception:
-                    content = ""
+            agent_entries.append((name, slug, entry.get("content", "")))
 
+        # Fetch file contents in parallel for entries lacking inline content.
+        async def _fetch_content(name: str, inline: str) -> str:
+            if inline:
+                return inline
+            try:
+                file_data = await github_projects_service.get_file_content(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    path=f".github/agents/{name}",
+                )
+                return file_data.get("content", "") if file_data else ""
+            except Exception:
+                return ""
+
+        contents: list[str] = (
+            list(
+                await asyncio.gather(
+                    *(_fetch_content(name, inline) for name, _slug, inline in agent_entries)
+                )
+            )
+            if agent_entries
+            else []
+        )
+
+        agents: list[Agent] = []
+        for (_name, slug, _inline), content in zip(agent_entries, contents, strict=True):
             # Parse YAML frontmatter
             description = ""
             tools: list[str] = []
