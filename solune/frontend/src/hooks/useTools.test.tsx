@@ -21,6 +21,8 @@ vi.mock('@/services/api', () => ({
     update: vi.fn(),
     sync: vi.fn(),
     delete: vi.fn(),
+    browseCatalog: vi.fn(),
+    importFromCatalog: vi.fn(),
   },
   ApiError: class ApiError extends Error {
     status: number;
@@ -49,7 +51,15 @@ vi.mock('sonner', () => ({
 }));
 
 import * as api from '@/services/api';
-import { toolKeys, useToolsList, useUndoableDeleteTool } from './useTools';
+import { repoMcpKeys } from '@/hooks/useRepoMcpConfig';
+import {
+  catalogKeys,
+  toolKeys,
+  useImportMcpServer,
+  useMcpCatalog,
+  useToolsList,
+  useUndoableDeleteTool,
+} from './useTools';
 
 const mockToolsApi = api.toolsApi as unknown as {
   list: ReturnType<typeof vi.fn>;
@@ -57,6 +67,8 @@ const mockToolsApi = api.toolsApi as unknown as {
   update: ReturnType<typeof vi.fn>;
   sync: ReturnType<typeof vi.fn>;
   delete: ReturnType<typeof vi.fn>;
+  browseCatalog: ReturnType<typeof vi.fn>;
+  importFromCatalog: ReturnType<typeof vi.fn>;
 };
 
 function createWrapper() {
@@ -287,5 +299,82 @@ describe('useToolsList', () => {
       expect(cache!.tools).toHaveLength(1);
       expect(cache!.count).toBe(1);
     });
+  });
+});
+
+describe('useMcpCatalog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns catalog servers on success', async () => {
+    mockToolsApi.browseCatalog.mockResolvedValue({
+      servers: [{ id: 'github-mcp', name: 'GitHub MCP' }],
+      count: 1,
+      query: 'github',
+      category: 'Developer Tools',
+    });
+
+    const { result } = renderHook(() => useMcpCatalog('proj-1', 'github', 'Developer Tools'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.servers).toEqual([{ id: 'github-mcp', name: 'GitHub MCP' }]);
+    expect(mockToolsApi.browseCatalog).toHaveBeenCalledWith('proj-1', {
+      query: 'github',
+      category: 'Developer Tools',
+    });
+  });
+
+  it('does not fetch catalog when projectId is null', () => {
+    renderHook(() => useMcpCatalog(null, 'github', 'Developer Tools'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    expect(mockToolsApi.browseCatalog).not.toHaveBeenCalled();
+  });
+});
+
+describe('useImportMcpServer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('invalidates related caches after a successful import', async () => {
+    mockToolsApi.importFromCatalog.mockResolvedValue({ id: 'tool-1', name: 'GitHub MCP' });
+
+    const { queryClient, wrapper } = createWrapper();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useImportMcpServer('proj-1'), { wrapper });
+
+    await act(async () => {
+      await result.current.importServer('github-mcp');
+    });
+
+    expect(mockToolsApi.importFromCatalog).toHaveBeenCalledWith('proj-1', {
+      catalog_server_id: 'github-mcp',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: toolKeys.list('proj-1') });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: repoMcpKeys.detail('proj-1') });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: catalogKeys.all });
+    expect(sonnerMocks.toast.success).toHaveBeenCalledWith('MCP server imported from catalog');
+  });
+
+  it('surfaces import failures with a formatted error message', async () => {
+    mockToolsApi.importFromCatalog.mockRejectedValue(new Error('Catalog offline'));
+
+    const { result } = renderHook(() => useImportMcpServer('proj-1'), {
+      wrapper: createWrapper().wrapper,
+    });
+
+    await act(async () => {
+      await expect(result.current.importServer('github-mcp')).rejects.toThrow('Catalog offline');
+    });
+
+    expect(result.current.importError).toBe(
+      'Could not import MCP server. Catalog offline. Please try again.'
+    );
+    expect(sonnerMocks.toast.error).toHaveBeenCalledWith('Catalog offline');
   });
 });
