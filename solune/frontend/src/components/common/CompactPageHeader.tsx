@@ -61,7 +61,7 @@ export function CompactPageHeader({
         )}
 
         {actions && (
-          <div className="flex shrink-0 items-center gap-2 md:col-start-3 md:justify-self-end">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 md:col-start-3 md:justify-self-end">
             {actions}
           </div>
         )}
