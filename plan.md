@@ -1,7 +1,7 @@
 # Implementation Plan: Dependabot Updates
 
 **Branch**: `006-dependabot-updates` | **Date**: 2026-04-14 | **Spec**: [GitHub Issue #1810](https://github.com/Boykai/solune/issues/1810)
-**Input**: Parent issue Boykai/solune#1810 — Dependabot Updates
+**Input**: Feature specification from `/specs/006-dependabot-updates/spec.md`
 
 ## Summary
 

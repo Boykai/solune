@@ -1,104 +1,202 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Dependabot Updates
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+**Branch**: `006-dependabot-updates` | **Date**: 2026-04-14 | **Spec**: [GitHub Issue #1810](https://github.com/Boykai/solune/issues/1810)
+**Input**: Feature specification from `/specs/006-dependabot-updates/spec.md`
 
 ## Summary
 
-[Extract from feature spec: primary requirement + technical approach from research]
+Apply all safe Dependabot dependency updates across the repository's two ecosystems (npm for frontend, pip/uv for backend). 14 open PRs are discovered: 4 patch bumps, 9 minor bumps, and 1 major bump. Updates are applied in semver priority order (patch → minor → major), each verified with build + test, and combined into a single batch PR. Failed updates are skipped and documented. No application code changes — only manifest and lock file modifications.
 
 ## Technical Context
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+**Language/Version**: Python 3.12+ (backend), TypeScript ~6.0.2 / React ^19.2.5 (frontend)
+**Primary Dependencies**: See `solune/backend/pyproject.toml` (pip/uv) and `solune/frontend/package.json` (npm)
+**Storage**: N/A — dependency manifest and lock file changes only
+**Testing**: Backend: `uv run pytest tests/unit/ -q`; Frontend: `npm run test` (Vitest)
+**Target Platform**: GitHub repository — dependency management
+**Project Type**: Maintenance / dependency hygiene (no application code changes)
+**Performance Goals**: N/A — no runtime impact expected from version bumps
+**Constraints**: No application code changes; lock files must be regenerated (not hand-edited); major bumps requiring code changes must be skipped
+**Scale/Scope**: 14 Dependabot PRs across 2 ecosystems, 2 manifest files, 2 lock files
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- **I. Specification-First Development**: PASS — The parent issue (#1810) provides a structured specification with discovery, prioritization, apply-and-verify, combine, and constraint sections. This plan follows the issue as the authoritative spec.
+- **II. Template-Driven Workflow**: PASS — This plan and all Phase 0/1 artifacts reside in `specs/006-dependabot-updates/` using the canonical Speckit artifact set (plan.md, research.md, data-model.md, quickstart.md, contracts/).
+- **III. Agent-Orchestrated Execution**: PASS — The plan decomposes into 7 sequential steps suitable for single-agent execution. Each step has clear inputs (PR data), actions (manifest edit + lock regeneration + build/test), and outputs (pass/fail status).
+- **IV. Test Optionality with Clarity**: PASS — No new tests are mandated. Existing test suites (pytest, vitest) serve as the verification gate for each update. The feature specification does not request new tests.
+- **V. Simplicity and DRY**: PASS — The plan reuses 100% of existing tooling (npm, uv, pytest, vitest, ruff, pyright). No new scripts, frameworks, or abstractions are introduced. Each update is a single-line manifest change plus lock file regeneration.
+
+**Post-Phase-1 Re-check**: PASS — No constitution violations introduced by the design. All phases operate on existing dependency infrastructure. No complexity justifications required.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+specs/006-dependabot-updates/
+├── plan.md              # This file
+├── research.md          # Phase 0 output — PR inventory, overlap analysis, tooling
+├── data-model.md        # Phase 1 output — dependency update entities and inventory
+├── quickstart.md        # Phase 1 output — step-by-step execution guide
+├── contracts/           # Phase 1 output — batch update workflow contract
+└── tasks.md             # Phase 2 output (NOT created by /speckit.plan)
 ```
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+### Source Files (modified by this feature)
 
 ```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+solune/
+├── backend/
+│   ├── pyproject.toml       # 10 dependency version changes
+│   └── uv.lock              # Regenerated by uv lock
+└── frontend/
+    ├── package.json          # 4 dependency version changes
+    └── package-lock.json     # Regenerated by npm install
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: No new directories or files are introduced. The feature modifies only existing dependency manifests (`pyproject.toml`, `package.json`) and their corresponding lock files. All changes are version string updates in existing fields.
+
+## Phase Execution Plan
+
+### Phase 1 — Discovery & Inventory
+
+**Goal**: Catalog all open Dependabot PRs with version details and classify by risk tier.
+
+| Step | Action | Details |
+|------|--------|---------|
+| 1.1 | List open Dependabot PRs | GitHub API: `author:app/dependabot is:open` in Boykai/solune |
+| 1.2 | Extract version changes | Parse PR titles and file diffs for current → target versions |
+| 1.3 | Classify bump types | Determine patch/minor/major for each update using semver rules |
+| 1.4 | Group by ecosystem | npm (4 PRs) and pip/uv (10 PRs) |
+| 1.5 | Check for overlaps | Verify no two PRs modify the same transitive dependency |
+
+**Output**: Dependency inventory (see research.md R1 and data-model.md)
+
+### Phase 2 — Prioritization
+
+**Goal**: Order updates by risk and establish application sequence.
+
+| Priority | Tier | Updates | Risk |
+|----------|------|---------|------|
+| 1 | Patch | 4 PRs (#1732, #1777, #1776, #1775) | Lowest |
+| 2 | Minor (dev) | 5 PRs (#1688, #1695, #1694, #1697, #1690) | Low |
+| 3 | Minor (runtime) | 4 PRs (#1692, #1696, #1698, #1699) | Moderate |
+| 4 | Major | 1 PR (#1693) | Highest |
+
+**Within-tier order**: Dev dependencies before runtime dependencies. No overlapping constraints detected (see research.md R2).
+
+### Phase 3 — Apply Tier 1: Patch Bumps (4 updates)
+
+**Goal**: Apply all patch-level updates with minimal risk.
+
+| Step | PR | Package | Change | Ecosystem |
+|------|-----|---------|--------|-----------|
+| 3.1 | #1732 | pytest | `>=9.0.0` → `>=9.0.3` | pip (dev) |
+| 3.2 | #1777 | happy-dom | `^20.8.9` → `^20.9.0` | npm (dev) |
+| 3.3 | #1776 | typescript-eslint | `^8.58.1` → `^8.58.2` | npm (dev) |
+| 3.4 | #1775 | react-router-dom | `^7.14.0` → `^7.14.1` | npm (runtime) |
+
+**Per-update workflow**:
+
+1. Edit manifest file with version change from Dependabot PR
+2. Regenerate lock file (`uv lock` or `npm install`)
+3. Install dependencies (`uv sync --extra dev` or implicit in `npm install`)
+4. Run lint + type-check + test + build
+5. If pass: commit; if fail: revert and record failure
+
+### Phase 4 — Apply Tier 2: Minor Bumps — Dev Dependencies (5 updates)
+
+**Goal**: Apply minor-version dev dependency updates.
+
+| Step | PR | Package | Change | Ecosystem |
+|------|-----|---------|--------|-----------|
+| 4.1 | #1688 | pytest-cov | `>=7.0.0` → `>=7.1.0` | pip (dev) |
+| 4.2 | #1695 | freezegun | `>=1.4.0` → `>=1.5.5` | pip (dev) |
+| 4.3 | #1694 | pip-audit | `>=2.9.0` → `>=2.10.0` | pip (dev) |
+| 4.4 | #1697 | mutmut | `>=3.2.0` → `>=3.5.0` | pip (dev) |
+| 4.5 | #1690 | bandit | `>=1.8.0` → `>=1.9.4` | pip (dev) |
+
+**Same per-update workflow as Phase 3.**
+
+### Phase 5 — Apply Tier 2: Minor Bumps — Runtime Dependencies (4 updates)
+
+**Goal**: Apply minor-version runtime dependency updates with extra scrutiny.
+
+| Step | PR | Package | Change | Ecosystem | Risk Note |
+|------|-----|---------|--------|-----------|-----------|
+| 5.1 | #1692 | pynacl | `>=1.5.0` → `>=1.6.2` | pip | Crypto library — verify encryption tests |
+| 5.2 | #1696 | uvicorn | `>=0.42.0` → `>=0.44.0` | pip | ASGI server — verify startup |
+| 5.3 | #1698 | agent-framework-core | `>=1.0.0b1` → `>=1.0.1` | pip | Beta→stable — verify imports and type stubs |
+| 5.4 | #1699 | @tanstack/react-query | `^5.97.0` → `^5.99.0` | npm | Data fetching — verify hook behavior |
+
+**Same per-update workflow as Phase 3, with additional attention to type-check output for runtime deps.**
+
+### Phase 6 — Apply Tier 3: Major Bumps (1 update)
+
+**Goal**: Apply major-version updates only if safe (no code changes required).
+
+| Step | PR | Package | Change | Ecosystem | Risk Note |
+|------|-----|---------|--------|-----------|-----------|
+| 6.1 | #1693 | pytest-randomly | `>=3.16.0` → `>=4.0.1` | pip (dev) | Major bump — inspect changelog for breaking changes |
+
+**Extra scrutiny**:
+
+1. Review `pytest-randomly` changelog for 4.0.0 breaking changes
+2. Check if `pyproject.toml` has any `pytest-randomly`-specific configuration
+3. Apply change and run full test suite
+4. If tests fail due to plugin API changes: **skip** and document migration steps
+
+### Phase 7 — Combine & Create Batch PR
+
+**Goal**: Commit all successful updates and create the batch PR.
+
+| Step | Action | Details |
+|------|--------|---------|
+| 7.1 | Verify final state | Run full build + test for both ecosystems |
+| 7.2 | Commit all changes | Single commit with all manifest + lock file changes |
+| 7.3 | Create PR | Title: `chore(deps): apply Dependabot batch update` |
+| 7.4 | Write PR description | Applied updates checklist + skipped updates section |
+| 7.5 | Close Dependabot PRs | Close each applied Dependabot PR and delete its remote branch |
+
+## Verification Matrix
+
+| Check | Command | After Phase |
+|-------|---------|-------------|
+| Backend lint | `cd solune/backend && uv run ruff check src/ tests/` | 3, 4, 5, 6 |
+| Backend format | `cd solune/backend && uv run ruff format --check src/ tests/` | 3, 4, 5, 6 |
+| Backend types | `cd solune/backend && uv run pyright src/` | 3, 4, 5, 6 |
+| Backend tests | `cd solune/backend && uv run pytest tests/unit/ -q` | 3, 4, 5, 6 |
+| Frontend lint | `cd solune/frontend && npm run lint` | 3, 5 |
+| Frontend types | `cd solune/frontend && npm run type-check` | 3, 5 |
+| Frontend tests | `cd solune/frontend && npm run test` | 3, 5 |
+| Frontend build | `cd solune/frontend && npm run build` | 3, 5 |
+| Lock file integrity | Verify lock files are regenerated, not hand-edited | 3, 4, 5, 6 |
+
+## Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Process ecosystems in groups** | Minimizes context switching between npm and uv toolchains. Backend patch → frontend patch → backend minor → etc. |
+| **Dev dependencies before runtime** | Dev dep failures only affect development workflow, not production. Lower risk profile within each tier. |
+| **One update at a time** | Isolates failures to specific packages. If a batch of 5 backend minor bumps fails, we wouldn't know which one caused it. |
+| **Full lint + type-check + test per update** | Type errors from version bumps (changed type stubs, removed APIs) are caught immediately, not after combining multiple changes. |
+| **Skip major bumps requiring code changes** | Per issue constraints — do not change application code beyond dependency versions. Document migration steps for future work. |
+| **Regenerate lock files with native tools** | `uv lock` and `npm install` are the canonical lock file generators. Manual editing is error-prone and explicitly prohibited. |
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+> No constitution violations found. No complexity justifications required.
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+## Risks & Mitigations
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| `agent-framework-core` beta→stable breaks imports | Backend fails to start; agent chat broken | Run pyright type check + full test suite; skip if any type errors surface |
+| `pytest-randomly` 4.x changes plugin API | Test suite fails to collect/run | Check for pytest-randomly config in pyproject.toml; review 4.0 changelog; skip if plugin errors |
+| `uvicorn` minor bump changes server behavior | Backend startup fails or behaves differently | Run tests that exercise API endpoints; verify no deprecation warnings in test output |
+| `pynacl` minor bump changes crypto API | GitHub Secrets encryption breaks | Run tests covering `pynacl` usage (sealed box operations); skip if crypto tests fail |
+| Lock file conflicts between updates | Dependency resolution fails mid-batch | Apply one update at a time; regenerate lock file after each; verify clean install |
+| Transitive dependency conflicts | Two updates pull incompatible transitive versions | No overlaps detected (research.md R2); if discovered, skip the conflicting update |
