@@ -11,7 +11,10 @@ from src.models.user import UserSession
 
 
 def _request_with_state(**attrs):
-    return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(**attrs)))
+    return SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(**attrs)),
+        state=SimpleNamespace(),
+    )
 
 
 def _session(**overrides) -> UserSession:

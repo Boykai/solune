@@ -276,6 +276,7 @@ async def ensure_polling_started(
     owner: str,
     repo: str,
     interval_seconds: int = 15,
+    delay_seconds: int = 0,
     caller: str = "",
 ) -> bool:
     """Start Copilot polling if not already running.
@@ -290,6 +291,8 @@ async def ensure_polling_started(
         owner: Repository owner.
         repo: Repository name.
         interval_seconds: Polling interval (default 15 s).
+        delay_seconds: Seconds to wait before starting the first polling cycle.
+            Use this to avoid event-loop contention with board data loading.
         caller: Human-readable label for log messages (e.g. ``"confirm_proposal"``).
 
     Returns:
@@ -320,14 +323,24 @@ async def ensure_polling_started(
 
             from src.services.task_registry import task_registry
 
-            task = task_registry.create_task(
-                poll_for_copilot_completion(
+            async def _delayed_poll() -> None:
+                if delay_seconds > 0:
+                    _logger.info(
+                        "Deferring Copilot polling by %ds for project %s",
+                        delay_seconds,
+                        project_id,
+                    )
+                    await asyncio.sleep(delay_seconds)
+                await poll_for_copilot_completion(
                     access_token=access_token,
                     project_id=project_id,
                     owner=owner,
                     repo=repo,
                     interval_seconds=interval_seconds,
-                ),
+                )
+
+            task = task_registry.create_task(
+                _delayed_poll(),
                 name="copilot-polling",
             )
 

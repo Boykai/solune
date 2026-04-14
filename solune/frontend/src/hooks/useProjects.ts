@@ -5,10 +5,10 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { projectsApi, tasksApi } from '@/services/api';
+import { projectsApi } from '@/services/api';
 import type { ApiError } from '@/services/api';
-import { STALE_TIME_MEDIUM, STALE_TIME_PROJECTS } from '@/constants';
-import type { Project, ProjectListResponse, Task } from '@/types';
+import { STALE_TIME_PROJECTS } from '@/constants';
+import type { Project, ProjectListResponse } from '@/types';
 import type { CreateProjectRequest, CreateProjectResponse } from '@/types/apps';
 
 interface UseProjectsReturn {
@@ -16,11 +16,8 @@ interface UseProjectsReturn {
   isLoading: boolean;
   error: Error | null;
   selectedProject: Project | null;
-  tasks: Task[];
-  tasksLoading: boolean;
   selectProject: (projectId: string) => Promise<void>;
   refreshProjects: () => void;
-  refreshTasks: () => void;
 }
 
 export function useProjects(selectedProjectId?: string | null): UseProjectsReturn {
@@ -37,18 +34,6 @@ export function useProjects(selectedProjectId?: string | null): UseProjectsRetur
     queryFn: () => projectsApi.list(),
     staleTime: STALE_TIME_PROJECTS,
     retry: false,
-  });
-
-  // Fetch tasks for selected project
-  const {
-    data: tasksData,
-    isLoading: tasksLoading,
-    refetch: refreshTasks,
-  } = useQuery({
-    queryKey: ['projects', selectedProjectId, 'tasks'],
-    queryFn: () => tasksApi.listByProject(selectedProjectId!),
-    enabled: !!selectedProjectId,
-    staleTime: STALE_TIME_MEDIUM,
   });
 
   // Select project mutation
@@ -82,11 +67,8 @@ export function useProjects(selectedProjectId?: string | null): UseProjectsRetur
     isLoading,
     error: error as Error | null,
     selectedProject,
-    tasks: tasksData?.tasks ?? [],
-    tasksLoading,
     selectProject,
     refreshProjects,
-    refreshTasks,
   };
 }
 

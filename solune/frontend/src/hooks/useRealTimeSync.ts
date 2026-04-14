@@ -3,7 +3,6 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { WS_FALLBACK_POLL_MS, WS_CONNECTION_TIMEOUT_MS } from '@/constants';
 
@@ -30,7 +29,6 @@ export function useRealTimeSync(
   projectId: string | null,
   options?: UseRealTimeSyncOptions
 ): UseRealTimeSyncReturn {
-  const queryClient = useQueryClient();
   const [status, setStatus] = useState<SyncStatus>('disconnected');
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -63,18 +61,11 @@ export function useRealTimeSync(
             return;
           }
           lastReconnectInvalidationRef.current = now;
-          // Only invalidate tasks — board data refreshes on its own 5-minute schedule
-          queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'tasks'] });
           markUpdated();
           return;
         }
 
         if (data.type === 'refresh') {
-          // Refresh contract: The backend already suppresses this message when
-          // task data is unchanged (hash comparison). Invalidate only the tasks
-          // query for task-level freshness and reset the auto-refresh timer via
-          // markUpdated; board data continues to refresh on its own schedule.
-          queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'tasks'] });
           markUpdated();
           return;
         }
@@ -85,8 +76,6 @@ export function useRealTimeSync(
           data.type === 'task_created' ||
           data.type === 'status_changed'
         ) {
-          // Only invalidate tasks — board data refreshes on its own 5-minute schedule
-          queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'tasks'] });
           markUpdated();
         }
 
@@ -99,7 +88,6 @@ export function useRealTimeSync(
           } else {
             toast.success('Auto-merge completed');
           }
-          queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'tasks'] });
           markUpdated();
         }
 
@@ -112,7 +100,6 @@ export function useRealTimeSync(
           } else {
             toast.error(`Auto merge failed: ${baseError}`);
           }
-          queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'tasks'] });
           markUpdated();
         }
 
@@ -126,7 +113,7 @@ export function useRealTimeSync(
         console.error('Failed to parse WebSocket message:', e);
       }
     },
-    [projectId, queryClient]
+    []
   );
 
   const startPolling = useCallback(() => {
@@ -136,12 +123,10 @@ export function useRealTimeSync(
     setLastUpdate(new Date()); // Mark as updated when polling starts
 
     pollingIntervalRef.current = window.setInterval(() => {
-      // Only invalidate tasks — board data refreshes on its own 5-minute schedule
-      queryClient.invalidateQueries({ queryKey: ['projects', projectId, 'tasks'] });
       setLastUpdate(new Date());
       onRefreshTriggeredRef.current?.();
     }, WS_FALLBACK_POLL_MS);
-  }, [projectId, queryClient]);
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
