@@ -188,4 +188,24 @@ describe('McpCatalogBrowse', () => {
     await user.click(screen.getByText('Cloud'));
     expect(screen.queryByText('Clear filter')).not.toBeInTheDocument();
   });
+
+  it('passes the current search text to the catalog hook', async () => {
+    const user = userEvent.setup();
+    render(<McpCatalogBrowse projectId="proj-1" />);
+
+    await user.type(screen.getByPlaceholderText('Search MCP servers…'), 'github');
+
+    expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', 'github', '');
+  });
+
+  it('passes the selected category to the catalog hook and clears it again', async () => {
+    const user = userEvent.setup();
+    render(<McpCatalogBrowse projectId="proj-1" />);
+
+    await user.click(screen.getByText('Cloud'));
+    expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', '', 'Cloud');
+
+    await user.click(screen.getByText('Clear filter'));
+    expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', '', '');
+  });
 });

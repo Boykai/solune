@@ -102,6 +102,7 @@ import { ChatMessagesResponseSchema, ConversationsListResponseSchema } from '@/s
 import { PipelineStateInfoSchema } from '@/services/schemas/pipeline';
 import { ProjectListResponseSchema } from '@/services/schemas/projects';
 import { EffectiveUserSettingsSchema } from '@/services/schemas/settings';
+import { CatalogMcpServerListResponseSchema } from '@/services/schemas/tools';
 import { validateResponse } from '@/services/schemas/validate';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -1733,7 +1734,7 @@ export const toolsApi = {
     });
   },
 
-  browseCatalog(
+  async browseCatalog(
     projectId: string,
     params?: { query?: string; category?: string },
   ): Promise<CatalogMcpServerListResponse> {
@@ -1741,7 +1742,8 @@ export const toolsApi = {
     if (params?.query) qs.set('query', params.query);
     if (params?.category) qs.set('category', params.category);
     const suffix = qs.toString() ? `?${qs}` : '';
-    return request<CatalogMcpServerListResponse>(`/tools/${projectId}/catalog${suffix}`);
+    const data = await request<CatalogMcpServerListResponse>(`/tools/${projectId}/catalog${suffix}`);
+    return validateResponse(CatalogMcpServerListResponseSchema, data, 'toolsApi.browseCatalog');
   },
 
   importFromCatalog(projectId: string, data: ImportCatalogMcpRequest): Promise<McpToolConfig> {
