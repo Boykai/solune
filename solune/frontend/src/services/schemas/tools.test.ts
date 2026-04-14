@@ -48,6 +48,29 @@ describe('CatalogMcpServer Zod schema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a server missing install_config', () => {
+    const result = CatalogMcpServerSchema.safeParse({
+      id: 'test',
+      name: 'Test',
+      description: 'Test server',
+      server_type: 'http',
+      already_installed: false,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects when already_installed is not boolean', () => {
+    const result = CatalogMcpServerSchema.safeParse({
+      id: 'test',
+      name: 'Test',
+      description: 'Test',
+      server_type: 'http',
+      install_config: { transport: 'http' },
+      already_installed: 'yes',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('validates a catalog list response', () => {
     const result = CatalogMcpServerListResponseSchema.safeParse({
       servers: [
@@ -67,6 +90,18 @@ describe('CatalogMcpServer Zod schema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('validates an empty catalog list response', () => {
+    const result = CatalogMcpServerListResponseSchema.safeParse({
+      servers: [],
+      count: 0,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.servers).toEqual([]);
+      expect(result.data.count).toBe(0);
+    }
+  });
+
   it('validates install config with all fields', () => {
     const result = CatalogInstallConfigSchema.safeParse({
       transport: 'stdio',
@@ -84,6 +119,40 @@ describe('CatalogMcpServer Zod schema', () => {
       transport: 'stdio',
       url: null,
       command: 'npx',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('applies defaults for optional array/object fields in install config', () => {
+    const result = CatalogInstallConfigSchema.safeParse({
+      transport: 'http',
+      url: 'https://example.com',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.args).toEqual([]);
+      expect(result.data.env).toEqual({});
+      expect(result.data.headers).toEqual({});
+      expect(result.data.tools).toEqual([]);
+    }
+  });
+
+  it('rejects install config missing transport', () => {
+    const result = CatalogInstallConfigSchema.safeParse({
+      url: 'https://example.com',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('allows extra fields with default passthrough behavior', () => {
+    const result = CatalogMcpServerSchema.safeParse({
+      id: 'test',
+      name: 'Test',
+      description: 'Test',
+      server_type: 'http',
+      install_config: { transport: 'http' },
+      already_installed: false,
+      extra_field: 'should be allowed via passthrough',
     });
     expect(result.success).toBe(true);
   });

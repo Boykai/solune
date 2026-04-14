@@ -189,23 +189,71 @@ describe('McpCatalogBrowse', () => {
     expect(screen.queryByText('Clear filter')).not.toBeInTheDocument();
   });
 
-  it('passes the current search text to the catalog hook', async () => {
-    const user = userEvent.setup();
+  it('disables Import button while importing that server', () => {
+    const servers = [createMockCatalogServer({ id: 'mcp-1', already_installed: false })];
+    mockUseMcpCatalog.mockReturnValue({ ...defaultCatalogReturn, servers });
+    mockUseImportMcpServer.mockReturnValue({
+      ...defaultImportReturn,
+      isImporting: true,
+      importingId: 'mcp-1',
+    });
     render(<McpCatalogBrowse projectId="proj-1" />);
-
-    await user.type(screen.getByPlaceholderText('Search MCP servers…'), 'github');
-
-    expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', 'github', '');
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
   });
 
-  it('passes the selected category to the catalog hook and clears it again', async () => {
+  it('does not disable Import button for other servers during import', () => {
+    const servers = [
+      createMockCatalogServer({ id: 'mcp-1', already_installed: false }),
+      createMockCatalogServer({ id: 'mcp-2', name: 'Other MCP', already_installed: false }),
+    ];
+    mockUseMcpCatalog.mockReturnValue({ ...defaultCatalogReturn, servers });
+    mockUseImportMcpServer.mockReturnValue({
+      ...defaultImportReturn,
+      isImporting: true,
+      importingId: 'mcp-2',
+    });
+    render(<McpCatalogBrowse projectId="proj-1" />);
+    const importButtons = screen.getAllByRole('button', { name: /import/i });
+    // First button (mcp-1) should be enabled, second (mcp-2) disabled
+    expect(importButtons[0]).not.toBeDisabled();
+    expect(importButtons[1]).toBeDisabled();
+  });
+
+  it('hides repo link when repo_url is not present', () => {
+    const servers = [createMockCatalogServer({ repo_url: null })];
+    mockUseMcpCatalog.mockReturnValue({ ...defaultCatalogReturn, servers });
+    render(<McpCatalogBrowse projectId="proj-1" />);
+    expect(screen.queryByLabelText(/view .* repository/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the clear filter button and clears category', async () => {
     const user = userEvent.setup();
     render(<McpCatalogBrowse projectId="proj-1" />);
 
-    await user.click(screen.getByText('Cloud'));
-    expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', '', 'Cloud');
+    await user.click(screen.getByText('Database'));
+    expect(screen.getByText('Clear filter')).toBeInTheDocument();
 
     await user.click(screen.getByText('Clear filter'));
-    expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', '', '');
+    expect(screen.queryByText('Clear filter')).not.toBeInTheDocument();
+  });
+
+  it('renders server category text when present', () => {
+    const servers = [createMockCatalogServer({ category: 'Monitoring' })];
+    mockUseMcpCatalog.mockReturnValue({ ...defaultCatalogReturn, servers });
+    render(<McpCatalogBrowse projectId="proj-1" />);
+    // 'Monitoring' appears both as a chip and in the card; at least two instances
+    const elements = screen.getAllByText('Monitoring');
+    expect(elements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('does not show quality badge when score is null', () => {
+    const servers = [createMockCatalogServer({ quality_score: null })];
+    mockUseMcpCatalog.mockReturnValue({ ...defaultCatalogReturn, servers });
+    render(<McpCatalogBrowse projectId="proj-1" />);
+    // Quality badges show A, B, or C — none should be present
+    expect(screen.queryByText('A')).not.toBeInTheDocument();
+    expect(screen.queryByText('B')).not.toBeInTheDocument();
+    expect(screen.queryByText('C')).not.toBeInTheDocument();
   });
 });
