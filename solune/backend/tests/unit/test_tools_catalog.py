@@ -11,6 +11,7 @@ Covers:
 """
 
 import json
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -563,7 +564,7 @@ class TestFetchGlamaServers:
         mock_cache = InMemoryCache()
         request = httpx.Request("GET", "https://glama.ai/api/mcp/v1/servers")
         response = httpx.Response(200, request=request, json=[])
-        captured_kwargs: dict[str, object] = {}
+        captured_kwargs: dict[str, Any] = {}
 
         class MockClient:
             def __init__(self, **kwargs):
