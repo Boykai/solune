@@ -240,9 +240,16 @@ async def list_board_projects(
     logger.info("Fetching board projects for user %s", session.github_username)
 
     try:
-        projects = await github_projects_service.list_board_projects(
+        # Use list_user_projects (which populates the shared user-projects
+        # cache) instead of list_board_projects (a separate GraphQL call).
+        # On cold start both GET /projects and GET /board/projects fire;
+        # by sharing the upstream call we avoid a duplicate GraphQL round-trip
+        # (~875 ms saved).
+        user_projects = await github_projects_service.list_user_projects(
             session.access_token, session.github_username
         )
+        cache.set(user_projects_cache_key, user_projects)
+        projects = _to_board_projects(user_projects) or []
     except Exception as e:
         if _is_github_rate_limit_error(e):
             logger.warning(

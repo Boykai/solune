@@ -88,8 +88,8 @@ export function AppLayout() {
     selectProject,
   } = useProjects(user?.selected_project_id);
 
-  // Board data for recent interactions
-  const { boardData } = useProjectBoard({ selectedProjectId: selectedProject?.project_id ?? null });
+  // Board data for recent interactions — no adaptive polling needed, just a snapshot
+  const { boardData } = useProjectBoard({ selectedProjectId: selectedProject?.project_id ?? null, disablePolling: true });
   const recentInteractions = useRecentParentIssues(boardData);
   const { notifications, unreadCount, markAllRead } = useNotifications();
 

@@ -23,19 +23,12 @@ vi.mock('@/services/api', () => ({
     select: vi.fn(),
     create: vi.fn(),
   },
-  tasksApi: {
-    listByProject: vi.fn(),
-  },
 }));
 
 const mockProjectsApi = api.projectsApi as unknown as {
   list: ReturnType<typeof vi.fn>;
   select: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
-};
-
-const mockTasksApi = api.tasksApi as unknown as {
-  listByProject: ReturnType<typeof vi.fn>;
 };
 
 // Create wrapper with QueryClientProvider
@@ -106,56 +99,6 @@ describe('useProjects', () => {
     expect(result.current.projects[0].project_id).toBe('PVT_123');
   });
 
-  it('should fetch tasks when selectedProjectId is provided', async () => {
-    const mockProjects = {
-      projects: [
-        {
-          project_id: 'PVT_123',
-          name: 'Project 1',
-          owner_login: 'user',
-          type: 'user',
-          url: 'https://github.com',
-        },
-      ],
-    };
-    const mockTasks = {
-      tasks: [
-        { task_id: 'TASK_1', title: 'Task 1', status: 'Todo', project_id: 'PVT_123' },
-        { task_id: 'TASK_2', title: 'Task 2', status: 'In Progress', project_id: 'PVT_123' },
-      ],
-    };
-
-    mockProjectsApi.list.mockResolvedValue(mockProjects);
-    mockTasksApi.listByProject.mockResolvedValue(mockTasks);
-
-    const { result } = renderHook(() => useProjects('PVT_123'), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.tasks).toHaveLength(2);
-    });
-
-    expect(result.current.tasks[0].task_id).toBe('TASK_1');
-    expect(mockTasksApi.listByProject).toHaveBeenCalledWith('PVT_123');
-  });
-
-  it('should not fetch tasks when selectedProjectId is null', async () => {
-    const mockProjects = { projects: [] };
-    mockProjectsApi.list.mockResolvedValue(mockProjects);
-
-    const { result } = renderHook(() => useProjects(null), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-    });
-
-    expect(mockTasksApi.listByProject).not.toHaveBeenCalled();
-    expect(result.current.tasks).toEqual([]);
-  });
-
   it('should select project and update query cache', async () => {
     const mockProjects = {
       projects: [
@@ -214,10 +157,8 @@ describe('useProjects', () => {
         },
       ],
     };
-    const mockTasks = { tasks: [] };
 
     mockProjectsApi.list.mockResolvedValue(mockProjects);
-    mockTasksApi.listByProject.mockResolvedValue(mockTasks);
 
     const { result } = renderHook(() => useProjects('PVT_456'), {
       wrapper: createWrapper(),

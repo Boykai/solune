@@ -31,7 +31,7 @@ from src.api.workflow import (
     _get_pipeline_agent_statuses,
     _recent_requests,
 )
-from src.models.agent import AgentAssignment, AgentSource, AvailableAgent
+from src.models.agent import AgentAssignment
 from src.models.chat import (
     IssueRecommendation,
     RecommendationStatus,
@@ -236,15 +236,6 @@ class TestUpdateConfig:
 class TestListAgents:
     async def test_list_agents(self, client, mock_session, mock_github_service):
         mock_session.selected_project_id = TEST_PROJECT_ID
-        mock_github_service.list_available_agents.return_value = [
-            AvailableAgent(
-                slug="repo-agent",
-                display_name="Repo Agent",
-                default_model_id="",
-                default_model_name="",
-                source=AgentSource.REPOSITORY,
-            )
-        ]
         with (
             patch(
                 f"{WF}.resolve_repository", new_callable=AsyncMock, return_value=("owner", "repo")
@@ -252,9 +243,14 @@ class TestListAgents:
             patch(f"{WF}.AgentsService") as mock_agents_service_cls,
         ):
             mock_agents_service = mock_agents_service_cls.return_value
-            mock_agents_service.list_agents = AsyncMock(
-                return_value=[MagicMock(slug="repo-agent", tools=["tool-a", "tool-b"])]
+            mock_repo_agent = MagicMock(
+                slug="repo-agent",
+                description="A repo agent",
+                icon_name=None,
+                tools=["tool-a", "tool-b"],
             )
+            mock_repo_agent.name = "Repo Agent"
+            mock_agents_service.list_agents = AsyncMock(return_value=[mock_repo_agent])
             mock_agents_service.get_agent_preferences = AsyncMock(
                 return_value={
                     "repo-agent": {
@@ -267,9 +263,12 @@ class TestListAgents:
             resp = await client.get("/api/v1/workflow/agents")
         assert resp.status_code == 200
         assert "agents" in resp.json()
-        assert resp.json()["agents"][0]["default_model_name"] == "GPT-5.4"
-        assert resp.json()["agents"][0]["icon_name"] == "nova"
-        assert resp.json()["agents"][0]["tools_count"] == 2
+        # Built-in agents come first; the repo-agent is appended after them.
+        repo_agents = [a for a in resp.json()["agents"] if a["slug"] == "repo-agent"]
+        assert len(repo_agents) == 1
+        assert repo_agents[0]["default_model_name"] == "GPT-5.4"
+        assert repo_agents[0]["icon_name"] == "nova"
+        assert repo_agents[0]["tools_count"] == 2
 
     async def test_no_project(self, client, mock_session):
         mock_session.selected_project_id = None

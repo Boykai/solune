@@ -18,6 +18,7 @@ from src.models.board import (
     StatusField,
     StatusOption,
 )
+from src.models.project import GitHubProject, StatusColumn
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,24 @@ def _make_board_project(**kw) -> BoardProject:
     }
     defaults.update(kw)
     return BoardProject(**defaults)
+
+
+def _make_github_project(**kw) -> GitHubProject:
+    """Create a GitHubProject matching the shape expected by _to_board_projects."""
+    defaults = {
+        "project_id": "PVT_abc",
+        "owner_id": "O_owner123",
+        "owner_login": "testuser",
+        "name": "Test Board",
+        "type": "user",
+        "url": "https://github.com/users/testuser/projects/1",
+        "status_columns": [
+            StatusColumn(field_id="SF_1", name="Todo", option_id="opt1"),
+            StatusColumn(field_id="SF_1", name="Done", option_id="opt2"),
+        ],
+    }
+    defaults.update(kw)
+    return GitHubProject(**defaults)
 
 
 def _make_board_data(project: BoardProject | None = None) -> BoardDataResponse:
@@ -72,8 +91,8 @@ def _make_board_data(project: BoardProject | None = None) -> BoardDataResponse:
 
 class TestListBoardProjects:
     async def test_returns_projects(self, client, mock_github_service):
-        bp = _make_board_project()
-        mock_github_service.list_board_projects.return_value = [bp]
+        gp = _make_github_project()
+        mock_github_service.list_user_projects.return_value = [gp]
         resp = await client.get("/api/v1/board/projects")
         assert resp.status_code == 200
         data = resp.json()
@@ -81,13 +100,14 @@ class TestListBoardProjects:
         assert data["projects"][0]["name"] == "Test Board"
 
     async def test_uses_cache_on_second_call(self, client, mock_github_service):
-        bp = _make_board_project()
-        mock_github_service.list_board_projects.return_value = [bp]
+        gp = _make_github_project()
+        mock_github_service.list_user_projects.return_value = [gp]
 
         # First call — populates cache
         resp1 = await client.get("/api/v1/board/projects")
         assert resp1.status_code == 200
         # Second call — should use cache (service not called again)
+        bp = _make_board_project()
         with patch("src.api.board.cache") as mock_cache:
             mock_cache.get.return_value = [bp]
             resp2 = await client.get("/api/v1/board/projects")
@@ -95,14 +115,14 @@ class TestListBoardProjects:
             mock_cache.get.assert_called_once()
 
     async def test_refresh_bypasses_cache(self, client, mock_github_service):
-        bp = _make_board_project()
-        mock_github_service.list_board_projects.return_value = [bp]
+        gp = _make_github_project()
+        mock_github_service.list_user_projects.return_value = [gp]
         resp = await client.get("/api/v1/board/projects", params={"refresh": True})
         assert resp.status_code == 200
-        mock_github_service.list_board_projects.assert_called_once()
+        mock_github_service.list_user_projects.assert_called_once()
 
     async def test_github_api_error(self, client, mock_github_service):
-        mock_github_service.list_board_projects.side_effect = RuntimeError("network")
+        mock_github_service.list_user_projects.side_effect = RuntimeError("network")
         resp = await client.get("/api/v1/board/projects", params={"refresh": True})
         # Should raise GitHubAPIError (mapped to 502 via AppException handler)
         assert resp.status_code == 502
@@ -110,7 +130,7 @@ class TestListBoardProjects:
     async def test_rate_limit_uses_cached_headers_for_generic_errors(
         self, client, mock_github_service
     ):
-        mock_github_service.list_board_projects.side_effect = RuntimeError("network")
+        mock_github_service.list_user_projects.side_effect = RuntimeError("network")
         mock_github_service.get_last_rate_limit.return_value = {
             "limit": 5000,
             "remaining": 0,
@@ -363,8 +383,8 @@ class TestBoardErrorSanitization:
     include raw exception strings in the ``details`` field."""
 
     async def test_list_projects_error_does_not_leak_details(self, client, mock_github_service):
-        """list_board_projects must not expose internal error strings."""
-        mock_github_service.list_board_projects.side_effect = RuntimeError(
+        """list_user_projects must not expose internal error strings."""
+        mock_github_service.list_user_projects.side_effect = RuntimeError(
             "Connection refused to https://api.github.com"
         )
         resp = await client.get("/api/v1/board/projects", params={"refresh": True})
@@ -711,7 +731,7 @@ class TestTokenExpirationFlows:
 
     async def test_expired_token_returns_401(self, client, mock_github_service):
         """A 'bad credentials' error from the service should yield HTTP 401."""
-        mock_github_service.list_board_projects.side_effect = ValueError("bad credentials")
+        mock_github_service.list_user_projects.side_effect = ValueError("bad credentials")
         resp = await client.get("/api/v1/board/projects", params={"refresh": True})
         assert resp.status_code == 401
         body = resp.json()
@@ -721,7 +741,7 @@ class TestTokenExpirationFlows:
 
     async def test_401_does_not_leak_token(self, client, mock_github_service):
         """Auth error responses must not include internal details."""
-        mock_github_service.list_board_projects.side_effect = ValueError(
+        mock_github_service.list_user_projects.side_effect = ValueError(
             "unauthorized: token ghp_SECRETTOKEN123"
         )
         resp = await client.get("/api/v1/board/projects", params={"refresh": True})
