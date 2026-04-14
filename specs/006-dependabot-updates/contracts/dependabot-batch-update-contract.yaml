@@ -1,0 +1,95 @@
+# Dependabot Batch Update Contract
+# Defines the workflow contract for applying Dependabot updates
+
+name: dependabot-batch-update
+version: "1.0"
+description: >
+  Contract for discovering, prioritizing, applying, and verifying
+  Dependabot dependency updates across npm and pip ecosystems.
+
+workflow:
+  phases:
+    - name: discovery
+      description: List all open Dependabot PRs and group by ecosystem
+      inputs:
+        - repository: Boykai/solune
+        - author_filter: "app/dependabot"
+        - state_filter: "open"
+      outputs:
+        - dependency_inventory:
+            format: structured list
+            fields: [pr_number, package, ecosystem, current_version, target_version, bump_type, dep_type]
+
+    - name: prioritization
+      description: Order updates by risk tier
+      inputs:
+        - dependency_inventory
+      outputs:
+        - ordered_update_queue:
+            tiers:
+              - tier: 1
+                criteria: patch bumps
+                risk: lowest
+              - tier: 2
+                criteria: minor bumps
+                risk: moderate
+              - tier: 3
+                criteria: major bumps
+                risk: highest
+            within_tier_order: "no-overlap first, dev before runtime"
+
+    - name: apply_and_verify
+      description: Apply each update and run build+test verification
+      inputs:
+        - ordered_update_queue
+      per_update_steps:
+        - modify_manifest:
+            files:
+              npm: solune/frontend/package.json
+              pip: solune/backend/pyproject.toml
+        - regenerate_lock:
+            npm: "cd solune/frontend && npm install"
+            pip: "cd solune/backend && uv lock && uv sync --extra dev"
+        - run_build:
+            npm: "cd solune/frontend && npm run build"
+            pip: "cd solune/backend && uv run ruff check src/ tests/ && uv run pyright src/"
+        - run_tests:
+            npm: "cd solune/frontend && npm run test"
+            pip: "cd solune/backend && uv run pytest tests/unit/ -q"
+      outcomes:
+        pass: "commit change, mark as applied"
+        fail: "revert change, record failure reason, mark as skipped"
+
+    - name: combine_pr
+      description: Combine all applied updates into a single PR
+      inputs:
+        - applied_updates
+        - skipped_updates
+      outputs:
+        - pull_request:
+            title: "chore(deps): apply Dependabot batch update"
+            base: main
+            body_sections:
+              - applied_checklist: "package: old → new version"
+              - skipped_section: "package: target version — failure reason"
+
+constraints:
+  - "Do not change application code, test code, or configuration beyond dependency changes"
+  - "If a major version bump requires code changes, skip it and document migration steps"
+  - "Do not force-push or delete non-Dependabot branches"
+  - "Regenerate lock files using ecosystem tools — never edit manually"
+
+ecosystems:
+  npm:
+    manifest: solune/frontend/package.json
+    lock_file: solune/frontend/package-lock.json
+    install_command: "npm install"
+    build_command: "npm run build"
+    test_command: "npm run lint && npm run type-check && npm run test && npm run build"
+
+  pip:
+    manifest: solune/backend/pyproject.toml
+    lock_file: solune/backend/uv.lock
+    install_command: "uv lock && uv sync --extra dev"
+    build_command: "uv run ruff check src/ tests/ && uv run pyright src/"
+    test_command: "uv run pytest tests/unit/ -q"
