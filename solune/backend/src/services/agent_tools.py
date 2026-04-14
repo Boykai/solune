@@ -40,11 +40,11 @@ class ToolResult(TypedDict, total=False):
 # ── Constants ────────────────────────────────────────────────────────────
 
 DIFFICULTY_PRESET_MAP: dict[str, str] = {
-    "XS": "github-copilot",
-    "S": "easy",
-    "M": "medium",
-    "L": "hard",
-    "XL": "expert",
+    "XS": "github",
+    "S": "github",
+    "M": "spec-kit",
+    "L": "default",
+    "XL": "app-builder",
 }
 
 ACTION_PAYLOAD_START = "\n\n<<SOLUNE_ACTION>>\n"
@@ -380,7 +380,7 @@ async def assess_difficulty(
     logger.info("Tool assess_difficulty called: difficulty=%s", difficulty)
 
     difficulty_upper = difficulty.upper().strip()
-    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty_upper, "medium")
+    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty_upper, "default")
 
     if context.session:
         context.session.state["assessed_difficulty"] = difficulty_upper
@@ -421,14 +421,14 @@ async def select_pipeline_preset(
     )
 
     difficulty_upper = difficulty.upper().strip()
-    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty_upper, "medium")
+    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty_upper, "default")
 
     # Look up preset details from definitions
     preset = next((p for p in _PRESET_DEFINITIONS if p["preset_id"] == preset_id), None)
 
     if preset is None:
-        # Fallback to medium if somehow the preset isn't found
-        preset_id = "medium"
+        # Fallback to default if somehow the preset isn't found
+        preset_id = "default"
         preset = next((p for p in _PRESET_DEFINITIONS if p["preset_id"] == preset_id), None)
 
     if context.session:
@@ -488,7 +488,7 @@ async def create_project_issue(
     state = context.session.state if context.session else {}
     github_token = state.get("github_token")
     project_name = state.get("project_name", "Unknown Project")
-    preset_id = state.get("selected_preset_id", "medium")
+    preset_id = state.get("selected_preset_id", "default")
 
     if not github_token:
         return ToolResult(
@@ -576,7 +576,7 @@ async def launch_pipeline(
         pipeline_id: Optional pipeline configuration ID override.
     """
     state = context.session.state if context.session else {}
-    preset_id = state.get("selected_preset_id", "medium")
+    preset_id = state.get("selected_preset_id", "default")
     project_id = state.get("project_id", "")
     effective_pipeline_id = pipeline_id or state.get("pipeline_id", "")
 

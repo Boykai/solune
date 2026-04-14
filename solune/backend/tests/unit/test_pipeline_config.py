@@ -29,36 +29,36 @@ def _make_template(
         tech_stack=["python"],
         scaffold_type=ScaffoldType.SKELETON,
         files=[TemplateFile(source="f.tmpl", target="f.py", variables=[])],
-        recommended_preset_id="medium",
+        recommended_preset_id="default",
         iac_target=iac_target,
     )
 
 
 class TestConfigurePipelinePreset:
-    def test_difficulty_s_maps_to_easy(self) -> None:
+    def test_difficulty_s_maps_to_github(self) -> None:
         t = _make_template(difficulty="S")
         preset_id, _ = configure_pipeline_preset(t)
-        assert preset_id == "easy"
+        assert preset_id == "github"
 
-    def test_difficulty_m_maps_to_medium(self) -> None:
+    def test_difficulty_m_maps_to_spec_kit(self) -> None:
         t = _make_template(difficulty="M")
         preset_id, _ = configure_pipeline_preset(t)
-        assert preset_id == "medium"
+        assert preset_id == "spec-kit"
 
-    def test_difficulty_l_maps_to_hard(self) -> None:
+    def test_difficulty_l_maps_to_default(self) -> None:
         t = _make_template(difficulty="L")
         preset_id, _ = configure_pipeline_preset(t)
-        assert preset_id == "hard"
+        assert preset_id == "default"
 
-    def test_difficulty_xl_maps_to_expert(self) -> None:
+    def test_difficulty_xl_maps_to_app_builder(self) -> None:
         t = _make_template(difficulty="XL")
         preset_id, _ = configure_pipeline_preset(t)
-        assert preset_id == "expert"
+        assert preset_id == "app-builder"
 
     def test_difficulty_override(self) -> None:
         t = _make_template(difficulty="S")
         preset_id, _ = configure_pipeline_preset(t, difficulty_override="XL")
-        assert preset_id == "expert"
+        assert preset_id == "app-builder"
 
     def test_include_architect_when_iac_target_set(self) -> None:
         t = _make_template(iac_target=IaCTarget.AZURE)
@@ -80,12 +80,12 @@ class TestConfigurePipelinePreset:
         _, include = configure_pipeline_preset(t)
         assert include is True
 
-    def test_unknown_difficulty_defaults_to_medium(self) -> None:
+    def test_unknown_difficulty_defaults_to_default(self) -> None:
         _make_template(difficulty="M")
         # Modify difficulty to something unknown via object mutation
         # Since it's frozen, test the map directly
         assert DIFFICULTY_PRESET_MAP.get("UNKNOWN") is None
-        # configure_pipeline_preset falls back to "medium"
+        # configure_pipeline_preset falls back to "default"
         t2 = _make_template(difficulty="M")
         preset_id, _ = configure_pipeline_preset(t2, difficulty_override="UNKNOWN")
-        assert preset_id == "medium"
+        assert preset_id == "default"

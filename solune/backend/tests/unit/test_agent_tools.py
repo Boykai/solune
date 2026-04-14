@@ -383,9 +383,9 @@ class TestAppBuilderTools:
 
         assert result["action_type"] == "app_build"
         assert result["action_data"]["template_id"] == "dashboard-react"
-        assert result["action_data"]["preset_id"] == "medium"
+        assert result["action_data"]["preset_id"] == "spec-kit"
         assert result["action_data"]["include_architect"] is True
-        assert "Pipeline preset: medium" in result["content"]
+        assert "Pipeline preset: spec-kit" in result["content"]
 
     async def test_iterate_on_app_returns_iteration_action(self):
         result = await iterate_on_app(
@@ -422,7 +422,7 @@ class TestAssessDifficulty:
         assert result["action_type"] is None
         assert result["action_data"] is None
         assert "M" in result["content"]
-        assert "medium" in result["content"]
+        assert "spec-kit" in result["content"]
 
     async def test_sets_session_state(self):
         ctx = _make_context()
@@ -432,11 +432,11 @@ class TestAssessDifficulty:
     @pytest.mark.parametrize(
         "difficulty,expected_preset",
         [
-            ("XS", "github-copilot"),
-            ("S", "easy"),
-            ("M", "medium"),
-            ("L", "hard"),
-            ("XL", "expert"),
+            ("XS", "github"),
+            ("S", "github"),
+            ("M", "spec-kit"),
+            ("L", "default"),
+            ("XL", "app-builder"),
         ],
     )
     async def test_all_difficulty_levels(self, difficulty, expected_preset):
@@ -449,12 +449,12 @@ class TestAssessDifficulty:
         ctx = _make_context()
         result = await assess_difficulty(ctx, difficulty="xl", reasoning="test")
         assert ctx.session.state["assessed_difficulty"] == "XL"
-        assert "expert" in result["content"]
+        assert "app-builder" in result["content"]
 
-    async def test_unknown_difficulty_falls_back_to_medium(self):
+    async def test_unknown_difficulty_falls_back_to_default(self):
         ctx = _make_context()
         result = await assess_difficulty(ctx, difficulty="UNKNOWN", reasoning="test")
-        assert "medium" in result["content"]
+        assert "default" in result["content"]
 
 
 # ── select_pipeline_preset ──────────────────────────────────────────────
@@ -470,25 +470,25 @@ class TestSelectPipelinePreset:
             assert ctx.session.state["selected_preset_id"] == expected_id
             assert expected_id in result["content"]
 
-    async def test_unknown_difficulty_falls_back_to_medium(self):
+    async def test_unknown_difficulty_falls_back_to_default(self):
         ctx = _make_context()
         result = await select_pipeline_preset(
             ctx, difficulty="UNKNOWN", project_name="Test Project"
         )
-        assert ctx.session.state["selected_preset_id"] == "medium"
-        assert "medium" in result["content"].lower()
+        assert ctx.session.state["selected_preset_id"] == "default"
+        assert "default" in result["content"].lower()
 
     async def test_preset_details_in_result_content(self):
         ctx = _make_context()
         result = await select_pipeline_preset(ctx, difficulty="M", project_name="My App")
         # Should contain stages and agents info
         assert "My App" in result["content"]
-        assert "medium" in result["content"].lower()
+        assert "spec-kit" in result["content"].lower()
 
     async def test_sets_selected_preset_id_in_session(self):
         ctx = _make_context()
         await select_pipeline_preset(ctx, difficulty="XL", project_name="Big Project")
-        assert ctx.session.state["selected_preset_id"] == "expert"
+        assert ctx.session.state["selected_preset_id"] == "app-builder"
 
 
 # ── create_project_issue ────────────────────────────────────────────────
@@ -521,7 +521,7 @@ class TestCreateProjectIssue:
         ctx = _make_context(
             github_token="test-token",
             project_name="My Project",
-            selected_preset_id="easy",
+            selected_preset_id="github",
         )
 
         with patch(
@@ -534,7 +534,7 @@ class TestCreateProjectIssue:
 
         assert result["action_type"] == "issue_create"
         assert result["action_data"]["issue_number"] == 42
-        assert result["action_data"]["preset_id"] == "easy"
+        assert result["action_data"]["preset_id"] == "github"
 
     @patch("src.services.agent_tools.get_settings")
     async def test_auto_create_no_token_returns_error(self, mock_settings):
@@ -588,30 +588,30 @@ class TestCreateProjectIssue:
 class TestLaunchPipeline:
     async def test_returns_pipeline_launch_action(self):
         ctx = _make_context(
-            selected_preset_id="medium",
+            selected_preset_id="spec-kit",
             project_id="PVT_123",
         )
         result = await launch_pipeline(ctx)
         assert result["action_type"] == "pipeline_launch"
-        assert result["action_data"]["preset"] == "medium"
+        assert result["action_data"]["preset"] == "spec-kit"
         assert isinstance(result["action_data"]["stages"], list)
 
     async def test_reads_preset_from_session_state(self):
         ctx = _make_context(
-            selected_preset_id="expert",
+            selected_preset_id="app-builder",
             project_id="PVT_456",
         )
         result = await launch_pipeline(ctx)
-        assert result["action_data"]["preset"] == "expert"
+        assert result["action_data"]["preset"] == "app-builder"
 
     async def test_uses_pipeline_id_from_argument(self):
-        ctx = _make_context(selected_preset_id="easy", project_id="PVT_1")
+        ctx = _make_context(selected_preset_id="github", project_id="PVT_1")
         result = await launch_pipeline(ctx, pipeline_id="custom-pipeline-123")
         assert result["action_data"]["pipeline_id"] == "custom-pipeline-123"
 
     async def test_falls_back_to_session_pipeline_id(self):
         ctx = _make_context(
-            selected_preset_id="easy",
+            selected_preset_id="github",
             project_id="PVT_1",
             pipeline_id="session-pipeline",
         )

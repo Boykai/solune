@@ -198,7 +198,7 @@ class TestChatAgentServiceRun:
                 "action_type": "pipeline_launch",
                 "action_data": {
                     "pipeline_id": "pipe-1",
-                    "preset": "medium",
+                    "preset": "default",
                     "stages": ["Specify", "Plan", "Implement"],
                 },
             }
@@ -217,7 +217,7 @@ class TestChatAgentServiceRun:
 
         assert result.action_type == ActionType.PIPELINE_LAUNCH
         assert result.action_data["pipeline_id"] == "pipe-1"
-        assert result.action_data["preset"] == "medium"
+        assert result.action_data["preset"] == "default"
         assert result.action_data["stages"] == ["Specify", "Plan", "Implement"]
 
     @patch("src.services.chat_agent.create_agent")
