@@ -218,7 +218,7 @@ class TestNormalizeServer:
         assert server.install_config.transport == "http"
         assert server.install_config.url == "https://example.com/mcp"
 
-    def test_invalid_json_string_config_treated_as_empty(self):
+    def test_invalid_json_string_config_defaults_to_unknown_transport(self):
         server = _normalize_server({
             "id": "test",
             "name": "Test",

@@ -144,7 +144,7 @@ describe('CatalogMcpServer Zod schema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('strips extra fields in strict parsing via safeParse', () => {
+  it('allows extra fields with default passthrough behavior', () => {
     const result = CatalogMcpServerSchema.safeParse({
       id: 'test',
       name: 'Test',
@@ -152,9 +152,8 @@ describe('CatalogMcpServer Zod schema', () => {
       server_type: 'http',
       install_config: { transport: 'http' },
       already_installed: false,
-      extra_field: 'should be ignored or stripped',
+      extra_field: 'should be allowed via passthrough',
     });
-    // Zod default passthrough — should still succeed
     expect(result.success).toBe(true);
   });
 });
