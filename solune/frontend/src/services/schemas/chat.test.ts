@@ -94,7 +94,7 @@ describe('ChatMessagesResponseSchema', () => {
       action_type: 'pipeline_launch' as const,
       action_data: {
         pipeline_id: 'pipe-1',
-        preset: 'medium',
+        preset: 'default',
         stages: ['Specify', 'Plan', 'Implement'],
       },
     };
@@ -152,7 +152,7 @@ describe('ChatMessagesResponseSchema', () => {
               : at === 'project_select'
                 ? { project_id: 'p-1', project_name: 'P' }
                 : at === 'pipeline_launch'
-                  ? { pipeline_id: 'pipe-1', preset: 'medium', stages: ['Specify', 'Plan'] }
+                  ? { pipeline_id: 'pipe-1', preset: 'default', stages: ['Specify', 'Plan'] }
                   : {
                       recommendation_id: 'r-1',
                       proposed_title: 'T',

@@ -5,8 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { PRESET_PIPELINES } from './preset-pipelines';
 
 describe('PRESET_PIPELINES', () => {
-  it('has at least 2 preset pipelines', () => {
-    expect(PRESET_PIPELINES.length).toBeGreaterThanOrEqual(2);
+  it('has exactly 4 preset pipelines', () => {
+    expect(PRESET_PIPELINES).toHaveLength(4);
   });
 
   it('each preset has required fields', () => {
@@ -18,32 +18,61 @@ describe('PRESET_PIPELINES', () => {
     }
   });
 
+  it('has github preset', () => {
+    const github = PRESET_PIPELINES.find((p) => p.presetId === 'github');
+    expect(github).toBeDefined();
+    expect(github!.name).toBe('GitHub');
+  });
+
+  it('github preset has single "In progress" stage with GitHub Copilot', () => {
+    const github = PRESET_PIPELINES.find((p) => p.presetId === 'github')!;
+    expect(github.stages).toHaveLength(1);
+    expect(github.stages[0].name).toBe('In progress');
+    const agents = github.stages[0].groups![0].agents;
+    expect(agents).toHaveLength(1);
+    expect(agents[0].agent_slug).toBe('copilot');
+  });
+
   it('has spec-kit preset', () => {
     const specKit = PRESET_PIPELINES.find((p) => p.presetId === 'spec-kit');
     expect(specKit).toBeDefined();
     expect(specKit!.name).toBe('Spec Kit');
   });
 
-  it('spec-kit has 5 stages in correct order', () => {
+  it('spec-kit has single "In progress" stage with 5 speckit agents', () => {
     const specKit = PRESET_PIPELINES.find((p) => p.presetId === 'spec-kit')!;
-    expect(specKit.stages).toHaveLength(5);
-    expect(specKit.stages[0].name).toBe('Specify');
-    expect(specKit.stages[1].name).toBe('Plan');
-    expect(specKit.stages[2].name).toBe('Tasks');
-    expect(specKit.stages[3].name).toBe('Implement');
-    expect(specKit.stages[4].name).toBe('Analyze');
+    expect(specKit.stages).toHaveLength(1);
+    expect(specKit.stages[0].name).toBe('In progress');
+    const agents = specKit.stages[0].groups![0].agents;
+    expect(agents).toHaveLength(5);
+    expect(agents.map((a) => a.agent_slug)).toEqual([
+      'speckit.specify',
+      'speckit.plan',
+      'speckit.tasks',
+      'speckit.analyze',
+      'speckit.implement',
+    ]);
   });
 
-  it('has github-copilot preset', () => {
-    const copilot = PRESET_PIPELINES.find((p) => p.presetId === 'github-copilot');
-    expect(copilot).toBeDefined();
-    expect(copilot!.name).toBe('GitHub Copilot');
+  it('has default preset with 10 agents', () => {
+    const defaultPreset = PRESET_PIPELINES.find((p) => p.presetId === 'default')!;
+    expect(defaultPreset).toBeDefined();
+    expect(defaultPreset.name).toBe('Default');
+    expect(defaultPreset.stages).toHaveLength(1);
+    expect(defaultPreset.stages[0].name).toBe('In progress');
+    const agents = defaultPreset.stages[0].groups![0].agents;
+    expect(agents).toHaveLength(10);
   });
 
-  it('github-copilot has single stage', () => {
-    const copilot = PRESET_PIPELINES.find((p) => p.presetId === 'github-copilot')!;
-    expect(copilot.stages).toHaveLength(1);
-    expect(copilot.stages[0].name).toBe('Execute');
+  it('has app-builder preset with architect agent', () => {
+    const appBuilder = PRESET_PIPELINES.find((p) => p.presetId === 'app-builder')!;
+    expect(appBuilder).toBeDefined();
+    expect(appBuilder.name).toBe('App Builder');
+    expect(appBuilder.stages).toHaveLength(1);
+    expect(appBuilder.stages[0].name).toBe('In progress');
+    const agents = appBuilder.stages[0].groups![0].agents;
+    expect(agents).toHaveLength(11);
+    expect(agents.some((a) => a.agent_slug === 'architect')).toBe(true);
   });
 
   it('all stages have valid order', () => {
