@@ -88,7 +88,7 @@ As a user, I want to select an app and see detailed information about its GitHub
 
 ### Functional Requirements
 
-**Chores Page**
+#### Chores Page
 
 - **FR-001**: System MUST remove all UI references to GitHub Templates for chore definitions, including any option to create pull requests for saving chore templates.
 - **FR-002**: System MUST remove the "Featured rituals" section from the Chores page.
@@ -98,19 +98,19 @@ As a user, I want to select an app and see detailed information about its GitHub
 - **FR-006**: System MUST remove the "Upkeep studio" section from the Chores page.
 - **FR-007**: System MUST persist chore definitions in the database instead of through GitHub Templates or pull requests.
 
-**Apps — Create App Experience**
+#### Apps — Create App Experience
 
 - **FR-008**: System MUST remove the "Target branch" section from the Create App experience and default to the main branch.
 - **FR-009**: System MUST move the "New Repository Settings" controls into the "Advanced options" section of the Create App experience.
 - **FR-010**: System MUST remove the "Name override" field from the "Advanced options" section of the Create App experience.
 
-**Apps — Tile Management**
+#### Apps — Tile Management
 
 - **FR-011**: System MUST display a delete button on each App tile.
 - **FR-012**: System MUST allow users to delete an app via the tile delete button, with a confirmation step before deletion.
 - **FR-013**: System MUST display app status on each App tile indicating whether a GitHub Parent Issue is actively executing in the app's project.
 
-**Apps — Detail View and History**
+#### Apps — Detail View and History
 
 - **FR-014**: System MUST show detailed GitHub Project information when a user selects an app (project name, status, link to project).
 - **FR-015**: System MUST show Agent Pipeline information when a user selects an app (pipeline status, recent pipeline runs).
