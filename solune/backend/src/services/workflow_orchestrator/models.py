@@ -199,6 +199,9 @@ class PipelineState:
     agent_configs: dict[str, dict] = field(default_factory=dict)
     # Maps agent_slug → GitHub coding-agent task id when fleet-style dispatch resolves one
     agent_task_ids: dict[str, str] = field(default_factory=dict)
+    # Repository coordinates — persisted so cross-repo pipelines survive restarts
+    repository_owner: str = ""
+    repository_name: str = ""
 
     # 1. KEEP THIS (OR ADD IT BACK) - The system needs a single agent name for logging/labels
     @property

@@ -145,6 +145,8 @@ async def start_pipeline(
             auto_merge=auto_merge,
             prerequisite_issues=prerequisite_issues or [],
             agent_configs=_safe_get_agent_configs(config),
+            repository_owner=ctx.repository_owner,
+            repository_name=ctx.repository_name,
         )
 
     if agent_sub_issues:

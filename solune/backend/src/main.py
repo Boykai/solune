@@ -181,14 +181,21 @@ async def _discover_and_register_active_projects() -> int:
     """
     from src.services.copilot_polling import register_project
     from src.services.database import get_db
-    from src.services.pipeline_state_store import get_all_pipeline_states
+    from src.services.pipeline_state_store import get_all_pipeline_states, set_pipeline_state
+    from src.utils import resolve_repository
 
     # Collect distinct project_ids from in-memory pipeline state cache
     active_project_ids: set[str] = set()
+    # Build a lookup from pipeline state's embedded repo info (primary source)
+    state_repo_map: dict[str, tuple[str, str]] = {}
     for state in get_all_pipeline_states().values():
         pid = getattr(state, "project_id", None)
         if pid:
             active_project_ids.add(pid)
+            owner = getattr(state, "repository_owner", "") or ""
+            repo = getattr(state, "repository_name", "") or ""
+            if owner and repo and pid not in state_repo_map:
+                state_repo_map[pid] = (owner, repo)
 
     if not active_project_ids:
         return 0
@@ -245,7 +252,39 @@ async def _discover_and_register_active_projects() -> int:
 
     registered_count = 0
     for pid in active_project_ids:
-        owner, repo = project_repo_map.get(pid, (default_owner, default_repo))
+        # Prefer repo info embedded in pipeline state (survives restarts
+        # for cross-repo pipelines), then fall back to project_settings.
+        owner, repo = state_repo_map.get(pid, project_repo_map.get(pid, ("", "")))
+
+        # If both local sources are empty, resolve via GitHub API.
+        if not owner or not repo:
+            try:
+                owner, repo = await resolve_repository(token, pid)
+                logger.info(
+                    "Resolved project %s via GitHub API → %s/%s",
+                    pid,
+                    owner,
+                    repo,
+                )
+                # Self-healing backfill: persist repo info so future
+                # restarts skip the API call.
+                for state in get_all_pipeline_states().values():
+                    if getattr(state, "project_id", None) == pid:
+                        if not (
+                            getattr(state, "repository_owner", "")
+                            and getattr(state, "repository_name", "")
+                        ):
+                            state.repository_owner = owner
+                            state.repository_name = repo
+                            await set_pipeline_state(state.issue_number, state)
+            except Exception:
+                logger.warning(
+                    "Could not resolve repository for project %s via API, "
+                    "falling back to default repo",
+                    pid,
+                )
+                owner, repo = default_owner, default_repo
+
         if not owner or not repo:
             continue
         if register_project(pid, owner, repo, token):
@@ -270,7 +309,8 @@ async def _restore_app_pipeline_polling() -> int:
     """
     from src.services.copilot_polling import ensure_app_pipeline_polling
     from src.services.database import get_db
-    from src.services.pipeline_state_store import get_all_pipeline_states
+    from src.services.pipeline_state_store import get_all_pipeline_states, set_pipeline_state
+    from src.utils import resolve_repository
 
     settings = get_settings()
     default_owner = (settings.default_repo_owner or "").lower()
@@ -327,7 +367,38 @@ async def _restore_app_pipeline_polling() -> int:
         if getattr(state, "is_complete", False):
             continue
 
-        owner, repo = project_repo_map.get(pid, (default_owner, default_repo))
+        # Prefer repo info embedded in pipeline state (primary source for
+        # cross-repo pipelines), then fall back to project_settings lookup.
+        state_owner = getattr(state, "repository_owner", "") or ""
+        state_repo = getattr(state, "repository_name", "") or ""
+        if state_owner and state_repo:
+            owner, repo = state_owner, state_repo
+        else:
+            owner, repo = project_repo_map.get(pid, ("", ""))
+
+        # If both local sources are empty, resolve via GitHub API.
+        if not owner or not repo:
+            try:
+                owner, repo = await resolve_repository(token, pid)
+                logger.info(
+                    "Resolved project %s via GitHub API for app-pipeline → %s/%s",
+                    pid,
+                    owner,
+                    repo,
+                )
+                # Self-healing backfill
+                if not (state_owner and state_repo):
+                    state.repository_owner = owner
+                    state.repository_name = repo
+                    await set_pipeline_state(issue_number, state)
+            except Exception:
+                logger.warning(
+                    "Could not resolve repository for project %s via API, "
+                    "falling back to default repo",
+                    pid,
+                )
+                owner, repo = default_owner, default_repo
+
         if not owner or not repo:
             continue
 

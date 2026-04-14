@@ -222,3 +222,61 @@ class TestSchedulePersistSafety:
         assert unawaited == [], (
             f"Unawaited coroutine warnings: {[str(w.message) for w in unawaited]}"
         )
+
+
+# ── Repository Coordinate Preservation ──
+
+
+class TestRepoCoordPreservation:
+    """set_pipeline_state must preserve non-empty repo coords from existing state."""
+
+    def test_preserves_repo_coords_from_existing_state(self):
+        existing = PipelineState(
+            issue_number=1,
+            project_id="PVT_x",
+            status="In Progress",
+            agents=["a"],
+            repository_owner="Boykai",
+            repository_name="kitton",
+        )
+        set_pipeline_state(1, existing)
+
+        # New state without repo coords (simulates a constructor that forgot them)
+        updated = PipelineState(
+            issue_number=1,
+            project_id="PVT_x",
+            status="In Progress",
+            agents=["a"],
+            current_agent_index=1,
+            completed_agents=["a"],
+        )
+        set_pipeline_state(1, updated)
+
+        result = get_pipeline_state(1)
+        assert result.repository_owner == "Boykai"
+        assert result.repository_name == "kitton"
+
+    def test_allows_overwrite_when_new_state_has_repo_coords(self):
+        existing = PipelineState(
+            issue_number=2,
+            project_id="PVT_x",
+            status="In Progress",
+            agents=["a"],
+            repository_owner="Boykai",
+            repository_name="kitton",
+        )
+        set_pipeline_state(2, existing)
+
+        updated = PipelineState(
+            issue_number=2,
+            project_id="PVT_x",
+            status="In Progress",
+            agents=["a"],
+            repository_owner="NewOwner",
+            repository_name="new-repo",
+        )
+        set_pipeline_state(2, updated)
+
+        result = get_pipeline_state(2)
+        assert result.repository_owner == "NewOwner"
+        assert result.repository_name == "new-repo"

@@ -730,3 +730,238 @@ class TestWatchdogGracePeriod:
         # Only the old project should have been unregistered
         assert "PVT_old" in unregistered
         assert "PVT_new" not in unregistered
+
+
+# ── GitHub API fallback tests for _discover_and_register_active_projects ────
+
+
+class TestDiscoverGitHubApiFallback:
+    """Tests for the resolve_repository() fallback in _discover_and_register_active_projects."""
+
+    def _make_state(
+        self,
+        issue_number: int = 1,
+        project_id: str = "PVT_cross",
+        repository_owner: str = "",
+        repository_name: str = "",
+    ):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        return PipelineState(
+            issue_number=issue_number,
+            project_id=project_id,
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner=repository_owner,
+            repository_name=repository_name,
+        )
+
+    async def test_discover_calls_resolve_repository_when_local_sources_empty(self):
+        """When state has no repo info and project_settings is empty,
+        resolve_repository() should be called and the result used."""
+        from src.main import _discover_and_register_active_projects
+
+        state = self._make_state()
+        mock_db = AsyncMock()
+        # Session query → token
+        session_cursor = AsyncMock()
+        session_cursor.fetchone = AsyncMock(return_value={"access_token": "tok"})
+        # project_settings query → empty
+        ps_cursor = AsyncMock()
+        ps_cursor.fetchall = AsyncMock(return_value=[])
+        mock_db.execute = AsyncMock(side_effect=[session_cursor, ps_cursor])
+
+        registered = []
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: state},
+            ),
+            patch(
+                "src.services.pipeline_state_store.set_pipeline_state",
+                new_callable=AsyncMock,
+            ) as mock_persist,
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("Boykai", "kitton"),
+            ) as mock_resolve,
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.config.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.register_project",
+                side_effect=lambda pid, o, r, t: registered.append((pid, o, r)) or True,
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="tok",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            count = await _discover_and_register_active_projects()
+
+        assert count == 1
+        mock_resolve.assert_awaited_once_with("tok", "PVT_cross")
+        assert registered == [("PVT_cross", "Boykai", "kitton")]
+        # Backfill should persist the resolved repo into the state
+        mock_persist.assert_awaited_once()
+        assert state.repository_owner == "Boykai"
+        assert state.repository_name == "kitton"
+
+    async def test_discover_skips_api_when_state_has_repo_info(self):
+        """When state already has embedded repo info, resolve_repository()
+        should NOT be called."""
+        from src.main import _discover_and_register_active_projects
+
+        state = self._make_state(repository_owner="Boykai", repository_name="kitton")
+        mock_db = AsyncMock()
+        session_cursor = AsyncMock()
+        session_cursor.fetchone = AsyncMock(return_value={"access_token": "tok"})
+        ps_cursor = AsyncMock()
+        ps_cursor.fetchall = AsyncMock(return_value=[])
+        mock_db.execute = AsyncMock(side_effect=[session_cursor, ps_cursor])
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: state},
+            ),
+            patch(
+                "src.services.pipeline_state_store.set_pipeline_state",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+            ) as mock_resolve,
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.config.get_settings") as mock_s,
+            patch("src.services.copilot_polling.register_project", return_value=True),
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="tok",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            await _discover_and_register_active_projects()
+
+        mock_resolve.assert_not_awaited()
+
+    async def test_discover_falls_back_to_default_on_api_failure(self):
+        """When resolve_repository() raises, the default repo should be used."""
+        from src.main import _discover_and_register_active_projects
+
+        state = self._make_state()
+        mock_db = AsyncMock()
+        session_cursor = AsyncMock()
+        session_cursor.fetchone = AsyncMock(return_value={"access_token": "tok"})
+        ps_cursor = AsyncMock()
+        ps_cursor.fetchall = AsyncMock(return_value=[])
+        mock_db.execute = AsyncMock(side_effect=[session_cursor, ps_cursor])
+
+        registered = []
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: state},
+            ),
+            patch(
+                "src.services.pipeline_state_store.set_pipeline_state",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("GitHub API down"),
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.config.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.register_project",
+                side_effect=lambda pid, o, r, t: registered.append((pid, o, r)) or True,
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="tok",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            count = await _discover_and_register_active_projects()
+
+        assert count == 1
+        # Should fall back to default repo
+        assert registered == [("PVT_cross", "Boykai", "solune")]
+
+
+class TestRestoreGitHubApiFallback:
+    """Tests for the resolve_repository() fallback in _restore_app_pipeline_polling."""
+
+    def _make_state(
+        self,
+        issue_number: int = 42,
+        project_id: str = "PVT_cross",
+        repository_owner: str = "",
+        repository_name: str = "",
+    ):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        return PipelineState(
+            issue_number=issue_number,
+            project_id=project_id,
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner=repository_owner,
+            repository_name=repository_name,
+        )
+
+    async def test_restore_calls_resolve_repository_for_old_pipeline(self):
+        """Old cross-repo pipeline with no local repo info should resolve
+        via GitHub API and start scoped polling."""
+        from src.main import _restore_app_pipeline_polling
+
+        state = self._make_state()
+        mock_db = AsyncMock()
+        session_cursor = AsyncMock()
+        session_cursor.fetchone = AsyncMock(return_value=None)
+        ps_cursor = AsyncMock()
+        ps_cursor.fetchall = AsyncMock(return_value=[])
+        mock_db.execute = AsyncMock(side_effect=[session_cursor, ps_cursor])
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={42: state},
+            ),
+            patch(
+                "src.services.pipeline_state_store.set_pipeline_state",
+                new_callable=AsyncMock,
+            ) as mock_persist,
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("Boykai", "kitton"),
+            ) as mock_resolve,
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.main.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.ensure_app_pipeline_polling",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_poll,
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="tok",
+                default_repo_owner="boykai",
+                default_repo_name="solune",
+            )
+            restored = await _restore_app_pipeline_polling()
+
+        assert restored == 1
+        mock_resolve.assert_awaited_once_with("tok", "PVT_cross")
+        mock_poll.assert_awaited_once()
+        # Backfill
+        mock_persist.assert_awaited_once()
+        assert state.repository_owner == "Boykai"
+        assert state.repository_name == "kitton"
