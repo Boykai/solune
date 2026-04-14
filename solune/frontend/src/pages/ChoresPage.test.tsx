@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@/test/test-utils';
 import { expectNoA11yViolations } from '@/test/a11y-helpers';
 import { ChoresPage } from './ChoresPage';
@@ -73,8 +73,25 @@ describe('ChoresPage', () => {
     expect(screen.queryByText('Featured Rituals')).not.toBeInTheDocument();
   });
 
+  it('does not render "Review upkeep cadence" button', () => {
+    render(<ChoresPage />);
+    expect(screen.queryByText('Review upkeep cadence')).not.toBeInTheDocument();
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<ChoresPage />);
     await expectNoA11yViolations(container);
+  });
+});
+
+describe('ChoresPage — with selected project', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not render "+ Create Chore" button without a selected project', () => {
+    render(<ChoresPage />);
+    // Without a selected project, the button should not appear
+    expect(screen.queryByRole('button', { name: /create chore/i })).not.toBeInTheDocument();
   });
 });
