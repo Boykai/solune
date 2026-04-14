@@ -13,122 +13,12 @@ from src.services.github_projects.graphql import (
 
 # Configurable delay (seconds) before status/assignment updates.
 API_ACTION_DELAY_SECONDS: float = 2.0
-_AGENT_TASK_HEADERS = {
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-}
-_AGENT_TASK_ENDPOINT_CANDIDATES = (
-    "/repos/{owner}/{repo}/agent/tasks",
-    "/repos/{owner}/{repo}/agent-tasks",
-    "/repos/{owner}/{repo}/agents/tasks",
-    "/repos/{owner}/{repo}/copilot/tasks",
-    "/repos/{owner}/{repo}/copilot/agent_tasks",
-    "/repos/{owner}/{repo}/copilot/agent-tasks",
-)
 
 logger = get_logger(__name__)
 
 
 class CopilotMixin(_ServiceMixin):
     """Copilot assignment, review, polling, and session error detection."""
-
-    async def _discover_agent_task_endpoint(
-        self,
-        access_token: str,
-        owner: str,
-        repo: str,
-    ) -> str | None:
-        """Best-effort discovery for a repository-scoped coding-agent task endpoint."""
-
-        cache_key = f"{owner}/{repo}"
-        if cache_key in self._agent_task_endpoint_cache:
-            return self._agent_task_endpoint_cache[cache_key]
-
-        for template in _AGENT_TASK_ENDPOINT_CANDIDATES:
-            path = template.format(owner=owner, repo=repo)
-            try:
-                response = await self._rest_response(
-                    access_token,
-                    "GET",
-                    path,
-                    params={"per_page": 1},
-                    headers=_AGENT_TASK_HEADERS,
-                )
-            except Exception:
-                logger.debug("Agent-task probe failed for %s", path, exc_info=True)
-                continue
-
-            if response.status_code == 200:
-                self._agent_task_endpoint_cache[cache_key] = path
-                logger.info("Discovered agent-task endpoint for %s/%s: %s", owner, repo, path)
-                return path
-
-            if response.status_code not in (404, 405):
-                logger.debug(
-                    "Agent-task probe for %s returned %d",
-                    path,
-                    response.status_code,
-                )
-
-        self._agent_task_endpoint_cache[cache_key] = None
-        return None
-
-    async def list_agent_tasks(
-        self,
-        access_token: str,
-        owner: str,
-        repo: str,
-        limit: int = 100,
-    ) -> list[dict]:
-        """Best-effort list of coding-agent tasks for a repository."""
-
-        endpoint = await self._discover_agent_task_endpoint(access_token, owner, repo)
-        if not endpoint:
-            return []
-
-        response = await self._rest_response(
-            access_token,
-            "GET",
-            endpoint,
-            params={"per_page": max(1, min(limit, 100))},
-            headers=_AGENT_TASK_HEADERS,
-        )
-        if response.status_code != 200:
-            return []
-
-        payload = response.json()
-        if isinstance(payload, list):
-            return [task for task in payload if isinstance(task, dict)]
-        if isinstance(payload, dict):
-            items = payload.get("tasks") or payload.get("items") or []
-            if isinstance(items, list):
-                return [task for task in items if isinstance(task, dict)]
-        return []
-
-    async def get_agent_task(
-        self,
-        access_token: str,
-        owner: str,
-        repo: str,
-        task_id: str,
-    ) -> dict | None:
-        """Best-effort fetch of one coding-agent task by id."""
-
-        endpoint = await self._discover_agent_task_endpoint(access_token, owner, repo)
-        if not endpoint:
-            return None
-
-        response = await self._rest_response(
-            access_token,
-            "GET",
-            f"{endpoint}/{task_id}",
-            headers=_AGENT_TASK_HEADERS,
-        )
-        if response.status_code != 200:
-            return None
-
-        payload = response.json()
-        return payload if isinstance(payload, dict) else None
 
     async def get_copilot_bot_id(
         self,

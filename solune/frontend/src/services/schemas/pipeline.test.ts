@@ -13,8 +13,6 @@ const validPipelineState = {
   started_at: '2024-01-01T00:00:00Z',
   error: null,
   queued: false,
-  agent_task_ids: {},
-  dispatch_backend: 'classic',
   agent_statuses: { 'agent-1': 'active', 'agent-2': 'pending' },
 };
 
@@ -51,18 +49,6 @@ describe('PipelineStateInfoSchema', () => {
   it('accepts nullable error', () => {
     const data = { ...validPipelineState, error: 'Agent failed' };
     expect(PipelineStateInfoSchema.parse(data).error).toBe('Agent failed');
-  });
-
-  it('parses fleet metadata fields', () => {
-    const data = {
-      ...validPipelineState,
-      agent_task_ids: { 'agent-1': 'task-123' },
-      dispatch_backend: 'fleet',
-      agent_statuses: { 'agent-1': 'active', 'agent-2': 'pending' },
-    };
-    const result = PipelineStateInfoSchema.parse(data);
-    expect(result.dispatch_backend).toBe('fleet');
-    expect(result.agent_task_ids['agent-1']).toBe('task-123');
   });
 
   it('parses empty agents array', () => {

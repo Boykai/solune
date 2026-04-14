@@ -82,7 +82,6 @@ from .completion import (
 from .helpers import (
     _check_agent_done_on_parent,
     _check_agent_done_on_sub_or_parent,
-    _check_agent_task_status,
     _check_copilot_review_done,
     _discover_main_pr_for_review,
     _get_linked_prs_including_sub_issues,
@@ -176,7 +175,6 @@ __all__ = [
     "_app_polling_tasks",
     "_check_agent_done_on_parent",
     "_check_agent_done_on_sub_or_parent",
-    "_check_agent_task_status",
     "_check_child_pr_completion",
     "_check_copilot_review_done",
     "_check_main_pr_completion",

@@ -13,8 +13,6 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from src.utils import BoundedDict
-
     _T = TypeVar("_T")
 
     class _ServiceMixin:
@@ -22,7 +20,6 @@ if TYPE_CHECKING:
 
         _cycle_cache: dict[str, object]
         _cycle_cache_hit_count: int
-        _agent_task_endpoint_cache: BoundedDict[str, str | None]
 
         async def _rest(
             self,
@@ -115,20 +112,6 @@ if TYPE_CHECKING:
         async def get_pr_timeline_events(
             self, access_token: str, owner: str, repo: str, issue_number: int
         ) -> list[dict[str, Any]]: ...
-        async def list_agent_tasks(
-            self,
-            access_token: str,
-            owner: str,
-            repo: str,
-            limit: int = 100,
-        ) -> list[dict[str, Any]]: ...
-        async def get_agent_task(
-            self,
-            access_token: str,
-            owner: str,
-            repo: str,
-            task_id: str,
-        ) -> dict[str, Any] | None: ...
 
 else:
     _ServiceMixin = object

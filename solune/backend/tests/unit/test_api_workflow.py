@@ -30,7 +30,6 @@ from src.api.workflow import (
     _check_duplicate,
     _get_pipeline_agent_statuses,
     _recent_requests,
-    _serialize_pipeline_state,
 )
 from src.models.agent import AgentAssignment, AgentSource, AvailableAgent
 from src.models.chat import (
@@ -96,7 +95,6 @@ class FakePipelineState:
     groups: list[FakePipelineGroup] = field(default_factory=list)
     current_group_index: int = 0
     current_agent_index_in_group: int = 0
-    agent_task_ids: dict[str, str] = field(default_factory=dict)
     queued: bool = False
 
     @property
@@ -340,13 +338,6 @@ class TestGetPipelineStateForIssue:
 
 
 class TestPipelineStateSerialization:
-    def test_serialize_pipeline_state_reports_fleet_without_task_ids(self):
-        state = FakePipelineState(agents=["speckit.specify"], agent_task_ids={})
-
-        payload = _serialize_pipeline_state(state)
-
-        assert payload["dispatch_backend"] == "fleet"
-
     def test_parallel_group_statuses_preserve_pending_agents(self):
         state = FakePipelineState(
             agents=["speckit.specify", "speckit.tasks"],
@@ -379,7 +370,6 @@ class TestRetryPipeline:
             "state": FakePipelineState(
                 error="dispatch failed",
                 failed_agents=["copilot-coding"],
-                agent_task_ids={"copilot-coding": "task-old"},
             )
         }
 
@@ -417,7 +407,6 @@ class TestRetryPipeline:
         assert resp.status_code == 200
         assert resp.json()["agent"] == "copilot-coding"
         assert state_box["state"].failed_agents == []
-        assert state_box["state"].agent_task_ids == {}
         assert state_box["state"].error is None
         assert mock_orchestrator.assign_agent_for_status.await_args.kwargs["agent_index"] == 0
         mock_websocket_manager.broadcast_to_project.assert_awaited_once()
@@ -439,7 +428,6 @@ class TestRetryPipeline:
                         agent_statuses={"architect": "active", "tester": "failed"},
                     )
                 ],
-                agent_task_ids={"tester": "task-old"},
             )
         }
 
@@ -477,7 +465,6 @@ class TestRetryPipeline:
         assert resp.status_code == 200
         assert resp.json()["agent"] == "tester"
         assert state_box["state"].failed_agents == []
-        assert state_box["state"].agent_task_ids == {}
         assert state_box["state"].groups[0].agent_statuses["tester"] == "active"
         assert mock_orchestrator.assign_agent_for_status.await_args.kwargs["agent_index"] == 1
         broadcast_payload = mock_websocket_manager.broadcast_to_project.await_args.args[1]
