@@ -42,6 +42,22 @@ def _slugify(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
 
+def _sanitize_repo_url(url: object) -> str | None:
+    """Return a safe external repository URL or ``None`` when invalid."""
+    if not isinstance(url, str):
+        return None
+
+    candidate = url.strip()
+    if not candidate:
+        return None
+
+    parsed = urlparse(candidate)
+    if parsed.scheme != "https" or not parsed.netloc:
+        return None
+
+    return parsed.geturl()
+
+
 # ── Upstream validation ──────────────────────────────────────────────────
 
 
@@ -79,11 +95,18 @@ async def _fetch_glama_servers(
 
     async with httpx.AsyncClient(
         timeout=_GLAMA_FETCH_TIMEOUT,
-        follow_redirects=True,
+        follow_redirects=False,
     ) as client:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
-        data = resp.json()
+        try:
+            data = resp.json()
+        except json.JSONDecodeError as exc:
+            raise CatalogUnavailableError(
+                "MCP catalog upstream returned an invalid response.",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                details={"reason": "The MCP catalog returned invalid JSON."},
+            ) from exc
 
     if isinstance(data, list):
         return data
@@ -103,7 +126,9 @@ def _normalize_server(raw: dict) -> CatalogMcpServer | None:
         return None
 
     description = raw.get("description") or raw.get("summary") or name
-    repo_url = raw.get("repo_url") or raw.get("repository") or raw.get("github_url")
+    repo_url = _sanitize_repo_url(
+        raw.get("repo_url") or raw.get("repository") or raw.get("github_url")
+    )
 
     # Extract category: prefer explicit field, fall back to first tag
     tags = raw.get("tags")
@@ -175,6 +200,7 @@ def _map_catalog_fetch_error(exc: Exception) -> CatalogUnavailableError:
         if upstream_status == status.HTTP_404_NOT_FOUND:
             reason = "The MCP catalog index could not be found upstream."
         return CatalogUnavailableError(
+            "MCP catalog is temporarily unavailable.",
             status_code=status.HTTP_502_BAD_GATEWAY,
             details={"reason": reason, "upstream_status": upstream_status},
         )
@@ -189,6 +215,7 @@ def _map_catalog_fetch_error(exc: Exception) -> CatalogUnavailableError:
         reason = "The MCP catalog could not be loaded right now."
 
     return CatalogUnavailableError(
+        "MCP catalog is temporarily unavailable.",
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         details={"reason": reason},
     )
@@ -221,6 +248,8 @@ async def list_catalog_servers(
             ttl_seconds=CATALOG_CACHE_TTL,
             stale_fallback=True,
         )
+    except CatalogUnavailableError:
+        raise
     except httpx.HTTPError as exc:
         logger.warning("MCP catalog fetch failed", exc_info=True)
         raise _map_catalog_fetch_error(exc) from exc

@@ -26,6 +26,7 @@ from src.models.tools import (
 from src.services.cache import InMemoryCache
 from src.services.tools.catalog import (
     CATALOG_CACHE_KEY,
+    _fetch_glama_servers,
     _map_catalog_fetch_error,
     _normalize_server,
     _slugify,
@@ -191,6 +192,16 @@ class TestNormalizeServer:
         })
         assert server is not None
         assert server.repo_url == "https://github.com/test/repo2"
+
+    def test_non_https_repo_url_is_dropped(self):
+        server = _normalize_server({
+            "id": "test",
+            "name": "Test",
+            "repo_url": "javascript:alert(1)",
+            "install_config": {"transport": "http", "url": "https://example.com"},
+        })
+        assert server is not None
+        assert server.repo_url is None
 
     def test_tags_fallback_for_category(self):
         server = _normalize_server({
@@ -405,7 +416,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["headers"] == {"Authorization": "Bearer $TOKEN"}
         assert server_config["tools"] == ["tool1", "tool2"]
         assert server_config["env"] == {"API_KEY": "xxx"}
@@ -426,7 +437,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["args"] == ["-y", "pkg"]
         assert server_config["env"] == {"HOME": "/tmp"}
         assert server_config["tools"] == ["mytool"]
@@ -444,7 +455,7 @@ class TestBuildImportConfig:
         )
         result = build_import_config(server)
         parsed = json.loads(result.config_content)
-        server_config = list(parsed["mcpServers"].values())[0]
+        server_config = next(iter(parsed["mcpServers"].values()))
         assert server_config["type"] == "local"
         assert server_config["command"] == "/usr/local/bin/server"
 
@@ -487,6 +498,7 @@ class TestMapCatalogFetchError:
         exc = httpx.HTTPStatusError("Server Error", request=response.request, response=response)
         result = _map_catalog_fetch_error(exc)
         assert isinstance(result, CatalogUnavailableError)
+        assert result.message == "MCP catalog is temporarily unavailable."
         assert result.status_code == 502
         assert result.details["upstream_status"] == 500
 
@@ -520,6 +532,56 @@ class TestMapCatalogFetchError:
         result = _map_catalog_fetch_error(exc)
         assert result.status_code == 503
         assert "could not be loaded" in result.details["reason"]
+
+
+class TestFetchGlamaServers:
+    async def test_invalid_json_returns_502_catalog_error(self):
+        request = httpx.Request("GET", "https://glama.ai/api/mcp/v1/servers")
+        response = httpx.Response(200, request=request, text="not json")
+
+        class MockClient:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def get(self, url, params=None):
+                return response
+
+        with patch("src.services.tools.catalog.httpx.AsyncClient", MockClient):
+            with pytest.raises(CatalogUnavailableError) as exc_info:
+                await _fetch_glama_servers()
+
+        assert exc_info.value.status_code == 502
+        assert exc_info.value.message == "MCP catalog upstream returned an invalid response."
+
+    async def test_fetch_disables_redirects(self):
+        request = httpx.Request("GET", "https://glama.ai/api/mcp/v1/servers")
+        response = httpx.Response(200, request=request, json=[])
+        captured_kwargs: dict[str, object] = {}
+
+        class MockClient:
+            def __init__(self, **kwargs):
+                captured_kwargs.update(kwargs)
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+            async def get(self, url, params=None):
+                return response
+
+        with patch("src.services.tools.catalog.httpx.AsyncClient", MockClient):
+            result = await _fetch_glama_servers(query="github")
+
+        assert result == []
+        assert captured_kwargs["follow_redirects"] is False
 
 
 # ── Unit Tests: validate_upstream_url ────────────────────────────────────
@@ -606,10 +668,11 @@ class TestListCatalogServers:
             side_effect=httpx.ConnectError("down"),
         ):
             # Expire the cache entry
-            for entry in mock_cache._cache.values():
-                from datetime import timedelta
+            entry = mock_cache.get_entry(f"{CATALOG_CACHE_KEY}::")
+            assert entry is not None
+            from datetime import timedelta
 
-                entry.expires_at = entry.expires_at - timedelta(hours=2)
+            entry.expires_at = entry.expires_at - timedelta(hours=2)
 
             result = await list_catalog_servers(
                 "proj-1",
