@@ -150,3 +150,47 @@ class ToolDeleteResult(BaseModel):
     success: bool
     deleted_id: str | None = None
     affected_agents: list[AgentToolInfo] = Field(default_factory=list)
+
+
+# ── MCP Catalog Models ──
+
+
+class CatalogInstallConfig(BaseModel):
+    """Normalized representation of upstream Glama install instructions."""
+
+    transport: str
+    url: str | None = None
+    command: str | None = None
+    args: list[str] = Field(default_factory=list)
+    env: dict[str, object] = Field(default_factory=dict)
+    headers: dict[str, object] = Field(default_factory=dict)
+    tools: list[str] = Field(default_factory=list)
+
+
+class CatalogMcpServer(BaseModel):
+    """A transient API model for one external MCP server from the Glama catalog."""
+
+    id: str
+    name: str
+    description: str
+    repo_url: str | None = None
+    category: str | None = None
+    server_type: str
+    install_config: CatalogInstallConfig
+    quality_score: str | None = None
+    already_installed: bool = False
+
+
+class CatalogMcpServerListResponse(BaseModel):
+    """Response for the catalog browse endpoint."""
+
+    servers: list[CatalogMcpServer]
+    count: int
+    query: str | None = None
+    category: str | None = None
+
+
+class ImportCatalogMcpRequest(BaseModel):
+    """Request body for importing a catalog server into a project."""
+
+    catalog_server_id: str = Field(min_length=1)
