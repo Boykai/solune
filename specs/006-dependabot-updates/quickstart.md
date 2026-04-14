@@ -4,121 +4,135 @@
 
 ## Prerequisites
 
-- Node.js ≥18 with npm
-- Python ≥3.12 with `uv` package manager
-- Git
-- GitHub CLI (`gh`) for PR management (optional)
+- Git with access to `Boykai/solune`
+- Node.js and npm for `/home/runner/work/solune/solune/solune/frontend`
+- Python 3.12+ and `uv` for `/home/runner/work/solune/solune/solune/backend`
+- A clean working tree before starting update execution
 
-## Setup
+## 1. Sync the repository state
 
 ```bash
-# Ensure you're on a clean branch from main
-git checkout main
-git pull origin main
-git checkout -b chore/deps-batch-update
+cd /home/runner/work/solune/solune
+git fetch --unshallow origin || true
+git fetch origin main:refs/remotes/origin/main
 ```
 
-## Execution Steps
-
-### Step 1: Apply Backend Patch Updates
+Create a fresh working branch from the current default branch before evaluating updates:
 
 ```bash
-cd solune/backend
-
-# PR #1732: pytest 9.0.0 → 9.0.3
-# Edit pyproject.toml: change "pytest>=9.0.0" to "pytest>=9.0.3"
-uv lock && uv sync --extra dev
-uv run pytest tests/unit/ -q
-# If pass → commit; if fail → revert
+cd /home/runner/work/solune/solune
+git checkout -b chore/deps-batch-update origin/main
 ```
 
-### Step 2: Apply Frontend Patch Updates
+## 2. Apply updates in the planned order
+
+Use the update order from `/home/runner/work/solune/solune/specs/006-dependabot-updates/plan.md`:
+
+1. Patch bumps
+2. Minor dev-dependency bumps
+3. Minor runtime bumps
+4. Major bumps
+
+Always apply **one package update at a time**.
+
+### Backend workflow (`pip` / `uv`)
+
+For each backend package in `/home/runner/work/solune/solune/solune/backend/pyproject.toml`:
 
 ```bash
-cd solune/frontend
-
-# PR #1777: happy-dom 20.8.9 → 20.9.0
-# PR #1776: typescript-eslint 8.58.1 → 8.58.2
-# PR #1775: react-router-dom 7.14.0 → 7.14.1
-# Edit package.json for each, then:
-npm install
-npm run lint && npm run type-check && npm run test && npm run build
-# If pass → commit; if fail → revert individual changes
-```
-
-### Step 3: Apply Backend Minor Updates (Dev)
-
-```bash
-cd solune/backend
-
-# PR #1688: pytest-cov >=7.0.0 → >=7.1.0
-# PR #1695: freezegun >=1.4.0 → >=1.5.5
-# PR #1694: pip-audit >=2.9.0 → >=2.10.0
-# PR #1697: mutmut >=3.2.0 → >=3.5.0
-# PR #1690: bandit >=1.8.0 → >=1.9.4
-# Edit pyproject.toml for each, then:
-uv lock && uv sync --extra dev
+cd /home/runner/work/solune/solune/solune/backend
+# Edit one dependency version in pyproject.toml
+uv lock
+uv sync --extra dev
 uv run ruff check src/ tests/
+uv run ruff format --check src/ tests/
 uv run pyright src/
 uv run pytest tests/unit/ -q
 ```
 
-### Step 4: Apply Backend Minor Updates (Runtime)
+If any command fails:
+
+1. Revert the manifest + lock change for that package
+2. Record the package, target version, and a one-line failure summary
+3. Move to the next update
+
+### Frontend workflow (`npm`)
+
+For each frontend package in `/home/runner/work/solune/solune/solune/frontend/package.json`:
 
 ```bash
-cd solune/backend
+cd /home/runner/work/solune/solune/solune/frontend
+# Edit one dependency version in package.json
+npm install
+npm run lint
+npm run type-check
+npm run test
+npm run build
+```
 
-# PR #1692: pynacl >=1.5.0 → >=1.6.2
-# PR #1696: uvicorn >=0.42.0 → >=0.44.0
-# PR #1698: agent-framework-core >=1.0.0b1 → >=1.0.1
-# Edit pyproject.toml for each, then:
-uv lock && uv sync --extra dev
+If any command fails:
+
+1. Revert the manifest + lock change for that package
+2. Record the package, target version, and a one-line failure summary
+3. Move to the next update
+
+## 3. Re-sync before each next update
+
+After every accepted or skipped update, refresh the default branch so the next evaluation starts from the latest dependency graph:
+
+```bash
+cd /home/runner/work/solune/solune
+git fetch origin main:refs/remotes/origin/main
+git rebase origin/main
+```
+
+If the working branch is intentionally kept as a single accumulation branch, only rebase after the current update has been fully accepted or reverted.
+
+## 4. Final combined verification
+
+After all safe updates are staged, rerun the full validation matrix.
+
+### Backend
+
+```bash
+cd /home/runner/work/solune/solune/solune/backend
+uv lock
+uv sync --extra dev
 uv run ruff check src/ tests/
+uv run ruff format --check src/ tests/
 uv run pyright src/
 uv run pytest tests/unit/ -q
 ```
 
-### Step 5: Apply Frontend Minor Updates
+### Frontend
 
 ```bash
-cd solune/frontend
-
-# PR #1699: @tanstack/react-query 5.97.0 → 5.99.0
-# Edit package.json, then:
+cd /home/runner/work/solune/solune/solune/frontend
 npm install
-npm run lint && npm run type-check && npm run test && npm run build
+npm run lint
+npm run type-check
+npm run test
+npm run build
 ```
 
-### Step 6: Apply Backend Major Updates
+## 5. Prepare the final PR payload
 
-```bash
-cd solune/backend
+Create one PR titled `chore(deps): apply Dependabot batch update` and include:
 
-# PR #1693: pytest-randomly >=3.16.0 → >=4.0.1 (MAJOR)
-# ⚠ Inspect changelog first for breaking changes
-# Edit pyproject.toml, then:
-uv lock && uv sync --extra dev
-uv run pytest tests/unit/ -q
-# If fail → skip, document migration steps needed
+- A checklist of every applied update (`package`, `old → new`)
+- A skipped-updates section with the reason for every rejected update
+
+Example outline:
+
+```markdown
+## Applied updates
+- [x] pytest (`9.0.2` → `9.0.3`)
+- [x] happy-dom (`20.8.9` → `20.9.0`)
+
+## Skipped updates
+- pytest-randomly (`>=3.16.0` → `>=4.0.1`) — requires plugin migration for failing test collection
 ```
 
-### Step 7: Create Batch PR
+## 6. Close superseded Dependabot PRs
 
-```bash
-git add .
-git commit -m "chore(deps): apply Dependabot batch update"
-git push origin chore/deps-batch-update
-# Create PR with applied/skipped checklist
-```
-
-## Verification
-
-After all updates are applied:
-
-```bash
-# Full frontend validation
-cd solune/frontend && npm run lint && npm run type-check && npm run test && npm run build
-
-# Full backend validation
-cd solune/backend && uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/ && uv run pyright src/ && uv run pytest tests/unit/ -q
-```
+After the combined PR is ready and each successful update is represented there, close only the Dependabot PRs whose changes were applied. Do not delete or force-push any unrelated branches.

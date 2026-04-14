@@ -1,0 +1,175 @@
+openapi: 3.1.0
+info:
+  title: Dependabot Batch Update Workflow Contract
+  version: 1.0.0
+  description: >-
+    Planning-time contract for discovering open Dependabot updates, recording the
+    outcome of per-update verification, and assembling the final combined batch PR.
+servers:
+  - url: https://api.github.com
+paths:
+  /dependabot/updates:
+    get:
+      summary: List open Dependabot updates for the repository
+      parameters:
+        - in: query
+          name: ecosystem
+          schema:
+            type: string
+            enum: [npm, pip]
+        - in: query
+          name: bumpType
+          schema:
+            type: string
+            enum: [patch, minor, major]
+      responses:
+        '200':
+          description: Open Dependabot updates grouped for evaluation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updates]
+                properties:
+                  updates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DependencyUpdate'
+  /dependabot/updates/{prNumber}/evaluation:
+    post:
+      summary: Record the evaluation result for one Dependabot PR
+      parameters:
+        - in: path
+          name: prNumber
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRun'
+      responses:
+        '200':
+          description: Evaluation recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DependencyUpdate'
+  /dependabot/batches:
+    post:
+      summary: Assemble the final combined dependency-update PR payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchUpdatePlan'
+      responses:
+        '201':
+          description: Batch update plan assembled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchUpdatePlan'
+components:
+  schemas:
+    DependencyUpdate:
+      type: object
+      required:
+        - prNumber
+        - packageName
+        - ecosystem
+        - dependencyType
+        - currentVersion
+        - targetVersion
+        - bumpType
+        - manifestPath
+        - lockPath
+        - status
+      properties:
+        prNumber:
+          type: integer
+        packageName:
+          type: string
+        ecosystem:
+          type: string
+          enum: [npm, pip]
+        dependencyType:
+          type: string
+          enum: [runtime, dev]
+        currentVersion:
+          type: string
+        targetVersion:
+          type: string
+        bumpType:
+          type: string
+          enum: [patch, minor, major]
+        manifestPath:
+          type: string
+        lockPath:
+          type: string
+        status:
+          type: string
+          enum: [pending, applied, skipped]
+        failureSummary:
+          type:
+            - string
+            - 'null'
+        notes:
+          type:
+            - string
+            - 'null'
+    VerificationRun:
+      type: object
+      required:
+        - updatePrNumber
+        - commands
+        - startedFromRef
+        - lockRegenerated
+        - result
+      properties:
+        updatePrNumber:
+          type: integer
+        commands:
+          type: array
+          items:
+            type: string
+        startedFromRef:
+          type: string
+        lockRegenerated:
+          type: boolean
+        result:
+          type: string
+          enum: [pass, fail]
+        failureSummary:
+          type:
+            - string
+            - 'null'
+    BatchUpdatePlan:
+      type: object
+      required:
+        - branchName
+        - prTitle
+        - appliedUpdates
+        - skippedUpdates
+        - finalVerificationCommands
+      properties:
+        branchName:
+          type: string
+        prTitle:
+          type: string
+          const: chore(deps): apply Dependabot batch update
+        appliedUpdates:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyUpdate'
+        skippedUpdates:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyUpdate'
+        finalVerificationCommands:
+          type: array
+          items:
+            type: string
