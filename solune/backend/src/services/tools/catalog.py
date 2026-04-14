@@ -102,7 +102,14 @@ def _normalize_server(raw: dict) -> CatalogMcpServer | None:
 
     description = raw.get("description") or raw.get("summary") or name
     repo_url = raw.get("repo_url") or raw.get("repository") or raw.get("github_url")
-    category = raw.get("category") or raw.get("tags", [None])[0] if isinstance(raw.get("tags"), list) and raw.get("tags") else raw.get("category")
+
+    # Extract category: prefer explicit field, fall back to first tag
+    tags = raw.get("tags")
+    if isinstance(tags, list) and tags:
+        category = raw.get("category") or tags[0]
+    else:
+        category = raw.get("category")
+
     quality_score = raw.get("quality_score") or raw.get("quality") or raw.get("score")
     if quality_score is not None:
         quality_score = str(quality_score)
@@ -280,8 +287,6 @@ def build_import_config(server: CatalogMcpServer) -> McpToolConfigCreate:
         {"mcpServers": {server_name: server_config}},
         indent=2,
     )
-
-    endpoint_url = cfg.url or cfg.command or ""
 
     return McpToolConfigCreate(
         name=server.name,
