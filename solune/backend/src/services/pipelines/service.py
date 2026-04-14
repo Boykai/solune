@@ -560,10 +560,42 @@ class PipelineService:
             except aiosqlite.IntegrityError:
                 skipped.append(preset_id)
 
-        if seeded or did_update_existing:
+        # Remove legacy preset rows whose preset_id is not in the current set.
+        allowed_ids = {p["preset_id"] for p in _PRESET_DEFINITIONS}
+        placeholders = ",".join("?" for _ in allowed_ids)
+        if github_user_id:
+            retired_cursor = await self._db.execute(
+                f"""
+                DELETE FROM pipeline_configs
+                WHERE is_preset = 1
+                  AND preset_id IS NOT NULL
+                  AND preset_id NOT IN ({placeholders})
+                  AND (github_user_id = ? OR github_user_id = '')
+                """,
+                (*sorted(allowed_ids), github_user_id),
+            )
+        else:
+            retired_cursor = await self._db.execute(
+                f"""
+                DELETE FROM pipeline_configs
+                WHERE is_preset = 1
+                  AND preset_id IS NOT NULL
+                  AND preset_id NOT IN ({placeholders})
+                  AND project_id = ?
+                """,
+                (*sorted(allowed_ids), project_id),
+            )
+        retired_count = retired_cursor.rowcount
+
+        if seeded or did_update_existing or retired_count:
             await self._db.commit()
 
-        return {"seeded": seeded, "skipped": skipped, "total": len(seeded) + len(skipped)}
+        return {
+            "seeded": seeded,
+            "skipped": skipped,
+            "retired": retired_count,
+            "total": len(seeded) + len(skipped),
+        }
 
     # ── Assignment ───────────────────────────────────────────────────
 

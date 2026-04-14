@@ -171,16 +171,22 @@ describe('AddAgentModal', () => {
   });
 
   it('renders modal content into document.body via createPortal', () => {
-    const { baseElement } = render(
-      <AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />
-    );
-    // The modal overlay should be a direct child of document.body (portal), not nested inside the
-    // React root container.
-    const dialog = screen.getByRole('dialog', { name: /add agent/i });
-    expect(dialog).toBeInTheDocument();
-    // The dialog's closest portal wrapper should be a child of body, not the React root
-    expect(baseElement).toBe(document.body);
-    expect(document.body.querySelector('[role="dialog"]')).toBeTruthy();
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    try {
+      render(
+        <AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />,
+        { container }
+      );
+      const dialog = screen.getByRole('dialog', { name: /add agent/i });
+      expect(dialog).toBeInTheDocument();
+      // The dialog should NOT be inside the custom container (proving portal usage)
+      expect(container.querySelector('[role="dialog"]')).toBeNull();
+      // It should instead be a child of document.body (via createPortal)
+      expect(document.body.querySelector('[role="dialog"]')).toBeTruthy();
+    } finally {
+      document.body.removeChild(container);
+    }
   });
 
   it('returns null when isOpen is false', () => {
