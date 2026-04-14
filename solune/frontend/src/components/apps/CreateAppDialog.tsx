@@ -124,7 +124,6 @@ export function CreateAppDialog({
       .replace(/^-|-$/g, '');
 
   const derivedName = useMemo(() => slugify(displayName.trim()), [displayName]);
-  const derivedBranch = useMemo(() => (derivedName ? `app/${derivedName}` : ''), [derivedName]);
 
   const issueTitlePreview = useMemo(() => deriveIssueTitlePreview(description), [description]);
 
@@ -156,8 +155,9 @@ export function CreateAppDialog({
     }
   }, []);
 
-  const validateDisplayName = useCallback((value: string): string | null => {
+  const validateDisplayName = useCallback((value: string, slug: string): string | null => {
     if (!value.trim()) return 'Display name is required.';
+    if (!slug) return 'Display name must include at least one letter or number.';
     return null;
   }, []);
 
@@ -178,10 +178,9 @@ export function CreateAppDialog({
       const formData = new FormData(e.currentTarget);
       const trimmedDisplayName = displayName.trim();
       const trimmedDescription = description.trim();
-      const nameOverride = String(formData.get('name') ?? '').trim();
-      const name = nameOverride || derivedName;
+      const name = derivedName;
 
-      const newNameError = validateDisplayName(displayName);
+      const newNameError = validateDisplayName(displayName, name);
       const newDescError = validateDescription(description);
       setNameError(newNameError);
       setDescriptionError(newDescError);
@@ -236,19 +235,9 @@ export function CreateAppDialog({
           return;
         }
         payload.external_repo_url = url;
-        const branchOverride = String(formData.get('branch') ?? '').trim();
-        payload.branch = branchOverride || derivedBranch;
-        if (!payload.branch) {
-          setGeneralError('Target branch could not be derived.');
-          return;
-        }
+        payload.branch = 'main';
       } else {
-        const branchOverride = String(formData.get('branch') ?? '').trim();
-        payload.branch = branchOverride || derivedBranch;
-        if (!payload.branch) {
-          setGeneralError('Target branch could not be derived. Please provide a display name.');
-          return;
-        }
+        payload.branch = 'main';
       }
 
       onSubmit(payload, {
@@ -264,7 +253,6 @@ export function CreateAppDialog({
       displayName,
       description,
       derivedName,
-      derivedBranch,
       aiEnhance,
       repoType,
       effectiveRepoOwner,
@@ -348,7 +336,7 @@ export function CreateAppDialog({
                   setDisplayName(e.target.value);
                   if (nameError) setNameError(null);
                 }}
-                onBlur={() => setNameError(validateDisplayName(displayName))}
+                onBlur={() => setNameError(validateDisplayName(displayName, derivedName))}
                 aria-invalid={!!nameError}
                 aria-describedby={nameError ? 'app-name-error' : undefined}
                 className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
@@ -357,7 +345,7 @@ export function CreateAppDialog({
               {derivedName && repoType !== 'new-repo' && (
                 <p className="mt-1 text-xs text-zinc-400">
                   Name: <span className="font-mono">{derivedName}</span> · Branch:{' '}
-                  <span className="font-mono">{derivedBranch}</span>
+                  <span className="font-mono">main</span>
                 </p>
               )}
               {derivedName && repoType === 'new-repo' && (
@@ -442,111 +430,6 @@ export function CreateAppDialog({
               )}
             </div>
 
-            {/* New Repository-specific fields */}
-            {repoType === 'new-repo' && (
-              <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                  New Repository Settings
-                </p>
-                {/* Owner selector */}
-                <div>
-                  <label
-                    htmlFor="repo-owner"
-                    className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Owner
-                  </label>
-                  <select
-                    id="repo-owner"
-                    value={effectiveRepoOwner}
-                    onChange={(e) => setRepoOwner(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  >
-                    {(owners ?? []).map((o) => (
-                      <option key={o.login} value={o.login}>
-                        {o.login} ({o.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* Visibility toggle */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                    Visibility
-                  </span>
-                  <div className="flex rounded-md border border-zinc-300 dark:border-zinc-600 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setRepoVisibility('private')}
-                      className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                        repoVisibility === 'private'
-                          ? 'bg-zinc-700 text-white dark:bg-zinc-500'
-                          : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
-                      }`}
-                    >
-                      Private
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRepoVisibility('public')}
-                      className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                        repoVisibility === 'public'
-                          ? 'bg-zinc-700 text-white dark:bg-zinc-500'
-                          : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
-                      }`}
-                    >
-                      Public
-                    </button>
-                  </div>
-                </div>
-                {/* Create project checkbox */}
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={createProject}
-                    onChange={(e) => setCreateProject(e.target.checked)}
-                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="text-xs text-zinc-600 dark:text-zinc-400">
-                    Create linked GitHub Project (with Solune default columns)
-                  </span>
-                </label>
-                {/* Azure credentials (optional) */}
-                <div>
-                  <label
-                    htmlFor="azure-client-id"
-                    className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Azure Client ID (optional)
-                  </label>
-                  <input
-                    id="azure-client-id"
-                    type="text"
-                    value={azureClientId}
-                    onChange={(e) => setAzureClientId(e.target.value)}
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="azure-client-secret"
-                    className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400"
-                  >
-                    Azure Client Secret (optional)
-                  </label>
-                  <input
-                    id="azure-client-secret"
-                    type="password"
-                    value={azureClientSecret}
-                    onChange={(e) => setAzureClientSecret(e.target.value)}
-                    placeholder="Enter client secret"
-                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                  />
-                </div>
-              </div>
-            )}
-
             {/* External Repo URL field */}
             {repoType === 'external-repo' && (
               <div>
@@ -564,29 +447,6 @@ export function CreateAppDialog({
                   placeholder="https://github.com/owner/repo"
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 />
-              </div>
-            )}
-
-            {/* Branch field for same-repo and external-repo */}
-            {(repoType === 'same-repo' || repoType === 'external-repo') && (
-              <div>
-                <label
-                  htmlFor="app-branch"
-                  className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-                >
-                  Target Branch
-                </label>
-                <input
-                  id="app-branch"
-                  name="branch"
-                  type="text"
-                  maxLength={256}
-                  placeholder={derivedBranch || 'app/my-feature'}
-                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                />
-                <p className="mt-1 text-xs text-zinc-400">
-                  The branch where the app scaffold will be committed.
-                </p>
               </div>
             )}
 
@@ -653,7 +513,7 @@ export function CreateAppDialog({
               )}
             </div>
 
-            {/* Advanced (collapsible) — for name override */}
+            {/* Advanced (collapsible) */}
             <div>
               <button
                 type="button"
@@ -668,27 +528,110 @@ export function CreateAppDialog({
               </button>
               {showAdvanced && (
                 <div className="mt-3 space-y-3">
-                  <div>
-                    <label
-                      htmlFor="app-name"
-                      className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                    >
-                      Name override
-                    </label>
-                    <input
-                      id="app-name"
-                      name="name"
-                      type="text"
-                      pattern="[a-z0-9][a-z0-9-]*[a-z0-9]"
-                      minLength={2}
-                      maxLength={64}
-                      placeholder={derivedName || 'my-awesome-app'}
-                      className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-xs shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                    />
-                    <p className="mt-1 text-xs text-zinc-400">
-                      Lowercase letters, numbers, and hyphens only.
-                    </p>
-                  </div>
+                  {/* New Repository Settings (inside advanced) */}
+                  {repoType === 'new-repo' && (
+                    <div className="space-y-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        New Repository Settings
+                      </p>
+                      {/* Owner selector */}
+                      <div>
+                        <label
+                          htmlFor="repo-owner"
+                          className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                        >
+                          Owner
+                        </label>
+                        <select
+                          id="repo-owner"
+                          value={effectiveRepoOwner}
+                          onChange={(e) => setRepoOwner(e.target.value)}
+                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                          {(owners ?? []).map((o) => (
+                            <option key={o.login} value={o.login}>
+                              {o.login} ({o.type})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Visibility toggle */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                          Visibility
+                        </span>
+                        <div className="flex rounded-md border border-zinc-300 dark:border-zinc-600 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setRepoVisibility('private')}
+                            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                              repoVisibility === 'private'
+                                ? 'bg-zinc-700 text-white dark:bg-zinc-500'
+                                : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
+                            }`}
+                          >
+                            Private
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRepoVisibility('public')}
+                            className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                              repoVisibility === 'public'
+                                ? 'bg-zinc-700 text-white dark:bg-zinc-500'
+                                : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400'
+                            }`}
+                          >
+                            Public
+                          </button>
+                        </div>
+                      </div>
+                      {/* Create project checkbox */}
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={createProject}
+                          onChange={(e) => setCreateProject(e.target.checked)}
+                          className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                        />
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                          Create linked GitHub Project (with Solune default columns)
+                        </span>
+                      </label>
+                      {/* Azure credentials (optional) */}
+                      <div>
+                        <label
+                          htmlFor="azure-client-id"
+                          className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                        >
+                          Azure Client ID (optional)
+                        </label>
+                        <input
+                          id="azure-client-id"
+                          type="text"
+                          value={azureClientId}
+                          onChange={(e) => setAzureClientId(e.target.value)}
+                          placeholder="00000000-0000-0000-0000-000000000000"
+                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="azure-client-secret"
+                          className="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400"
+                        >
+                          Azure Client Secret (optional)
+                        </label>
+                        <input
+                          id="azure-client-secret"
+                          type="password"
+                          value={azureClientSecret}
+                          onChange={(e) => setAzureClientSecret(e.target.value)}
+                          placeholder="Enter client secret"
+                          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

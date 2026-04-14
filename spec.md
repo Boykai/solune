@@ -1,158 +1,144 @@
-# Feature Specification: Simplify Page Headers for Focused UI
+# Feature Specification: Page Updates
 
-**Feature Branch**: `copilot/speckitplan-create-compact-header`  
-**Created**: 2026-04-11  
-**Status**: Draft  
-**Input**: User description: "Simplify Page Headers for Focused UI — Replace the large CelestialCatalogHero hero sections (~20% of viewport, ~350–450px tall) with a compact, single-row page header across 6 pages."
+**Feature Branch**: `006-page-updates`
+**Created**: 2026-04-14
+**Status**: Draft
+**Input**: User description: "Page Updates — Chores and Apps page improvements including UI cleanup, bug fixes, and new functionality"
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Compact Page Header Reclaims Vertical Space (Priority: P1)
+### User Story 1 — Chores Page Cleanup (Priority: P1)
 
-A user navigates to any of the six main pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help). Instead of seeing a large decorative hero section that occupies roughly 20% of the viewport (~350–450px tall), they see a compact, single-row header (~80–100px tall) that still presents all essential information — page identity (eyebrow and title), contextual badge, and action buttons — without requiring the user to scroll past decorative content to reach the page's primary working area.
+As a user managing chores, I want the Chores page to be streamlined so that I only see relevant controls and chore definitions are saved directly in the database rather than through GitHub Templates and pull requests.
 
-**Why this priority**: The hero sections consume significant vertical real estate on every major page. Reducing header height directly increases the visible working area for content that users interact with (board columns, agent catalogs, tool lists, chore templates). This is the core value of the feature — every user benefits immediately on every page load.
+**Why this priority**: The Chores page has accumulated outdated UI elements (GitHub Template support, Featured rituals, Plan recurring work, Upkeep studio) and has a critical scroll bug on the "Review upkeep cadence" button that blocks usability. Fixing these issues restores core page functionality and removes confusion from deprecated workflows.
 
-**Independent Test**: Navigate to each of the six affected pages and verify that the header occupies approximately 80–100px of vertical space, all essential information (eyebrow, title, badge, actions) remains visible, and the primary content area starts higher on the page than before.
+**Independent Test**: Can be fully tested by navigating to the Chores page, verifying removed sections are absent, confirming the scroll bug is resolved, and verifying that chore creation and management works through the database-backed flow.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user navigates to the Projects page, **When** the page loads, **Then** the header is rendered as a single-row compact layout occupying no more than ~100px of vertical space.
-2. **Given** a user navigates to any of the six affected pages, **When** the page loads, **Then** the eyebrow label, page title, and action buttons are all visible in the header without scrolling.
-3. **Given** a page has a contextual badge (e.g., repository or project name), **When** the header renders, **Then** the badge is displayed in the header row.
-4. **Given** the previous hero occupied ~350–450px, **When** the compact header is used instead, **Then** the primary content area gains approximately 250–370px of additional visible space above the fold.
+1. **Given** a user navigates to the Chores page, **When** the page loads, **Then** there is no mention of GitHub Templates, no option to create PRs for saving chore definitions, and no "Featured rituals" section visible.
+2. **Given** a user navigates to the Chores page, **When** the page loads, **Then** the "Plan recurring work" button is not present.
+3. **Given** a user navigates to the Chores page, **When** the page loads, **Then** the "Upkeep studio" section is not present.
+4. **Given** a user clicks the "Review upkeep cadence" button, **When** the associated panel or view opens, **Then** the page does not jump or scroll unexpectedly, the bottom of the page content is fully visible, and the user can scroll freely to the top without refreshing.
+5. **Given** a user navigates to the Chores page, **When** looking at the "Ritual Maintenance" section, **Then** the "Clean up" and "+ Create chore" controls are located within that section.
+6. **Given** a user creates a new chore, **When** they save the chore definition, **Then** the definition is persisted in the database (not via a GitHub Template or pull request).
 
 ---
 
-### User Story 2 - Stats Displayed as Compact Inline Chips (Priority: P1)
+### User Story 2 — Create App Experience Simplification (Priority: P2)
 
-A user viewing a page with contextual statistics (e.g., board columns count, pipeline count, assignment count) sees these stats rendered as small pill or chip elements inline with the header, rather than as large decorative moonwell cards that consumed significant horizontal and vertical space.
+As a user creating a new app, I want the Create App form to be simpler and more intuitive by removing unnecessary fields and reorganizing advanced settings.
 
-**Why this priority**: Stats provide valuable at-a-glance context. Displaying them as compact chips preserves this value while eliminating the large card layout. This is essential to the compact header working correctly — without chip-style stats, the header cannot stay within its height target.
+**Why this priority**: Streamlining the Create App flow reduces friction for new users and prevents confusion from irrelevant options. Defaulting to the main branch eliminates a decision point that most users don't need to customize.
 
-**Independent Test**: Navigate to a page with stats (e.g., Projects page with 4 stats) and verify that each stat is displayed as a small inline chip showing label and value, and that all stats fit within the single-row header layout.
+**Independent Test**: Can be fully tested by opening the Create App experience, verifying the "Target branch" section is absent (with the system defaulting to main), verifying "New Repository Settings" appears under "Advanced options", and confirming "Name override" is not present in "Advanced options".
 
 **Acceptance Scenarios**:
 
-1. **Given** a page provides stats (label/value pairs), **When** the compact header renders, **Then** each stat appears as a small pill/chip element showing both the label and value.
-2. **Given** a page has multiple stats (e.g., 4 stats on the Projects page), **When** the header renders on desktop, **Then** all stats are visible inline without overflowing the header row.
-3. **Given** a page has no stats (e.g., Help page), **When** the header renders, **Then** the stat area is omitted and the header layout adjusts gracefully.
+1. **Given** a user opens the Create App experience, **When** the form loads, **Then** there is no "Target branch" section visible, and the system defaults to the main branch.
+2. **Given** a user opens the Create App experience, **When** they expand the "Advanced options" section, **Then** "New Repository Settings" controls are located within that section.
+3. **Given** a user opens the Create App experience, **When** they expand the "Advanced options" section, **Then** the "Name override" field is not present.
 
 ---
 
-### User Story 3 - Description as Single-Line Subtitle (Priority: P2)
+### User Story 3 — App Tile Management (Priority: P2)
 
-A user reading the page header sees the page description rendered as a single-line subtitle below the title. The full description is accessible by hovering, which expands the text to show all content. This keeps the header compact by default while preserving the descriptive context for users who want it.
+As a user managing apps, I want to be able to delete apps directly from the App tiles and see their current status at a glance, so I can keep my workspace organized and stay informed.
 
-**Why this priority**: Descriptions provide helpful context but are not essential for every page visit. A single-line treatment with hover-to-expand balances information density with compactness. It's a P2 because the header is still functional without this refinement.
+**Why this priority**: Delete functionality and status visibility are core management capabilities that reduce the need for workarounds and improve day-to-day workflow efficiency.
 
-**Independent Test**: Navigate to a page with a description, verify the description is visible as a single truncated line, hover over it, and verify the full text becomes visible.
+**Independent Test**: Can be fully tested by viewing App tiles, confirming a delete button is present on each tile, verifying that deleting an app removes it, and checking that app status indicators reflect whether a GitHub Parent Issue is executing in the app's project.
 
 **Acceptance Scenarios**:
 
-1. **Given** a page has a description, **When** the compact header renders, **Then** the description appears as a single line of text, truncated with an ellipsis if it exceeds the available width.
-2. **Given** the description is truncated, **When** the user hovers over it, **Then** the full description text is revealed.
-3. **Given** a page has a short description that fits on one line, **When** the header renders, **Then** the description is displayed in full without truncation or hover behavior.
+1. **Given** a user views the Apps page, **When** looking at any App tile, **Then** a delete button is visible on the tile.
+2. **Given** a user clicks the delete button on an App tile, **When** they confirm the deletion, **Then** the app is removed and no longer appears in the list.
+3. **Given** an app has an active GitHub Parent Issue executing in its project, **When** the user views the App tile, **Then** a status indicator shows that the app has active execution in progress.
+4. **Given** an app has no active GitHub Parent Issue, **When** the user views the App tile, **Then** the status indicator reflects an idle or inactive state.
 
 ---
 
-### User Story 4 - Stats Toggle on Mobile Viewports (Priority: P2)
+### User Story 4 — App Detail View and History (Priority: P3)
 
-A user on a mobile device sees the compact header without stats cluttering the limited screen space. Stats are hidden by default on mobile and accessible via a toggle control, keeping the header clean and focused on the essentials (title, badge, actions) when screen real estate is most constrained.
+As a user, I want to select an app and see detailed information about its GitHub Project and Agent Pipeline, and I want the History section to include Agent Pipeline updates so I can track all activity in one place.
 
-**Why this priority**: Mobile viewports cannot comfortably display all header elements in a single row. Hiding stats behind a toggle prevents the compact header from becoming crowded on small screens while still making the data accessible when needed.
+**Why this priority**: Detailed app views and comprehensive history provide transparency into what agents are doing within each app's project, reducing the need to switch between Solune and GitHub to get a full picture.
 
-**Independent Test**: View any stats-bearing page on a mobile viewport, verify stats are hidden by default, activate the toggle, and verify stats become visible.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user views a page with stats on a mobile-width viewport, **When** the header renders, **Then** the stats are hidden by default.
-2. **Given** stats are hidden on mobile, **When** the user activates the stats toggle, **Then** all stats become visible.
-3. **Given** a page has no stats, **When** the header renders on mobile, **Then** no toggle control is displayed.
-
----
-
-### User Story 5 - Decorative Elements Removed from Page Headers (Priority: P3)
-
-A user navigating the application no longer sees animated celestial decorations (orbiting rings, twinkling stars, floating moons, glowing beams, hanging stars) in page headers. The celestial theme is preserved elsewhere in the application (sidebar, global chrome) but headers are clean and content-focused.
-
-**Why this priority**: Removing decorative elements reduces visual noise and loading overhead in headers. The theme is maintained elsewhere, so the brand identity is preserved. This is P3 because it's a natural consequence of replacing the hero component — it doesn't require separate effort.
-
-**Independent Test**: Navigate to each affected page and verify that no animated decorative elements (orbits, stars, moons, beams) appear in the header area.
+**Independent Test**: Can be fully tested by selecting an app, verifying that detailed GitHub Project and Agent Pipeline information is displayed, and checking the History section for Agent Pipeline update entries similar to the Activity page format.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user navigates to any of the six affected pages, **When** the header renders, **Then** no animated celestial elements (orbits, twinkling stars, floating moons, pulsing glows, gradient beams) are present in the header.
-2. **Given** the old hero component displayed a "Current Ritual" aside panel, **When** the compact header renders, **Then** no aside panel or note section is present.
-
----
-
-### User Story 6 - Consistent Header Experience Across All Six Pages (Priority: P1)
-
-A user navigating between the six main pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help) experiences a consistent header layout across all pages. Each page uses the same compact header format with its own eyebrow, title, badge, stats, and actions, creating a unified and predictable navigation experience.
-
-**Why this priority**: Consistency across all six pages is essential for the feature to deliver its full value. A partial rollout would create a jarring experience where some pages have large heroes and others have compact headers.
-
-**Independent Test**: Navigate to all six pages in sequence and verify each uses the same compact header layout pattern, with only the content (eyebrow, title, stats, actions) differing per page.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user navigates between all six affected pages, **When** each page loads, **Then** each page uses the same compact header layout with the same structural elements (eyebrow, title, badge area, stats area, actions area).
-2. **Given** the Help page currently has fewer props (no badge, no stats), **When** the compact header renders on the Help page, **Then** the header gracefully omits missing sections while maintaining the same overall layout structure.
+1. **Given** a user selects an app from the Apps page, **When** the app detail view opens, **Then** information about the app's GitHub Project is displayed (project name, status, link).
+2. **Given** a user selects an app from the Apps page, **When** the app detail view opens, **Then** Agent Pipeline information is displayed (pipeline status, recent runs).
+3. **Given** an app has Agent Pipeline activity, **When** the user views the app's History section, **Then** Agent Pipeline updates appear in the history feed in a format consistent with the Activity page.
+4. **Given** an app has no Agent Pipeline activity, **When** the user views the app's History section, **Then** the history still loads correctly and indicates no pipeline updates are available.
 
 ---
 
 ### Edge Cases
 
-- What happens when a page has no badge, no stats, and only one action (e.g., Help page)? The header should render cleanly with only the eyebrow, title, description, and single action button visible.
-- What happens when stat values are very long strings (e.g., a long pipeline name)? Stat chips should truncate long values with an ellipsis to prevent layout overflow.
-- What happens when there are many action buttons (e.g., Tools page has 3 buttons)? The actions area should accommodate multiple buttons without breaking the single-row layout on desktop, and should wrap gracefully on narrower viewports.
-- What happens when the browser viewport is resized from desktop to mobile while the page is open? The header should responsively adjust, hiding stats and adapting layout without requiring a page reload.
-- What happens when the badge text is long (e.g., "organization-name/very-long-repository-name")? The badge should truncate with an ellipsis rather than pushing other header elements out of alignment.
+- What happens when a user tries to delete an app that has an active GitHub Parent Issue executing? The system should warn the user and require confirmation before proceeding.
+- What happens when app status cannot be determined (e.g., GitHub API is unreachable)? The status indicator should show an "unknown" or "unavailable" state rather than failing silently.
+- What happens when the "Review upkeep cadence" panel content exceeds the viewport? The page must remain scrollable and not lock the user out of navigation.
+- What happens when a user creates a chore after GitHub Template support is removed? The system should use the database-backed flow exclusively with no remnant references to templates.
+- What happens when the "Advanced options" section in Create App has no other settings besides "New Repository Settings"? The section should still render correctly and be collapsible.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST display a compact, single-row page header on all six affected pages (Projects, Agents, Agents Pipeline, Tools, Chores, Help) with a height target of approximately 80–100px.
-- **FR-002**: The compact header MUST display the following elements when provided: eyebrow label, page title, description (as subtitle), contextual badge, stats (as pill/chip elements), and action buttons.
-- **FR-003**: The compact header MUST arrange content in a single-row layout: eyebrow and title on the left, badge in the center, and action buttons on the right.
-- **FR-004**: The page description MUST be rendered as a single-line subtitle, truncated with an ellipsis when it exceeds the available width, and MUST expand to show the full text on hover.
-- **FR-005**: Stats MUST be rendered as small pill/chip elements rather than large card-style layouts.
-- **FR-006**: Stats MUST be hidden by default on mobile viewports and accessible via a toggle control.
-- **FR-007**: The compact header MUST NOT include any decorative animated elements (orbiting rings, twinkling stars, floating moons, gradient beams, hanging stars, pulsing glows).
-- **FR-008**: The compact header MUST NOT include a "Current Ritual" aside panel or a dedicated note section.
-- **FR-009**: The compact header MUST gracefully handle missing optional props (badge, stats, actions) by omitting those sections without breaking the layout.
-- **FR-010**: All six pages MUST use the same compact header layout to ensure visual consistency across the application.
-- **FR-011**: The previous hero section and any visual styles exclusively used by it MUST be removed from the codebase after all pages have been migrated.
-- **FR-012**: All existing automated tests MUST continue to pass after the migration, with no regressions introduced.
+#### Chores Page
+
+- **FR-001**: System MUST remove all UI references to GitHub Templates for chore definitions, including any option to create pull requests for saving chore templates.
+- **FR-002**: System MUST remove the "Featured rituals" section from the Chores page.
+- **FR-003**: System MUST remove the "Plan recurring work" button from the Chores page.
+- **FR-004**: System MUST fix the "Review upkeep cadence" button so that activating it does not cause the page to jump, does not cut off the bottom of the page, and allows the user to scroll back to the top without refreshing.
+- **FR-005**: System MUST relocate the "Clean up" and "+ Create chore" controls into the "Ritual Maintenance" section.
+- **FR-006**: System MUST remove the "Upkeep studio" section from the Chores page.
+- **FR-007**: System MUST persist chore definitions in the database instead of through GitHub Templates or pull requests.
+
+#### Apps — Create App Experience
+
+- **FR-008**: System MUST remove the "Target branch" section from the Create App experience and default to the main branch.
+- **FR-009**: System MUST move the "New Repository Settings" controls into the "Advanced options" section of the Create App experience.
+- **FR-010**: System MUST remove the "Name override" field from the "Advanced options" section of the Create App experience.
+
+#### Apps — Tile Management
+
+- **FR-011**: System MUST display a delete button on each App tile.
+- **FR-012**: System MUST allow users to delete an app via the tile delete button, with a confirmation step before deletion.
+- **FR-013**: System MUST display app status on each App tile indicating whether a GitHub Parent Issue is actively executing in the app's project.
+
+#### Apps — Detail View and History
+
+- **FR-014**: System MUST show detailed GitHub Project information when a user selects an app (project name, status, link to project).
+- **FR-015**: System MUST show Agent Pipeline information when a user selects an app (pipeline status, recent pipeline runs).
+- **FR-016**: System MUST include Agent Pipeline updates in the app's History section, displayed in a format consistent with the Activity page.
 
 ### Key Entities
 
-- **Compact Page Header**: The new single-row header element that replaces the hero section on all six pages. Displays eyebrow, title, description, badge, stats, actions, and supports custom styling. Does not include a "Current Ritual" note section.
-- **Stat Chip**: A small pill-shaped inline element displaying a label and value pair, used to present page-level statistics compactly within the header row.
-- **Affected Pages**: The six pages sharing the hero component — Projects, Agents, Agents Pipeline, Tools, Chores, and Help — all of which must be migrated simultaneously.
+- **Chore**: A recurring task definition with a description, schedule, and configuration. Previously backed by GitHub Templates; now persisted exclusively in the database.
+- **App**: A configured application within Solune, associated with a GitHub repository and project. Contains metadata including target branch (now defaulting to main), repository settings, and execution status.
+- **App Status**: The current execution state of an app, derived from whether a GitHub Parent Issue is actively running in the app's associated project.
+- **Agent Pipeline**: An automated workflow that executes within an app's context. Pipeline runs and updates are tracked and surfaced in the app's History.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: All six affected pages display a compact header that occupies no more than approximately 100px of vertical space, down from ~350–450px — a reduction of at least 70% in header height.
-- **SC-002**: Users can see the primary content area (board, catalog, tool list) without scrolling past the header on a standard 1080p viewport (1920×1080).
-- **SC-003**: All essential information (eyebrow, title, badge, actions) remains visible and accessible in the compact header on every affected page.
-- **SC-004**: On mobile viewports (≤768px width), the header remains usable and does not overflow or obscure content, with stats accessible via a toggle.
-- **SC-005**: No animated decorative elements are present in any page header after the migration.
-- **SC-006**: All existing automated tests pass without modification (except tests specifically for the removed hero component, which are updated or removed).
-- **SC-007**: The six pages present a visually consistent header experience — same layout structure, same spacing, same interaction patterns — differing only in per-page content (eyebrow text, title, stats, actions).
-- **SC-008**: The removed hero section and its exclusively-used visual styles are no longer present in the codebase, leaving no dead code.
+- **SC-001**: Users can navigate the entire Chores page without encountering scroll bugs, page jumps, or content cutoff — 100% of page content is accessible without requiring a browser refresh.
+- **SC-002**: Zero references to GitHub Templates or PR-based chore saving remain visible anywhere in the Chores page UI.
+- **SC-003**: Users can complete the Create App flow in fewer steps than before, with the "Target branch" decision removed and settings reorganized under "Advanced options".
+- **SC-004**: Users can delete an app from the Apps page in under 3 clicks (click delete → confirm → done).
+- **SC-005**: Users can determine the execution status of any app at a glance from the App tiles without opening a detail view.
+- **SC-006**: Users can view comprehensive app details (GitHub Project info and Agent Pipeline info) by selecting an app, without needing to navigate to GitHub separately.
+- **SC-007**: Agent Pipeline updates appear in app History within the same refresh cycle as other activity entries, consistent with the Activity page format.
 
 ## Assumptions
 
-- The big-bang rollout approach (migrating all six pages simultaneously) is preferred over a gradual rollout because all pages share the same hero component, making a simultaneous swap simpler and avoiding an inconsistent intermediate state.
-- The ~80–100px height target is a guideline, not a hard constraint. Minor variance is acceptable as long as the header remains visually compact and single-row on desktop.
-- The celestial theme is preserved in other parts of the application (sidebar, global chrome), so removing decorative elements from headers does not diminish the overall brand identity.
-- The "Current Ritual" aside card is removed entirely because it duplicated the page description and consumed significant horizontal space (~22rem on large screens) without adding unique value.
-- Stats on the Help page are not applicable (the Help page currently passes no stats), so the compact header must handle the zero-stats case gracefully.
-- The description hover-to-expand behavior uses standard interaction patterns (e.g., CSS line-clamp with hover expansion) and does not require complex scripting.
-- Mobile breakpoint for hiding stats aligns with the application's existing responsive breakpoints.
-- Action buttons vary per page (1–3 buttons, mix of link and click handlers) and the compact header must accommodate this range without layout issues.
+- Chore definitions already have a database-backed storage mechanism available or in progress (per the requirement that definitions are "now saved in the database").
+- The "Ritual Maintenance" section already exists on the Chores page as a target for relocated controls.
+- The Activity page already displays Agent Pipeline updates in a defined format that can be reused for the app History section.
+- App deletion is a soft-delete or includes appropriate cleanup of associated resources (GitHub issues, pipelines) to avoid orphaned data.
+- The "Review upkeep cadence" scroll bug is a front-end layout or overflow issue, not a backend data problem.

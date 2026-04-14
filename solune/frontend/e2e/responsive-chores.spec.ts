@@ -53,7 +53,7 @@ test.describe('Responsive Chores Layout', () => {
   test('visual regression — chores at mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openChoresPage(page);
-    await expect(page).toHaveScreenshot('responsive-chores-mobile.png', {
+    await expect(page.getByRole('main')).toHaveScreenshot('responsive-chores-mobile.png', {
       maxDiffPixels: 100,
     });
   });
