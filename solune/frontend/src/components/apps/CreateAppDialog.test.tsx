@@ -99,3 +99,66 @@ describe('CreateAppDialog — project_id scoping (T015)', () => {
     expect(payload!.branch).toBe('main');
   });
 });
+
+describe('CreateAppDialog — removed fields and layout changes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not render a Target Branch input for same-repo type', () => {
+    renderDialog({ initialRepoType: 'same-repo' });
+    expect(screen.queryByLabelText(/target branch/i)).not.toBeInTheDocument();
+  });
+
+  it('does not render a Target Branch input for external-repo type', () => {
+    renderDialog({ initialRepoType: 'external-repo' });
+    expect(screen.queryByLabelText(/target branch/i)).not.toBeInTheDocument();
+  });
+
+  it('does not render a Name Override input in Advanced options', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initialRepoType: 'same-repo' });
+
+    // Expand advanced options
+    await user.click(screen.getByRole('button', { name: /advanced options/i }));
+
+    expect(screen.queryByLabelText(/name override/i)).not.toBeInTheDocument();
+  });
+
+  it('shows branch as "main" in the derived-name preview for same-repo', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initialRepoType: 'same-repo' });
+
+    await user.type(screen.getByLabelText('Display Name'), 'My Feature');
+
+    expect(screen.getByText('main')).toBeInTheDocument();
+  });
+
+  it('does not render New Repository Settings outside Advanced for new-repo', () => {
+    renderDialog({ initialRepoType: 'new-repo' });
+
+    // New Repo Settings should not be visible until Advanced is expanded
+    expect(screen.queryByText('New Repository Settings')).not.toBeInTheDocument();
+  });
+
+  it('renders New Repository Settings inside Advanced options for new-repo', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initialRepoType: 'new-repo' });
+
+    // Expand advanced options
+    await user.click(screen.getByRole('button', { name: /advanced options/i }));
+
+    expect(screen.getByText('New Repository Settings')).toBeInTheDocument();
+    expect(screen.getByLabelText('Owner')).toBeInTheDocument();
+  });
+
+  it('new-repo payload does not include branch (new repos use default)', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initialRepoType: 'new-repo' });
+    await fillAndSubmit(user);
+
+    const payload = capturedPayload();
+    expect(payload).toBeDefined();
+    expect(payload!.branch).toBeUndefined();
+  });
+});
