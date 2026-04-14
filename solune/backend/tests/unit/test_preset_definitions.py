@@ -216,3 +216,78 @@ class TestAgentNodeShape:
             assert len(ids) == len(set(ids)), (
                 f"Duplicate agent IDs in preset {preset['preset_id']!r}"
             )
+
+    def test_all_agent_ids_globally_unique(self) -> None:
+        """Agent IDs must be unique across ALL presets, not just within each one."""
+        all_ids: list[str] = []
+        for preset in _PRESET_DEFINITIONS:
+            all_ids.extend(a["id"] for a in _get_agents(preset))
+        assert len(all_ids) == len(set(all_ids)), "Duplicate agent IDs across presets"
+
+
+class TestLegacyPresetIdsAbsent:
+    """Verify that old/retired preset IDs are no longer in the definitions."""
+
+    _RETIRED_IDS: ClassVar[list[str]] = [
+        "easy",
+        "medium",
+        "hard",
+        "expert",
+        "github-copilot",
+    ]
+
+    def test_no_retired_preset_ids(self) -> None:
+        current_ids = {p["preset_id"] for p in _PRESET_DEFINITIONS}
+        for retired in self._RETIRED_IDS:
+            assert retired not in current_ids, (
+                f"Retired preset ID {retired!r} should not be in _PRESET_DEFINITIONS"
+            )
+
+    def test_retired_ids_not_in_any_name_field(self) -> None:
+        """Ensure 'Easy', 'Medium', 'Hard', 'Expert' names are gone too."""
+        retired_names = {"Easy", "Medium", "Hard", "Expert"}
+        current_names = {p["name"] for p in _PRESET_DEFINITIONS}
+        overlap = retired_names & current_names
+        assert not overlap, f"Retired preset names still present: {overlap}"
+
+
+class TestHelperFunctions:
+    """Verify _agent() and _grouped_stage() produce correct dict shapes."""
+
+    def test_agent_helper_returns_correct_keys(self) -> None:
+        from src.services.pipelines.service import _agent
+
+        result = _agent("test-id", "test-slug", "Test Display")
+        assert result == {
+            "id": "test-id",
+            "agent_slug": "test-slug",
+            "agent_display_name": "Test Display",
+            "model_id": "",
+            "model_name": "",
+            "tool_ids": [],
+            "tool_count": 0,
+            "config": {},
+        }
+
+    def test_grouped_stage_returns_correct_structure(self) -> None:
+        from src.services.pipelines.service import _agent, _grouped_stage
+
+        agents = [_agent("a1", "copilot", "Copilot")]
+        result = _grouped_stage("s1", "In progress", 0, "g1", agents)
+        assert result["id"] == "s1"
+        assert result["name"] == "In progress"
+        assert result["order"] == 0
+        assert len(result["groups"]) == 1
+        assert result["groups"][0]["id"] == "g1"
+        assert result["groups"][0]["order"] == 0
+        assert result["groups"][0]["execution_mode"] == "sequential"
+        assert result["groups"][0]["agents"] == agents
+        # Backward compat: flattened agents at stage level
+        assert result["agents"] == agents
+        assert result["execution_mode"] == "sequential"
+
+    def test_grouped_stage_custom_execution_mode(self) -> None:
+        from src.services.pipelines.service import _grouped_stage
+
+        result = _grouped_stage("s1", "Build", 0, "g1", [], mode="parallel")
+        assert result["groups"][0]["execution_mode"] == "parallel"

@@ -169,4 +169,25 @@ describe('AddAgentModal', () => {
 
     expect(screen.getByLabelText('Name')).toHaveValue('Reviewer Draft');
   });
+
+  it('renders modal content into document.body via createPortal', () => {
+    const { baseElement } = render(
+      <AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />
+    );
+    // The modal overlay should be a direct child of document.body (portal), not nested inside the
+    // React root container.
+    const dialog = screen.getByRole('dialog', { name: /add agent/i });
+    expect(dialog).toBeInTheDocument();
+    // The dialog's closest portal wrapper should be a child of body, not the React root
+    expect(baseElement).toBe(document.body);
+    expect(document.body.querySelector('[role="dialog"]')).toBeTruthy();
+  });
+
+  it('returns null when isOpen is false', () => {
+    const { container } = render(
+      <AddAgentModal projectId="PVT_1" isOpen={false} onClose={vi.fn()} />
+    );
+    expect(container.innerHTML).toBe('');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });
