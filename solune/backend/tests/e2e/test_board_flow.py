@@ -92,7 +92,7 @@ class TestBoardOperations:
     @pytest.mark.asyncio
     async def test_get_board_projects(self, auth_client, mock_github_projects_service):
         """GET /board/projects returns the board project list."""
-        mock_github_projects_service.list_board_projects.return_value = [_make_board_project()]
+        mock_github_projects_service.list_user_projects.return_value = [_make_test_project()]
 
         response = await auth_client.get("/api/v1/board/projects")
         assert response.status_code == 200

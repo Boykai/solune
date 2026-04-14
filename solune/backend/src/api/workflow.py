@@ -1,5 +1,6 @@
 """Workflow API endpoints for issue creation and management."""
 
+import asyncio
 import hashlib
 import json
 from datetime import datetime, timedelta
@@ -13,7 +14,14 @@ from src.dependencies import require_selected_project, verify_project_access
 from src.exceptions import AppException, NotFoundError, ValidationError
 from src.logging_utils import get_logger, handle_github_errors, handle_service_error
 from src.middleware.rate_limit import limiter
-from src.models.agent import AgentAssignment, AvailableAgentsResponse
+from src.models.agent import (
+    AgentAssignment,
+    AvailableAgent,
+    AvailableAgentsResponse,
+)
+from src.models.agent import (
+    AgentSource as AvailableAgentSource,
+)
 from src.models.chat import ActionType, ChatMessage, SenderType
 from src.models.recommendation import RecommendationStatus
 from src.models.user import UserSession
@@ -23,6 +31,7 @@ from src.models.workflow import (
     WorkflowTransition,
 )
 from src.services.agents.service import AgentsService
+from src.services.cache import cache
 from src.services.copilot_polling.polling_loop import PollingStatus
 from src.services.database import get_db
 from src.services.github_projects import github_projects_service
@@ -863,6 +872,12 @@ async def list_agents(
     """
     project_id = require_selected_project(session)
 
+    # Check cache first — agents change infrequently (5-minute TTL).
+    agents_cache_key = f"agents:{session.github_user_id}:{project_id}"
+    cached_agents = cache.get(agents_cache_key)
+    if cached_agents is not None:
+        return cached_agents
+
     # Verify ownership before proceeding
     await verify_project_access(request, project_id, session)
 
@@ -891,31 +906,48 @@ async def list_agents(
 
     agents_service = AgentsService(get_db())
 
-    agents = await github_projects_service.list_available_agents(
-        owner=resolved_owner or "",
-        repo=resolved_repo or "",
-        access_token=session.access_token,
-    )
+    # Build available agents from builtins + repo agents discovered by
+    # AgentsService (which has a 900s cache).  This avoids the duplicate
+    # REST fetch that list_available_agents() would perform independently.
+    agents: list[AvailableAgent] = list(github_projects_service.BUILTIN_AGENTS)
 
     tools_counts: dict[str, int] = {}
+    agent_prefs: dict = {}
 
     if resolved_owner and resolved_repo:
         try:
-            discovered_agents = await agents_service.list_agents(
-                project_id=project_id,
-                owner=resolved_owner,
-                repo=resolved_repo,
-                access_token=session.access_token,
+            # Fetch repo agents and preferences concurrently — they are
+            # independent (REST + DB respectively).
+            discovered_agents_result, agent_prefs = await asyncio.gather(
+                agents_service.list_agents(
+                    project_id=project_id,
+                    owner=resolved_owner,
+                    repo=resolved_repo,
+                    access_token=session.access_token,
+                ),
+                agents_service.get_agent_preferences(project_id),
             )
             tools_counts = {
                 discovered_agent.slug: len(discovered_agent.tools)
-                for discovered_agent in discovered_agents
+                for discovered_agent in discovered_agents_result
             }
+            # Derive AvailableAgent entries from discovered repo agents,
+            # avoiding a second set of REST calls to the same files.
+            agents.extend(
+                AvailableAgent(
+                    slug=discovered_agent.slug,
+                    display_name=discovered_agent.name,
+                    description=discovered_agent.description or None,
+                    avatar_url=None,
+                    icon_name=discovered_agent.icon_name,
+                    source=AvailableAgentSource.REPOSITORY,
+                )
+                for discovered_agent in discovered_agents_result
+            )
         except Exception as e:
-            logger.debug("Could not resolve tool counts for workflow agents: %s", e)
+            logger.debug("Could not discover repo agents: %s", e)
 
-    if resolved_owner and resolved_repo:
-        agent_prefs = await agents_service.get_agent_preferences(project_id)
+    if resolved_owner and resolved_repo and agent_prefs:
         agents = [
             available_agent.model_copy(
                 update={
@@ -933,7 +965,9 @@ async def list_agents(
             for available_agent in agents
         ]
 
-    return AvailableAgentsResponse(agents=agents)
+    response = AvailableAgentsResponse(agents=agents)
+    cache.set(agents_cache_key, response, ttl_seconds=300)
+    return response
 
 
 @router.get("/transitions", response_model=list[WorkflowTransition])

@@ -18,6 +18,7 @@ from src.services.database import (
     _column_exists,
     _discover_migrations,
     _run_migrations,
+    checkpoint,
     close_database,
     get_db,
     init_database,
@@ -198,10 +199,71 @@ class TestCloseDatabase:
             await close_database()
         fake.close.assert_awaited_once()
 
+    async def test_close_runs_wal_checkpoint_before_closing(self):
+        """close_database() should run PRAGMA wal_checkpoint(TRUNCATE) before .close()."""
+        fake = AsyncMock()
+        call_order: list[str] = []
+        fake.execute = AsyncMock(side_effect=lambda sql: call_order.append("execute"))
+        fake.close = AsyncMock(side_effect=lambda: call_order.append("close"))
+        with patch("src.services.database._connection", fake):
+            await close_database()
+        fake.execute.assert_awaited_once_with("PRAGMA wal_checkpoint(TRUNCATE);")
+        fake.close.assert_awaited_once()
+        assert call_order == ["execute", "close"]
+
+    async def test_close_still_closes_if_checkpoint_fails(self):
+        """Connection should still be closed even if the WAL checkpoint fails."""
+        fake = AsyncMock()
+        fake.execute = AsyncMock(side_effect=RuntimeError("disk error"))
+        with patch("src.services.database._connection", fake):
+            await close_database()
+        fake.close.assert_awaited_once()
+
     async def test_close_noop_when_none(self):
         """Should not raise if already None."""
         with patch("src.services.database._connection", None):
             await close_database()  # Should not raise
+
+
+# =============================================================================
+# checkpoint()
+# =============================================================================
+
+
+class TestCheckpoint:
+    async def test_passive_checkpoint(self):
+        """checkpoint('PASSIVE') should execute the correct PRAGMA."""
+        fake = AsyncMock()
+        with patch("src.services.database._connection", fake):
+            await checkpoint("PASSIVE")
+        fake.execute.assert_awaited_once_with("PRAGMA wal_checkpoint(PASSIVE);")
+
+    async def test_truncate_checkpoint(self):
+        """checkpoint('TRUNCATE') should execute the correct PRAGMA."""
+        fake = AsyncMock()
+        with patch("src.services.database._connection", fake):
+            await checkpoint("TRUNCATE")
+        fake.execute.assert_awaited_once_with("PRAGMA wal_checkpoint(TRUNCATE);")
+
+    async def test_default_mode_is_passive(self):
+        """Default mode should be PASSIVE."""
+        fake = AsyncMock()
+        with patch("src.services.database._connection", fake):
+            await checkpoint()
+        fake.execute.assert_awaited_once_with("PRAGMA wal_checkpoint(PASSIVE);")
+
+    async def test_invalid_mode_raises_value_error(self):
+        """Unsupported modes must be rejected to prevent SQL injection."""
+        fake = AsyncMock()
+        with patch("src.services.database._connection", fake):
+            with pytest.raises(ValueError, match="Unsupported checkpoint mode"):
+                await checkpoint("FULL; DROP TABLE users;--")
+
+    async def test_raises_when_not_initialized(self):
+        """Should raise RuntimeError if database is not initialized."""
+        with patch("src.services.database._connection", None):
+            with pytest.raises(RuntimeError, match="not initialized"):
+                await checkpoint()
 
 
 # =============================================================================

@@ -30,7 +30,7 @@ wheels = [
 
 [[package]]
 name = "agent-framework-core"
-version = "1.0.0"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -38,9 +38,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/65/84/483ff4dd079e51df3c1b4b5f276260a466906d83872fbfc515f2ced108cf/agent_framework_core-1.0.0.tar.gz", hash = "sha256:445f2c13f3a710f399a0d630811ab820dfa811e0723f4825a2d1764592bf5ef5", size = 284082, upload-time = "2026-04-02T16:39:10.397Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2a/3d/371e57a74ecd4fc551d458bd234d7591c052b467cac21e8805cb519a4187/agent_framework_core-1.0.1.tar.gz", hash = "sha256:6ace9fa8bee9d2e8556c28ff767d89b8e0a0a734246dcca4a196d0b0bc5cedb0", size = 285179, upload-time = "2026-04-10T03:29:28.193Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/36/b7/56fd7bfaa3c08fa65b2cc0fa4aaacb58c8fb811d15cdf4e81bcfdcaf6697/agent_framework_core-1.0.0-py3-none-any.whl", hash = "sha256:f4e0b5eec386e099a24b796224482dfcc4c58a5f746c544d8696b403d3f81d42", size = 321407, upload-time = "2026-04-02T16:39:41.895Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/11/a460d6656257c4302deb33724f29a52059bae193758ded7571fb576b26cb/agent_framework_core-1.0.1-py3-none-any.whl", hash = "sha256:8305fadb78adb9b625cda0ba8188bcb76ce01a2aa64eed937f8c9fb384043bc0", size = 323596, upload-time = "2026-04-10T03:31:01.698Z" },
 ]
 
 [[package]]
@@ -2147,7 +2147,7 @@ wheels = [
 
 [[package]]
 name = "pytest"
-version = "9.0.2"
+version = "9.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
@@ -2156,9 +2156,9 @@ dependencies = [
     { name = "pluggy" },
     { name = "pygments" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/db/7ef3487e0fb0049ddb5ce41d3a49c235bf9ad299b6a25d5780a89f19230f/pytest-9.0.2.tar.gz", hash = "sha256:75186651a92bd89611d1d9fc20f0b4345fd827c41ccd5c299a868a05d70edf11", size = 1568901, upload-time = "2025-12-06T21:30:51.014Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/0d/549bd94f1a0a402dc8cf64563a117c0f3765662e2e668477624baeec44d5/pytest-9.0.3.tar.gz", hash = "sha256:b86ada508af81d19edeb213c681b1d48246c1a91d304c6c81a427674c17eb91c", size = 1572165, upload-time = "2026-04-07T17:16:18.027Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/ab/b3226f0bd7cdcf710fbede2b3548584366da3b19b5021e74f5bde2a8fa3f/pytest-9.0.2-py3-none-any.whl", hash = "sha256:711ffd45bf766d5264d487b917733b453d917afd2b0ad65223959f59089f875b", size = 374801, upload-time = "2025-12-06T21:30:49.154Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/24/a372aaf5c9b7208e7112038812994107bc65a84cd00e0354a88c2c77a617/pytest-9.0.3-py3-none-any.whl", hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9", size = 375249, upload-time = "2026-04-07T17:16:16.13Z" },
 ]
 
 [[package]]
@@ -2650,20 +2650,20 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "agent-framework-azure-ai", specifier = ">=1.0.0b1" },
-    { name = "agent-framework-core", specifier = ">=1.0.0b1" },
+    { name = "agent-framework-core", specifier = ">=1.0.1" },
     { name = "agent-framework-github-copilot", specifier = ">=1.0.0b1" },
     { name = "aiosqlite", specifier = ">=0.22.0,<1" },
     { name = "azure-ai-inference", specifier = ">=1.0.0b9,<2" },
-    { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.8.0" },
+    { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.9.4" },
     { name = "cryptography", specifier = ">=46.0.5,<47" },
     { name = "fastapi", specifier = ">=0.135.0,<1" },
-    { name = "freezegun", marker = "extra == 'dev'", specifier = ">=1.4.0" },
+    { name = "freezegun", marker = "extra == 'dev'", specifier = ">=1.5.5" },
     { name = "github-copilot-sdk", specifier = ">=0.1.30,<1" },
     { name = "githubkit", specifier = ">=0.14.6,<1" },
     { name = "httpx", specifier = ">=0.28.0,<1" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.131.0" },
     { name = "mcp", specifier = ">=1.26.0,<2" },
-    { name = "mutmut", marker = "extra == 'dev'", specifier = ">=3.2.0" },
+    { name = "mutmut", marker = "extra == 'dev'", specifier = ">=3.5.0" },
     { name = "openai", specifier = ">=2.26.0,<3" },
     { name = "opentelemetry-api", specifier = ">=1.33.0,<2" },
     { name = "opentelemetry-exporter-otlp", specifier = ">=1.33.0,<2" },
@@ -2671,15 +2671,15 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.54b0,<1" },
     { name = "opentelemetry-instrumentation-sqlite3", specifier = ">=0.54b0,<1" },
     { name = "opentelemetry-sdk", specifier = ">=1.33.0,<2" },
-    { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.9.0" },
+    { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.10.0" },
     { name = "pydantic", specifier = ">=2.12.0,<3" },
     { name = "pydantic-settings", specifier = ">=2.13.0,<3" },
-    { name = "pynacl", specifier = ">=1.5.0,<2" },
+    { name = "pynacl", specifier = ">=1.6.2,<2" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.408" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.3.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-randomly", marker = "extra == 'dev'", specifier = ">=3.16.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.1.0" },
+    { name = "pytest-randomly", marker = "extra == 'dev'", specifier = ">=4.0.1" },
     { name = "pytest-repeat", marker = "extra == 'dev'", specifier = ">=0.9.4" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.2" },
     { name = "python-multipart", specifier = ">=0.0.22,<1" },
@@ -2689,7 +2689,7 @@ requires-dist = [
     { name = "slowapi", specifier = ">=0.1.9,<1" },
     { name = "sse-starlette", specifier = ">=3.0.0,<4" },
     { name = "tenacity", specifier = ">=9.1.0,<10" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.42.0,<1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.44.0,<1" },
     { name = "websockets", specifier = ">=16.0,<17" },
 ]
 provides-extras = ["dev"]

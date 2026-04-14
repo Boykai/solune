@@ -401,7 +401,9 @@ def _make_mock_db(session_rows=None, project_settings_rows=None):
     async def _execute(sql, *args, **kwargs):
         cursor = AsyncMock()
         if "user_sessions" in sql:
-            cursor.fetchone = AsyncMock(return_value=session_rows)
+            # session_rows: list of row dicts for fetchall, or None for no rows
+            cursor.fetchall = AsyncMock(return_value=session_rows or [])
+            cursor.fetchone = AsyncMock(return_value=session_rows[0] if session_rows else None)
         elif "project_settings" in sql:
             cursor.fetchall = AsyncMock(return_value=project_settings_rows or [])
         else:
@@ -451,6 +453,10 @@ class TestAutoStartWebhookFallback:
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={},
+            ),
         ):
             await _auto_start_copilot_polling()
 
@@ -488,6 +494,10 @@ class TestAutoStartWebhookFallback:
                 "src.services.copilot_polling.ensure_polling_started",
                 new_callable=AsyncMock,
             ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={},
+            ),
         ):
             await _auto_start_copilot_polling()
             mock_start.assert_not_awaited()
@@ -521,6 +531,10 @@ class TestAutoStartWebhookFallback:
                 "src.services.copilot_polling.ensure_polling_started",
                 new_callable=AsyncMock,
             ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={},
+            ),
         ):
             await _auto_start_copilot_polling()
             mock_start.assert_not_awaited()
@@ -555,6 +569,10 @@ class TestAutoStartWebhookFallback:
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={},
+            ),
         ):
             await _auto_start_copilot_polling()
 
@@ -578,6 +596,7 @@ class TestAutoStartWebhookFallback:
         async def _execute(sql, *args, **kwargs):
             cursor = AsyncMock()
             if "user_sessions" in sql:
+                cursor.fetchall = AsyncMock(return_value=[session_row])
                 cursor.fetchone = AsyncMock(return_value=session_row)
             else:
                 cursor.fetchone = AsyncMock(return_value=None)
@@ -608,6 +627,11 @@ class TestAutoStartWebhookFallback:
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={},
+            ),
+            patch("src.services.copilot_polling.state.register_project"),
         ):
             await _auto_start_copilot_polling()
 
@@ -638,6 +662,7 @@ class TestAutoStartWebhookFallback:
             call_count += 1
             cursor = AsyncMock()
             if "user_sessions" in sql:
+                cursor.fetchall = AsyncMock(return_value=[session_row])
                 cursor.fetchone = AsyncMock(return_value=session_row)
             elif "project_settings" in sql:
                 cursor.fetchall = AsyncMock(return_value=ps_rows)
@@ -678,6 +703,10 @@ class TestAutoStartWebhookFallback:
                 new_callable=AsyncMock,
                 return_value=True,
             ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={},
+            ),
         ):
             await _auto_start_copilot_polling()
 
@@ -689,6 +718,160 @@ class TestAutoStartWebhookFallback:
                 repo="github-workflows",
                 caller="webhook_token_fallback",
             )
+
+
+class TestAutoStartMultiProject:
+    """Tests for multi-project recovery in _auto_start_copilot_polling."""
+
+    async def test_registers_multiple_projects_from_sessions(self):
+        """All sessions with active pipeline states should be registered."""
+        session1 = MagicMock(
+            access_token="tok_1",
+            selected_project_id="PVT_proj1",
+        )
+        session2 = MagicMock(
+            access_token="tok_2",
+            selected_project_id="PVT_proj2",
+        )
+
+        session_rows = [
+            {"session_id": "sid1", "selected_project_id": "PVT_proj1"},
+            {"session_id": "sid2", "selected_project_id": "PVT_proj2"},
+        ]
+
+        async def _execute(sql, *args, **kwargs):
+            cursor = AsyncMock()
+            if "user_sessions" in sql:
+                cursor.fetchall = AsyncMock(return_value=session_rows)
+            else:
+                cursor.fetchone = AsyncMock(return_value=None)
+                cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        # Both projects have active pipeline states
+        fake_state_1 = MagicMock(project_id="PVT_proj1", is_complete=False)
+        fake_state_2 = MagicMock(project_id="PVT_proj2", is_complete=False)
+
+        async def _get_session(db, sid):
+            return {"sid1": session1, "sid2": session2}.get(sid)
+
+        resolve_results = {
+            "PVT_proj1": ("owner1", "repo1"),
+            "PVT_proj2": ("owner2", "repo2"),
+        }
+
+        async def _resolve(token, pid):
+            return resolve_results[pid]
+
+        with (
+            patch(
+                "src.services.copilot_polling.get_polling_status",
+                return_value={"is_running": False},
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch(
+                "src.services.session_store.get_session",
+                new_callable=AsyncMock,
+                side_effect=_get_session,
+            ),
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                side_effect=_resolve,
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_start,
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: fake_state_1, 2: fake_state_2},
+            ),
+            patch(
+                "src.services.copilot_polling.state.register_project",
+            ) as mock_register,
+        ):
+            result = await _auto_start_copilot_polling()
+
+            assert result is True
+            # Both projects should be registered
+            assert mock_register.call_count == 2
+            mock_register.assert_any_call("PVT_proj1", "owner1", "repo1", "tok_1")
+            mock_register.assert_any_call("PVT_proj2", "owner2", "repo2", "tok_2")
+            # Polling loop started once for the first project
+            mock_start.assert_awaited_once()
+
+    async def test_skips_sessions_without_active_pipelines(self):
+        """Sessions whose projects have no active pipeline states are skipped."""
+        session1 = MagicMock(
+            access_token="tok_active",
+            selected_project_id="PVT_active",
+        )
+        session2 = MagicMock(
+            access_token="tok_stale",
+            selected_project_id="PVT_stale",
+        )
+
+        session_rows = [
+            {"session_id": "sid1", "selected_project_id": "PVT_active"},
+            {"session_id": "sid2", "selected_project_id": "PVT_stale"},
+        ]
+
+        async def _execute(sql, *args, **kwargs):
+            cursor = AsyncMock()
+            if "user_sessions" in sql:
+                cursor.fetchall = AsyncMock(return_value=session_rows)
+            else:
+                cursor.fetchone = AsyncMock(return_value=None)
+                cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        # Only PVT_active has an active pipeline state
+        fake_state = MagicMock(project_id="PVT_active", is_complete=False)
+
+        async def _get_session(db, sid):
+            return {"sid1": session1, "sid2": session2}.get(sid)
+
+        with (
+            patch(
+                "src.services.copilot_polling.get_polling_status",
+                return_value={"is_running": False},
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch(
+                "src.services.session_store.get_session",
+                new_callable=AsyncMock,
+                side_effect=_get_session,
+            ),
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner1", "repo1"),
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: fake_state},
+            ),
+            patch(
+                "src.services.copilot_polling.state.register_project",
+            ) as mock_register,
+        ):
+            await _auto_start_copilot_polling()
+
+            # Only the active project should be registered
+            mock_register.assert_called_once_with("PVT_active", "owner1", "repo1", "tok_active")
 
 
 class TestWatchdogGracePeriod:

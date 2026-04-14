@@ -5,7 +5,7 @@ description = "FastAPI backend for Solune"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.135.0,<1",
-    "uvicorn[standard]>=0.42.0,<1",
+    "uvicorn[standard]>=0.44.0,<1",
     "githubkit>=0.14.6,<1",
     "httpx>=0.28.0,<1",
     "pydantic>=2.12.0,<3",
@@ -18,7 +18,7 @@ dependencies = [
     "openai>=2.26.0,<3",
     "azure-ai-inference>=1.0.0b9,<2",
     # Microsoft Agent Framework (v0.2.0 — intelligent chat agent)
-    "agent-framework-core>=1.0.0b1",
+    "agent-framework-core>=1.0.1",
     "agent-framework-azure-ai>=1.0.0b1",
     "agent-framework-github-copilot>=1.0.0b1",
     # SSE streaming for real-time agent responses
@@ -33,7 +33,7 @@ dependencies = [
     # Rate limiting middleware (FastAPI-compatible)
     "slowapi>=0.1.9,<1",
     # GitHub Secrets API encryption (libsodium sealed box)
-    "pynacl>=1.5.0,<2",
+    "pynacl>=1.6.2,<2",
     # OpenTelemetry — opt-in distributed tracing and metrics (Phase 5)
     "opentelemetry-api>=1.33.0,<2",
     "opentelemetry-sdk>=1.33.0,<2",
@@ -49,19 +49,19 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=9.0.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
-    "pytest-cov>=7.0.0",
-    "pytest-randomly>=3.16.0",
+    "pytest-cov>=7.1.0",
+    "pytest-randomly>=4.0.1",
     "pytest-repeat>=0.9.4",
     "pytest-timeout>=2.2",
     "ruff>=0.15.0",
     "pyright>=1.1.408",
     "hypothesis>=6.131.0",
-    "mutmut>=3.2.0",
-    "pip-audit>=2.9.0",
-    "bandit>=1.8.0",
-    "freezegun>=1.4.0",
+    "mutmut>=3.5.0",
+    "pip-audit>=2.10.0",
+    "bandit>=1.9.4",
+    "freezegun>=1.5.5",
 ]
 
 [build-system]

@@ -71,10 +71,42 @@ async def init_database() -> aiosqlite.Connection:
     return db
 
 
+async def checkpoint(mode: str = "PASSIVE") -> None:
+    """Run a WAL checkpoint on the active database connection.
+
+    Args:
+        mode: SQLite checkpoint mode — ``PASSIVE`` (non-blocking, safe for
+              hot paths) or ``TRUNCATE`` (blocks until all WAL pages are
+              written back and resets the WAL file — ideal for shutdown).
+
+    Raises:
+        RuntimeError: If the database has not been initialized.
+
+    A checkpoint forces committed WAL pages into the main database file so
+    that data is not lost if the process is terminated before a graceful
+    ``close()`` call.
+    """
+    if mode not in ("PASSIVE", "TRUNCATE"):
+        raise ValueError(f"Unsupported checkpoint mode: {mode!r}")
+    conn = get_db()
+    await conn.execute(f"PRAGMA wal_checkpoint({mode});")
+    logger.debug("WAL checkpoint (%s) completed", mode)
+
+
 async def close_database() -> None:
-    """Close the persistent database connection. Called during lifespan shutdown."""
+    """Close the persistent database connection. Called during lifespan shutdown.
+
+    Runs a ``TRUNCATE`` WAL checkpoint before closing so all committed data
+    is flushed to the main database file.  This prevents data loss when the
+    container is stopped (e.g. ``docker-compose down`` / ``SIGTERM``).
+    """
     global _connection
     if _connection is not None:
+        try:
+            await _connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            logger.info("WAL checkpoint (TRUNCATE) completed before close")
+        except Exception:
+            logger.warning("WAL checkpoint before close failed", exc_info=True)
         await _connection.close()
         _connection = None
         logger.info("Database connection closed")
