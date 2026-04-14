@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CheckCircle2 } from '@/lib/icons';
 import { AgentIconCatalog } from '@/components/agents/AgentIconCatalog';
 import { isCelestialIconName, type CelestialIconName } from '@/components/common/agentIcons';
@@ -33,13 +34,14 @@ const MAX_PROMPT_LENGTH = 30000;
 export function AddAgentModal({ projectId, isOpen, onClose, editAgent }: AddAgentModalProps) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <AddAgentModalContent
       key={editAgent?.id ?? '__create__'}
       projectId={projectId}
       onClose={onClose}
       editAgent={editAgent}
-    />
+    />,
+    document.body,
   );
 }
 
