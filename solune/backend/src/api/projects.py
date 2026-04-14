@@ -254,12 +254,19 @@ async def get_project_tasks(
     dependencies=[Depends(verify_project_access)],
 )
 async def select_project(
+    request: Request,
     project_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> UserResponse:
     """Select a project as the active project and start Copilot polling."""
-    # Verify project exists and user has access
-    project = await get_project(project_id, session)
+    # Reuse project list already fetched by verify_project_access dependency
+    # to avoid a duplicate list_user_projects GraphQL call.
+    verified_projects = getattr(request.state, "verified_projects", None)
+    project = None
+    if verified_projects:
+        project = next((p for p in verified_projects if p.project_id == project_id), None)
+    if project is None:
+        project = await get_project(project_id, session)
 
     # Update session
     session.selected_project_id = project_id
@@ -316,6 +323,7 @@ async def _start_copilot_polling(session: UserSession, project_id: str) -> None:
         project_id=project_id,
         owner=owner,
         repo=repo,
+        delay_seconds=45,
         caller="select_project",
     )
 

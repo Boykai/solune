@@ -271,6 +271,7 @@ class TestStartCopilotPolling:
             project_id="proj-1",
             owner="owner",
             repo="repo",
+            delay_seconds=45,
             caller="select_project",
         )
 

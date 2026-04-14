@@ -23,6 +23,7 @@ from src.models.workflow import (
     WorkflowTransition,
 )
 from src.services.agents.service import AgentsService
+from src.services.cache import cache
 from src.services.copilot_polling.polling_loop import PollingStatus
 from src.services.database import get_db
 from src.services.github_projects import github_projects_service
@@ -863,6 +864,12 @@ async def list_agents(
     """
     project_id = require_selected_project(session)
 
+    # Check cache first — agents change infrequently (5-minute TTL).
+    agents_cache_key = f"agents:{session.github_user_id}:{project_id}"
+    cached_agents = cache.get(agents_cache_key)
+    if cached_agents is not None:
+        return cached_agents
+
     # Verify ownership before proceeding
     await verify_project_access(request, project_id, session)
 
@@ -933,7 +940,9 @@ async def list_agents(
             for available_agent in agents
         ]
 
-    return AvailableAgentsResponse(agents=agents)
+    response = AvailableAgentsResponse(agents=agents)
+    cache.set(agents_cache_key, response, ttl_seconds=300)
+    return response
 
 
 @router.get("/transitions", response_model=list[WorkflowTransition])

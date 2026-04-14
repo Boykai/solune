@@ -217,6 +217,9 @@ async def verify_project_access(
     try:
         projects = await svc.list_user_projects(session.access_token, session.github_username)
         if any(p.project_id == project_id for p in projects):
+            # Stash on request state so downstream handlers can reuse without
+            # a second GraphQL call (e.g. get_project() during POST /select).
+            request.state.verified_projects = projects
             return
     except Exception as e:
         logger.warning(

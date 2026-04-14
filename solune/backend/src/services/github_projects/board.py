@@ -409,6 +409,7 @@ class BoardMixin(_ServiceMixin):
                 or board_item.number is None
                 or not board_item.repository
                 or _is_sub_issue_label(board_item)
+                or board_item.status == StatusNames.DONE
             ):
                 return
             async with _sem:
@@ -481,7 +482,7 @@ class BoardMixin(_ServiceMixin):
         except Exception as e:
             logger.debug("Suppressed error: %s", e)
 
-        for owner, repo_name in repos_seen:
+        async def _reconcile_repo(owner: str, repo_name: str) -> list:
             try:
                 reconciled = await self._reconcile_board_items(
                     access_token=access_token,
@@ -498,9 +499,16 @@ class BoardMixin(_ServiceMixin):
                         owner,
                         repo_name,
                     )
-                    all_items.extend(reconciled)
+                return reconciled or []
             except Exception as e:
                 logger.debug("Board reconciliation failed for %s/%s: %s", owner, repo_name, e)
+                return []
+
+        reconciliation_results = await asyncio.gather(
+            *[_reconcile_repo(owner, repo_name) for owner, repo_name in repos_seen]
+        )
+        for reconciled in reconciliation_results:
+            all_items.extend(reconciled)
 
         columns = self._build_board_columns(
             all_items, project_meta.status_field.options, board_models
