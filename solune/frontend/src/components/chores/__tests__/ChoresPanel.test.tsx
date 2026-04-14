@@ -169,13 +169,13 @@ describe('ChoresPanel', () => {
     });
   });
 
-  it('displays the Chores header', async () => {
+  it('displays the Chores section', async () => {
     mockListPaginated.mockResolvedValue(paginatedResponse([]));
 
     render(<ChoresPanel projectId="PVT_1" />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Recurring work, given actual breathing room')).toBeInTheDocument();
+      expect(screen.getByText('No chores yet')).toBeInTheDocument();
     });
   });
 

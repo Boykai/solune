@@ -158,7 +158,7 @@ describe('AppsPage', () => {
         name: 'my-awesome-app',
         display_name: 'My Awesome App',
         description: 'Sample app',
-        branch: 'app/my-awesome-app',
+        branch: 'main',
         ai_enhance: true,
         repo_type: 'same-repo',
       },
