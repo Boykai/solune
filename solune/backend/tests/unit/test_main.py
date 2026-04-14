@@ -403,9 +403,7 @@ def _make_mock_db(session_rows=None, project_settings_rows=None):
         if "user_sessions" in sql:
             # session_rows: list of row dicts for fetchall, or None for no rows
             cursor.fetchall = AsyncMock(return_value=session_rows or [])
-            cursor.fetchone = AsyncMock(
-                return_value=session_rows[0] if session_rows else None
-            )
+            cursor.fetchone = AsyncMock(return_value=session_rows[0] if session_rows else None)
         elif "project_settings" in sql:
             cursor.fetchall = AsyncMock(return_value=project_settings_rows or [])
         else:
