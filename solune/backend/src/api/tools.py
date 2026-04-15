@@ -255,7 +255,9 @@ async def import_from_catalog(
         if data.catalog_server is not None:
             if data.catalog_server.id != data.catalog_server_id:
                 raise ValidationError(
-                    "Catalog server payload did not match the requested server ID."
+                    "Catalog server payload ID "
+                    f"'{data.catalog_server.id}' did not match requested ID "
+                    f"'{data.catalog_server_id}'."
                 )
             target = data.catalog_server.model_copy()
         else:
