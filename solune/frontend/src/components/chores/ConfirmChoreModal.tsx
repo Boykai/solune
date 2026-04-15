@@ -83,8 +83,8 @@ function ConfirmChoreModalContent({
             </div>
             <h3 className="text-lg font-semibold text-foreground">Confirm Chore Creation</h3>
             <p className="text-sm text-muted-foreground">
-              This will create a GitHub Issue and save the chore definition to the database.
-              You can schedule, trigger, or pause it at any time.
+              This will save the chore definition to the database and make it available for
+              scheduling or manual runs. You can schedule, trigger, or pause it at any time.
             </p>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={() => setStep(1)} disabled={isLoading}>

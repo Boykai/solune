@@ -305,7 +305,7 @@ export function ChatPanelManager() {
     return (
       <div className="flex h-full flex-col" data-testid="chat-panel-manager">
         {addPanelError && (
-          <div className="mx-2 mt-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+          <div role="alert" className="mx-2 mt-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
             {addPanelError}
           </div>
         )}
@@ -383,7 +383,7 @@ export function ChatPanelManager() {
       data-testid="chat-panel-manager"
     >
       {addPanelError && (
-        <div className="mx-2 mt-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+        <div role="alert" className="mx-2 mt-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
           {addPanelError}
         </div>
       )}

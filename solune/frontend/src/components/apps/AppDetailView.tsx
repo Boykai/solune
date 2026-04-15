@@ -268,12 +268,12 @@ export function AppDetailView({ appName, onBack }: AppDetailViewProps) {
 
       {/* Pipeline Info */}
       {app.associated_pipeline_id && (
-        <div className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <dl className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
           <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Associated Pipeline</dt>
           <dd className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
             {app.associated_pipeline_id}
           </dd>
-        </div>
+        </dl>
       )}
 
       {/* Actions */}

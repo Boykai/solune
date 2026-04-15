@@ -1,7 +1,5 @@
 /**
- * Static preset pipeline definitions.
- * These are seeded into the backend on first load and displayed as
- * read-only system presets in the Saved Workflows list.
+ * Static preset pipeline definitions used by the frontend and tests.
  *
  * Each preset uses a single "In progress" stage with one sequential
  * execution group containing all agents.

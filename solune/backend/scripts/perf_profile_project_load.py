@@ -122,7 +122,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
     profiler = Profiler()
 
     # ── Phase 0: Clear all caches to simulate cold start ──
-    cache._cache.clear()  # Clear the in-memory cache
+    cache.clear()  # Clear the in-memory cache
     print("✓ Cleared all caches (simulating cold start)")
 
     # ── Phase 1: List user projects (GET /projects equivalent) ──
@@ -145,7 +145,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
     print(f"✓ Profiling project: {target.name} ({project_id})")
 
     # Clear caches again before board data fetch
-    cache._cache.clear()
+    cache.clear()
 
     # ── Phase 2: Select project (POST /projects/{id}/select equivalent) ──
     # This normally triggers: session update + copilot polling + agent prefetch
@@ -161,14 +161,14 @@ async def profile_project_load(access_token: str, username: str, project_id: str
             owner, repo = None, None
 
     # Clear resolve cache to measure it fresh
-    cache._cache.clear()
+    cache.clear()
 
     # ── Phase 3: List board projects (GET /board/projects equivalent) ──
     async with profiler.measure("3. list_board_projects (GET /board/projects)"):
         board_projects = await github_projects_service.list_user_projects(access_token, username)
 
     # ── Phase 4: Get board data (GET /board/projects/{id} — THE BIG ONE) ──
-    cache._cache.clear()
+    cache.clear()
 
     async with profiler.measure("4. get_board_data (GET /board/projects/{id})") as e4:
         board_data = await _profile_board_data(profiler, access_token, project_id)
@@ -178,7 +178,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
             e4.metadata["columns"] = len(board_data.columns)
 
     # ── Phase 5: Get project settings (GET /settings/project/{id}) ──
-    cache._cache.clear()
+    cache.clear()
     async with profiler.measure("5. get_workflow_config (GET /settings/project/{id})") as e5:
         try:
             from src.services.workflow_orchestrator import get_workflow_config
@@ -188,7 +188,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
             e5.metadata["error"] = str(ex)
 
     # ── Phase 6: List agents (GET /workflow/agents) ──
-    cache._cache.clear()
+    cache.clear()
     async with profiler.measure("6. list_agents (GET /workflow/agents)") as e6:
         try:
             from src.services.agents.service import AgentsService
@@ -203,9 +203,11 @@ async def profile_project_load(access_token: str, username: str, project_id: str
             e6.metadata["error"] = str(ex)
 
     # ── Phase 7: Simulate parallel load (as frontend does) ──
-    cache._cache.clear()
+    cache.clear()
 
-    async with profiler.measure("7. PARALLEL: board_projects + board_data + settings + agents"):
+    from src.services.workflow_orchestrator import get_workflow_config as _get_wf_config
+
+    async with profiler.measure("7. PARALLEL: board_projects + board_data + settings"):
         tasks = [
             _timed_call(profiler, "7a. list_user_projects (parallel)",
                         github_projects_service.list_user_projects, access_token, username),
@@ -215,7 +217,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
         if owner and repo:
             tasks.append(
                 _timed_call(profiler, "7c. get_workflow_config (parallel)",
-                            get_workflow_config, project_id)
+                            _get_wf_config, project_id)
             )
         await asyncio.gather(*tasks, return_exceptions=True)
 

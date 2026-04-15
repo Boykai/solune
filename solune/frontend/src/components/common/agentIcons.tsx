@@ -77,6 +77,7 @@ const ICON_BY_SLUG: Record<string, CelestialIconName> = {
   human: 'sunrise',
   copilot: 'eclipse',
   'github-copilot': 'eclipse',
+  github: 'eclipse',
   'copilot-review': 'moon-phase',
   judge: 'planet-ring',
   linter: 'meteor',

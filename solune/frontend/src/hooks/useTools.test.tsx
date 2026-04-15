@@ -372,9 +372,11 @@ describe('useImportMcpServer', () => {
       await expect(result.current.importServer('github-mcp')).rejects.toThrow('Catalog offline');
     });
 
-    expect(result.current.importError).toBe(
-      'Could not import MCP server. Catalog offline. Please try again.'
-    );
+    await waitFor(() => {
+      expect(result.current.importError).toBe(
+        'Could not import MCP server. Catalog offline. Please try again.'
+      );
+    });
     expect(sonnerMocks.toast.error).toHaveBeenCalledWith('Catalog offline');
   });
 });

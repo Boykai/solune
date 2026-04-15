@@ -20,6 +20,10 @@ const PRESET_STYLES: Record<string, { label: string; classes: string }> = {
     label: 'GitHub Copilot',
     classes: 'solar-chip-success',
   },
+  'github': {
+    label: 'GitHub',
+    classes: 'solar-chip-success',
+  },
   'easy': {
     label: 'Easy',
     classes: 'solar-chip-success',

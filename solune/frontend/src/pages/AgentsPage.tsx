@@ -85,9 +85,6 @@ export function AgentsPage() {
             <Button variant="default" size="lg" asChild>
               <a href="#agents-catalog">Curate agent rituals</a>
             </Button>
-            <Button variant="outline" size="lg" asChild>
-              <a href="#agent-assignments">Review assignments</a>
-            </Button>
           </>
         }
       />
