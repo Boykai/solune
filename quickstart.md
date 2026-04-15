@@ -1,185 +1,170 @@
-# Quickstart: Simplify Page Headers for Focused UI
+# Quickstart: MCP Catalog on Tools Page
 
-**Feature**: Simplify Page Headers | **Date**: 2026-04-11
+**Feature**: MCP Catalog on Tools Page | **Date**: 2026-04-15
 
-> **Status note (2026-04-11):** The CompactPageHeader component replaces CelestialCatalogHero across six pages. The component is implemented and tested. Refer to the source file for the latest implementation details.
+> **Status note (2026-04-15):** The MCP catalog feature is already implemented on this branch. This quickstart captures the exact implementation sequence, file touchpoints, and validation steps so future work can reproduce or extend the feature without drifting from the live architecture.
 
 ## Prerequisites
 
-- Node.js ≥18 with npm
-- Git
+- Python 3.12+
+- Node.js 18+
+- `uv` for backend commands
+- npm for frontend commands
+- A Solune project connected to a repository for manual sync verification
 
-## Setup
+## Key Files
 
-```bash
-cd solune/frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-## Implementation Steps
-
-### Step 1: Create CompactPageHeader
-
-Create `src/components/common/CompactPageHeader.tsx`.
-
-Do **not** duplicate the full component implementation in this guide. `CompactPageHeader` has interactive/mobile behavior and styling details that can change over time, so the source file should remain the single source of truth:
-
-- Source: [`src/components/common/CompactPageHeader.tsx`](solune/frontend/src/components/common/CompactPageHeader.tsx)
-- Keep the existing production implementation, including any current hooks, icons, responsive stats behavior, and updated class names.
-
-This quickstart focuses on where to use `CompactPageHeader`, rather than embedding a copy of the component that can drift from the real implementation.
-
-### Step 2: Replace Hero in Each Page
-
-For each of the 6 pages, make two changes:
-
-1. **Change import**: `CelestialCatalogHero` → `CompactPageHeader`
-2. **Drop `note` prop** (if present)
-3. **Drop `className="projects-catalog-hero"`** (AgentsPipelinePage, ProjectsPage only)
-
-Example for ProjectsPage.tsx:
-
-```diff
-- import { CelestialCatalogHero } from '@/components/common/CelestialCatalogHero';
-+ import { CompactPageHeader } from '@/components/common/CompactPageHeader';
-
--      <CelestialCatalogHero
--        className="projects-catalog-hero"
-+      <CompactPageHeader
-         eyebrow="Mission Control"
-         title="Every project, mapped and moving."
-         description="..."
-         badge={...}
--        note="..."
-         stats={heroStats}
-         actions={...}
-       />
-```
-
-### Step 3: Delete Dead Code
-
-```bash
-# Delete the old hero component and its tests
-rm src/components/common/CelestialCatalogHero.tsx
-rm src/components/common/CelestialCatalogHero.test.tsx
-```
-
-### Step 4: Remove Orphaned CSS
-
-Remove the `.dark .projects-catalog-hero .catalog-hero-*` block from `src/index.css` (lines ~432–489).
-
-**DO NOT remove**: `.moonwell`, `.hanging-stars`, `.celestial-*` animations (used elsewhere).
-
-## Run Tests
-
-```bash
-cd solune/frontend
-
-# Run all frontend tests
-npm test
-
-# Run only the component test
-npm test -- --reporter=verbose CompactPageHeader
-
-# Run page-specific tests
-npm test -- --reporter=verbose ProjectsPage
-npm test -- --reporter=verbose AgentsPage
-npm test -- --reporter=verbose AgentsPipelinePage
-```
-
-## Run Lint & Type Check
-
-```bash
-cd solune/frontend
-
-# ESLint
-npx eslint .
-
-# TypeScript type check
-npx tsc --noEmit
-```
-
-## Verify UI Behavior
-
-1. **Navigate to each of the 6 pages**:
-   - `/projects` — Projects page
-   - `/agents` — Agents page
-   - `/agents/pipeline` — Agents Pipeline page
-   - `/tools` — Tools page
-   - `/chores` — Chores page
-   - `/help` — Help page
-
-2. **Check compact header** on each page:
-   - Header height is ~80–100px (not ~350–450px)
-   - Eyebrow text, title, and badge are visible
-   - Description shows as single line, expands on hover
-   - Stats show as inline chips (not large moonwell cards)
-   - Action buttons are accessible
-
-3. **Check mobile viewport** (Chrome DevTools → 375px width):
-   - Header remains compact
-   - Stats are hidden (or behind a toggle)
-   - Actions are still accessible
-
-4. **Check no regressions**:
-   - Sidebar celestial animations still work
-   - LoginPage decorations (hanging-stars, celestial-float) still work
-   - CelestialLoader animations still work
-   - NotFoundPage and ErrorBoundary decorations still work
-
-## Key Files Reference
-
-### Create
+### Backend
 
 | File | Purpose |
 |------|---------|
-| `src/components/common/CompactPageHeader.tsx` | New compact header component |
-| `src/components/common/CompactPageHeader.test.tsx` | Tests for new component |
+| `/home/runner/work/solune/solune/solune/backend/src/models/tools.py` | Catalog install/browse/import API models |
+| `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` | Glama proxy, normalization, SSRF checks, cache, import mapping |
+| `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` | Catalog browse/import endpoints |
+| `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` | Backend unit/API coverage |
 
-### Modify
+### Frontend
 
-| File | Changes |
+| File | Purpose |
 |------|---------|
-| `src/pages/ProjectsPage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
-| `src/pages/AgentsPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/AgentsPipelinePage.tsx` | Swap import, remove `note` prop, remove `className="projects-catalog-hero"` |
-| `src/pages/ToolsPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/ChoresPage.tsx` | Swap import, remove `note` prop |
-| `src/pages/HelpPage.tsx` | Swap import (no `note` used) |
-| `src/index.css` | Remove `.dark .projects-catalog-hero .catalog-hero-*` rules |
+| `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts` | Catalog TypeScript interfaces |
+| `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` | `browseCatalog()` and `importFromCatalog()` client methods |
+| `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` | `useMcpCatalog()` and `useImportMcpServer()` hooks |
+| `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` | Browse/search/filter/import UI |
+| `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolsPanel.tsx` | Integrates catalog between presets and tool archive |
+| `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` | Browse component tests |
+| `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` | Hook tests |
+| `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` | API client/schema validation tests |
 
-### Delete
+## Implementation Sequence
 
-| File | Reason |
-|------|--------|
-| `src/components/common/CelestialCatalogHero.tsx` | Replaced by CompactPageHeader |
-| `src/components/common/CelestialCatalogHero.test.tsx` | Tests for deleted component |
+### Step 1: Add backend catalog models and service
 
-### Untouched
+1. Extend backend tool models with:
+   - `CatalogInstallConfig`
+   - `CatalogMcpServer`
+   - `CatalogMcpServerListResponse`
+   - `ImportCatalogMcpRequest`
+2. Create the catalog service in `src/services/tools/catalog.py`.
+3. Implement:
+   - allowlisted upstream validation for `https://glama.ai`
+   - one-hour TTL caching with stale fallback
+   - normalization of Glama payload variations
+   - installed-state derivation
+   - import mapping into `McpToolConfigCreate`
 
-| File | Reason |
-|------|--------|
-| `src/layout/Sidebar.tsx` | Uses `celestial-orbit-spin` independently |
-| `src/layout/AppLayout.tsx` | Uses `celestial-*` classes independently |
-| `src/components/common/CelestialLoader.tsx` | Uses `celestial-orbit-spin` independently |
-| `src/pages/LoginPage.tsx` | Uses `hanging-stars`, `celestial-float`, `celestial-pulse-glow` independently |
-| All components using `.moonwell` | `.moonwell` CSS is retained |
+### Step 2: Add backend API endpoints
+
+Add two routes in `src/api/tools.py`:
+
+- `GET /api/v1/tools/{project_id}/catalog`
+- `POST /api/v1/tools/{project_id}/catalog/import`
+
+The import route should:
+
+1. Load the current project tools.
+2. Reuse the catalog service to locate the requested server.
+3. Reject duplicates.
+4. Build a standard `mcpServers` JSON snippet.
+5. Create a normal `McpToolConfig` via the existing tools service.
+
+### Step 3: Add frontend types, API methods, and hooks
+
+1. Add catalog interfaces in `src/types/index.ts`.
+2. Add `toolsApi.browseCatalog()` and `toolsApi.importFromCatalog()` in `src/services/api.ts`.
+3. Add:
+   - `useMcpCatalog(projectId, query, category)`
+   - `useImportMcpServer(projectId)`
+4. Ensure successful import invalidates:
+   - tool list queries
+   - repo MCP detail queries
+   - catalog browse queries
+
+### Step 4: Add the browse UI
+
+Create `McpCatalogBrowse.tsx` with:
+
+- search input with deferred typing behavior
+- category filter chips
+- loading, error, and empty states
+- server cards with:
+  - name
+  - description
+  - category label
+  - quality badge
+  - transport badge
+  - optional repo link
+  - Import button or Installed badge
+
+### Step 5: Integrate into the Tools page
+
+Render `<McpCatalogBrowse projectId={projectId} />` in `ToolsPanel.tsx` immediately after the presets gallery / GitHub MCP generator block and before the tool archive section.
+
+## Validation Commands
+
+### Backend
+
+```bash
+cd /home/runner/work/solune/solune/solune/backend
+uv run --with pytest --with pytest-asyncio pytest tests/unit/test_tools_catalog.py -q
+```
+
+### Frontend targeted catalog tests
+
+```bash
+cd /home/runner/work/solune/solune/solune/frontend
+npm run test -- --reporter=verbose --run \
+  src/components/tools/__tests__/McpCatalogBrowse.test.tsx \
+  src/hooks/useTools.test.tsx \
+  src/services/api.test.ts
+```
+
+### Frontend safety checks
+
+```bash
+cd /home/runner/work/solune/solune/solune/frontend
+npm run type-check
+npm run lint
+npm run build
+```
+
+### Artifact lint
+
+```bash
+cd /home/runner/work/solune/solune
+npx --yes markdownlint-cli plan.md research.md data-model.md quickstart.md contracts/mcp-catalog-contract.yaml --config solune/.markdownlint.json
+```
+
+## Manual Verification
+
+1. Start the backend and frontend in your normal development environment.
+2. Open the Tools page for a project with repository access.
+3. Scroll to **Browse MCP Servers**.
+4. Search for `github`.
+5. Apply and clear one category chip.
+6. Click **Import** on a non-installed server.
+7. Confirm:
+   - the imported tool appears in the archive
+   - the card flips to **Installed**
+   - repo MCP details remain intact
+8. Click **Sync to Repo** for the imported tool.
+9. Confirm the repository `mcp.json` contains the new `mcpServers` entry.
 
 ## Troubleshooting
 
-### Build fails with "Cannot find module CelestialCatalogHero"
+### Catalog section shows an error immediately
 
-Ensure all 6 pages have updated their imports from `CelestialCatalogHero` to `CompactPageHeader`.
+- Verify the backend can reach the Glama endpoint.
+- Confirm stale cache behavior using backend logs or tests.
+- Retry the targeted backend catalog tests to isolate whether the failure is upstream parsing or network-related.
 
-### Tests fail referencing "Current Ritual"
+### Import fails for a specific server
 
-The `CelestialCatalogHero.test.tsx` file should be deleted, not updated. The `CompactPageHeader.test.tsx` replaces it.
+- Inspect the server's normalized `install_config`.
+- Check whether the transport is unsupported or missing required fields.
+- Confirm the server is not already imported for the current project.
 
-### Dark mode looks broken on ProjectsPage/AgentsPipelinePage
+### Installed badge does not update after import
 
-The `.dark .projects-catalog-hero` CSS overrides have been removed. Since `CompactPageHeader` doesn't use the `projects-catalog-hero` className, these overrides are no longer needed. Verify that `CompactPageHeader` renders correctly in both light and dark modes without special overrides.
+- Verify the import mutation invalidates tools, repo MCP, and catalog query keys.
+- Confirm the imported tool name matches the normalized catalog server name used for installed-state detection.
