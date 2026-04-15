@@ -490,6 +490,7 @@ class AppPlanOrchestrator:
             github_user_id="orchestrator",
             github_username="orchestrator",
         )
+        target_repo = (owner, repo) if owner and repo else None
 
         for wave_idx, wave in enumerate(waves):
             for phase in wave:
@@ -511,7 +512,7 @@ class AppPlanOrchestrator:
                         session=session,
                         auto_merge=True,
                         prerequisite_issues=prereq_issues or None,
-                        target_repo=(owner, repo),
+                        target_repo=target_repo,
                     )
                     logger.info(
                         "Launched pipeline for Phase %d (wave %d, prerequisites: %s)",

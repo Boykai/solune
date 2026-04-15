@@ -2276,6 +2276,8 @@ class TestReconstructPipelineState:
         assert result.completed_agents == ["speckit.specify", "speckit.plan"]
         assert result.current_agent_index == 2
         assert result.current_agent == "speckit.tasks"
+        assert result.repository_owner == "owner"
+        assert result.repository_name == "repo"
         mock_set_state.assert_called_once()
 
     @pytest.mark.asyncio
