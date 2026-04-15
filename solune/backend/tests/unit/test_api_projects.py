@@ -10,12 +10,13 @@ Covers:
 - WebSocket subscribe (send_tasks / disconnect)
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from githubkit.exception import PrimaryRateLimitExceeded, RequestFailed
 
-from src.api.projects import _is_github_rate_limit_error, _start_copilot_polling
+from src.api.projects import _is_github_rate_limit_error, _start_copilot_polling, select_project
 from src.models.project import GitHubProject, StatusColumn
 from src.models.task import Task
 
@@ -156,6 +157,29 @@ class TestSelectProject:
         warmup.assert_called_once()
         assert mock_log_event.await_args.kwargs["action"] == "selected"
         assert mock_log_event.await_args.kwargs["detail"] == {"project_name": "Test Project"}
+
+    async def test_select_project_reuses_verified_projects_from_dependency(self, mock_session):
+        p = _project()
+        request = SimpleNamespace(state=SimpleNamespace(verified_projects=[p]))
+
+        with (
+            patch(
+                "src.api.projects.get_project",
+                new_callable=AsyncMock,
+                side_effect=AssertionError("select_project should reuse verified_projects"),
+            ) as get_project,
+            patch("src.api.projects.github_auth_service.update_session", new_callable=AsyncMock),
+            patch("src.api.projects._start_copilot_polling", new_callable=AsyncMock),
+            patch("src.api.projects._schedule_board_warmup", return_value=True) as warmup,
+            patch("src.api.projects.get_db", return_value=MagicMock()),
+            patch("src.api.projects.log_event", new_callable=AsyncMock),
+        ):
+            response = await select_project(request, "PVT_abc", mock_session)
+
+        assert response.selected_project_id == "PVT_abc"
+        assert response.board_warmup_started is True
+        get_project.assert_not_awaited()
+        warmup.assert_called_once_with(mock_session, "PVT_abc")
 
     async def test_select_nonexistent_project(self, client, mock_github_service):
         mock_github_service.list_user_projects.return_value = []

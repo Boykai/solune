@@ -430,4 +430,26 @@ describe('ProjectsPage', () => {
       )
     ).toBeInTheDocument();
   });
+
+  it('shows a background reconciliation notice without reusing the done-history copy', () => {
+    mocks.projectBoard.boardData.load_state = {
+      phase: 'reconciling',
+      active_columns_ready: true,
+      done_column_source: 'live',
+      warmed_by_selection: false,
+      pending_sections: ['reconciliation'],
+      last_completed_at: null,
+    };
+
+    render(<ProjectsPage />);
+
+    expect(
+      screen.getByText('Checking for recently added board items in the background.')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Showing cached Done history while GitHub finishes refreshing historical sub-issues.'
+      )
+    ).not.toBeInTheDocument();
+  });
 });
