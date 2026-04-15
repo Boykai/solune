@@ -1,7 +1,7 @@
 /**
  * ConfirmChoreModal — two-step confirmation modal for new Chore creation.
  *
- * Step 1: Informs the user the Chore will be automatically added to the repo.
+ * Step 1: Informs the user the Chore will be saved.
  * Step 2: Final confirmation to create the Chore.
  */
 
@@ -64,11 +64,10 @@ function ConfirmChoreModalContent({
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
               <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground">Add Chore to Repository</h3>
+            <h3 className="text-lg font-semibold text-foreground">Create New Chore</h3>
             <p className="text-sm text-muted-foreground">
-              Creating <strong>&ldquo;{choreName}&rdquo;</strong> will automatically add a Chore
-              file to your code repository and create a Pull Request that will be auto-merged into
-              main.
+              Creating <strong>&ldquo;{choreName}&rdquo;</strong> will save the chore definition
+              and enable scheduling for this project.
             </p>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={onCancel}>
@@ -84,8 +83,8 @@ function ConfirmChoreModalContent({
             </div>
             <h3 className="text-lg font-semibold text-foreground">Confirm Chore Creation</h3>
             <p className="text-sm text-muted-foreground">
-              This will create a GitHub Issue, open a PR with the new Chore definition file, and
-              automatically merge it into main. This action cannot be undone.
+              This will create a GitHub Issue and save the chore definition to the database.
+              You can schedule, trigger, or pause it at any time.
             </p>
             <div className="flex gap-3 pt-2">
               <Button variant="outline" onClick={() => setStep(1)} disabled={isLoading}>

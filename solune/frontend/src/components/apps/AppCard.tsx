@@ -162,17 +162,15 @@ export function AppCard({
             <Square aria-hidden="true" className="h-3 w-3" /> Stop
           </button>
         )}
-        {app.status !== 'active' && (
-          <button
-            type="button"
-            aria-label={`Delete app ${app.display_name}`}
-            disabled={isDeletePending}
-            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50"
-            onClick={() => onDelete(app.name)}
-          >
-            <Trash2 aria-hidden="true" className="h-3 w-3" /> Delete
-          </button>
-        )}
+        <button
+          type="button"
+          aria-label={`Delete app ${app.display_name}`}
+          disabled={isDeletePending}
+          className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50"
+          onClick={() => onDelete(app.name)}
+        >
+          <Trash2 aria-hidden="true" className="h-3 w-3" /> Delete
+        </button>
       </div>
     </div>
   );

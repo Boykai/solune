@@ -370,7 +370,11 @@ describe('AgentsPanel', () => {
 
     render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
 
-    await user.click(screen.getByRole('button', { name: 'Import' }));
+    // Expand the catalog tile by clicking it
+    await user.click(screen.getByRole('button', { name: /Catalog Alpha/i }));
+
+    // Click the import button inside the expanded tile
+    await user.click(screen.getByRole('button', { name: 'Import to project' }));
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith({
