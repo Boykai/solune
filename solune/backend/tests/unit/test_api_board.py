@@ -5,7 +5,6 @@ Covers:
 - GET /api/v1/board/projects/{project_id} → get_board_data
 """
 
-import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -137,14 +136,16 @@ class TestListBoardProjects:
         assert resp.status_code == 200
         mock_github_service.list_user_projects.assert_called_once()
 
-    async def test_refresh_uses_shared_user_projects_inflight_key(self, client):
+    async def test_refresh_uses_shared_user_projects_inflight_key(self, client, mock_session):
         gp = _make_github_project()
         with patch("src.api.board.coalesced_fetch") as mock_coalesced_fetch:
             mock_coalesced_fetch.return_value = [gp]
             resp = await client.get("/api/v1/board/projects", params={"refresh": True})
 
         assert resp.status_code == 200
-        assert mock_coalesced_fetch.await_args.args[0] == get_user_projects_cache_key("12345")
+        assert mock_coalesced_fetch.await_args.args[0] == get_user_projects_cache_key(
+            mock_session.github_user_id
+        )
 
     async def test_github_api_error(self, client, mock_github_service):
         mock_github_service.list_user_projects.side_effect = RuntimeError("network")
