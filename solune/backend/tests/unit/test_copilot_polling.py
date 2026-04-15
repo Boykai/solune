@@ -2283,7 +2283,9 @@ class TestReconstructPipelineState:
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.github_projects_service")
     @patch("src.services.copilot_polling.set_pipeline_state")
-    async def test_reconstructed_state_preserves_repository_fields(self, mock_set_state, mock_service):
+    async def test_reconstructed_state_preserves_repository_fields(
+        self, mock_set_state, mock_service
+    ):
         """Reconstructed pipeline state must carry repository_owner and repository_name."""
         mock_service.get_issue_with_comments = AsyncMock(
             return_value={"comments": [{"body": "copilot: Done!"}]}
@@ -2301,6 +2303,10 @@ class TestReconstructPipelineState:
 
         assert result.repository_owner == "external-org"
         assert result.repository_name == "external-repo"
+        mock_set_state.assert_called_once()
+        persisted_state = mock_set_state.call_args.args[1]
+        assert persisted_state.repository_owner == "external-org"
+        assert persisted_state.repository_name == "external-repo"
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.github_projects_service")
