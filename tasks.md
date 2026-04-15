@@ -1,167 +1,154 @@
-# Tasks: Simplify Page Headers for Focused UI
+# Tasks: MCP Catalog on Tools Page
 
-**Feature**: `001-simplify-page-headers` | **Branch**: `001-simplify-page-headers`
-**Input**: Design documents from `specs/001-simplify-page-headers/`
-**Prerequisites**: plan.md ✅, spec.md ✅, data-model.md ✅, research.md ✅, quickstart.md ✅, contracts/compact-page-header-contract.yaml ✅
+**Feature**: `006-mcp-catalog-tools-page` | **Branch**: `copilot/add-mcp-catalog-tools-page`
+**Input**: Design documents located in the repository root directory `/home/runner/work/solune/solune/`
+**Prerequisites**: `/home/runner/work/solune/solune/plan.md` ✅, `/home/runner/work/solune/solune/spec.md` ✅, `/home/runner/work/solune/solune/research.md` ✅, `/home/runner/work/solune/solune/data-model.md` ✅, `/home/runner/work/solune/solune/quickstart.md` ✅, `/home/runner/work/solune/solune/contracts/mcp-catalog-contract.yaml` ✅
 
-**Tests**: Included — spec.md SC-004 and SC-008 require regression-free test, lint, and type-check passes. Regression-validation test tasks are included in each user story phase and in the final polish phase.
+**Tests**: Included. The specification explicitly requires backend, frontend, and manual verification for browse, import, installed-state detection, and repo sync.
 
-**Organization**: Tasks are grouped by user story in priority order from spec.md (P1 → P2 → P3). Each phase is independently testable. Setup/foundational/polish phases carry no story label; user story phases carry [US#] labels.
+**Organization**: Tasks are grouped by user story so each story can be implemented, verified, and demoed independently while still following the backend → frontend dependency chain in the plan.
 
-## Format: `- [ ] T### [P?] [US#?] Description with file path`
+## Format: `- [ ] T### [P?] [US#?] Description with file path` (use `- [x] ...` / `- [X] ...` when completed)
 
-- **[P]**: Can run in parallel (different files, no unmet dependencies)
-- **[US#]**: User story this task belongs to — required on all user story phase tasks
-- **No [US#]**: Setup, Foundational, and Polish phases only
-- Include exact absolute or repo-root-resolvable file paths in every task description
+- **[P]**: Task can run in parallel with other marked tasks once its dependencies are met.
+- **[US#]**: Required on all user story tasks and omitted on Setup, Foundational, and Polish tasks.
+- Every task below includes at least one exact file path.
 
 ## Path Conventions
 
-- **Frontend root**: `solune/frontend`
-- **Component**: `solune/frontend/src/components/common/CompactPageHeader.tsx`
-- **Component tests**: `solune/frontend/src/components/common/CompactPageHeader.test.tsx`
-- **Pages**: `solune/frontend/src/pages/{Page}Page.tsx`
-- **Global stylesheet**: `solune/frontend/src/index.css`
-- **Validation**: `cd solune/frontend && npm run {test|lint|type-check}`
+- **Backend root**: `/home/runner/work/solune/solune/solune/backend`
+- **Frontend root**: `/home/runner/work/solune/solune/solune/frontend`
+- **Backend catalog API**: `/home/runner/work/solune/solune/solune/backend/src/api/tools.py`
+- **Backend catalog models**: `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
+- **Backend catalog service**: `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py`
+- **Frontend tools panel**: `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolsPanel.tsx`
+- **Frontend browse UI**: `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx`
+- **Frontend hooks**: `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts`
+- **Frontend API client**: `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
+- **Validation**: `/home/runner/work/solune/solune/quickstart.md`
 
 ---
 
-## Phase 1: Setup (Baseline Audit)
+## Phase 1: Setup (Shared Implementation Baseline)
 
-**Purpose**: Inventory the existing component contract, current hero usage on each page, and capture the pre-migration test baseline. No code changes are made in this phase; it provides the ground truth that makes all subsequent phases specific and safe.
+**Purpose**: Prepare the feature-specific test and contract scaffolding that guides the backend and frontend work.
 
-- [ ] T001 Audit `solune/frontend/src/components/common/CompactPageHeader.tsx` against `specs/001-simplify-page-headers/contracts/compact-page-header-contract.yaml` — confirm props (eyebrow, title, description, badge, stats, actions, className), no `note` prop, stat chip type (`CompactPageHeaderStat`), and mobile toggle presence
-- [ ] T002 [P] Audit all six page files for current `CelestialCatalogHero` usage so T008–T013 have exact prop mappings for `solune/frontend/src/pages/ProjectsPage.tsx`, `solune/frontend/src/pages/AgentsPage.tsx`, `solune/frontend/src/pages/AgentsPipelinePage.tsx`, `solune/frontend/src/pages/ToolsPage.tsx`, `solune/frontend/src/pages/ChoresPage.tsx`, and `solune/frontend/src/pages/HelpPage.tsx`
-- [ ] T003 [P] Locate `CelestialCatalogHero` source and test files — search `solune/frontend/src/components/` to confirm exact deletion paths before Phase 8
-- [ ] T004 Run baseline test suite to capture pre-migration green state: `cd solune/frontend && npm run test`
+- [X] T001 Create backend catalog test coverage scaffold in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for browse, import, cache, duplicate, and sync-ready config scenarios
+- [X] T002 [P] Create frontend catalog test coverage scaffold in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`
+- [X] T003 [P] Align the browse/import contract details in `/home/runner/work/solune/solune/contracts/mcp-catalog-contract.yaml` with `/home/runner/work/solune/solune/plan.md`, `/home/runner/work/solune/solune/spec.md`, and `/home/runner/work/solune/solune/data-model.md` before wiring implementation files
 
-**Checkpoint**: Audit complete — component contract confirmed, hero prop shapes per page documented, CelestialCatalogHero file paths noted, baseline tests green.
-
----
-
-## Phase 2: Foundational (Component Implementation and Testing)
-
-**Purpose**: Ensure `CompactPageHeader.tsx` fully satisfies FR-001 through FR-009 and has test coverage for all spec-required behaviors. This is the single blocking prerequisite for all user story phases.
-
-**⚠️ CRITICAL**: No user story work (page migrations, dead code removal) can begin until this phase is complete and its tests pass.
-
-- [ ] T005 Update `solune/frontend/src/components/common/CompactPageHeader.tsx` to establish the shared compact-header foundation: compact desktop layout (~80–100px), no decorative hero elements, badge/actions collapse cleanly when absent, no `note` prop accepted, and `className` forwarded to the root `<header>` via `cn()`
-- [ ] T006 Update `solune/frontend/src/components/common/CompactPageHeader.test.tsx` to cover the shared compact-header foundation: minimal props render (eyebrow + title + description), badge absent renders no badge element, actions slot renders children, no decorative hero markup is present, and `className` forwards to the root element
-- [ ] T007 Run tests to confirm CompactPageHeader baseline meets spec: `cd solune/frontend && npm run test`
-
-**Checkpoint**: `CompactPageHeader` meets full spec contract. All component tests pass. Page migrations can now begin.
+**Checkpoint**: Test targets, contract expectations, and file touchpoints are explicit before shared code starts.
 
 ---
 
-## Phase 3: User Story 1 — Compact Page Header Replaces Oversized Hero (Priority: P1) 🎯 MVP
+## Phase 2: Foundational (Blocking Prerequisites)
 
-**Goal**: Replace `CelestialCatalogHero` with `CompactPageHeader` on all six affected pages, reducing header height from ~350–450px to ~80–100px and eliminating all decorative hero elements (orbits, stars, beams, moonwell cards, "Current Ritual" aside).
+**Purpose**: Add the shared backend and frontend primitives that every user story relies on.
 
-**Independent Test**: Navigate to any of the 6 affected pages. Confirm: (1) header occupies ~80–100px, (2) eyebrow, title, badge (if provided), and action buttons appear in a single row, (3) no decorative hero elements visible, (4) no `note`/"Current Ritual" aside present.
+**⚠️ CRITICAL**: No user story work should begin until these shared models, services, and client primitives exist.
 
-- [ ] T008 [P] [US1] Replace `CelestialCatalogHero` with `CompactPageHeader` in `solune/frontend/src/pages/ProjectsPage.tsx`: update import, map eyebrow/title/description/badge (project badge)/stats (heroStats array)/actions (two anchor actions) to `CompactPageHeader` props, remove all `note` and hero-class props
-- [ ] T009 [P] [US1] Replace `CelestialCatalogHero` with `CompactPageHeader` in `solune/frontend/src/pages/AgentsPage.tsx`: update import, map eyebrow/title/description/badge (repo badge)/stats (four stat chips from board query)/actions (two anchor actions) to `CompactPageHeader` props, remove `note` prop
-- [ ] T010 [P] [US1] Replace `CelestialCatalogHero` with `CompactPageHeader` in `solune/frontend/src/pages/AgentsPipelinePage.tsx`: update import, map eyebrow/title/description/badge (project badge)/stats (pipeline-related stats)/actions (two actions: editor + saved-workflow entry) to `CompactPageHeader` props, remove `note` prop
-- [ ] T011 [P] [US1] Replace `CelestialCatalogHero` with `CompactPageHeader` in `solune/frontend/src/pages/ToolsPage.tsx`: update import, map eyebrow/title/description/badge (repo badge)/stats (repository + project stats)/actions (three action buttons) to `CompactPageHeader` props, remove `note` prop
-- [ ] T012 [P] [US1] Replace `CelestialCatalogHero` with `CompactPageHeader` in `solune/frontend/src/pages/ChoresPage.tsx`: update import, map eyebrow/title/description/badge (repo badge)/stats (four stat chips from board/workflow query)/actions (two actions) to `CompactPageHeader` props, remove `note` prop
-- [ ] T013 [P] [US1] Replace `CelestialCatalogHero` with `CompactPageHeader` in `solune/frontend/src/pages/HelpPage.tsx`: update import, map eyebrow/title/description/actions (one action) to `CompactPageHeader` props — omit `stats` and `badge` entirely (data-model confirms HelpPage has no stats), remove `note` prop
-- [ ] T014 [US1] Review and update page-level header tests in `solune/frontend/src/pages/ProjectsPage.test.tsx`, `solune/frontend/src/pages/AgentsPage.test.tsx`, `solune/frontend/src/pages/AgentsPipelinePage.test.tsx`, `solune/frontend/src/pages/ToolsPage.test.tsx`, `solune/frontend/src/pages/ChoresPage.test.tsx`, and `solune/frontend/src/pages/HelpPage.test.tsx` so `CompactPageHeader` assertions and mocked actions match the migrated page props
-- [ ] T015 [US1] Run regression tests to confirm US1 delivery with no regressions: `cd solune/frontend && npm run test`
+- [X] T004 Add `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and `ImportCatalogMcpRequest` to `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
+- [X] T005 [P] Create the shared Glama catalog service structure in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` with allowlisted upstream constants, TTL cache helpers, normalization helpers, and import-mapping helpers
+- [X] T006 [P] Add `CatalogInstallConfig`, `CatalogMcpServer`, and related schema/types to `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
+- [X] T007 Wire shared catalog query keys, browse helpers, and mutation invalidation helpers in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
 
-**Checkpoint**: All six pages render compact headers. No TypeScript errors. No test regressions. US1 is independently demonstrable.
+**Checkpoint**: Shared models, service scaffolding, and client primitives are ready; browse and import stories can now build on the same contract.
 
 ---
 
-## Phase 4: User Story 2 — Stats Displayed as Compact Chips (Priority: P1)
+## Phase 3: User Story 1 - Browse MCP Server Catalog (Priority: P1) 🎯 MVP
 
-**Goal**: Confirm stats render as small pill/chip elements inline within the header on each page that provides stats data — not as large moonwell cards. HelpPage (no stats) must render cleanly with no empty placeholder space.
+**Goal**: Let users browse Glama-backed MCP servers on the Tools page with text search, category filters, responsive cards, and resilient loading/error behavior.
 
-**Independent Test**: Navigate to the Projects page. Confirm each stat (e.g., "Board columns", "Project") appears as a compact pill with a label and value. No stat spans full card height. Navigate to HelpPage and confirm no stat rail or empty region is visible.
+**Independent Test**: Open the Tools page, scroll to the MCP catalog section, search for `github`, switch category chips, and confirm the card grid updates while loading, empty, and retry states remain understandable.
 
-- [ ] T016 [US2] Update stat chip markup in `solune/frontend/src/components/common/CompactPageHeader.tsx` so each `CompactPageHeaderStat` renders as a visually-distinct pill showing both `label` and `value`, chips stay inline on desktop, and the stats container does not render when `stats` is undefined or empty
-- [ ] T017 [US2] Add stat chip regression tests to `solune/frontend/src/components/common/CompactPageHeader.test.tsx`: (1) three-chip scenario — verify each chip shows its label and value text, (2) HelpPage scenario — pass no `stats` prop and assert the stats container is absent from the DOM, (3) single chip scenario — verify no layout overflow
-- [ ] T018 [US2] Run tests to confirm US2 stat chip behavior: `cd solune/frontend && npm run test`
+### Tests for User Story 1
 
-**Checkpoint**: Stat chips render correctly on stats-bearing pages; HelpPage renders cleanly with no stat region. US2 independently verifiable.
+- [X] T008 [P] [US1] Add backend browse tests in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for Glama response normalization, one-hour stale-fallback caching, SSRF-safe upstream validation, category filtering, and catalog-unavailable error handling
+- [X] T009 [P] [US1] Add browse response schema validation coverage to `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` for `CatalogMcpServerListResponse` parsing and invalid payload rejection
 
----
+### Implementation for User Story 1
 
-## Phase 5: User Story 6 — Existing Functionality Preserved (Priority: P1)
+- [X] T010 [US1] Implement Glama fetch, payload normalization, query/category filtering, and stale-fallback cache reads in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py`
+- [X] T011 [US1] Add `GET /api/v1/tools/{project_id}/catalog` to `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` using the shared models from `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
+- [X] T012 [P] [US1] Implement `toolsApi.browseCatalog()` in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `useMcpCatalog(projectId, query, category)` in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts`
+- [X] T013 [P] [US1] Build the browse/search/filter UI in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` with search input, category chips, card grid, quality/type badges, and loading/error/empty states, then cover those states in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`
+- [X] T014 [US1] Integrate `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` into `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolsPanel.tsx` between the presets gallery and tool archive, and update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`
 
-**Goal**: Confirm that replacing the hero header has introduced zero regressions — all action buttons, page navigation, content filters, and data display below the header work identically to the pre-migration behavior.
-
-**Independent Test**: On each of the 6 pages, click every action button in the header and confirm it triggers the same behavior as before (navigation, modal open, filter toggle, etc.). Use all page-level filters and verify content below the header is unaffected.
-
-- [ ] T019 [US6] Verify action button handlers and routing are unchanged in `solune/frontend/src/pages/ProjectsPage.tsx` and `solune/frontend/src/pages/AgentsPage.tsx` after migration — confirm no `onClick`, `href`, or `to` prop was altered during the hero swap
-- [ ] T020 [P] [US6] Verify action button handlers and routing are unchanged in `solune/frontend/src/pages/AgentsPipelinePage.tsx`, `solune/frontend/src/pages/ToolsPage.tsx`, `solune/frontend/src/pages/ChoresPage.tsx`, and `solune/frontend/src/pages/HelpPage.tsx` after migration
-- [ ] T021 [US6] Add actions-slot regression tests to `solune/frontend/src/components/common/CompactPageHeader.test.tsx`: verify that `actions` children render and that simulated click events on action children propagate correctly (no swallowed events)
-- [ ] T022 [US6] Run full regression test suite: `cd solune/frontend && npm run test`
-- [ ] T023 [US6] Run lint and type-check to confirm no new errors introduced by page migrations: `cd solune/frontend && npm run lint && npm run type-check`
-
-**Checkpoint**: All existing functionality preserved. SC-004 (tests pass), SC-005 (actions work), SC-008 (lint/types clean) are satisfied. US6 independently verifiable.
+**Checkpoint**: Users can browse and filter the catalog independently of import or repo sync.
 
 ---
 
-## Phase 6: User Story 3 — Description Shown as Single-Line Subtitle (Priority: P2)
+## Phase 4: User Story 2 - Import MCP Server from Catalog (Priority: P1)
 
-**Goal**: Confirm the page description renders as a truncated single-line subtitle by default, with the full text revealed when the user hovers over it. No description causes the header to grow beyond its compact height.
+**Goal**: Let users import a selected catalog server into the existing MCP tool archive with transport-aware config mapping and immediate UI feedback.
 
-**Independent Test**: Navigate to any page with a long description. Confirm the description is truncated with an ellipsis on initial render (one visible line). Hover over the description and confirm the full text expands. The header must not jump to a taller height on page load.
+**Independent Test**: From the catalog section, click `Import` on an HTTP, SSE, or stdio server and confirm the tool archive updates, the request handles errors cleanly, and the card flips to `Installed` when import succeeds.
 
-- [ ] T024 [US3] Update the description element in `solune/frontend/src/components/common/CompactPageHeader.tsx` to use Tailwind `line-clamp-1` by default, `group-hover:line-clamp-none` (or equivalent) for expand-on-hover, and a parent `group` class for hover propagation
-- [ ] T025 [US3] Confirm all six page description strings are passed as the `description` prop to `CompactPageHeader` in their respective page files (`solune/frontend/src/pages/ProjectsPage.tsx` through `HelpPage.tsx`) and that none apply additional container styles overriding truncation behavior
-- [ ] T026 [US3] Add description truncation regression tests to `solune/frontend/src/components/common/CompactPageHeader.test.tsx`: assert the description element has the `line-clamp-1` CSS class, assert the parent container has the `group` class, assert long description text is present in the DOM (truncation is CSS-only, not text-slicing)
-- [ ] T027 [US3] Run tests to confirm US3 subtitle behavior: `cd solune/frontend && npm run test`
+### Tests for User Story 2
 
-**Checkpoint**: Description single-line truncation verified via CSS class assertions. Hover-expand behavior confirmed in markup. US3 independently verifiable.
+- [X] T015 [P] [US2] Add import tests in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for supported transport mapping, malformed install configs, duplicate import rejection, and not-found catalog IDs
+- [X] T016 [P] [US2] Add import client and mutation tests in `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` and `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` for success, conflict, and validation-error flows
 
----
+### Implementation for User Story 2
 
-## Phase 7: User Story 4 — Mobile-Friendly Header Layout (Priority: P2)
+- [X] T017 [US2] Implement `import_from_catalog()` in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` so `http`, `sse`, `stdio`, and `local` install configs become sync-ready `mcpServers` JSON snippets for `McpToolConfig.config_content`
+- [X] T018 [US2] Add `POST /api/v1/tools/{project_id}/catalog/import` to `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` with duplicate prevention and existing tool-service reuse
+- [X] T019 [P] [US2] Implement `toolsApi.importFromCatalog()` in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `useImportMcpServer(projectId)` in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` with catalog, tools, and repo-MCP query invalidation
+- [X] T020 [US2] Update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` so each card shows `Import`, pending, `Installed`, and user-friendly error states
 
-**Goal**: Confirm the compact header adapts gracefully to mobile viewports (≤768px): elements stack or wrap without horizontal overflow, stats are hidden behind an accessible toggle by default, and action buttons remain visible and tappable.
-
-**Independent Test**: Open any affected page at ≤768px viewport width. Confirm: (1) no horizontal scrollbar, (2) stats section is not visible on initial load, (3) a toggle control is present, (4) clicking the toggle reveals the stats section, (5) action buttons are accessible and tappable.
-
-- [ ] T028 [US4] Update responsive Tailwind classes in `solune/frontend/src/components/common/CompactPageHeader.tsx` so stats stay hidden below the mobile breakpoint by default, the stats toggle renders only when `stats` are present at narrow widths, and action buttons remain visible on mobile
-- [ ] T029 [US4] Verify the stats mobile toggle button in `solune/frontend/src/components/common/CompactPageHeader.tsx` is accessible: it must have `aria-expanded` attribute reflecting the open/closed disclosure state and `aria-controls` referencing the stats region ID, with a descriptive label (e.g., "Show stats" / "Hide stats")
-- [ ] T030 [US4] Add mobile behavior regression tests to `solune/frontend/src/components/common/CompactPageHeader.test.tsx`: (1) stats container has `hidden` class or is absent from rendered output on initial render when stats are provided, (2) clicking the toggle button causes the stats container to become visible, (3) action buttons are present in the DOM regardless of stats toggle state
-- [ ] T031 [US4] Run tests to confirm US4 mobile behavior: `cd solune/frontend && npm run test`
-
-**Checkpoint**: Mobile layout confirmed via class and DOM assertions. Stats toggle accessibility verified. US4 independently verifiable.
+**Checkpoint**: A catalog entry can be imported into the standard MCP tool archive without touching repo sync yet.
 
 ---
 
-## Phase 8: User Story 5 — Dead Code and Orphaned Styles Removed (Priority: P3)
+## Phase 5: User Story 3 - Sync Imported MCP Server to Repository (Priority: P2)
 
-**Goal**: Delete the `CelestialCatalogHero` component and its test file now that all six pages have migrated, then remove only the CSS selectors in `index.css` that are exclusively scoped to the deleted hero. Shared celestial utilities must be preserved.
+**Goal**: Ensure imported catalog tools flow through the existing sync-to-repo path so `mcp.json` updates without any catalog-specific sync logic.
 
-**Independent Test**: Search the codebase for `CelestialCatalogHero` — zero references should remain. Search `index.css` for `catalog-hero-` — no orphaned selectors should remain. Run `npm run test && npm run lint && npm run type-check` — all pass. Confirm `.moonwell`, `.hanging-stars`, and `.celestial-*` classes still exist in `index.css`.
+**Independent Test**: Import a catalog server, click the existing `Sync to Repo` action on the archived tool, and confirm the repository `mcp.json` gains the expected `mcpServers` entry alongside any existing tools.
 
-- [ ] T032 [US5] Confirm zero `CelestialCatalogHero` references remain after Phase 3 migration: `grep -r "CelestialCatalogHero" solune/frontend/src` — output must be empty before proceeding to deletions
-- [ ] T033 [P] [US5] Delete the legacy hero component file `solune/frontend/src/components/common/CelestialCatalogHero.tsx` if it still exists after T032 confirms no remaining imports
-- [ ] T034 [P] [US5] Delete the legacy hero test file `solune/frontend/src/components/common/CelestialCatalogHero.test.tsx` if it still exists after T032 confirms no remaining imports
-- [ ] T035 [US5] Audit `solune/frontend/src/index.css` for selectors exclusively scoped to the deleted hero: search for `catalog-hero-`, `projects-catalog-hero`, and any hero-specific animation keyframe names appearing only in hero-related rule blocks
-- [ ] T036 [US5] Remove orphaned hero-specific CSS rules from `solune/frontend/src/index.css` — remove `catalog-hero-*` selector blocks and `projects-catalog-hero` namespace rules; **DO NOT remove** `.moonwell` (used by 30+ components), `.hanging-stars` (used by LoginPage), or `.celestial-*` animation classes (used by CelestialLoader, Sidebar, AppLayout, and other components per specs/001-simplify-page-headers/research.md §R3)
-- [ ] T037 [US5] Confirm preserved shared CSS classes still exist in `solune/frontend/src/index.css` after cleanup: `grep -n "moonwell\|hanging-stars\|celestial-" solune/frontend/src/index.css` — all three must still appear
-- [ ] T038 [US5] Run full regression suite after dead code removal: `cd solune/frontend && npm run test && npm run lint && npm run type-check`
+### Tests for User Story 3
 
-**Checkpoint**: Zero `CelestialCatalogHero` references remain. Hero-specific CSS removed. Shared celestial classes preserved. SC-007 (zero references) and SC-008 (lint/types clean) satisfied. US5 independently verifiable.
+- [X] T021 [P] [US3] Add sync-readiness assertions to `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` proving imported `config_content` matches the `mcp.json` format consumed by `/home/runner/work/solune/solune/solune/backend/src/services/tools/service.py`
+
+### Implementation for User Story 3
+
+- [X] T022 [US3] Reuse the existing sync flow by ensuring `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` creates ordinary `McpToolConfig` records compatible with `/home/runner/work/solune/solune/solune/backend/src/services/tools/service.py` and existing `mcp.json` merge behavior
+- [X] T023 [P] [US3] Extend `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` to confirm imported catalog tools appear in the archive and remain syncable through the current UI workflow
+
+**Checkpoint**: Imported catalog tools behave exactly like manually created MCP tools during repo sync.
+
+---
+
+## Phase 6: User Story 4 - Already-Installed Detection (Priority: P2)
+
+**Goal**: Prevent duplicate imports by marking catalog cards as installed whenever the current project already contains the matching MCP tool.
+
+**Independent Test**: Import a server, return to the catalog, and confirm the same card shows `Installed`; remove the tool through existing archive flows, refresh the catalog query, and confirm the card can return to `Import`.
+
+### Tests for User Story 4
+
+- [X] T024 [P] [US4] Add installed-state coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` for matching and non-matching project tools
+
+### Implementation for User Story 4
+
+- [X] T025 [US4] Derive `already_installed` from current project tool names during catalog normalization in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` and surface it through `/home/runner/work/solune/solune/solune/backend/src/api/tools.py`
+- [X] T026 [US4] Update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` so refetched catalog cards swap between `Import` and `Installed` based on the current tool list
+
+**Checkpoint**: Installed-state feedback prevents duplicate imports and stays aligned with the actual project tool archive.
 
 ---
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-**Purpose**: Final regression gate across tests, lint, and types; browser smoke test across all 6 pages on both desktop and mobile viewports; confirm all success criteria from spec.md are met.
+**Purpose**: Run the planned backend, frontend, and manual verification steps once all user stories are complete.
 
-- [ ] T039 Run complete frontend test suite as final regression gate (SC-004): `cd solune/frontend && npm run test`
-- [ ] T040 [P] Run final ESLint check — zero new errors (SC-008): `cd solune/frontend && npm run lint`
-- [ ] T041 [P] Run final TypeScript type-check — zero new errors (SC-008): `cd solune/frontend && npm run type-check`
-- [ ] T042 [P] Confirm zero remaining `CelestialCatalogHero` or `catalog-hero` references as final cleanup check (SC-007): `grep -r "CelestialCatalogHero\|catalog-hero" solune/frontend/src`
-- [ ] T043 Browser smoke test — start dev server (`cd solune/frontend && npm run dev`) and manually verify on desktop viewport: all 6 pages (`/projects`, `/agents`, `/agents/pipeline`, `/tools`, `/chores`, `/help`) show compact header (~80–100px), no decorative hero elements, stats as chips, description truncated (SC-001 through SC-003)
-- [ ] T044 Browser smoke test on mobile viewport (≤768px) using the dev server from `solune/frontend` across `/projects`, `/agents`, `/agents/pipeline`, `/tools`, `/chores`, and `/help`: verify stats hidden behind toggle, action buttons accessible, no horizontal overflow, and header adapts without layout breaking (SC-006)
+- [X] T027 Run the backend catalog verification command from `/home/runner/work/solune/solune/quickstart.md` against `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py`
+- [X] T028 [P] Run the targeted frontend catalog tests from `/home/runner/work/solune/solune/quickstart.md` covering `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`
+- [X] T029 [P] Run the frontend safety checks from `/home/runner/work/solune/solune/quickstart.md` in `/home/runner/work/solune/solune/solune/frontend`: `npm run type-check`, `npm run lint`, and `npm run build`
+- [X] T030 [P] Execute the manual browse → import → sync verification flow from `/home/runner/work/solune/solune/quickstart.md` and confirm the synced repository `mcp.json` contains the imported `mcpServers` entry
 
-**Checkpoint**: All SC-001 through SC-008 satisfied. Feature complete.
+**Checkpoint**: The catalog feature is verified end to end across backend tests, frontend tests, and the manual sync workflow.
 
 ---
 
@@ -170,154 +157,103 @@
 ### Phase Dependencies
 
 ```text
-Phase 1 (Setup / Baseline Audit)          — no dependencies; start immediately
-  └─> Phase 2 (Foundational)              — BLOCKS all user story phases
-        └─> Phase 3 (US1, P1)             — 6 page migrations; all parallel
-              └─> Phase 4 (US2, P1)       — stat chip verification; pages must be stable
-                    └─> Phase 5 (US6, P1) — regression gate; US1 + US2 must be complete
-                          └─> Phase 6 (US3, P2) — description behavior; component stable
-                                └─> Phase 7 (US4, P2) — mobile behavior; component stable
-                                      └─> Phase 8 (US5, P3) — dead code removal; ALL pages migrated
-                                            └─> Final Phase (Polish)
+Phase 1 (Setup)
+  -> Phase 2 (Foundational)
+     -> Phase 3 (US1: Browse catalog)
+        -> Phase 4 (US2: Import catalog server)
+           -> Phase 5 (US3: Sync imported tool to repo)
+           -> Phase 6 (US4: Already-installed detection)
+              -> Final Phase (Polish)
 ```
 
 ### User Story Dependencies
 
-| Story | Priority | Depends On | Can Start After |
-|-------|----------|------------|-----------------|
-| US1 | P1 | Phase 2 (component ready) | T007 passes |
-| US2 | P1 | US1 complete (pages migrated) | T015 passes |
-| US6 | P1 | US1 + US2 complete | T018 passes |
-| US3 | P2 | US6 complete | T023 passes |
-| US4 | P2 | US3 complete | T027 passes |
-| US5 | P3 | US1 complete (all 6 pages migrated) | T015 passes |
+- **US1 (P1)**: Starts after Phase 2. No dependency on other user stories.
+- **US2 (P1)**: Depends on US1 browse surfaces existing so the import action has a visible catalog entry point.
+- **US3 (P2)**: Depends on US2 because sync-to-repo only applies after a catalog tool has been imported.
+- **US4 (P2)**: Depends on US1 and US2 because installed-state is derived from the browse response plus imported tool data.
 
 ### Within Each Phase
 
-- Phase 3 tasks T008–T013: all parallel (different page files, no inter-dependencies)
-- Phase 8 tasks T033–T034: parallel (different files)
-- Final Phase T040–T042: parallel (independent validation commands)
-- All regression-run tasks (T004, T007, T015, T018, T022, T027, T031, T038, T039) are sequential within their phase
+- Tests in each user story phase should be written first and fail before implementation begins.
+- Backend contract/model/service work should land before the frontend hook/UI task that consumes it.
+- Tasks marked **[P]** touch different files or can be prepared simultaneously from the same contract.
+- The Final Phase starts only after the desired user stories are complete.
+
+### Parallel Opportunities
+
+- **Setup**: T002 and T003 can run in parallel after T001 establishes the test target.
+- **Foundational**: T005 and T006 can run in parallel after T004 defines the shared backend models.
+- **US1**: T008 and T009 can run in parallel; T012 and T013 can run in parallel once T010 and T011 settle the browse contract.
+- **US2**: T015 and T016 can run in parallel; T019 can proceed in parallel with backend endpoint work once T017 is stable.
+- **US3**: T021 and T023 can run in parallel while T022 ensures the persisted payload stays sync-compatible.
+- **US4**: T024 can be split across backend and frontend test files in parallel before T025 and T026 land.
+- **Polish**: T028, T029, and T030 can run in parallel after T027 if the team wants separate owners for frontend tests, safety checks, and manual verification.
 
 ---
 
 ## Parallel Execution Examples Per Story
 
-### Phase 3 — US1: All 6 Page Migrations
+### User Story 1
 
-```bash
-# All 6 migration tasks execute simultaneously (different files, no blocking dependency):
-Task T008: "Migrate ProjectsPage.tsx — eyebrow/title/description/badge/heroStats/2 actions"
-Task T009: "Migrate AgentsPage.tsx — eyebrow/title/description/repoBadge/4 stat chips/2 actions"
-Task T010: "Migrate AgentsPipelinePage.tsx — eyebrow/title/description/projectBadge/pipeline stats/2 actions"
-Task T011: "Migrate ToolsPage.tsx — eyebrow/title/description/repoBadge/repo+project stats/3 actions"
-Task T012: "Migrate ChoresPage.tsx — eyebrow/title/description/repoBadge/4 stat chips/2 actions"
-Task T013: "Migrate HelpPage.tsx — eyebrow/title/description/1 action (no stats, no badge)"
+```text
+T008 backend browse tests in /home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py
+T009 frontend browse schema tests in /home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts
 ```
 
-### Phase 5 — US6: Verify Action Handlers Across Pages
+### User Story 2
 
-```bash
-# T019 and T020 can run in parallel (different page sets):
-Task T019: "Verify ProjectsPage.tsx and AgentsPage.tsx action handlers unchanged"
-Task T020: "Verify AgentsPipelinePage.tsx, ToolsPage.tsx, ChoresPage.tsx, HelpPage.tsx action handlers unchanged"
+```text
+T015 backend import tests in /home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py
+T016 frontend import mutation tests in /home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts and /home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx
 ```
 
-### Phase 8 — US5: Dead Code Deletion
+### User Story 3
 
-```bash
-# T033 and T034 run simultaneously (different files):
-Task T033: "Delete solune/frontend/src/components/common/CelestialCatalogHero.tsx"
-Task T034: "Delete solune/frontend/src/components/common/CelestialCatalogHero.test.tsx"
+```text
+T021 sync-readiness backend assertions in /home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py
+T023 archive and sync workflow frontend assertions in /home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx
 ```
 
-### Final Phase — Validation
+### User Story 4
 
-```bash
-# T040, T041, T042 run simultaneously (independent commands):
-Task T040: "npm run lint"
-Task T041: "npm run type-check"
-Task T042: "grep -r 'CelestialCatalogHero|catalog-hero' solune/frontend/src"
+```text
+Backend half of T024 in /home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py
+Frontend half of T024 in /home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx
 ```
-
----
-
-## Independent Test Criteria Per Story
-
-| Story | How to Verify Independently |
-|-------|----------------------------|
-| **US1** | Navigate to any of the 6 pages; confirm header ~80–100px, single-row layout, no decorative hero elements, no "Current Ritual" aside |
-| **US2** | Navigate to Projects or Agents page; confirm each stat renders as a pill chip with label + value; navigate to HelpPage and confirm no stat rail |
-| **US6** | Click every action button on each of the 6 pages; confirm behavior identical to pre-migration; run `npm run test` and confirm zero regressions |
-| **US3** | Navigate to any page with a long description; confirm one-line truncation with ellipsis; hover over description; confirm full text expands |
-| **US4** | View any affected page at ≤768px viewport; confirm stats hidden on load, toggle shows stats, action buttons visible and tappable, no horizontal overflow |
-| **US5** | Run `grep -r "CelestialCatalogHero" solune/frontend/src` → zero results; run `grep "catalog-hero" solune/frontend/src/index.css` → zero results; run `npm run test && npm run lint && npm run type-check` → all pass |
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (Phases 1–3, US1 only)
+### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Baseline audit (T001–T004)
-2. Complete Phase 2: Align `CompactPageHeader` component (T005–T007)
-3. Complete Phase 3: Migrate all 6 pages (T008–T015)
-4. **STOP and VALIDATE**: All 6 pages show compact header, `npm run test` passes
-5. Deploy/demo — users immediately see the full vertical-space benefit (US1 delivered)
+1. Complete Phase 1 and Phase 2.
+2. Deliver Phase 3 so users can browse and filter the MCP catalog on the Tools page.
+3. Validate the independent test for US1 before moving on.
 
 ### Incremental Delivery
 
-1. Phases 1–2 → Component ready, baseline green
-2. Phase 3 → 6 pages migrated → **MVP!** (US1 delivered; US2/US3/US4 are component-level behaviors already present)
-3. Phase 4 → Stat chip behavior locked in (US2)
-4. Phase 5 → Regression gate confirmed (US6)
-5. Phases 6–7 → Description and mobile behavior verified (US3, US4)
-6. Phase 8 → Codebase cleaned (US5)
-7. Final Phase → All SC-001 through SC-008 confirmed
+1. Deliver US1 browse so discovery value lands first.
+2. Add US2 import so discovery becomes actionable.
+3. Add US3 sync reuse so imported tools activate in `mcp.json`.
+4. Add US4 installed-state detection so duplicate prevention stays aligned with the archive.
+5. Finish with the planned automated and manual verification tasks.
 
-### Parallel Team Strategy
+### Suggested Team Split
 
-With multiple developers after Phase 2 completes:
-
-- **Developer A**: T008 (ProjectsPage) + T011 (ToolsPage)
-- **Developer B**: T009 (AgentsPage) + T012 (ChoresPage)
-- **Developer C**: T010 (AgentsPipelinePage) + T013 (HelpPage)
-
-Then any developer continues with T014 → T015 (regression check), followed by sequential US2 → US6 → US3 → US4 verification phases, and finally the US5 cleanup phase.
-
----
-
-## Summary
-
-| Metric | Value |
-|--------|-------|
-| **Total tasks** | 44 |
-| **Phase 1 (Setup)** | 4 tasks (T001–T004) |
-| **Phase 2 (Foundational)** | 3 tasks (T005–T007) |
-| **Phase 3 (US1 — P1)** | 8 tasks (T008–T015) |
-| **Phase 4 (US2 — P1)** | 3 tasks (T016–T018) |
-| **Phase 5 (US6 — P1)** | 5 tasks (T019–T023) |
-| **Phase 6 (US3 — P2)** | 4 tasks (T024–T027) |
-| **Phase 7 (US4 — P2)** | 4 tasks (T028–T031) |
-| **Phase 8 (US5 — P3)** | 7 tasks (T032–T038) |
-| **Final Phase (Polish)** | 6 tasks (T039–T044) |
-| **Tasks per user story** | US1: 8 · US2: 3 · US6: 5 · US3: 4 · US4: 4 · US5: 7 |
-| **Regression-validation test tasks** | 12 explicit validation task lines (some lines run multiple commands): T004, T007, T015, T018, T022, T023, T027, T031, T038, T039, T040, T041 |
-| **Parallel opportunities** | 6-way page migration (Phase 3); 2-way verification (Phase 5); 2-way deletion (Phase 8); 3-way final validation (Final Phase) |
-| **Suggested MVP scope** | Phases 1–3 (15 tasks: audit + component alignment + all 6 page migrations) |
-| **Independent test criteria** | Defined per user story in the table above |
-| **Format validation** | ✅ All 44 task lines follow `- [ ] T### [P?] [US#?] Description with file path`; setup/foundational/polish tasks carry no [US#]; user story tasks carry the correct [US1]–[US6] labels; no completed checkboxes; no sample template text remaining |
+1. One engineer handles backend models, service logic, and API routes in `/home/runner/work/solune/solune/solune/backend`.
+2. One engineer handles frontend types, hooks, and API client work in `/home/runner/work/solune/solune/solune/frontend/src/services`, `/home/runner/work/solune/solune/solune/frontend/src/hooks`, and `/home/runner/work/solune/solune/solune/frontend/src/types`.
+3. One engineer handles the browse UI and Tools page integration in `/home/runner/work/solune/solune/solune/frontend/src/components/tools`.
 
 ---
 
 ## Notes
 
-- **[P] marker**: Present only on tasks that touch different files with no unmet dependencies at time of execution
-- **[US#] label**: Required on all user story phase tasks; absent from setup, foundational, and polish phases
-- **CSS safety rule (specs/001-simplify-page-headers/research.md §R3)**: DO NOT remove `.moonwell`, `.hanging-stars`, or `.celestial-*` animation classes — confirmed shared across 30+ components; remove only `catalog-hero-*` and `projects-catalog-hero` namespace rules
-- **HelpPage special case**: Omit `stats` and `badge` props entirely — data-model confirms HelpPage has no stats; header must render cleanly without placeholder space
-- **`note` prop**: No page should pass a `note` prop; it is not in the component contract (compact-page-header-contract.yaml) and must be removed during Phase 3 migration
-- **Phase 8 gate**: Do not delete `CelestialCatalogHero` files (T033–T034) until T032 confirms zero references — all 6 page migrations must be complete first
-- **Regression-validation rationale**: Tests are required (not optional) for this feature because spec.md SC-004 and SC-008 explicitly mandate zero regression on `npm run test`, `npm run lint`, and `npm run type-check`
-- Commit after each task or logical group to keep diffs reviewable
-- Stop at Phase 3 checkpoint to validate MVP independently before continuing
+- Total tasks: 30
+- User story task counts: US1 = 7, US2 = 6, US3 = 3, US4 = 3
+- Setup tasks: 3
+- Foundational tasks: 4
+- Polish tasks: 4
+- Absolute repository paths are intentional because this task's generation instructions require absolute paths; replace the repository-root prefix if your local checkout lives outside `/home/runner/work/solune/solune/`.
+- All task lines follow the required `- [ ] T### [P?] [US#?] Description with file path` checklist format.

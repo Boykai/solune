@@ -212,12 +212,16 @@ describe('request URL and header construction', () => {
   it('toolsApi.importFromCatalog sends POST body', async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ id: 'tool-1', name: 'GitHub MCP' }));
 
-    await toolsApi.importFromCatalog('proj-1', { catalog_server_id: 'github-mcp' });
+    await toolsApi.importFromCatalog('proj-1', {
+      catalog_server_id: 'github-mcp',
+    });
 
     const [url, opts] = mockFetch.mock.calls[0];
     expect(url).toContain('/tools/proj-1/catalog/import');
     expect(opts.method).toBe('POST');
-    expect(JSON.parse(opts.body)).toEqual({ catalog_server_id: 'github-mcp' });
+    expect(JSON.parse(opts.body)).toEqual({
+      catalog_server_id: 'github-mcp',
+    });
   });
 });
 

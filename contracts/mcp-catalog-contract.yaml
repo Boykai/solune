@@ -1,0 +1,213 @@
+openapi: 3.1.0
+info:
+  title: Solune MCP Catalog API
+  version: 1.0.0
+  description: Browse and import external MCP servers for a Solune project.
+servers:
+  - url: /api/v1
+paths:
+  /tools/{project_id}/catalog:
+    get:
+      summary: Browse MCP catalog servers
+      operationId: browseMcpCatalog
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        '200':
+          description: Normalized catalog response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogMcpServerListResponse'
+        '502':
+          description: Upstream catalog returned an invalid or failed response
+        '503':
+          description: Catalog temporarily unavailable and no stale cache is available
+  /tools/{project_id}/catalog/import:
+    post:
+      summary: Import a catalog server into the project tool archive
+      operationId: importCatalogMcpServer
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportCatalogMcpRequest'
+      responses:
+        '201':
+          description: Imported MCP tool configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpToolConfigResponse'
+        '404':
+          description: Catalog server not found in the current catalog result set
+        '409':
+          description: Catalog server already imported for this project
+        '422':
+          description: Unsupported or malformed install configuration
+components:
+  schemas:
+    CatalogInstallConfig:
+      type: object
+      required:
+        - transport
+      properties:
+        transport:
+          type: string
+          description: Normalized transport type from the upstream catalog.
+        url:
+          type:
+            - string
+            - 'null'
+        command:
+          type:
+            - string
+            - 'null'
+        args:
+          type: array
+          items:
+            type: string
+          default: []
+        env:
+          type: object
+          additionalProperties: true
+          default: {}
+        headers:
+          type: object
+          additionalProperties: true
+          default: {}
+        tools:
+          type: array
+          items:
+            type: string
+          default: []
+    CatalogMcpServer:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - server_type
+        - install_config
+        - already_installed
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        repo_url:
+          type:
+            - string
+            - 'null'
+        category:
+          type:
+            - string
+            - 'null'
+        server_type:
+          type: string
+        install_config:
+          $ref: '#/components/schemas/CatalogInstallConfig'
+        quality_score:
+          type:
+            - string
+            - 'null'
+        already_installed:
+          type: boolean
+    CatalogMcpServerListResponse:
+      type: object
+      required:
+        - servers
+        - count
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogMcpServer'
+        count:
+          type: integer
+        query:
+          type:
+            - string
+            - 'null'
+        category:
+          type:
+            - string
+            - 'null'
+    ImportCatalogMcpRequest:
+      type: object
+      required:
+        - catalog_server_id
+      properties:
+        catalog_server_id:
+          type: string
+          minLength: 1
+    McpToolConfigResponse:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - endpoint_url
+        - config_content
+        - sync_status
+        - sync_error
+        - github_repo_target
+        - is_active
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        endpoint_url:
+          type: string
+        config_content:
+          type: string
+          description: Serialized `mcpServers` JSON snippet generated from the catalog install config.
+        sync_status:
+          type: string
+        sync_error:
+          type: string
+        synced_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        github_repo_target:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time

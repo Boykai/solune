@@ -1,12 +1,12 @@
-# Specification Quality Checklist: Simplify Page Headers for Focused UI
+# Specification Quality Checklist: MCP Catalog on Tools Page
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-04-11
+**Created**: 2026-04-15
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
 
-- [ ] No implementation details (languages, frameworks, APIs) — *spec.md Assumptions section references CSS line-clamp and pixel height targets as implementation hints*
+- [x] No implementation details (languages, frameworks, APIs)
 - [x] Focused on user value and business needs
 - [x] Written for non-technical stakeholders
 - [x] All mandatory sections completed
@@ -27,11 +27,12 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [ ] No implementation details leak into specification — *light implementation guidance present in Assumptions section*
+- [x] No implementation details leak into specification
 
 ## Notes
 
 - All checklist items pass. The specification is ready for `/speckit.clarify` or `/speckit.plan`.
-- The feature scope is well-bounded: 6 specific pages, one component replacement, and cleanup of dead code.
-- No [NEEDS CLARIFICATION] markers were needed — the parent issue provided clear decisions on all ambiguous aspects (big-bang rollout, single-line subtitle, mobile stats toggle).
-- Assumptions section documents all inferred defaults (height target as guideline, mobile breakpoints, hover behavior).
+- The feature scope is well-bounded: browse catalog, import servers, sync to repo, and installed-detection.
+- No [NEEDS CLARIFICATION] markers were needed — the parent issue provided clear decisions on all ambiguous aspects (Glama API as primary data source, Microsoft servers via category filter, import creates McpToolConfig, per-agent MCP assignment out of scope).
+- Assumptions section documents all inferred defaults (Glama API availability, standard performance expectations, existing Sync to Repo reuse).
+- Orphaned requirements from an unrelated "Apps" feature and duplicate FR numbering from the prior draft have been removed.
