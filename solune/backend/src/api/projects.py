@@ -345,21 +345,49 @@ async def _restore_app_pipelines_for_project(access_token: str, project_id: str)
     """Restore scoped app-pipeline polling for the selected project."""
     from src.config import get_settings
     from src.services.copilot_polling import ensure_app_pipeline_polling
-    from src.services.workflow_orchestrator import get_all_pipeline_states
+    from src.services.workflow_orchestrator import (
+        get_all_pipeline_states,
+        set_pipeline_state,
+    )
 
     settings = get_settings()
     default_owner = (settings.default_repo_owner or "").lower()
     default_repo = (settings.default_repo_name or "").lower()
 
     restored = 0
+    resolved_repo: tuple[str, str] | None = None
+    attempted_resolve = False
     for issue_number, state in get_all_pipeline_states().items():
         if getattr(state, "project_id", None) != project_id:
             continue
         if getattr(state, "is_complete", False):
             continue
 
-        owner = getattr(state, "repository_owner", "")
-        repo = getattr(state, "repository_name", "")
+        owner = getattr(state, "repository_owner", "") or ""
+        repo = getattr(state, "repository_name", "") or ""
+        if not owner or not repo:
+            if not attempted_resolve:
+                attempted_resolve = True
+                try:
+                    resolved_repo = await resolve_repository(access_token, project_id)
+                    logger.info(
+                        "Resolved project %s via GitHub API for app-pipeline → %s/%s",
+                        project_id,
+                        resolved_repo[0],
+                        resolved_repo[1],
+                    )
+                except Exception:
+                    logger.warning(
+                        "Could not resolve repository for project %s, "
+                        "scoped app-pipeline polling not restored",
+                        project_id,
+                    )
+                    resolved_repo = ("", "")
+            owner, repo = resolved_repo or ("", "")
+            if owner and repo:
+                state.repository_owner = owner
+                state.repository_name = repo
+                set_pipeline_state(issue_number, state)
         if not owner or not repo:
             continue
         if owner.lower() == default_owner and repo.lower() == default_repo:
