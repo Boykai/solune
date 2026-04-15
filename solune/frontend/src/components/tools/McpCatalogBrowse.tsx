@@ -71,7 +71,7 @@ function ServerCard({
   isImporting,
 }: {
   server: CatalogMcpServer;
-  onImport: (id: string) => void;
+  onImport: (server: CatalogMcpServer) => void;
   isImporting: boolean;
 }) {
   return (
@@ -112,7 +112,7 @@ function ServerCard({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onImport(server.id)}
+              onClick={() => onImport(server)}
               disabled={isImporting}
             >
               {isImporting ? (
@@ -142,8 +142,8 @@ export function McpCatalogBrowse({ projectId }: McpCatalogBrowseProps) {
 
   const { importServer, isImporting, importingId } = useImportMcpServer(projectId);
 
-  const handleImport = (serverId: string) => {
-    void importServer(serverId);
+  const handleImport = (server: CatalogMcpServer) => {
+    void importServer(server);
   };
 
   const handleCategoryToggle = (cat: string) => {

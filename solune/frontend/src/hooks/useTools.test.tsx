@@ -52,6 +52,7 @@ vi.mock('sonner', () => ({
 
 import * as api from '@/services/api';
 import { repoMcpKeys } from '@/hooks/useRepoMcpConfig';
+import type { CatalogMcpServer } from '@/types';
 import {
   catalogKeys,
   toolKeys,
@@ -343,13 +344,24 @@ describe('useImportMcpServer', () => {
 
   it('invalidates related caches after a successful import', async () => {
     mockToolsApi.importFromCatalog.mockResolvedValue({ id: 'tool-1', name: 'GitHub MCP' });
+    const server: CatalogMcpServer = {
+      id: 'github-mcp',
+      name: 'GitHub MCP',
+      description: 'GitHub integration',
+      server_type: 'http',
+      install_config: {
+        transport: 'http',
+        url: 'https://api.githubcopilot.com/mcp',
+      },
+      already_installed: false,
+    };
 
     const { queryClient, wrapper } = createWrapper();
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => useImportMcpServer('proj-1'), { wrapper });
 
     await act(async () => {
-      await result.current.importServer('github-mcp');
+      await result.current.importServer(server);
     });
 
     expect(mockToolsApi.importFromCatalog).toHaveBeenCalledWith('proj-1', {
@@ -369,7 +381,19 @@ describe('useImportMcpServer', () => {
     });
 
     await act(async () => {
-      await expect(result.current.importServer('github-mcp')).rejects.toThrow('Catalog offline');
+      await expect(
+        result.current.importServer({
+          id: 'github-mcp',
+          name: 'GitHub MCP',
+          description: 'GitHub integration',
+          server_type: 'http',
+          install_config: {
+            transport: 'http',
+            url: 'https://api.githubcopilot.com/mcp',
+          },
+          already_installed: false,
+        })
+      ).rejects.toThrow('Catalog offline');
     });
 
     await waitFor(() => {
