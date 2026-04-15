@@ -167,6 +167,12 @@ async def _reconstruct_pipeline_if_missing(
             agent_assigned_sha=recon_sha,
         )
 
+        # Preserve error state from the existing cached pipeline so that
+        # reconstruction never clears a merge-blocked halt.
+        existing = _cp.get_pipeline_state(issue_number)
+        if existing is not None and getattr(existing, "error", None):
+            pipeline.error = existing.error
+
         # Reconstruct sub-issue mappings from GitHub API
         pipeline.agent_sub_issues = await _cp._reconstruct_sub_issue_mappings(
             access_token=access_token,
