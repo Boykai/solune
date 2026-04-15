@@ -392,6 +392,59 @@ class TestRestoreAppPipelinesForProject:
             parent_issue_number=42,
         )
 
+    @pytest.mark.asyncio
+    async def test_resolves_and_backfills_legacy_pipeline_repo_fields(self):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        legacy_state = PipelineState(
+            issue_number=42,
+            project_id="proj-1",
+            status="In Progress",
+            agents=["speckit.implement"],
+        )
+
+        with (
+            patch(
+                "src.config.get_settings",
+                return_value=MagicMock(
+                    default_repo_owner="Boykai",
+                    default_repo_name="solune",
+                ),
+            ),
+            patch(
+                "src.services.workflow_orchestrator.get_all_pipeline_states",
+                return_value={42: legacy_state},
+            ),
+            patch(
+                "src.services.workflow_orchestrator.set_pipeline_state",
+                new_callable=MagicMock,
+            ) as mock_set_pipeline_state,
+            patch(
+                "src.api.projects.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("Boykai", "colove"),
+            ) as mock_resolve_repository,
+            patch(
+                "src.services.copilot_polling.ensure_app_pipeline_polling",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_ensure,
+        ):
+            restored = await _restore_app_pipelines_for_project("tok", "proj-1")
+
+        assert restored == 1
+        mock_resolve_repository.assert_awaited_once_with("tok", "proj-1")
+        mock_set_pipeline_state.assert_called_once_with(42, legacy_state)
+        assert legacy_state.repository_owner == "Boykai"
+        assert legacy_state.repository_name == "colove"
+        mock_ensure.assert_awaited_once_with(
+            access_token="tok",
+            project_id="proj-1",
+            owner="Boykai",
+            repo="colove",
+            parent_issue_number=42,
+        )
+
 
 # ── Helpers for rate-limit mocks ───────────────────────────────────────────
 

@@ -12,19 +12,19 @@ Restore cross-repo app-building recovery by carrying the target repository all t
 **Language/Version**: Python 3.12 backend service  
 **Primary Dependencies**: FastAPI route handlers, Pydantic models, `src.api.pipelines.execute_pipeline_launch`, `src.services.copilot_polling.ensure_app_pipeline_polling`, `src.services.task_registry.task_registry`, existing GitHub/project/session services  
 **Storage**: Existing SQLite-backed session / project-settings / orchestration tables plus the in-memory pipeline state store  
-**Testing**: `pytest` via `uv run`, focused unit suites in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_app_plan_orchestrator.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_api_projects.py`, `/home/runner/work/solune/solune/solune/backend/tests/unit/test_copilot_polling.py`, and `/home/runner/work/solune/solune/solune/backend/tests/unit/test_main.py`, plus regression `pytest /home/runner/work/solune/solune/solune/backend/tests/`  
+**Testing**: `pytest` via `uv run`, focused unit suites in `solune/backend/tests/unit/test_app_plan_orchestrator.py`, `solune/backend/tests/unit/test_api_projects.py`, `solune/backend/tests/unit/test_copilot_polling.py`, and `solune/backend/tests/unit/test_main.py`, plus regression `pytest solune/backend/tests/`  
 **Target Platform**: Solune backend API / background worker runtime  
 **Project Type**: Backend workflow-recovery enhancement  
 **Performance Goals**: Preserve non-blocking project selection, restore scoped polling within the existing background-task window, and keep restart recovery within one normal polling cycle  
 **Constraints**: No DB migration in this issue; same-repo pipelines must remain on the main polling loop; project-selection restoration must run fire-and-forget; reuse existing recovery helpers and logging patterns instead of introducing a parallel recovery path  
-**Scale/Scope**: Small backend-only change spanning `/home/runner/work/solune/solune/solune/backend/src/services/app_plan_orchestrator.py`, `/home/runner/work/solune/solune/solune/backend/src/api/projects.py`, `/home/runner/work/solune/solune/solune/backend/src/services/copilot_polling/pipeline.py`, `/home/runner/work/solune/solune/solune/backend/src/main.py` as reference, plus existing unit tests
+**Scale/Scope**: Small backend-only change spanning `solune/backend/src/services/app_plan_orchestrator.py`, `solune/backend/src/api/projects.py`, `solune/backend/src/services/copilot_polling/pipeline.py`, and `solune/backend/src/main.py` as reference, plus existing unit tests
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **I. Specification-First Development**: PASS — `/home/runner/work/solune/solune/specs/001-fix-app-building-recovery/spec.md` defines three prioritized user stories, explicit acceptance scenarios, edge cases, and measurable success criteria for the recovery failure.
-- **II. Template-Driven Workflow**: PASS — The planning artifacts for this feature are being generated in `/home/runner/work/solune/solune/specs/001-fix-app-building-recovery/` using the standard Speckit artifact set.
+- **I. Specification-First Development**: PASS — `spec.md` defines three prioritized user stories, explicit acceptance scenarios, edge cases, and measurable success criteria for the recovery failure.
+- **II. Template-Driven Workflow**: PASS — The planning artifacts for this feature live at the repository root (`spec.md`, `plan.md`, `research.md`, `contracts/`, `tasks.md`) using the standard Speckit artifact set.
 - **III. Agent-Orchestrated Execution**: PASS — The work decomposes cleanly into orchestration forwarding, project-selection polling restoration, pipeline reconstruction, and verification, each with a clear dependency chain.
 - **IV. Test Optionality with Clarity**: PASS — Tests are explicitly required by the issue, so the plan reuses existing unit suites and the backend regression command instead of inventing new harnesses.
 - **V. Simplicity and DRY**: PASS — The design reuses `execute_pipeline_launch(target_repo=...)`, mirrors `main._restore_app_pipeline_polling()`, and keeps same-repo behavior untouched rather than adding a second recovery model.
@@ -36,20 +36,20 @@ Restore cross-repo app-building recovery by carrying the target repository all t
 ### Documentation (this feature)
 
 ```text
-/home/runner/work/solune/solune/specs/001-fix-app-building-recovery/
+.
+├── spec.md
 ├── plan.md
 ├── research.md
 ├── data-model.md
 ├── quickstart.md
 ├── contracts/
-│   └── app-building-recovery-contract.yaml
-└── tasks.md              # Phase 2 output (not created by /speckit.plan)
+└── tasks.md
 ```
 
 ### Source Code (repository root)
 
 ```text
-/home/runner/work/solune/solune/solune/backend/
+solune/backend/
 ├── src/
 │   ├── api/
 │   │   ├── apps.py                               # Existing plan-driven app creation entrypoint
@@ -68,7 +68,7 @@ Restore cross-repo app-building recovery by carrying the target repository all t
         └── test_main.py                          # Existing restart-restore behavior reference/regression surface
 ```
 
-**Structure Decision**: The fix is entirely backend-scoped. It should extend the existing app-creation, project-selection, and pipeline-reconstruction paths in place, while using `/home/runner/work/solune/solune/solune/backend/src/main.py` only as the authoritative reference for restart-time polling restoration behavior.
+**Structure Decision**: The fix is entirely backend-scoped. It should extend the existing app-creation, project-selection, and pipeline-reconstruction paths in place, while using `solune/backend/src/main.py` only as the authoritative reference for restart-time polling restoration behavior.
 
 ## Phase Execution Plan
 
