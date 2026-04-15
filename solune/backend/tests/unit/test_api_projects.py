@@ -152,7 +152,7 @@ class TestSelectProject:
             patch("src.api.projects._prefetch_agents", new_callable=AsyncMock),
             patch("src.services.task_registry.task_registry.create_task") as mock_create_task,
         ):
-            mock_create_task.side_effect = lambda coroutine, **kwargs: coroutine.close()
+            mock_create_task.side_effect = lambda coro, **kwargs: coro.close()
             mock_cache.get.return_value = None
             resp = await client.post("/api/v1/projects/PVT_abc/select")
         assert resp.status_code == 200

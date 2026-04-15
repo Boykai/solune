@@ -358,8 +358,8 @@ async def _restore_app_pipelines_for_project(access_token: str, project_id: str)
         if getattr(state, "is_complete", False):
             continue
 
-        owner = getattr(state, "repository_owner", "") or ""
-        repo = getattr(state, "repository_name", "") or ""
+        owner = getattr(state, "repository_owner", "")
+        repo = getattr(state, "repository_name", "")
         if not owner or not repo:
             continue
         if owner.lower() == default_owner and repo.lower() == default_repo:
