@@ -381,6 +381,7 @@ async def _restore_app_pipelines_for_project(access_token: str, project_id: str)
                         "Could not resolve repository for project %s, "
                         "scoped app-pipeline polling not restored",
                         project_id,
+                        exc_info=True,
                     )
                     resolved_repo = ("", "")
             owner, repo = resolved_repo or ("", "")
