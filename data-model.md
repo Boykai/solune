@@ -1,218 +1,157 @@
-# Data Model: Simplify Page Headers for Focused UI
+# Data Model: MCP Catalog on Tools Page
 
-**Feature**: Simplify Page Headers | **Date**: 2026-04-11 | **Status**: Complete
+**Feature**: MCP Catalog on Tools Page | **Date**: 2026-04-15 | **Status**: Complete
 
-## Entity: CompactPageHeaderStat
+## Entity: CatalogInstallConfig
 
-A single statistic displayed as an inline chip/pill in the compact page header.
+Normalized transport-specific installation instructions for one upstream MCP server.
 
 ### Fields
 
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
-| `label` | `string` | Required, non-empty | Short uppercase label for the stat (e.g., "Board columns") |
-| `value` | `string` | Required, non-empty | Display value for the stat (e.g., "12") |
+| `transport` | `string` | Required; expected values: `http`, `sse`, `stdio`, `local`; unsupported values are rejected at import time | Transport type used to determine how the server maps into `mcp.json` |
+| `url` | `string \| null` | Required for `http` and `sse`; omitted otherwise | Remote MCP endpoint URL |
+| `command` | `string \| null` | Required for `stdio` and `local`; omitted otherwise | Executable command for local/server-process transports |
+| `args` | `string[]` | Defaults to `[]` | Command arguments for `stdio`/`local` transports |
+| `env` | `Record<string, unknown>` | Defaults to `{}` | Optional environment variables preserved during import |
+| `headers` | `Record<string, unknown>` | Defaults to `{}`; used only for remote transports | Optional request headers for remote transports |
+| `tools` | `string[]` | Defaults to `[]` | Optional explicit tool exposure list provided by the upstream catalog |
 
-### Usage
+### Validation Rules
 
-Stats are rendered as small pill/chip elements in a flex row. Each chip shows the label in small uppercase text and the value in slightly larger text.
+- `transport` is normalized from explicit upstream values or inferred from `url`/`command` when absent.
+- Remote transports (`http`, `sse`) require `url`.
+- Local transports (`stdio`, `local`) require `command`.
+- Unsupported transports fail import with a validation error rather than being partially mapped.
 
 ---
 
-## Entity: CompactPageHeaderProps
+## Entity: CatalogMcpServer
 
-The full props interface for the `CompactPageHeader` component.
+One normalized MCP server surfaced from the external catalog to the Solune UI.
 
 ### Fields
 
-| Field | Type | Constraints | Default | Description |
-|-------|------|-------------|---------|-------------|
-| `eyebrow` | `string` | Required | — | Small uppercase label above the title (e.g., "Mission Control") |
-| `title` | `string` | Required | — | Main heading text (e.g., "Every project, mapped and moving.") |
-| `description` | `string` | Required | — | Subtitle text, single-line with line-clamp-1, expands on hover |
-| `badge` | `string` | Optional | `undefined` | Badge text displayed as a pill (e.g., "owner/repo") |
-| `stats` | `CompactPageHeaderStat[]` | Optional | `[]` | Array of stat objects rendered as inline chips |
-| `actions` | `ReactNode` | Optional | `undefined` | Action buttons rendered in the right zone |
-| `className` | `string` | Optional | `undefined` | Additional CSS classes forwarded to the root element |
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `id` | `string` | Required; unique within catalog response | Stable catalog identifier, falling back to a slugified name when missing upstream |
+| `name` | `string` | Required; non-empty | Display name shown on the card and used as the imported tool name |
+| `description` | `string` | Required; defaults to `name` when upstream description is missing | Summary text shown in the browse grid and reused for the imported tool |
+| `repo_url` | `string \| null` | Optional; must be sanitized HTTPS before surfacing | External repository link rendered on the card |
+| `category` | `string \| null` | Optional; may fall back to the first upstream tag | Category used for browse filtering and card labeling |
+| `server_type` | `string` | Required; derived from supported transport or treated as `remote` for display | Badge value that drives Local/Remote presentation |
+| `install_config` | `CatalogInstallConfig` | Required | Normalized install instructions used for import |
+| `quality_score` | `string \| null` | Optional | Glama quality score (for example `A`, `B`, `C`, or a numeric string) |
+| `already_installed` | `boolean` | Required; derived field | Whether the current project already has a matching imported MCP tool |
 
-### Prop Migration from CelestialCatalogHero
+### Derived / Computed Behavior
 
-| CelestialCatalogHero Prop | CompactPageHeader Prop | Change |
-|---------------------------|----------------------|--------|
-| `eyebrow` | `eyebrow` | No change |
-| `title` | `title` | No change |
-| `description` | `description` | Demoted to single-line subtitle |
-| `badge` | `badge` | No change |
-| `note` | ❌ Removed | "Current Ritual" aside eliminated |
-| `stats` | `stats` | Same interface; rendered as chips instead of moonwell cards |
-| `actions` | `actions` | No change |
-| `className` | `className` | No change |
+- `id` falls back to a slugified version of `name` when the upstream payload omits an ID.
+- `category` prefers an explicit upstream category and otherwise falls back to the first tag.
+- `already_installed` is computed by comparing normalized existing tool names against the normalized catalog name.
+
+### Relationships
+
+- One `CatalogMcpServer` can produce at most one imported `McpToolConfig` per project.
+- `CatalogMcpServer.install_config` is the source material for the imported tool's `config_content`.
 
 ---
 
-## Component DOM Structure
+## Entity: ImportCatalogMcpRequest
 
-### CelestialCatalogHero (BEFORE — to be deleted)
+Minimal request payload used to import a selected catalog entry.
 
-```text
-<section>                              ← ~350–450px tall
-  <div.catalog-hero-decor>             ← Decorative background (orbits, stars, beams)
-    <div.catalog-hero-ambient-glow>
-    <div.catalog-hero-orbit> × 3
-    <div.catalog-hero-moon>
-    <div.catalog-hero-star> × 2
-    <div.catalog-hero-beam>
-  </div>
-  <div.grid>                           ← Two-column grid on LG
-    <div>                              ← Left: Content
-      <span.celestial-sigil> + <p.eyebrow>
-      <span.badge> (optional)
-      <h2.title>
-      <p.description>
-      <div.actions>
-      <div.stats>                      ← Large moonwell cards
-    </div>
-    <div.catalog-hero-aside-wrap>      ← Right: Decorative aside panel (LG only, ~22rem)
-      <div.hanging-stars>
-      <div.catalog-hero-aside>
-        <div> × 7 decorative elements
-        <div.catalog-hero-note>        ← "Current Ritual" with note/description
-      </div>
-    </div>
-  </div>
-</section>
+### Fields
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `catalog_server_id` | `string` | Required; minimum length 1 | Identifies the selected catalog entry to import |
+
+### Validation Rules
+
+- The ID must match a server present in the current catalog result set used by the backend import flow.
+- Missing or unknown IDs return a not-found error.
+- Requests for already-installed servers return a conflict error.
+
+---
+
+## Existing Entity Reused: McpToolConfig
+
+Imported catalog entries are persisted as ordinary `McpToolConfig` records rather than a new catalog-specific model.
+
+### Imported Field Mapping
+
+| `CatalogMcpServer` source | `McpToolConfig` target | Notes |
+|---------------------------|------------------------|-------|
+| `name` | `name` | Preserved as the user-visible tool name |
+| `description` | `description` | Preserved for the tool archive |
+| `install_config` | `config_content` | Converted into a standard `mcpServers` JSON snippet |
+| derived slug from `name` | `mcpServers` key | Used as the canonical server key inside the JSON snippet |
+| existing repo sync flow | repository `mcp.json` | No new sync path is introduced |
+
+### Config Shapes Produced During Import
+
+```json
+{
+  "mcpServers": {
+    "github-mcp": {
+      "type": "http",
+      "url": "https://example.com/mcp"
+    }
+  }
+}
 ```
 
-**DOM nodes**: ~25+ elements (decorative + content)
-
-### CompactPageHeader (AFTER — to be created)
-
-```text
-<header>                               ← ~80–100px tall
-  <div.flex>                           ← Single-row layout
-    <div>                              ← Left: Content
-      <div.flex>                       ← Eyebrow + badge row
-        <p.eyebrow>
-        <span.badge> (optional)
-      </div>
-      <h2.title>
-      <p.description>                  ← line-clamp-1, expands on hover
-    </div>
-    <div>                              ← Right: Actions
-      {actions}
-    </div>
-  </div>
-  <div.stats>                          ← Stats row (chips)
-    <span.chip> × N                    ← Inline pill/chip elements
-  </div>
-</header>
+```json
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"]
+    }
+  }
+}
 ```
 
-**DOM nodes**: ~8–12 elements (content only, no decorative)
+```json
+{
+  "mcpServers": {
+    "example-sse": {
+      "type": "sse",
+      "url": "https://example.com/events"
+    }
+  }
+}
+```
 
 ---
 
 ## State Transitions
 
-This feature has no state machine or data model changes. The only "state" is the mobile stats toggle:
-
 ```text
-Mobile Stats Toggle:
-  Initial → collapsed (stats hidden)
-  User taps toggle → expanded (stats visible)
-  User taps toggle again → collapsed
-  Viewport resizes to ≥640px → stats always visible (toggle hidden)
+Upstream payload fetched
+  -> normalized into CatalogMcpServer
+  -> marked already_installed true/false using current project tool names
+  -> rendered in Tools page browse grid
+  -> user submits ImportCatalogMcpRequest
+  -> backend validates existence + non-duplicate + supported transport
+  -> backend generates McpToolConfig.config_content
+  -> tool is created through existing archive flow
+  -> catalog + tool queries invalidate and refetch
+  -> card shows Installed badge
+  -> user may sync imported tool to repository mcp.json
 ```
 
 ---
 
-## Page-Specific Prop Values
+## Error States
 
-### ProjectsPage
-
-```typescript
-<CompactPageHeader
-  eyebrow="Mission Control"
-  title="Every project, mapped and moving."
-  description="Live Kanban view of your GitHub Project..."
-  badge={selectedProject ? `${selectedProject.owner_login}/${selectedProject.name}` : 'Awaiting project'}
-  stats={heroStats}
-  actions={<>...</>}
-/>
-```
-
-### AgentsPage
-
-```typescript
-<CompactPageHeader
-  eyebrow="Celestial Catalog"
-  title="Shape your agent constellation."
-  description="Browse repository agents in a broader catalog..."
-  badge={repo ? `${repo.owner}/${repo.name}` : 'Awaiting repository'}
-  stats={[
-    { label: 'Board columns', value: String(columns.length) },
-    { label: 'Assignments', value: String(assignedCount) },
-    { label: 'Mapped states', value: String(Object.keys(agentConfig.localMappings).length) },
-    { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
-  ]}
-  actions={<>...</>}
-/>
-```
-
-### AgentsPipelinePage
-
-```typescript
-<CompactPageHeader
-  eyebrow="Constellation Flow"
-  title="Orchestrate agents across every stage."
-  description="Build custom pipelines that route issues through agents..."
-  badge={selectedProject ? `${selectedProject.owner_login}/${selectedProject.name}` : 'Awaiting project'}
-  stats={[...]}
-  actions={<>...</>}
-/>
-```
-
-### ToolsPage
-
-```typescript
-<CompactPageHeader
-  eyebrow="Tool Forge"
-  title="Equip your agents with MCP tools."
-  description="Upload and manage MCP configurations..."
-  badge={repo ? repo.name : 'Awaiting repository'}
-  stats={[
-    { label: 'Repository', value: repo ? repo.name : 'Unlinked' },
-    { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
-  ]}
-  actions={<>...</>}
-/>
-```
-
-### ChoresPage
-
-```typescript
-<CompactPageHeader
-  eyebrow="Ritual Maintenance"
-  title="Turn upkeep into a visible rhythm."
-  description="Organize recurring repository chores..."
-  badge={repo ? `${repo.owner}/${repo.name}` : 'Awaiting repository'}
-  stats={[
-    { label: 'Board columns', value: String(boardData?.columns.length ?? 0) },
-    { label: 'Project', value: selectedProject?.name ?? 'Unselected' },
-    { label: 'Repository', value: repo ? repo.name : 'Unlinked' },
-    { label: 'Automation mode', value: projectId ? 'Live' : 'Idle' },
-  ]}
-  actions={<>...</>}
-/>
-```
-
-### HelpPage
-
-```typescript
-<CompactPageHeader
-  eyebrow="// Guidance & support"
-  title="Help Center"
-  description="Everything you need to navigate your celestial workspace."
-  actions={<Button onClick={restart} variant="outline" size="sm">...</Button>}
-/>
-```
+| State | Trigger | Expected Handling |
+|-------|---------|-------------------|
+| Catalog unavailable | Upstream timeout, network failure, or invalid JSON | Serve stale cache when available; otherwise return a user-facing catalog-unavailable error |
+| Unsafe upstream or repo URL | Non-HTTPS or non-allowlisted URL | Reject upstream fetch configuration or drop unsafe repo link from surfaced model |
+| Unsupported transport | Catalog entry uses an unmapped transport | Reject import with a validation error |
+| Missing required install fields | Remote entry without URL or local entry without command | Reject import with a validation error |
+| Duplicate import | Selected server already exists for the project | Return conflict and keep card in Installed state |
