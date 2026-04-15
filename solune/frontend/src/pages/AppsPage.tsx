@@ -15,7 +15,7 @@ import {
   useOwners,
   useStartApp,
   useStopApp,
-  useDeleteApp,
+  useUndoableDeleteApp,
   getErrorMessage,
 } from '@/hooks/useApps';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,7 +63,7 @@ export function AppsPage() {
   const createMutation = useCreateApp();
   const startMutation = useStartApp();
   const stopMutation = useStopApp();
-  const deleteMutation = useDeleteApp();
+  const { deleteApp, pendingIds: pendingDeleteIds } = useUndoableDeleteApp();
   const { confirm } = useConfirmation();
   const { data: owners } = useOwners();
   const { user } = useAuth();
@@ -179,11 +179,9 @@ export function AppsPage() {
       });
       if (!secondConfirm) return;
 
-      deleteMutation.mutate(
-        { appName: name, force: true },
-      );
+      deleteApp(name, name, true);
     },
-    [confirm, deleteMutation]
+    [confirm, deleteApp]
   );
 
   // Detail view for a specific app
@@ -297,7 +295,7 @@ export function AppsPage() {
                   onDelete={handleDelete}
                   isStartPending={startMutation.isPending}
                   isStopPending={stopMutation.isPending}
-                  isDeletePending={deleteMutation.isPending}
+                  isDeletePending={pendingDeleteIds.has(app.name)}
                 />
               ))}
             </div>
