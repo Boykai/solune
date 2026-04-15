@@ -1029,6 +1029,28 @@ class TestImportFromCatalogApi:
         assert resp.json()["name"] == "Test MCP"
         list_catalog_servers_mock.assert_not_awaited()
 
+    async def test_import_rejects_mismatched_inline_catalog_server_id(self, client):
+        resp = await client.post(
+            "/api/v1/tools/proj-1/catalog/import",
+            json={
+                "catalog_server_id": "test-mcp",
+                "catalog_server": {
+                    "id": "different-mcp",
+                    "name": "Test MCP",
+                    "description": "A test server",
+                    "server_type": "http",
+                    "install_config": {
+                        "transport": "http",
+                        "url": "https://example.com/mcp",
+                    },
+                    "already_installed": False,
+                },
+            },
+        )
+
+        assert resp.status_code == 422
+        assert "did not match requested ID" in resp.json()["error"]
+
     async def test_import_not_found(self, client, mock_github_service):
         mock_github_service.get_project_repository.return_value = ("octo", "widgets")
         mock_servers = CatalogMcpServerListResponse(servers=[], count=0)

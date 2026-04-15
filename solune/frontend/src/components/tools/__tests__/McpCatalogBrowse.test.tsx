@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 
-import { render, screen } from '@/test/test-utils';
+import { render, screen, waitFor } from '@/test/test-utils';
 import { McpCatalogBrowse } from '../McpCatalogBrowse';
 import type { CatalogMcpServer } from '@/types';
 
@@ -105,6 +105,17 @@ describe('McpCatalogBrowse', () => {
     expect(screen.getByText('No MCP servers match your search.')).toBeInTheDocument();
   });
 
+  it('passes the search query to the catalog hook', async () => {
+    const user = userEvent.setup();
+    render(<McpCatalogBrowse projectId="proj-1" />);
+
+    await user.type(screen.getByPlaceholderText('Search MCP servers…'), 'github');
+
+    await waitFor(() => {
+      expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', 'github', '');
+    });
+  });
+
   it('renders server cards when servers are present', () => {
     const servers = [
       createMockCatalogServer({ id: 's1', name: 'GitHub MCP' }),
@@ -187,6 +198,17 @@ describe('McpCatalogBrowse', () => {
     // Click same category again to deselect
     await user.click(screen.getByText('Cloud'));
     expect(screen.queryByText('Clear filter')).not.toBeInTheDocument();
+  });
+
+  it('passes the selected category to the catalog hook', async () => {
+    const user = userEvent.setup();
+    render(<McpCatalogBrowse projectId="proj-1" />);
+
+    await user.click(screen.getByText('Cloud'));
+
+    await waitFor(() => {
+      expect(mockUseMcpCatalog).toHaveBeenLastCalledWith('proj-1', '', 'Cloud');
+    });
   });
 
   it('disables Import button while importing that server', () => {
