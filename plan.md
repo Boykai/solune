@@ -165,7 +165,7 @@ solune/
 
 | Check | Command / Method | After Phase |
 |-------|------------------|-------------|
-| Markdown plan artifacts | `cd . && npx --yes markdownlint-cli plan.md research.md data-model.md quickstart.md --config solune/.markdownlint.json` | 0, 1 |
+| Markdown plan artifacts | `cd "$(git rev-parse --show-toplevel)" && npx --yes markdownlint-cli plan.md research.md data-model.md quickstart.md --config solune/.markdownlint.json` | 0, 1 |
 | Backend board/projects unit tests | `cd solune/backend && uv run --with pytest --with pytest-asyncio pytest tests/unit/test_api_board.py tests/unit/test_api_projects.py tests/unit/test_board.py tests/unit/test_github_projects.py -q` | 1, 2, 4 |
 | Backend board performance harness | `cd solune/backend && PERF_GITHUB_TOKEN=... PERF_PROJECT_ID=... uv run --with pytest pytest tests/performance/test_board_load_time.py -m performance -q` | 4 |
 | Frontend targeted tests | `cd solune/frontend && npm run test -- --reporter=verbose --run src/hooks/useProjects.test.tsx src/hooks/useProjectBoard.test.tsx src/pages/ProjectsPage.test.tsx` | 3, 4 |
