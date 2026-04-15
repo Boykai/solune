@@ -372,6 +372,11 @@ async def _build_pipeline_from_labels(
 
     completed = all_agents[:agent_index]
 
+    # Preserve error state from the existing cached pipeline so that
+    # label-based reconstruction never clears a merge-blocked halt.
+    existing = _cp.get_pipeline_state(issue_number)
+    existing_error = getattr(existing, "error", None) if existing is not None else None
+
     return _cp.PipelineState(
         issue_number=issue_number,
         project_id=project_id,
@@ -379,6 +384,7 @@ async def _build_pipeline_from_labels(
         agents=all_agents,
         current_agent_index=agent_index,
         completed_agents=list(completed),
+        error=existing_error,
     )
 
 
@@ -419,8 +425,13 @@ async def _get_or_reconstruct_pipeline(
     """
     pipeline = _cp.get_pipeline_state(issue_number)
 
-    # Use cached pipeline if it exists and matches expected status
+    # Use cached pipeline if it exists and matches expected status.
+    # ALWAYS return the cached pipeline when it has an error state,
+    # regardless of status mismatch — this prevents reconstruction
+    # from silently clearing a merge-blocked halt.
     if pipeline is not None:
+        if getattr(pipeline, "error", None):
+            return pipeline
         if expected_status is None or pipeline.status == expected_status:
             return pipeline
 
@@ -1484,6 +1495,12 @@ async def _reconstruct_pipeline_state(
         issue_number=issue_number,
     )
 
+    # Preserve error state from the existing cached pipeline so that
+    # reconstruction never silently clears a merge-blocked halt.
+    existing = _cp.get_pipeline_state(issue_number)
+    if existing is not None and getattr(existing, "error", None):
+        pipeline.error = existing.error
+
     # Only cache pipeline states that have agents.  Empty-agent states
     # (neither DB config nor tracking table supplied agents) would block
     # recovery on subsequent poll cycles — the cached empty state matches
@@ -1782,27 +1799,30 @@ async def _advance_pipeline(
                     blocked_pr,
                     failure_count,
                 )
-                # Post a warning comment so users know the pipeline is halted.
-                try:
-                    await _cp.github_projects_service.create_issue_comment(
-                        access_token=access_token,
-                        owner=owner,
-                        repo=repo,
-                        issue_number=issue_number,
-                        body=(
-                            f"🛑 Pipeline halted: failed to merge child PR "
-                            f"#{blocked_pr} for agent **{completed_agent}** "
-                            f"after {failure_count} attempts. Please resolve "
-                            f"merge conflicts manually and re-trigger the "
-                            f"pipeline."
-                        ),
-                    )
-                except Exception:
-                    logger.warning(
-                        "Could not post merge-halt warning on issue #%d",
-                        issue_number,
-                        exc_info=True,
-                    )
+                # Post a warning comment ONLY at the exact threshold to
+                # avoid spamming the issue with duplicate halt notices
+                # if the error state is lost between poll cycles.
+                if failure_count == MAX_MERGE_RETRIES:
+                    try:
+                        await _cp.github_projects_service.create_issue_comment(
+                            access_token=access_token,
+                            owner=owner,
+                            repo=repo,
+                            issue_number=issue_number,
+                            body=(
+                                f"🛑 Pipeline halted: failed to merge child PR "
+                                f"#{blocked_pr} for agent **{completed_agent}** "
+                                f"after {failure_count} attempts. Please resolve "
+                                f"merge conflicts manually and re-trigger the "
+                                f"pipeline."
+                            ),
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Could not post merge-halt warning on issue #%d",
+                            issue_number,
+                            exc_info=True,
+                        )
                 # Roll back and set error state to prevent further polling
                 # from re-advancing past this agent.
                 pipeline.current_agent_index -= 1

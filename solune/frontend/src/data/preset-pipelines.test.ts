@@ -5,8 +5,8 @@ import { describe, it, expect } from 'vitest';
 import { PRESET_PIPELINES } from './preset-pipelines';
 
 describe('PRESET_PIPELINES', () => {
-  it('has at least 2 preset pipelines', () => {
-    expect(PRESET_PIPELINES.length).toBeGreaterThanOrEqual(2);
+  it('has at least 4 preset pipelines', () => {
+    expect(PRESET_PIPELINES.length).toBeGreaterThanOrEqual(4);
   });
 
   it('each preset has required fields', () => {
@@ -24,26 +24,25 @@ describe('PRESET_PIPELINES', () => {
     expect(specKit!.name).toBe('Spec Kit');
   });
 
-  it('spec-kit has 5 stages in correct order', () => {
+  it('spec-kit has 1 stage with 5 agents', () => {
     const specKit = PRESET_PIPELINES.find((p) => p.presetId === 'spec-kit')!;
-    expect(specKit.stages).toHaveLength(5);
-    expect(specKit.stages[0].name).toBe('Specify');
-    expect(specKit.stages[1].name).toBe('Plan');
-    expect(specKit.stages[2].name).toBe('Tasks');
-    expect(specKit.stages[3].name).toBe('Implement');
-    expect(specKit.stages[4].name).toBe('Analyze');
+    expect(specKit.stages).toHaveLength(1);
+    expect(specKit.stages[0].name).toBe('In progress');
+    const agents = specKit.stages[0].groups![0].agents;
+    expect(agents).toHaveLength(5);
   });
 
-  it('has github-copilot preset', () => {
-    const copilot = PRESET_PIPELINES.find((p) => p.presetId === 'github-copilot');
-    expect(copilot).toBeDefined();
-    expect(copilot!.name).toBe('GitHub Copilot');
+  it('has github preset', () => {
+    const github = PRESET_PIPELINES.find((p) => p.presetId === 'github');
+    expect(github).toBeDefined();
+    expect(github!.name).toBe('GitHub');
   });
 
-  it('github-copilot has single stage', () => {
-    const copilot = PRESET_PIPELINES.find((p) => p.presetId === 'github-copilot')!;
-    expect(copilot.stages).toHaveLength(1);
-    expect(copilot.stages[0].name).toBe('Execute');
+  it('github has single stage with 1 agent', () => {
+    const github = PRESET_PIPELINES.find((p) => p.presetId === 'github')!;
+    expect(github.stages).toHaveLength(1);
+    expect(github.stages[0].name).toBe('In progress');
+    expect(github.stages[0].groups![0].agents).toHaveLength(1);
   });
 
   it('all stages have valid order', () => {

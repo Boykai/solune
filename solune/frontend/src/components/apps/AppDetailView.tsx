@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ExternalLink, Play, Square, Trash2, RefreshCw } from '@/lib/icons';
+import { cn } from '@/lib/utils';
 import { useApp, useStartApp, useStopApp, useUndoableDeleteApp, getErrorMessage } from '@/hooks/useApps';
 import { CelestialLoader } from '@/components/common/CelestialLoader';
 import { useConfirmation } from '@/hooks/useConfirmation';
@@ -198,8 +199,19 @@ export function AppDetailView({ appName, onBack }: AppDetailViewProps) {
       <dl className="grid grid-cols-2 gap-4 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900 sm:grid-cols-4">
         <div>
           <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Status</dt>
-          <dd className="mt-1 text-sm font-semibold capitalize text-zinc-900 dark:text-zinc-100">
-            {app.status}
+          <dd className="mt-1">
+            <span className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize',
+              app.status === 'active' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+              app.status === 'stopped' && 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+              app.status === 'creating' && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+              app.status === 'error' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+            )}>
+              {(app.status === 'active' || app.status === 'creating') && (
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+              )}
+              {app.status}
+            </span>
           </dd>
         </div>
         <div>
@@ -256,12 +268,12 @@ export function AppDetailView({ appName, onBack }: AppDetailViewProps) {
 
       {/* Pipeline Info */}
       {app.associated_pipeline_id && (
-        <div className="text-sm text-zinc-500 dark:text-zinc-400">
-          Pipeline:{' '}
-          <span className="font-medium text-zinc-700 dark:text-zinc-300">
+        <dl className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <dt className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Associated Pipeline</dt>
+          <dd className="mt-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
             {app.associated_pipeline_id}
-          </span>
-        </div>
+          </dd>
+        </dl>
       )}
 
       {/* Actions */}
@@ -290,17 +302,15 @@ export function AppDetailView({ appName, onBack }: AppDetailViewProps) {
             {stopMutation.isPending ? 'Stopping…' : 'Stop App'}
           </button>
         )}
-        {app.status !== 'active' && (
-          <button
-            type="button"
-            aria-label={`Delete app ${app.display_name}`}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50"
-            onClick={handleDelete}
-          >
-            <Trash2 aria-hidden="true" className="h-4 w-4" />
-            Delete App
-          </button>
-        )}
+        <button
+          type="button"
+          aria-label={`Delete app ${app.display_name}`}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:opacity-50"
+          onClick={handleDelete}
+        >
+          <Trash2 aria-hidden="true" className="h-4 w-4" />
+          Delete App
+        </button>
       </div>
 
       {/* Error message */}

@@ -545,13 +545,35 @@ class ChoresService:
                 "Failed to append agent tracking table for chore %s: %s", chore.name, e
             )
 
+        # AI-classify labels for the parent issue
+        classification_priority = None
+        try:
+            from src.services.label_classifier import classify_labels_with_priority
+
+            result = await classify_labels_with_priority(
+                title=chore.name,
+                description=issue_body[:500],
+                github_token=access_token,
+                fallback_labels=["chore"],
+            )
+            labels = result.labels
+            classification_priority = result.priority
+            # Always ensure "chore" is present
+            if "chore" not in labels:
+                labels.append("chore")
+        except Exception as e:
+            logger.warning(
+                "Label classification failed for chore %s, using fallback: %s", chore.name, e
+            )
+            labels = ["chore"]
+
         issue = await github_service.create_issue(
             access_token,
             owner,
             repo,
             title=chore.name,
             body=issue_body,
-            labels=["chore"],
+            labels=labels,
         )
 
         issue_number = issue["number"]
@@ -566,6 +588,18 @@ class ChoresService:
             issue_node_id,
             issue_database_id=issue_database_id,
         )
+
+        # Set metadata (priority from AI classification) on the project item
+        if item_id and classification_priority:
+            try:
+                await github_service.set_issue_metadata(
+                    access_token,
+                    project_id,
+                    item_id,
+                    {"priority": classification_priority.value},
+                )
+            except Exception as e:
+                logger.warning("Failed to set issue metadata for chore %s: %s", chore.name, e)
 
         # Run full agent pipeline (mirrors _run_workflow_orchestration)
         try:

@@ -1,4 +1,4 @@
-import { ScrollText, Sparkles, X } from '@/lib/icons';
+import { Sparkles, X } from '@/lib/icons';
 
 /**
  * AddChoreModal — modal dialog for creating a new chore.
@@ -8,11 +8,10 @@ import { ScrollText, Sparkles, X } from '@/lib/icons';
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCreateChoreWithAutoMerge, useChoreTemplates } from '@/hooks/useChores';
+import { useCreateChoreWithAutoMerge } from '@/hooks/useChores';
 import { ChoreChatFlow } from './ChoreChatFlow';
 import { ConfirmChoreModal } from './ConfirmChoreModal';
 import { PipelineSelector } from './PipelineSelector';
-import type { ChoreTemplate } from '@/types';
 import { cn } from '@/lib/utils';
 import { CharacterCounter } from '@/components/ui/character-counter';
 import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
@@ -23,7 +22,6 @@ interface AddChoreModalProps {
   projectId: string;
   isOpen: boolean;
   onClose: () => void;
-  initialTemplate?: ChoreTemplate | null;
 }
 
 /**
@@ -53,7 +51,7 @@ function isSparseInput(text: string): boolean {
   return false;
 }
 
-export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: AddChoreModalProps) {
+export function AddChoreModal({ projectId, isOpen, onClose }: AddChoreModalProps) {
   const nameRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const onCloseRef = useRef(onClose);
@@ -73,24 +71,6 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
   const errors = useMemo(() => ({ name: nameError, content: contentError }), [nameError, contentError]);
   const focusFirstError = useFirstErrorFocus(fieldRefs, errors);
   const createMutation = useCreateChoreWithAutoMerge(projectId);
-  const { data: repoTemplates } = useChoreTemplates(isOpen ? projectId : null);
-
-  const handleSelectTemplate = (template: ChoreTemplate) => {
-    setName(template.name);
-    setTemplateContent(template.content);
-  };
-
-  // Apply initialTemplate when modal opens with one pre-selected
-  useEffect(() => {
-    if (isOpen && initialTemplate) {
-      const frameId = requestAnimationFrame(() => {
-        setName(initialTemplate.name);
-        setTemplateContent(initialTemplate.content);
-      });
-      return () => cancelAnimationFrame(frameId);
-    }
-  }, [isOpen, initialTemplate]);
-
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
@@ -263,30 +243,6 @@ export function AddChoreModal({ projectId, isOpen, onClose, initialTemplate }: A
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4">
-          {/* Template picker */}
-          {repoTemplates && repoTemplates.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-foreground">Start from a template</span>
-              <div className="flex flex-wrap gap-2">
-                {repoTemplates.map((tpl) => (
-                  <button
-                    key={tpl.path}
-                    type="button"
-                    onClick={() => handleSelectTemplate(tpl)}
-                    className="rounded-md border border-input bg-background/56 px-2.5 py-1.5 text-left text-xs font-medium transition-colors hover:border-primary/40 hover:bg-primary/10"
-                    title={tpl.about || tpl.name}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <ScrollText className="h-3.5 w-3.5 text-primary/70" />
-                      {tpl.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Or create a custom chore below</p>
-            </div>
-          )}
-
           {/* Name */}
           <div className="flex flex-col gap-1.5">
             <label htmlFor="chore-name" className="text-sm font-medium text-foreground">

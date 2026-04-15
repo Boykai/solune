@@ -10,6 +10,7 @@ from src.logging_utils import get_logger
 
 from .state import (
     _claimed_child_prs,
+    _merge_failure_counts,
     _polling_state,
     _polling_state_lock,
     _posted_agent_outputs,
@@ -166,6 +167,12 @@ async def _reconstruct_pipeline_if_missing(
             started_at=recon_started,
             agent_assigned_sha=recon_sha,
         )
+
+        # Preserve error state from the existing cached pipeline so that
+        # reconstruction never clears a merge-blocked halt.
+        existing = _cp.get_pipeline_state(issue_number)
+        if existing is not None and getattr(existing, "error", None):
+            pipeline.error = existing.error
 
         # Reconstruct sub-issue mappings from GitHub API
         pipeline.agent_sub_issues = await _cp._reconstruct_sub_issue_mappings(
@@ -668,6 +675,10 @@ async def _merge_and_claim_child_pr(
                     current_agent,
                     issue_number,
                 )
+                # Clear stale merge-failure count so the safety-net in
+                # _advance_pipeline doesn't halt on a counter carried
+                # over from a previous agent's transient failures.
+                _merge_failure_counts.pop(issue_number, None)
                 await asyncio.sleep(_cp.POST_ACTION_DELAY_SECONDS)
             else:
                 logger.warning(

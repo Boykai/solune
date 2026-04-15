@@ -350,13 +350,13 @@ function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalCo
 
   return (
     <div
-      className="fixed inset-0 z-[var(--z-agent-modal-base)] flex items-center justify-center bg-background/80 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-agent-modal-base)] flex items-center justify-center overflow-y-auto bg-background/80 px-4 py-6 backdrop-blur-sm"
       role="presentation"
       onClick={handleRequestClose}
     >
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions */}
       <div
-        className="celestial-panel celestial-fade-in relative flex max-h-[min(92vh,58rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.7rem] border border-border/80 bg-card shadow-xl"
+        className="celestial-panel celestial-fade-in relative my-auto flex max-h-[min(92vh,58rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.7rem] border border-border/80 bg-card shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-agent-title"

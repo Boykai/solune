@@ -280,8 +280,7 @@ export function AgentsPipelinePage() {
             </div>
           </section>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-6">
-            <div className="min-w-0 space-y-5">
+          <div className="min-w-0 space-y-5">
               <SavedWorkflowsList
                 pipelines={pipelineConfig.pipelines?.pipelines ?? []}
                 activePipelineId={pipelineConfig.editingPipelineId}
@@ -306,9 +305,7 @@ export function AgentsPipelinePage() {
                   />
                 </section>
               )}
-            </div>
 
-            <div className="space-y-5">
               <PipelineStagesOverview
                 columns={columns}
                 localMappings={agentConfig.localMappings}
@@ -317,7 +314,6 @@ export function AgentsPipelinePage() {
 
               <PipelineAnalytics pipelines={pipelineConfig.pipelines?.pipelines ?? []} />
             </div>
-          </div>
         </>
       )}
 

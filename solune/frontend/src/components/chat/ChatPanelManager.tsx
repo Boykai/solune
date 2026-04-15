@@ -123,14 +123,23 @@ export function ChatPanelManager() {
     void refetchConversations();
   }, [refetchConversations]);
 
+  const [isAddingPanel, setIsAddingPanel] = useState(false);
+  const [addPanelError, setAddPanelError] = useState<string | null>(null);
+
   const handleAddPanel = useCallback(async () => {
+    if (isAddingPanel) return;
+    setIsAddingPanel(true);
+    setAddPanelError(null);
     try {
       const conv = await createConversation('New Chat');
       addPanel(conv.conversation_id);
-    } catch {
-      // Failed to create conversation
+    } catch (err) {
+      const message = err instanceof Error && err.message.trim() ? err.message : 'Could not create a new chat.';
+      setAddPanelError(message);
+    } finally {
+      setIsAddingPanel(false);
     }
-  }, [createConversation, addPanel]);
+  }, [isAddingPanel, createConversation, addPanel]);
 
   const handleRemovePanel = useCallback(
     async (panelId: string, conversationId: string) => {
@@ -295,6 +304,11 @@ export function ChatPanelManager() {
   if (isMobile) {
     return (
       <div className="flex h-full flex-col" data-testid="chat-panel-manager">
+        {addPanelError && (
+          <div role="alert" className="mx-2 mt-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+            {addPanelError}
+          </div>
+        )}
         {/* Tab bar */}
         {panels.length > 1 && (
           <div className="flex items-center gap-1 overflow-x-auto border-b border-border/50 px-2 py-1">
@@ -316,7 +330,8 @@ export function ChatPanelManager() {
             <button
               type="button"
               onClick={handleAddPanel}
-              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+              disabled={isAddingPanel}
+              className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:pointer-events-none disabled:opacity-50"
               aria-label="Add new chat"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -347,11 +362,12 @@ export function ChatPanelManager() {
             <button
               type="button"
               onClick={handleAddPanel}
-              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+              disabled={isAddingPanel}
+              className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:pointer-events-none disabled:opacity-50"
               aria-label="Add new chat"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add Chat
+              {isAddingPanel ? 'Adding…' : 'Add Chat'}
             </button>
           </div>
         )}
@@ -363,9 +379,15 @@ export function ChatPanelManager() {
   return (
     <div
       ref={containerRef}
-      className="flex h-full"
+      className="flex h-full flex-col"
       data-testid="chat-panel-manager"
     >
+      {addPanelError && (
+        <div role="alert" className="mx-2 mt-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+          {addPanelError}
+        </div>
+      )}
+      <div className="flex flex-1 min-h-0">
       {panels.map((panel, idx) => (
         <div key={panel.panelId} className="flex h-full" style={{ width: `${panel.widthPercent}%` }}>
           {/* Resize handle (between panels) */}
@@ -396,12 +418,14 @@ export function ChatPanelManager() {
         <button
           type="button"
           onClick={handleAddPanel}
-          className="mx-1 rounded-md p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+          disabled={isAddingPanel}
+          className="mx-1 rounded-md p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:pointer-events-none disabled:opacity-50"
           aria-label="Add new chat"
           title="Add new chat panel"
         >
           <Plus className="h-4 w-4" />
         </button>
+      </div>
       </div>
     </div>
   );
