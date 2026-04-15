@@ -1,6 +1,6 @@
 # Implementation Plan: Loading Performance
 
-**Branch**: `003-loading-performance` | **Date**: 2026-04-15 | **Spec**: [/home/runner/work/solune/solune/specs/003-loading-performance/spec.md](/home/runner/work/solune/solune/specs/003-loading-performance/spec.md)
+**Branch**: `003-loading-performance` | **Date**: 2026-04-15 | **Spec**: [./spec.md](./spec.md)
 **Input**: Parent issue Boykai/solune#1904 — Loading Performance (PR #1915)
 
 ## Summary
@@ -15,7 +15,7 @@ The current codebase already includes two important mitigations that this plan m
 **Primary Dependencies**: FastAPI, Pydantic v2, existing `InMemoryCache`/`cached_fetch`, `aiosqlite`-backed `done_items_store`, GitHub GraphQL/REST helpers, TanStack Query, Vitest, Playwright performance specs  
 **Storage**: Existing in-memory cache plus SQLite-backed `done_items_cache` / session state; no new persistence system required  
 **Testing**: Backend `uv run pytest` unit/performance coverage for board/projects services and APIs; frontend `npm run test`, `npm run type-check`, `npm run lint`, `npm run build`, plus existing Playwright project-load performance spec when credentials are available  
-**Target Platform**: Solune web application (`/home/runner/work/solune/solune/solune/backend` + `/home/runner/work/solune/solune/solune/frontend`)  
+**Target Platform**: Solune web application (`solune/backend` + `solune/frontend`)  
 **Project Type**: Web application performance enhancement  
 **Performance Goals**: Small-project board interactive in under 2 seconds; large-project meaningful active-board content in about 5 seconds with an 8-second upper acceptance bound for active columns; repeat visits served from warm cache in under 500 ms  
 **Constraints**: Preserve current board UX (parent issues + GitHub-linked sub-issue pills), avoid architectural rewrites, keep manual refresh capable of full data refresh, do not start non-essential background work on the initial critical path, continue serving stale/Done-cache fallback when GitHub is slow or unavailable  
@@ -25,8 +25,8 @@ The current codebase already includes two important mitigations that this plan m
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **I. Specification-First Development**: PASS — `/home/runner/work/solune/solune/specs/003-loading-performance/spec.md` defines prioritized user stories, acceptance scenarios, edge cases, and measurable outcomes for the loading-performance work.
-- **II. Template-Driven Workflow**: PASS — This plan and all supporting artifacts are being generated from the canonical Speckit workflow for `/home/runner/work/solune/solune/specs/003-loading-performance/` and mirrored to the copilot branch root publication files.
+- **I. Specification-First Development**: PASS — `./spec.md` defines prioritized user stories, acceptance scenarios, edge cases, and measurable outcomes for the loading-performance work.
+- **II. Template-Driven Workflow**: PASS — This plan and all supporting artifacts are being generated from the canonical Speckit workflow for `./` and mirrored to the copilot branch root publication files.
 - **III. Agent-Orchestrated Execution**: PASS — The work decomposes cleanly into backend critical-path shaping, selection/dedup orchestration, frontend progressive rendering, and validation.
 - **IV. Test Optionality with Clarity**: PASS — The spec explicitly includes independent testing criteria, so the plan includes targeted backend unit/performance coverage plus frontend hook/page and optional Playwright validation.
 - **V. Simplicity and DRY**: PASS — The plan reuses existing cache, Done-item persistence, `cached_fetch`, project selection flow, and frontend query architecture instead of introducing new services or storage.
@@ -38,7 +38,8 @@ The current codebase already includes two important mitigations that this plan m
 ### Documentation (this feature)
 
 ```text
-specs/003-loading-performance/
+.
+├── spec.md              # Feature specification
 ├── plan.md              # This file
 ├── research.md          # Phase 0 output — performance strategy decisions
 ├── data-model.md        # Phase 1 output — board load policy/state models
@@ -164,14 +165,14 @@ solune/
 
 | Check | Command / Method | After Phase |
 |-------|------------------|-------------|
-| Markdown plan artifacts | `cd /home/runner/work/solune/solune && npx --yes markdownlint-cli plan.md research.md data-model.md quickstart.md specs/003-loading-performance/plan.md specs/003-loading-performance/research.md specs/003-loading-performance/data-model.md specs/003-loading-performance/quickstart.md --config solune/.markdownlint.json` | 0, 1 |
-| Backend board/projects unit tests | `cd /home/runner/work/solune/solune/solune/backend && uv run --with pytest --with pytest-asyncio pytest tests/unit/test_api_board.py tests/unit/test_api_projects.py tests/unit/test_board.py tests/unit/test_github_projects.py -q` | 1, 2, 4 |
-| Backend board performance harness | `cd /home/runner/work/solune/solune/solune/backend && PERF_GITHUB_TOKEN=... PERF_PROJECT_ID=... uv run --with pytest pytest tests/performance/test_board_load_time.py -m performance -q` | 4 |
-| Frontend targeted tests | `cd /home/runner/work/solune/solune/solune/frontend && npm run test -- --reporter=verbose --run src/hooks/useProjects.test.tsx src/hooks/useProjectBoard.test.tsx src/pages/ProjectsPage.test.tsx` | 3, 4 |
-| Frontend type safety | `cd /home/runner/work/solune/solune/solune/frontend && npm run type-check` | 3, 4 |
-| Frontend lint | `cd /home/runner/work/solune/solune/solune/frontend && npm run lint` | 4 |
-| Frontend build | `cd /home/runner/work/solune/solune/solune/frontend && npm run build` | 4 |
-| Playwright project-load timing | `cd /home/runner/work/solune/solune/solune/frontend && E2E_PROJECT_ID=... npx playwright test e2e/project-load-performance.spec.ts --headed` | 4 |
+| Markdown plan artifacts | `cd "$(git rev-parse --show-toplevel)" && npx --yes markdownlint-cli plan.md research.md data-model.md quickstart.md --config solune/.markdownlint.json` | 0, 1 |
+| Backend board/projects unit tests | `cd solune/backend && uv run --with pytest --with pytest-asyncio pytest tests/unit/test_api_board.py tests/unit/test_api_projects.py tests/unit/test_board.py tests/unit/test_github_projects.py -q` | 1, 2, 4 |
+| Backend board performance harness | `cd solune/backend && PERF_GITHUB_TOKEN=... PERF_PROJECT_ID=... uv run --with pytest pytest tests/performance/test_board_load_time.py -m performance -q` | 4 |
+| Frontend targeted tests | `cd solune/frontend && npm run test -- --reporter=verbose --run src/hooks/useProjects.test.tsx src/hooks/useProjectBoard.test.tsx src/pages/ProjectsPage.test.tsx` | 3, 4 |
+| Frontend type safety | `cd solune/frontend && npm run type-check` | 3, 4 |
+| Frontend lint | `cd solune/frontend && npm run lint` | 4 |
+| Frontend build | `cd solune/frontend && npm run build` | 4 |
+| Playwright project-load timing | `cd solune/frontend && E2E_PROJECT_ID=... npx playwright test e2e/project-load-performance.spec.ts --headed` | 4 |
 | Manual flow validation | Select project → board interactive → Done/history backfill indicator → full refresh → rapid project switch cancellation | 4 |
 
 ## Decisions
