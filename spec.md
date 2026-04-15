@@ -74,11 +74,7 @@ When browsing the catalog, servers that have already been imported into the curr
 2. **Given** the user has not imported server "Slack MCP", **When** they browse the catalog, **Then** the "Slack MCP" card shows an "Import" button.
 3. **Given** the user removes a previously imported server from the tool list, **When** they browse the catalog, **Then** the removed server's card reverts to showing the "Import" button.
 
-#### Apps — Create App Experience
-
-- **FR-008**: System MUST remove the "Target branch" section from the Create App experience and default to the main branch.
-- **FR-009**: System MUST move the "New Repository Settings" controls into the "Advanced options" section of the Create App experience.
-- **FR-010**: System MUST remove the "Name override" field from the "Advanced options" section of the Create App experience.
+### Edge Cases
 
 - What happens when the external catalog data source is temporarily unavailable? The system displays cached results (if available) with a notice that results may not be current, or a clear error message with a retry option if no cache is available.
 - What happens when the user searches with special characters or extremely long queries? The system sanitizes input and either returns relevant results or a "No servers found" message without errors.
@@ -87,11 +83,9 @@ When browsing the catalog, servers that have already been imported into the curr
 - What happens when a catalog server's install configuration is missing or malformed? The import button is disabled or the system shows an informative error explaining the server cannot be imported at this time.
 - What happens when the catalog has thousands of results for a broad query? The system paginates results or loads them incrementally to maintain performance.
 
-- **FR-011**: System MUST display a delete button on each App tile.
-- **FR-012**: System MUST allow users to delete an app via the tile delete button, with a confirmation step before deletion.
-- **FR-013**: System MUST display app status on each App tile indicating whether a GitHub Parent Issue is actively executing in the app's project.
+## Requirements *(mandatory)*
 
-#### Apps — Detail View and History
+### Functional Requirements
 
 - **FR-001**: System MUST display a "Browse MCP Catalog" section on the Tools page, positioned between the presets gallery and the tool archive section.
 - **FR-002**: System MUST retrieve MCP server listings from the Glama API, including server name, description, repository URL, category, server type, install configuration, and quality score.
