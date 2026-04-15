@@ -1,141 +1,151 @@
 # Feature Specification: Loading Performance
 
-**Feature Branch**: `003-loading-performance`
+**Feature Branch**: `loading-performance`
 **Created**: 2026-04-15
 **Status**: Draft
 **Input**: User description: "Reducing initial Project import/load time in Solune. When user selects a GitHub project after login."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Fast Project Board Load on Selection (Priority: P1)
+### User Story 1 - Fast Project Load on Small Boards (Priority: P1)
 
-A user logs into Solune, sees their list of GitHub projects, and selects one. The project board loads and becomes interactive noticeably faster than before. For small projects (12–13 items), the board appears in under 2 seconds. For large projects (hundreds of items), the user sees meaningful content within 5 seconds, with remaining data loading progressively in the background.
+A user logs into Solune and selects a GitHub project that contains 12–13 items. The board view loads quickly, showing all columns, items, and parent issue cards with their sub-issue pill links. The user perceives a responsive, near-instant experience with the board appearing in under 2 seconds after project selection.
 
-**Why this priority**: This is the core user pain point — every user experiences the project load delay on every session. Reducing the critical-path time from project selection to usable board delivers the highest-impact improvement to the most users.
+**Why this priority**: Small projects are the most common use case and the first impression for new users. Reducing the 1.8–2.2 second critical-path load to under 2 seconds ensures the majority of users experience a fast, responsive application. This directly impacts user retention and satisfaction.
 
-**Independent Test**: Can be fully tested by logging in, selecting a project, and measuring the time until the board is interactive. Delivers immediate value by eliminating the most visible wait time in the application.
+**Independent Test**: Can be fully tested by logging in, selecting a small project (≤20 items), and measuring the time from clicking "Select" to the board becoming fully interactive. Delivers value by making the most common user flow feel instant.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user is on the project list after login, **When** they select a small project (under 50 items), **Then** the project board loads and becomes interactive in under 2 seconds.
-2. **Given** a user is on the project list after login, **When** they select a large project (hundreds of items), **Then** the project board displays meaningful content within 5 seconds, with remaining data appearing progressively.
-3. **Given** a user selects a project, **When** the board data begins loading, **Then** the system begins preparing board data immediately upon project selection rather than waiting for the frontend to request it.
-4. **Given** a user selects a project, **When** the board loads, **Then** sub-issue metadata that is not displayed in the board UI is not fetched during the initial load.
+1. **Given** a user has logged in and sees their project list, **When** they select a small project (≤20 items), **Then** the board view loads and becomes interactive within 2 seconds.
+2. **Given** a user selects a small project, **When** the board is loading, **Then** a loading indicator is displayed until the board is ready, and the user is never shown a blank or broken state.
+3. **Given** a user has previously loaded a project in the same session, **When** they navigate back to it, **Then** cached data is shown immediately while any background refresh occurs silently.
 
 ---
 
-### User Story 2 - Skip Unnecessary Work for Completed Items (Priority: P1)
+### User Story 2 - Usable Board on Large Projects (Priority: P1)
 
-When a project board loads, parent issues in the "Done" column or with a "closed" status do not trigger sub-issue fetching. Since these items have a very low probability of metadata changes, the system avoids wasting time and external service calls on data that is unlikely to have changed and is not needed for the initial board display.
+A user selects a large GitHub project containing hundreds of items and hundreds of sub-issues. Instead of waiting 40+ seconds for the entire board to load, the user sees active columns (non-Done) appear within a few seconds. Closed or Done parent issues load progressively in the background without blocking the user from interacting with the board. The user can begin triaging, reviewing, and navigating active items while historical data streams in behind the scenes.
 
-**Why this priority**: Sub-issue fetching for closed/done items is a major contributor to load time on large projects (55 individual sub-issue requests in the profiled large project). Eliminating this unnecessary work directly reduces the largest bottleneck identified in the performance analysis.
+**Why this priority**: Large projects represent the highest-value users — teams managing significant workloads. A 40-second blocking load is unacceptable and risks abandonment. Progressive loading keeps these users productive while data continues to arrive.
 
-**Independent Test**: Can be tested by loading a project with items in the "Done" column and verifying that sub-issues for those items are not fetched during the initial load. Delivers value by reducing load time proportional to the number of completed items.
+**Independent Test**: Can be fully tested by selecting a large project (500+ items) and verifying that active columns appear within the target time while Done column items load progressively. Delivers value by making large projects usable from the moment the board appears.
 
 **Acceptance Scenarios**:
 
-1. **Given** a project has parent issues in the "Done" column, **When** the board loads, **Then** sub-issues for those "Done" items are not fetched during the initial load.
-2. **Given** a project has closed parent issues, **When** the board loads, **Then** sub-issues for those closed items are not fetched during the initial load.
-3. **Given** a "Done" parent issue is moved back to an active column by the user, **When** the board refreshes, **Then** sub-issues for that item are fetched at that time.
-4. **Given** all parent issues in a project are in the "Done" column, **When** the board loads, **Then** zero sub-issue fetches occur and the board loads with only the parent issue data.
+1. **Given** a user selects a large project (500+ items), **When** the board is loading, **Then** active (non-Done) columns and their items are visible and interactive within 8 seconds.
+2. **Given** a large project is selected, **When** active columns have loaded, **Then** Done/closed parent issues and their sub-issues load progressively in the background without blocking user interaction.
+3. **Given** a large project is loading, **When** historical items are still being fetched, **Then** the board displays a subtle progress indicator for the Done column while other columns are fully interactive.
+4. **Given** a large project has completed loading, **When** the user inspects Done column items, **Then** all parent issues and sub-issue pills are present and correct.
 
 ---
 
-### User Story 3 - Eliminate Duplicate Data Fetches (Priority: P2)
+### User Story 3 - Smooth Cold-Start Experience (Priority: P2)
 
-When a user first opens Solune and selects a project, the system avoids making duplicate requests for the same data. Currently, the frontend fires two simultaneous requests for project list data that both miss the cache and hit the external service. The system deduplicates these in-flight requests so only one external call is made.
+A user logs in for the first time in a session (cold start) and selects a project. The system avoids making redundant requests to external services. The user does not experience additional latency caused by duplicate data fetches or background processes competing for resources during the initial load.
 
-**Why this priority**: Duplicate fetches waste external service quota and add unnecessary latency on the critical path. While the savings (~1.1 seconds) are modest compared to the board data bottleneck, deduplication is a low-effort fix that also reduces rate-limit risk.
+**Why this priority**: Cold starts are unavoidable and happen every login. Eliminating wasted work (duplicate requests, premature background tasks) improves load time without requiring architectural changes. This is a "free" performance gain that benefits every user on every session.
 
-**Independent Test**: Can be tested by monitoring network requests during project selection and verifying that only one external call is made for project list data, even when multiple components request the same data simultaneously.
+**Independent Test**: Can be tested by clearing all caches, logging in, selecting a project, and verifying that external service calls are not duplicated and that background processes do not compete with the critical load path. Delivers value by shaving seconds off every first-load experience.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user opens Solune for the first time in a session, **When** multiple components simultaneously request the project list, **Then** only one external request is made and the result is shared across all requestors.
-2. **Given** the project list has been fetched once, **When** another component requests the same data before the cache expires, **Then** the cached result is returned without an additional external call.
-3. **Given** an in-flight request for project list data exists, **When** a second request for the same data arrives, **Then** the second request waits for and reuses the result of the first request.
+1. **Given** a user logs in for the first time in a session, **When** they select a project, **Then** the system makes at most one request per distinct data need (no duplicate fetches for the same information).
+2. **Given** a user selects a project, **When** the project data is being loaded, **Then** non-essential background processes (such as polling for agent activity) do not start until the board has finished its initial load.
+3. **Given** a user has previously loaded a project in the same session, **When** they navigate back to it, **Then** cached data is served instantly and only a background refresh is triggered if the data is stale.
 
 ---
 
-### User Story 4 - Non-Blocking Background Processing (Priority: P2)
+### User Story 4 - Sub-Issue Optimization for Completed Work (Priority: P2)
 
-When a user selects a project, any background processing that is not essential for the initial board display is deferred until after the board is fully loaded and interactive. Background tasks such as automated polling and reconciliation run after the user can see and interact with the board, rather than competing for resources during the critical load window.
+A user's project board contains parent issues in the Done column or with a closed status. The system recognizes that these completed items are unlikely to change and avoids fetching their sub-issue metadata during the initial board load. Sub-issue pills for Done/closed parent issues still appear correctly using previously cached or stored data. If the user explicitly requests a refresh, sub-issues for completed items are fetched on demand.
 
-**Why this priority**: Background processing contention adds 15–20 seconds on large boards and causes visible slowdown even on small boards. Deferring non-essential processing is a low-complexity change that eliminates contention without altering the processing logic itself.
+**Why this priority**: The performance analysis shows that Done column items represent 99.5% of the board payload on large projects (398 KB out of 399 KB). Skipping sub-issue fetches for these stable items dramatically reduces load time without impacting the user experience, since sub-issue metadata is not displayed in the board UX — only hyperlinked pills are shown.
 
-**Independent Test**: Can be tested by selecting a project and verifying that background tasks do not begin until after the board is interactive, and that the board loads without competing for resources with background operations.
+**Independent Test**: Can be tested by loading a project with many Done/closed parent issues, verifying that active items load quickly, and confirming that Done column sub-issue pills still render correctly from stored data. Delivers value by eliminating the largest single performance bottleneck.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user selects a project, **When** the board begins loading, **Then** automated polling does not start until the board is fully loaded and interactive.
-2. **Given** a user selects a large project, **When** the board loads, **Then** background processing does not degrade the board load time.
-3. **Given** background processing is deferred, **When** the board finishes loading, **Then** deferred background tasks begin automatically without user intervention.
-4. **Given** the board has loaded and background tasks are running, **When** the user interacts with the board, **Then** background tasks do not cause noticeable UI lag or data staleness.
+1. **Given** a project has parent issues in the Done column, **When** the board initially loads, **Then** sub-issue data for Done/closed parent issues is not fetched from the external service.
+2. **Given** Done column parent issues have previously fetched sub-issue data, **When** the board loads, **Then** the stored sub-issue pills are displayed correctly using cached data.
+3. **Given** a parent issue transitions from active to Done between sessions, **When** the user loads the board, **Then** the parent issue's previously fetched sub-issue data is retained and displayed in the Done column.
+4. **Given** the user explicitly triggers a full board refresh, **When** the refresh completes, **Then** sub-issues for Done/closed parent issues are also refreshed.
 
 ---
 
-### User Story 5 - Defer Reconciliation to Background (Priority: P3)
+### User Story 5 - Background Data Reconciliation (Priority: P3)
 
-After the board loads, the system runs a data reconciliation check in the background to ensure consistency between different data sources. This reconciliation previously ran during the initial load (adding 683–791ms even when no discrepancies were found). By deferring it, the initial load is faster while data integrity is still maintained.
+After the board has loaded and the user is interacting with it, the system performs a background reconciliation pass to catch any items that may have been missed due to external service eventual consistency. This reconciliation happens silently and does not interrupt the user's workflow. Any newly discovered items are seamlessly added to the board.
 
-**Why this priority**: Reconciliation is important for data integrity but does not need to block the initial display. Users see the board faster while consistency checks happen transparently after the board is interactive.
+**Why this priority**: Reconciliation ensures data completeness but costs 683–791ms even when no items are found. Deferring it to after the board is interactive eliminates this cost from the critical load path while still ensuring eventual accuracy.
 
-**Independent Test**: Can be tested by loading a project board, verifying the board appears without reconciliation delay, and then confirming that reconciliation completes in the background within a reasonable time window.
+**Independent Test**: Can be tested by loading a board, waiting for the background reconciliation to complete, and verifying that any newly discovered items appear in the correct columns without a page reload. Delivers value by ensuring data accuracy without sacrificing load speed.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user selects a project, **When** the board loads, **Then** reconciliation does not run as part of the initial load sequence.
-2. **Given** the board has loaded, **When** background reconciliation runs, **Then** any discrepancies found are resolved without disrupting the user's current view.
-3. **Given** reconciliation finds zero discrepancies (the common case), **When** it completes in the background, **Then** no visible change occurs on the board.
-4. **Given** reconciliation finds discrepancies, **When** it resolves them, **Then** the board updates smoothly to reflect the corrected data.
+1. **Given** the board has finished its initial load, **When** background reconciliation runs, **Then** any newly discovered items appear in the correct columns without requiring a page reload.
+2. **Given** the board is loading, **When** reconciliation has not yet run, **Then** the board displays all items found during the initial fetch and does not wait for reconciliation to complete.
+3. **Given** reconciliation finds zero new items, **When** it completes, **Then** the board remains unchanged and the user is not notified or interrupted.
 
 ---
 
 ### Edge Cases
 
-- What happens when a project has zero items? The board loads immediately with an empty state, and no sub-issue or reconciliation work is triggered.
-- What happens when the external service is rate-limited during board load? The system displays whatever data it has already retrieved and retries failed requests after a delay, showing a non-blocking notification to the user.
-- What happens when a user rapidly switches between projects? The system cancels pending data fetches for the previously selected project and starts fresh for the newly selected one, preventing resource contention.
-- What happens when all items in a project are in the "Done" column? The board loads with only parent issue data and zero sub-issue fetches, resulting in the fastest possible load time.
-- What happens when a background reconciliation is still running and the user switches projects? The in-progress reconciliation is cancelled to free up resources for the new project's load.
-- What happens when the project list cache expires during a session? The next project-related request triggers a fresh fetch, but any in-flight or recent results are reused rather than duplicated.
+- What happens when a project has only Done/closed items and no active items? The board loads with an empty active area and a message indicating no active items, while Done column data loads in the background.
+- What happens when the external service is unreachable during initial load? The system serves the most recent cached board data with a notice that the data may be stale, and retries in the background.
+- What happens when a parent issue changes status from Done to active between sessions? The system detects the status change during the next load and fetches fresh sub-issue data for the reactivated item.
+- What happens when background reconciliation discovers a large number of missing items? The items are added incrementally to the board without causing a disruptive re-render or layout shift.
+- What happens when multiple browser tabs load the same project simultaneously? Each tab loads independently using shared cache data, and redundant external service requests are deduplicated.
+- What happens when a user rapidly switches between projects? The system cancels in-flight requests for the previous project and begins loading the newly selected project without accumulated latency.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST begin preparing board data immediately when the user selects a project, rather than waiting for a separate frontend request.
-- **FR-002**: System MUST skip sub-issue fetching for parent issues that are in the "Done" column or have a "closed" status during the initial board load.
-- **FR-003**: System MUST deduplicate simultaneous in-flight requests for the same project list data so that only one external call is made.
-- **FR-004**: System MUST defer automated polling until after the project board is fully loaded and interactive.
-- **FR-005**: System MUST defer data reconciliation from the initial load sequence to a background process that runs after the board is displayed.
-- **FR-006**: System MUST ensure that sub-issues for "Done" or "closed" parent issues are fetched when those items are moved back to an active column.
-- **FR-007**: System MUST cancel pending data fetches and background tasks for a previously selected project when the user switches to a different project.
-- **FR-008**: System MUST display a non-blocking notification to the user if external service rate limits or errors prevent some data from loading, while still showing any data that was successfully retrieved.
-- **FR-009**: System MUST ensure that deferred background tasks (reconciliation, polling) start automatically after the board is interactive, without requiring user action.
-- **FR-010**: System MUST preserve all existing board functionality — the performance optimizations must not remove, alter, or degrade any user-visible features.
-- **FR-011**: System MUST NOT display sub-issue metadata in the board UI, consistent with the current design where only parent issues are shown on the board and sub-issues appear as linked pills that navigate to GitHub.
+#### Board Data Loading
+
+- **FR-001**: System MUST load and display active (non-Done, non-closed) board items before loading historical items.
+- **FR-002**: System MUST display Done/closed parent issue sub-issue pills using previously stored data without fetching fresh sub-issue metadata on initial load.
+- **FR-003**: System MUST allow users to trigger a full refresh that includes fetching sub-issue data for Done/closed parent issues on demand.
+- **FR-004**: System MUST perform data reconciliation as a background task after the board is interactive, not as part of the initial critical load path.
+- **FR-005**: System MUST seamlessly merge background-reconciled items into the board without requiring a page reload or disrupting user interaction.
+
+#### Request Optimization
+
+- **FR-006**: System MUST deduplicate in-flight requests so that concurrent calls for the same data result in a single external service request.
+- **FR-007**: System MUST begin preparing board data as soon as the user confirms project selection, before the board view requests it.
+- **FR-008**: System MUST defer non-essential background processes (such as agent activity polling) until the board has completed its initial load.
+
+#### Caching
+
+- **FR-009**: System MUST serve cached board data immediately on repeat visits within the same session, triggering a background refresh if the data is stale.
+- **FR-010**: System MUST retain sub-issue data for Done/closed parent issues across sessions so that sub-issue pills can be rendered without refetching.
+
+#### User Experience
+
+- **FR-011**: System MUST display a loading indicator while board data is being fetched, and transition smoothly to the loaded state.
+- **FR-012**: System MUST not display blank, broken, or partially rendered board states during loading.
+- **FR-013**: System MUST display a subtle progress indicator for sections of the board that are still loading (e.g., Done column) while other sections are interactive.
 
 ### Assumptions
 
-- The current board UI design, where only parent GitHub issues are displayed and sub-issues appear as attached pills linking to GitHub, will remain unchanged for this feature.
-- Sub-issue metadata is not displayed or used in the board UI; it is only used for linked pill rendering (title and URL), which can be derived from the parent issue data or fetched lazily.
-- "Done" column identification and "closed" status detection are already available from the existing board data structure.
-- The performance profiling data (small project: 1.8–2.2s critical path; large project: ~40s) is representative of typical user scenarios and can be used as a baseline.
-- Industry-standard web application performance expectations apply: interactive UI within 2 seconds for small datasets, 5 seconds for large datasets.
-- The existing cache infrastructure can be leveraged for request deduplication without architectural changes.
-- Background reconciliation and polling logic does not need to be rewritten — only the timing of when it starts needs to change.
+- Sub-issue metadata is not displayed or used in the board UX. Only parent GitHub Issues are displayed, and sub-issues are shown as attached pill links that navigate to GitHub.
+- Done/closed parent issues and their sub-issues have a very low probability of metadata or status changes between user sessions. Deletion is more likely than update.
+- The current performance bottleneck is dominated by sequential sub-issue data fetches and data reconciliation, not by network bandwidth or payload size of individual responses.
+- The external service supports conditional requests (ETag/If-Modified-Since) that can be leveraged for efficient cache validation.
+- The existing in-memory caching infrastructure and stale-fallback mechanisms are stable and can be extended without replacement.
+- Standard web application performance expectations apply: page loads under 3 seconds for typical use, progressive rendering for exceptional cases.
+- Frontend adaptive polling mechanisms already adjust refetch intervals based on detected activity and do not require modification.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Users with small projects (under 50 items) experience project board load times of under 2 seconds from project selection to interactive board.
-- **SC-002**: Users with large projects (hundreds of items) see meaningful board content within 5 seconds of project selection, with remaining data loading progressively.
-- **SC-003**: The number of external service calls made during initial project load is reduced by at least 50% compared to the current baseline.
-- **SC-004**: No duplicate external service requests are made for the same data within a single project load sequence.
-- **SC-005**: Background processing (polling, reconciliation) does not begin until after the board is interactive, eliminating resource contention during the critical load window.
-- **SC-006**: Sub-issue fetching for "Done" or "closed" parent issues is eliminated from the initial load, reducing load time proportionally to the number of completed items.
-- **SC-007**: All existing board features continue to function correctly after performance optimizations are applied — zero regressions in user-visible functionality.
-- **SC-008**: Users can interact with the board (scroll, click, drag) within the target load time without waiting for background tasks to complete.
-- **SC-009**: 90% of users perceive the project load as "fast" or "acceptable" based on the sub-2-second (small) and sub-5-second (large) targets.
+- **SC-001**: Users selecting a small project (≤20 items) see a fully interactive board within 2 seconds, down from the current 1.8–2.2 second baseline.
+- **SC-002**: Users selecting a large project (500+ items) see active columns within 8 seconds, down from the current ~40 second full-blocking load.
+- **SC-003**: Cold-start project selection completes without any duplicate external service requests for the same data.
+- **SC-004**: Background processes do not add measurable latency to the critical board-loading path on any project size.
+- **SC-005**: Previously loaded projects serve cached data within 500 milliseconds on repeat visits in the same session.
+- **SC-006**: Data reconciliation completes in the background without any user-visible delay or interruption to board interaction.
+- **SC-007**: Done/closed parent issues display correct sub-issue pills on initial load without triggering fresh sub-issue fetches.
+- **SC-008**: 95% of users can begin interacting with their board (click, scroll, navigate) within the target load times on first attempt.

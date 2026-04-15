@@ -32,7 +32,7 @@
 ## Notes
 
 - All checklist items pass. The specification is ready for `/speckit.clarify` or `/speckit.plan`.
-- No [NEEDS CLARIFICATION] markers were needed — the parent issue performance analysis provided clear data on all bottlenecks and recommended fixes.
-- The feature scope is well-bounded: 5 optimization areas (pre-warming, skip done/closed sub-issues, dedup requests, defer polling, defer reconciliation) with clear load time targets.
-- Assumptions document the baseline performance data and confirm the existing board UI design remains unchanged.
-- All success criteria are measurable with specific time targets (under 2s for small, under 5s for large) and verifiable outcomes.
+- No [NEEDS CLARIFICATION] markers were needed — the parent issue's performance analysis provided clear data on all bottlenecks and their impact.
+- Five user stories cover the full scope: small board fast load (P1), large board progressive load (P1), cold-start optimization (P2), sub-issue skip for completed work (P2), and background reconciliation (P3).
+- Success criteria include specific time targets derived from the performance analysis baseline measurements.
+- Assumptions document that sub-issue metadata is not used in the UX (only pill links) and that Done/closed items are stable.
