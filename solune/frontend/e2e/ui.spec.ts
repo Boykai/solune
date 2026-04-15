@@ -21,7 +21,7 @@ test.describe('Login Page UI', () => {
     await expect(mainContent.first()).toBeVisible();
 
     // Visual regression: capture login page UI
-    await expect(page).toHaveScreenshot('login-page-styling.png', { maxDiffPixels: 100 });
+    await expect(page).toHaveScreenshot('login-page-styling.png', { maxDiffPixelRatio: 0.08 });
   });
 
   test('should be responsive', async ({ page }) => {

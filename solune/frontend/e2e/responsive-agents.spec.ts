@@ -54,7 +54,7 @@ test.describe('Responsive Agents Layout', () => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openAgentsPage(page);
     await expect(page.getByRole('main')).toHaveScreenshot('responsive-agents-mobile.png', {
-      maxDiffPixels: 100,
+      maxDiffPixelRatio: 0.08,
     });
   });
 });

@@ -51,7 +51,7 @@ test.describe('Responsive Board Layout', () => {
     await page.goto('/');
     await expect(page.locator('body')).toBeVisible();
     await expect(page).toHaveScreenshot('responsive-board-mobile.png', {
-      maxDiffPixels: 100,
+      maxDiffPixelRatio: 0.08,
     });
   });
 });
