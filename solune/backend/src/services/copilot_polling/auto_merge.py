@@ -313,6 +313,8 @@ async def dispatch_devops_agent(
     pipeline_metadata: dict[str, Any] | None = None,
     project_id: str = "",
     merge_result_context: dict[str, Any] | None = None,
+    *,
+    skip_post_merge_retry: bool = False,
 ) -> bool:
     """Dispatch the DevOps agent for CI failure / merge conflict recovery.
 
@@ -447,15 +449,17 @@ async def dispatch_devops_agent(
         },
     )
 
-    # Schedule post-DevOps merge retry polling
-    schedule_post_devops_merge_retry(
-        access_token=access_token,
-        owner=owner,
-        repo=repo,
-        issue_number=issue_number,
-        pipeline_metadata=pipeline_metadata or {},
-        project_id=project_id,
-    )
+    # Schedule post-DevOps merge retry polling unless caller manages
+    # its own retry mechanism (e.g. the pipeline polling loop).
+    if not skip_post_merge_retry:
+        schedule_post_devops_merge_retry(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            pipeline_metadata=pipeline_metadata or {},
+            project_id=project_id,
+        )
 
     return True
 

@@ -1789,10 +1789,7 @@ async def _advance_pipeline(
                 # conflicts on the child PR so the pipeline can resume.
                 blocked_pr = merge_result.get("pr_number")
 
-                from .auto_merge import (
-                    dispatch_devops_agent,
-                    schedule_post_devops_merge_retry,
-                )
+                from .auto_merge import dispatch_devops_agent
 
                 devops_dispatched = await dispatch_devops_agent(
                     access_token=access_token,
@@ -1806,6 +1803,7 @@ async def _advance_pipeline(
                         "agent_name": completed_agent,
                         "target_branch": main_branch_info["branch"],
                     },
+                    skip_post_merge_retry=True,
                 )
 
                 if devops_dispatched:
@@ -1838,14 +1836,6 @@ async def _advance_pipeline(
                             issue_number,
                             exc_info=True,
                         )
-                    schedule_post_devops_merge_retry(
-                        access_token=access_token,
-                        owner=owner,
-                        repo=repo,
-                        issue_number=issue_number,
-                        pipeline_metadata={},
-                        project_id=project_id,
-                    )
                     # Roll back pipeline state but do NOT set pipeline.error —
                     # the polling loop should retry after DevOps resolves it.
                     pipeline.current_agent_index -= 1
@@ -1869,8 +1859,45 @@ async def _advance_pipeline(
                         "blocked_pr": blocked_pr,
                     }
 
-                # DevOps dispatch failed (cap reached or already active) —
-                # fall through to permanent halt.
+                # DevOps dispatch returned False.  Check why before halting.
+                from .state import _devops_tracking
+
+                devops_info = _devops_tracking.get(issue_number, {"active": False, "attempts": 0})
+                if devops_info["active"]:
+                    # DevOps is already working on this issue — treat as
+                    # non-fatal pause so the polling loop retries once
+                    # DevOps resolves the conflict.
+                    logger.info(
+                        "DevOps agent already active for issue #%d "
+                        "(child PR #%s, agent '%s'). Pausing pipeline "
+                        "without error.",
+                        issue_number,
+                        blocked_pr,
+                        completed_agent,
+                    )
+                    pipeline.current_agent_index -= 1
+                    if completed_agent in pipeline.completed_agents:
+                        pipeline.completed_agents.remove(completed_agent)
+                    pipeline.current_group_index = _pre_group_idx
+                    pipeline.current_agent_index_in_group = _pre_agent_in_group
+                    if pipeline.groups and _pre_group_idx < len(pipeline.groups):
+                        _g = pipeline.groups[_pre_group_idx]
+                        if _pre_group_agent_status is None:
+                            _g.agent_statuses.pop(completed_agent, None)
+                        else:
+                            _g.agent_statuses[completed_agent] = _pre_group_agent_status
+                    _cp.set_pipeline_state(issue_number, pipeline)
+                    return {
+                        "status": "merge_blocked",
+                        "issue_number": issue_number,
+                        "task_title": task_title,
+                        "action": "merge_blocked",
+                        "agent_name": completed_agent,
+                        "blocked_pr": blocked_pr,
+                    }
+
+                # DevOps dispatch truly failed (cap reached or assignment
+                # failure) — fall through to permanent halt.
                 logger.error(
                     "Safety-net merge for agent '%s' on issue #%d "
                     "(child PR #%s) failed %d times and DevOps agent "
@@ -1895,7 +1922,7 @@ async def _advance_pipeline(
                                 f"🛑 Pipeline halted: failed to merge child PR "
                                 f"#{blocked_pr} for agent **{completed_agent}** "
                                 f"after {failure_count} attempts. DevOps agent "
-                                f"retry cap exhausted. Please resolve merge "
+                                f"could not be dispatched. Please resolve merge "
                                 f"conflicts manually and re-trigger the pipeline."
                             ),
                         )
