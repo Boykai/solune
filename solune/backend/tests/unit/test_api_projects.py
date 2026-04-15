@@ -156,7 +156,9 @@ class TestSelectProject:
             patch("src.services.task_registry.task_registry.create_task") as mock_create_task,
         ):
             mock_create_task.side_effect = lambda coro, **kwargs: coro.close()
-            mock_cache.get.return_value = None
+            # Return the project from cache so get_project does not call
+            # coalesced_fetch (which also uses task_registry.create_task).
+            mock_cache.get.return_value = [p]
             resp = await client.post("/api/v1/projects/PVT_abc/select")
         assert resp.status_code == 200
         data = resp.json()
