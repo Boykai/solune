@@ -475,6 +475,8 @@ class TestLaunchPhasePipelines:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="test-owner",
+                repo="test-repo",
             )
 
             assert mock_launch.call_count == 2
@@ -499,6 +501,8 @@ class TestLaunchPhasePipelines:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="test-owner",
+                repo="test-repo",
             )
 
             # Second call (Phase 2) should have prerequisite_issues
@@ -527,6 +531,8 @@ class TestLaunchPhasePipelines:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="test-owner",
+                repo="test-repo",
             )
 
             # First call (Phase 1) should have no prerequisites
@@ -534,6 +540,35 @@ class TestLaunchPhasePipelines:
             assert first_call.kwargs.get("auto_merge") is True
             prereqs = first_call.kwargs.get("prerequisite_issues")
             assert prereqs is None  # No deps means None
+
+    @pytest.mark.asyncio
+    async def test_target_repo_forwarded_to_execute_pipeline_launch(self) -> None:
+        """Each execute_pipeline_launch call must include target_repo=(owner, repo)."""
+        orchestrator = _make_orchestrator()
+
+        phases = [
+            PlanPhase(index=1, title="A"),
+            PlanPhase(index=2, title="B", depends_on_phases=[1]),
+        ]
+
+        with patch(
+            "src.api.pipelines.execute_pipeline_launch", new_callable=AsyncMock
+        ) as mock_launch:
+            mock_launch.return_value = MagicMock(success=True)
+
+            await orchestrator._launch_phase_pipelines(
+                phases=phases,
+                phase_issue_numbers=[10, 20],
+                project_id="proj-1",
+                pipeline_id="pipe-1",
+                access_token="token",
+                owner="myorg",
+                repo="myrepo",
+            )
+
+            assert mock_launch.call_count == 2
+            for call in mock_launch.call_args_list:
+                assert call.kwargs.get("target_repo") == ("myorg", "myrepo")
 
 
 # ── Tests for diamond dependency prerequisite mapping ───────────────────
@@ -674,6 +709,8 @@ class TestPipelineLaunchFailureHandling:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="test-owner",
+                repo="test-repo",
             )
 
         # All 3 phases attempted even though #2 failed

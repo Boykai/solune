@@ -298,6 +298,13 @@ async def select_project(
         name=f"prefetch-agents-{project_id}",
     )
 
+    # Fire-and-forget: restore scoped app-pipeline polling for active
+    # cross-repo pipelines belonging to this project.
+    task_registry.create_task(
+        _restore_app_pipelines_for_project(session.access_token, project_id),
+        name=f"restore-app-pipelines-{project_id}",
+    )
+
     return UserResponse.from_session(session)
 
 
@@ -335,6 +342,53 @@ async def _start_copilot_polling(session: UserSession, project_id: str) -> None:
         delay_seconds=45,
         caller="select_project",
     )
+
+
+async def _restore_app_pipelines_for_project(access_token: str, project_id: str) -> None:
+    """Restore scoped app-pipeline polling for the selected project.
+
+    Mirrors the restart-time app-pipeline restoration logic but scoped to a
+    single *project_id*.  Only cross-repo (non-default) pipelines trigger
+    scoped polling; same-repo pipelines stay on the main polling loop.
+    """
+    from src.config import get_settings
+    from src.services.copilot_polling import ensure_app_pipeline_polling
+    from src.services.workflow_orchestrator import get_all_pipeline_states
+
+    settings = get_settings()
+    default_owner = (settings.default_repo_owner or "").lower()
+    default_repo = (settings.default_repo_name or "").lower()
+
+    for issue_number, state in get_all_pipeline_states().items():
+        pid = getattr(state, "project_id", None)
+        if pid != project_id:
+            continue
+        if getattr(state, "is_complete", False):
+            continue
+
+        owner = getattr(state, "repository_owner", "") or ""
+        repo = getattr(state, "repository_name", "") or ""
+        if not owner or not repo:
+            continue
+
+        # Same-repo pipelines stay on the main polling loop
+        if owner.lower() == default_owner and repo.lower() == default_repo:
+            continue
+
+        started = await ensure_app_pipeline_polling(
+            access_token=access_token,
+            project_id=pid,
+            owner=owner,
+            repo=repo,
+            parent_issue_number=issue_number,
+        )
+        if started:
+            logger.info(
+                "Restored scoped app-pipeline polling for issue #%d on %s/%s (project selection)",
+                issue_number,
+                owner,
+                repo,
+            )
 
 
 async def _prefetch_agents(access_token: str, project_id: str) -> None:

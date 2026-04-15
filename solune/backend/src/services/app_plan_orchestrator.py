@@ -138,6 +138,8 @@ class AppPlanOrchestrator:
                 project_id=project_id,
                 pipeline_id=pipeline_id,
                 access_token=access_token,
+                owner=owner,
+                repo=repo,
             )
 
             # Step 6: active — orchestration complete
@@ -463,6 +465,8 @@ class AppPlanOrchestrator:
         project_id: str,
         pipeline_id: str,
         access_token: str,
+        owner: str,
+        repo: str,
     ) -> None:
         """Launch pipelines for each phase using wave-based queuing.
 
@@ -507,6 +511,7 @@ class AppPlanOrchestrator:
                         session=session,
                         auto_merge=True,
                         prerequisite_issues=prereq_issues or None,
+                        target_repo=(owner, repo),
                     )
                     logger.info(
                         "Launched pipeline for Phase %d (wave %d, prerequisites: %s)",
