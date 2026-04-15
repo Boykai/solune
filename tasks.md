@@ -218,8 +218,8 @@ T023 archive and sync workflow frontend assertions in /home/runner/work/solune/s
 ### User Story 4
 
 ```text
-T024 installed-state tests in /home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py
-T024 installed-state tests in /home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx
+Backend half of T024 in /home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py
+Frontend half of T024 in /home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx
 ```
 
 ---
