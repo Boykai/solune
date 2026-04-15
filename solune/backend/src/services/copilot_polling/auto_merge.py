@@ -282,6 +282,20 @@ def _build_devops_instructions(
             "The PR has merge conflicts with the base branch. "
             "Resolve all conflicts and ensure the branch is up to date."
         )
+    elif reason == "child_pr_merge_conflict":
+        child_pr = merge_result_context.get("child_pr_number", "unknown")
+        agent_name = merge_result_context.get("agent_name", "unknown")
+        target_branch = merge_result_context.get("target_branch", "unknown")
+        lines.append("## Child PR Merge Conflict (Mid-Pipeline)")
+        lines.append(
+            f"Child PR #{child_pr} (created by agent **{agent_name}**) "
+            f"cannot be merged into the target branch `{target_branch}`."
+        )
+        lines.append("")
+        lines.append(
+            "Check out the child PR branch, merge the target branch into it, "
+            "resolve all merge conflicts, and push the resolved branch."
+        )
     else:
         lines.append(f"## Issue: {reason}")
         details = merge_result_context.get("details", "")

@@ -1784,15 +1784,97 @@ async def _advance_pipeline(
             _merge_failure_counts[issue_number] = failure_count
 
             if failure_count >= MAX_MERGE_RETRIES:
-                # Exceeded retry limit — HALT the pipeline (do NOT advance).
-                # Advancing on merge failure causes cascading conflicts:
-                # subsequent agents branch from a stale main branch missing
-                # this agent's work, producing ever-worsening conflicts and
-                # spawning DevOps fix PRs that also fail.
+                # Exceeded retry limit — attempt DevOps agent dispatch before
+                # permanently halting.  The DevOps agent can resolve merge
+                # conflicts on the child PR so the pipeline can resume.
                 blocked_pr = merge_result.get("pr_number")
+
+                from .auto_merge import (
+                    dispatch_devops_agent,
+                    schedule_post_devops_merge_retry,
+                )
+
+                devops_dispatched = await dispatch_devops_agent(
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    issue_number=issue_number,
+                    project_id=project_id,
+                    merge_result_context={
+                        "reason": "child_pr_merge_conflict",
+                        "child_pr_number": blocked_pr,
+                        "agent_name": completed_agent,
+                        "target_branch": main_branch_info["branch"],
+                    },
+                )
+
+                if devops_dispatched:
+                    # DevOps agent accepted — reset merge failure count so the
+                    # pipeline can retry after DevOps resolves the conflicts.
+                    _merge_failure_counts[issue_number] = 0
+                    logger.info(
+                        "DevOps agent dispatched for child PR #%s merge "
+                        "conflict on issue #%d (agent '%s'). Resetting "
+                        "merge failure count.",
+                        blocked_pr,
+                        issue_number,
+                        completed_agent,
+                    )
+                    try:
+                        await _cp.github_projects_service.create_issue_comment(
+                            access_token=access_token,
+                            owner=owner,
+                            repo=repo,
+                            issue_number=issue_number,
+                            body=(
+                                f"⚙️ Pipeline paused: dispatching DevOps agent to "
+                                f"resolve merge conflicts on child PR "
+                                f"#{blocked_pr} for agent **{completed_agent}**."
+                            ),
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Could not post DevOps dispatch notice on issue #%d",
+                            issue_number,
+                            exc_info=True,
+                        )
+                    schedule_post_devops_merge_retry(
+                        access_token=access_token,
+                        owner=owner,
+                        repo=repo,
+                        issue_number=issue_number,
+                        pipeline_metadata={},
+                        project_id=project_id,
+                    )
+                    # Roll back pipeline state but do NOT set pipeline.error —
+                    # the polling loop should retry after DevOps resolves it.
+                    pipeline.current_agent_index -= 1
+                    if completed_agent in pipeline.completed_agents:
+                        pipeline.completed_agents.remove(completed_agent)
+                    pipeline.current_group_index = _pre_group_idx
+                    pipeline.current_agent_index_in_group = _pre_agent_in_group
+                    if pipeline.groups and _pre_group_idx < len(pipeline.groups):
+                        _g = pipeline.groups[_pre_group_idx]
+                        if _pre_group_agent_status is None:
+                            _g.agent_statuses.pop(completed_agent, None)
+                        else:
+                            _g.agent_statuses[completed_agent] = _pre_group_agent_status
+                    _cp.set_pipeline_state(issue_number, pipeline)
+                    return {
+                        "status": "merge_blocked",
+                        "issue_number": issue_number,
+                        "task_title": task_title,
+                        "action": "merge_blocked",
+                        "agent_name": completed_agent,
+                        "blocked_pr": blocked_pr,
+                    }
+
+                # DevOps dispatch failed (cap reached or already active) —
+                # fall through to permanent halt.
                 logger.error(
                     "Safety-net merge for agent '%s' on issue #%d "
-                    "(child PR #%s) failed %d times — halting pipeline. "
+                    "(child PR #%s) failed %d times and DevOps agent "
+                    "could not be dispatched — halting pipeline. "
                     "Manual conflict resolution required.",
                     completed_agent,
                     issue_number,
@@ -1812,9 +1894,9 @@ async def _advance_pipeline(
                             body=(
                                 f"🛑 Pipeline halted: failed to merge child PR "
                                 f"#{blocked_pr} for agent **{completed_agent}** "
-                                f"after {failure_count} attempts. Please resolve "
-                                f"merge conflicts manually and re-trigger the "
-                                f"pipeline."
+                                f"after {failure_count} attempts. DevOps agent "
+                                f"retry cap exhausted. Please resolve merge "
+                                f"conflicts manually and re-trigger the pipeline."
                             ),
                         )
                     except Exception:
