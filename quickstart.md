@@ -13,7 +13,7 @@ Status note: this quickstart captures the scoped implementation and validation p
 ## Setup
 
 ```bash
-cd .
+cd "$(git rev-parse --show-toplevel)"
 ```
 
 ## Implementation Sequence
@@ -72,7 +72,7 @@ Goals:
 ### Markdown artifacts
 
 ```bash
-cd .
+cd "$(git rev-parse --show-toplevel)"
 npx --yes markdownlint-cli \
   plan.md research.md data-model.md quickstart.md \
   --config solune/.markdownlint.json
