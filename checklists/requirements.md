@@ -32,7 +32,7 @@
 ## Notes
 
 - All checklist items pass. The specification is ready for `/speckit.clarify` or `/speckit.plan`.
-- The feature scope is well-bounded: browse MCP catalog, import servers as tool configs, sync to mcp.json, and already-installed detection.
-- No [NEEDS CLARIFICATION] markers were needed — the parent issue provided clear decisions on all ambiguous aspects (Glama API as primary source, import creates McpToolConfig, per-agent MCP assignment out of scope).
-- Assumptions section documents all inferred defaults (Glama API availability, Microsoft servers via category filter, standard web performance expectations).
-- Unrelated "Apps — Create App Experience" and "Apps — Detail View and History" content was removed from the spec as it does not belong to this feature.
+- The feature scope is well-bounded: browse catalog, import servers, sync to repo, and installed-detection.
+- No [NEEDS CLARIFICATION] markers were needed — the parent issue provided clear decisions on all ambiguous aspects (Glama API as primary data source, Microsoft servers via category filter, import creates McpToolConfig, per-agent MCP assignment out of scope).
+- Assumptions section documents all inferred defaults (Glama API availability, standard performance expectations, existing Sync to Repo reuse).
+- Orphaned requirements from an unrelated "Apps" feature and duplicate FR numbering from the prior draft have been removed.

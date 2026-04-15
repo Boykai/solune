@@ -1,8 +1,8 @@
 # Feature Specification: MCP Catalog on Tools Page
 
-**Feature Branch**: `006-mcp-catalog-tools-page`  
-**Created**: 2026-04-14  
-**Status**: Draft  
+**Feature Branch**: `006-mcp-catalog-tools-page`
+**Created**: 2026-04-14
+**Status**: Draft
 **Input**: User description: "Add an MCP Catalog section to the Tools page, mirroring the existing Agents Catalog pattern. Users browse 21,000+ external MCP servers via the Glama API, import them as tool configs, and sync to their repo's mcp.json."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -74,6 +74,8 @@ When browsing the catalog, servers that have already been imported into the curr
 2. **Given** the user has not imported server "Slack MCP", **When** they browse the catalog, **Then** the "Slack MCP" card shows an "Import" button.
 3. **Given** the user removes a previously imported server from the tool list, **When** they browse the catalog, **Then** the removed server's card reverts to showing the "Import" button.
 
+---
+
 ### Edge Cases
 
 - What happens when the external catalog data source is temporarily unavailable? The system displays cached results (if available) with a notice that results may not be current, or a clear error message with a retry option if no cache is available.
@@ -112,7 +114,7 @@ When browsing the catalog, servers that have already been imported into the curr
 
 ### Assumptions
 
-- The Glama API (`GET https://glama.ai/api/mcp/v1/servers?query=`) remains free, publicly accessible, and does not require authentication.
+- The Glama API remains free, publicly accessible, and does not require authentication.
 - The Glama API response includes all necessary fields: server name, description, repository URL, category, server type, install configuration, and quality score.
 - Microsoft's ~25 MCP servers (Azure, GitHub, Playwright, Foundry, etc.) are included in the Glama API dataset and can be surfaced via category or tag filtering rather than as a separate data source.
 - The existing "Sync to Repo" flow and McpToolConfig CRUD infrastructure are stable and do not require modification to support imported catalog servers.
