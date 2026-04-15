@@ -22,6 +22,7 @@ from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
     cached_fetch,
+    coalesced_fetch,
     get_project_items_cache_key,
     get_user_projects_cache_key,
 )
@@ -34,6 +35,7 @@ from src.utils import resolve_repository
 
 logger = get_logger(__name__)
 router = APIRouter()
+_selection_warmup_tasks: dict[str, asyncio.Task[Any]] = {}
 
 
 def _is_github_rate_limit_error(exc: Exception) -> bool:
@@ -149,8 +151,16 @@ async def list_projects(
     logger.info("Fetching projects for user %s", session.github_username)
 
     try:
-        all_projects = await github_projects_service.list_user_projects(
-            session.access_token, session.github_username
+
+        async def _fetch_projects() -> list[GitHubProject]:
+            return await github_projects_service.list_user_projects(
+                session.access_token, session.github_username
+            )
+
+        all_projects = await coalesced_fetch(
+            get_user_projects_cache_key(session.github_user_id),
+            _fetch_projects,
+            task_name=f"user-projects-{session.github_user_id}",
         )
 
         # Cache results
@@ -248,6 +258,55 @@ async def get_project_tasks(
     return TaskListResponse(tasks=tasks)
 
 
+def _schedule_board_warmup(session: UserSession, project_id: str) -> bool:
+    """Start best-effort board warm-up for the selected project."""
+    from src.api.board import (
+        _board_needs_background_completion,
+        _fetch_and_cache_board_data,
+        _schedule_background_board_completion,
+    )
+    from src.models.board import BoardLoadMode
+    from src.services.task_registry import task_registry
+
+    existing = _selection_warmup_tasks.get(session.github_user_id)
+    if existing is not None and not existing.done():
+        existing.cancel()
+
+    async def _warm() -> None:
+        try:
+            board_data = await _fetch_and_cache_board_data(
+                session,
+                project_id,
+                load_mode=BoardLoadMode.INITIAL,
+                warmed_by_selection=True,
+            )
+            if _board_needs_background_completion(board_data):
+                _schedule_background_board_completion(session, project_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug(
+                "Non-critical: board warm-up failed for user %s project %s",
+                session.github_username,
+                project_id,
+                exc_info=True,
+            )
+
+    task = task_registry.create_task(
+        _warm(),
+        name=f"board-warmup-{session.github_user_id}-{project_id}",
+    )
+    _selection_warmup_tasks[session.github_user_id] = task
+    task.add_done_callback(
+        lambda finished: (
+            _selection_warmup_tasks.pop(session.github_user_id, None)
+            if _selection_warmup_tasks.get(session.github_user_id) is finished
+            else None
+        )
+    )
+    return True
+
+
 @router.post(
     "/{project_id}/select",
     response_model=UserResponse,
@@ -286,6 +345,8 @@ async def select_project(
         detail={"project_name": project.name},
     )
 
+    board_warmup_started = _schedule_board_warmup(session, project_id)
+
     # Auto-start Copilot polling for this project
     await _start_copilot_polling(session, project_id)
 
@@ -298,7 +359,7 @@ async def select_project(
         name=f"prefetch-agents-{project_id}",
     )
 
-    return UserResponse.from_session(session)
+    return UserResponse.from_session(session, board_warmup_started=board_warmup_started)
 
 
 async def _start_copilot_polling(session: UserSession, project_id: str) -> None:

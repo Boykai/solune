@@ -1,5 +1,6 @@
 """Board-specific Pydantic models for the Project Board feature."""
 
+from datetime import datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -32,6 +33,74 @@ class PRState(StrEnum):
     OPEN = "open"
     CLOSED = "closed"
     MERGED = "merged"
+
+
+class BoardLoadMode(StrEnum):
+    """Requested fidelity for a board load."""
+
+    INITIAL = "initial"
+    FULL = "full"
+
+
+class BoardLoadTrigger(StrEnum):
+    """Why a board load is executing."""
+
+    INITIAL = "initial"
+    REFRESH = "refresh"
+    BACKGROUND = "background"
+    SELECTION_WARMUP = "selection_warmup"
+
+
+class BoardLoadPhase(StrEnum):
+    """Progress phase exposed to the frontend."""
+
+    INTERACTIVE = "interactive"
+    BACKFILLING_DONE = "backfilling_done"
+    RECONCILING = "reconciling"
+    COMPLETE = "complete"
+
+
+class DoneColumnSource(StrEnum):
+    """Where Done/history content came from for the current payload."""
+
+    LIVE = "live"
+    CACHED = "cached"
+    PENDING = "pending"
+
+
+class InFlightLoadScope(StrEnum):
+    """Categories of coalesced hot-path fetch work."""
+
+    PROJECTS = "projects"
+    BOARD_PROJECTS = "board_projects"
+    BOARD_DATA = "board_data"
+    SELECTION_WARMUP = "selection_warmup"
+
+
+class DeferredTaskType(StrEnum):
+    """Deferred board work types."""
+
+    DONE_BACKFILL = "done_backfill"
+    RECONCILIATION = "reconciliation"
+    POLLING_RESUME = "polling_resume"
+
+
+class DeferredTaskOrigin(StrEnum):
+    """Origin of deferred board work."""
+
+    INITIAL_LOAD = "initial_load"
+    SELECTION_WARMUP = "selection_warmup"
+    MANUAL_REFRESH = "manual_refresh"
+
+
+class DeferredTaskStatus(StrEnum):
+    """Lifecycle states for deferred board work."""
+
+    SCHEDULED = "scheduled"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    FAILED = "failed"
 
 
 class StatusOption(BaseModel):
@@ -125,6 +194,9 @@ class BoardItem(BaseModel):
     content_type: ContentType = Field(..., description="Type of content")
     title: str = Field(..., description="Issue/PR title")
     number: int | None = Field(default=None, description="Issue/PR number (null for drafts)")
+    content_state: str | None = Field(
+        default=None, description="Underlying issue/PR state (for refresh policy decisions)"
+    )
     repository: Repository | None = Field(
         default=None, description="Repository info (null for drafts)"
     )
@@ -177,11 +249,62 @@ class RateLimitInfo(BaseModel):
     used: int = Field(..., description="Requests used in current window")
 
 
+class BoardLoadPolicy(BaseModel):
+    """Shared backend policy for board-load behavior."""
+
+    trigger: BoardLoadTrigger
+    include_done_sub_issues: bool
+    run_reconciliation_inline: bool
+    allow_cached_done_items: bool
+    allow_background_completion: bool
+
+
+class BoardLoadState(BaseModel):
+    """Response metadata describing what portion of the board is ready."""
+
+    phase: BoardLoadPhase
+    active_columns_ready: bool
+    done_column_source: DoneColumnSource
+    warmed_by_selection: bool = False
+    pending_sections: list[str] = Field(default_factory=list)
+    last_completed_at: datetime | None = None
+
+
+class DeferredBoardTask(BaseModel):
+    """State model for deferred board work."""
+
+    project_id: str
+    task_type: DeferredTaskType
+    origin: DeferredTaskOrigin
+    status: DeferredTaskStatus
+    superseded_by_project_id: str | None = None
+    completed_at: datetime | None = None
+
+
+class InFlightLoadKey(BaseModel):
+    """Metadata for coalesced in-flight requests."""
+
+    scope: InFlightLoadScope
+    cache_key: str
+    project_id: str | None = None
+    session_user_id: str | None = None
+    started_at: datetime
+    waiter_count: int = Field(default=1, ge=1)
+
+
 class BoardDataResponse(BaseModel):
     """Response for board data with columns and items."""
 
     project: BoardProject = Field(..., description="Project metadata")
     columns: list[BoardColumn] = Field(..., description="Board columns with their items")
+    load_state: BoardLoadState = Field(
+        default_factory=lambda: BoardLoadState(
+            phase=BoardLoadPhase.COMPLETE,
+            active_columns_ready=True,
+            done_column_source=DoneColumnSource.LIVE,
+        ),
+        description="Interactive/background load metadata",
+    )
     rate_limit: RateLimitInfo | None = Field(
         default=None, description="GitHub API rate limit status"
     )
