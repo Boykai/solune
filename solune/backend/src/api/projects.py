@@ -297,13 +297,12 @@ def _schedule_board_warmup(session: UserSession, project_id: str) -> bool:
         name=f"board-warmup-{session.github_user_id}-{project_id}",
     )
     _selection_warmup_tasks[session.github_user_id] = task
-    task.add_done_callback(
-        lambda finished: (
+
+    def _cleanup_finished_warmup(finished: asyncio.Task[Any]) -> None:
+        if _selection_warmup_tasks.get(session.github_user_id) is finished:
             _selection_warmup_tasks.pop(session.github_user_id, None)
-            if _selection_warmup_tasks.get(session.github_user_id) is finished
-            else None
-        )
-    )
+
+    task.add_done_callback(_cleanup_finished_warmup)
     return True
 
 

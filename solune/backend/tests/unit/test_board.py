@@ -1006,7 +1006,10 @@ class TestGetBoardData:
         assert get_sub_issues.await_args.kwargs["issue_number"] == 44
         all_items = [item for col in result.columns for item in col.items]
         done_result = next(item for item in all_items if item.content_id == "I_done")
+        closed_result = next(item for item in all_items if item.content_id == "I_closed")
         assert done_result.sub_issues[0].id == "SI_cached"
+        assert done_result.content_state == "CLOSED"
+        assert closed_result.content_state == "CLOSED"
         assert result.load_state.done_column_source == DoneColumnSource.CACHED
         assert "done_column" in result.load_state.pending_sections
         mock_save.assert_not_awaited()

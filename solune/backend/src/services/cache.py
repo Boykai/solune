@@ -204,7 +204,7 @@ async def coalesced_fetch[T](
         "asyncio.Task[T]",
         task_registry.create_task(
             fetch_fn(),
-            name=task_name or f"coalesced-{hashlib.sha1(key.encode()).hexdigest()[:12]}",
+            name=task_name or f"coalesced-{hashlib.sha256(key.encode()).hexdigest()[:12]}",
         ),
     )
     _inflight_fetches[key] = task
