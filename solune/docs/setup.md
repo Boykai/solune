@@ -200,6 +200,20 @@ See [Signal Integration](signal-integration.md) for full setup instructions.
 
 ---
 
+## Optional: Advanced Features
+
+Solune supports several advanced capabilities that are disabled by default. Enable them by adding the relevant variables to `.env`. See [Configuration](configuration.md) for full descriptions and defaults.
+
+| Feature | Key Variables | Notes |
+|---------|---------------|-------|
+| **Observability** | `OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `SENTRY_DSN` | Use the `observability` Docker Compose profile to start Jaeger alongside the app |
+| **Agent Framework tuning** | `AGENT_SESSION_TTL_SECONDS`, `AGENT_MAX_CONCURRENT_SESSIONS`, `AGENT_STREAMING_ENABLED` | Controls chat agent session pooling and streaming behavior |
+| **Alerting** | `PIPELINE_STALL_ALERT_MINUTES`, `ALERT_WEBHOOK_URL` | Sends alerts when pipelines stall or rate limits drop |
+| **Browser Agent Catalog** | `CATALOG_INDEX_URL`, `CATALOG_FETCH_TIMEOUT_SECONDS` | Configures the source for the Agents catalog browser |
+| **MCP Server** | `MCP_SERVER_ENABLED`, `MCP_SERVER_NAME` | Exposes Solune as an MCP server at `/api/v1/mcp` |
+
+---
+
 ## What's next?
 
 - [Configuration](configuration.md) — Customize environment variables for your deployment

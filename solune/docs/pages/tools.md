@@ -29,6 +29,16 @@ MCP tools are extensions that let agents interact with external services, databa
 
 Each tool you upload here becomes available to any agent assigned in your [Pipeline](pipeline.md).
 
+## MCP Catalog
+
+The Tools page includes a catalog browser for discovering and importing external MCP servers.
+
+1. Open the catalog browser from the Tools page
+2. Search by name or filter by category
+3. Click **Import** to add a catalog server to your project's tool archive
+
+Imported servers appear in your project's tool list and are automatically synced into agent files by the [Agent MCP Sync](../custom-agents-best-practices.md#automatic-mcp-sync) service.
+
 ## Tips
 
 - Tools are scoped to your current project. If you switch projects, you will see a different set of tools.

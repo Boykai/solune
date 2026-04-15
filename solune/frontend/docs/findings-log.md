@@ -44,6 +44,8 @@
 | Animation System | `index.css` @theme block | 4 motion tokens, 9 keyframes, 14 utility classes added | applied |
 | Reduced Motion | `prefers-reduced-motion` block | All celestial animations disabled/minimized for motion-sensitive users | applied |
 | New Components | `components/common/` | `CelestialLoader` (orbital loading indicator), `CelestialCatalogHero` tests | added |
+
+> **Update (2026-04):** `CelestialCatalogHero` has been superseded by `CompactPageHeader`. See the `simplify-page-headers` feature branch for the migration. `CelestialLoader` remains in use.
 | ThemeProvider | `ThemeProvider.tsx` | Cosmic gradient transition overlay via `theme-transitioning` CSS class | applied |
 | Loading States | All loading spinners | Replaced generic spinners with `CelestialLoader` across agents, board, tools | applied |
 
@@ -107,3 +109,5 @@ Applied consistent casing conventions across all ~70 frontend components:
 - Route-level code splitting with `React.lazy()` for Settings and Board pages
 - Dynamic import for heavy components (IssueRecommendationPreview, ChatInterface)
 - Tree-shaking audit for Lucide React icons (verify only used icons are bundled)
+
+> **Update (2026-04):** Route-level code splitting is now implemented via `lazyWithRetry()` across all 12 pages. Vendor code-splitting (react-query, dnd-kit, markdown, icons) is active in `vite.config.ts`. These items are largely addressed.
