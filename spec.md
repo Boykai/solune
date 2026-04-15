@@ -1,141 +1,101 @@
-# Feature Specification: MCP Catalog on Tools Page
+# Feature Specification: Fix App Building Project Recovery
 
-**Feature Branch**: `006-mcp-catalog-tools-page`  
-**Created**: 2026-04-14  
+**Feature Branch**: `001-fix-app-building-recovery`  
+**Created**: 2026-04-15  
 **Status**: Draft  
-**Input**: User description: "Add an MCP Catalog section to the Tools page, mirroring the existing Agents Catalog pattern. Users browse 21,000+ external MCP servers via the Glama API, import them as tool configs, and sync to their repo's mcp.json."
+**Input**: User description: "Fix App Building Project Recovery — App building projects (new-repo) fail recovery across all three scenarios (restart, project selection, normal operation) because _launch_phase_pipelines() doesn't forward target_repo to execute_pipeline_launch()."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Browse MCP Server Catalog (Priority: P1)
+### User Story 1 - App Pipeline Launches Target the Correct Repository (Priority: P1)
 
-A user navigates to the Tools page and scrolls to the new "Browse MCP Catalog" section. They see a searchable, categorized catalog of 21,000+ external MCP servers sourced from the Glama API. They can type a search query (e.g., "github") or select a category chip (e.g., "Developer Tools", "Cloud", "Database") to filter results. Each server card displays its name, description, quality score (A/B/C), and server type badge (local/remote). The user can quickly find MCP servers relevant to their project needs.
+When a user creates a new app that lives in a separate repository (e.g., "colove"), the system launches development pipelines. These pipelines must create their parent issues, sub-issues, and polling tasks on the **app's own repository** — not on the default/main repository. Today the repository information is lost during the pipeline launch step, causing issues to be created in the wrong place and scoped polling to never start.
 
-**Why this priority**: Browsing the catalog is the foundational user journey — without it, no other feature (import, sync) is possible. It delivers immediate discovery value and makes the 21,000+ server ecosystem accessible to users.
+**Why this priority**: This is the root cause of the failure. Without forwarding the target repository to the pipeline launch function, every downstream recovery path also breaks. Fixing this one problem restores correct behavior during normal (non-recovery) operation and is the prerequisite for the other two fixes.
 
-**Independent Test**: Can be fully tested by navigating to the Tools page, viewing the catalog section, performing search queries, and applying category filters. Delivers value by letting users discover MCP servers even before importing them.
+**Independent Test**: Can be fully tested by launching an app-building pipeline for a cross-repo project and verifying that the pipeline launch receives the correct target repository, scoped polling is activated, and the pipeline state records the correct repository owner and name.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user is on the Tools page, **When** they scroll to the "Browse MCP Catalog" section, **Then** they see a search input, category filter chips, and a grid of MCP server cards with name, description, quality score, and type badge.
-2. **Given** the catalog section is visible, **When** the user types "github" into the search input, **Then** the server card grid updates to show only servers matching "github" in their name or description.
-3. **Given** the catalog section is visible, **When** the user selects the "Database" category chip, **Then** the server card grid filters to show only servers in the Database category.
-4. **Given** the catalog section is visible, **When** the user combines a search query with a category filter, **Then** the results reflect both the text query and the selected category.
-5. **Given** a search query returns no results, **When** the user views the catalog, **Then** a clear "No servers found" message is displayed with suggestions to adjust the query.
+1. **Given** a user initiates app creation targeting a new external repository (e.g., owner="Boykai", repo="colove"), **When** the system launches phase pipelines, **Then** each pipeline launch call receives the target repository (owner, repo) so parent issues are created on the correct repository.
+2. **Given** a pipeline is launched with a target repository specified, **When** the pipeline start logic evaluates scoped polling, **Then** scoped app-pipeline polling is activated (use_app_scoped_polling=True) because target_repo is present.
+3. **Given** a pipeline is launched with a target repository specified, **When** the pipeline state is persisted, **Then** the state records the correct repository_owner and repository_name values.
 
 ---
 
-### User Story 2 - Import MCP Server from Catalog (Priority: P1)
+### User Story 2 - Pipeline State Preserves Repository Info After Reconstruction (Priority: P2)
 
-A user finds an MCP server they want to use and clicks the "Import" button on its catalog card. The system creates a new MCP tool configuration in the project using the server's install configuration data. After import, the card updates to show an "Installed" badge instead of the "Import" button, and the imported server appears in the project's existing tool list. The import process automatically maps the server's configuration to the correct format based on its type (HTTP, stdio, or SSE).
+When the system restarts and needs to reconstruct pipeline state from stored data (issue comments, tracking tables), the reconstructed pipeline state must include the repository owner and name. Without this information, the system cannot determine whether a pipeline belongs to a cross-repo app and cannot restore scoped polling.
 
-**Why this priority**: Import is the core action that converts browsing into value — users need to be able to add discovered servers to their project. Without import, the catalog is read-only and delivers limited utility.
+**Why this priority**: Reconstruction is the first thing that happens after a restart. If repository information is lost during reconstruction, even a correct launch (from Story 1) cannot survive a container restart because the recovery logic has no way to identify which repo the pipeline belongs to.
 
-**Independent Test**: Can be fully tested by browsing the catalog, clicking "Import" on a server card, verifying the card shows "Installed", and confirming the new tool configuration appears in the project's tool list.
+**Independent Test**: Can be fully tested by invoking the pipeline state reconstruction function with known owner/repo values and verifying the resulting PipelineState object has repository_owner and repository_name populated.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user sees an MCP server card with an "Import" button, **When** they click "Import", **Then** a new tool configuration is created in the project and the card updates to display an "Installed" badge.
-2. **Given** the user imports an HTTP-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted HTTP configuration snippet.
-3. **Given** the user imports a stdio-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted command-based configuration snippet.
-4. **Given** the user imports an SSE-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted SSE configuration snippet.
-5. **Given** a server is already imported (shows "Installed" badge), **When** the user views that server's card, **Then** the "Import" button is not available and the "Installed" badge is shown instead.
-6. **Given** the import process encounters an error, **When** the user clicks "Import", **Then** a user-friendly error message is displayed and the card returns to its original state.
+1. **Given** a pipeline was originally created for a cross-repo app (owner="Boykai", repo="colove"), **When** the system reconstructs the pipeline state from issue comments after a restart, **Then** the reconstructed PipelineState contains the correct repository_owner and repository_name.
+2. **Given** a pipeline was originally created for a same-repo app (matching the default repository), **When** the system reconstructs the pipeline state, **Then** the reconstructed PipelineState still records the default repository_owner and repository_name (preserving consistency).
 
 ---
 
-### User Story 3 - Sync Imported MCP Server to Repository (Priority: P2)
+### User Story 3 - Project Selection Restores App-Pipeline Polling (Priority: P3)
 
-After importing an MCP server, the user can sync it to their repository's `mcp.json` file using the existing "Sync to Repo" functionality. This ensures that the next agent execution automatically picks up the new MCP server without manual configuration file editing.
+When a user selects a project from the project list (e.g., switching between projects), the system starts standard Copilot polling for that project. However, if the selected project has active cross-repo app pipelines, the system must also restore scoped app-pipeline polling for those pipelines. Today, selecting a project does not check for or restore app-pipeline polling.
 
-**Why this priority**: Syncing completes the end-to-end workflow from discovery to activation. It builds on existing "Sync to Repo" infrastructure and requires import (P1) to be functional first.
+**Why this priority**: This scenario affects users who switch between projects during an active app build. While less common than a full restart (Story 2), it still causes cross-repo pipelines to silently stop being monitored, leading to stalled builds that require manual intervention.
 
-**Independent Test**: Can be tested by importing an MCP server, triggering "Sync to Repo" on the imported tool, and verifying the server's configuration appears in the repository's `mcp.json` file.
+**Independent Test**: Can be fully tested by selecting a project that has active cross-repo pipeline states and verifying that scoped app-pipeline polling tasks are started for each matching pipeline.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user has imported an MCP server from the catalog, **When** they click "Sync to Repo" on the imported tool, **Then** the server's configuration is written to the repository's `mcp.json` file.
-2. **Given** the `mcp.json` file already contains other tool configurations, **When** the user syncs a newly imported server, **Then** the new configuration is added alongside existing entries without overwriting them.
-3. **Given** the sync operation fails (e.g., permission error), **When** the user attempts to sync, **Then** a user-friendly error message explains the issue.
+1. **Given** a project has active (non-complete) pipeline states for a cross-repo app, **When** a user selects that project, **Then** the system starts scoped app-pipeline polling for each cross-repo pipeline in a fire-and-forget manner.
+2. **Given** a project has only same-repo pipeline states (matching the default repository), **When** a user selects that project, **Then** no additional scoped polling is started (same-repo pipelines are handled by the main polling loop).
+3. **Given** a project has no active pipeline states, **When** a user selects that project, **Then** no app-pipeline restoration logic runs and no errors occur.
 
 ---
 
-### User Story 4 - Already-Installed Detection (Priority: P2)
+### Edge Cases
 
-When browsing the catalog, servers that have already been imported into the current project display an "Installed" badge on their catalog card. This prevents duplicate imports and provides at-a-glance awareness of which servers are already configured.
+- What happens when the target repository has been deleted or the user no longer has access? The pipeline launch should fail gracefully with an error logged, and the orchestration should report the failure rather than silently creating issues on the wrong repo.
+- What happens when multiple cross-repo pipelines exist for the same project? Each pipeline should get its own independent scoped polling task keyed by project_id, consistent with the existing ensure_app_pipeline_polling deduplication logic.
+- What happens when a pipeline state is reconstructed but the original issue has been deleted from GitHub? The reconstruction function already handles this gracefully (returns an empty-agent pipeline that is not cached); the repository fields should still be populated on the returned state.
+- What happens when a user selects a project during an in-progress pipeline launch? The standard Copilot polling restarts (existing behavior), and the app-pipeline restoration runs independently in a fire-and-forget task, so there is no conflict.
+- What happens when the pipeline state store contains entries with empty repository_owner/repository_name from before this fix? The existing self-healing backfill logic in the restart recovery path resolves the repo via the GitHub API and patches the state. This fix ensures new entries are correct from the start.
 
-**Why this priority**: Duplicate prevention improves the user experience by providing clear visual feedback about project state, but it is an enhancement to the core browse/import flow.
+## Requirements *(mandatory)*
 
-**Independent Test**: Can be tested by importing one or more servers, then browsing or searching the catalog and verifying that imported servers show the "Installed" badge while non-imported servers show the "Import" button.
+### Functional Requirements
 
-**Acceptance Scenarios**:
-
-1. **Given** the user has previously imported server "GitHub MCP", **When** they browse the catalog or search for "GitHub", **Then** the "GitHub MCP" card shows an "Installed" badge.
-2. **Given** the user has not imported server "Slack MCP", **When** they browse the catalog, **Then** the "Slack MCP" card shows an "Import" button.
-3. **Given** the user removes a previously imported server from the tool list, **When** they browse the catalog, **Then** the removed server's card reverts to showing the "Import" button.
-
-#### Apps — Create App Experience
-
-- **FR-008**: System MUST remove the "Target branch" section from the Create App experience and default to the main branch.
-- **FR-009**: System MUST move the "New Repository Settings" controls into the "Advanced options" section of the Create App experience.
-- **FR-010**: System MUST remove the "Name override" field from the "Advanced options" section of the Create App experience.
-
-- What happens when the external catalog data source is temporarily unavailable? The system displays cached results (if available) with a notice that results may not be current, or a clear error message with a retry option if no cache is available.
-- What happens when the user searches with special characters or extremely long queries? The system sanitizes input and either returns relevant results or a "No servers found" message without errors.
-- What happens when the catalog returns a server with an unrecognized server type? The system skips the unrecognized server or displays it without an import option, logging a warning for administrators.
-- What happens when two users simultaneously import the same server for the same project? The system handles the duplicate gracefully — either preventing the second import or treating it as idempotent.
-- What happens when a catalog server's install configuration is missing or malformed? The import button is disabled or the system shows an informative error explaining the server cannot be imported at this time.
-- What happens when the catalog has thousands of results for a broad query? The system paginates results or loads them incrementally to maintain performance.
-
-- **FR-011**: System MUST display a delete button on each App tile.
-- **FR-012**: System MUST allow users to delete an app via the tile delete button, with a confirmation step before deletion.
-- **FR-013**: System MUST display app status on each App tile indicating whether a GitHub Parent Issue is actively executing in the app's project.
-
-#### Apps — Detail View and History
-
-- **FR-001**: System MUST display a "Browse MCP Catalog" section on the Tools page, positioned between the presets gallery and the tool archive section.
-- **FR-002**: System MUST retrieve MCP server listings from the Glama API, including server name, description, repository URL, category, server type, install configuration, and quality score.
-- **FR-003**: System MUST provide a text search input that filters catalog servers by name and description.
-- **FR-004**: System MUST provide category filter chips (e.g., Developer Tools, Cloud, Database, Search) to filter catalog servers by category.
-- **FR-005**: System MUST display each catalog server as a card showing: name, description, quality score (A/B/C), and server type badge (local/remote/HTTP).
-- **FR-006**: System MUST provide an "Import" button on each server card that creates a new MCP tool configuration in the project.
-- **FR-007**: System MUST map imported server configurations to the correct format based on server type:
-  - HTTP type → HTTP configuration format
-  - stdio type → command-based configuration format
-  - SSE type → SSE configuration format
-- **FR-008**: System MUST display an "Installed" badge on catalog cards for servers that have already been imported into the current project.
-- **FR-009**: System MUST allow imported MCP servers to be synced to the repository's `mcp.json` file using the existing "Sync to Repo" flow.
-- **FR-010**: System MUST cache catalog data with a 1-hour time-to-live (TTL) to reduce external API calls, with stale-fallback behavior when the cache expires and the external source is unavailable.
-- **FR-011**: System MUST validate all external URLs to prevent server-side request forgery (SSRF) attacks when proxying catalog data.
-- **FR-012**: System MUST handle external API failures gracefully by displaying cached results when available, or showing a user-friendly error message with a retry option.
-- **FR-013**: System MUST support pagination or incremental loading for large catalog result sets to maintain responsive performance.
-- **FR-014**: System MUST prevent duplicate imports of the same catalog server within a single project.
+- **FR-001**: System MUST forward the target repository (owner, repo) from the app creation orchestrator to each pipeline launch call so that parent issues and sub-issues are created on the correct repository.
+- **FR-002**: System MUST ensure that when a target repository is provided during pipeline launch, scoped app-pipeline polling is activated for that pipeline.
+- **FR-003**: System MUST populate repository_owner and repository_name on the PipelineState when reconstructing pipeline state from issue comments, using the owner and repo values already available to the reconstruction function.
+- **FR-004**: System MUST restore scoped app-pipeline polling for active cross-repo pipelines when a user selects a project, mirroring the existing restart recovery logic but scoped to the selected project.
+- **FR-005**: System MUST NOT start additional scoped polling for same-repo pipelines (those matching the default repository), as these are handled by the main polling loop.
+- **FR-006**: System MUST perform app-pipeline restoration during project selection as a fire-and-forget background task so that the project selection response is not delayed.
+- **FR-007**: System MUST log informational messages when scoped polling is restored during project selection, consistent with the existing restart recovery logging pattern.
 
 ### Key Entities
 
-- **CatalogMcpServer**: Represents an external MCP server from the catalog. Key attributes: unique identifier, name, description, repository URL, category, server type (local/remote/HTTP), install configuration (structured data), quality score (A/B/C), and whether it is already installed in the current project.
-- **McpToolConfig** (existing): Represents an MCP tool configuration within a project. The import process creates a new McpToolConfig from a CatalogMcpServer's install configuration. Existing CRUD, sync-to-repo, and UI infrastructure is reused.
+- **PipelineState**: Represents the current state of a development pipeline. Key attributes: issue_number, project_id, status, agents, repository_owner, repository_name, is_complete. The repository_owner and repository_name fields identify which GitHub repository the pipeline's issues live on.
+- **Orchestration**: Represents an app creation workflow. Contains app_name, project_id, owner, repo, and orchestration steps (spec generation, plan parsing, issue creation, pipeline launching). The owner/repo values from orchestration must flow through to each pipeline launch.
+- **App-Pipeline Polling Task**: A scoped background task that monitors a specific cross-repo pipeline. Keyed by project_id to prevent duplicates. Automatically stops when the pipeline completes.
 
-### Assumptions
+## Assumptions
 
-- The Glama API (`GET https://glama.ai/api/mcp/v1/servers?query=`) remains free, publicly accessible, and does not require authentication.
-- The Glama API response includes all necessary fields: server name, description, repository URL, category, server type, install configuration, and quality score.
-- Microsoft's ~25 MCP servers (Azure, GitHub, Playwright, Foundry, etc.) are included in the Glama API dataset and can be surfaced via category or tag filtering rather than as a separate data source.
-- The existing "Sync to Repo" flow and McpToolConfig CRUD infrastructure are stable and do not require modification to support imported catalog servers.
-- Per-agent MCP assignment (attaching specific MCPs to specific agent configuration files) is explicitly out of scope for this feature and will be addressed in a future enhancement.
-- No scraping of mcpservers.org, mcp.so, or opentools.com — only the Glama API is used as the data source.
-- Standard web application performance expectations apply (page loads under 3 seconds, search results under 2 seconds).
+- The `orchestrate_app_creation` function already has correct `owner` and `repo` values available — no new data source or lookup is needed; the fix is purely about forwarding these values.
+- The `_reconstruct_pipeline_state` function signature already includes `owner` and `repo` parameters — the fix is about using them when constructing the PipelineState, not about obtaining them.
+- The `_restore_app_pipeline_polling()` function in main.py is the authoritative reference for how app-pipeline restoration should work — the new project-selection helper mirrors this pattern.
+- Same-repo app pipelines continue to use the main polling loop. Only cross-repo app pipelines (where owner/repo differ from the default) require scoped polling.
+- Pipeline state key collision (issue_number as primary key without repository qualifier) is out of scope for this feature. A separate follow-up with a data migration is recommended.
+- Orchestration retry/resume logic for failed `orchestrate_app_creation` calls is a separate follow-up and not part of this fix.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Users can discover and browse 21,000+ MCP servers from the catalog section on the Tools page.
-- **SC-002**: Users can find relevant MCP servers using text search with results appearing in under 2 seconds.
-- **SC-003**: Users can filter servers by category using filter chips, with filtered results appearing in under 2 seconds.
-- **SC-004**: Users can import an MCP server from the catalog into their project in under 3 clicks (navigate to catalog → find server → click Import).
-- **SC-005**: Imported servers are correctly formatted based on their type (HTTP, stdio, SSE) and appear in the project's tool list immediately after import.
-- **SC-006**: Already-imported servers display an "Installed" badge in the catalog, preventing unintentional duplicate imports.
-- **SC-007**: Imported MCP servers can be synced to the repository's `mcp.json` file using the existing sync flow, and subsequent agent executions automatically pick up the new server.
-- **SC-008**: The catalog remains functional when the external data source experiences intermittent outages, by serving cached results within the TTL window.
-- **SC-009**: 90% of users who browse the catalog can successfully import at least one MCP server on their first attempt without assistance.
+- **SC-001**: 100% of app-building pipelines targeting an external repository create their parent issues on the correct repository (zero misrouted issues).
+- **SC-002**: After a container restart, all active cross-repo app pipelines resume scoped polling within one polling cycle (under 90 seconds).
+- **SC-003**: When a user selects a project with active cross-repo pipelines, scoped polling is restored within 5 seconds of project selection completing.
+- **SC-004**: Reconstructed pipeline states for cross-repo apps contain correct repository_owner and repository_name values in 100% of cases, eliminating the need for API-based self-healing lookups.
+- **SC-005**: All existing automated tests continue to pass with no regressions — the fix is backward-compatible with same-repo pipeline workflows.
+- **SC-006**: Zero user-reported incidents of app-building pipelines stalling due to issues being created on the wrong repository or scoped polling not starting.
