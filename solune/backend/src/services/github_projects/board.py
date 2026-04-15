@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 from src.constants import StatusNames
 from src.logging_utils import get_logger
-from src.services.done_items_store import save_done_items
+from src.services.done_items_store import get_done_items, save_done_items
 from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
     BOARD_GET_PROJECT_ITEMS_QUERY,
@@ -126,7 +126,14 @@ class BoardMixin(_ServiceMixin):
                 if num is not None:
                     estimate_val = float(num)
 
-        if content.get("number") is not None and "state" in content:
+        if content.get("number") is not None and (
+            "labels" in content
+            or "timelineItems" in content
+            or "issueType" in content
+            or "milestone" in content
+        ):
+            content_type = ContentType.ISSUE
+        elif content.get("number") is not None and "state" in content:
             content_type = ContentType.PULL_REQUEST
         elif content.get("number") is not None:
             content_type = ContentType.ISSUE
@@ -198,6 +205,7 @@ class BoardMixin(_ServiceMixin):
             content_type=content_type,
             title=content.get("title", "Untitled"),
             number=content.get("number"),
+            content_state=content.get("state"),
             repository=repository,
             url=content.get("url"),
             body=truncated_body,
@@ -285,7 +293,15 @@ class BoardMixin(_ServiceMixin):
 
         return columns
 
-    async def get_board_data(self, access_token: str, project_id: str, limit: int = 100):
+    async def get_board_data(
+        self,
+        access_token: str,
+        project_id: str,
+        limit: int = 100,
+        *,
+        load_mode="initial",
+        warmed_by_selection: bool = False,
+    ):
         """
         Get full board data for a project: items with custom fields and linked PRs.
 
@@ -302,9 +318,13 @@ class BoardMixin(_ServiceMixin):
             BoardColumn,
             BoardDataResponse,
             BoardItem,
+            BoardLoadMode,
+            BoardLoadPhase,
+            BoardLoadState,
             BoardProject,
             ContentType,
             CustomFieldValue,
+            DoneColumnSource,
             Label,
             LinkedPR,
             PRState,
@@ -328,6 +348,10 @@ class BoardMixin(_ServiceMixin):
             "StatusColor": StatusColor,
             "StatusOption": StatusOption,
         }
+
+        effective_load_mode = BoardLoadMode(load_mode)
+        include_done_sub_issues = effective_load_mode == BoardLoadMode.FULL
+        run_reconciliation_inline = effective_load_mode == BoardLoadMode.FULL
 
         all_items: list[BoardItem] = []
         has_next_page = True
@@ -392,6 +416,19 @@ class BoardMixin(_ServiceMixin):
         if project_meta is None:
             raise ValueError(f"Project not found: {project_id}")
 
+        cached_done_items_by_key: dict[str, dict] = {}
+        if effective_load_mode == BoardLoadMode.INITIAL:
+            cached_done_items = await get_done_items(project_id, item_type="board")
+            if cached_done_items:
+                for cached_done_item in cached_done_items:
+                    cache_key = (
+                        cached_done_item.get("content_id")
+                        or cached_done_item.get("item_id")
+                        or str(cached_done_item.get("number") or "")
+                    )
+                    if cache_key:
+                        cached_done_items_by_key[cache_key] = cached_done_item
+
         # Fetch sub-issues for parent issue items in parallel.
         # Items carrying the "sub-issue" label are themselves sub-issues
         # and never have their own children — skip them to avoid wasted
@@ -399,18 +436,63 @@ class BoardMixin(_ServiceMixin):
         from src.constants import SUB_ISSUE_LABEL as _SUB_ISSUE_LABEL
 
         _sem = asyncio.Semaphore(20)
+        skipped_done_or_closed_fetches = 0
+        restored_cached_done_sub_issues = 0
 
         def _is_sub_issue_label(board_item) -> bool:
             return any(lb.name == _SUB_ISSUE_LABEL for lb in board_item.labels)
 
+        def _should_skip_live_sub_issues(board_item) -> bool:
+            if board_item.status == StatusNames.DONE:
+                return True
+            return (board_item.content_state or "").upper() == "CLOSED"
+
+        def _restore_cached_sub_issues(board_item) -> None:
+            nonlocal restored_cached_done_sub_issues
+            cache_key = board_item.content_id or board_item.item_id or str(board_item.number or "")
+            cached_done_item = cached_done_items_by_key.get(cache_key)
+            if not cached_done_item:
+                return
+            cached_sub_issues = cached_done_item.get("sub_issues")
+            if not isinstance(cached_sub_issues, list) or board_item.sub_issues:
+                return
+            for si in cached_sub_issues:
+                if not isinstance(si, dict):
+                    continue
+                si_assignees = [
+                    Assignee(
+                        login=a.get("login", ""),
+                        avatar_url=a.get("avatar_url", ""),
+                    )
+                    for a in si.get("assignees", [])
+                    if isinstance(a, dict)
+                ]
+                board_item.sub_issues.append(
+                    SubIssue(
+                        id=si.get("id") or si.get("node_id", ""),
+                        number=si.get("number", 0),
+                        title=si.get("title", ""),
+                        url=si.get("url") or si.get("html_url", ""),
+                        state=si.get("state", "open"),
+                        assigned_agent=si.get("assigned_agent"),
+                        assignees=si_assignees,
+                    )
+                )
+            if board_item.sub_issues:
+                restored_cached_done_sub_issues += 1
+
         async def _fetch_sub_issues_for(board_item):
+            nonlocal skipped_done_or_closed_fetches
             if (
                 board_item.content_type != ContentType.ISSUE
                 or board_item.number is None
                 or not board_item.repository
                 or _is_sub_issue_label(board_item)
-                or board_item.status == StatusNames.DONE
             ):
+                return
+            if not include_done_sub_issues and _should_skip_live_sub_issues(board_item):
+                skipped_done_or_closed_fetches += 1
+                _restore_cached_sub_issues(board_item)
                 return
             async with _sem:
                 try:
@@ -504,33 +586,73 @@ class BoardMixin(_ServiceMixin):
                 logger.debug("Board reconciliation failed for %s/%s: %s", owner, repo_name, e)
                 return []
 
-        reconciliation_results = await asyncio.gather(
-            *[_reconcile_repo(owner, repo_name) for owner, repo_name in repos_seen]
-        )
-        for reconciled in reconciliation_results:
-            all_items.extend(reconciled)
+        reconciliation_pending = False
+        if run_reconciliation_inline:
+            reconciliation_results = await asyncio.gather(
+                *[_reconcile_repo(owner, repo_name) for owner, repo_name in repos_seen]
+            )
+            for reconciled in reconciliation_results:
+                all_items.extend(reconciled)
+        elif repos_seen:
+            reconciliation_pending = True
 
         columns = self._build_board_columns(
             all_items, project_meta.status_field.options, board_models
         )
 
-        # Persist Done board items to DB for fast cold-start loading
-        done_board_items = [
-            item.model_dump(mode="json") for item in all_items if item.status == StatusNames.DONE
-        ]
-        try:
-            await save_done_items(project_id, done_board_items, item_type="board")
-        except Exception:
-            logger.debug("Non-critical: failed to persist done board items cache", exc_info=True)
+        pending_sections: list[str] = []
+        done_column_source = DoneColumnSource.LIVE
+        if skipped_done_or_closed_fetches:
+            pending_sections.append("done_column")
+            done_column_source = (
+                DoneColumnSource.CACHED
+                if restored_cached_done_sub_issues
+                else DoneColumnSource.PENDING
+            )
+        if reconciliation_pending:
+            pending_sections.append("reconciliation")
+
+        load_state = BoardLoadState(
+            phase=(
+                BoardLoadPhase.COMPLETE
+                if not pending_sections
+                else BoardLoadPhase.BACKFILLING_DONE
+                if "done_column" in pending_sections
+                else BoardLoadPhase.RECONCILING
+            ),
+            active_columns_ready=True,
+            done_column_source=done_column_source,
+            warmed_by_selection=warmed_by_selection,
+            pending_sections=pending_sections,
+        )
+
+        if effective_load_mode == BoardLoadMode.FULL:
+            from src.utils import utcnow
+
+            load_state.last_completed_at = utcnow()
+
+            # Persist Done board items to DB for fast cold-start loading
+            done_board_items = [
+                item.model_dump(mode="json")
+                for item in all_items
+                if item.status == StatusNames.DONE
+            ]
+            try:
+                await save_done_items(project_id, done_board_items, item_type="board")
+            except Exception:
+                logger.debug(
+                    "Non-critical: failed to persist done board items cache", exc_info=True
+                )
 
         logger.info(
-            "Board data for project %s: %d items across %d columns",
+            "Board data for project %s (%s): %d items across %d columns",
             project_id,
+            effective_load_mode,
             len(all_items),
             len(columns),
         )
 
-        return BoardDataResponse(project=project_meta, columns=columns)
+        return BoardDataResponse(project=project_meta, columns=columns, load_state=load_state)
 
     async def _reconcile_board_items(
         self,

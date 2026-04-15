@@ -142,6 +142,7 @@ class TestSelectProject:
         # Patch out copilot polling startup
         with (
             patch("src.api.projects._start_copilot_polling", new_callable=AsyncMock),
+            patch("src.api.projects._schedule_board_warmup", return_value=True) as warmup,
             patch("src.api.projects.cache") as mock_cache,
             patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log_event,
         ):
@@ -150,7 +151,9 @@ class TestSelectProject:
         assert resp.status_code == 200
         data = resp.json()
         assert data["selected_project_id"] == "PVT_abc"
+        assert data["board_warmup_started"] is True
         mock_log_event.assert_awaited_once()
+        warmup.assert_called_once()
         assert mock_log_event.await_args.kwargs["action"] == "selected"
         assert mock_log_event.await_args.kwargs["detail"] == {"project_name": "Test Project"}
 

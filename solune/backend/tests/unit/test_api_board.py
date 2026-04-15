@@ -11,8 +11,11 @@ from src.models.board import (
     BoardColumn,
     BoardDataResponse,
     BoardItem,
+    BoardLoadPhase,
+    BoardLoadState,
     BoardProject,
     ContentType,
+    DoneColumnSource,
     Repository,
     StatusColor,
     StatusField,
@@ -59,7 +62,11 @@ def _make_github_project(**kw) -> GitHubProject:
     return GitHubProject(**defaults)
 
 
-def _make_board_data(project: BoardProject | None = None) -> BoardDataResponse:
+def _make_board_data(
+    project: BoardProject | None = None,
+    *,
+    load_state: BoardLoadState | None = None,
+) -> BoardDataResponse:
     proj = project or _make_board_project()
     return BoardDataResponse(
         project=proj,
@@ -83,6 +90,12 @@ def _make_board_data(project: BoardProject | None = None) -> BoardDataResponse:
                 item_count=0,
             ),
         ],
+        load_state=load_state
+        or BoardLoadState(
+            phase=BoardLoadPhase.COMPLETE,
+            active_columns_ready=True,
+            done_column_source=DoneColumnSource.LIVE,
+        ),
     )
 
 
@@ -159,6 +172,7 @@ class TestGetBoardData:
         assert data["project"]["project_id"] == "PVT_abc"
         assert len(data["columns"]) == 2
         assert data["columns"][0]["item_count"] == 1
+        assert data["load_state"]["phase"] == "complete"
 
     async def test_project_not_found(self, client, mock_github_service):
         mock_github_service.get_board_data.side_effect = ValueError("not found")
@@ -194,6 +208,26 @@ class TestGetBoardData:
         resp = await client.get("/api/v1/board/projects/PVT_abc", params={"refresh": True})
         assert resp.status_code == 200
         mock_github_service.get_board_data.assert_called_once()
+        assert mock_github_service.get_board_data.await_args.kwargs["load_mode"] == "full"
+
+    async def test_initial_load_schedules_background_completion_when_pending(
+        self, client, mock_github_service
+    ):
+        bd = _make_board_data(
+            load_state=BoardLoadState(
+                phase=BoardLoadPhase.BACKFILLING_DONE,
+                active_columns_ready=True,
+                done_column_source=DoneColumnSource.CACHED,
+                pending_sections=["done_column", "reconciliation"],
+            )
+        )
+        mock_github_service.get_board_data.return_value = bd
+
+        with patch("src.api.board._schedule_background_board_completion") as schedule_background:
+            resp = await client.get("/api/v1/board/projects/PVT_abc")
+
+        assert resp.status_code == 200
+        schedule_background.assert_called_once()
 
     async def test_board_data_cache_stores_data_hash(self, client, mock_github_service):
         """Board data should be cached with a data_hash for change detection."""

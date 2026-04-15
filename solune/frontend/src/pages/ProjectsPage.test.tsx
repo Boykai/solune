@@ -1,8 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, render, userEvent } from '@/test/test-utils';
 import { ProjectsPage } from './ProjectsPage';
+import type { BoardLoadState } from '@/types';
 
-const mocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => {
+  const makeCompleteLoadState = (): BoardLoadState => ({
+    phase: 'complete',
+    active_columns_ready: true,
+    done_column_source: 'live',
+    warmed_by_selection: false,
+    pending_sections: [],
+    last_completed_at: null,
+  });
+
+  return {
+  makeCompleteLoadState,
   updateRateLimit: vi.fn(),
   refresh: vi.fn(),
   resetTimer: vi.fn(),
@@ -47,6 +59,9 @@ const mocks = vi.hoisted(() => ({
         item_count: 0,
       },
     ],
+    load_state: {
+      ...makeCompleteLoadState(),
+    },
   },
   boardControls: {
     controls: {
@@ -89,6 +104,9 @@ const mocks = vi.hoisted(() => ({
           item_count: 0,
         },
       ],
+      load_state: {
+        ...makeCompleteLoadState(),
+      },
     },
     boardLoading: false,
     isFetching: false,
@@ -96,7 +114,8 @@ const mocks = vi.hoisted(() => ({
     lastUpdated: new Date('2026-03-10T21:19:34.006Z'),
     selectProject: vi.fn(),
   },
-}));
+  };
+});
 
 vi.mock('@tanstack/react-query', async () => {
   const actual =
@@ -259,6 +278,7 @@ describe('ProjectsPage', () => {
     mocks.projectBoard.projectsLoading = false;
     mocks.projectBoard.selectedProjectId = 'PVT_1';
     mocks.projectBoard.selectProject = mocks.selectBoardProject;
+    mocks.projectBoard.boardData.load_state = mocks.makeCompleteLoadState();
     mocks.syncStatus = 'connected';
   });
 
@@ -390,5 +410,24 @@ describe('ProjectsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Refresh board' }));
 
     expect(mocks.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a non-blocking board progress notice while done history backfills', () => {
+    mocks.projectBoard.boardData.load_state = {
+      phase: 'backfilling_done',
+      active_columns_ready: true,
+      done_column_source: 'cached',
+      warmed_by_selection: true,
+      pending_sections: ['done_column', 'reconciliation'],
+      last_completed_at: null,
+    };
+
+    render(<ProjectsPage />);
+
+    expect(
+      screen.getByText(
+        'Showing cached Done history while GitHub finishes refreshing historical sub-issues.'
+      )
+    ).toBeInTheDocument();
   });
 });
