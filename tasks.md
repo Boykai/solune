@@ -33,9 +33,9 @@
 
 **Purpose**: Prepare the feature-specific test and contract scaffolding that guides the backend and frontend work.
 
-- [ ] T001 Create backend catalog test coverage scaffold in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for browse, import, cache, duplicate, and sync-ready config scenarios
-- [ ] T002 [P] Create frontend catalog test coverage scaffold in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`
-- [ ] T003 [P] Align the browse/import contract details in `/home/runner/work/solune/solune/contracts/mcp-catalog-contract.yaml` with `/home/runner/work/solune/solune/plan.md`, `/home/runner/work/solune/solune/spec.md`, and `/home/runner/work/solune/solune/data-model.md` before wiring implementation files
+- [X] T001 Create backend catalog test coverage scaffold in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for browse, import, cache, duplicate, and sync-ready config scenarios
+- [X] T002 [P] Create frontend catalog test coverage scaffold in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`, and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`
+- [X] T003 [P] Align the browse/import contract details in `/home/runner/work/solune/solune/contracts/mcp-catalog-contract.yaml` with `/home/runner/work/solune/solune/plan.md`, `/home/runner/work/solune/solune/spec.md`, and `/home/runner/work/solune/solune/data-model.md` before wiring implementation files
 
 **Checkpoint**: Test targets, contract expectations, and file touchpoints are explicit before shared code starts.
 
@@ -47,10 +47,10 @@
 
 **⚠️ CRITICAL**: No user story work should begin until these shared models, services, and client primitives exist.
 
-- [ ] T004 Add `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and `ImportCatalogMcpRequest` to `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
-- [ ] T005 [P] Create the shared Glama catalog service structure in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` with allowlisted upstream constants, TTL cache helpers, normalization helpers, and import-mapping helpers
-- [ ] T006 [P] Add `CatalogInstallConfig`, `CatalogMcpServer`, and related schema/types to `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
-- [ ] T007 Wire shared catalog query keys, browse helpers, and mutation invalidation helpers in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
+- [X] T004 Add `CatalogInstallConfig`, `CatalogMcpServer`, `CatalogMcpServerListResponse`, and `ImportCatalogMcpRequest` to `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
+- [X] T005 [P] Create the shared Glama catalog service structure in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` with allowlisted upstream constants, TTL cache helpers, normalization helpers, and import-mapping helpers
+- [X] T006 [P] Add `CatalogInstallConfig`, `CatalogMcpServer`, and related schema/types to `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
+- [X] T007 Wire shared catalog query keys, browse helpers, and mutation invalidation helpers in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` and `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
 
 **Checkpoint**: Shared models, service scaffolding, and client primitives are ready; browse and import stories can now build on the same contract.
 
@@ -64,16 +64,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add backend browse tests in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for Glama response normalization, one-hour stale-fallback caching, SSRF-safe upstream validation, category filtering, and catalog-unavailable error handling
-- [ ] T009 [P] [US1] Add browse response schema validation coverage to `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` for `CatalogMcpServerListResponse` parsing and invalid payload rejection
+- [X] T008 [P] [US1] Add backend browse tests in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for Glama response normalization, one-hour stale-fallback caching, SSRF-safe upstream validation, category filtering, and catalog-unavailable error handling
+- [X] T009 [P] [US1] Add browse response schema validation coverage to `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` for `CatalogMcpServerListResponse` parsing and invalid payload rejection
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement Glama fetch, payload normalization, query/category filtering, and stale-fallback cache reads in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py`
-- [ ] T011 [US1] Add `GET /api/v1/tools/{project_id}/catalog` to `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` using the shared models from `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
-- [ ] T012 [P] [US1] Implement `toolsApi.browseCatalog()` in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `useMcpCatalog(projectId, query, category)` in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts`
-- [ ] T013 [P] [US1] Build the browse/search/filter UI in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` with search input, category chips, card grid, quality/type badges, and loading/error/empty states, then cover those states in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`
-- [ ] T014 [US1] Integrate `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` into `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolsPanel.tsx` between the presets gallery and tool archive, and update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`
+- [X] T010 [US1] Implement Glama fetch, payload normalization, query/category filtering, and stale-fallback cache reads in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py`
+- [X] T011 [US1] Add `GET /api/v1/tools/{project_id}/catalog` to `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` using the shared models from `/home/runner/work/solune/solune/solune/backend/src/models/tools.py`
+- [X] T012 [P] [US1] Implement `toolsApi.browseCatalog()` in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `useMcpCatalog(projectId, query, category)` in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts`
+- [X] T013 [P] [US1] Build the browse/search/filter UI in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` with search input, category chips, card grid, quality/type badges, and loading/error/empty states, then cover those states in `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`
+- [X] T014 [US1] Integrate `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` into `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolsPanel.tsx` between the presets gallery and tool archive, and update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx`
 
 **Checkpoint**: Users can browse and filter the catalog independently of import or repo sync.
 
@@ -87,15 +87,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T015 [P] [US2] Add import tests in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for supported transport mapping, malformed install configs, duplicate import rejection, and not-found catalog IDs
-- [ ] T016 [P] [US2] Add import client and mutation tests in `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` and `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` for success, conflict, and validation-error flows
+- [X] T015 [P] [US2] Add import tests in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` for supported transport mapping, malformed install configs, duplicate import rejection, and not-found catalog IDs
+- [X] T016 [P] [US2] Add import client and mutation tests in `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` and `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` for success, conflict, and validation-error flows
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Implement `import_from_catalog()` in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` so `http`, `sse`, `stdio`, and `local` install configs become sync-ready `mcpServers` JSON snippets for `McpToolConfig.config_content`
-- [ ] T018 [US2] Add `POST /api/v1/tools/{project_id}/catalog/import` to `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` with duplicate prevention and existing tool-service reuse
-- [ ] T019 [P] [US2] Implement `toolsApi.importFromCatalog()` in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `useImportMcpServer(projectId)` in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` with catalog, tools, and repo-MCP query invalidation
-- [ ] T020 [US2] Update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` so each card shows `Import`, pending, `Installed`, and user-friendly error states
+- [X] T017 [US2] Implement `import_from_catalog()` in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` so `http`, `sse`, `stdio`, and `local` install configs become sync-ready `mcpServers` JSON snippets for `McpToolConfig.config_content`
+- [X] T018 [US2] Add `POST /api/v1/tools/{project_id}/catalog/import` to `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` with duplicate prevention and existing tool-service reuse
+- [X] T019 [P] [US2] Implement `toolsApi.importFromCatalog()` in `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` and `useImportMcpServer(projectId)` in `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` with catalog, tools, and repo-MCP query invalidation
+- [X] T020 [US2] Update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` so each card shows `Import`, pending, `Installed`, and user-friendly error states
 
 **Checkpoint**: A catalog entry can be imported into the standard MCP tool archive without touching repo sync yet.
 
@@ -109,12 +109,12 @@
 
 ### Tests for User Story 3
 
-- [ ] T021 [P] [US3] Add sync-readiness assertions to `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` proving imported `config_content` matches the `mcp.json` format consumed by `/home/runner/work/solune/solune/solune/backend/src/services/tools/service.py`
+- [X] T021 [P] [US3] Add sync-readiness assertions to `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` proving imported `config_content` matches the `mcp.json` format consumed by `/home/runner/work/solune/solune/solune/backend/src/services/tools/service.py`
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Reuse the existing sync flow by ensuring `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` creates ordinary `McpToolConfig` records compatible with `/home/runner/work/solune/solune/solune/backend/src/services/tools/service.py` and existing `mcp.json` merge behavior
-- [ ] T023 [P] [US3] Extend `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` to confirm imported catalog tools appear in the archive and remain syncable through the current UI workflow
+- [X] T022 [US3] Reuse the existing sync flow by ensuring `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` creates ordinary `McpToolConfig` records compatible with `/home/runner/work/solune/solune/solune/backend/src/services/tools/service.py` and existing `mcp.json` merge behavior
+- [X] T023 [P] [US3] Extend `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` and `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` to confirm imported catalog tools appear in the archive and remain syncable through the current UI workflow
 
 **Checkpoint**: Imported catalog tools behave exactly like manually created MCP tools during repo sync.
 
@@ -128,12 +128,12 @@
 
 ### Tests for User Story 4
 
-- [ ] T024 [P] [US4] Add installed-state coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` for matching and non-matching project tools
+- [X] T024 [P] [US4] Add installed-state coverage in `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` for matching and non-matching project tools
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] Derive `already_installed` from current project tool names during catalog normalization in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` and surface it through `/home/runner/work/solune/solune/solune/backend/src/api/tools.py`
-- [ ] T026 [US4] Update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` so refetched catalog cards swap between `Import` and `Installed` based on the current tool list
+- [X] T025 [US4] Derive `already_installed` from current project tool names during catalog normalization in `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` and surface it through `/home/runner/work/solune/solune/solune/backend/src/api/tools.py`
+- [X] T026 [US4] Update `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/ToolsPanel.test.tsx` so refetched catalog cards swap between `Import` and `Installed` based on the current tool list
 
 **Checkpoint**: Installed-state feedback prevents duplicate imports and stays aligned with the actual project tool archive.
 
@@ -143,10 +143,10 @@
 
 **Purpose**: Run the planned backend, frontend, and manual verification steps once all user stories are complete.
 
-- [ ] T027 Run the backend catalog verification command from `/home/runner/work/solune/solune/quickstart.md` against `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py`
-- [ ] T028 [P] Run the targeted frontend catalog tests from `/home/runner/work/solune/solune/quickstart.md` covering `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`
-- [ ] T029 [P] Run the frontend safety checks from `/home/runner/work/solune/solune/quickstart.md` in `/home/runner/work/solune/solune/solune/frontend`: `npm run type-check`, `npm run lint`, and `npm run build`
-- [ ] T030 [P] Execute the manual browse → import → sync verification flow from `/home/runner/work/solune/solune/quickstart.md` and confirm the synced repository `mcp.json` contains the imported `mcpServers` entry
+- [X] T027 Run the backend catalog verification command from `/home/runner/work/solune/solune/quickstart.md` against `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py`
+- [X] T028 [P] Run the targeted frontend catalog tests from `/home/runner/work/solune/solune/quickstart.md` covering `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx`, `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx`, and `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts`
+- [X] T029 [P] Run the frontend safety checks from `/home/runner/work/solune/solune/quickstart.md` in `/home/runner/work/solune/solune/solune/frontend`: `npm run type-check`, `npm run lint`, and `npm run build`
+- [X] T030 [P] Execute the manual browse → import → sync verification flow from `/home/runner/work/solune/solune/quickstart.md` and confirm the synced repository `mcp.json` contains the imported `mcpServers` entry
 
 **Checkpoint**: The catalog feature is verified end to end across backend tests, frontend tests, and the manual sync workflow.
 
