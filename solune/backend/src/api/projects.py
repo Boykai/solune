@@ -354,6 +354,10 @@ async def select_project(
     from src.services.task_registry import task_registry
 
     task_registry.create_task(
+        _restore_app_pipelines_for_project(session.access_token, project_id),
+        name=f"restore-app-pipelines-{project_id}",
+    )
+    task_registry.create_task(
         _prefetch_agents(session.access_token, project_id),
         name=f"prefetch-agents-{project_id}",
     )
@@ -395,6 +399,83 @@ async def _start_copilot_polling(session: UserSession, project_id: str) -> None:
         delay_seconds=45,
         caller="select_project",
     )
+
+
+async def _restore_app_pipelines_for_project(access_token: str, project_id: str) -> int:
+    """Restore scoped app-pipeline polling for the selected project."""
+    from src.config import get_settings
+    from src.services.copilot_polling import ensure_app_pipeline_polling
+    from src.services.workflow_orchestrator import (
+        get_all_pipeline_states,
+        set_pipeline_state,
+    )
+
+    settings = get_settings()
+    default_owner = (settings.default_repo_owner or "").lower()
+    default_repo = (settings.default_repo_name or "").lower()
+
+    restored = 0
+    resolved_repo: tuple[str, str] | None = None
+    attempted_resolve = False
+    for issue_number, state in get_all_pipeline_states().items():
+        if getattr(state, "project_id", None) != project_id:
+            continue
+        if getattr(state, "is_complete", False):
+            continue
+
+        owner = getattr(state, "repository_owner", "") or ""
+        repo = getattr(state, "repository_name", "") or ""
+        if not owner or not repo:
+            if not attempted_resolve:
+                attempted_resolve = True
+                try:
+                    resolved_repo = await resolve_repository(access_token, project_id)
+                    logger.info(
+                        "Resolved project %s via GitHub API for app-pipeline → %s/%s",
+                        project_id,
+                        resolved_repo[0],
+                        resolved_repo[1],
+                    )
+                except Exception:
+                    logger.warning(
+                        "Could not resolve repository for project %s, "
+                        "scoped app-pipeline polling not restored",
+                        project_id,
+                        exc_info=True,
+                    )
+            owner, repo = resolved_repo or ("", "")
+            if owner and repo:
+                state.repository_owner = owner
+                state.repository_name = repo
+                set_pipeline_state(issue_number, state)
+        if not owner or not repo:
+            continue
+        if owner.lower() == default_owner and repo.lower() == default_repo:
+            continue
+
+        started = await ensure_app_pipeline_polling(
+            access_token=access_token,
+            project_id=project_id,
+            owner=owner,
+            repo=repo,
+            parent_issue_number=issue_number,
+        )
+        if started:
+            restored += 1
+            logger.info(
+                "Restored scoped app-pipeline polling for issue #%d on %s/%s",
+                issue_number,
+                owner,
+                repo,
+            )
+
+    if restored:
+        logger.info(
+            "Restored %d scoped app-pipeline polling task(s) for project %s",
+            restored,
+            project_id,
+        )
+    return restored
 
 
 async def _prefetch_agents(access_token: str, project_id: str) -> None:
