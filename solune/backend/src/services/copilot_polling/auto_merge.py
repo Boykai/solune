@@ -282,6 +282,20 @@ def _build_devops_instructions(
             "The PR has merge conflicts with the base branch. "
             "Resolve all conflicts and ensure the branch is up to date."
         )
+    elif reason == "child_pr_merge_conflict":
+        child_pr = merge_result_context.get("child_pr_number", "unknown")
+        agent_name = merge_result_context.get("agent_name", "unknown")
+        target_branch = merge_result_context.get("target_branch", "unknown")
+        lines.append("## Child PR Merge Conflict (Mid-Pipeline)")
+        lines.append(
+            f"Child PR #{child_pr} (created by agent **{agent_name}**) "
+            f"cannot be merged into the target branch `{target_branch}`."
+        )
+        lines.append("")
+        lines.append(
+            "Check out the child PR branch, merge the target branch into it, "
+            "resolve all merge conflicts, and push the resolved branch."
+        )
     else:
         lines.append(f"## Issue: {reason}")
         details = merge_result_context.get("details", "")
@@ -299,6 +313,8 @@ async def dispatch_devops_agent(
     pipeline_metadata: dict[str, Any] | None = None,
     project_id: str = "",
     merge_result_context: dict[str, Any] | None = None,
+    *,
+    skip_post_merge_retry: bool = False,
 ) -> bool:
     """Dispatch the DevOps agent for CI failure / merge conflict recovery.
 
@@ -433,15 +449,17 @@ async def dispatch_devops_agent(
         },
     )
 
-    # Schedule post-DevOps merge retry polling
-    schedule_post_devops_merge_retry(
-        access_token=access_token,
-        owner=owner,
-        repo=repo,
-        issue_number=issue_number,
-        pipeline_metadata=pipeline_metadata or {},
-        project_id=project_id,
-    )
+    # Schedule post-DevOps merge retry polling unless caller manages
+    # its own retry mechanism (e.g. the pipeline polling loop).
+    if not skip_post_merge_retry:
+        schedule_post_devops_merge_retry(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            pipeline_metadata=pipeline_metadata or {},
+            project_id=project_id,
+        )
 
     return True
 
