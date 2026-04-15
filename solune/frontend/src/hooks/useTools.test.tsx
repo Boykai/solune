@@ -366,7 +366,6 @@ describe('useImportMcpServer', () => {
 
     expect(mockToolsApi.importFromCatalog).toHaveBeenCalledWith('proj-1', {
       catalog_server_id: 'github-mcp',
-      catalog_server: server,
     });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: toolKeys.list('proj-1') });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: repoMcpKeys.detail('proj-1') });

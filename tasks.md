@@ -8,7 +8,7 @@
 
 **Organization**: Tasks are grouped by user story so each story can be implemented, verified, and demoed independently while still following the backend → frontend dependency chain in the plan.
 
-## Format: `- [ ] T### [P?] [US#?] Description with file path`
+## Format: `- [ ] T### [P?] [US#?] Description with file path` (use `- [x] ...` / `- [X] ...` when completed)
 
 - **[P]**: Task can run in parallel with other marked tasks once its dependencies are met.
 - **[US#]**: Required on all user story tasks and omitted on Setup, Foundational, and Polish tasks.

@@ -1521,7 +1521,6 @@ export interface CatalogMcpServerListResponse {
 
 export interface ImportCatalogMcpRequest {
   catalog_server_id: string;
-  catalog_server?: CatalogMcpServer;
 }
 
 // ============ Onboarding Tour & Help Types (042) ============

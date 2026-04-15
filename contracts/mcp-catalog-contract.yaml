@@ -170,26 +170,44 @@ components:
       type: object
       required:
         - id
-        - project_id
         - name
         - description
+        - endpoint_url
         - config_content
+        - sync_status
+        - sync_error
         - github_repo_target
+        - is_active
         - created_at
+        - updated_at
       properties:
         id:
-          type: string
-        project_id:
           type: string
         name:
           type: string
         description:
           type: string
+        endpoint_url:
+          type: string
         config_content:
           type: string
           description: Serialized `mcpServers` JSON snippet generated from the catalog install config.
+        sync_status:
+          type: string
+        sync_error:
+          type: string
+        synced_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
         github_repo_target:
           type: string
+        is_active:
+          type: boolean
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
