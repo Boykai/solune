@@ -12,6 +12,7 @@ import { isRateLimitApiError } from '@/utils/rateLimit';
 import { useInfiniteList } from '@/hooks/useInfiniteList';
 import { useUndoableDelete } from '@/hooks/useUndoableDelete';
 import type {
+  CatalogMcpServer,
   McpToolConfig,
   McpToolConfigCreate,
   McpToolConfigUpdate,
@@ -332,9 +333,12 @@ export function useMcpCatalog(
 export function useImportMcpServer(projectId: string | null | undefined) {
   const queryClient = useQueryClient();
 
-  const mutation = useMutation<McpToolConfig, ApiError, string>({
-    mutationFn: (catalogServerId: string) =>
-      toolsApi.importFromCatalog(projectId!, { catalog_server_id: catalogServerId }),
+  const mutation = useMutation<McpToolConfig, ApiError, CatalogMcpServer>({
+    mutationFn: (catalogServer: CatalogMcpServer) =>
+      toolsApi.importFromCatalog(projectId!, {
+        catalog_server_id: catalogServer.id,
+        catalog_server: catalogServer,
+      }),
     onSuccess: () => {
       if (projectId) {
         queryClient.invalidateQueries({ queryKey: toolKeys.list(projectId) });
@@ -351,7 +355,7 @@ export function useImportMcpServer(projectId: string | null | undefined) {
   return {
     importServer: mutation.mutateAsync,
     isImporting: mutation.isPending,
-    importingId: mutation.variables ?? null,
+    importingId: mutation.variables?.id ?? null,
     importError: mutation.error ? formatMutationError(mutation.error, 'import MCP server') : null,
     reset: mutation.reset,
   };

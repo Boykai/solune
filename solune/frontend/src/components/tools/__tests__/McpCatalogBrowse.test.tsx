@@ -162,7 +162,7 @@ describe('McpCatalogBrowse', () => {
 
     render(<McpCatalogBrowse projectId="proj-1" />);
     await user.click(screen.getByRole('button', { name: /import/i }));
-    expect(importServer).toHaveBeenCalledWith('mcp-1');
+    expect(importServer).toHaveBeenCalledWith(servers[0]);
   });
 
   it('renders repo link when repo_url is present', () => {

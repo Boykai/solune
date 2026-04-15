@@ -194,3 +194,4 @@ class ImportCatalogMcpRequest(BaseModel):
     """Request body for importing a catalog server into a project."""
 
     catalog_server_id: str = Field(min_length=1)
+    catalog_server: CatalogMcpServer | None = None

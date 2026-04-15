@@ -252,21 +252,31 @@ async def import_from_catalog(
     existing_names = {t.name for t in tools_result.tools}
 
     try:
-        catalog_result = await list_catalog_servers(
-            project_id,
-            existing_names,
-        )
+        if data.catalog_server is not None:
+            if data.catalog_server.id != data.catalog_server_id:
+                raise ValidationError(
+                    "Catalog server payload ID "
+                    f"'{data.catalog_server.id}' did not match requested ID "
+                    f"'{data.catalog_server_id}'."
+                )
+            target = data.catalog_server.model_copy()
+        else:
+            catalog_result = await list_catalog_servers(
+                project_id,
+                existing_names,
+            )
+            target = next(
+                (
+                    server
+                    for server in catalog_result.servers
+                    if server.id == data.catalog_server_id
+                ),
+                None,
+            )
     except AppException:
         raise
     except Exception as exc:
         handle_service_error(exc, "fetch catalog for import", AppException)
-
-    # Find the requested server in the catalog
-    target = None
-    for server in catalog_result.servers:
-        if server.id == data.catalog_server_id:
-            target = server
-            break
 
     if target is None:
         raise NotFoundError(
