@@ -475,9 +475,13 @@ class TestLaunchPhasePipelines:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="owner",
+                repo="repo",
             )
 
             assert mock_launch.call_count == 2
+            for call in mock_launch.call_args_list:
+                assert call.kwargs.get("target_repo") == ("owner", "repo")
 
     @pytest.mark.asyncio
     async def test_wave2_phases_have_prerequisites(self) -> None:
@@ -499,6 +503,8 @@ class TestLaunchPhasePipelines:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="owner",
+                repo="repo",
             )
 
             # Second call (Phase 2) should have prerequisite_issues
@@ -527,6 +533,8 @@ class TestLaunchPhasePipelines:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="owner",
+                repo="repo",
             )
 
             # First call (Phase 1) should have no prerequisites
@@ -674,6 +682,8 @@ class TestPipelineLaunchFailureHandling:
                 project_id="proj-1",
                 pipeline_id="pipe-1",
                 access_token="token",
+                owner="owner",
+                repo="repo",
             )
 
         # All 3 phases attempted even though #2 failed

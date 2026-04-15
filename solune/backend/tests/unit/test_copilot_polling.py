@@ -2276,7 +2276,37 @@ class TestReconstructPipelineState:
         assert result.completed_agents == ["speckit.specify", "speckit.plan"]
         assert result.current_agent_index == 2
         assert result.current_agent == "speckit.tasks"
+        assert result.repository_owner == "owner"
+        assert result.repository_name == "repo"
         mock_set_state.assert_called_once()
+
+    @pytest.mark.asyncio
+    @patch("src.services.copilot_polling.github_projects_service")
+    @patch("src.services.copilot_polling.set_pipeline_state")
+    async def test_reconstructed_state_preserves_repository_fields(
+        self, mock_set_state, mock_service
+    ):
+        """Reconstructed pipeline state must carry repository_owner and repository_name."""
+        mock_service.get_issue_with_comments = AsyncMock(
+            return_value={"comments": [{"body": "copilot: Done!"}]}
+        )
+
+        result = await _reconstruct_pipeline_state(
+            access_token="token",
+            owner="external-org",
+            repo="external-repo",
+            issue_number=99,
+            project_id="PVT_ext",
+            status="In Progress",
+            agents=["copilot", "speckit.implement"],
+        )
+
+        assert result.repository_owner == "external-org"
+        assert result.repository_name == "external-repo"
+        mock_set_state.assert_called_once()
+        persisted_state = mock_set_state.call_args.args[1]
+        assert persisted_state.repository_owner == "external-org"
+        assert persisted_state.repository_name == "external-repo"
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.github_projects_service")

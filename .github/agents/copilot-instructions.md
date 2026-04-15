@@ -207,6 +207,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - SQLite via aiosqlite — migration `045_chore_description.sql` renames column + drops column + strips YAML (004-remove-chore-templates)
 - Python 3.12+ (backend); TypeScript ~6.0.2 + React ^19.2.5 (frontend) + FastAPI, Pydantic, httpx, existing `InMemoryCache`/`cached_fetch`; React, TanStack Query, existing `toolsApi`, Zod-compatible frontend type validation (006-mcp-catalog-on-tools-page)
 - Existing `mcp_configurations` persistence plus in-memory catalog cache; imported tools continue syncing to repository `mcp.json` files via current GitHub flow (006-mcp-catalog-on-tools-page)
+- Python 3.12 backend service + FastAPI route handlers, Pydantic models, `src.api.pipelines.execute_pipeline_launch`, `src.services.copilot_polling.ensure_app_pipeline_polling`, `src.services.task_registry.task_registry`, existing GitHub/project/session services (001-fix-app-building-recovery)
+- Existing SQLite-backed session / project-settings / orchestration tables plus the in-memory pipeline state store (001-fix-app-building-recovery)
 - Python 3.12+ (backend); TypeScript ~6.0.2 + React 19.2 (frontend) + FastAPI, Pydantic v2, existing `InMemoryCache`/`cached_fetch`, `aiosqlite`-backed `done_items_store`, GitHub GraphQL/REST helpers, TanStack Query, Vitest, Playwright performance specs (003-loading-performance)
 - Existing in-memory cache plus SQLite-backed `done_items_cache` / session state; no new persistence system required (003-loading-performance)
 

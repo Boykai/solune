@@ -1432,6 +1432,8 @@ async def _reconstruct_pipeline_state(
         completed_agents=completed,
         started_at=reconstructed_started_at,
         agent_assigned_sha=reconstructed_sha,
+        repository_owner=owner,
+        repository_name=repo,
     )
 
     # Reconstruct group info from tracking table if 6-column format was used
