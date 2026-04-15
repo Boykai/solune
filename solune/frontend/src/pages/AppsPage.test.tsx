@@ -9,10 +9,14 @@ const mocks = vi.hoisted(() => ({
   startMutate: vi.fn(),
   stopMutate: vi.fn(),
   deleteMutate: vi.fn(),
+  deleteApp: vi.fn(),
   confirm: vi.fn(),
   setLabel: vi.fn(),
   removeLabel: vi.fn(),
   useParamsValue: {} as Record<string, string>,
+  appsData: [] as Array<Record<string, unknown>>,
+  paginatedAppsData: [] as Array<Record<string, unknown>>,
+  pendingDeleteIds: new Set<string>(),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -26,7 +30,7 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('@/hooks/useApps', () => ({
   useApps: () => ({
-    data: [],
+    data: mocks.appsData,
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -37,7 +41,7 @@ vi.mock('@/hooks/useApps', () => ({
     error: null,
   }),
   useAppsPaginated: () => ({
-    allItems: [],
+    allItems: mocks.paginatedAppsData,
     hasNextPage: false,
     isFetchingNextPage: false,
     fetchNextPage: vi.fn(),
@@ -57,7 +61,7 @@ vi.mock('@/hooks/useApps', () => ({
   useStartApp: () => ({ mutate: mocks.startMutate, isPending: false }),
   useStopApp: () => ({ mutate: mocks.stopMutate, isPending: false }),
   useDeleteApp: () => ({ mutate: mocks.deleteMutate, isPending: false }),
-  useUndoableDeleteApp: () => ({ deleteApp: mocks.deleteMutate }),
+  useUndoableDeleteApp: () => ({ deleteApp: mocks.deleteApp, pendingIds: mocks.pendingDeleteIds }),
   getErrorMessage: (_err: unknown, fallback: string) => fallback,
 }));
 
@@ -122,6 +126,9 @@ describe('AppsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.useParamsValue = {};
+    mocks.appsData = [];
+    mocks.paginatedAppsData = [];
+    mocks.pendingDeleteIds = new Set<string>();
   });
 
   it('opens the create dialog from the create app button', async () => {
@@ -201,6 +208,52 @@ describe('AppsPage', () => {
 
     expect(mocks.createMutate).toHaveBeenCalledOnce();
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  it('uses undoable deletion after both delete confirmations succeed', async () => {
+    mocks.appsData = [
+      {
+        name: 'my-app',
+        display_name: 'My App',
+        description: 'Sample app',
+        status: 'stopped',
+        repo_type: 'same-repo',
+      },
+    ];
+    mocks.confirm.mockResolvedValueOnce(true).mockResolvedValueOnce(true);
+
+    render(<AppsPage />);
+
+    await userEvent.click(screen.getByRole('button', { name: /delete app my app/i }));
+
+    await waitFor(() => {
+      expect(mocks.deleteApp).toHaveBeenCalledWith('my-app', 'my-app', true);
+    });
+  });
+
+  it('only disables the app card whose deletion is pending', () => {
+    mocks.appsData = [
+      {
+        name: 'first-app',
+        display_name: 'First App',
+        description: 'First sample app',
+        status: 'stopped',
+        repo_type: 'same-repo',
+      },
+      {
+        name: 'second-app',
+        display_name: 'Second App',
+        description: 'Second sample app',
+        status: 'stopped',
+        repo_type: 'same-repo',
+      },
+    ];
+    mocks.pendingDeleteIds = new Set(['first-app']);
+
+    render(<AppsPage />);
+
+    expect(screen.getByRole('button', { name: /delete app first app/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /delete app second app/i })).toBeEnabled();
   });
 });
 

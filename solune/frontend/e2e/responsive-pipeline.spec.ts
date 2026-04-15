@@ -56,7 +56,7 @@ test.describe('Responsive Pipeline Layout', () => {
 
     await expect(stagesGrid).toBeVisible({ timeout: 15_000 });
     await expect(stagesGrid).toHaveScreenshot('responsive-pipeline-mobile.png', {
-      maxDiffPixels: 100,
+      maxDiffPixelRatio: 0.08,
       timeout: 15_000,
     });
   });

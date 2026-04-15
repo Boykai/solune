@@ -60,13 +60,20 @@ class UserResponse(BaseModel):
     github_username: str
     github_avatar_url: str | None = None
     selected_project_id: str | None = None
+    board_warmup_started: bool = False
 
     @classmethod
-    def from_session(cls, session: UserSession) -> "UserResponse":
+    def from_session(
+        cls,
+        session: UserSession,
+        *,
+        board_warmup_started: bool = False,
+    ) -> "UserResponse":
         """Create UserResponse from UserSession."""
         return cls(
             github_user_id=session.github_user_id,
             github_username=session.github_username,
             github_avatar_url=session.github_avatar_url,
             selected_project_id=session.selected_project_id,
+            board_warmup_started=board_warmup_started,
         )

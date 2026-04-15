@@ -22,6 +22,7 @@ export interface User {
   github_username: string;
   github_avatar_url?: string;
   selected_project_id?: string;
+  board_warmup_started?: boolean;
 }
 
 export interface AuthResponse {
@@ -934,6 +935,18 @@ export interface RateLimitInfo {
   used: number;
 }
 
+export type BoardLoadPhase = 'interactive' | 'backfilling_done' | 'reconciling' | 'complete';
+export type DoneColumnSource = 'live' | 'cached' | 'pending';
+
+export interface BoardLoadState {
+  phase: BoardLoadPhase;
+  active_columns_ready: boolean;
+  done_column_source: DoneColumnSource;
+  warmed_by_selection: boolean;
+  pending_sections: string[];
+  last_completed_at?: string | null;
+}
+
 export type RefreshErrorType = 'rate_limit' | 'network' | 'auth' | 'server' | 'unknown';
 
 export interface RefreshError {
@@ -946,6 +959,7 @@ export interface RefreshError {
 export interface BoardDataResponse {
   project: BoardProject;
   columns: BoardColumn[];
+  load_state?: BoardLoadState;
   rate_limit?: RateLimitInfo | null;
 }
 

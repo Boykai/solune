@@ -102,6 +102,24 @@ export function ProjectsPage() {
   // Board controls: filter, sort, group-by with localStorage persistence
   const boardControls = useBoardControls(selectedProjectId, boardData ?? undefined);
   const transformedBoardData = boardControls.transformedData;
+  const deferredBoardNotice = useMemo(() => {
+    const loadState = boardData?.load_state;
+    if (!loadState || !loadState.active_columns_ready || loadState.phase === 'complete') {
+      return null;
+    }
+
+    if (loadState.pending_sections.includes('done_column')) {
+      return loadState.done_column_source === 'cached'
+        ? 'Showing cached Done history while GitHub finishes refreshing historical sub-issues.'
+        : 'Loading Done history in the background while active columns stay interactive.';
+    }
+
+    if (loadState.pending_sections.includes('reconciliation')) {
+      return 'Checking for recently added board items in the background.';
+    }
+
+    return null;
+  }, [boardData]);
 
   // Project settings for queue mode toggle
   const { settings: projectSettings, updateSettings, isUpdating: isSettingsUpdating } = useProjectSettings(selectedProjectId ?? undefined);
@@ -481,6 +499,16 @@ export function ProjectsPage() {
 
       {selectedProjectId && !boardLoading && transformedBoardData && (
         <div className="flex flex-1 flex-col gap-6 overflow-visible">
+          {deferredBoardNotice && (
+            <div
+              className="rounded-[1.1rem] border border-border/70 bg-background/70 px-4 py-3 text-sm text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              {deferredBoardNotice}
+            </div>
+          )}
+
           <ProjectIssueLaunchPanel
             projectId={selectedProjectId}
             projectName={selectedProject?.name}

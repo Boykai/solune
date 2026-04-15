@@ -260,6 +260,8 @@ These endpoints live under `/settings` because MCP configurations are user-scope
 | PUT | `/tools/{project_id}/{tool_id}` | Update a tool configuration |
 | POST | `/tools/{project_id}/{tool_id}/sync` | Sync a tool configuration from its remote source |
 | DELETE | `/tools/{project_id}/{tool_id}` | Delete a tool configuration |
+| GET | `/tools/{project_id}/catalog` | Browse/search external MCP servers (`query`, `category` query params) |
+| POST | `/tools/{project_id}/catalog/import` | Import a catalog MCP server into the project (status 201) |
 
 ## Metadata
 

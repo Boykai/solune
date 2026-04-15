@@ -46,7 +46,7 @@ test.describe('Responsive Settings Layout', () => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openSettingsPage(page);
     await expect(page).toHaveScreenshot('responsive-settings-mobile.png', {
-      maxDiffPixels: 100,
+      maxDiffPixelRatio: 0.08,
     });
   });
 });

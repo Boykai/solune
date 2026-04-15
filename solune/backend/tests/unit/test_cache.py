@@ -1,12 +1,13 @@
 """Unit tests for cache service."""
 
+import asyncio
 import time
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.services.cache import CacheEntry, InMemoryCache, compute_data_hash
+from src.services.cache import CacheEntry, InMemoryCache, coalesced_fetch, compute_data_hash
 from src.utils import utcnow
 
 
@@ -495,3 +496,30 @@ class TestCachedFetchExtensions:
 
         result = await cached_fetch(c, "k", fetch_fn, stale_fallback=True)
         assert result == "stale"
+
+
+class TestCoalescedFetch:
+    """Tests for coalesced_fetch()."""
+
+    @pytest.mark.asyncio
+    async def test_concurrent_callers_share_one_fetch(self):
+        call_count = 0
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def fetch_once() -> dict[str, int]:
+            nonlocal call_count
+            call_count += 1
+            started.set()
+            await release.wait()
+            return {"value": 42}
+
+        first = asyncio.create_task(coalesced_fetch("board:proj1", fetch_once))
+        await started.wait()
+        second = asyncio.create_task(coalesced_fetch("board:proj1", fetch_once))
+        await asyncio.sleep(0)
+        release.set()
+
+        assert await first == {"value": 42}
+        assert await second == {"value": 42}
+        assert call_count == 1

@@ -103,6 +103,7 @@ The sync runs automatically on:
 1. **Application startup** — reconciles drift for the most recent active session.
 2. **MCP activation/deactivation** — when a tool is toggled or deleted on the Tools page.
 3. **Agent file creation/update** — when an agent is created or updated via the Agents service.
+4. **Manual trigger** — call `POST /api/v1/agents/{project_id}/sync-mcps` to force a sync on demand.
 
 ### Built-in MCPs
 

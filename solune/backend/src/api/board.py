@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from githubkit.exception import PrimaryRateLimitExceeded, RequestFailed
@@ -19,8 +20,12 @@ from src.exceptions import (
 from src.logging_utils import get_logger
 from src.models.board import (
     BoardDataResponse,
+    BoardLoadMode,
+    BoardLoadPhase,
+    BoardLoadState,
     BoardProject,
     BoardProjectListResponse,
+    DoneColumnSource,
     RateLimitInfo,
     StatusColor,
     StatusField,
@@ -32,6 +37,7 @@ from src.models.project import GitHubProject
 from src.models.user import UserSession
 from src.services.cache import (
     cache,
+    coalesced_fetch,
     compute_data_hash,
     get_cache_key,
     get_sub_issues_cache_key,
@@ -39,6 +45,8 @@ from src.services.cache import (
 )
 from src.services.done_items_store import get_done_items
 from src.services.github_projects import github_projects_service
+
+_background_board_completion_tasks: dict[str, asyncio.Task[Any]] = {}
 
 
 def _is_github_auth_error(exc: Exception) -> bool:
@@ -208,6 +216,105 @@ def _get_rate_limit_info() -> RateLimitInfo | None:
         return None
 
 
+def _board_cache_key(project_id: str) -> str:
+    return get_cache_key(CACHE_PREFIX_BOARD_DATA, project_id)
+
+
+def _board_inflight_key(project_id: str, load_mode: BoardLoadMode) -> str:
+    return get_cache_key(CACHE_PREFIX_BOARD_DATA, f"{project_id}:{load_mode}")
+
+
+def _board_needs_background_completion(board_data: BoardDataResponse) -> bool:
+    return board_data.load_state.phase != BoardLoadPhase.COMPLETE and bool(
+        board_data.load_state.pending_sections
+    )
+
+
+def _cache_board_data(project_id: str, board_data: BoardDataResponse) -> None:
+    board_hash = compute_data_hash(board_data.model_dump(mode="json", exclude={"rate_limit"}))
+    cache.set(_board_cache_key(project_id), board_data, ttl_seconds=300, data_hash=board_hash)
+
+
+async def _apply_board_runtime_state(board_data: BoardDataResponse) -> BoardDataResponse:
+    board_data.rate_limit = _get_rate_limit_info()
+
+    from src.services.workflow_orchestrator import get_pipeline_state
+
+    for col in board_data.columns:
+        for item in col.items:
+            if item.number is not None:
+                ps = get_pipeline_state(item.number)
+                if ps is not None and getattr(ps, "queued", False):
+                    item.queued = True
+
+    return board_data
+
+
+async def _fetch_and_cache_board_data(
+    session: UserSession,
+    project_id: str,
+    *,
+    load_mode: BoardLoadMode,
+    warmed_by_selection: bool = False,
+) -> BoardDataResponse:
+    async def _fetch() -> BoardDataResponse:
+        board_data = await github_projects_service.get_board_data(
+            session.access_token,
+            project_id,
+            load_mode=load_mode,
+            warmed_by_selection=warmed_by_selection,
+        )
+        await _apply_board_runtime_state(board_data)
+        _cache_board_data(project_id, board_data)
+        return board_data
+
+    return await coalesced_fetch(
+        _board_inflight_key(project_id, load_mode),
+        _fetch,
+        task_name=f"board-{project_id[-8:]}-{load_mode}",
+    )
+
+
+def _schedule_background_board_completion(session: UserSession, project_id: str) -> None:
+    from src.services.task_registry import task_registry
+
+    task_key = f"{session.github_user_id}:{project_id}"
+    existing = _background_board_completion_tasks.get(task_key)
+    if existing is not None and not existing.done():
+        return
+
+    async def _complete() -> None:
+        try:
+            cached = cache.get(_board_cache_key(project_id))
+            if isinstance(cached, BoardDataResponse) and not _board_needs_background_completion(
+                cached
+            ):
+                return
+            await _fetch_and_cache_board_data(
+                session,
+                project_id,
+                load_mode=BoardLoadMode.FULL,
+            )
+        except Exception:
+            logger.debug(
+                "Non-critical: background board completion failed for project %s",
+                project_id,
+                exc_info=True,
+            )
+
+    task = task_registry.create_task(
+        _complete(),
+        name=f"board-complete-{session.github_user_id}-{project_id[-8:]}",
+    )
+    _background_board_completion_tasks[task_key] = task
+
+    def _cleanup_finished_completion(finished: asyncio.Task[Any]) -> None:
+        if _background_board_completion_tasks.get(task_key) is finished:
+            _background_board_completion_tasks.pop(task_key, None)
+
+    task.add_done_callback(_cleanup_finished_completion)
+
+
 @router.get("/projects", response_model=BoardProjectListResponse)
 async def list_board_projects(
     session: Annotated[UserSession, Depends(get_session_dep)],
@@ -240,13 +347,21 @@ async def list_board_projects(
     logger.info("Fetching board projects for user %s", session.github_username)
 
     try:
-        # Use list_user_projects (which populates the shared user-projects
-        # cache) instead of list_board_projects (a separate GraphQL call).
-        # On cold start both GET /projects and GET /board/projects fire;
-        # by sharing the upstream call we avoid a duplicate GraphQL round-trip
-        # (~875 ms saved).
-        user_projects = await github_projects_service.list_user_projects(
-            session.access_token, session.github_username
+
+        async def _fetch_user_projects() -> list[GitHubProject]:
+            # Use list_user_projects (which populates the shared user-projects
+            # cache) instead of list_board_projects (a separate GraphQL call).
+            # On cold start both GET /projects and GET /board/projects fire;
+            # by sharing the upstream call we avoid a duplicate GraphQL round-trip
+            # (~875 ms saved).
+            return await github_projects_service.list_user_projects(
+                session.access_token, session.github_username
+            )
+
+        user_projects = await coalesced_fetch(
+            user_projects_cache_key,
+            _fetch_user_projects,
+            task_name=f"user-projects-{session.github_user_id}",
         )
         cache.set(user_projects_cache_key, user_projects)
         projects = _to_board_projects(user_projects) or []
@@ -363,6 +478,12 @@ async def _build_done_fallback_board(
     return BoardDataResponse(
         project=fallback_project,
         columns=[done_column],
+        load_state=BoardLoadState(
+            phase=BoardLoadPhase.BACKFILLING_DONE,
+            active_columns_ready=False,
+            done_column_source=DoneColumnSource.CACHED,
+            pending_sections=["active_columns", "reconciliation"],
+        ),
         rate_limit=_get_rate_limit_info(),
     )
 
@@ -372,6 +493,10 @@ async def get_board_data(
     project_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
     refresh: Annotated[bool, Query(description="Force refresh from GitHub API")] = False,
+    load_mode: Annotated[
+        BoardLoadMode,
+        Query(description="initial optimizes for interactivity; full forces complete refresh"),
+    ] = BoardLoadMode.INITIAL,
     column_limit: Annotated[
         int | None, Query(ge=1, le=100, description="Items per column page")
     ] = None,
@@ -380,16 +505,21 @@ async def get_board_data(
     ] = None,
 ) -> BoardDataResponse:
     """Get board data for a specific project with columns and items."""
-    cache_key = get_cache_key(CACHE_PREFIX_BOARD_DATA, project_id)
+    cache_key = _board_cache_key(project_id)
+    effective_load_mode = BoardLoadMode.FULL if refresh else load_mode
 
-    if not refresh:
+    if not refresh and effective_load_mode == BoardLoadMode.INITIAL:
         cached = cache.get(cache_key)
         if cached:
             logger.info("Returning cached board data for project %s", project_id)
             if isinstance(cached, BoardDataResponse):
                 # Return a shallow copy to avoid mutating the shared cache entry,
                 # which could leak stale rate_limit values across requests.
-                return cached.model_copy(update={"rate_limit": _get_rate_limit_info()})
+                cached_response = cached.model_copy(update={"rate_limit": _get_rate_limit_info()})
+                await _apply_board_runtime_state(cached_response)
+                if _board_needs_background_completion(cached_response):
+                    _schedule_background_board_completion(session, project_id)
+                return cached_response
             return cached
 
     # On manual refresh, clear sub-issue caches BEFORE fetching board data so
@@ -408,7 +538,11 @@ async def get_board_data(
     logger.info("Fetching board data for project %s", project_id)
 
     try:
-        board_data = await github_projects_service.get_board_data(session.access_token, project_id)
+        board_data = await _fetch_and_cache_board_data(
+            session,
+            project_id,
+            load_mode=effective_load_mode,
+        )
     except ValueError as e:
         logger.warning("Project not found: %s - %s", project_id, e)
         raise NotFoundError("Project not found") from e
@@ -442,25 +576,10 @@ async def get_board_data(
             details={"reason": _classify_github_error(e)},
         ) from e
 
-    board_data.rate_limit = _get_rate_limit_info()
-
-    # Enrich board items with pipeline queue state from in-memory cache
-    from src.services.workflow_orchestrator import get_pipeline_state
-
-    for col in board_data.columns:
-        for item in col.items:
-            if item.number is not None:
-                ps = get_pipeline_state(item.number)
-                if ps is not None and getattr(ps, "queued", False):
-                    item.queued = True
-
-    # Cache board data — 300 seconds aligns with frontend's 5-minute auto-refresh.
-    # Manual refresh (refresh=true) bypasses cache reads but still populates the
-    # cache so subsequent non-refresh requests benefit from the fresh data.
-    # Compute a content hash for change detection (FR-004) so consumers that read
-    # cache entries can compare hashes to suppress unchanged refreshes.
-    board_hash = compute_data_hash(board_data.model_dump(mode="json", exclude={"rate_limit"}))
-    cache.set(cache_key, board_data, ttl_seconds=300, data_hash=board_hash)
+    if effective_load_mode == BoardLoadMode.INITIAL and _board_needs_background_completion(
+        board_data
+    ):
+        _schedule_background_board_completion(session, project_id)
 
     # Apply per-column pagination when requested
     if column_limit is not None or column_cursors is not None:

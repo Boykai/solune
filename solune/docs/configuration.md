@@ -23,6 +23,8 @@ All backend configuration is read from environment variables through `pydantic-s
 | `GITHUB_REDIRECT_URI` | `http://localhost:8000/api/v1/auth/github/callback` | OAuth callback URL configured in the GitHub app |
 | `FRONTEND_URL` | `http://localhost:5173` | Browser URL used for redirects and secure-cookie auto-detection |
 
+> **Docker note:** When running via Docker Compose, set `GITHUB_REDIRECT_URI` to `http://localhost:5173/api/v1/auth/github/callback` because nginx proxies `/api/v1` to the backend. Without Docker, the default `localhost:8000` target is correct.
+
 ### AI Provider
 
 | Variable | Default | Description |
@@ -50,6 +52,8 @@ All backend configuration is read from environment variables through `pydantic-s
 | `DEBUG` | `false` | Enables development behavior and relaxes production validation |
 | `ENABLE_DOCS` | `false` | Serve `/api/docs` and `/api/redoc` |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
+
+> **Docker note:** The Docker Compose file overrides this to `http://localhost:5173,http://localhost:80,http://frontend` to allow inter-container traffic. Local development only needs the default.
 | `API_TIMEOUT_SECONDS` | `30` | Timeout for outbound API calls |
 
 ### Sessions and cookies
@@ -115,6 +119,8 @@ All backend configuration is read from environment variables through `pydantic-s
 |----------|---------|-------------|
 | `OTEL_ENABLED` | `false` | Enable OpenTelemetry instrumentation |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP endpoint used by the `otel_endpoint` config field |
+
+> **Docker note:** When the `observability` Docker Compose profile is active, the root `docker-compose.yml` overrides this to `http://jaeger:4317` to reach the Jaeger container.
 | `OTEL_SERVICE_NAME` | `solune-backend` | Service name reported to OpenTelemetry |
 | `SENTRY_DSN` | `""` | Sentry DSN; empty disables Sentry |
 | `PIPELINE_STALL_ALERT_MINUTES` | `30` | Minutes before a stalled pipeline alerts |

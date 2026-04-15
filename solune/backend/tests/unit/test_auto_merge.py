@@ -901,6 +901,23 @@ class TestBuildDevopsInstructions:
         # `not {}` evaluates to True, entering the fallback branch
         assert "auto-merge attempt failed" in result
 
+    def test_child_pr_merge_conflict_context(self):
+        """child_pr_merge_conflict reason → generates child PR instructions."""
+        context = {
+            "reason": "child_pr_merge_conflict",
+            "child_pr_number": 77,
+            "agent_name": "speckit.tasks",
+            "target_branch": "main",
+        }
+        result = _build_devops_instructions(
+            owner="owner", repo="repo", issue_number=10, merge_result_context=context
+        )
+        assert "Child PR Merge Conflict (Mid-Pipeline)" in result
+        assert "#77" in result
+        assert "speckit.tasks" in result
+        assert "`main`" in result
+        assert "resolve all merge conflicts" in result.lower()
+
 
 class TestPostDevopsRetryLoop:
     """Tests for _post_devops_retry_loop()."""

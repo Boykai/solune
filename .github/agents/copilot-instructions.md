@@ -209,6 +209,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - Existing `mcp_configurations` persistence plus in-memory catalog cache; imported tools continue syncing to repository `mcp.json` files via current GitHub flow (006-mcp-catalog-on-tools-page)
 - Python 3.12 backend service + FastAPI route handlers, Pydantic models, `src.api.pipelines.execute_pipeline_launch`, `src.services.copilot_polling.ensure_app_pipeline_polling`, `src.services.task_registry.task_registry`, existing GitHub/project/session services (001-fix-app-building-recovery)
 - Existing SQLite-backed session / project-settings / orchestration tables plus the in-memory pipeline state store (001-fix-app-building-recovery)
+- Python 3.12+ (backend); TypeScript ~6.0.2 + React 19.2 (frontend) + FastAPI, Pydantic v2, existing `InMemoryCache`/`cached_fetch`, `aiosqlite`-backed `done_items_store`, GitHub GraphQL/REST helpers, TanStack Query, Vitest, Playwright performance specs (003-loading-performance)
+- Existing in-memory cache plus SQLite-backed `done_items_cache` / session state; no new persistence system required (003-loading-performance)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)

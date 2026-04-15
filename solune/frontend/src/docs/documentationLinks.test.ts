@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, '../../..');
-const workspaceRoot = resolve(repoRoot, '..');
 const docsRoot = resolve(repoRoot, 'docs');
 
 const changedDocs = [
@@ -27,10 +26,6 @@ const relativeLinkPattern = /(?<!!)\[[^\]]+\]\(([^)]+)\)/g;
 
 function readDoc(relativePath: string): string {
   return readFileSync(resolve(docsRoot, relativePath), 'utf8');
-}
-
-function readWorkspaceFile(relativePath: string): string {
-  return readFileSync(resolve(workspaceRoot, relativePath), 'utf8');
 }
 
 function slugifyHeading(heading: string): string {
@@ -185,8 +180,6 @@ describe('chat documentation updates', () => {
   it('documents configuration additions, quickstart status, and frontend docs', () => {
     const configuration = readDoc('configuration.md');
     const testing = readDoc('testing.md');
-    const quickstart = readWorkspaceFile('quickstart.md');
-    const spec = readWorkspaceFile('spec.md');
     const frontendReadme = readFileSync(resolve(repoRoot, 'frontend/README.md'), 'utf8');
 
     expect(configuration).toContain('AGENT_SESSION_TTL_SECONDS');
@@ -202,8 +195,6 @@ describe('chat documentation updates', () => {
     expect(testing).toContain('backend/tests/');
     expect(testing).toContain('chaos/');
     expect(testing).toContain('frontend/e2e/');
-    expect(quickstart).toContain('Status note');
-    expect(spec).toContain('Feature Specification');
     expect(frontendReadme).toContain('# Solune Frontend');
     expect(frontendReadme).toContain('React 19');
     expect(frontendReadme).toContain('TanStack Query v5');

@@ -800,6 +800,7 @@ query($projectId: ID!, $first: Int!, $after: String) {
               url
               createdAt
               updatedAt
+              state
               issueType {
                 id
                 name

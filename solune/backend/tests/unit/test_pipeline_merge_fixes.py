@@ -445,3 +445,74 @@ class TestMergeRetryLimit:
 
         assert MAX_MERGE_RETRIES == 3
         assert _merge_failure_counts is not None
+
+    @pytest.mark.asyncio
+    async def test_advance_pipeline_pauses_when_devops_dispatched(self):
+        """DevOps dispatched successfully → pipeline paused without error, counter reset."""
+        from src.services.copilot_polling.state import MAX_MERGE_RETRIES, _merge_failure_counts
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        pipeline = PipelineState(
+            issue_number=10,
+            project_id="proj-1",
+            status="Backlog",
+            agents=["speckit.tasks"],
+            current_agent_index=0,
+        )
+
+        mock_cp = MagicMock()
+        mock_cp.get_issue_main_branch.return_value = {"branch": "main", "pr_number": 1}
+        mock_cp._merge_child_pr_if_applicable = AsyncMock(
+            return_value={"status": "merge_failed", "pr_number": 42}
+        )
+        mock_cp.set_pipeline_state = MagicMock()
+        mock_cp.POST_ACTION_DELAY_SECONDS = 0
+        mock_cp.github_projects_service = AsyncMock()
+        mock_cp.github_projects_service.create_issue_comment = AsyncMock(return_value={"id": "C1"})
+        mock_cp.connection_manager = AsyncMock()
+        mock_cp.connection_manager.broadcast_to_project = AsyncMock()
+
+        _merge_failure_counts.clear()
+        _merge_failure_counts[10] = MAX_MERGE_RETRIES - 1
+
+        mock_dispatch = AsyncMock(return_value=True)
+
+        with ExitStack() as stack:
+            stack.enter_context(patch("src.services.copilot_polling.pipeline._cp", mock_cp))
+            stack.enter_context(
+                patch("src.services.copilot_polling.pipeline._pending_agent_assignments", {})
+            )
+            stack.enter_context(
+                patch(
+                    "src.services.copilot_polling.auto_merge.dispatch_devops_agent",
+                    mock_dispatch,
+                )
+            )
+
+            from src.services.copilot_polling.pipeline import _advance_pipeline
+
+            result = await _advance_pipeline(
+                access_token="tok",
+                project_id="proj-1",
+                item_id="item-1",
+                owner="o",
+                repo="r",
+                issue_number=10,
+                issue_node_id=None,
+                pipeline=pipeline,
+                from_status="Backlog",
+                to_status="In Progress",
+                task_title="Test Issue",
+            )
+
+        assert result is not None
+        assert result["status"] == "merge_blocked"
+        # Pipeline should NOT have error set — it's a pause, not a halt.
+        assert pipeline.error is None
+        # Merge failure counter should be reset.
+        assert _merge_failure_counts.get(10, 0) == 0
+        # dispatch_devops_agent should have been called with skip_post_merge_retry.
+        mock_dispatch.assert_awaited_once()
+        call_kwargs = mock_dispatch.call_args
+        assert call_kwargs.kwargs.get("skip_post_merge_retry") is True
+        _merge_failure_counts.clear()
