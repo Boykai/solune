@@ -10,6 +10,7 @@ from src.logging_utils import get_logger
 
 from .state import (
     _claimed_child_prs,
+    _merge_failure_counts,
     _polling_state,
     _polling_state_lock,
     _posted_agent_outputs,
@@ -674,6 +675,10 @@ async def _merge_and_claim_child_pr(
                     current_agent,
                     issue_number,
                 )
+                # Clear stale merge-failure count so the safety-net in
+                # _advance_pipeline doesn't halt on a counter carried
+                # over from a previous agent's transient failures.
+                _merge_failure_counts.pop(issue_number, None)
                 await asyncio.sleep(_cp.POST_ACTION_DELAY_SECONDS)
             else:
                 logger.warning(

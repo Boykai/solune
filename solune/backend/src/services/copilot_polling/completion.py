@@ -173,6 +173,25 @@ async def _merge_child_pr_if_applicable(
             if not is_copilot_author(pr_author):
                 continue
 
+            # Skip PRs already claimed/merged by this agent (Path 1 in
+            # agent_output.py may have merged the PR moments ago; re-trying
+            # the merge here would fail and inflate _merge_failure_counts).
+            claimed_key = f"{issue_number}:{pr_number}:{completed_agent}"
+            if claimed_key in _claimed_child_prs:
+                logger.debug(
+                    "PR #%d already claimed by agent '%s' on issue #%d, treating as already merged",
+                    pr_number,
+                    completed_agent,
+                    issue_number,
+                )
+                return {
+                    "status": "merged",
+                    "pr_number": pr_number,
+                    "main_branch": main_branch,
+                    "agent": completed_agent,
+                    "already_claimed": True,
+                }
+
             # Only consider OPEN PRs
             if pr_state != "OPEN":
                 logger.debug(
