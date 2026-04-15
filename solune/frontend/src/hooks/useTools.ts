@@ -337,7 +337,6 @@ export function useImportMcpServer(projectId: string | null | undefined) {
     mutationFn: (catalogServer: CatalogMcpServer) =>
       toolsApi.importFromCatalog(projectId!, {
         catalog_server_id: catalogServer.id,
-        catalog_server: catalogServer,
       }),
     onSuccess: () => {
       if (projectId) {

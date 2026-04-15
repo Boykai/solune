@@ -18,23 +18,23 @@
 
 | File | Purpose |
 |------|---------|
-| `/home/runner/work/solune/solune/solune/backend/src/models/tools.py` | Catalog install/browse/import API models |
-| `/home/runner/work/solune/solune/solune/backend/src/services/tools/catalog.py` | Glama proxy, normalization, SSRF checks, cache, import mapping |
-| `/home/runner/work/solune/solune/solune/backend/src/api/tools.py` | Catalog browse/import endpoints |
-| `/home/runner/work/solune/solune/solune/backend/tests/unit/test_tools_catalog.py` | Backend unit/API coverage |
+| `solune/backend/src/models/tools.py` | Catalog install/browse/import API models |
+| `solune/backend/src/services/tools/catalog.py` | Glama proxy, normalization, SSRF checks, cache, import mapping |
+| `solune/backend/src/api/tools.py` | Catalog browse/import endpoints |
+| `solune/backend/tests/unit/test_tools_catalog.py` | Backend unit/API coverage |
 
 ### Frontend
 
 | File | Purpose |
 |------|---------|
-| `/home/runner/work/solune/solune/solune/frontend/src/types/index.ts` | Catalog TypeScript interfaces |
-| `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts` | `browseCatalog()` and `importFromCatalog()` client methods |
-| `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.ts` | `useMcpCatalog()` and `useImportMcpServer()` hooks |
-| `/home/runner/work/solune/solune/solune/frontend/src/components/tools/McpCatalogBrowse.tsx` | Browse/search/filter/import UI |
-| `/home/runner/work/solune/solune/solune/frontend/src/components/tools/ToolsPanel.tsx` | Integrates catalog between presets and tool archive |
-| `/home/runner/work/solune/solune/solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` | Browse component tests |
-| `/home/runner/work/solune/solune/solune/frontend/src/hooks/useTools.test.tsx` | Hook tests |
-| `/home/runner/work/solune/solune/solune/frontend/src/services/api.test.ts` | API client/schema validation tests |
+| `solune/frontend/src/types/index.ts` | Catalog TypeScript interfaces |
+| `solune/frontend/src/services/api.ts` | `browseCatalog()` and `importFromCatalog()` client methods |
+| `solune/frontend/src/hooks/useTools.ts` | `useMcpCatalog()` and `useImportMcpServer()` hooks |
+| `solune/frontend/src/components/tools/McpCatalogBrowse.tsx` | Browse/search/filter/import UI |
+| `solune/frontend/src/components/tools/ToolsPanel.tsx` | Integrates catalog between presets and tool archive |
+| `solune/frontend/src/components/tools/__tests__/McpCatalogBrowse.test.tsx` | Browse component tests |
+| `solune/frontend/src/hooks/useTools.test.tsx` | Hook tests |
+| `solune/frontend/src/services/api.test.ts` | API client/schema validation tests |
 
 ## Implementation Sequence
 
@@ -105,14 +105,14 @@ Render `<McpCatalogBrowse projectId={projectId} />` in `ToolsPanel.tsx` immediat
 ### Backend
 
 ```bash
-cd /home/runner/work/solune/solune/solune/backend
+cd solune/backend
 uv run --with pytest --with pytest-asyncio pytest tests/unit/test_tools_catalog.py -q
 ```
 
 ### Frontend targeted catalog tests
 
 ```bash
-cd /home/runner/work/solune/solune/solune/frontend
+cd solune/frontend
 npm run test -- --reporter=verbose --run \
   src/components/tools/__tests__/McpCatalogBrowse.test.tsx \
   src/hooks/useTools.test.tsx \
