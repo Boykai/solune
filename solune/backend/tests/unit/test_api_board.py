@@ -5,20 +5,25 @@ Covers:
 - GET /api/v1/board/projects/{project_id} → get_board_data
 """
 
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from src.models.board import (
     BoardColumn,
     BoardDataResponse,
     BoardItem,
+    BoardLoadPhase,
+    BoardLoadState,
     BoardProject,
     ContentType,
+    DoneColumnSource,
     Repository,
     StatusColor,
     StatusField,
     StatusOption,
 )
 from src.models.project import GitHubProject, StatusColumn
+from src.services.cache import get_user_projects_cache_key
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +64,11 @@ def _make_github_project(**kw) -> GitHubProject:
     return GitHubProject(**defaults)
 
 
-def _make_board_data(project: BoardProject | None = None) -> BoardDataResponse:
+def _make_board_data(
+    project: BoardProject | None = None,
+    *,
+    load_state: BoardLoadState | None = None,
+) -> BoardDataResponse:
     proj = project or _make_board_project()
     return BoardDataResponse(
         project=proj,
@@ -83,6 +92,12 @@ def _make_board_data(project: BoardProject | None = None) -> BoardDataResponse:
                 item_count=0,
             ),
         ],
+        load_state=load_state
+        or BoardLoadState(
+            phase=BoardLoadPhase.COMPLETE,
+            active_columns_ready=True,
+            done_column_source=DoneColumnSource.LIVE,
+        ),
     )
 
 
@@ -120,6 +135,17 @@ class TestListBoardProjects:
         resp = await client.get("/api/v1/board/projects", params={"refresh": True})
         assert resp.status_code == 200
         mock_github_service.list_user_projects.assert_called_once()
+
+    async def test_refresh_uses_shared_user_projects_inflight_key(self, client, mock_session):
+        gp = _make_github_project()
+        with patch("src.api.board.coalesced_fetch") as mock_coalesced_fetch:
+            mock_coalesced_fetch.return_value = [gp]
+            resp = await client.get("/api/v1/board/projects", params={"refresh": True})
+
+        assert resp.status_code == 200
+        assert mock_coalesced_fetch.await_args.args[0] == get_user_projects_cache_key(
+            mock_session.github_user_id
+        )
 
     async def test_github_api_error(self, client, mock_github_service):
         mock_github_service.list_user_projects.side_effect = RuntimeError("network")
@@ -159,6 +185,7 @@ class TestGetBoardData:
         assert data["project"]["project_id"] == "PVT_abc"
         assert len(data["columns"]) == 2
         assert data["columns"][0]["item_count"] == 1
+        assert data["load_state"]["phase"] == "complete"
 
     async def test_project_not_found(self, client, mock_github_service):
         mock_github_service.get_board_data.side_effect = ValueError("not found")
@@ -194,6 +221,56 @@ class TestGetBoardData:
         resp = await client.get("/api/v1/board/projects/PVT_abc", params={"refresh": True})
         assert resp.status_code == 200
         mock_github_service.get_board_data.assert_called_once()
+        assert mock_github_service.get_board_data.await_args.kwargs["load_mode"] == "full"
+
+    async def test_initial_load_schedules_background_completion_when_pending(
+        self, client, mock_github_service
+    ):
+        bd = _make_board_data(
+            load_state=BoardLoadState(
+                phase=BoardLoadPhase.BACKFILLING_DONE,
+                active_columns_ready=True,
+                done_column_source=DoneColumnSource.CACHED,
+                pending_sections=["done_column", "reconciliation"],
+            )
+        )
+        mock_github_service.get_board_data.return_value = bd
+
+        with patch("src.api.board._schedule_background_board_completion") as schedule_background:
+            resp = await client.get("/api/v1/board/projects/PVT_abc")
+
+        assert resp.status_code == 200
+        schedule_background.assert_called_once()
+
+    async def test_cached_board_data_refreshes_runtime_state(self, client):
+        bd = _make_board_data()
+        bd.columns[0].items[0].number = 42
+
+        with (
+            patch("src.api.board.cache") as mock_cache,
+            patch(
+                "src.services.workflow_orchestrator.get_pipeline_state",
+                return_value=SimpleNamespace(queued=True),
+            ),
+        ):
+            mock_cache.get.return_value = bd
+            resp = await client.get("/api/v1/board/projects/PVT_abc")
+
+        assert resp.status_code == 200
+        assert resp.json()["columns"][0]["items"][0]["queued"] is True
+
+    def test_schedule_background_completion_deduplicates_active_task(self, mock_session):
+        fake_task = MagicMock()
+        fake_task.done.return_value = False
+        with patch.dict("src.api.board._background_board_completion_tasks", {}, clear=True):
+            with patch("src.services.task_registry.task_registry.create_task") as create_task:
+                create_task.side_effect = lambda coro, name=None: (coro.close(), fake_task)[1]
+                from src.api.board import _schedule_background_board_completion
+
+                _schedule_background_board_completion(mock_session, "PVT_abc")
+                _schedule_background_board_completion(mock_session, "PVT_abc")
+
+        create_task.assert_called_once()
 
     async def test_board_data_cache_stores_data_hash(self, client, mock_github_service):
         """Board data should be cached with a data_hash for change detection."""

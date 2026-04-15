@@ -1,5 +1,7 @@
 """Unit tests for GraphQL constants and query/mutation definitions."""
 
+import re
+
 import pytest
 
 from src.services.github_projects.graphql import (
@@ -217,3 +219,6 @@ class TestSpecificQueryStructure:
     def test_assign_copilot_mutation_has_agent_assignment(self):
         assert "agentAssignment" in ASSIGN_COPILOT_MUTATION
         assert "$customAgent" in ASSIGN_COPILOT_MUTATION
+
+    def test_board_get_project_items_query_requests_issue_state(self):
+        assert re.search(r"\.\.\. on Issue \{[\s\S]*?\bstate\b", BOARD_GET_PROJECT_ITEMS_QUERY)

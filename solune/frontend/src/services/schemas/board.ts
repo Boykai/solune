@@ -12,6 +12,24 @@ const RateLimitInfoSchema = z
   .nullable()
   .optional();
 
+const BoardLoadStateSchema = z.object({
+  phase: z.enum(['interactive', 'backfilling_done', 'reconciling', 'complete']),
+  active_columns_ready: z.boolean(),
+  done_column_source: z.enum(['live', 'cached', 'pending']),
+  warmed_by_selection: z.boolean(),
+  pending_sections: z.array(z.string()).default([]),
+  last_completed_at: z.string().nullable().optional(),
+});
+
+const DEFAULT_BOARD_LOAD_STATE = {
+  phase: 'complete' as const,
+  active_columns_ready: true,
+  done_column_source: 'live' as const,
+  warmed_by_selection: false,
+  pending_sections: [],
+  last_completed_at: null,
+};
+
 const BoardStatusOptionSchema = z.object({
   option_id: z.string(),
   name: z.string(),
@@ -110,5 +128,6 @@ const BoardColumnSchema = z.object({
 export const BoardDataResponseSchema = z.object({
   project: BoardProjectSchema,
   columns: z.array(BoardColumnSchema),
+  load_state: BoardLoadStateSchema.optional().default(DEFAULT_BOARD_LOAD_STATE),
   rate_limit: RateLimitInfoSchema,
 });

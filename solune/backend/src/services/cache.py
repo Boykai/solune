@@ -1,8 +1,9 @@
 """In-memory cache service with TTL."""
 
+import asyncio
 import hashlib
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import timedelta
 from typing import Any, cast
 
@@ -182,6 +183,37 @@ class InMemoryCache:
 
 # Global cache instance
 cache = InMemoryCache()
+_inflight_fetches: dict[str, asyncio.Task[Any]] = {}
+
+
+async def coalesced_fetch[T](
+    key: str,
+    fetch_fn: Callable[[], Coroutine[Any, Any, T]],
+    *,
+    task_name: str | None = None,
+) -> T:
+    """Share one in-flight fetch across concurrent callers for the same key."""
+    existing = _inflight_fetches.get(key)
+    if existing is not None and not existing.done():
+        logger.debug("coalesced_fetch join: %s", key)
+        return cast(T, await existing)
+
+    from src.services.task_registry import task_registry
+
+    task = cast(
+        "asyncio.Task[T]",
+        task_registry.create_task(
+            fetch_fn(),
+            name=task_name or f"coalesced-{hashlib.sha256(key.encode()).hexdigest()[:12]}",
+        ),
+    )
+    _inflight_fetches[key] = task
+    try:
+        return await task
+    finally:
+        current = _inflight_fetches.get(key)
+        if current is task:
+            _inflight_fetches.pop(key, None)
 
 
 async def cached_fetch[T](

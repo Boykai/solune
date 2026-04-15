@@ -35,6 +35,14 @@ const fullBoardData = {
       estimate_total: 0,
     },
   ],
+  load_state: {
+    phase: 'complete' as const,
+    active_columns_ready: true,
+    done_column_source: 'live' as const,
+    warmed_by_selection: false,
+    pending_sections: [],
+    last_completed_at: null,
+  },
   rate_limit: null,
 };
 
@@ -121,6 +129,23 @@ describe('BoardDataResponseSchema', () => {
     };
     const result = BoardDataResponseSchema.parse(data);
     expect(result.rate_limit?.remaining).toBe(4999);
+  });
+
+  it('parses progressive load metadata', () => {
+    const data = {
+      ...fullBoardData,
+      load_state: {
+        phase: 'backfilling_done' as const,
+        active_columns_ready: true,
+        done_column_source: 'cached' as const,
+        warmed_by_selection: true,
+        pending_sections: ['done_column', 'reconciliation'],
+        last_completed_at: null,
+      },
+    };
+    const result = BoardDataResponseSchema.parse(data);
+    expect(result.load_state.done_column_source).toBe('cached');
+    expect(result.load_state.warmed_by_selection).toBe(true);
   });
 
   it('rejects invalid content_type', () => {

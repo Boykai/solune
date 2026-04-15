@@ -9,10 +9,12 @@ from src.models.board import (
     BoardColumn,
     BoardDataResponse,
     BoardItem,
+    BoardLoadMode,
     BoardProject,
     BoardProjectListResponse,
     ContentType,
     CustomFieldValue,
+    DoneColumnSource,
     Label,
     LinkedPR,
     PRState,
@@ -660,6 +662,10 @@ class TestParseBoardItem:
     def test_pull_request_item(self):
         """Items with number + state should be detected as PULL_REQUEST."""
         node = _make_item_node(state="OPEN")
+        node["content"].pop("labels", None)
+        node["content"].pop("timelineItems", None)
+        node["content"].pop("milestone", None)
+        node["content"].pop("issueType", None)
         result = BoardMixin._parse_board_item(node, _board_models_dict())
 
         assert result is not None
@@ -935,6 +941,97 @@ class TestGetBoardData:
         assert all_items[0].sub_issues[0].assigned_agent == "speckit.implement"
 
     @pytest.mark.asyncio
+    async def test_initial_load_skips_done_and_closed_sub_issue_fetches(self, service):
+        done_item = _make_item_node(
+            item_id="PVTI_done",
+            content_id="I_done",
+            status_name="Done",
+            status_option_id="opt_done",
+            state="CLOSED",
+        )
+        closed_item = _make_item_node(
+            item_id="PVTI_closed",
+            content_id="I_closed",
+            status_name="Todo",
+            status_option_id="opt_todo",
+            state="CLOSED",
+            number=43,
+        )
+        active_item = _make_item_node(
+            item_id="PVTI_active",
+            content_id="I_active",
+            status_name="Todo",
+            status_option_id="opt_todo",
+            state="OPEN",
+            number=44,
+        )
+        graphql_resp = _make_get_board_data_response([done_item, closed_item, active_item])
+
+        cached_done = [
+            {
+                "item_id": "PVTI_done",
+                "content_id": "I_done",
+                "sub_issues": [
+                    {
+                        "id": "SI_cached",
+                        "number": 77,
+                        "title": "Cached sub",
+                        "url": "https://github.com/octocat/my-repo/issues/77",
+                        "state": "open",
+                        "assigned_agent": "speckit.implement",
+                        "assignees": [],
+                    }
+                ],
+            }
+        ]
+
+        get_sub_issues = AsyncMock(return_value=[])
+
+        with (
+            patch.object(service, "_graphql", new_callable=AsyncMock, return_value=graphql_resp),
+            patch.object(service, "get_sub_issues", get_sub_issues),
+            patch.object(service, "_reconcile_board_items", new_callable=AsyncMock),
+            patch(
+                "src.services.github_projects.board.get_done_items",
+                new_callable=AsyncMock,
+                return_value=cached_done,
+            ),
+            patch(
+                "src.services.github_projects.board.save_done_items", new_callable=AsyncMock
+            ) as mock_save,
+        ):
+            result = await service.get_board_data(TOKEN, PROJECT_ID)
+
+        assert get_sub_issues.await_count == 1
+        assert get_sub_issues.await_args.kwargs["issue_number"] == 44
+        all_items = [item for col in result.columns for item in col.items]
+        done_result = next(item for item in all_items if item.content_id == "I_done")
+        closed_result = next(item for item in all_items if item.content_id == "I_closed")
+        assert done_result.sub_issues[0].id == "SI_cached"
+        assert done_result.content_state == "CLOSED"
+        assert closed_result.content_state == "CLOSED"
+        assert result.load_state.done_column_source == DoneColumnSource.CACHED
+        assert "done_column" in result.load_state.pending_sections
+        mock_save.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_initial_load_defers_reconciliation(self, service):
+        item_node = _make_item_node(status_option_id="opt_todo", state="OPEN")
+        graphql_resp = _make_get_board_data_response([item_node])
+
+        with (
+            patch.object(service, "_graphql", new_callable=AsyncMock, return_value=graphql_resp),
+            patch.object(service, "get_sub_issues", new_callable=AsyncMock, return_value=[]),
+            patch.object(service, "_reconcile_board_items", new_callable=AsyncMock) as reconcile,
+            patch("src.services.github_projects.board.save_done_items", new_callable=AsyncMock),
+        ):
+            result = await service.get_board_data(TOKEN, PROJECT_ID)
+
+        reconcile.assert_not_awaited()
+        assert result.load_state.phase != "complete"
+        assert "reconciliation" in result.load_state.pending_sections
+
+    @pytest.mark.asyncio
     async def test_done_items_persisted(self, service):
         """Should call save_done_items for items with Done status."""
         item_node = _make_item_node(status_name="Done", status_option_id="opt_done")
@@ -950,7 +1047,7 @@ class TestGetBoardData:
             ),
             patch("src.services.github_projects.board.save_done_items", mock_save),
         ):
-            await service.get_board_data(TOKEN, PROJECT_ID)
+            await service.get_board_data(TOKEN, PROJECT_ID, load_mode=BoardLoadMode.FULL)
 
         mock_save.assert_awaited_once()
         assert mock_save.call_args[0][0] == PROJECT_ID

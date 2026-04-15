@@ -122,6 +122,14 @@ describe('useProjectBoard', () => {
           estimate_total: 0,
         },
       ],
+      load_state: {
+        phase: 'backfilling_done' as const,
+        active_columns_ready: true,
+        done_column_source: 'cached' as const,
+        warmed_by_selection: true,
+        pending_sections: ['done_column'],
+        last_completed_at: null,
+      },
     };
 
     mockBoardApi.listProjects.mockResolvedValue(mockProjects);
@@ -136,6 +144,7 @@ describe('useProjectBoard', () => {
     });
 
     expect(result.current.boardData?.columns).toHaveLength(1);
+    expect(result.current.boardData?.load_state?.done_column_source).toBe('cached');
     expect(mockBoardApi.getBoardData).toHaveBeenCalledWith('PVT_1');
   });
 
