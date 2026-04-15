@@ -974,6 +974,61 @@ class TestImportFromCatalogApi:
         data = resp.json()
         assert data["name"] == "Test MCP"
 
+    async def test_import_uses_catalog_server_from_request_when_provided(
+        self, client, mock_github_service
+    ):
+        mock_github_service.get_project_repository.return_value = ("octo", "widgets")
+        request_server = {
+            "id": "test-mcp",
+            "name": "Test MCP",
+            "description": "A test server",
+            "server_type": "http",
+            "install_config": {
+                "transport": "http",
+                "url": "https://example.com/mcp",
+            },
+            "already_installed": False,
+        }
+        mock_tool_response = McpToolConfigResponse(
+            id="tool-abc",
+            name="Test MCP",
+            description="A test server",
+            endpoint_url="https://example.com/mcp",
+            config_content='{"mcpServers":{"test-mcp":{"type":"http","url":"https://example.com/mcp"}}}',
+            sync_status="pending",
+            sync_error="",
+            synced_at=None,
+            github_repo_target="",
+            is_active=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+        )
+
+        with (
+            patch(
+                "src.api.tools._get_service",
+                return_value=MagicMock(
+                    list_tools=AsyncMock(return_value=MagicMock(tools=[])),
+                    create_tool=AsyncMock(return_value=mock_tool_response),
+                ),
+            ),
+            patch(
+                "src.services.tools.catalog.list_catalog_servers",
+                new_callable=AsyncMock,
+            ) as list_catalog_servers_mock,
+        ):
+            resp = await client.post(
+                "/api/v1/tools/proj-1/catalog/import",
+                json={
+                    "catalog_server_id": "test-mcp",
+                    "catalog_server": request_server,
+                },
+            )
+
+        assert resp.status_code == 201
+        assert resp.json()["name"] == "Test MCP"
+        list_catalog_servers_mock.assert_not_awaited()
+
     async def test_import_not_found(self, client, mock_github_service):
         mock_github_service.get_project_repository.return_value = ("octo", "widgets")
         mock_servers = CatalogMcpServerListResponse(servers=[], count=0)
