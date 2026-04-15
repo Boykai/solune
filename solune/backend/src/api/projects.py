@@ -383,7 +383,6 @@ async def _restore_app_pipelines_for_project(access_token: str, project_id: str)
                         project_id,
                         exc_info=True,
                     )
-                    resolved_repo = ("", "")
             owner, repo = resolved_repo or ("", "")
             if owner and repo:
                 state.repository_owner = owner
