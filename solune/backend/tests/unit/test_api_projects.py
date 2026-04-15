@@ -15,7 +15,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from githubkit.exception import PrimaryRateLimitExceeded, RequestFailed
 
-from src.api.projects import _is_github_rate_limit_error, _start_copilot_polling
+from src.api.projects import (
+    _is_github_rate_limit_error,
+    _restore_app_pipelines_for_project,
+    _start_copilot_polling,
+)
 from src.models.project import GitHubProject, StatusColumn
 from src.models.task import Task
 
@@ -144,7 +148,11 @@ class TestSelectProject:
             patch("src.api.projects._start_copilot_polling", new_callable=AsyncMock),
             patch("src.api.projects.cache") as mock_cache,
             patch("src.api.projects.log_event", new_callable=AsyncMock) as mock_log_event,
+            patch("src.api.projects._restore_app_pipelines_for_project", new_callable=AsyncMock),
+            patch("src.api.projects._prefetch_agents", new_callable=AsyncMock),
+            patch("src.services.task_registry.task_registry.create_task") as mock_create_task,
         ):
+            mock_create_task.side_effect = lambda coroutine, **kwargs: coroutine.close()
             mock_cache.get.return_value = None
             resp = await client.post("/api/v1/projects/PVT_abc/select")
         assert resp.status_code == 200
@@ -153,6 +161,8 @@ class TestSelectProject:
         mock_log_event.assert_awaited_once()
         assert mock_log_event.await_args.kwargs["action"] == "selected"
         assert mock_log_event.await_args.kwargs["detail"] == {"project_name": "Test Project"}
+        scheduled_names = {call.kwargs["name"] for call in mock_create_task.call_args_list}
+        assert scheduled_names == {"restore-app-pipelines-PVT_abc", "prefetch-agents-PVT_abc"}
 
     async def test_select_nonexistent_project(self, client, mock_github_service):
         mock_github_service.list_user_projects.return_value = []
@@ -317,6 +327,70 @@ class TestStartCopilotPolling:
             await _start_copilot_polling(session, "proj-1")
 
         ensure_polling_started.assert_not_awaited()
+
+
+class TestRestoreAppPipelinesForProject:
+    @pytest.mark.asyncio
+    async def test_starts_scoped_polling_for_cross_repo_pipelines(self):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        cross_repo_state = PipelineState(
+            issue_number=42,
+            project_id="proj-1",
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner="Boykai",
+            repository_name="colove",
+        )
+        same_repo_state = PipelineState(
+            issue_number=43,
+            project_id="proj-1",
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner="Boykai",
+            repository_name="solune",
+        )
+        other_project_state = PipelineState(
+            issue_number=44,
+            project_id="proj-2",
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner="Boykai",
+            repository_name="colove",
+        )
+
+        with (
+            patch(
+                "src.config.get_settings",
+                return_value=MagicMock(
+                    default_repo_owner="Boykai",
+                    default_repo_name="solune",
+                ),
+            ),
+            patch(
+                "src.services.workflow_orchestrator.get_all_pipeline_states",
+                return_value={
+                    42: cross_repo_state,
+                    43: same_repo_state,
+                    44: other_project_state,
+                },
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_app_pipeline_polling",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_ensure,
+        ):
+            restored = await _restore_app_pipelines_for_project("tok", "proj-1")
+
+        assert restored == 1
+        mock_ensure.assert_awaited_once_with(
+            access_token="tok",
+            project_id="proj-1",
+            owner="Boykai",
+            repo="colove",
+            parent_issue_number=42,
+        )
 
 
 # ── Helpers for rate-limit mocks ───────────────────────────────────────────
