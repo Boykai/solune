@@ -1,0 +1,213 @@
+openapi: 3.1.0
+info:
+  title: Loading Performance Board Load Contract
+  version: 0.1.0
+  description: >-
+    Planned contract adjustments for the Loading Performance feature. The
+    existing project-selection and board-read endpoints are retained, but the
+    board response exposes load-state metadata so the frontend can render active
+    work immediately while Done/history backfill and reconciliation continue.
+paths:
+  /api/v1/projects/{project_id}/select:
+    post:
+      summary: Select the active project and trigger asynchronous board warm-up.
+      operationId: selectProject
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project selection persisted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectedUserResponse'
+        '404':
+          description: Project not found.
+  /api/v1/board/projects/{project_id}:
+    get:
+      summary: Fetch board data with interactive-first loading metadata.
+      operationId: getBoardData
+      parameters:
+        - name: project_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: >-
+            Forces a live refresh. When true, the backend also refreshes
+            Done/closed sub-issue data and reconciliation before finalizing the
+            refreshed snapshot.
+        - name: load_mode
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [initial, full]
+            default: initial
+          description: >-
+            `initial` optimizes for interactive rendering; `full` requests the
+            full-fidelity path used by explicit manual refresh.
+      responses:
+        '200':
+          description: Board payload with progressive load metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardDataEnvelope'
+        '404':
+          description: Project not found.
+        '429':
+          description: GitHub rate limit exhausted.
+components:
+  schemas:
+    SelectedUserResponse:
+      type: object
+      required:
+        - login
+        - selected_project_id
+      properties:
+        login:
+          type: string
+        selected_project_id:
+          type: string
+        board_warmup_started:
+          type: boolean
+          description: Indicates whether a best-effort board warm-up task was scheduled.
+    BoardDataEnvelope:
+      type: object
+      required:
+        - project
+        - columns
+        - load_state
+      properties:
+        project:
+          $ref: '#/components/schemas/BoardProject'
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardColumn'
+        load_state:
+          $ref: '#/components/schemas/BoardLoadState'
+        rate_limit:
+          type: object
+          additionalProperties: true
+          description: Existing rate-limit metadata returned by the backend.
+    BoardLoadState:
+      type: object
+      required:
+        - phase
+        - active_columns_ready
+        - done_column_source
+        - warmed_by_selection
+      properties:
+        phase:
+          type: string
+          enum: [interactive, backfilling_done, reconciling, complete]
+        active_columns_ready:
+          type: boolean
+        done_column_source:
+          type: string
+          enum: [live, cached, pending]
+        pending_sections:
+          type: array
+          items:
+            type: string
+          example: [done_column, reconciliation]
+        warmed_by_selection:
+          type: boolean
+        last_completed_at:
+          type: string
+          format: date-time
+          nullable: true
+    BoardProject:
+      type: object
+      required:
+        - project_id
+        - name
+        - status_field
+      properties:
+        project_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        url:
+          type: string
+        owner_login:
+          type: string
+        status_field:
+          type: object
+          additionalProperties: true
+    BoardColumn:
+      type: object
+      required:
+        - status
+        - items
+        - item_count
+      properties:
+        status:
+          type: object
+          additionalProperties: true
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BoardItem'
+        item_count:
+          type: integer
+        estimate_total:
+          type: number
+          nullable: true
+    BoardItem:
+      type: object
+      required:
+        - item_id
+        - content_type
+        - title
+        - status
+      properties:
+        item_id:
+          type: string
+        content_type:
+          type: string
+        title:
+          type: string
+        number:
+          type: integer
+          nullable: true
+        status:
+          type: string
+        sub_issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubIssue'
+    SubIssue:
+      type: object
+      required:
+        - id
+        - number
+        - title
+        - url
+      properties:
+        id:
+          type: string
+        number:
+          type: integer
+        title:
+          type: string
+        url:
+          type: string
+        state:
+          type: string
+          nullable: true
