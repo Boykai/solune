@@ -1,141 +1,151 @@
-# Feature Specification: MCP Catalog on Tools Page
+# Feature Specification: Loading Performance
 
-**Feature Branch**: `006-mcp-catalog-tools-page`  
-**Created**: 2026-04-14  
-**Status**: Draft  
-**Input**: User description: "Add an MCP Catalog section to the Tools page, mirroring the existing Agents Catalog pattern. Users browse 21,000+ external MCP servers via the Glama API, import them as tool configs, and sync to their repo's mcp.json."
+**Feature Branch**: `loading-performance`
+**Created**: 2026-04-15
+**Status**: Draft
+**Input**: User description: "Reducing initial Project import/load time in Solune. When user selects a GitHub project after login."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Browse MCP Server Catalog (Priority: P1)
+### User Story 1 - Fast Project Load on Small Boards (Priority: P1)
 
-A user navigates to the Tools page and scrolls to the new "Browse MCP Catalog" section. They see a searchable, categorized catalog of 21,000+ external MCP servers sourced from the Glama API. They can type a search query (e.g., "github") or select a category chip (e.g., "Developer Tools", "Cloud", "Database") to filter results. Each server card displays its name, description, quality score (A/B/C), and server type badge (local/remote). The user can quickly find MCP servers relevant to their project needs.
+A user logs into Solune and selects a GitHub project that contains 12–13 items. The board view loads quickly, showing all columns, items, and parent issue cards with their sub-issue pill links. The user perceives a responsive, near-instant experience with the board appearing in under 2 seconds after project selection.
 
-**Why this priority**: Browsing the catalog is the foundational user journey — without it, no other feature (import, sync) is possible. It delivers immediate discovery value and makes the 21,000+ server ecosystem accessible to users.
+**Why this priority**: Small projects are the most common use case and the first impression for new users. Reducing the 1.8–2.2 second critical-path load to under 2 seconds ensures the majority of users experience a fast, responsive application. This directly impacts user retention and satisfaction.
 
-**Independent Test**: Can be fully tested by navigating to the Tools page, viewing the catalog section, performing search queries, and applying category filters. Delivers value by letting users discover MCP servers even before importing them.
+**Independent Test**: Can be fully tested by logging in, selecting a small project (≤20 items), and measuring the time from clicking "Select" to the board becoming fully interactive. Delivers value by making the most common user flow feel instant.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user is on the Tools page, **When** they scroll to the "Browse MCP Catalog" section, **Then** they see a search input, category filter chips, and a grid of MCP server cards with name, description, quality score, and type badge.
-2. **Given** the catalog section is visible, **When** the user types "github" into the search input, **Then** the server card grid updates to show only servers matching "github" in their name or description.
-3. **Given** the catalog section is visible, **When** the user selects the "Database" category chip, **Then** the server card grid filters to show only servers in the Database category.
-4. **Given** the catalog section is visible, **When** the user combines a search query with a category filter, **Then** the results reflect both the text query and the selected category.
-5. **Given** a search query returns no results, **When** the user views the catalog, **Then** a clear "No servers found" message is displayed with suggestions to adjust the query.
+1. **Given** a user has logged in and sees their project list, **When** they select a small project (≤20 items), **Then** the board view loads and becomes interactive within 2 seconds.
+2. **Given** a user selects a small project, **When** the board is loading, **Then** a loading indicator is displayed until the board is ready, and the user is never shown a blank or broken state.
+3. **Given** a user has previously loaded a project in the same session, **When** they navigate back to it, **Then** cached data is shown immediately while any background refresh occurs silently.
 
 ---
 
-### User Story 2 - Import MCP Server from Catalog (Priority: P1)
+### User Story 2 - Usable Board on Large Projects (Priority: P1)
 
-A user finds an MCP server they want to use and clicks the "Import" button on its catalog card. The system creates a new MCP tool configuration in the project using the server's install configuration data. After import, the card updates to show an "Installed" badge instead of the "Import" button, and the imported server appears in the project's existing tool list. The import process automatically maps the server's configuration to the correct format based on its type (HTTP, stdio, or SSE).
+A user selects a large GitHub project containing hundreds of items and hundreds of sub-issues. Instead of waiting 40+ seconds for the entire board to load, the user sees active columns (non-Done) appear within a few seconds. Closed or Done parent issues load progressively in the background without blocking the user from interacting with the board. The user can begin triaging, reviewing, and navigating active items while historical data streams in behind the scenes.
 
-**Why this priority**: Import is the core action that converts browsing into value — users need to be able to add discovered servers to their project. Without import, the catalog is read-only and delivers limited utility.
+**Why this priority**: Large projects represent the highest-value users — teams managing significant workloads. A 40-second blocking load is unacceptable and risks abandonment. Progressive loading keeps these users productive while data continues to arrive.
 
-**Independent Test**: Can be fully tested by browsing the catalog, clicking "Import" on a server card, verifying the card shows "Installed", and confirming the new tool configuration appears in the project's tool list.
+**Independent Test**: Can be fully tested by selecting a large project (500+ items) and verifying that active columns appear within the target time while Done column items load progressively. Delivers value by making large projects usable from the moment the board appears.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user sees an MCP server card with an "Import" button, **When** they click "Import", **Then** a new tool configuration is created in the project and the card updates to display an "Installed" badge.
-2. **Given** the user imports an HTTP-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted HTTP configuration snippet.
-3. **Given** the user imports a stdio-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted command-based configuration snippet.
-4. **Given** the user imports an SSE-type server, **When** the import completes, **Then** the tool configuration contains a properly formatted SSE configuration snippet.
-5. **Given** a server is already imported (shows "Installed" badge), **When** the user views that server's card, **Then** the "Import" button is not available and the "Installed" badge is shown instead.
-6. **Given** the import process encounters an error, **When** the user clicks "Import", **Then** a user-friendly error message is displayed and the card returns to its original state.
+1. **Given** a user selects a large project (500+ items), **When** the board is loading, **Then** active (non-Done) columns and their items are visible and interactive within 8 seconds.
+2. **Given** a large project is selected, **When** active columns have loaded, **Then** Done/closed parent issues and their sub-issues load progressively in the background without blocking user interaction.
+3. **Given** a large project is loading, **When** historical items are still being fetched, **Then** the board displays a subtle progress indicator for the Done column while other columns are fully interactive.
+4. **Given** a large project has completed loading, **When** the user inspects Done column items, **Then** all parent issues and sub-issue pills are present and correct.
 
 ---
 
-### User Story 3 - Sync Imported MCP Server to Repository (Priority: P2)
+### User Story 3 - Smooth Cold-Start Experience (Priority: P2)
 
-After importing an MCP server, the user can sync it to their repository's `mcp.json` file using the existing "Sync to Repo" functionality. This ensures that the next agent execution automatically picks up the new MCP server without manual configuration file editing.
+A user logs in for the first time in a session (cold start) and selects a project. The system avoids making redundant requests to external services. The user does not experience additional latency caused by duplicate data fetches or background processes competing for resources during the initial load.
 
-**Why this priority**: Syncing completes the end-to-end workflow from discovery to activation. It builds on existing "Sync to Repo" infrastructure and requires import (P1) to be functional first.
+**Why this priority**: Cold starts are unavoidable and happen every login. Eliminating wasted work (duplicate requests, premature background tasks) improves load time without requiring architectural changes. This is a "free" performance gain that benefits every user on every session.
 
-**Independent Test**: Can be tested by importing an MCP server, triggering "Sync to Repo" on the imported tool, and verifying the server's configuration appears in the repository's `mcp.json` file.
+**Independent Test**: Can be tested by clearing all caches, logging in, selecting a project, and verifying that external service calls are not duplicated and that background processes do not compete with the critical load path. Delivers value by shaving seconds off every first-load experience.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user has imported an MCP server from the catalog, **When** they click "Sync to Repo" on the imported tool, **Then** the server's configuration is written to the repository's `mcp.json` file.
-2. **Given** the `mcp.json` file already contains other tool configurations, **When** the user syncs a newly imported server, **Then** the new configuration is added alongside existing entries without overwriting them.
-3. **Given** the sync operation fails (e.g., permission error), **When** the user attempts to sync, **Then** a user-friendly error message explains the issue.
+1. **Given** a user logs in for the first time in a session, **When** they select a project, **Then** the system makes at most one request per distinct data need (no duplicate fetches for the same information).
+2. **Given** a user selects a project, **When** the project data is being loaded, **Then** non-essential background processes (such as polling for agent activity) do not start until the board has finished its initial load.
+3. **Given** a user has previously loaded a project in the same session, **When** they navigate back to it, **Then** cached data is served instantly and only a background refresh is triggered if the data is stale.
 
 ---
 
-### User Story 4 - Already-Installed Detection (Priority: P2)
+### User Story 4 - Sub-Issue Optimization for Completed Work (Priority: P2)
 
-When browsing the catalog, servers that have already been imported into the current project display an "Installed" badge on their catalog card. This prevents duplicate imports and provides at-a-glance awareness of which servers are already configured.
+A user's project board contains parent issues in the Done column or with a closed status. The system recognizes that these completed items are unlikely to change and avoids fetching their sub-issue metadata during the initial board load. Sub-issue pills for Done/closed parent issues still appear correctly using previously cached or stored data. If the user explicitly requests a refresh, sub-issues for completed items are fetched on demand.
 
-**Why this priority**: Duplicate prevention improves the user experience by providing clear visual feedback about project state, but it is an enhancement to the core browse/import flow.
+**Why this priority**: The performance analysis shows that Done column items represent 99.5% of the board payload on large projects (398 KB out of 399 KB). Skipping sub-issue fetches for these stable items dramatically reduces load time without impacting the user experience, since sub-issue metadata is not displayed in the board UX — only hyperlinked pills are shown.
 
-**Independent Test**: Can be tested by importing one or more servers, then browsing or searching the catalog and verifying that imported servers show the "Installed" badge while non-imported servers show the "Import" button.
+**Independent Test**: Can be tested by loading a project with many Done/closed parent issues, verifying that active items load quickly, and confirming that Done column sub-issue pills still render correctly from stored data. Delivers value by eliminating the largest single performance bottleneck.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user has previously imported server "GitHub MCP", **When** they browse the catalog or search for "GitHub", **Then** the "GitHub MCP" card shows an "Installed" badge.
-2. **Given** the user has not imported server "Slack MCP", **When** they browse the catalog, **Then** the "Slack MCP" card shows an "Import" button.
-3. **Given** the user removes a previously imported server from the tool list, **When** they browse the catalog, **Then** the removed server's card reverts to showing the "Import" button.
+1. **Given** a project has parent issues in the Done column, **When** the board initially loads, **Then** sub-issue data for Done/closed parent issues is not fetched from the external service.
+2. **Given** Done column parent issues have previously fetched sub-issue data, **When** the board loads, **Then** the stored sub-issue pills are displayed correctly using cached data.
+3. **Given** a parent issue transitions from active to Done between sessions, **When** the user loads the board, **Then** the parent issue's previously fetched sub-issue data is retained and displayed in the Done column.
+4. **Given** the user explicitly triggers a full board refresh, **When** the refresh completes, **Then** sub-issues for Done/closed parent issues are also refreshed.
 
-#### Apps — Create App Experience
+---
 
-- **FR-008**: System MUST remove the "Target branch" section from the Create App experience and default to the main branch.
-- **FR-009**: System MUST move the "New Repository Settings" controls into the "Advanced options" section of the Create App experience.
-- **FR-010**: System MUST remove the "Name override" field from the "Advanced options" section of the Create App experience.
+### User Story 5 - Background Data Reconciliation (Priority: P3)
 
-- What happens when the external catalog data source is temporarily unavailable? The system displays cached results (if available) with a notice that results may not be current, or a clear error message with a retry option if no cache is available.
-- What happens when the user searches with special characters or extremely long queries? The system sanitizes input and either returns relevant results or a "No servers found" message without errors.
-- What happens when the catalog returns a server with an unrecognized server type? The system skips the unrecognized server or displays it without an import option, logging a warning for administrators.
-- What happens when two users simultaneously import the same server for the same project? The system handles the duplicate gracefully — either preventing the second import or treating it as idempotent.
-- What happens when a catalog server's install configuration is missing or malformed? The import button is disabled or the system shows an informative error explaining the server cannot be imported at this time.
-- What happens when the catalog has thousands of results for a broad query? The system paginates results or loads them incrementally to maintain performance.
+After the board has loaded and the user is interacting with it, the system performs a background reconciliation pass to catch any items that may have been missed due to external service eventual consistency. This reconciliation happens silently and does not interrupt the user's workflow. Any newly discovered items are seamlessly added to the board.
 
-- **FR-011**: System MUST display a delete button on each App tile.
-- **FR-012**: System MUST allow users to delete an app via the tile delete button, with a confirmation step before deletion.
-- **FR-013**: System MUST display app status on each App tile indicating whether a GitHub Parent Issue is actively executing in the app's project.
+**Why this priority**: Reconciliation ensures data completeness but costs 683–791ms even when no items are found. Deferring it to after the board is interactive eliminates this cost from the critical load path while still ensuring eventual accuracy.
 
-#### Apps — Detail View and History
+**Independent Test**: Can be tested by loading a board, waiting for the background reconciliation to complete, and verifying that any newly discovered items appear in the correct columns without a page reload. Delivers value by ensuring data accuracy without sacrificing load speed.
 
-- **FR-001**: System MUST display a "Browse MCP Catalog" section on the Tools page, positioned between the presets gallery and the tool archive section.
-- **FR-002**: System MUST retrieve MCP server listings from the Glama API, including server name, description, repository URL, category, server type, install configuration, and quality score.
-- **FR-003**: System MUST provide a text search input that filters catalog servers by name and description.
-- **FR-004**: System MUST provide category filter chips (e.g., Developer Tools, Cloud, Database, Search) to filter catalog servers by category.
-- **FR-005**: System MUST display each catalog server as a card showing: name, description, quality score (A/B/C), and server type badge (local/remote/HTTP).
-- **FR-006**: System MUST provide an "Import" button on each server card that creates a new MCP tool configuration in the project.
-- **FR-007**: System MUST map imported server configurations to the correct format based on server type:
-  - HTTP type → HTTP configuration format
-  - stdio type → command-based configuration format
-  - SSE type → SSE configuration format
-- **FR-008**: System MUST display an "Installed" badge on catalog cards for servers that have already been imported into the current project.
-- **FR-009**: System MUST allow imported MCP servers to be synced to the repository's `mcp.json` file using the existing "Sync to Repo" flow.
-- **FR-010**: System MUST cache catalog data with a 1-hour time-to-live (TTL) to reduce external API calls, with stale-fallback behavior when the cache expires and the external source is unavailable.
-- **FR-011**: System MUST validate all external URLs to prevent server-side request forgery (SSRF) attacks when proxying catalog data.
-- **FR-012**: System MUST handle external API failures gracefully by displaying cached results when available, or showing a user-friendly error message with a retry option.
-- **FR-013**: System MUST support pagination or incremental loading for large catalog result sets to maintain responsive performance.
-- **FR-014**: System MUST prevent duplicate imports of the same catalog server within a single project.
+**Acceptance Scenarios**:
 
-### Key Entities
+1. **Given** the board has finished its initial load, **When** background reconciliation runs, **Then** any newly discovered items appear in the correct columns without requiring a page reload.
+2. **Given** the board is loading, **When** reconciliation has not yet run, **Then** the board displays all items found during the initial fetch and does not wait for reconciliation to complete.
+3. **Given** reconciliation finds zero new items, **When** it completes, **Then** the board remains unchanged and the user is not notified or interrupted.
 
-- **CatalogMcpServer**: Represents an external MCP server from the catalog. Key attributes: unique identifier, name, description, repository URL, category, server type (local/remote/HTTP), install configuration (structured data), quality score (A/B/C), and whether it is already installed in the current project.
-- **McpToolConfig** (existing): Represents an MCP tool configuration within a project. The import process creates a new McpToolConfig from a CatalogMcpServer's install configuration. Existing CRUD, sync-to-repo, and UI infrastructure is reused.
+---
+
+### Edge Cases
+
+- What happens when a project has only Done/closed items and no active items? The board loads with an empty active area and a message indicating no active items, while Done column data loads in the background.
+- What happens when the external service is unreachable during initial load? The system serves the most recent cached board data with a notice that the data may be stale, and retries in the background.
+- What happens when a parent issue changes status from Done to active between sessions? The system detects the status change during the next load and fetches fresh sub-issue data for the reactivated item.
+- What happens when background reconciliation discovers a large number of missing items? The items are added incrementally to the board without causing a disruptive re-render or layout shift.
+- What happens when multiple browser tabs load the same project simultaneously? Each tab loads independently using shared cache data, and redundant external service requests are deduplicated.
+- What happens when a user rapidly switches between projects? The system cancels in-flight requests for the previous project and begins loading the newly selected project without accumulated latency.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+#### Board Data Loading
+
+- **FR-001**: System MUST load and display active (non-Done, non-closed) board items before loading historical items.
+- **FR-002**: System MUST display Done/closed parent issue sub-issue pills using previously stored data without fetching fresh sub-issue metadata on initial load.
+- **FR-003**: System MUST allow users to trigger a full refresh that includes fetching sub-issue data for Done/closed parent issues on demand.
+- **FR-004**: System MUST perform data reconciliation as a background task after the board is interactive, not as part of the initial critical load path.
+- **FR-005**: System MUST seamlessly merge background-reconciled items into the board without requiring a page reload or disrupting user interaction.
+
+#### Request Optimization
+
+- **FR-006**: System MUST deduplicate in-flight requests so that concurrent calls for the same data result in a single external service request.
+- **FR-007**: System MUST begin preparing board data as soon as the user confirms project selection, before the board view requests it.
+- **FR-008**: System MUST defer non-essential background processes (such as agent activity polling) until the board has completed its initial load.
+
+#### Caching
+
+- **FR-009**: System MUST serve cached board data immediately on repeat visits within the same session, triggering a background refresh if the data is stale.
+- **FR-010**: System MUST retain sub-issue data for Done/closed parent issues across sessions so that sub-issue pills can be rendered without refetching.
+
+#### User Experience
+
+- **FR-011**: System MUST display a loading indicator while board data is being fetched, and transition smoothly to the loaded state.
+- **FR-012**: System MUST not display blank, broken, or partially rendered board states during loading.
+- **FR-013**: System MUST display a subtle progress indicator for sections of the board that are still loading (e.g., Done column) while other sections are interactive.
 
 ### Assumptions
 
-- The Glama API (`GET https://glama.ai/api/mcp/v1/servers?query=`) remains free, publicly accessible, and does not require authentication.
-- The Glama API response includes all necessary fields: server name, description, repository URL, category, server type, install configuration, and quality score.
-- Microsoft's ~25 MCP servers (Azure, GitHub, Playwright, Foundry, etc.) are included in the Glama API dataset and can be surfaced via category or tag filtering rather than as a separate data source.
-- The existing "Sync to Repo" flow and McpToolConfig CRUD infrastructure are stable and do not require modification to support imported catalog servers.
-- Per-agent MCP assignment (attaching specific MCPs to specific agent configuration files) is explicitly out of scope for this feature and will be addressed in a future enhancement.
-- No scraping of mcpservers.org, mcp.so, or opentools.com — only the Glama API is used as the data source.
-- Standard web application performance expectations apply (page loads under 3 seconds, search results under 2 seconds).
+- Sub-issue metadata is not displayed or used in the board UX. Only parent GitHub Issues are displayed, and sub-issues are shown as attached pill links that navigate to GitHub.
+- Done/closed parent issues and their sub-issues have a very low probability of metadata or status changes between user sessions. Deletion is more likely than update.
+- The current performance bottleneck is dominated by sequential sub-issue data fetches and data reconciliation, not by network bandwidth or payload size of individual responses.
+- The external service supports conditional requests (ETag/If-Modified-Since) that can be leveraged for efficient cache validation.
+- The existing in-memory caching infrastructure and stale-fallback mechanisms are stable and can be extended without replacement.
+- Standard web application performance expectations apply: page loads under 3 seconds for typical use, progressive rendering for exceptional cases.
+- Frontend adaptive polling mechanisms already adjust refetch intervals based on detected activity and do not require modification.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Users can discover and browse 21,000+ MCP servers from the catalog section on the Tools page.
-- **SC-002**: Users can find relevant MCP servers using text search with results appearing in under 2 seconds.
-- **SC-003**: Users can filter servers by category using filter chips, with filtered results appearing in under 2 seconds.
-- **SC-004**: Users can import an MCP server from the catalog into their project in under 3 clicks (navigate to catalog → find server → click Import).
-- **SC-005**: Imported servers are correctly formatted based on their type (HTTP, stdio, SSE) and appear in the project's tool list immediately after import.
-- **SC-006**: Already-imported servers display an "Installed" badge in the catalog, preventing unintentional duplicate imports.
-- **SC-007**: Imported MCP servers can be synced to the repository's `mcp.json` file using the existing sync flow, and subsequent agent executions automatically pick up the new server.
-- **SC-008**: The catalog remains functional when the external data source experiences intermittent outages, by serving cached results within the TTL window.
-- **SC-009**: 90% of users who browse the catalog can successfully import at least one MCP server on their first attempt without assistance.
+- **SC-001**: Users selecting a small project (≤20 items) see a fully interactive board within 2 seconds, down from the current 1.8–2.2 second baseline.
+- **SC-002**: Users selecting a large project (500+ items) see active columns within 8 seconds, down from the current ~40 second full-blocking load.
+- **SC-003**: Cold-start project selection completes without any duplicate external service requests for the same data.
+- **SC-004**: Background processes do not add measurable latency to the critical board-loading path on any project size.
+- **SC-005**: Previously loaded projects serve cached data within 500 milliseconds on repeat visits in the same session.
+- **SC-006**: Data reconciliation completes in the background without any user-visible delay or interruption to board interaction.
+- **SC-007**: Done/closed parent issues display correct sub-issue pills on initial load without triggering fresh sub-issue fetches.
+- **SC-008**: 95% of users can begin interacting with their board (click, scroll, navigate) within the target load times on first attempt.
