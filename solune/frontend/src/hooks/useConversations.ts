@@ -12,6 +12,7 @@ export function useConversations() {
   const {
     data: conversationsData,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery({
@@ -45,6 +46,7 @@ export function useConversations() {
   return {
     conversations: conversationsData?.conversations ?? [],
     isLoading,
+    isFetching,
     error: error as Error | null,
     createConversation: createMutation.mutateAsync,
     updateConversation: (conversationId: string, title: string) =>

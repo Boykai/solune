@@ -37,6 +37,7 @@ export function ChatPanelManager() {
   const {
     conversations,
     isLoading: isConversationsLoading,
+    isFetching: isConversationsFetching,
     error: conversationsError,
     createConversation,
     deleteConversation,
@@ -61,7 +62,7 @@ export function ChatPanelManager() {
 
   // Reconcile panels against loaded conversations to drop stale entries
   useEffect(() => {
-    if (isConversationsLoading || conversationsError || panels.length === 0) return;
+    if (isConversationsLoading || isConversationsFetching || conversationsError || panels.length === 0) return;
 
     const validIds = buildKnownConversationIds(conversations, provisionalConversationId);
     const hasStalePanels = panels.some((panel) => !validIds.has(panel.conversationId));
@@ -69,7 +70,15 @@ export function ChatPanelManager() {
     if (!hasStalePanels) return;
 
     removeStalePanels(validIds);
-  }, [conversations, conversationsError, provisionalConversationId, isConversationsLoading, panels, removeStalePanels]);
+  }, [
+    conversations,
+    conversationsError,
+    provisionalConversationId,
+    isConversationsFetching,
+    isConversationsLoading,
+    panels,
+    removeStalePanels,
+  ]);
 
   // Bootstrap the first visible panel from an existing conversation or create one when the
   // current session is genuinely empty. Failures surface a retry UI instead of an endless

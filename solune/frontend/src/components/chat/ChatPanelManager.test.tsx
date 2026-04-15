@@ -33,6 +33,7 @@ const mockConversationState = vi.hoisted(() => ({
     updated_at: string;
   }>,
   isLoading: false,
+  isFetching: false,
   error: null as Error | null,
   createConversation: vi.fn(),
   deleteConversation: vi.fn(),
@@ -98,6 +99,7 @@ describe('ChatPanelManager', () => {
     mockChatPanelsState.seenInitialConversationIds = [];
     mockConversationState.conversations = [];
     mockConversationState.isLoading = false;
+    mockConversationState.isFetching = false;
     mockConversationState.error = null;
     mockConversationState.createConversation.mockReset().mockResolvedValue(makeConversation('conv-new'));
     mockConversationState.deleteConversation.mockReset().mockResolvedValue(undefined);
@@ -144,6 +146,25 @@ describe('ChatPanelManager', () => {
     view.rerender(<ChatPanelManager />);
 
     expect(mockChatPanelsState.removeStalePanels).not.toHaveBeenCalled();
+  });
+
+  it('waits for the conversations refetch before reconciling stale panels', async () => {
+    const view = render(<ChatPanelManager />);
+
+    mockChatPanelsState.panels = [
+      { panelId: 'panel-conv-2', conversationId: 'conv-2', widthPercent: 100 },
+    ];
+    mockConversationState.isFetching = true;
+
+    view.rerender(<ChatPanelManager />);
+
+    expect(mockChatPanelsState.removeStalePanels).not.toHaveBeenCalled();
+
+    mockConversationState.isFetching = false;
+
+    view.rerender(<ChatPanelManager />);
+
+    expect(mockChatPanelsState.removeStalePanels).toHaveBeenCalledWith(new Set());
   });
 
   it('shows a retryable error when loading conversations fails', async () => {
