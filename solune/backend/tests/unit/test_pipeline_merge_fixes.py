@@ -141,6 +141,48 @@ class TestMergeAndClaimChildPrContinuesOnFailure:
 
         assert result is True
 
+    @pytest.mark.asyncio
+    async def test_merge_success_clears_failure_count(self):
+        """Successful merge in Path 1 should clear stale _merge_failure_counts."""
+        mock_gps = MagicMock()
+        merge_mock = AsyncMock(return_value={"status": "merged"})
+        main_branch_info = {"branch": "main", "pr_number": 1}
+
+        # Pre-seed failure count (e.g. from a previous agent's transient failures)
+        fake_failure_counts: dict[int, int] = {10: 2}
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(f"{_CP}.get_issue_main_branch", return_value=main_branch_info)
+            )
+            stack.enter_context(patch(f"{_CP}._merge_child_pr_if_applicable", merge_mock))
+            stack.enter_context(patch(f"{_CP}.POST_ACTION_DELAY_SECONDS", 0))
+            stack.enter_context(patch(f"{_CP}.github_projects_service", mock_gps))
+            stack.enter_context(patch(f"{_AO}._claimed_child_prs", set()))
+            stack.enter_context(patch(f"{_AO}._merge_failure_counts", fake_failure_counts))
+
+            from src.services.copilot_polling.agent_output import (
+                _merge_and_claim_child_pr,
+            )
+
+            result = await _merge_and_claim_child_pr(
+                access_token="tok",
+                owner="o",
+                repo="r",
+                issue_number=10,
+                current_agent="speckit.analyze",
+                pipeline=_make_pipeline(agent="speckit.analyze"),
+                finished_pr={"number": 55, "is_child_pr": True, "is_merged": False},
+                pr_number=55,
+                is_child_pr=True,
+            )
+
+        assert result is True
+        # Stale failure count must be cleared after successful merge
+        assert 10 not in fake_failure_counts, (
+            "_merge_failure_counts should be cleared after a successful merge in Path 1"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Bug 1: Recovery guard — open-but-completed child PRs

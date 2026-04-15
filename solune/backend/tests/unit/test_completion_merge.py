@@ -123,6 +123,39 @@ class TestNoApplicableChildPR:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_already_claimed_pr_returns_merged(self, mock_gps):
+        """When Path 1 already merged/claimed a PR, Path 2 should short-circuit."""
+        linked = [_make_linked_pr(15)]  # OPEN Copilot PR
+        with _patches(mock_gps, linked):
+            from src.services.copilot_polling.completion import (
+                _merge_child_pr_if_applicable,
+            )
+            from src.services.copilot_polling.state import _claimed_child_prs
+
+            # Simulate Path 1 having already claimed PR #15
+            claimed_key = "10:15:speckit.analyze"
+            _claimed_child_prs.add(claimed_key)
+            try:
+                result = await _merge_child_pr_if_applicable(
+                    access_token="tok",
+                    owner="o",
+                    repo="r",
+                    issue_number=10,
+                    main_branch="copilot/branch",
+                    main_pr_number=1,
+                    completed_agent="speckit.analyze",
+                )
+
+                assert result is not None
+                assert result["status"] == "merged"
+                assert result["already_claimed"] is True
+                assert result["pr_number"] == 15
+                # Crucially, no merge API call should have been made
+                mock_gps.merge_pull_request.assert_not_awaited()
+            finally:
+                _claimed_child_prs.discard(claimed_key)
+
+    @pytest.mark.asyncio
     async def test_wrong_target_branch_skipped(self, mock_gps):
         mock_gps.get_pull_request.return_value = _make_pr_details(base_ref="some-other-branch")
         with _patches(mock_gps, [_make_linked_pr(2)]):

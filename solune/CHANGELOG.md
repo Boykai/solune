@@ -9,6 +9,11 @@
 - Shared Radix dialog and alert-dialog primitives for frontend modal workflows, including reusable character-count and first-error-focus helpers.
 - Test skip marker inventory documenting all 16 conditional infrastructure guards across backend and frontend suites.
 - Unit tests for `useUndoRedo` hook covering push, undo, redo, redo-stack clearing, and empty-stack edge cases.
+- MCP catalog browsing and import on the Tools page (`GET /tools/{project_id}/catalog`, `POST /tools/{project_id}/catalog/import`).
+- Pipeline assignment endpoints (`GET/PUT /pipelines/{project_id}/assignment`) and issue-launch endpoint (`POST /pipelines/{project_id}/launch`).
+- Agent catalog browsing (`GET /agents/{project_id}/catalog`) and manual MCP sync (`POST /agents/{project_id}/sync-mcps`).
+- CompactPageHeader component replacing the decorative CelestialCatalogHero across Agents, Chores, and Tools pages.
+- AI-powered label classification during chore and pipeline issue creation.
 
 ### Fixed
 

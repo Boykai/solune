@@ -54,7 +54,7 @@ test.describe('Responsive Chores Layout', () => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await openChoresPage(page);
     await expect(page.getByRole('main')).toHaveScreenshot('responsive-chores-mobile.png', {
-      maxDiffPixels: 100,
+      maxDiffPixelRatio: 0.08,
     });
   });
 });

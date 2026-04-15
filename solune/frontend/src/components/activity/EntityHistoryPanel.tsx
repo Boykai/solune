@@ -12,6 +12,7 @@ interface EntityHistoryPanelProps {
   projectId: string;
   entityType: string;
   entityId: string;
+  eventTypes?: string[];
   className?: string;
 }
 
@@ -38,10 +39,14 @@ export function EntityHistoryPanel({
   projectId,
   entityType,
   entityId,
+  eventTypes,
   className,
 }: EntityHistoryPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { allItems: events, isLoading } = useEntityHistory(projectId, entityType, entityId);
+  const { allItems: rawEvents, isLoading } = useEntityHistory(projectId, entityType, entityId);
+  const events = eventTypes
+    ? rawEvents.filter((e) => eventTypes.includes(e.event_type))
+    : rawEvents;
 
   return (
     <div className={cn('border-t border-border/50', className)}>

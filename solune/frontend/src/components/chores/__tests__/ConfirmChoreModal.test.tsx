@@ -19,7 +19,7 @@ describe('ConfirmChoreModal', () => {
       />,
     );
 
-    expect(screen.getByText(/add chore to repository/i)).toBeInTheDocument();
+    expect(screen.getByText(/create new chore/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /i understand, continue/i }));
     expect(screen.getByText(/confirm chore creation/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /yes, create chore/i }));
@@ -61,6 +61,6 @@ describe('ConfirmChoreModal', () => {
       />,
     );
 
-    expect(screen.getByText(/add chore to repository/i)).toBeInTheDocument();
+    expect(screen.getByText(/create new chore/i)).toBeInTheDocument();
   });
 });

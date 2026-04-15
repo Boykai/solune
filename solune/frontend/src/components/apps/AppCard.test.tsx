@@ -92,14 +92,14 @@ describe('AppCard', () => {
     expect(screen.getByRole('button', { name: 'Delete app Test App' })).toBeDisabled();
   });
 
-  it('shows stop action for active apps and hides delete', async () => {
+  it('shows stop and delete actions for active apps', async () => {
     const user = userEvent.setup();
     render(
       <AppCard app={{ ...baseApp, status: 'active' }} {...handlers} isStopPending={false} />
     );
 
     expect(screen.getByRole('button', { name: 'Stop app Test App' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete app Test App' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete app Test App' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Stop app Test App' }));
     expect(handlers.onStop).toHaveBeenCalledWith('test-app');

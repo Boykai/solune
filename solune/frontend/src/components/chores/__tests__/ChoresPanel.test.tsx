@@ -179,59 +179,6 @@ describe('ChoresPanel', () => {
     });
   });
 
-  it('does not render "Upkeep studio" header', async () => {
-    mockListPaginated.mockResolvedValue(paginatedResponse([]));
-
-    render(<ChoresPanel projectId="PVT_1" />, { wrapper: createWrapper() });
-
-    await waitFor(() => {
-      expect(screen.getByText('No chores yet')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByText('Upkeep studio')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Recurring work, given actual breathing room/)).not.toBeInTheDocument();
-  });
-
-  it('does not render "Create First Chore" button in empty state', async () => {
-    mockListPaginated.mockResolvedValue(paginatedResponse([]));
-
-    render(<ChoresPanel projectId="PVT_1" />, { wrapper: createWrapper() });
-
-    await waitFor(() => {
-      expect(screen.getByText('No chores yet')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByRole('button', { name: /create first chore/i })).not.toBeInTheDocument();
-  });
-
-  it('does not render "+ Create Chore" button (moved to ChoresPage)', async () => {
-    mockListPaginated.mockResolvedValue(paginatedResponse([]));
-
-    render(<ChoresPanel projectId="PVT_1" />, { wrapper: createWrapper() });
-
-    await waitFor(() => {
-      expect(screen.getByText('No chores yet')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByRole('button', { name: /create chore/i })).not.toBeInTheDocument();
-  });
-
-  it('does not render repository templates section', async () => {
-    mockListPaginated.mockResolvedValue(paginatedResponse([]));
-    mockListTemplates.mockResolvedValue([
-      { name: 'Template A', path: '.github/tpl-a.md', about: 'desc' },
-    ]);
-
-    render(<ChoresPanel projectId="PVT_1" />, { wrapper: createWrapper() });
-
-    await waitFor(() => {
-      expect(screen.getByText('No chores yet')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByText('Repository templates')).not.toBeInTheDocument();
-    expect(screen.queryByText('Template A')).not.toBeInTheDocument();
-  });
-
   it('shows Active badge for active chores', async () => {
     mockListPaginated.mockResolvedValue(paginatedResponse([createChore({ status: 'active' })]));
 
