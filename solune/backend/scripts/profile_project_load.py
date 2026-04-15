@@ -21,7 +21,6 @@ Usage:
 import argparse
 import asyncio
 import json
-import sys
 import time
 from dataclasses import dataclass, field
 
@@ -93,7 +92,7 @@ async def timed_websocket(project_id: str, name: str) -> TimingResult:
                 response_size_kb=round(size_kb, 1),
                 detail=f"type={msg_type}, tasks={task_count}",
             )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         elapsed = (time.perf_counter() - start) * 1000
         return TimingResult(
             name=name,
@@ -130,24 +129,29 @@ async def profile_flow(project_id: str, cold: bool) -> list[TimingResult]:
 
         # ── Phase 1: Project Selection (blocking) ──
         print("\n── Phase 1: POST /projects/{id}/select ──")
-        t1, resp1 = await timed_request(
-            client, "POST",
+        t1, _resp1 = await timed_request(
+            client,
+            "POST",
             f"{BASE_URL}/projects/{project_id}/select",
             "Phase 1: SELECT project",
         )
         results.append(t1)
-        print(f"  {t1.duration_ms:>8.1f} ms | {t1.status_code} | {t1.response_size_kb} KB | {t1.name}")
+        print(
+            f"  {t1.duration_ms:>8.1f} ms | {t1.status_code} | {t1.response_size_kb} KB | {t1.name}"
+        )
 
         # ── Phase 2: Invalidation cascade (parallel) ──
         print("\n── Phase 2: Invalidation cascade (parallel) ──")
         phase2_start = time.perf_counter()
         t2a_task = timed_request(
-            client, "GET",
+            client,
+            "GET",
             f"{BASE_URL}/projects{refresh_param}",
             "Phase 2a: GET /projects",
         )
         t2b_task = timed_request(
-            client, "GET",
+            client,
+            "GET",
             f"{BASE_URL}/projects/{project_id}/tasks{refresh_param}",
             "Phase 2b: GET /projects/{id}/tasks",
         )
@@ -163,20 +167,26 @@ async def profile_flow(project_id: str, cold: bool) -> list[TimingResult]:
             t2b.detail = f"tasks={len(data.get('tasks', []))}"
 
         results.extend([t2a, t2b])
-        print(f"  {t2a.duration_ms:>8.1f} ms | {t2a.status_code} | {t2a.response_size_kb:>6.1f} KB | {t2a.name} ({t2a.detail})")
-        print(f"  {t2b.duration_ms:>8.1f} ms | {t2b.status_code} | {t2b.response_size_kb:>6.1f} KB | {t2b.name} ({t2b.detail})")
+        print(
+            f"  {t2a.duration_ms:>8.1f} ms | {t2a.status_code} | {t2a.response_size_kb:>6.1f} KB | {t2a.name} ({t2a.detail})"
+        )
+        print(
+            f"  {t2b.duration_ms:>8.1f} ms | {t2b.status_code} | {t2b.response_size_kb:>6.1f} KB | {t2b.name} ({t2b.detail})"
+        )
         print(f"  {'':>8s}      Phase 2 wall time: {phase2_wall:.1f} ms")
 
         # ── Phase 3: Board data (parallel with Phase 2 in real UI) ──
         print("\n── Phase 3: Board data ──")
         phase3_start = time.perf_counter()
         t3a_task = timed_request(
-            client, "GET",
+            client,
+            "GET",
             f"{BASE_URL}/board/projects{refresh_param}",
             "Phase 3a: GET /board/projects",
         )
         t3b_task = timed_request(
-            client, "GET",
+            client,
+            "GET",
             f"{BASE_URL}/board/projects/{project_id}{refresh_param}",
             "Phase 3b: GET /board/projects/{id}",
         )
@@ -194,15 +204,21 @@ async def profile_flow(project_id: str, cold: bool) -> list[TimingResult]:
             t3b.detail = f"columns={len(cols)}, items={total_items}"
 
         results.extend([t3a, t3b])
-        print(f"  {t3a.duration_ms:>8.1f} ms | {t3a.status_code} | {t3a.response_size_kb:>6.1f} KB | {t3a.name} ({t3a.detail})")
-        print(f"  {t3b.duration_ms:>8.1f} ms | {t3b.status_code} | {t3b.response_size_kb:>6.1f} KB | {t3b.name} ({t3b.detail})")
+        print(
+            f"  {t3a.duration_ms:>8.1f} ms | {t3a.status_code} | {t3a.response_size_kb:>6.1f} KB | {t3a.name} ({t3a.detail})"
+        )
+        print(
+            f"  {t3b.duration_ms:>8.1f} ms | {t3b.status_code} | {t3b.response_size_kb:>6.1f} KB | {t3b.name} ({t3b.detail})"
+        )
         print(f"  {'':>8s}      Phase 3 wall time: {phase3_wall:.1f} ms")
 
         # ── Phase 4: WebSocket initial_data ──
         print("\n── Phase 4: WebSocket initial_data ──")
         t4 = await timed_websocket(project_id, "Phase 4: WS initial_data")
         results.append(t4)
-        print(f"  {t4.duration_ms:>8.1f} ms |     | {t4.response_size_kb:>6.1f} KB | {t4.name} ({t4.detail})")
+        print(
+            f"  {t4.duration_ms:>8.1f} ms |     | {t4.response_size_kb:>6.1f} KB | {t4.name} ({t4.detail})"
+        )
 
     return results
 
@@ -223,35 +239,34 @@ def print_summary(results: list[TimingResult], cold: bool) -> None:
     total_payload = sum(r.response_size_kb for r in results)
 
     mode = "COLD START (caches flushed)" if cold else "WARM (caches populated)"
-    print(f"\n{'='*72}")
+    print(f"\n{'=' * 72}")
     print(f"  PROFILING SUMMARY — {mode}")
-    print(f"{'='*72}")
-    print(f"")
+    print(f"{'=' * 72}")
+    print()
     print(f"  {'Endpoint':<45} {'Time (ms)':>10} {'Size':>8}")
-    print(f"  {'-'*45} {'-'*10} {'-'*8}")
+    print(f"  {'-' * 45} {'-' * 10} {'-' * 8}")
     for r in results:
-        status = f" [{r.status_code}]" if r.status_code else ""
         print(f"  {r.name:<45} {r.duration_ms:>10.1f} {r.response_size_kb:>7.1f}K")
-    print(f"  {'-'*45} {'-'*10} {'-'*8}")
+    print(f"  {'-' * 45} {'-' * 10} {'-' * 8}")
     print(f"  {'Sum of all requests':<45} {total_sequential:>10.1f} {total_payload:>7.1f}K")
-    print(f"")
-    print(f"  Estimated real-world wall time:")
+    print()
+    print("  Estimated real-world wall time:")
     print(f"    Phase 1 (blocking select):   {phase1:>8.1f} ms")
     print(f"    Phase 2 (projects + tasks):  {phase2_max:>8.1f} ms")
     print(f"    Phase 3 (board data):        {phase3_max:>8.1f} ms")
     print(f"    Phase 4 (WS initial_data):   {phase4:>8.1f} ms")
-    print(f"    ─────────────────────────────────────")
+    print("    ─────────────────────────────────────")
     print(f"    Phase 1 + max(P2,P3,P4):     {estimated_wall:>8.1f} ms")
-    print(f"")
+    print()
 
     # Identify top offenders
     sorted_results = sorted(results, key=lambda r: r.duration_ms, reverse=True)
-    print(f"  TOP OFFENDERS (sorted by latency):")
+    print("  TOP OFFENDERS (sorted by latency):")
     for i, r in enumerate(sorted_results[:5], 1):
         detail = f" — {r.detail}" if r.detail else ""
         print(f"    {i}. {r.name}: {r.duration_ms:.0f} ms ({r.response_size_kb:.0f} KB){detail}")
 
-    print(f"{'='*72}\n")
+    print(f"{'=' * 72}\n")
 
 
 async def main() -> None:
