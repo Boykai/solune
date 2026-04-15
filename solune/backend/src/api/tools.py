@@ -257,11 +257,7 @@ async def import_from_catalog(
             existing_names,
         )
         target = next(
-            (
-                server
-                for server in catalog_result.servers
-                if server.id == data.catalog_server_id
-            ),
+            (server for server in catalog_result.servers if server.id == data.catalog_server_id),
             None,
         )
     except AppException:
