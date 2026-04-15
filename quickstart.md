@@ -6,14 +6,14 @@ Status note: this quickstart captures the scoped implementation and validation p
 
 ## Prerequisites
 
-- Python/`uv` environment for `/home/runner/work/solune/solune/solune/backend`
-- Node.js/npm environment for `/home/runner/work/solune/solune/solune/frontend`
+- Python/`uv` environment for `solune/backend`
+- Node.js/npm environment for `solune/frontend`
 - Optional authenticated test credentials for performance/E2E checks
 
 ## Setup
 
 ```bash
-cd /home/runner/work/solune/solune
+cd .
 ```
 
 ## Implementation Sequence
@@ -22,10 +22,10 @@ cd /home/runner/work/solune/solune
 
 Focus files:
 
-- `/home/runner/work/solune/solune/solune/backend/src/services/github_projects/board.py`
-- `/home/runner/work/solune/solune/solune/backend/src/api/board.py`
-- `/home/runner/work/solune/solune/solune/backend/src/models/board.py`
-- `/home/runner/work/solune/solune/solune/backend/src/services/github_projects/issues.py`
+- `solune/backend/src/services/github_projects/board.py`
+- `solune/backend/src/api/board.py`
+- `solune/backend/src/models/board.py`
+- `solune/backend/src/services/github_projects/issues.py`
 
 Goals:
 
@@ -38,10 +38,10 @@ Goals:
 
 Focus files:
 
-- `/home/runner/work/solune/solune/solune/backend/src/api/projects.py`
-- `/home/runner/work/solune/solune/solune/backend/src/services/cache.py`
-- `/home/runner/work/solune/solune/solune/backend/src/services/github_projects/service.py`
-- `/home/runner/work/solune/solune/solune/backend/src/services/copilot_polling/polling_loop.py`
+- `solune/backend/src/api/projects.py`
+- `solune/backend/src/services/cache.py`
+- `solune/backend/src/services/github_projects/service.py`
+- `solune/backend/src/services/copilot_polling/polling_loop.py`
 
 Goals:
 
@@ -54,11 +54,11 @@ Goals:
 
 Focus files:
 
-- `/home/runner/work/solune/solune/solune/frontend/src/services/api.ts`
-- `/home/runner/work/solune/solune/solune/frontend/src/hooks/useProjectBoard.ts`
-- `/home/runner/work/solune/solune/solune/frontend/src/hooks/useProjects.ts`
-- `/home/runner/work/solune/solune/solune/frontend/src/pages/ProjectsPage.tsx`
-- Existing board-loading components under `/home/runner/work/solune/solune/solune/frontend/src/components/board/`
+- `solune/frontend/src/services/api.ts`
+- `solune/frontend/src/hooks/useProjectBoard.ts`
+- `solune/frontend/src/hooks/useProjects.ts`
+- `solune/frontend/src/pages/ProjectsPage.tsx`
+- Existing board-loading components under `solune/frontend/src/components/board/`
 
 Goals:
 
@@ -72,20 +72,16 @@ Goals:
 ### Markdown artifacts
 
 ```bash
-cd /home/runner/work/solune/solune
+cd .
 npx --yes markdownlint-cli \
   plan.md research.md data-model.md quickstart.md \
-  specs/003-loading-performance/plan.md \
-  specs/003-loading-performance/research.md \
-  specs/003-loading-performance/data-model.md \
-  specs/003-loading-performance/quickstart.md \
   --config solune/.markdownlint.json
 ```
 
 ### Backend targeted tests
 
 ```bash
-cd /home/runner/work/solune/solune/solune/backend
+cd solune/backend
 uv run --with pytest --with pytest-asyncio pytest \
   tests/unit/test_api_board.py \
   tests/unit/test_api_projects.py \
@@ -96,7 +92,7 @@ uv run --with pytest --with pytest-asyncio pytest \
 ### Backend performance check (optional, authenticated)
 
 ```bash
-cd /home/runner/work/solune/solune/solune/backend
+cd solune/backend
 PERF_GITHUB_TOKEN=... PERF_PROJECT_ID=... \
 uv run --with pytest pytest tests/performance/test_board_load_time.py -m performance -q
 ```
@@ -104,7 +100,7 @@ uv run --with pytest pytest tests/performance/test_board_load_time.py -m perform
 ### Frontend targeted validation
 
 ```bash
-cd /home/runner/work/solune/solune/solune/frontend
+cd solune/frontend
 npm run test -- --reporter=verbose --run \
   src/hooks/useProjects.test.tsx \
   src/hooks/useProjectBoard.test.tsx \
@@ -117,7 +113,7 @@ npm run build
 ### Playwright timing check (optional, authenticated)
 
 ```bash
-cd /home/runner/work/solune/solune/solune/frontend
+cd solune/frontend
 E2E_PROJECT_ID=... npx playwright test e2e/project-load-performance.spec.ts --headed
 ```
 
@@ -134,9 +130,9 @@ E2E_PROJECT_ID=... npx playwright test e2e/project-load-performance.spec.ts --he
 
 | File | Purpose |
 |------|---------|
-| `/home/runner/work/solune/solune/solune/backend/src/services/github_projects/board.py` | Core board load staging, sub-issue policy, reconciliation split |
-| `/home/runner/work/solune/solune/solune/backend/src/api/board.py` | Board API contract and refresh semantics |
-| `/home/runner/work/solune/solune/solune/backend/src/api/projects.py` | Project selection, warm-up scheduling, delayed polling |
-| `/home/runner/work/solune/solune/solune/frontend/src/hooks/useProjectBoard.ts` | Frontend board query behavior |
-| `/home/runner/work/solune/solune/solune/frontend/src/pages/ProjectsPage.tsx` | Loading UX and progress indicators |
-| `/home/runner/work/solune/solune/solune/frontend/e2e/project-load-performance.spec.ts` | Existing timing regression check |
+| `solune/backend/src/services/github_projects/board.py` | Core board load staging, sub-issue policy, reconciliation split |
+| `solune/backend/src/api/board.py` | Board API contract and refresh semantics |
+| `solune/backend/src/api/projects.py` | Project selection, warm-up scheduling, delayed polling |
+| `solune/frontend/src/hooks/useProjectBoard.ts` | Frontend board query behavior |
+| `solune/frontend/src/pages/ProjectsPage.tsx` | Loading UX and progress indicators |
+| `solune/frontend/e2e/project-load-performance.spec.ts` | Existing timing regression check |

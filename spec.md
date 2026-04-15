@@ -1,6 +1,6 @@
 # Feature Specification: Loading Performance
 
-**Feature Branch**: `loading-performance`
+**Feature Branch**: `003-loading-performance`
 **Created**: 2026-04-15
 **Status**: Draft
 **Input**: User description: "Reducing initial Project import/load time in Solune. When user selects a GitHub project after login."

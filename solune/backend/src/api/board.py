@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from githubkit.exception import PrimaryRateLimitExceeded, RequestFailed
@@ -44,6 +45,8 @@ from src.services.cache import (
 )
 from src.services.done_items_store import get_done_items
 from src.services.github_projects import github_projects_service
+
+_background_board_completion_tasks: dict[str, asyncio.Task[Any]] = {}
 
 
 def _is_github_auth_error(exc: Exception) -> bool:
@@ -275,6 +278,11 @@ async def _fetch_and_cache_board_data(
 def _schedule_background_board_completion(session: UserSession, project_id: str) -> None:
     from src.services.task_registry import task_registry
 
+    task_key = f"{session.github_user_id}:{project_id}"
+    existing = _background_board_completion_tasks.get(task_key)
+    if existing is not None and not existing.done():
+        return
+
     async def _complete() -> None:
         try:
             cached = cache.get(_board_cache_key(project_id))
@@ -294,7 +302,17 @@ def _schedule_background_board_completion(session: UserSession, project_id: str)
                 exc_info=True,
             )
 
-    task_registry.create_task(_complete(), name=f"board-complete-{project_id[-8:]}")
+    task = task_registry.create_task(
+        _complete(),
+        name=f"board-complete-{session.github_user_id}-{project_id[-8:]}",
+    )
+    _background_board_completion_tasks[task_key] = task
+
+    def _cleanup_finished_completion(finished: asyncio.Task[Any]) -> None:
+        if _background_board_completion_tasks.get(task_key) is finished:
+            _background_board_completion_tasks.pop(task_key, None)
+
+    task.add_done_callback(_cleanup_finished_completion)
 
 
 @router.get("/projects", response_model=BoardProjectListResponse)
@@ -341,9 +359,9 @@ async def list_board_projects(
             )
 
         user_projects = await coalesced_fetch(
-            get_cache_key(CACHE_PREFIX_BOARD_PROJECTS, f"user:{session.github_user_id}"),
+            user_projects_cache_key,
             _fetch_user_projects,
-            task_name=f"board-projects-{session.github_user_id}",
+            task_name=f"user-projects-{session.github_user_id}",
         )
         cache.set(user_projects_cache_key, user_projects)
         projects = _to_board_projects(user_projects) or []
@@ -498,6 +516,7 @@ async def get_board_data(
                 # Return a shallow copy to avoid mutating the shared cache entry,
                 # which could leak stale rate_limit values across requests.
                 cached_response = cached.model_copy(update={"rate_limit": _get_rate_limit_info()})
+                await _apply_board_runtime_state(cached_response)
                 if _board_needs_background_completion(cached_response):
                     _schedule_background_board_completion(session, project_id)
                 return cached_response
