@@ -207,6 +207,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - SQLite via aiosqlite — migration `045_chore_description.sql` renames column + drops column + strips YAML (004-remove-chore-templates)
 - Python 3.12+ (backend); TypeScript ~6.0.2 + React ^19.2.5 (frontend) + FastAPI, Pydantic, httpx, existing `InMemoryCache`/`cached_fetch`; React, TanStack Query, existing `toolsApi`, Zod-compatible frontend type validation (006-mcp-catalog-on-tools-page)
 - Existing `mcp_configurations` persistence plus in-memory catalog cache; imported tools continue syncing to repository `mcp.json` files via current GitHub flow (006-mcp-catalog-on-tools-page)
+- Python 3.12 backend service + FastAPI route handlers, Pydantic models, `src.api.pipelines.execute_pipeline_launch`, `src.services.copilot_polling.ensure_app_pipeline_polling`, `src.services.task_registry.task_registry`, existing GitHub/project/session services (001-fix-app-building-recovery)
+- Existing SQLite-backed session / project-settings / orchestration tables plus the in-memory pipeline state store (001-fix-app-building-recovery)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
