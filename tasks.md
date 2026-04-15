@@ -1,7 +1,7 @@
 # Tasks: MCP Catalog on Tools Page
 
 **Feature**: `006-mcp-catalog-tools-page` | **Branch**: `copilot/add-mcp-catalog-tools-page`
-**Input**: Design documents from the copilot branch artifact root `/home/runner/work/solune/solune/`
+**Input**: Design documents located in the repository root directory `/home/runner/work/solune/solune/`
 **Prerequisites**: `/home/runner/work/solune/solune/plan.md` ✅, `/home/runner/work/solune/solune/spec.md` ✅, `/home/runner/work/solune/solune/research.md` ✅, `/home/runner/work/solune/solune/data-model.md` ✅, `/home/runner/work/solune/solune/quickstart.md` ✅, `/home/runner/work/solune/solune/contracts/mcp-catalog-contract.yaml` ✅
 
 **Tests**: Included. The specification explicitly requires backend, frontend, and manual verification for browse, import, installed-state detection, and repo sync.
@@ -255,5 +255,5 @@ Frontend half of T024 in /home/runner/work/solune/solune/solune/frontend/src/com
 - Setup tasks: 3
 - Foundational tasks: 4
 - Polish tasks: 4
-- Absolute repository paths are intentional because this task's generation instructions require absolute paths.
+- Absolute repository paths are intentional because this task's generation instructions require absolute paths; replace the repository-root prefix if your local checkout lives outside `/home/runner/work/solune/solune/`.
 - All task lines follow the required `- [ ] T### [P?] [US#?] Description with file path` checklist format.
