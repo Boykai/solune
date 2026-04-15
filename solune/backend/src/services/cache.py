@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from datetime import timedelta
 from typing import Any, cast
 
@@ -188,7 +188,7 @@ _inflight_fetches: dict[str, asyncio.Task[Any]] = {}
 
 async def coalesced_fetch[T](
     key: str,
-    fetch_fn: Callable[[], Awaitable[T]],
+    fetch_fn: Callable[[], Coroutine[Any, Any, T]],
     *,
     task_name: str | None = None,
 ) -> T:

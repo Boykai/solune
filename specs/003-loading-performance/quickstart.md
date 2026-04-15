@@ -2,6 +2,8 @@
 
 **Feature**: Loading Performance | **Date**: 2026-04-15
 
+Status note: this quickstart captures the scoped implementation and validation path for the loading-performance work on this branch.
+
 ## Prerequisites
 
 - Python/`uv` environment for `/home/runner/work/solune/solune/solune/backend`
