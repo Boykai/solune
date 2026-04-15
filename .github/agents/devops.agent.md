@@ -1,9 +1,9 @@
 ---
 name: DevOps
-description: CI failure diagnosis and resolution agent. Resolves ALL CI errors and
-  merge conflicts in the active pull request — reads CI logs, identifies every failing
-  check, resolves merge conflicts, applies targeted fixes, and re-triggers checks
-  until the PR is green and mergeable.
+description: "CI failure diagnosis and resolution agent. Resolves ALL CI errors and\
+  \ merge conflicts in the active pull request \u2014 reads CI logs, identifies every\
+  \ failing check, resolves merge conflicts, applies targeted fixes, and re-triggers\
+  \ checks until the PR is green and mergeable."
 icon: wrench
 mcp-servers:
   context7:
