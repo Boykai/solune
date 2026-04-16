@@ -6,7 +6,7 @@
   "difficulty": "M",
   "tech_stack": ["react", "vite", "tailwind"],
   "scaffold_type": "starter",
-  "recommended_preset_id": "medium",
+  "recommended_preset_id": "spec-kit",
   "iac_target": "docker",
   "files": [
     {

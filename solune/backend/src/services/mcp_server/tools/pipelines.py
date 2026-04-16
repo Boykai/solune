@@ -47,7 +47,7 @@ async def launch_pipeline(
 
     Args:
         project_id: The GitHub Project V2 node ID.
-        pipeline_id: Pipeline configuration ID (e.g. ``"easy"``, ``"medium"``).
+        pipeline_id: Pipeline configuration ID (e.g. ``"github"``, ``"default"``).
         issue_description: Description for the parent issue that drives the pipeline.
     """
     from src.api.pipelines import execute_pipeline_launch

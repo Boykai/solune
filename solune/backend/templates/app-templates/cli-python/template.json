@@ -6,7 +6,7 @@
   "difficulty": "S",
   "tech_stack": ["python", "click"],
   "scaffold_type": "skeleton",
-  "recommended_preset_id": "easy",
+  "recommended_preset_id": "github",
   "iac_target": "none",
   "files": [
     {

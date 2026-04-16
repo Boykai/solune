@@ -60,7 +60,7 @@ class TestCreateApp:
             name="demo",
             owner="octocat",
             template="starter",
-            pipeline_id="easy",
+            pipeline_id="github",
         )
 
         assert result == {"name": "demo", "status": "created"}
@@ -71,7 +71,7 @@ class TestCreateApp:
         assert payload.display_name == "demo"
         assert payload.repo_type == "new-repo"
         assert payload.repo_owner == "octocat"
-        assert payload.pipeline_id == "easy"
+        assert payload.pipeline_id == "github"
         assert call_args.kwargs["access_token"] == "ghp_testtoken"
         assert call_args.kwargs["github_service"] is MockGitHubProjectsService.return_value
         assert call_args.args[0] is mock_get_db.return_value

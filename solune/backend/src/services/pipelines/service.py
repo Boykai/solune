@@ -74,237 +74,96 @@ def _grouped_stage(
     }
 
 
-# Preset pipeline definitions
+# Preset pipeline definitions — matches frontend preset-pipelines.ts.
+# Each preset uses a single "In progress" stage with one sequential Group 1.
 _PRESET_DEFINITIONS = [
+    # ── GitHub ────────────────────────────────────────────────────────
+    {
+        "preset_id": "github",
+        "name": "GitHub",
+        "description": "Single-agent pipeline powered by GitHub Copilot.",
+        "stages": [
+            _grouped_stage(
+                "preset-gh-stage-1",
+                "In progress",
+                0,
+                "preset-gh-group-1",
+                [_agent("preset-gh-a1", "copilot", "GitHub Copilot")],
+            ),
+        ],
+    },
     # ── Spec Kit ──────────────────────────────────────────────────────
     {
         "preset_id": "spec-kit",
         "name": "Spec Kit",
-        "description": "Full specification workflow: specify → plan → tasks → implement → analyze",
+        "description": "Full specification workflow: specify → plan → tasks → analyze → implement.",
         "stages": [
             _grouped_stage(
                 "preset-sk-stage-1",
-                "Specify",
+                "In progress",
                 0,
                 "preset-sk-group-1",
-                [_agent("preset-sk-agent-1", "speckit.specify", "Spec Writer")],
-            ),
-            _grouped_stage(
-                "preset-sk-stage-2",
-                "Plan",
-                1,
-                "preset-sk-group-2",
-                [_agent("preset-sk-agent-2", "speckit.plan", "Planner")],
-            ),
-            _grouped_stage(
-                "preset-sk-stage-3",
-                "Tasks",
-                2,
-                "preset-sk-group-3",
-                [_agent("preset-sk-agent-3", "speckit.tasks", "Task Generator")],
-            ),
-            _grouped_stage(
-                "preset-sk-stage-4",
-                "Implement",
-                3,
-                "preset-sk-group-4",
-                [_agent("preset-sk-agent-4", "speckit.implement", "Implementer")],
-            ),
-            _grouped_stage(
-                "preset-sk-stage-5",
-                "Analyze",
-                4,
-                "preset-sk-group-5",
-                [_agent("preset-sk-agent-5", "speckit.analyze", "Analyzer")],
+                [
+                    _agent("preset-sk-a1", "speckit.specify", "Spec Kit - Specify"),
+                    _agent("preset-sk-a2", "speckit.plan", "Spec Kit - Plan"),
+                    _agent("preset-sk-a3", "speckit.tasks", "Spec Kit - Tasks"),
+                    _agent("preset-sk-a4", "speckit.analyze", "Spec Kit - Analyze"),
+                    _agent("preset-sk-a5", "speckit.implement", "Spec Kit - Implement"),
+                ],
             ),
         ],
     },
-    # ── GitHub Copilot ────────────────────────────────────────────────
+    # ── Default ───────────────────────────────────────────────────────
     {
-        "preset_id": "github-copilot",
-        "name": "GitHub Copilot",
-        "description": "Single-stage pipeline powered by GitHub Copilot",
+        "preset_id": "default",
+        "name": "Default",
+        "description": "End-to-end workflow: spec, plan, implement, QA, test, lint, review, and judge.",
         "stages": [
             _grouped_stage(
-                "preset-gc-stage-1",
-                "In Progress",
-                0,
-                "preset-gc-group-1",
-                [_agent("preset-gc-agent-1", "copilot", "GitHub Copilot")],
-            ),
-        ],
-    },
-    # ── Easy ──────────────────────────────────────────────────────────
-    {
-        "preset_id": "easy",
-        "name": "Easy",
-        "description": "Lightweight pipeline: Copilot implements, review agents check quality",
-        "stages": [
-            _grouped_stage("preset-easy-stage-0", "Backlog", 0, "preset-easy-group-0", []),
-            _grouped_stage("preset-easy-stage-1", "Ready", 1, "preset-easy-group-1", []),
-            _grouped_stage(
-                "preset-easy-stage-2",
+                "preset-df-stage-1",
                 "In progress",
-                2,
-                "preset-easy-group-2",
+                0,
+                "preset-df-group-1",
                 [
-                    _agent("preset-easy-agent-1", "copilot", "GitHub Copilot"),
-                    _agent("preset-easy-agent-2", "copilot-review", "Copilot Review"),
-                    _agent("preset-easy-agent-3", "judge", "judge"),
-                    _agent("preset-easy-agent-4", "linter", "linter"),
+                    _agent("preset-df-a1", "speckit.specify", "Spec Kit - Specify"),
+                    _agent("preset-df-a2", "speckit.plan", "Spec Kit - Plan"),
+                    _agent("preset-df-a3", "speckit.tasks", "Spec Kit - Tasks"),
+                    _agent("preset-df-a4", "speckit.analyze", "Spec Kit - Analyze"),
+                    _agent("preset-df-a5", "speckit.implement", "Spec Kit - Implement"),
+                    _agent("preset-df-a6", "quality-assurance", "Quality Assurance"),
+                    _agent("preset-df-a7", "tester", "Tester"),
+                    _agent("preset-df-a8", "linter", "Linter"),
+                    _agent("preset-df-a9", "copilot-review", "Copilot Review"),
+                    _agent("preset-df-a10", "judge", "Judge"),
                 ],
             ),
-            _grouped_stage(
-                "preset-easy-stage-3",
-                "In review",
-                3,
-                "preset-easy-group-3",
-                [_agent("preset-easy-agent-5", "human", "Human")],
-            ),
-            _grouped_stage("preset-easy-stage-4", "Done", 4, "preset-easy-group-4", []),
         ],
     },
-    # ── Medium ────────────────────────────────────────────────────────
+    # ── App Builder ───────────────────────────────────────────────────
     {
-        "preset_id": "medium",
-        "name": "Medium",
-        "description": "Balanced pipeline: Spec Kit plans, Copilot implements, review agents verify",
+        "preset_id": "app-builder",
+        "name": "App Builder",
+        "description": "Full stack workflow with architecture, QA, testing, linting, review, and judging.",
         "stages": [
             _grouped_stage(
-                "preset-med-stage-0",
-                "Backlog",
-                0,
-                "preset-med-group-0",
-                [_agent("preset-med-agent-1", "speckit.specify", "Spec Kit - Specify")],
-            ),
-            _grouped_stage(
-                "preset-med-stage-1",
-                "Ready",
-                1,
-                "preset-med-group-1",
-                [
-                    _agent("preset-med-agent-2", "speckit.plan", "Spec Kit - Plan"),
-                    _agent("preset-med-agent-3", "speckit.tasks", "Spec Kit - Tasks"),
-                ],
-            ),
-            _grouped_stage(
-                "preset-med-stage-2",
+                "preset-ab-stage-1",
                 "In progress",
-                2,
-                "preset-med-group-2",
-                [
-                    _agent("preset-med-agent-4", "speckit.implement", "Spec Kit - Implement"),
-                    _agent("preset-med-agent-5", "copilot-review", "Copilot Review"),
-                    _agent("preset-med-agent-6", "judge", "judge"),
-                    _agent("preset-med-agent-7", "linter", "linter"),
-                ],
-            ),
-            _grouped_stage(
-                "preset-med-stage-3",
-                "In review",
-                3,
-                "preset-med-group-3",
-                [_agent("preset-med-agent-8", "human", "Human")],
-            ),
-            _grouped_stage("preset-med-stage-4", "Done", 4, "preset-med-group-4", []),
-        ],
-    },
-    # ── Hard ──────────────────────────────────────────────────────────
-    {
-        "preset_id": "hard",
-        "name": "Hard",
-        "description": "Thorough pipeline: Spec Kit specifies & plans, full implementation and review",
-        "stages": [
-            _grouped_stage(
-                "preset-hard-stage-0",
-                "Backlog",
                 0,
-                "preset-hard-group-0",
-                [_agent("preset-hard-agent-1", "speckit.specify", "Spec Kit - Specify")],
-            ),
-            _grouped_stage(
-                "preset-hard-stage-1",
-                "Ready",
-                1,
-                "preset-hard-group-1",
+                "preset-ab-group-1",
                 [
-                    _agent("preset-hard-agent-2", "speckit.plan", "Spec Kit - Plan"),
-                    _agent("preset-hard-agent-3", "speckit.tasks", "Spec Kit - Tasks"),
+                    _agent("preset-ab-a1", "speckit.specify", "Spec Kit - Specify"),
+                    _agent("preset-ab-a2", "speckit.plan", "Spec Kit - Plan"),
+                    _agent("preset-ab-a3", "speckit.tasks", "Spec Kit - Tasks"),
+                    _agent("preset-ab-a4", "speckit.analyze", "Spec Kit - Analyze"),
+                    _agent("preset-ab-a5", "speckit.implement", "Spec Kit - Implement"),
+                    _agent("preset-ab-a6", "architect", "Architect"),
+                    _agent("preset-ab-a7", "quality-assurance", "Quality Assurance"),
+                    _agent("preset-ab-a8", "tester", "Tester"),
+                    _agent("preset-ab-a9", "linter", "Linter"),
+                    _agent("preset-ab-a10", "copilot-review", "Copilot Review"),
+                    _agent("preset-ab-a11", "judge", "Judge"),
                 ],
             ),
-            _grouped_stage(
-                "preset-hard-stage-2",
-                "In progress",
-                2,
-                "preset-hard-group-2",
-                [
-                    _agent("preset-hard-agent-4", "speckit.implement", "Spec Kit - Implement"),
-                    _agent("preset-hard-agent-5", "copilot-review", "Copilot Review"),
-                    _agent("preset-hard-agent-6", "judge", "judge"),
-                    _agent("preset-hard-agent-7", "linter", "linter"),
-                ],
-            ),
-            _grouped_stage(
-                "preset-hard-stage-3",
-                "In review",
-                3,
-                "preset-hard-group-3",
-                [_agent("preset-hard-agent-8", "human", "Human")],
-            ),
-            _grouped_stage("preset-hard-stage-4", "Done", 4, "preset-hard-group-4", []),
-        ],
-    },
-    # ── Expert ────────────────────────────────────────────────────────
-    {
-        "preset_id": "expert",
-        "name": "Expert",
-        "description": "Comprehensive pipeline: full Spec Kit, Designer, QA, Tester, Archivist, dual review",
-        "stages": [
-            _grouped_stage(
-                "preset-exp-stage-0",
-                "Backlog",
-                0,
-                "preset-exp-group-0",
-                [
-                    _agent("preset-exp-agent-1", "speckit.specify", "Spec Kit - Specify"),
-                    _agent("preset-exp-agent-2", "designer", "designer"),
-                ],
-            ),
-            _grouped_stage(
-                "preset-exp-stage-1",
-                "Ready",
-                1,
-                "preset-exp-group-1",
-                [
-                    _agent("preset-exp-agent-3", "speckit.plan", "Spec Kit - Plan"),
-                    _agent("preset-exp-agent-4", "speckit.tasks", "Spec Kit - Tasks"),
-                ],
-            ),
-            _grouped_stage(
-                "preset-exp-stage-2",
-                "In progress",
-                2,
-                "preset-exp-group-2",
-                [
-                    _agent("preset-exp-agent-5", "speckit.implement", "Spec Kit - Implement"),
-                    _agent("preset-exp-agent-6", "copilot-review", "Copilot Review"),
-                    _agent("preset-exp-agent-7", "judge", "judge"),
-                    _agent("preset-exp-agent-8", "quality-assurance", "quality-assurance"),
-                    _agent("preset-exp-agent-9", "tester", "tester"),
-                    _agent("preset-exp-agent-10", "copilot-review", "Copilot Review"),
-                    _agent("preset-exp-agent-11", "judge", "judge"),
-                    _agent("preset-exp-agent-12", "archivist", "archivist"),
-                    _agent("preset-exp-agent-13", "linter", "linter"),
-                ],
-            ),
-            _grouped_stage(
-                "preset-exp-stage-3",
-                "In review",
-                3,
-                "preset-exp-group-3",
-                [_agent("preset-exp-agent-14", "human", "Human")],
-            ),
-            _grouped_stage("preset-exp-stage-4", "Done", 4, "preset-exp-group-4", []),
         ],
     },
 ]

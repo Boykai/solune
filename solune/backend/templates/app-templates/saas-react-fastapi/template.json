@@ -6,7 +6,7 @@
   "difficulty": "L",
   "tech_stack": ["react", "fastapi", "postgresql"],
   "scaffold_type": "starter",
-  "recommended_preset_id": "hard",
+  "recommended_preset_id": "default",
   "iac_target": "azure",
   "files": [
     {

@@ -74,12 +74,20 @@ AGENT_OUTPUT_FILES: dict[str, list[str]] = {
     "speckit.tasks": ["tasks.md"],
 }
 
-# Default agent mappings for each status (Spec Kit pipeline)
+# Default agent mappings for each status (Default pipeline — single "In Progress" stage)
 DEFAULT_AGENT_MAPPINGS: dict[str, list[str]] = {
-    StatusNames.BACKLOG: ["speckit.specify"],
-    StatusNames.READY: ["speckit.plan", "speckit.tasks"],
-    StatusNames.IN_PROGRESS: ["speckit.implement"],
-    StatusNames.IN_REVIEW: ["copilot-review"],
+    StatusNames.IN_PROGRESS: [
+        "speckit.specify",
+        "speckit.plan",
+        "speckit.tasks",
+        "speckit.analyze",
+        "speckit.implement",
+        "quality-assurance",
+        "tester",
+        "linter",
+        "copilot-review",
+        "judge",
+    ],
 }
 
 # Human-readable display names for known agents
@@ -92,6 +100,11 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "copilot-review": "Copilot Review",
     "copilot": "GitHub Copilot",
     "human": "Human",
+    "architect": "Architect",
+    "quality-assurance": "Quality Assurance",
+    "tester": "Tester",
+    "linter": "Linter",
+    "judge": "Judge",
 }
 
 
