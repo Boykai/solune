@@ -42,9 +42,9 @@ class UserSession(BaseModel):
                 "github_user_id": "12345678",
                 "github_username": "octocat",
                 "github_avatar_url": "https://avatars.githubusercontent.com/u/12345678",
-                "access_token": "example-access-token",  # nosec B105
-                "refresh_token": "example-refresh-token",  # nosec B105
-                "token_expires_at": "2026-01-31T12:00:00Z",  # nosec B105
+                "access_token": "example-access-token",  # nosec B105 — reason: example value in schema docs, not a real secret
+                "refresh_token": "example-refresh-token",  # nosec B105 — reason: example value in schema docs, not a real secret
+                "token_expires_at": "2026-01-31T12:00:00Z",  # nosec B105 — reason: example value in schema docs, not a real secret
                 "selected_project_id": "PVT_kwDOABCD1234",
                 "created_at": "2026-01-30T10:00:00Z",
                 "updated_at": "2026-01-30T11:00:00Z",
