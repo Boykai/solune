@@ -1,0 +1,16 @@
+openapi: 3.1.0
+info:
+  title: Agents Page UI Improvements
+  version: 1.0.0
+  description: |
+    Planning contract for feature 003-agents-page-ui.
+    This feature introduces no backend API, schema, or payload changes.
+servers: []
+paths: {}
+components: {}
+x-solune-notes:
+  contract-change: none
+  affected-surface:
+    - solune/frontend/src/components/agents/AddAgentModal.tsx
+    - solune/frontend/src/components/agents/AgentsPanel.tsx
+  rationale: UI-only behavior change; collapse state is local and non-persistent.

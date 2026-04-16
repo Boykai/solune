@@ -211,6 +211,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - Existing SQLite-backed session / project-settings / orchestration tables plus the in-memory pipeline state store (001-fix-app-building-recovery)
 - Python 3.12+ (backend); TypeScript ~6.0.2 + React 19.2 (frontend) + FastAPI, Pydantic v2, existing `InMemoryCache`/`cached_fetch`, `aiosqlite`-backed `done_items_store`, GitHub GraphQL/REST helpers, TanStack Query, Vitest, Playwright performance specs (003-loading-performance)
 - Existing in-memory cache plus SQLite-backed `done_items_cache` / session state; no new persistence system required (003-loading-performance)
+- TypeScript 6.x, React 19.x, Vite 8.x + React, TanStack Query, Tailwind CSS utility classes, Vitest, React Testing Library (003-agents-page-ui)
+- N/A for this feature (no new persisted client or server state) (003-agents-page-ui)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
