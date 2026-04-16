@@ -156,6 +156,7 @@ npm run test:mutate:lib
 - Backend CI runs pytest, coverage reporting, contract generation, and targeted quality checks.
 - Frontend CI runs ESLint, type-checking, Vitest coverage thresholds, and Playwright.
 - Dedicated workflows cover mutation testing and flaky/performance-oriented checks.
+- The suppression guard (`scripts/check-suppressions.sh`) can be run locally or in CI to enforce the [Suppression Policy](#suppression-policy).
 
 ## Code Quality Commands
 
@@ -184,17 +185,27 @@ npm run build
 Any lint, type-check, test-skip, coverage, or mutation suppression that remains in the codebase **must** carry a `reason:` justification (either inline or on the preceding line). This applies to:
 
 - `# noqa`, `# type: ignore`, `# pragma: no cover`, `# nosec` (Python / Ruff / Bandit)
-- `eslint-disable`, `@ts-expect-error` (TypeScript / ESLint)
+- `eslint-disable`, `@ts-expect-error`, `@ts-ignore` (TypeScript / ESLint)
 - `#disable-next-line` (Bicep)
 - `@pytest.mark.skipif`, `test.skip()` (test skips)
 
-**Allowed suppression patterns** (with reason):
+**Allowed suppression patterns** (each must include a reason):
 
-- FastAPI `Depends()` calls: `# noqa: B008 — reason: FastAPI Depends() pattern`
-- Frozen dataclass mutation tests: `# noqa: B010 — reason: intentional frozen dataclass test`
-- CodeQL-recognised sanitisers: `# noqa: PTH119 — reason: CodeQL-recognised path sanitizer`
-- SDK preview fields: `# type: ignore[...] — reason: SDK TypedDict preview field`
-- React `ComponentType<any>`: framework-standard generic bound
+| Pattern | Typical reason |
+|---------|---------------|
+| `# noqa: B008` | FastAPI `Depends()` / `Body()` / `File()` — evaluated per-request, not at import time |
+| `# noqa: B010` | Intentional frozen dataclass mutation test; `setattr` required to trigger `FrozenInstanceError` |
+| `# noqa: PTH119` | CodeQL-recognised path sanitizer; `pathlib.PurePath.name` not recognised by CodeQL |
+| `# type: ignore[...]` | SDK `TypedDict` preview field not yet declared in stubs |
+| `eslint-disable react-hooks/exhaustive-deps` | Mount-only effect or intentionally omitted dependency with stable ref |
+| `eslint-disable react-hooks/rules-of-hooks` | Playwright `use` callback parameter triggers false positive |
+| `eslint-disable react-hooks/set-state-in-effect` | Initialization pattern; async ID not available at first render |
+| `eslint-disable jsx-a11y/no-autofocus` | Modal/popover input should receive focus on open |
+| `eslint-disable jsx-a11y/click-events-have-key-events` | Modal dialog `stopPropagation` pattern; parent backdrop handles keyboard dismiss |
+| `eslint-disable @typescript-eslint/no-explicit-any` | `React.ComponentType<any>` — framework-standard generic bound |
+| `#disable-next-line outputs-should-not-contain-secrets` | Bicep cross-module secret passing consumed as `secureParam` downstream |
+
+**CI guard**: Run `./solune/scripts/check-suppressions.sh` from the repository root to verify all suppressions carry a `reason:` marker. The script scans Python, TypeScript, JavaScript, and Bicep files.
 
 Suppressions without a `reason:` marker should be addressed in the next change that touches the file.
 
