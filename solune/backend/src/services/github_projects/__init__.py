@@ -57,7 +57,7 @@ class GitHubClientFactory:
         self._pool.clear()
 
 
-from src.services.github_projects.service import (  # noqa: E402
+from src.services.github_projects.service import (  # noqa: E402 — reason: circular import; service.py TYPE_CHECKING-imports GitHubClientFactory from this __init__
     GitHubProjectsService,
     github_projects_service,
 )

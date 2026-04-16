@@ -48,7 +48,7 @@ describe('buildGitHubMcpConfig property tests', () => {
   test.prop([fc.array(fc.string({ minLength: 1, maxLength: 20 }), { minLength: 0, maxLength: 10 })])(
     'output JSON is always valid and parseable',
     (names) => {
-      const tools = names.map((name, i) =>
+      const tools = names.map((_name, i) =>
         makeTool({
           id: `tool-${i}`,
           name: `Tool ${i}`,

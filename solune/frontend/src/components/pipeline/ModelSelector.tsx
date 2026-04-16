@@ -111,7 +111,7 @@ export function ModelSelector({
       recentModelKeysRef.current
         .map((key) => models.find((m) => (m.reasoning_effort ? `${m.id}::${m.reasoning_effort}` : m.id) === key))
         .filter((m): m is AIModel => m !== undefined),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: recentModelKeysRef is a ref (stable); isOpen forces recompute when dropdown opens
     [models, isOpen]
   );
 

@@ -33,7 +33,7 @@ repos:
 
       - id: backend-bandit
         name: Security Scan Backend (bandit)
-        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && bandit -r src/ -ll -ii --skip B104,B608'
+        entry: bash -c 'cd solune/backend && source .venv/bin/activate 2>/dev/null || true && bandit -r src/ -ll -ii --skip B104'
         language: system
         files: ^solune/backend/.*\.py$
         pass_filenames: false

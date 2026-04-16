@@ -33,7 +33,7 @@ class TestCommentScanResult:
     def test_frozen(self):
         result = CommentScanResult(has_done_marker=True)
         with pytest.raises(AttributeError):
-            setattr(result, "has_done_marker", False)  # noqa: B010
+            setattr(result, "has_done_marker", False)  # noqa: B010 — reason: intentional frozen dataclass mutation test; setattr required to trigger FrozenInstanceError
 
     def test_equality(self):
         a = CommentScanResult(has_done_marker=True, done_comment_id="IC_1")

@@ -609,11 +609,16 @@ class TestChatAgentServiceRunStream:
         """Verify run_stream() yields error event on agent failure."""
         mock_agent = AsyncMock()
 
-        async def failing_stream(*args, **kwargs):
-            raise RuntimeError("Stream failed")
-            yield  # pragma: no cover — makes this function an async generator
+        class _FailingAsyncIter:
+            """Async iterable that raises immediately — no unreachable yield needed."""
 
-        mock_agent.run = MagicMock(return_value=failing_stream())
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise RuntimeError("Stream failed")
+
+        mock_agent.run = MagicMock(return_value=_FailingAsyncIter())
         mock_create_agent.return_value = mock_agent
 
         service = ChatAgentService()

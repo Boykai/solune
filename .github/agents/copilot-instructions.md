@@ -213,6 +213,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - Existing in-memory cache plus SQLite-backed `done_items_cache` / session state; no new persistence system required (003-loading-performance)
 - TypeScript 6.x, React 19.x, Vite 8.x + React, TanStack Query, Tailwind CSS utility classes, Vitest, React Testing Library (003-agents-page-ui)
 - N/A for this feature (no new persisted client or server state) (003-agents-page-ui)
+- Python 3.13 (backend), TypeScript 6.x / React 19.x (frontend), Bicep (infra) + FastAPI, Ruff, Pyright, Bandit, pytest (backend); ESLint, Vitest, Stryker, Playwright (frontend); Azure Bicep CLI (infra) (003-remove-lint-ignores)
+- N/A — no schema or data changes (003-remove-lint-ignores)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)

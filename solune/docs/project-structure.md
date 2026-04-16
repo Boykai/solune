@@ -157,6 +157,7 @@ Solune currently ships **63 production hooks** in `frontend/src/hooks/`.
 - `backend/tests/` includes `architecture`, `chaos`, `concurrency`, `e2e`, `fuzz`, `integration`, `performance`, `property`, and `unit` coverage.
 - `frontend/e2e/` includes route, responsive-layout, chat, agents, MCP, settings, and pipeline monitoring specs.
 - `scripts/export-openapi.py` regenerates `backend/openapi.json` when backend dependencies are available.
+- `scripts/check-suppressions.sh` verifies that all lint/test suppressions carry a `reason:` justification (see [Suppression Policy](testing.md#suppression-policy)).
 
 ---
 

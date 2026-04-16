@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 /**
  * Shared Playwright fixtures for E2E smoke tests.
  *

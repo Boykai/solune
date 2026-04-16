@@ -266,19 +266,6 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
     vi.clearAllMocks();
   });
 
-  async function _openNewRepoDialog() {
-    render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
-    // Switch repo type to new-repo
-    const dialog = screen.getByRole('dialog');
-    // Find the "New Repository" radio/button
-    const newRepoOption = screen.queryByText(/new repo/i) ?? screen.queryByText(/new repository/i);
-    if (newRepoOption) {
-      await userEvent.click(newRepoOption);
-    }
-    return dialog;
-  }
-
   it('shows Azure credential fields only when new-repo is selected', async () => {
     render(<AppsPage />);
     await userEvent.click(screen.getByRole('button', { name: /create app/i }));

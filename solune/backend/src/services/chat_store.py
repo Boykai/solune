@@ -108,14 +108,14 @@ async def get_messages(
             f"""SELECT message_id, session_id, sender_type, content,
                       action_type, action_data, timestamp, conversation_id
                FROM chat_messages {where} ORDER BY timestamp
-               LIMIT ? OFFSET ?""",
+               LIMIT ? OFFSET ?""",  # nosec B608 — reason: WHERE clause built from validated column names; all values are parameterised
             (*params, limit, offset),
         )
     else:
         cursor = await db.execute(
             f"""SELECT message_id, session_id, sender_type, content,
                       action_type, action_data, timestamp, conversation_id
-               FROM chat_messages {where} ORDER BY timestamp""",
+               FROM chat_messages {where} ORDER BY timestamp""",  # nosec B608 — reason: WHERE clause built from validated column names; all values are parameterised
             tuple(params),
         )
     rows = await cursor.fetchall()
@@ -153,7 +153,7 @@ async def count_messages(
     else:
         where += " AND conversation_id IS NULL"
     cursor = await db.execute(
-        f"SELECT COUNT(*) FROM chat_messages {where}",
+        f"SELECT COUNT(*) FROM chat_messages {where}",  # nosec B608 — reason: WHERE clause built from validated column names; all values are parameterised
         tuple(params),
     )
     row = await cursor.fetchone()
@@ -805,7 +805,7 @@ async def update_plan(
 
     async with transaction(db):
         cursor = await db.execute(
-            f"UPDATE chat_plans SET {', '.join(sets)} WHERE plan_id = ?",
+            f"UPDATE chat_plans SET {', '.join(sets)} WHERE plan_id = ?",  # nosec B608 — reason: SET clause built from hardcoded column names; all values are parameterised
             tuple(params),
         )
     return (cursor.rowcount or 0) > 0
@@ -1158,7 +1158,7 @@ async def update_plan_step(
 
         params.extend([step_id, plan_id])
         await db.execute(
-            f"UPDATE chat_plan_steps SET {', '.join(sets)} WHERE step_id = ? AND plan_id = ?",
+            f"UPDATE chat_plan_steps SET {', '.join(sets)} WHERE step_id = ? AND plan_id = ?",  # nosec B608 — reason: SET clause built from hardcoded column names; all values are parameterised
             tuple(params),
         )
         await db.execute(

@@ -16,7 +16,7 @@ export default {
     low: 60,
     break: null,
   },
-  ignoreStatic: true,
+  ignoreStatic: false,
   timeoutMS: 30000,
   timeoutFactor: 2.5,
   concurrency: 4,

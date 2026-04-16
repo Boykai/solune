@@ -383,13 +383,13 @@ async def _handle_transcript_upload(
         # Sanitise with os.path.basename (CodeQL-recognised path sanitizer)
         # to strip all directory components and prevent path-traversal.
         raw_name = file_url.rsplit("/", 1)[-1] if "/" in file_url else file_url
-        filename = os.path.basename(raw_name)  # noqa: PTH119 — CodeQL sanitizer
+        filename = os.path.basename(raw_name)  # noqa: PTH119 — reason: CodeQL-recognised path sanitizer; pathlib.PurePath.name not recognised by CodeQL
         if not filename:
             continue
 
         # Build the candidate path and normalise it so CodeQL can verify
         # the subsequent prefix check neutralises any traversal attempt.
-        candidate = os.path.normpath(os.path.join(str(upload_dir), filename))  # noqa: PTH118
+        candidate = os.path.normpath(os.path.join(str(upload_dir), filename))  # noqa: PTH118 — reason: CodeQL-recognised path normalisation for traversal check
         safe_prefix = os.path.normpath(str(upload_dir)) + os.sep
         if not candidate.startswith(safe_prefix):
             continue
@@ -931,7 +931,7 @@ def _trigger_signal_delivery(
 @router.post("/conversations", status_code=201)
 async def create_conversation(
     session: Annotated[UserSession, Depends(get_session_dep)],
-    body: ConversationCreateRequest = Body(default_factory=ConversationCreateRequest),  # noqa: B008
+    body: ConversationCreateRequest = Body(default_factory=ConversationCreateRequest),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> Conversation:
     """Create a new conversation for the current session."""
     from src.services import chat_store
@@ -1386,11 +1386,11 @@ async def _extract_transcript_content(file_urls: list[str]) -> str | None:
 
     for file_url in file_urls:
         raw_name = file_url.rsplit("/", 1)[-1] if "/" in file_url else file_url
-        filename = os.path.basename(raw_name)  # noqa: PTH119
+        filename = os.path.basename(raw_name)  # noqa: PTH119 — reason: CodeQL-recognised path sanitizer; pathlib.PurePath.name not recognised by CodeQL
         if not filename:
             continue
 
-        candidate = os.path.normpath(os.path.join(str(upload_dir), filename))  # noqa: PTH118
+        candidate = os.path.normpath(os.path.join(str(upload_dir), filename))  # noqa: PTH118 — reason: CodeQL-recognised path normalisation for traversal check
         safe_prefix = os.path.normpath(str(upload_dir)) + os.sep
         if not candidate.startswith(safe_prefix):
             continue
@@ -1643,8 +1643,8 @@ async def confirm_proposal(
     proposal_id: str,
     request: ProposalConfirmRequest | None,
     session: Annotated[UserSession, Depends(get_session_dep)],
-    github_projects_service=Depends(get_github_service),  # noqa: B008
-    connection_manager=Depends(get_connection_manager),  # noqa: B008
+    github_projects_service=Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    connection_manager=Depends(get_connection_manager),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> AITaskProposal:
     """Confirm an AI task proposal and create the task."""
     proposal = await get_proposal(proposal_id)
@@ -1987,8 +1987,8 @@ async def cancel_proposal(
 
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
-    file: UploadFile = File(...),  # noqa: B008
-    session: UserSession = Depends(get_session_dep),  # noqa: B008
+    file: UploadFile = File(...),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    session: UserSession = Depends(get_session_dep),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> FileUploadResponse | JSONResponse:
     """Upload a file for attachment to a future GitHub Issue.
 

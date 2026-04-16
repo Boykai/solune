@@ -267,12 +267,12 @@ class PipelineService:
 
         if github_user_id:
             cursor = await self._db.execute(
-                f"SELECT * FROM pipeline_configs WHERE (github_user_id = ? OR github_user_id = '') ORDER BY {sort_col} {sort_dir.upper()}",
+                f"SELECT * FROM pipeline_configs WHERE (github_user_id = ? OR github_user_id = '') ORDER BY {sort_col} {sort_dir.upper()}",  # nosec B608 — reason: sort_col/sort_dir are from validated enum; all filter values are parameterised
                 (github_user_id,),
             )
         else:
             cursor = await self._db.execute(
-                f"SELECT * FROM pipeline_configs WHERE project_id = ? ORDER BY {sort_col} {sort_dir.upper()}",
+                f"SELECT * FROM pipeline_configs WHERE project_id = ? ORDER BY {sort_col} {sort_dir.upper()}",  # nosec B608 — reason: sort_col/sort_dir are from validated enum; all filter values are parameterised
                 (project_id,),
             )
         rows = await cursor.fetchall()
@@ -436,7 +436,7 @@ class PipelineService:
 
         try:
             await self._db.execute(
-                f"UPDATE pipeline_configs SET {set_clause} {where}",
+                f"UPDATE pipeline_configs SET {set_clause} {where}",  # nosec B608 — reason: SET clause built from hardcoded column names; all values are parameterised
                 values,
             )
             await self._db.commit()

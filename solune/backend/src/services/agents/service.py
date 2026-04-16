@@ -361,7 +361,7 @@ class AgentsService:
         if requested_ids:
             placeholders = ",".join("?" for _ in requested_ids)
             cursor = await self._db.execute(
-                f"SELECT id, name, config_content FROM mcp_configurations WHERE project_id = ? AND github_user_id = ? AND id IN ({placeholders})",
+                f"SELECT id, name, config_content FROM mcp_configurations WHERE project_id = ? AND github_user_id = ? AND id IN ({placeholders})",  # nosec B608 — reason: placeholders are '?' repeated for parameterised IN clause; all values are parameterised
                 (project_id, github_user_id, *requested_ids),
             )
             rows = await cursor.fetchall()

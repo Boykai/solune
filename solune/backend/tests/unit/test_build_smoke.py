@@ -40,11 +40,15 @@ class TestCriticalImports:
 
     def test_fastapi_app_creates(self) -> None:
         """The FastAPI app object must be importable (catches config errors)."""
-        from src.main import app  # noqa: F401
+        from src.main import app
+
+        assert app is not None
 
     def test_copilot_provider_imports(self) -> None:
         """CopilotClientPool must be importable (SDK import breakage)."""
-        from src.services.agent_provider import CopilotClientPool  # noqa: F401
+        from src.services.agent_provider import CopilotClientPool
+
+        assert CopilotClientPool is not None
 
     def test_config_loads(self) -> None:
         """Settings must instantiate without missing env var errors in test mode."""
@@ -55,7 +59,9 @@ class TestCriticalImports:
 
     def test_database_module_imports(self) -> None:
         """Database service must import (catches aiosqlite/migration issues)."""
-        from src.services.database import get_db  # noqa: F401
+        from src.services.database import get_db
+
+        assert get_db is not None
 
     def test_all_api_routers_import(self) -> None:
         """All API router modules must import without error."""

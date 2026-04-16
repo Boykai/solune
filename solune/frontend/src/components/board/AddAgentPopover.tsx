@@ -9,7 +9,7 @@ import { TriangleAlert } from '@/lib/icons';
  * dismissal, and Escape-key handling.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
 import type { AvailableAgent, AgentAssignment } from '@/types';
@@ -46,11 +46,19 @@ export function AddAgentPopover({
 }: AddAgentPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('');
+  const filterInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenChange = useCallback((open: boolean) => {
     setIsOpen(open);
     if (!open) setFilter('');
   }, []);
+
+  // Focus filter input when popover opens for immediate typing
+  useEffect(() => {
+    if (isOpen) {
+      filterInputRef.current?.focus();
+    }
+  }, [isOpen]);
 
   const handleSelect = useCallback(
     (agent: AvailableAgent) => {
@@ -106,13 +114,12 @@ export function AddAgentPopover({
         {/* Search filter */}
         <div className="border-b border-border bg-background/40 p-2">
           <input
+            ref={filterInputRef}
             type="text"
             className="celestial-focus w-full rounded-md border border-input bg-background/72 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             placeholder="Filter agents..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            /* eslint-disable-next-line jsx-a11y/no-autofocus */
-            autoFocus
           />
         </div>
 

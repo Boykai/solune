@@ -156,6 +156,7 @@ npm run test:mutate:lib
 - Backend CI runs pytest, coverage reporting, contract generation, and targeted quality checks.
 - Frontend CI runs ESLint, type-checking, Vitest coverage thresholds, and Playwright.
 - Dedicated workflows cover mutation testing and flaky/performance-oriented checks.
+- The suppression guard (`scripts/check-suppressions.sh`) can be run locally or in CI to enforce the [Suppression Policy](#suppression-policy).
 
 ## Code Quality Commands
 
@@ -176,6 +177,34 @@ npm run lint
 npm run type-check
 npm run build
 ```
+
+---
+
+## Suppression Policy
+
+Any lint, type-check, test-skip, coverage, or mutation suppression that remains in the codebase **must** carry a `reason:` justification (either inline or on the preceding line). This applies to:
+
+- `# noqa`, `# type: ignore`, `# pragma: no cover`, `# nosec` (Python / Ruff / Bandit)
+- `eslint-disable`, `@ts-expect-error`, `@ts-ignore` (TypeScript / ESLint)
+- `#disable-next-line` (Bicep)
+
+**Allowed suppression patterns** (each must include a reason):
+
+| Pattern | Typical reason |
+|---------|---------------|
+| `# noqa: B008` | FastAPI `Depends()` / `Body()` / `File()` — evaluated per-request, not at import time |
+| `# noqa: B010` | Intentional frozen dataclass mutation test; `setattr` required to trigger `FrozenInstanceError` |
+| `# noqa: PTH119` | CodeQL-recognised path sanitizer; `pathlib.PurePath.name` not recognised by CodeQL |
+| `# type: ignore[...]` | SDK `TypedDict` preview field not yet declared in stubs |
+| `eslint-disable react-hooks/exhaustive-deps` | Mount-only effect or intentionally omitted dependency with stable ref |
+| `react-hooks/rules-of-hooks: off` (eslint config, e2e scope) | Playwright `use` callback parameter triggers false positive |
+| `eslint-disable react-hooks/set-state-in-effect` | Initialization pattern; async ID not available at first render |
+| `eslint-disable jsx-a11y/click-events-have-key-events` | Modal dialog `stopPropagation` pattern; parent backdrop handles keyboard dismiss |
+| `#disable-next-line outputs-should-not-contain-secrets` | Bicep cross-module secret passing consumed as `secureParam` downstream |
+
+**CI guard**: The `check-suppressions` step in the Build Validation CI job runs `./solune/scripts/check-suppressions.sh` from the repository root to verify all suppressions carry a `reason:` marker. The script scans Python, TypeScript, JavaScript, and Bicep files. New suppressions without a `reason:` marker will fail the CI build.
+
+Suppressions without a `reason:` marker should be addressed in the next change that touches the file.
 
 ---
 
