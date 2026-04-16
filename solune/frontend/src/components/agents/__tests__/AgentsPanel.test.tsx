@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@/test/test-utils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
-import { within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { ConfirmationDialogProvider } from '@/hooks/useConfirmation';
 import { AgentsPanel } from '../AgentsPanel';
@@ -174,12 +173,10 @@ describe('AgentsPanel', () => {
     });
   });
 
-  it('prioritizes the top three used agents in the featured section', () => {
+  it('does not render Featured Agents section', () => {
     const agents = [
       createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha', created_at: '2026-03-01T00:00:00Z' }),
       createAgent({ id: 'a2', slug: 'beta', name: 'Beta', created_at: '2026-03-01T00:00:00Z' }),
-      createAgent({ id: 'a3', slug: 'gamma', name: 'Gamma', created_at: '2026-03-01T00:00:00Z' }),
-      createAgent({ id: 'a4', slug: 'delta', name: 'Delta', created_at: '2026-03-01T00:00:00Z' }),
     ];
     mockUseAgentsList.mockReturnValue({ data: agents, isLoading: false, error: null });
     mockUseAgentsListPaginated.mockReturnValue({ allItems: agents, isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
@@ -187,51 +184,109 @@ describe('AgentsPanel', () => {
     render(
       <AgentsPanel
         projectId="PVT_1"
-        agentUsageCounts={{ alpha: 7, beta: 5, gamma: 3, delta: 1 }}
+        agentUsageCounts={{ alpha: 7, beta: 5 }}
       />,
       { wrapper: createWrapper() }
     );
 
-    const featuredHeading = screen.getByRole('heading', {
-      name: 'The agents setting the tone right now',
-    });
-    const featuredSection = featuredHeading.closest('section');
-    expect(featuredSection).not.toBeNull();
-
-    const featured = within(featuredSection as HTMLElement);
-    expect(featured.getByText('Alpha')).toBeInTheDocument();
-    expect(featured.getByText('Beta')).toBeInTheDocument();
-    expect(featured.getByText('Gamma')).toBeInTheDocument();
-    expect(featured.queryByText('Delta')).not.toBeInTheDocument();
+    expect(screen.queryByText('Featured agents')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'The agents setting the tone right now' })).not.toBeInTheDocument();
   });
 
-  it('supplements featured agents with recent agents when usage data has fewer than three matches', () => {
-    const now = new Date().toISOString();
+  it('renders Catalog Controls before Awesome Catalog when agents are loaded', () => {
     const agents = [
-      createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha', created_at: '2026-03-01T00:00:00Z' }),
-      createAgent({ id: 'a2', slug: 'beta', name: 'Beta', created_at: now }),
-      createAgent({ id: 'a3', slug: 'gamma', name: 'Gamma', created_at: now }),
-      createAgent({ id: 'a4', slug: 'delta', name: 'Delta', created_at: '2026-02-01T00:00:00Z' }),
+      createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha' }),
     ];
     mockUseAgentsList.mockReturnValue({ data: agents, isLoading: false, error: null });
     mockUseAgentsListPaginated.mockReturnValue({ allItems: agents, isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
 
-    render(
-      <AgentsPanel
-        projectId="PVT_1"
-        agentUsageCounts={{ alpha: 4, beta: 0, gamma: 0, delta: 0 }}
-      />,
-      { wrapper: createWrapper() }
-    );
+    const { container } = render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
 
-    const featuredHeading = screen.getByRole('heading', {
-      name: 'The agents setting the tone right now',
+    const catalogHeading = screen.getByRole('heading', { name: 'Filter the constellation' });
+    const awesomeHeading = screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' });
+
+    const allElements = Array.from(container.querySelectorAll('*'));
+    const catalogIdx = allElements.indexOf(catalogHeading);
+    const awesomeIdx = allElements.indexOf(awesomeHeading);
+    expect(catalogIdx).toBeLessThan(awesomeIdx);
+  });
+
+  it('collapses and expands the Pending Changes section', async () => {
+    const user = userEvent.setup();
+    mockUsePendingAgentsList.mockReturnValue({
+      data: [createAgent()],
+      isLoading: false,
     });
-    const featured = within(featuredHeading.closest('section') as HTMLElement);
-    expect(featured.getByText('Alpha')).toBeInTheDocument();
-    expect(featured.getByText('Beta')).toBeInTheDocument();
-    expect(featured.getByText('Gamma')).toBeInTheDocument();
-    expect(featured.queryByText('Delta')).not.toBeInTheDocument();
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    expect(screen.getByText('Pending changes')).toBeInTheDocument();
+    const pendingHeading = screen.getByRole('heading', { name: 'Agent PRs waiting on main' });
+    expect(pendingHeading).toBeInTheDocument();
+    expect(screen.getByText('Reviewer')).toBeInTheDocument();
+
+    const toggleButton = pendingHeading.closest('button');
+    expect(toggleButton).not.toBeNull();
+    await user.click(toggleButton!);
+
+    expect(screen.queryByText('Reviewer')).not.toBeInTheDocument();
+
+    await user.click(toggleButton!);
+    expect(screen.getByText('Reviewer')).toBeInTheDocument();
+  });
+
+  it('collapses and expands the Catalog Controls section', async () => {
+    const user = userEvent.setup();
+    const agents = [createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha' })];
+    mockUseAgentsList.mockReturnValue({ data: agents, isLoading: false, error: null });
+    mockUseAgentsListPaginated.mockReturnValue({ allItems: agents, isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    const catalogHeading = screen.getByRole('heading', { name: 'Filter the constellation' });
+    expect(screen.getByPlaceholderText('Search by name, slug, description, or tool')).toBeInTheDocument();
+
+    const toggleButton = catalogHeading.closest('button');
+    expect(toggleButton).not.toBeNull();
+    await user.click(toggleButton!);
+
+    expect(screen.queryByPlaceholderText('Search by name, slug, description, or tool')).not.toBeInTheDocument();
+
+    await user.click(toggleButton!);
+    expect(screen.getByPlaceholderText('Search by name, slug, description, or tool')).toBeInTheDocument();
+  });
+
+  it('collapses and expands the Awesome Catalog section', async () => {
+    const user = userEvent.setup();
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Helps with alpha work',
+          source_url: 'https://example.test/catalog-alpha',
+          already_imported: false,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    const awesomeHeading = screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' });
+    expect(screen.getByText('Catalog Alpha')).toBeInTheDocument();
+
+    const toggleButton = awesomeHeading.closest('button');
+    expect(toggleButton).not.toBeNull();
+    await user.click(toggleButton!);
+
+    expect(screen.queryByText('Catalog Alpha')).not.toBeInTheDocument();
+
+    await user.click(toggleButton!);
+    expect(screen.getByText('Catalog Alpha')).toBeInTheDocument();
   });
 
   it('opens the bulk model update dialog from the catalog controls', async () => {
@@ -494,9 +549,9 @@ describe('AgentsPanel', () => {
       wrapper: createWrapper(),
     });
 
-    expect(screen.getAllByText('Recently added')).toHaveLength(2);
-    expect(screen.getAllByText('Assigned sub-issues')).toHaveLength(2);
-    expect(screen.getAllByText('3 open')).toHaveLength(2);
+    expect(screen.getAllByText('Recently added')).toHaveLength(1);
+    expect(screen.getAllByText('Assigned sub-issues')).toHaveLength(1);
+    expect(screen.getAllByText('3 open')).toHaveLength(1);
 
     vi.useRealTimers();
   });
@@ -542,7 +597,7 @@ describe('AgentsPanel', () => {
       { wrapper: createWrapper() }
     );
 
-    expect(screen.getAllByText('2 configs')).toHaveLength(2);
+    expect(screen.getAllByText('2 configs')).toHaveLength(1);
     expect(screen.queryByText('9 configs')).not.toBeInTheDocument();
   });
 

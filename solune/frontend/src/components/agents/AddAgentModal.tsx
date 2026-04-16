@@ -350,7 +350,7 @@ function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalCo
 
   return (
     <div
-      className="fixed inset-0 z-[var(--z-agent-modal-base)] flex items-center justify-center overflow-y-auto bg-background/80 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[var(--z-agent-modal-base)] flex items-start justify-center overflow-y-auto bg-background/80 px-4 py-6 backdrop-blur-sm"
       role="presentation"
       onClick={handleRequestClose}
     >
