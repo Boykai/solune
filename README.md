@@ -19,7 +19,7 @@ Managing software projects still means juggling disconnected tools: a project bo
 
 Solune brings it all together. You describe what you want to build, design a pipeline of AI agents in a drag-and-drop interface, and launch. Each agent creates its own sub-issue, branches from the main PR, executes its task, and merges back automatically. The entire flow is tracked on your GitHub Project board with real-time status updates.
 
-What makes Solune different is the pipeline engine. Agents run in configurable stages — series for dependent work, parallel for independent tasks. Pipelines are reusable templates. The built-in **Spec Kit** preset (`specify` → `plan` → `tasks` → `implement` → `review`) ships as a default, and you can create your own pipelines with any combination of custom agents.
+What makes Solune different is the pipeline engine. Agents run in configurable stages — series for dependent work, parallel for independent tasks. Pipelines are reusable templates. Four built-in presets ship out of the box — **GitHub** (single Copilot agent), **Spec Kit** (specify → plan → tasks → analyze → implement), **Default** (Spec Kit + QA, test, lint, review, and judge), and **App Builder** (Default + architecture) — and you can create your own pipelines with any combination of custom agents.
 
 ## Features
 

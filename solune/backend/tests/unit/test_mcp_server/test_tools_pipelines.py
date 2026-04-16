@@ -39,7 +39,7 @@ class TestListPipelines:
     @patch("src.services.database.get_db")
     async def test_returns_pipeline_list(self, mock_get_db, MockPipeSvc, mock_access):
         mock_result = MagicMock()
-        mock_result.model_dump.return_value = {"pipelines": [{"id": "easy", "name": "Easy"}]}
+        mock_result.model_dump.return_value = {"pipelines": [{"id": "github", "name": "GitHub"}]}
         MockPipeSvc.return_value.list_pipelines = AsyncMock(return_value=mock_result)
 
         ctx = _make_ctx()
@@ -67,7 +67,7 @@ class TestLaunchPipeline:
         mock_launch.return_value = mock_result
 
         ctx = _make_ctx()
-        result = await launch_pipeline(ctx, "PVT_abc", "easy", "Build a widget")
+        result = await launch_pipeline(ctx, "PVT_abc", "github", "Build a widget")
 
         assert result["success"] is True
         assert result["issue_number"] == 42
@@ -75,7 +75,7 @@ class TestLaunchPipeline:
         # Verify session was constructed correctly
         call_kwargs = mock_launch.call_args.kwargs
         assert call_kwargs["project_id"] == "PVT_abc"
-        assert call_kwargs["pipeline_id"] == "easy"
+        assert call_kwargs["pipeline_id"] == "github"
         assert call_kwargs["issue_description"] == "Build a widget"
 
 

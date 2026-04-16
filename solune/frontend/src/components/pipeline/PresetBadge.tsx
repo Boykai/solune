@@ -12,32 +12,20 @@ interface PresetBadgeProps {
 }
 
 const PRESET_STYLES: Record<string, { label: string; classes: string }> = {
-  'spec-kit': {
-    label: 'Spec Kit',
-    classes: 'solar-chip-violet',
-  },
-  'github-copilot': {
-    label: 'GitHub Copilot',
-    classes: 'solar-chip-success',
-  },
   'github': {
     label: 'GitHub',
     classes: 'solar-chip-success',
   },
-  'easy': {
-    label: 'Easy',
-    classes: 'solar-chip-success',
-  },
-  'medium': {
-    label: 'Medium',
-    classes: 'solar-chip-soft',
-  },
-  'hard': {
-    label: 'Hard',
+  'spec-kit': {
+    label: 'Spec Kit',
     classes: 'solar-chip-violet',
   },
-  'expert': {
-    label: 'Expert',
+  'default': {
+    label: 'Default',
+    classes: 'solar-chip-soft',
+  },
+  'app-builder': {
+    label: 'App Builder',
     classes: 'solar-chip-neutral',
   },
 };

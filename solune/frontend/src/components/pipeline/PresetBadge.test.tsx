@@ -10,9 +10,9 @@ describe('PresetBadge', () => {
     expect(screen.getByText('Spec Kit')).toBeInTheDocument();
   });
 
-  it('renders github-copilot preset', () => {
-    render(<PresetBadge presetId="github-copilot" />);
-    expect(screen.getByText('GitHub Copilot')).toBeInTheDocument();
+  it('renders github preset', () => {
+    render(<PresetBadge presetId="github" />);
+    expect(screen.getByText('GitHub')).toBeInTheDocument();
   });
 
   it('renders unknown preset with presetId as label', () => {
@@ -20,27 +20,29 @@ describe('PresetBadge', () => {
     expect(screen.getByText('custom-preset')).toBeInTheDocument();
   });
 
-  it('renders all known presets', () => {
-    const presets = ['spec-kit', 'github-copilot', 'easy', 'medium', 'hard', 'expert'];
-    for (const presetId of presets) {
-      const { unmount } = render(<PresetBadge presetId={presetId} />);
-      unmount();
-    }
+  it.each([
+    ['github', 'GitHub'],
+    ['spec-kit', 'Spec Kit'],
+    ['default', 'Default'],
+    ['app-builder', 'App Builder'],
+  ])('renders %s preset with its label', (presetId, label) => {
+    render(<PresetBadge presetId={presetId} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
   });
 
   it('applies custom className', () => {
-    const { container } = render(<PresetBadge presetId="easy" className="extra" />);
+    const { container } = render(<PresetBadge presetId="github" className="extra" />);
     expect(container.firstElementChild?.className).toContain('extra');
   });
 
   it('includes a lock icon', () => {
-    const { container } = render(<PresetBadge presetId="easy" />);
+    const { container } = render(<PresetBadge presetId="github" />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = render(<PresetBadge presetId="medium" />);
+    const { container } = render(<PresetBadge presetId="default" />);
     await expectNoA11yViolations(container);
   });
 });

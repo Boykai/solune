@@ -6,7 +6,7 @@
   "difficulty": "M",
   "tech_stack": ["fastapi", "postgresql"],
   "scaffold_type": "skeleton",
-  "recommended_preset_id": "medium",
+  "recommended_preset_id": "spec-kit",
   "iac_target": "docker",
   "files": [
     {

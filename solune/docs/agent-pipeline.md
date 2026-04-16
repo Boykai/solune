@@ -11,13 +11,13 @@ Agent Pipelines are the heart of Solune — the engine that turns a feature desc
 
 ### Creating Your First Pipeline
 
-Open the **Agents Pipelines** page in Solune, drag agents from the sidebar into execution stages, choose series or parallel mode for each group, and click **Launch**. The built-in **Spec Kit** preset is a great starting point — or create a blank pipeline and compose your own agent combinations.
+Open the **Agents Pipelines** page in Solune, drag agents from the sidebar into execution stages, choose series or parallel mode for each group, and click **Launch**. Choose from four built-in presets — **GitHub**, **Spec Kit**, **Default**, or **App Builder** — or create a blank pipeline and compose your own agent combinations.
 
 ## Overview
 
 Agent Pipelines are customizable execution plans that orchestrate AI Custom GitHub Agents to perform remote work in series or parallel. Through the visual pipeline GUI, you compose any combination of agents into stages, assign AI models, and choose execution modes (series or parallel). When a pipeline is launched, the system creates a GitHub Issue, attaches it to a **GitHub Project** board, and executes each agent stage automatically — advancing the issue across board columns as agents complete their work.
 
-Pipelines are not limited to any single agent set. The **Spec Kit** preset ships as a default (`specify` → `plan` → `tasks` → `implement` → `review`), but you can create pipelines with entirely custom agents, different stage counts, and mixed series/parallel execution groups.
+Pipelines are not limited to any single agent set. Four built-in presets are included — **GitHub** (single Copilot agent), **Spec Kit** (`specify` → `plan` → `tasks` → `analyze` → `implement`), **Default** (Spec Kit + QA, test, lint, review, and judge), and **App Builder** (Default + architecture) — but you can create pipelines with entirely custom agents, different stage counts, and mixed series/parallel execution groups.
 
 ## Pipeline Flow
 
@@ -47,30 +47,46 @@ Agents in the diagram are placeholders — replace them with any agents from you
 
 ## Status Transitions
 
-The pipeline advances issues through GitHub Project board columns. The exact agents in each status depend on your pipeline configuration. Using the default **Spec Kit** preset as an example:
+The pipeline advances issues through GitHub Project board columns. The exact agents in each status depend on your pipeline configuration. The built-in presets all use a single **"In progress"** stage with one sequential execution group, so every agent runs in the same board column. Custom pipelines can spread agents across multiple board columns.
 
-| Status | Agent(s) | What Happens | Transition Trigger |
-|--------|----------|--------------|-------------------|
-| 📋 **Backlog** | First stage agent (e.g. `speckit.specify`) | Sub-issue created, agent assigned; creates first PR (establishes main branch); sub-issue closed on completion | `<agent>: Done!` on sub-issue |
-| 📝 **Ready** | Middle stage agents (e.g. `speckit.plan` → `speckit.tasks`) | Sequential or parallel: each agent gets its sub-issue, branches from main branch, child PR merged + deleted, sub-issue closed | All agents in group post `Done!` markers |
-| 🔄 **In Progress** | Implementation agent (e.g. `speckit.implement`) | Agent branches from main, implements code, child PR merged + deleted, main PR converted from draft to ready | Child PR completion detected via timeline events or PR no longer draft |
-| 👀 **In Review** | `copilot-review` | **Not a coding agent.** The pipeline calls the GitHub API to request a Copilot code review directly on the parent issue's **main branch PR**. The `copilot-review` sub-issue is a tracking issue only — Copilot is **never** assigned to it as a coding agent. Sub-issue closed when review completes. | Manual merge |
-| ✅ **Done** | — | Work merged | Manual or webhook on PR merge |
+| Status | What Happens | Transition Trigger |
+|--------|--------------|-------------------|
+| 🔄 **In Progress** | All pipeline agents run sequentially in one group. Each agent gets its own sub-issue, branches from the main PR, executes, and merges back. The first agent establishes the main branch; subsequent agents branch from it. | Each agent posts `<agent>: Done!` on the parent issue; the pipeline advances to the next agent in the group |
+| 👀 **In Review** | `copilot-review` (when included) requests a Copilot code review on the **main branch PR** via the GitHub API. The sub-issue is a tracking issue only — Copilot is **never** assigned as a coding agent. | Manual merge |
+| ✅ **Done** | Work merged | Manual or webhook on PR merge |
 
 Custom pipelines can map any agents to any board column. The status names correspond to columns on your GitHub Project board.
 
-## Built-in Agents (Spec Kit Preset)
+## Built-in Presets
 
-The **Spec Kit** preset ships with these agents, defined in `.github/agents/*.agent.md`:
+Solune ships with four pipeline presets. Each uses a single **"In progress"** stage with one sequential execution group:
+
+| Preset | Agents |
+|--------|--------|
+| **GitHub** | `copilot` |
+| **Spec Kit** | `speckit.specify` → `speckit.plan` → `speckit.tasks` → `speckit.analyze` → `speckit.implement` |
+| **Default** | Spec Kit agents + `quality-assurance` → `tester` → `linter` → `copilot-review` → `judge` |
+| **App Builder** | Spec Kit agents + `architect` → `quality-assurance` → `tester` → `linter` → `copilot-review` → `judge` |
+
+### Available Agents
+
+The following agents are defined in `.github/agents/*.agent.md` and available for pipeline composition:
 
 | Agent | Purpose | Output Files |
 |-------|---------|-------------|
+| `copilot` | General-purpose GitHub Copilot coding agent | Code files |
 | `speckit.specify` | Feature specification from issue description | `spec.md`, `checklists/requirements.md` |
 | `speckit.plan` | Implementation plan with research and data model | `plan.md`, `research.md`, `data-model.md`, `contracts/*`, `quickstart.md` |
 | `speckit.tasks` | Actionable, dependency-ordered task breakdown | `tasks.md` |
-| `speckit.implement` | Code implementation following `tasks.md` | Code files |
-| `speckit.clarify` | Asks clarification questions, updates spec | Updates `spec.md` |
 | `speckit.analyze` | Read-only cross-artifact consistency analysis | Analysis report in the agent response only (no committed files) |
+| `speckit.implement` | Code implementation following `tasks.md` | Code files |
+| `architect` | Infrastructure and architecture scaffolding | IaC files, deploy configs |
+| `quality-assurance` | Code quality improvements and requirement verification | Code changes |
+| `tester` | Test generation for changed behavior | Test files |
+| `linter` | Linting, formatting, and CI fix-up | Code changes |
+| `copilot-review` | Requests a Copilot code review (tracking issue only) | — |
+| `judge` | Triages PR review comments and applies justified changes | Code changes |
+| `speckit.clarify` | Asks clarification questions, updates spec | Updates `spec.md` |
 | `speckit.checklist` | Quality checklists | `checklists/*.md` |
 | `speckit.constitution` | Project constitution management | `.specify/memory/constitution.md` |
 | `speckit.taskstoissues` | Converts `tasks.md` entries into GitHub Issues | GitHub Issues |
@@ -232,14 +248,11 @@ On server restart, the system reconstructs state from:
 
 ## Configuration
 
-Agent-to-status mappings are fully customizable through the **pipeline GUI**, the Settings UI, or `PUT /api/v1/workflow/config`. The default **Spec Kit** preset ships with:
+Agent-to-status mappings are fully customizable through the **pipeline GUI**, the Settings UI, or `PUT /api/v1/workflow/config`. The **Default** preset ships with all agents in a single "In Progress" stage:
 
 | Status | Default Agents |
 |--------|---------------|
-| Backlog | `speckit.specify` |
-| Ready | `speckit.plan`, `speckit.tasks` |
-| In Progress | `speckit.implement` |
-| In Review | `copilot-review` |
+| In Progress | `speckit.specify`, `speckit.plan`, `speckit.tasks`, `speckit.analyze`, `speckit.implement`, `quality-assurance`, `tester`, `linter`, `copilot-review`, `judge` |
 
 You can replace these with any custom agents, add or remove stages, and configure execution groups (series or parallel) for each stage. Pipeline configurations are saved and reusable — select a saved pipeline when launching from the Projects page.
 

@@ -76,7 +76,7 @@ Agent Pipelines are the heart of Solune — the engine that turns a feature desc
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-The built-in **Spec Kit** preset (`specify` → `plan` → `tasks` → `implement` → `review`) ships as a default, but you can create your own pipelines with any custom agents.
+Four built-in presets ship out of the box — **GitHub**, **Spec Kit**, **Default**, and **App Builder** — but you can create your own pipelines with any custom agents.
 
 Each agent branches from the issue's main PR branch. Child PRs are squash-merged back and branches deleted automatically. The pipeline is tracked with a durable markdown table in the issue body that survives server restarts.
 

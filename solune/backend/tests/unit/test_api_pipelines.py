@@ -145,13 +145,13 @@ class TestLaunchPipelineIssue:
         }
 
     @pytest.mark.anyio
-    async def test_launch_uses_github_copilot_preset_as_actionable_stage(
+    async def test_launch_uses_github_preset_as_actionable_stage(
         self, client, mock_db, mock_github_service
     ):
-        """The built-in GitHub Copilot preset launches from an actionable workflow status."""
+        """The built-in GitHub preset launches from an actionable workflow status."""
         pipeline_id = await _get_preset_pipeline_id(
             mock_db,
-            "github-copilot",
+            "github",
             project_id="PVT_1",
         )
         mock_github_service.create_issue.return_value = {
@@ -839,6 +839,82 @@ class TestSeedPresets:
         assert data["skipped"] == []
 
     @pytest.mark.anyio
+    async def test_seed_presets_creates_expected_single_stage_definitions(self, mock_db):
+        """Built-in presets stay aligned with the single-stage frontend definitions."""
+        expected_agents = {
+            "github": ["copilot"],
+            "spec-kit": [
+                "speckit.specify",
+                "speckit.plan",
+                "speckit.tasks",
+                "speckit.analyze",
+                "speckit.implement",
+            ],
+            "default": [
+                "speckit.specify",
+                "speckit.plan",
+                "speckit.tasks",
+                "speckit.analyze",
+                "speckit.implement",
+                "quality-assurance",
+                "tester",
+                "linter",
+                "copilot-review",
+                "judge",
+            ],
+            "app-builder": [
+                "speckit.specify",
+                "speckit.plan",
+                "speckit.tasks",
+                "speckit.analyze",
+                "speckit.implement",
+                "architect",
+                "quality-assurance",
+                "tester",
+                "linter",
+                "copilot-review",
+                "judge",
+            ],
+        }
+
+        result = await PipelineService(mock_db).seed_presets(
+            "PVT_PRESETS_EXPECTED",
+            github_user_id="12345",
+        )
+
+        assert set(result["seeded"]) == set(expected_agents)
+        assert result["skipped"] == []
+
+        cursor = await mock_db.execute(
+            """
+            SELECT preset_id, stages
+            FROM pipeline_configs
+            WHERE project_id = ? AND github_user_id = ?
+            ORDER BY preset_id
+            """,
+            ("PVT_PRESETS_EXPECTED", "12345"),
+        )
+        rows = await cursor.fetchall()
+
+        assert {row["preset_id"] for row in rows} == set(expected_agents)
+
+        for row in rows:
+            stages = json.loads(row["stages"])
+            assert len(stages) == 1
+
+            stage = stages[0]
+            assert stage["name"] == "In progress"
+            assert stage["execution_mode"] == "sequential"
+            assert len(stage["groups"]) == 1
+
+            group = stage["groups"][0]
+            assert group["execution_mode"] == "sequential"
+
+            expected_slugs = expected_agents[row["preset_id"]]
+            assert [agent["agent_slug"] for agent in group["agents"]] == expected_slugs
+            assert [agent["agent_slug"] for agent in stage["agents"]] == expected_slugs
+
+    @pytest.mark.anyio
     async def test_seed_presets_is_idempotent(self, client):
         """A second seed call skips presets that already exist."""
         await client.post("/api/v1/pipelines/PVT_PRESETS_REPEAT/seed-presets")
@@ -851,7 +927,7 @@ class TestSeedPresets:
         assert len(data["skipped"]) == data["total"]
 
     @pytest.mark.anyio
-    async def test_seed_presets_refreshes_existing_github_copilot_definition(self, mock_db):
+    async def test_seed_presets_refreshes_existing_github_definition(self, mock_db):
         """Seeding updates existing preset rows when built-in definitions change."""
         await mock_db.execute(
             """
@@ -862,22 +938,22 @@ class TestSeedPresets:
             (
                 "preset-copilot-old",
                 "PVT_PRESETS_SYNC",
-                "GitHub Copilot",
-                "Single-stage pipeline powered by GitHub Copilot",
+                "GitHub",
+                "Single-agent pipeline powered by GitHub Copilot.",
                 json.dumps(
                     [
                         {
-                            "id": "preset-gc-stage-1",
+                            "id": "preset-gh-stage-1",
                             "name": "Execute",
                             "order": 0,
                             "groups": [
                                 {
-                                    "id": "preset-gc-group-1",
+                                    "id": "preset-gh-group-1",
                                     "order": 0,
                                     "execution_mode": "sequential",
                                     "agents": [
                                         {
-                                            "id": "preset-gc-agent-1",
+                                            "id": "preset-gh-a1",
                                             "agent_slug": "copilot",
                                             "agent_display_name": "GitHub Copilot",
                                             "model_id": "",
@@ -891,7 +967,7 @@ class TestSeedPresets:
                             ],
                             "agents": [
                                 {
-                                    "id": "preset-gc-agent-1",
+                                    "id": "preset-gh-a1",
                                     "agent_slug": "copilot",
                                     "agent_display_name": "GitHub Copilot",
                                     "model_id": "",
@@ -905,7 +981,7 @@ class TestSeedPresets:
                         }
                     ]
                 ),
-                "github-copilot",
+                "github",
                 "12345",
                 "2026-04-13T00:00:00Z",
                 "2026-04-13T00:00:00Z",
@@ -918,8 +994,8 @@ class TestSeedPresets:
             github_user_id="12345",
         )
 
-        assert "github-copilot" in result["skipped"]
-        assert "github-copilot" not in result["seeded"]
+        assert "github" in result["skipped"]
+        assert "github" not in result["seeded"]
 
         cursor = await mock_db.execute(
             """
@@ -928,13 +1004,13 @@ class TestSeedPresets:
             WHERE preset_id = ? AND github_user_id = ?
             LIMIT 1
             """,
-            ("github-copilot", "12345"),
+            ("github", "12345"),
         )
         row = await cursor.fetchone()
         assert row is not None
 
         stages = json.loads(row["stages"])
-        assert stages[0]["name"] == "In Progress"
+        assert stages[0]["name"] == "In progress"
 
 
 class TestPipelineAssignment:

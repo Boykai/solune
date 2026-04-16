@@ -270,13 +270,29 @@ class TestConstants:
         assert AGENT_OUTPUT_FILES["speckit.specify"] == ["spec.md"]
 
     def test_default_agent_mappings(self):
-        assert StatusNames.BACKLOG in DEFAULT_AGENT_MAPPINGS
-        assert "speckit.specify" in DEFAULT_AGENT_MAPPINGS[StatusNames.BACKLOG]
+        assert list(DEFAULT_AGENT_MAPPINGS) == [StatusNames.IN_PROGRESS]
+        assert DEFAULT_AGENT_MAPPINGS[StatusNames.IN_PROGRESS] == [
+            "speckit.specify",
+            "speckit.plan",
+            "speckit.tasks",
+            "speckit.analyze",
+            "speckit.implement",
+            "quality-assurance",
+            "tester",
+            "linter",
+            "copilot-review",
+            "judge",
+        ]
 
     def test_agent_display_names(self):
         assert "speckit.specify" in AGENT_DISPLAY_NAMES
         assert AGENT_DISPLAY_NAMES["speckit.specify"] == "Spec Kit - Specify"
         assert AGENT_DISPLAY_NAMES["speckit.analyze"] == "Spec Kit - Analyze"
+        assert AGENT_DISPLAY_NAMES["architect"] == "Architect"
+        assert AGENT_DISPLAY_NAMES["quality-assurance"] == "Quality Assurance"
+        assert AGENT_DISPLAY_NAMES["tester"] == "Tester"
+        assert AGENT_DISPLAY_NAMES["linter"] == "Linter"
+        assert AGENT_DISPLAY_NAMES["judge"] == "Judge"
 
     def test_analyze_not_in_agent_output_files(self):
         """speckit.analyze is read-only and must not appear in AGENT_OUTPUT_FILES."""
