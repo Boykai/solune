@@ -212,7 +212,7 @@ export function UploadMcpModal({
     } catch {
       setMultiServerWarning(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: intentionally omits name/setName to only auto-populate when configContent changes (not on manual name edits)
   }, [configContent]);
 
   if (!isOpen) return null;

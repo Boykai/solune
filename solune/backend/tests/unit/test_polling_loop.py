@@ -38,7 +38,7 @@ class TestPollStep:
 
         step = PollStep(name="test", execute=noop)
         with pytest.raises(AttributeError):
-            setattr(step, "name", "other")  # noqa: B010
+            setattr(step, "name", "other")  # noqa: B010 — reason: intentional frozen dataclass mutation test; setattr required to trigger FrozenInstanceError
 
 
 class TestPollSteps:

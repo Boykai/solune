@@ -42,6 +42,9 @@ test.describe('Project board load performance', () => {
     storageState: authFileExists ? AUTH_FILE : undefined,
   });
 
+  // reason: these test.skip() calls are environment-based guards — the tests require
+  // a running backend, saved auth state, and E2E_PROJECT_ID. They skip gracefully
+  // when prerequisites are missing rather than failing.
   test.beforeEach(async () => {
     if (!authFileExists) {
       test.skip(true, 'Auth state not found — run save-auth-state.ts first');

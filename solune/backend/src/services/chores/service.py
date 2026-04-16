@@ -317,7 +317,7 @@ class ChoresService:
         values = [*list(updates.values()), chore_id]
 
         await self._db.execute(
-            f"UPDATE chores SET {set_clause} WHERE id = ?",
+            f"UPDATE chores SET {set_clause} WHERE id = ?",  # nosec B608
             values,
         )
         await self._db.commit()
@@ -452,7 +452,7 @@ class ChoresService:
         values = [*list(kwargs.values()), chore_id]
 
         await self._db.execute(
-            f"UPDATE chores SET {set_clause} WHERE id = ?",
+            f"UPDATE chores SET {set_clause} WHERE id = ?",  # nosec B608
             values,
         )
         await self._db.commit()
@@ -955,7 +955,7 @@ class ChoresService:
         values = [*list(updates.values()), chore_id]
 
         await self._db.execute(
-            f"UPDATE chores SET {set_clause} WHERE id = ?",
+            f"UPDATE chores SET {set_clause} WHERE id = ?",  # nosec B608
             values,
         )
         await self._db.commit()

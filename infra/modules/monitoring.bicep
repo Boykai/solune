@@ -39,6 +39,7 @@ output workspaceId string = logAnalyticsWorkspace.id
 output workspaceCustomerId string = logAnalyticsWorkspace.properties.customerId
 
 @description('Shared key for the Log Analytics Workspace — used by Container Apps Environment.')
+// reason: required by Container Apps Environment module — consumed as secureParam in container-apps.bicep
 #disable-next-line outputs-should-not-contain-secrets
 output workspaceSharedKey string = logAnalyticsWorkspace.listKeys().primarySharedKey
 

@@ -611,7 +611,7 @@ class TestChatAgentServiceRunStream:
 
         async def failing_stream(*args, **kwargs):
             raise RuntimeError("Stream failed")
-            yield  # pragma: no cover — makes this function an async generator
+            yield  # pragma: no cover — reason: unreachable yield makes function an async generator; required for type signature
 
         mock_agent.run = MagicMock(return_value=failing_stream())
         mock_create_agent.return_value = mock_agent

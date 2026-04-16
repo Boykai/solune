@@ -70,7 +70,7 @@ class TestDescriptionFormattingPreservation:
     """T023: Unicode, emoji, and special characters are preserved in descriptions."""
 
     def test_unicode_emoji_preserved(self):
-        desc = "Hello 🌍 – «résumé» — naïve — 日本語テスト — 🚀🎉"  # noqa: RUF001
+        desc = "Hello 🌍 – «résumé» — naïve — 日本語テスト — 🚀🎉"  # noqa: RUF001 — reason: intentional Unicode test data
         proposal = AITaskProposal(
             session_id=uuid4(),
             original_input="test",

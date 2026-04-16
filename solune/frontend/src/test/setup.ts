@@ -11,8 +11,7 @@ import { vi, beforeEach, type Mock } from 'vitest';
 // UUID values are deterministic regardless of test execution order.
 let _counter = 0;
 if (typeof globalThis.crypto === 'undefined') {
-  // @ts-expect-error - partial crypto shim for test environments
-  globalThis.crypto = {};
+  globalThis.crypto = {} as Crypto;
 }
 if (typeof globalThis.crypto.randomUUID !== 'function') {
   globalThis.crypto.randomUUID = () =>
@@ -55,8 +54,9 @@ class MockWebSocket {
   }
 }
 
-// @ts-expect-error - Override global WebSocket with mock implementation
-global.WebSocket = MockWebSocket;
+// MockWebSocket provides only the subset of WebSocket used by our code.
+// Cast to WebSocket for assignment; the mock is intentionally incomplete.
+global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
 
 // ─── Mock window.location / window.history ───────────────────────────────
 

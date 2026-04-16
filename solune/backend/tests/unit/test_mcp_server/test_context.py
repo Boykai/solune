@@ -92,14 +92,14 @@ class TestMcpContextImmutability:
     def test_frozen_token(self):
         ctx = McpContext(github_token="ghp_abc", github_user_id=1, github_login="user")
         with __import__("pytest").raises(AttributeError):
-            ctx.github_token = "ghp_new"  # type: ignore[misc]
+            ctx.github_token = "ghp_new"  # type: ignore[misc] — reason: intentional frozen dataclass mutation in pytest.raises(AttributeError) test
 
     def test_frozen_user_id(self):
         ctx = McpContext(github_token="ghp_abc", github_user_id=1, github_login="user")
         with __import__("pytest").raises(AttributeError):
-            ctx.github_user_id = 99  # type: ignore[misc]
+            ctx.github_user_id = 99  # type: ignore[misc] — reason: intentional frozen dataclass mutation in pytest.raises(AttributeError) test
 
     def test_frozen_login(self):
         ctx = McpContext(github_token="ghp_abc", github_user_id=1, github_login="user")
         with __import__("pytest").raises(AttributeError):
-            ctx.github_login = "other"  # type: ignore[misc]
+            ctx.github_login = "other"  # type: ignore[misc] — reason: intentional frozen dataclass mutation in pytest.raises(AttributeError) test

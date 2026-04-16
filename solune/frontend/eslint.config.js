@@ -18,6 +18,7 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.configs.recommended.rules,
       ...security.configs.recommended.rules,
+      // reason: detect-object-injection produces excessive false positives on all bracket access
       'security/detect-object-injection': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'jsx-a11y/label-has-associated-control': ['error', {
@@ -35,19 +36,23 @@ export default tseslint.config(
   {
     files: ['**/*.test.{ts,tsx}'],
     rules: {
+      // reason: test fixtures use dynamic file paths that trigger false positives
       'security/detect-non-literal-fs-filename': 'off',
+      // reason: test data may contain intentional regex patterns
       'security/detect-unsafe-regex': 'off',
     },
   },
   {
     files: ['e2e/**/*.{ts,tsx}'],
     rules: {
+      // reason: Playwright fixtures use dynamic file paths
       'security/detect-non-literal-fs-filename': 'off',
     },
   },
   {
     files: ['src/lib/icons.ts'],
     rules: {
+      // reason: icons.ts is the canonical re-export barrel; it must import from lucide-react
       'no-restricted-imports': 'off',
     },
   }

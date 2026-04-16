@@ -735,7 +735,7 @@ async def update_app(db: aiosqlite.Connection, name: str, payload: AppUpdate) ->
     values = list(updates.values())
     values.append(name)
 
-    await db.execute(f"UPDATE apps SET {set_clause} WHERE name = ?", values)
+    await db.execute(f"UPDATE apps SET {set_clause} WHERE name = ?", values)  # nosec B608
     await db.commit()
 
     return await get_app(db, name)

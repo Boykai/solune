@@ -434,7 +434,7 @@ export function ChatInterface({
     if (mentionValidationError) {
       setMentionValidationError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: intentionally omits mentionValidationError to avoid clearing on every render; only reacts to token changes
   }, [mention.mentionTokens]);
 
   // Listen for global Ctrl+K focus-chat event
