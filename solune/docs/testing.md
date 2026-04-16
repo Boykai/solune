@@ -187,7 +187,6 @@ Any lint, type-check, test-skip, coverage, or mutation suppression that remains 
 - `# noqa`, `# type: ignore`, `# pragma: no cover`, `# nosec` (Python / Ruff / Bandit)
 - `eslint-disable`, `@ts-expect-error`, `@ts-ignore` (TypeScript / ESLint)
 - `#disable-next-line` (Bicep)
-- `@pytest.mark.skipif`, `test.skip()` (test skips)
 
 **Allowed suppression patterns** (each must include a reason):
 

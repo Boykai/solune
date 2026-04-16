@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 EXIT_CODE=0
 
 # Patterns to search for (regex)
