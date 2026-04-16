@@ -58,7 +58,7 @@ test.describe('API Integration', () => {
         expect(['healthy', 'pass']).toContain(data.status);
       }
     } catch {
-      // Backend not running (CI) — skip gracefully
+      // reason: backend not running (CI) — skip gracefully when live API unreachable
       test.skip();
     }
   });
@@ -69,7 +69,7 @@ test.describe('API Integration', () => {
       const response = await request.get('http://localhost:8000/api/v1/auth/me');
       expect(response.status()).toBe(401);
     } catch {
-      // Backend not running (CI) — skip gracefully
+      // reason: backend not running (CI) — skip gracefully when live API unreachable
       test.skip();
     }
   });

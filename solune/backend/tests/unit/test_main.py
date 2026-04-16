@@ -12,6 +12,7 @@ import json
 from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 
 from src.main import _auto_start_copilot_polling, _session_cleanup_loop, create_app
@@ -169,11 +170,9 @@ class TestLifespan:
                 otel_service_name="solune-backend",
                 sentry_dsn="",
             )
-            try:
+            with pytest.raises(RuntimeError, match="signal connect failed"):
                 async with lifespan(mock_app):
-                    pass  # pragma: no cover — reason: lifespan expected to raise RuntimeError before reaching here
-            except RuntimeError:
-                pass
+                    pytest.fail("lifespan should have raised before yielding")
 
             # DB should still be closed even though startup failed
             mock_close.assert_awaited_once()

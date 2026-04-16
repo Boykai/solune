@@ -355,19 +355,6 @@ class TestCheckIntegrity:
             cursor = AsyncMock()
             cursor.fetchone = AsyncMock(return_value=("page X: btree error",))
             mock_exec.return_value = cursor
-            # Need to allow close on original
-            mock_exec.side_effect = None
-            original_close = db.close
-
-            async def patched_execute(sql, *args, **kwargs):
-                if "integrity_check" in sql:
-                    return cursor
-                return await aiosqlite.Connection.execute(
-                    db, sql, *args, **kwargs
-                )  # pragma: no cover — reason: fallback branch in mock; only integrity_check path exercised in test
-
-            mock_exec.side_effect = patched_execute
-            db.close = original_close
 
             result = await _check_integrity(db, db_path, is_in_memory=False)
 
@@ -393,18 +380,6 @@ class TestCheckIntegrity:
             cursor = AsyncMock()
             cursor.fetchone = AsyncMock(return_value=("page X: btree error",))
             mock_exec.return_value = cursor
-            mock_exec.side_effect = None
-            original_close = db.close
-
-            async def patched_execute(sql, *args, **kwargs):
-                if "integrity_check" in sql:
-                    return cursor
-                return await aiosqlite.Connection.execute(
-                    db, sql, *args, **kwargs
-                )  # pragma: no cover — reason: fallback branch in mock; only integrity_check path exercised in test
-
-            mock_exec.side_effect = patched_execute
-            db.close = original_close
 
             result = await _check_integrity(db, db_path, is_in_memory=False)
 
