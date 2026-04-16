@@ -90,9 +90,10 @@ export function AddChoreModal({ projectId, isOpen, onClose }: AddChoreModalProps
     onCloseRef.current();
   }, []);
 
-  // Close modal and reset all state on Escape key (document-level listener)
+  // Close modal on Escape key and focus name input when modal opens
   useEffect(() => {
     if (!isOpen) return;
+    nameRef.current?.focus();
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         resetAndClose();
@@ -101,13 +102,6 @@ export function AddChoreModal({ projectId, isOpen, onClose }: AddChoreModalProps
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, resetAndClose]);
-
-  // Focus name input when modal opens for immediate typing
-  useEffect(() => {
-    if (isOpen) {
-      nameRef.current?.focus();
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
