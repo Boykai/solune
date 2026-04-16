@@ -74,6 +74,16 @@ describe('AddAgentModal', () => {
     expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm');
   });
 
+  it('uses items-start on the overlay so tall modals scroll from top', () => {
+    render(<AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole('dialog', { name: /add agent/i });
+    const overlay = dialog.parentElement;
+
+    expect(overlay).toHaveClass('items-start');
+    expect(overlay).not.toHaveClass('items-center');
+  });
+
   it('saves from the unsaved-changes dialog without relying on the unmounted form element', async () => {
     const user = userEvent.setup();
     const mutateAsync = vi.fn().mockResolvedValue({

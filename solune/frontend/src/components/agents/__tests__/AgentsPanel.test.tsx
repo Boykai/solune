@@ -287,6 +287,95 @@ describe('AgentsPanel', () => {
     expect(screen.getByText('Catalog Alpha')).toBeInTheDocument();
   });
 
+  it('collapsible sections default to expanded with aria-expanded true', () => {
+    const agents = [createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha' })];
+    mockUseAgentsList.mockReturnValue({ data: agents, isLoading: false, error: null });
+    mockUseAgentsListPaginated.mockReturnValue({ allItems: agents, isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
+    mockUsePendingAgentsList.mockReturnValue({
+      data: [createAgent({ id: 'p1', slug: 'beta', name: 'Beta', status: 'pending_pr' })],
+      isLoading: false,
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    const pendingToggle = screen.getByRole('heading', { name: 'Agent PRs waiting on main' }).closest('button');
+    const catalogToggle = screen.getByRole('heading', { name: 'Filter the constellation' }).closest('button');
+    const awesomeToggle = screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' }).closest('button');
+
+    expect(pendingToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(catalogToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(awesomeToggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('toggle buttons report aria-expanded false when collapsed', async () => {
+    const user = userEvent.setup();
+    mockUsePendingAgentsList.mockReturnValue({
+      data: [createAgent()],
+      isLoading: false,
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    const toggle = screen.getByRole('heading', { name: 'Agent PRs waiting on main' }).closest('button')!;
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('keeps section header visible when section body is collapsed', async () => {
+    const user = userEvent.setup();
+    mockUseCatalogAgents.mockReturnValue({
+      data: [
+        {
+          id: 'catalog-1',
+          name: 'Catalog Alpha',
+          description: 'Helps with alpha work',
+          source_url: 'https://example.test/catalog-alpha',
+          already_imported: false,
+        },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    const awesomeHeading = screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' });
+    const toggle = awesomeHeading.closest('button')!;
+    await user.click(toggle);
+
+    // Header text and description remain visible even when collapsed
+    expect(screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' })).toBeInTheDocument();
+    expect(screen.getByText('Awesome catalog')).toBeInTheDocument();
+    // But the body content (search and catalog items) is hidden
+    expect(screen.queryByPlaceholderText('Search catalog agents…')).not.toBeInTheDocument();
+    expect(screen.queryByText('Catalog Alpha')).not.toBeInTheDocument();
+  });
+
+  it('hides agent cards in Catalog Controls when collapsed', async () => {
+    const user = userEvent.setup();
+    const agents = [createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha', source: 'repo', status: 'active' })];
+    mockUseAgentsList.mockReturnValue({ data: agents, isLoading: false, error: null });
+    mockUseAgentsListPaginated.mockReturnValue({ allItems: agents, isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
+
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    // Agent card is visible initially
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+
+    const catalogToggle = screen.getByRole('heading', { name: 'Filter the constellation' }).closest('button')!;
+    await user.click(catalogToggle);
+
+    // Agent card hidden after collapse
+    expect(screen.queryByText('Alpha')).not.toBeInTheDocument();
+  });
+
   it('opens the bulk model update dialog from the catalog controls', async () => {
     mockUseAgentsList.mockReturnValue({
       data: [createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha' })],
