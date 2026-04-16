@@ -36,6 +36,9 @@ interface AgentsPanelProps {
 
 type AgentSortMode = 'name' | 'usage';
 
+/** Tailwind indent class to align collapsed-section body content with the header text (past chevron + gap). */
+const SECTION_BODY_INDENT = 'xl:ml-7';
+
 function getCatalogAgentName(agent: AgentConfig): string {
   return formatAgentName(agent.slug, agent.name, { specKitStyle: 'suffix' });
 }
@@ -456,7 +459,7 @@ export function AgentsPanel({
 
           {!catalogCollapsed && (
             <>
-              <div className="mt-4 flex flex-col gap-3 xl:min-w-[28rem] xl:ml-7">
+              <div className={`mt-4 flex flex-col gap-3 xl:min-w-[28rem] ${SECTION_BODY_INDENT}`}>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -564,7 +567,7 @@ export function AgentsPanel({
 
         {!awesomeCatalogCollapsed && (
           <>
-            <div className="mt-4 xl:ml-7">
+            <div className={`mt-4 ${SECTION_BODY_INDENT}`}>
               <div className="relative xl:min-w-[22rem]">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input

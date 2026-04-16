@@ -200,15 +200,13 @@ describe('AgentsPanel', () => {
     mockUseAgentsList.mockReturnValue({ data: agents, isLoading: false, error: null });
     mockUseAgentsListPaginated.mockReturnValue({ allItems: agents, isLoading: false, isError: false, hasNextPage: false, isFetchingNextPage: false, fetchNextPage: vi.fn(), invalidate: vi.fn() });
 
-    const { container } = render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
 
     const catalogHeading = screen.getByRole('heading', { name: 'Filter the constellation' });
     const awesomeHeading = screen.getByRole('heading', { name: 'Browse Awesome Copilot Agents' });
 
-    const allElements = Array.from(container.querySelectorAll('*'));
-    const catalogIdx = allElements.indexOf(catalogHeading);
-    const awesomeIdx = allElements.indexOf(awesomeHeading);
-    expect(catalogIdx).toBeLessThan(awesomeIdx);
+    // Node.DOCUMENT_POSITION_FOLLOWING (4) means awesomeHeading appears after catalogHeading
+    expect(catalogHeading.compareDocumentPosition(awesomeHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('collapses and expands the Pending Changes section', async () => {
