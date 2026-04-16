@@ -839,6 +839,82 @@ class TestSeedPresets:
         assert data["skipped"] == []
 
     @pytest.mark.anyio
+    async def test_seed_presets_creates_expected_single_stage_definitions(self, mock_db):
+        """Built-in presets stay aligned with the single-stage frontend definitions."""
+        expected_agents = {
+            "github": ["copilot"],
+            "spec-kit": [
+                "speckit.specify",
+                "speckit.plan",
+                "speckit.tasks",
+                "speckit.analyze",
+                "speckit.implement",
+            ],
+            "default": [
+                "speckit.specify",
+                "speckit.plan",
+                "speckit.tasks",
+                "speckit.analyze",
+                "speckit.implement",
+                "quality-assurance",
+                "tester",
+                "linter",
+                "copilot-review",
+                "judge",
+            ],
+            "app-builder": [
+                "speckit.specify",
+                "speckit.plan",
+                "speckit.tasks",
+                "speckit.analyze",
+                "speckit.implement",
+                "architect",
+                "quality-assurance",
+                "tester",
+                "linter",
+                "copilot-review",
+                "judge",
+            ],
+        }
+
+        result = await PipelineService(mock_db).seed_presets(
+            "PVT_PRESETS_EXPECTED",
+            github_user_id="12345",
+        )
+
+        assert set(result["seeded"]) == set(expected_agents)
+        assert result["skipped"] == []
+
+        cursor = await mock_db.execute(
+            """
+            SELECT preset_id, stages
+            FROM pipeline_configs
+            WHERE project_id = ? AND github_user_id = ?
+            ORDER BY preset_id
+            """,
+            ("PVT_PRESETS_EXPECTED", "12345"),
+        )
+        rows = await cursor.fetchall()
+
+        assert {row["preset_id"] for row in rows} == set(expected_agents)
+
+        for row in rows:
+            stages = json.loads(row["stages"])
+            assert len(stages) == 1
+
+            stage = stages[0]
+            assert stage["name"] == "In progress"
+            assert stage["execution_mode"] == "sequential"
+            assert len(stage["groups"]) == 1
+
+            group = stage["groups"][0]
+            assert group["execution_mode"] == "sequential"
+
+            expected_slugs = expected_agents[row["preset_id"]]
+            assert [agent["agent_slug"] for agent in group["agents"]] == expected_slugs
+            assert [agent["agent_slug"] for agent in stage["agents"]] == expected_slugs
+
+    @pytest.mark.anyio
     async def test_seed_presets_is_idempotent(self, client):
         """A second seed call skips presets that already exist."""
         await client.post("/api/v1/pipelines/PVT_PRESETS_REPEAT/seed-presets")
