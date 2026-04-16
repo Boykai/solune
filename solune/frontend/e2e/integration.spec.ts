@@ -59,7 +59,7 @@ test.describe('API Integration', () => {
       }
     } catch {
       // reason: backend not running (CI) — skip gracefully when live API unreachable
-      test.skip();
+      test.skip(true, 'Backend not running (CI) — live API unreachable');
     }
   });
 
@@ -70,7 +70,7 @@ test.describe('API Integration', () => {
       expect(response.status()).toBe(401);
     } catch {
       // reason: backend not running (CI) — skip gracefully when live API unreachable
-      test.skip();
+      test.skip(true, 'Backend not running (CI) — live API unreachable');
     }
   });
 
