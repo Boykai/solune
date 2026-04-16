@@ -47,6 +47,8 @@ export default tseslint.config(
     rules: {
       // reason: Playwright fixtures use dynamic file paths
       'security/detect-non-literal-fs-filename': 'off',
+      // reason: Playwright `use()` callback triggers false positives for hooks detection
+      'react-hooks/rules-of-hooks': 'off',
     },
   },
   {

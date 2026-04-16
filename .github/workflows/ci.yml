@@ -45,7 +45,7 @@ jobs:
         run: uv run ruff format --check src tests
 
       - name: Security scan with bandit
-        run: uv run bandit -r src/ -ll -ii --skip B104,B608
+        run: uv run bandit -r src/ -ll -ii --skip B104
 
       - name: Type check with pyright
         run: uv run pyright src
@@ -316,6 +316,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # ── Suppression guard — all lint/test ignores must carry a reason: ──
+      - name: Check suppression justifications
+        run: bash solune/scripts/check-suppressions.sh
 
       # ── Backend build validation ──
       - name: Set up uv
