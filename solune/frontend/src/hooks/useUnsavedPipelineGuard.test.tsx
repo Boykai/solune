@@ -183,6 +183,35 @@ describe('useUnsavedPipelineGuard', () => {
     expect(result.current.unsavedDialog.isOpen).toBe(false);
   });
 
+  it('handleNewPipeline seeds default stages when the board has no columns', () => {
+    const options = createDefaultOptions({ isDirty: false });
+    options.columns = [];
+
+    const { result } = renderHook(() => useUnsavedPipelineGuard(options));
+
+    act(() => {
+      result.current.handleNewPipeline();
+    });
+
+    expect(options.pipelineConfig.newPipeline).toHaveBeenCalledWith([
+      'Backlog',
+      'In progress',
+      'Done',
+    ]);
+  });
+
+  it('handleNewPipeline preserves existing board column names when present', () => {
+    const options = createDefaultOptions({ isDirty: false });
+
+    const { result } = renderHook(() => useUnsavedPipelineGuard(options));
+
+    act(() => {
+      result.current.handleNewPipeline();
+    });
+
+    expect(options.pipelineConfig.newPipeline).toHaveBeenCalledWith(['Todo', 'Done']);
+  });
+
   it('handleDelete does nothing when projectId is null', async () => {
     const options = createDefaultOptions();
     options.projectId = null as unknown as string;

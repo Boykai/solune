@@ -28,6 +28,7 @@ import { CompactPageHeader } from '@/components/common/CompactPageHeader';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
+import { DEFAULT_PIPELINE_STAGE_NAMES } from '@/constants/pipeline';
 
 export function AgentsPipelinePage() {
   const { user } = useAuth();
@@ -56,7 +57,7 @@ export function AgentsPipelinePage() {
   const alignedColumnCount = Math.max(
     columns.length,
     pipelineConfig.pipeline?.stages.length ?? 0,
-    1
+    DEFAULT_PIPELINE_STAGE_NAMES.length,
   );
   const pipelineEditorRef = useRef<HTMLDivElement | null>(null);
 

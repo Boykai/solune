@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent } from '@testing-library/react';
+import { fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@/test/test-utils';
 import { PipelineToolbar } from './PipelineToolbar';
@@ -46,6 +46,12 @@ describe('PipelineToolbar', () => {
     render(<PipelineToolbar {...baseProps} boardState="editing" isPreset={false} />);
     const saveBtn = screen.getByText('Save').closest('button')!;
     expect(saveBtn).not.toBeDisabled();
+  });
+
+  it('shows Copy for saved non-preset pipelines in editing mode', () => {
+    render(<PipelineToolbar {...baseProps} boardState="editing" isPreset={false} />);
+
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
   });
 
   it('disables Save when saving is in progress', () => {
@@ -125,6 +131,47 @@ describe('PipelineToolbar', () => {
     render(<PipelineToolbar {...baseProps} boardState="editing" onDelete={onDelete} />);
     fireEvent.click(screen.getByText('Delete'));
     expect(onDelete).toHaveBeenCalledOnce();
+  });
+
+  it('opens the copy dialog for saved non-preset pipelines', () => {
+    render(
+      <PipelineToolbar
+        {...baseProps}
+        boardState="editing"
+        isPreset={false}
+        pipelineName="Mission Control"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Copy pipeline')).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue('Mission Control (Copy)')).toBeInTheDocument();
+  });
+
+  it('calls onSaveAsCopy from the non-preset copy dialog', async () => {
+    const user = userEvent.setup();
+    const onSaveAsCopy = vi.fn();
+
+    render(
+      <PipelineToolbar
+        {...baseProps}
+        boardState="editing"
+        isPreset={false}
+        onSaveAsCopy={onSaveAsCopy}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+
+    const dialog = screen.getByRole('dialog');
+    const input = within(dialog).getByPlaceholderText('New pipeline name');
+    await user.clear(input);
+    await user.type(input, 'Cloned Pipeline');
+    await user.click(within(dialog).getByRole('button', { name: 'Copy' }));
+
+    expect(onSaveAsCopy).toHaveBeenCalledWith('Cloned Pipeline');
   });
 
   // ── Preset / Save as Copy ──
