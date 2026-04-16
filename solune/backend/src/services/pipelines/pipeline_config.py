@@ -3,10 +3,10 @@
 from src.models.app_template import AppTemplate, IaCTarget
 
 DIFFICULTY_PRESET_MAP: dict[str, str] = {
-    "S": "easy",
-    "M": "medium",
-    "L": "hard",
-    "XL": "expert",
+    "S": "github",
+    "M": "spec-kit",
+    "L": "default",
+    "XL": "app-builder",
 }
 
 
@@ -24,6 +24,6 @@ def configure_pipeline_preset(
         A ``(preset_id, include_architect)`` tuple.
     """
     difficulty = difficulty_override or template.difficulty
-    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty, "medium")
+    preset_id = DIFFICULTY_PRESET_MAP.get(difficulty, "default")
     include_architect = template.iac_target != IaCTarget.NONE
     return preset_id, include_architect

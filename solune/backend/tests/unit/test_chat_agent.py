@@ -198,8 +198,8 @@ class TestChatAgentServiceRun:
                 "action_type": "pipeline_launch",
                 "action_data": {
                     "pipeline_id": "pipe-1",
-                    "preset": "medium",
-                    "stages": ["Specify", "Plan", "Implement"],
+                    "preset": "default",
+                    "stages": ["In progress"],
                 },
             }
         )
@@ -217,8 +217,8 @@ class TestChatAgentServiceRun:
 
         assert result.action_type == ActionType.PIPELINE_LAUNCH
         assert result.action_data["pipeline_id"] == "pipe-1"
-        assert result.action_data["preset"] == "medium"
-        assert result.action_data["stages"] == ["Specify", "Plan", "Implement"]
+        assert result.action_data["preset"] == "default"
+        assert result.action_data["stages"] == ["In progress"]
 
     @patch("src.services.chat_agent.create_agent")
     async def test_run_extracts_action_from_function_result_content(self, mock_create_agent):

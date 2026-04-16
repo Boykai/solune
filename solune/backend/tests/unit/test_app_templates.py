@@ -42,7 +42,7 @@ class TestAppTemplateModel:
             tech_stack=["python"],
             scaffold_type=ScaffoldType.SKELETON,
             files=[TemplateFile(source="f.tmpl", target="f.py", variables=[])],
-            recommended_preset_id="medium",
+            recommended_preset_id="spec-kit",
         )
         assert t.id == "test-template"
         assert t.category == AppCategory.API
@@ -58,7 +58,7 @@ class TestAppTemplateModel:
                 tech_stack=["x"],
                 scaffold_type=ScaffoldType.SKELETON,
                 files=[TemplateFile(source="a", target="b", variables=[])],
-                recommended_preset_id="easy",
+                recommended_preset_id="github",
             )
 
     def test_empty_tech_stack(self) -> None:
@@ -72,7 +72,7 @@ class TestAppTemplateModel:
                 tech_stack=[],
                 scaffold_type=ScaffoldType.SKELETON,
                 files=[TemplateFile(source="a", target="b", variables=[])],
-                recommended_preset_id="easy",
+                recommended_preset_id="github",
             )
 
     def test_empty_files(self) -> None:
@@ -86,7 +86,7 @@ class TestAppTemplateModel:
                 tech_stack=["python"],
                 scaffold_type=ScaffoldType.SKELETON,
                 files=[],
-                recommended_preset_id="easy",
+                recommended_preset_id="github",
             )
 
 
@@ -117,7 +117,7 @@ class TestLoader:
             "difficulty": "M",
             "tech_stack": ["python"],
             "scaffold_type": "skeleton",
-            "recommended_preset_id": "medium",
+            "recommended_preset_id": "spec-kit",
             "iac_target": "none",
             "files": [
                 {"source": "files/main.py.tmpl", "target": "main.py", "variables": ["app_name"]}
@@ -185,7 +185,7 @@ class TestRegistry:
         assert t is not None
         d = t.to_detail_dict()
         assert "files" in d
-        assert d["recommended_preset_id"] == "medium"
+        assert d["recommended_preset_id"] == "spec-kit"
 
     def test_discover_templates_empty_for_missing_dir(self, tmp_path: Path) -> None:
         """discover_templates returns empty dict when base_dir does not exist."""
@@ -323,7 +323,7 @@ class TestRenderer:
             tech_stack=["python"],
             scaffold_type=ScaffoldType.SKELETON,
             files=[TemplateFile(source="files/evil.tmpl", target="link/escape.py", variables=[])],
-            recommended_preset_id="easy",
+            recommended_preset_id="github",
             _base_dir=str(tmpl_dir),
         )
 
