@@ -20,12 +20,14 @@ describe('PresetBadge', () => {
     expect(screen.getByText('custom-preset')).toBeInTheDocument();
   });
 
-  it('renders all known presets', () => {
-    const presets = ['github', 'spec-kit', 'default', 'app-builder'];
-    for (const presetId of presets) {
-      const { unmount } = render(<PresetBadge presetId={presetId} />);
-      unmount();
-    }
+  it.each([
+    ['github', 'GitHub'],
+    ['spec-kit', 'Spec Kit'],
+    ['default', 'Default'],
+    ['app-builder', 'App Builder'],
+  ])('renders %s preset with its label', (presetId, label) => {
+    render(<PresetBadge presetId={presetId} />);
+    expect(screen.getByText(label)).toBeInTheDocument();
   });
 
   it('applies custom className', () => {

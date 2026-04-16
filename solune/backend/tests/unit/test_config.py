@@ -270,8 +270,19 @@ class TestConstants:
         assert AGENT_OUTPUT_FILES["speckit.specify"] == ["spec.md"]
 
     def test_default_agent_mappings(self):
-        assert StatusNames.IN_PROGRESS in DEFAULT_AGENT_MAPPINGS
-        assert "speckit.specify" in DEFAULT_AGENT_MAPPINGS[StatusNames.IN_PROGRESS]
+        assert list(DEFAULT_AGENT_MAPPINGS) == [StatusNames.IN_PROGRESS]
+        assert DEFAULT_AGENT_MAPPINGS[StatusNames.IN_PROGRESS] == [
+            "speckit.specify",
+            "speckit.plan",
+            "speckit.tasks",
+            "speckit.analyze",
+            "speckit.implement",
+            "quality-assurance",
+            "tester",
+            "linter",
+            "copilot-review",
+            "judge",
+        ]
 
     def test_agent_display_names(self):
         assert "speckit.specify" in AGENT_DISPLAY_NAMES
