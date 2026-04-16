@@ -14,7 +14,6 @@ If project_id is omitted, the first open project is used.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 import time
@@ -81,7 +80,7 @@ class Profiler:
         all_entries.sort(key=lambda e: e.duration_ms, reverse=True)
 
         lines.append(f"\n  {'Function':<55} {'Time (ms)':>10} {'% Total':>8}")
-        lines.append(f"  {'-'*55} {'-'*10} {'-'*8}")
+        lines.append(f"  {'-' * 55} {'-' * 10} {'-' * 8}")
         for entry in all_entries[:20]:
             pct = (entry.duration_ms / total_ms * 100) if total_ms > 0 else 0
             lines.append(f"  {entry.name:<55} {entry.duration_ms:>10.0f} {pct:>7.1f}%")
@@ -153,6 +152,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
 
     async with profiler.measure("2. resolve_repository") as e2:
         from src.utils import resolve_repository
+
         try:
             owner, repo = await resolve_repository(access_token, project_id)
             e2.metadata["result"] = f"{owner}/{repo}"
@@ -165,7 +165,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
 
     # ── Phase 3: List board projects (GET /board/projects equivalent) ──
     async with profiler.measure("3. list_board_projects (GET /board/projects)"):
-        board_projects = await github_projects_service.list_user_projects(access_token, username)
+        await github_projects_service.list_user_projects(access_token, username)
 
     # ── Phase 4: Get board data (GET /board/projects/{id} — THE BIG ONE) ──
     cache.clear()
@@ -182,6 +182,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
     async with profiler.measure("5. get_workflow_config (GET /settings/project/{id})") as e5:
         try:
             from src.services.workflow_orchestrator import get_workflow_config
+
             config = await get_workflow_config(project_id)
             e5.metadata["has_config"] = config is not None
         except Exception as ex:
@@ -193,6 +194,7 @@ async def profile_project_load(access_token: str, username: str, project_id: str
         try:
             from src.services.agents.service import AgentsService
             from src.services.database import get_db
+
             svc = AgentsService(get_db())
             if owner and repo:
                 agents = await svc.list_agents(access_token, owner, repo, project_id)
@@ -209,15 +211,26 @@ async def profile_project_load(access_token: str, username: str, project_id: str
 
     async with profiler.measure("7. PARALLEL: board_projects + board_data + settings"):
         tasks = [
-            _timed_call(profiler, "7a. list_user_projects (parallel)",
-                        github_projects_service.list_user_projects, access_token, username),
-            _timed_call(profiler, "7b. get_board_data (parallel)",
-                        github_projects_service.get_board_data, access_token, project_id),
+            _timed_call(
+                profiler,
+                "7a. list_user_projects (parallel)",
+                github_projects_service.list_user_projects,
+                access_token,
+                username,
+            ),
+            _timed_call(
+                profiler,
+                "7b. get_board_data (parallel)",
+                github_projects_service.get_board_data,
+                access_token,
+                project_id,
+            ),
         ]
         if owner and repo:
             tasks.append(
-                _timed_call(profiler, "7c. get_workflow_config (parallel)",
-                            _get_wf_config, project_id)
+                _timed_call(
+                    profiler, "7c. get_workflow_config (parallel)", _get_wf_config, project_id
+                )
             )
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -253,20 +266,39 @@ async def profile_project_load(access_token: str, username: str, project_id: str
 async def _profile_board_data(profiler: Profiler, access_token: str, project_id: str):
     """Profile get_board_data with sub-step instrumentation."""
     from src.models.board import (
-        Assignee, BoardColumn, BoardDataResponse, BoardItem, BoardProject,
-        ContentType, CustomFieldValue, Label, LinkedPR, PRState, Repository,
-        StatusColor, StatusField, StatusOption, SubIssue,
+        Assignee,
+        BoardColumn,
+        BoardDataResponse,
+        BoardItem,
+        BoardProject,
+        ContentType,
+        CustomFieldValue,
+        Label,
+        LinkedPR,
+        PRState,
+        Repository,
+        StatusColor,
+        StatusField,
+        StatusOption,
+        SubIssue,
     )
     from src.services.github_projects import github_projects_service as svc
     from src.services.github_projects.graphql import (
-        BOARD_GET_PROJECT_ITEMS_QUERY, BOARD_RECONCILE_ITEMS_QUERY,
+        BOARD_GET_PROJECT_ITEMS_QUERY,
     )
 
     board_models = {
-        "Assignee": Assignee, "BoardColumn": BoardColumn, "BoardItem": BoardItem,
-        "ContentType": ContentType, "CustomFieldValue": CustomFieldValue,
-        "Label": Label, "LinkedPR": LinkedPR, "PRState": PRState,
-        "Repository": Repository, "StatusColor": StatusColor, "StatusOption": StatusOption,
+        "Assignee": Assignee,
+        "BoardColumn": BoardColumn,
+        "BoardItem": BoardItem,
+        "ContentType": ContentType,
+        "CustomFieldValue": CustomFieldValue,
+        "Label": Label,
+        "LinkedPR": LinkedPR,
+        "PRState": PRState,
+        "Repository": Repository,
+        "StatusColor": StatusColor,
+        "StatusOption": StatusOption,
     }
 
     all_items = []
@@ -295,7 +327,8 @@ async def _profile_board_data(profiler: Profiler, access_token: str, project_id:
                         raise ValueError(f"Project {project_id} has no Status field")
                     status_options = [
                         StatusOption(
-                            option_id=opt["id"], name=opt["name"],
+                            option_id=opt["id"],
+                            name=opt["name"],
                             color=opt.get("color", "GRAY"),
                         )
                         for opt in status_field_data.get("options", [])
@@ -337,8 +370,10 @@ async def _profile_board_data(profiler: Profiler, access_token: str, project_id:
 
     # Step 4b: Sub-issue fetching
     from src.constants import SUB_ISSUE_LABEL, StatusNames
+
     parent_items = [
-        item for item in all_items
+        item
+        for item in all_items
         if item.content_type == ContentType.ISSUE
         and item.number is not None
         and item.repository
@@ -366,12 +401,13 @@ async def _profile_board_data(profiler: Profiler, access_token: str, project_id:
                     for si in raw:
                         si_assignees = [
                             Assignee(login=a.get("login", ""), avatar_url=a.get("avatar_url", ""))
-                            for a in si.get("assignees", []) if isinstance(a, dict)
+                            for a in si.get("assignees", [])
+                            if isinstance(a, dict)
                         ]
                         si_title = si.get("title", "")
                         si_agent = None
                         if si_title.startswith("[") and "]" in si_title:
-                            si_agent = si_title[1:si_title.index("]")]
+                            si_agent = si_title[1 : si_title.index("]")]
                         board_item.sub_issues.append(
                             SubIssue(
                                 id=si.get("node_id", ""),
@@ -393,10 +429,10 @@ async def _profile_board_data(profiler: Profiler, access_token: str, project_id:
         e4b.metadata["total_sub_issues_found"] = total_sub
         if sub_issue_timings:
             times = [t for _, t, _ in sub_issue_timings]
-            e4b.metadata["avg_per_call_ms"] = f"{sum(times)/len(times):.0f}"
+            e4b.metadata["avg_per_call_ms"] = f"{sum(times) / len(times):.0f}"
             e4b.metadata["max_per_call_ms"] = f"{max(times):.0f}"
             e4b.metadata["min_per_call_ms"] = f"{min(times):.0f}"
-            e4b.metadata["p95_per_call_ms"] = f"{sorted(times)[int(len(times)*0.95)]:.0f}"
+            e4b.metadata["p95_per_call_ms"] = f"{sorted(times)[int(len(times) * 0.95)]:.0f}"
 
     # Step 4c: Reconciliation
     existing_ids = {item.content_id for item in all_items if item.content_id}
@@ -407,6 +443,7 @@ async def _profile_board_data(profiler: Profiler, access_token: str, project_id:
 
     try:
         from src.services.workflow_orchestrator import get_workflow_config
+
         config = await get_workflow_config(project_id)
         if config and config.repository_owner and config.repository_name:
             repos_seen.add((config.repository_owner, config.repository_name))
@@ -438,9 +475,7 @@ async def _profile_board_data(profiler: Profiler, access_token: str, project_id:
         e4c.metadata["total_reconciled"] = reconciled_total
 
     # Build columns
-    columns = svc._build_board_columns(
-        all_items, project_meta.status_field.options, board_models
-    )
+    columns = svc._build_board_columns(all_items, project_meta.status_field.options, board_models)
 
     return BoardDataResponse(project=project_meta, columns=columns)
 
@@ -451,6 +486,7 @@ async def _timed_call(profiler: Profiler, name: str, func, *args, **kwargs):
 
 
 # ── Entry point ────────────────────────────────────────────────────────
+
 
 async def main():
     access_token = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("GITHUB_TOKEN", "")
@@ -463,6 +499,7 @@ async def main():
 
     # Initialize the database (required by some services)
     from src.services.database import init_database
+
     await init_database()
 
     await profile_project_load(access_token, username, project_id)

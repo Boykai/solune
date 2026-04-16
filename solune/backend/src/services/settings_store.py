@@ -36,6 +36,7 @@ USER_PREFERENCE_COLUMNS = (
     "theme",
     "default_view",
     "sidebar_collapsed",
+    "rainbow_theme",
     "default_repository",
     "default_assignee",
     "copilot_polling_interval",
@@ -127,6 +128,7 @@ async def update_global_settings(
             theme = CASE WHEN ? THEN ? ELSE theme END,
             default_view = CASE WHEN ? THEN ? ELSE default_view END,
             sidebar_collapsed = CASE WHEN ? THEN ? ELSE sidebar_collapsed END,
+            rainbow_theme = CASE WHEN ? THEN ? ELSE rainbow_theme END,
             default_repository = CASE WHEN ? THEN ? ELSE default_repository END,
             default_assignee = CASE WHEN ? THEN ? ELSE default_assignee END,
             copilot_polling_interval = CASE WHEN ? THEN ? ELSE copilot_polling_interval END,
@@ -196,6 +198,7 @@ async def upsert_user_preferences(
             theme,
             default_view,
             sidebar_collapsed,
+            rainbow_theme,
             default_repository,
             default_assignee,
             copilot_polling_interval,
@@ -204,7 +207,7 @@ async def upsert_user_preferences(
             notify_new_recommendation,
             notify_chat_mention,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(github_user_id) DO UPDATE SET
             ai_provider = CASE WHEN ? THEN excluded.ai_provider ELSE user_preferences.ai_provider END,
             ai_model = CASE WHEN ? THEN excluded.ai_model ELSE user_preferences.ai_model END,
@@ -215,6 +218,7 @@ async def upsert_user_preferences(
             theme = CASE WHEN ? THEN excluded.theme ELSE user_preferences.theme END,
             default_view = CASE WHEN ? THEN excluded.default_view ELSE user_preferences.default_view END,
             sidebar_collapsed = CASE WHEN ? THEN excluded.sidebar_collapsed ELSE user_preferences.sidebar_collapsed END,
+            rainbow_theme = CASE WHEN ? THEN excluded.rainbow_theme ELSE user_preferences.rainbow_theme END,
             default_repository = CASE WHEN ? THEN excluded.default_repository ELSE user_preferences.default_repository END,
             default_assignee = CASE WHEN ? THEN excluded.default_assignee ELSE user_preferences.default_assignee END,
             copilot_polling_interval = CASE WHEN ? THEN excluded.copilot_polling_interval ELSE user_preferences.copilot_polling_interval END,
@@ -392,6 +396,7 @@ def _row_to_global_response(row: aiosqlite.Row) -> GlobalSettingsResponse:
             theme=ThemeMode(row["theme"]),
             default_view=DefaultView(row["default_view"]),
             sidebar_collapsed=bool(row["sidebar_collapsed"]),
+            rainbow_theme=bool(row["rainbow_theme"]) if row["rainbow_theme"] is not None else False,
         ),
         workflow=WorkflowDefaults(
             default_repository=row["default_repository"],
@@ -440,6 +445,9 @@ def _merge_user_settings(
             theme=ThemeMode(str(_pick("theme"))),
             default_view=DefaultView(str(_pick("default_view"))),
             sidebar_collapsed=bool(_pick("sidebar_collapsed")),
+            rainbow_theme=bool(_pick("rainbow_theme"))
+            if _pick("rainbow_theme") is not None
+            else False,
         ),
         workflow=WorkflowDefaults(
             default_repository=_pick_nullable("default_repository"),
@@ -592,6 +600,7 @@ def flatten_user_preferences_update(update: dict) -> dict:
             "theme": "theme",
             "default_view": "default_view",
             "sidebar_collapsed": "sidebar_collapsed",
+            "rainbow_theme": "rainbow_theme",
         },
         "workflow": {
             "default_repository": "default_repository",

@@ -613,6 +613,7 @@ export interface DisplayPreferences {
   theme: ThemeModeType;
   default_view: DefaultViewType;
   sidebar_collapsed: boolean;
+  rainbow_theme: boolean;
 }
 
 export interface WorkflowDefaults {
@@ -685,6 +686,7 @@ export interface DisplayPreferencesUpdate {
   theme?: ThemeModeType | null;
   default_view?: DefaultViewType | null;
   sidebar_collapsed?: boolean | null;
+  rainbow_theme?: boolean | null;
 }
 
 export interface WorkflowDefaultsUpdate {

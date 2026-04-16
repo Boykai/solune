@@ -10,6 +10,7 @@ import { Play } from '@/lib/icons';
 import { Button } from '@/components/ui/button';
 import { CelestialLoadingProgress } from '@/components/common/CelestialLoadingProgress';
 import { PrimarySettings } from '@/components/settings/PrimarySettings';
+import { DisplaySettings } from '@/components/settings/DisplaySettings';
 import { useUserSettings } from '@/hooks/useSettings';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import type { UserPreferencesUpdate } from '@/types';
@@ -82,6 +83,9 @@ export function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-8">
+        {/* Display Settings: Dark mode + Rainbow theme */}
+        <DisplaySettings />
+
         {/* Primary Settings: AI Configuration + Signal Connection */}
         {userSettings && <PrimarySettings settings={userSettings.ai} onSave={handleUserSave} />}
       </div>

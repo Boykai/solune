@@ -9,6 +9,7 @@ import { TriangleAlert, X } from '@/lib/icons';
 import { useAuth } from '@/hooks/useAuth';
 import { useProjects } from '@/hooks/useProjects';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useRainbowTheme } from '@/hooks/useRainbowTheme';
 import { useChat } from '@/hooks/useChat';
 import { usePlan } from '@/hooks/usePlan';
 import { useWorkflow } from '@/hooks/useWorkflow';
@@ -63,6 +64,7 @@ function SignalBannerBar() {
 export function AppLayout() {
   const { user } = useAuth();
   const { isDarkMode, toggleTheme } = useAppTheme();
+  useRainbowTheme(); // Initialize rainbow class from settings/localStorage on load
   const { isCollapsed, setCollapsed: setSidebarCollapsed, toggle: toggleSidebar } = useSidebarState();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const wasMobileRef = useRef(isMobile);

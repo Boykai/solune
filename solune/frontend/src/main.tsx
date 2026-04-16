@@ -8,6 +8,11 @@ import App from './App';
 import './index.css';
 import { ThemeProvider } from './components/ThemeProvider';
 
+/* ── Eagerly apply rainbow class from localStorage before first paint ── */
+if (localStorage.getItem('solune-rainbow-theme') === 'true') {
+  document.documentElement.classList.add('rainbow');
+}
+
 /* ── Global error telemetry ── */
 window.onerror = (message, source, lineno, colno, error) => {
   console.error('[global:onerror]', { message, source, lineno, colno, error });

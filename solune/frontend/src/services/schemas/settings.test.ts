@@ -3,7 +3,7 @@ import { EffectiveUserSettingsSchema } from './settings';
 
 const validSettings = {
   ai: { provider: 'copilot', model: 'gpt-4o', temperature: 0.7, agent_model: 'gpt-4o' },
-  display: { theme: 'dark', default_view: 'chat', sidebar_collapsed: false },
+  display: { theme: 'dark', default_view: 'chat', sidebar_collapsed: false, rainbow_theme: false },
   workflow: { default_repository: null, default_assignee: 'octocat', copilot_polling_interval: 30 },
   notifications: {
     task_status_change: true,

@@ -134,6 +134,7 @@ export function createCommandContext(overrides: Partial<CommandContext> = {}): C
         theme: 'dark' as 'light' | 'dark',
         default_view: 'board' as 'chat' | 'board' | 'settings',
         sidebar_collapsed: false,
+        rainbow_theme: false,
       },
       // default_assignee is typed as `string` in WorkflowDefaults — use empty
       // string rather than null to match the interface and avoid hiding

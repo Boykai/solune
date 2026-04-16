@@ -11,6 +11,7 @@ const DisplayPreferencesSchema = z.object({
   theme: z.enum(['dark', 'light']),
   default_view: z.enum(['chat', 'board', 'settings']),
   sidebar_collapsed: z.boolean(),
+  rainbow_theme: z.boolean().default(false),
 });
 
 const WorkflowDefaultsSchema = z.object({

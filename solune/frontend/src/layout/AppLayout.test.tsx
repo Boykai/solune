@@ -70,6 +70,11 @@ vi.mock('@/hooks/useWorkflow', () => ({
 vi.mock('@/hooks/useSettings', () => ({
   useSignalBanners: () => ({ banners: [] }),
   useDismissBanner: () => ({ dismissBanner: vi.fn(), isPending: false }),
+  useUserSettings: () => ({
+    settings: null,
+    isLoading: false,
+    updateSettings: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 vi.mock('@/hooks/useSidebarState', () => ({

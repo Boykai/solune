@@ -85,6 +85,7 @@ class DisplayPreferences(BaseModel):
     theme: ThemeMode
     default_view: DefaultView
     sidebar_collapsed: bool
+    rainbow_theme: bool = False
 
 
 class WorkflowDefaults(BaseModel):
@@ -181,6 +182,7 @@ class DisplayPreferencesUpdate(BaseModel):
     theme: ThemeMode | None = None
     default_view: DefaultView | None = None
     sidebar_collapsed: bool | None = None
+    rainbow_theme: bool | None = None
 
 
 class WorkflowDefaultsUpdate(BaseModel):
@@ -263,6 +265,7 @@ class GlobalSettingsRow(BaseModel):
     theme: str = "light"
     default_view: str = "chat"
     sidebar_collapsed: int = 0
+    rainbow_theme: int = 0
     default_repository: str | None = None
     default_assignee: str = ""
     copilot_polling_interval: int = 60

@@ -20,6 +20,20 @@ vi.mock('@/hooks/useSettings', () => ({
   useDismissBanner: () => ({ dismissBanner: vi.fn(), isPending: false }),
 }));
 
+vi.mock('@/hooks/useAppTheme', () => ({
+  useAppTheme: () => ({
+    isDarkMode: false,
+    toggleTheme: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useRainbowTheme', () => ({
+  useRainbowTheme: () => ({
+    isRainbow: false,
+    toggleRainbow: vi.fn(),
+  }),
+}));
+
 // ── Helpers ──
 
 function userSettingsHook(overrides = {}) {
