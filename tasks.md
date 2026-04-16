@@ -241,7 +241,7 @@
 
 - [ ] T078 [US6] Run full backend regression at stricter settings: `ruff check src tests && ruff format --check src tests && bandit -r src/ -ll -ii --skip B104 && pyright src && pytest --cov=src --cov-report=term-missing` in `solune/backend/`
 - [ ] T079 [P] [US6] Run full frontend regression: `npm run lint -- --max-warnings=0 && npm run type-check && npm run type-check:test && npm run test:coverage && npm run build` in `solune/frontend/`
-- [ ] T080 [P] [US6] Run mutation testing regression: `npm run test:mutation` with `ignoreStatic = false` in `solune/frontend/`
+- [ ] T080 [P] [US6] Run mutation testing regression: `npm run test:mutation` with `ignoreStatic: false` in `solune/frontend/`
 - [ ] T081 [P] [US6] Run E2E regression: `npx playwright test` in `solune/frontend/`
 - [ ] T082 [P] [US6] Run infrastructure build verification: `az bicep build --file main.bicep` in `infra/`
 - [ ] T083 [US6] Compare post-cleanup results against Phase 2 baseline — verify all results equal or improved
