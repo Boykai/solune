@@ -14,14 +14,14 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, field_validator
 
 # ---- Re-exports for backward compatibility --------------------------------
-from src.models.agent import (  # noqa: F401
+from src.models.agent import (
     AgentAssignment,
     AgentAssignmentInput,
     AgentSource,
     AvailableAgent,
     AvailableAgentsResponse,
 )
-from src.models.recommendation import (  # noqa: F401
+from src.models.recommendation import (
     AVAILABLE_LABELS,
     AITaskProposal,
     IssueLabel,
@@ -33,13 +33,44 @@ from src.models.recommendation import (  # noqa: F401
     ProposalStatus,
     RecommendationStatus,
 )
-from src.models.workflow import (  # noqa: F401
+from src.models.workflow import (
     TriggeredBy,
     WorkflowConfiguration,
     WorkflowResult,
     WorkflowTransition,
 )
 from src.utils import utcnow
+
+__all__ = [
+    "AVAILABLE_LABELS",
+    "AITaskProposal",
+    "ActionType",
+    "AgentAssignment",
+    "AgentAssignmentInput",
+    "AgentSource",
+    "AvailableAgent",
+    "AvailableAgentsResponse",
+    "ChatMessage",
+    "ChatMessageRequest",
+    "ChatMessagesResponse",
+    "Conversation",
+    "ConversationCreateRequest",
+    "ConversationUpdateRequest",
+    "ConversationsListResponse",
+    "IssueLabel",
+    "IssueMetadata",
+    "IssuePriority",
+    "IssueRecommendation",
+    "IssueSize",
+    "ProposalConfirmRequest",
+    "ProposalStatus",
+    "RecommendationStatus",
+    "SenderType",
+    "TriggeredBy",
+    "WorkflowConfiguration",
+    "WorkflowResult",
+    "WorkflowTransition",
+]
 
 # ============================================================================
 # Chat-specific models

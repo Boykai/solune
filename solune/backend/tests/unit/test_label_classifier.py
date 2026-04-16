@@ -371,7 +371,7 @@ class TestClassificationResult:
     def test_immutable(self):
         result = ClassificationResult(labels=["bug"])
         with pytest.raises(AttributeError):
-            setattr(result, "priority", IssuePriority.P0)  # noqa: B010
+            setattr(result, "priority", IssuePriority.P0)  # noqa: B010 — reason: intentional frozen dataclass mutation test; setattr required to trigger FrozenInstanceError
 
 
 # ── _parse_labels_and_priority_response ─────────────────────────────────────

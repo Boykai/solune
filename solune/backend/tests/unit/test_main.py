@@ -171,7 +171,7 @@ class TestLifespan:
             )
             try:
                 async with lifespan(mock_app):
-                    pass  # pragma: no cover
+                    pass  # pragma: no cover — reason: lifespan expected to raise RuntimeError before reaching here
             except RuntimeError:
                 pass
 

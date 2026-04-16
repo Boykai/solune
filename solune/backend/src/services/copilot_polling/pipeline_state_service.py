@@ -148,7 +148,7 @@ class PipelineRunService:
 
         # Get total count
         count_cursor = await self._db.execute(
-            f"SELECT COUNT(*) FROM pipeline_runs WHERE {where}",
+            f"SELECT COUNT(*) FROM pipeline_runs WHERE {where}",  # nosec B608
             params,
         )
         count_row = await count_cursor.fetchone()
@@ -162,7 +162,7 @@ class PipelineRunService:
             WHERE {where}
             ORDER BY created_at DESC
             LIMIT ? OFFSET ?
-            """,
+            """,  # nosec B608
             query_params,
         )
         rows = await cursor.fetchall()

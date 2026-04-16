@@ -364,7 +364,7 @@ class TestCheckIntegrity:
                     return cursor
                 return await aiosqlite.Connection.execute(
                     db, sql, *args, **kwargs
-                )  # pragma: no cover
+                )  # pragma: no cover — reason: fallback branch in mock; only integrity_check path exercised in test
 
             mock_exec.side_effect = patched_execute
             db.close = original_close
@@ -401,7 +401,7 @@ class TestCheckIntegrity:
                     return cursor
                 return await aiosqlite.Connection.execute(
                     db, sql, *args, **kwargs
-                )  # pragma: no cover
+                )  # pragma: no cover — reason: fallback branch in mock; only integrity_check path exercised in test
 
             mock_exec.side_effect = patched_execute
             db.close = original_close

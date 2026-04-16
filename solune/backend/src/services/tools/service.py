@@ -1103,7 +1103,7 @@ class ToolsService:
         if tool_ids:
             placeholders = ",".join("?" for _ in tool_ids)
             cursor = await self.db.execute(
-                f"SELECT id FROM mcp_configurations WHERE id IN ({placeholders}) "
+                f"SELECT id FROM mcp_configurations WHERE id IN ({placeholders}) "  # nosec B608
                 "AND project_id = ? AND github_user_id = ?",
                 (*tool_ids, project_id, github_user_id),
             )

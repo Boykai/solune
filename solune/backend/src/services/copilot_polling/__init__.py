@@ -107,7 +107,7 @@ from .pipeline import (
     check_ready_issues,
     process_in_progress_issue,
 )
-from .polling_loop import (  # noqa: F401
+from .polling_loop import (  # reason: re-exported via __all__ for mock.patch compatibility
     _check_rate_limit_budget,
     _pause_if_rate_limited,
     _poll_loop,
@@ -117,7 +117,7 @@ from .polling_loop import (  # noqa: F401
     stop_polling,
 )
 from .recovery import (
-    _validate_and_reconcile_tracking_table,  # noqa: F401
+    _validate_and_reconcile_tracking_table,  # reason: re-exported via __all__ for mock.patch compatibility
     recover_stalled_issues,
 )
 
@@ -126,7 +126,7 @@ from .recovery import (
 # brings every public name into THIS namespace so that existing
 # ``mock.patch("src.services.copilot_polling.<func>")`` targets still work.
 # ──────────────────────────────────────────────────────────────────────────────
-from .state import (  # noqa: F401
+from .state import (  # reason: re-exported via __all__ for mock.patch compatibility
     ASSIGNMENT_GRACE_PERIOD_SECONDS,
     MAX_RECOVERY_RETRIES,
     POST_ACTION_DELAY_SECONDS,
@@ -161,10 +161,15 @@ __all__ = [
     "AGENT_OUTPUT_FILES",
     "ASSIGNMENT_GRACE_PERIOD_SECONDS",
     "MAX_RECOVERY_RETRIES",
+    "POST_ACTION_DELAY_SECONDS",
+    "RATE_LIMIT_PAUSE_THRESHOLD",
+    "RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD",
+    "RATE_LIMIT_SLOW_THRESHOLD",
     "RECOVERY_COOLDOWN_SECONDS",
     "STATE_ACTIVE",
     "STATE_DONE",
     "STATE_PENDING",
+    "MonitoredProject",
     "PipelineGroupInfo",
     "PipelineState",
     "PollingState",
@@ -178,6 +183,7 @@ __all__ = [
     "_check_child_pr_completion",
     "_check_copilot_review_done",
     "_check_main_pr_completion",
+    "_check_rate_limit_budget",
     "_claimed_child_prs",
     "_close_completed_sub_issues",
     "_discover_main_pr_for_review",
@@ -191,6 +197,7 @@ __all__ = [
     "_link_prs_to_parent",
     "_merge_child_pr_if_applicable",
     "_monitored_projects",
+    "_pause_if_rate_limited",
     "_pending_agent_assignments",
     "_poll_loop",
     "_polling_state",
@@ -200,12 +207,14 @@ __all__ = [
     "_processed_issue_prs",
     "_reconstruct_pipeline_state",
     "_reconstruct_sub_issue_mappings",
+    "_recovery_attempt_counts",
     "_recovery_last_attempt",
     "_review_requested_cache",
     "_self_heal_tracking_table",
     "_system_marked_ready_prs",
     "_transition_after_pipeline_complete",
     "_update_issue_tracking",
+    "_validate_and_reconcile_tracking_table",
     "asyncio",
     "cache_key_agent_output",
     "cache_key_issue_pr",

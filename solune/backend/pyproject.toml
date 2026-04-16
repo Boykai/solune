@@ -97,7 +97,7 @@ select = [
     "RUF",  # Ruff-specific rules
 ]
 ignore = [
-    "E501",   # line too long (handled by ruff format)
+    "E501",  # reason: line length enforced by ruff format, not lint
 ]
 
 [tool.ruff.lint.isort]
@@ -122,7 +122,7 @@ typeCheckingMode = "standard"
 include = ["src"]
 exclude = ["**/__pycache__", "htmlcov"]
 reportMissingTypeStubs = false
-reportMissingImports = "warning"
+reportMissingImports = "error"
 stubPath = "src/typestubs"
 
 [tool.coverage.run]
@@ -144,7 +144,7 @@ targets = ["src"]
 severity = "medium"
 confidence = "medium"
 exclude_dirs = ["tests"]
-skips = ["B104", "B608"]
+skips = ["B104"]
 
 [tool.mutmut]
 paths_to_mutate = [
