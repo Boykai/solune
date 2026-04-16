@@ -102,6 +102,13 @@ export function AddChoreModal({ projectId, isOpen, onClose }: AddChoreModalProps
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, resetAndClose]);
 
+  // Focus name input when modal opens for immediate typing
+  useEffect(() => {
+    if (isOpen) {
+      nameRef.current?.focus();
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const createChore = async (_choreName: string, content: string) => {
@@ -263,8 +270,6 @@ export function AddChoreModal({ projectId, isOpen, onClose }: AddChoreModalProps
               aria-describedby={nameError ? 'chore-name-error' : undefined}
               className="flex h-9 w-full rounded-md border border-input bg-background/72 px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               maxLength={MAX_NAME_LENGTH}
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- reason: modal input should receive focus on open for immediate typing
-              autoFocus
             />
             <div className="mt-0.5 flex items-center justify-between">
               {nameError ? <p id="chore-name-error" className="text-xs text-destructive">{nameError}</p> : <span />}
