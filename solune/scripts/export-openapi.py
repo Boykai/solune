@@ -29,7 +29,7 @@ _CI_PLACEHOLDERS = {
 for var, default in _CI_PLACEHOLDERS.items():
     os.environ.setdefault(var, default)
 
-from src.main import create_app  # noqa: E402
+from src.main import create_app  # noqa: E402 — reason: env vars must be set before importing app module
 
 
 def main() -> None:

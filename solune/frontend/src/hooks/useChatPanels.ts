@@ -90,7 +90,7 @@ export function useChatPanels(initialConversationId?: string): UseChatPanelsRetu
   useEffect(() => {
     if (!initialConversationId || panels.length > 0) return;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialization pattern: async ID not available at first render
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reason: initialization pattern; async ID not available at first render
     setPanels((prev) => {
       if (prev.length === 0 && initialConversationId) {
         return [createDefaultPanel(initialConversationId)];

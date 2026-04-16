@@ -233,7 +233,7 @@ export function useRealTimeSync(
         clearTimeout(reconnectTimeoutRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- connect is stable enough; startPolling/stopPolling included via connect's closure
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: connect is stable enough; startPolling/stopPolling included via connect's closure
   }, [projectId, connect]);
 
   return {
