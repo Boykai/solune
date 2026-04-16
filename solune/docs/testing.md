@@ -198,14 +198,12 @@ Any lint, type-check, test-skip, coverage, or mutation suppression that remains 
 | `# noqa: PTH119` | CodeQL-recognised path sanitizer; `pathlib.PurePath.name` not recognised by CodeQL |
 | `# type: ignore[...]` | SDK `TypedDict` preview field not yet declared in stubs |
 | `eslint-disable react-hooks/exhaustive-deps` | Mount-only effect or intentionally omitted dependency with stable ref |
-| `eslint-disable react-hooks/rules-of-hooks` | Playwright `use` callback parameter triggers false positive |
+| `react-hooks/rules-of-hooks: off` (eslint config, e2e scope) | Playwright `use` callback parameter triggers false positive |
 | `eslint-disable react-hooks/set-state-in-effect` | Initialization pattern; async ID not available at first render |
-| `eslint-disable jsx-a11y/no-autofocus` | Modal/popover input should receive focus on open |
 | `eslint-disable jsx-a11y/click-events-have-key-events` | Modal dialog `stopPropagation` pattern; parent backdrop handles keyboard dismiss |
-| `eslint-disable @typescript-eslint/no-explicit-any` | `React.ComponentType<any>` — framework-standard generic bound |
 | `#disable-next-line outputs-should-not-contain-secrets` | Bicep cross-module secret passing consumed as `secureParam` downstream |
 
-**CI guard**: Run `./solune/scripts/check-suppressions.sh` from the repository root to verify all suppressions carry a `reason:` marker. The script scans Python, TypeScript, JavaScript, and Bicep files.
+**CI guard**: The `check-suppressions` step in the Build Validation CI job runs `./solune/scripts/check-suppressions.sh` from the repository root to verify all suppressions carry a `reason:` marker. The script scans Python, TypeScript, JavaScript, and Bicep files. New suppressions without a `reason:` marker will fail the CI build.
 
 Suppressions without a `reason:` marker should be addressed in the next change that touches the file.
 
