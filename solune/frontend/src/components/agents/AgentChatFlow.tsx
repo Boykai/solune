@@ -71,7 +71,7 @@ export function AgentChatFlow({
         },
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: mount-only effect; chatMutation and normalizedInitialMessage are stable refs/props
   }, []);
 
   // Auto-scroll

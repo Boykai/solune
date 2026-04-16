@@ -59,7 +59,7 @@ export function ChoreChatFlow({
         },
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: mount-only effect; chatMutation and initialMessage are stable refs/props
   }, []);
 
   // Scroll to bottom on new messages

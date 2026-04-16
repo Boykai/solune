@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react-hooks/rules-of-hooks -- reason: Playwright fixtures use `use` callback parameter which triggers false positive */
 /**
  * Shared Playwright fixtures for E2E smoke tests.
  *

@@ -39,9 +39,11 @@ type SpeechRecognitionInstance = {
 };
 
 function getSpeechRecognitionConstructor(): (new () => SpeechRecognitionInstance) | null {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const win = window as any;
-  return win.SpeechRecognition || win.webkitSpeechRecognition || null;
+  const win = window as unknown as Record<string, unknown>;
+  const Ctor = (win.SpeechRecognition ?? win.webkitSpeechRecognition) as
+    | (new () => SpeechRecognitionInstance)
+    | undefined;
+  return Ctor ?? null;
 }
 
 export function useVoiceInput(onTranscript: (text: string) => void): UseVoiceInputReturn {
