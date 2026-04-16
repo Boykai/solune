@@ -71,5 +71,6 @@ output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
 
 @description('Access key for the storage account — used by Container Apps for Azure Files volume mounts.')
+// reason: required by Container Apps module for Azure Files mount — consumed as secureParam in container-apps.bicep
 #disable-next-line outputs-should-not-contain-secrets
 output storageAccountKey string = storageAccount.listKeys().keys[0].value

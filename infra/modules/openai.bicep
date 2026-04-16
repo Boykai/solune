@@ -72,5 +72,6 @@ output openAiDeploymentName string = modelDeployment.name
 output openAiAccountId string = openAiAccount.id
 
 @description('Primary access key for the Azure OpenAI account — stored in Key Vault for backend use.')
+// reason: stored in Key Vault by main.bicep — no alternative to output for cross-module secret passing
 #disable-next-line outputs-should-not-contain-secrets
 output openAiKey string = openAiAccount.listKeys().key1

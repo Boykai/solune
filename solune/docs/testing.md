@@ -179,6 +179,27 @@ npm run build
 
 ---
 
+## Suppression Policy
+
+Any lint, type-check, test-skip, coverage, or mutation suppression that remains in the codebase **must** carry a `reason:` justification (either inline or on the preceding line). This applies to:
+
+- `# noqa`, `# type: ignore`, `# pragma: no cover`, `# nosec` (Python / Ruff / Bandit)
+- `eslint-disable`, `@ts-expect-error` (TypeScript / ESLint)
+- `#disable-next-line` (Bicep)
+- `@pytest.mark.skipif`, `test.skip()` (test skips)
+
+**Allowed suppression patterns** (with reason):
+
+- FastAPI `Depends()` calls: `# noqa: B008 — reason: FastAPI Depends() pattern`
+- Frozen dataclass mutation tests: `# noqa: B010 — reason: intentional frozen dataclass test`
+- CodeQL-recognised sanitisers: `# noqa: PTH119 — reason: CodeQL-recognised path sanitizer`
+- SDK preview fields: `# type: ignore[...] — reason: SDK TypedDict preview field`
+- React `ComponentType<any>`: framework-standard generic bound
+
+Suppressions without a `reason:` marker should be addressed in the next change that touches the file.
+
+---
+
 ## What's next?
 
 - [API Reference](api-reference.md) — endpoints covered by the test suite
