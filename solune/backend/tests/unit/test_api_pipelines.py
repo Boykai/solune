@@ -1012,6 +1012,78 @@ class TestSeedPresets:
         stages = json.loads(row["stages"])
         assert stages[0]["name"] == "In progress"
 
+    @pytest.mark.anyio
+    async def test_seed_presets_removes_stale_builtin_presets_only(self, mock_db):
+        """Seeding removes legacy built-in preset rows without touching user copies."""
+        now = "2026-04-13T00:00:00Z"
+        stale_stage = json.dumps([])
+
+        await mock_db.executemany(
+            """
+            INSERT INTO pipeline_configs
+                (id, project_id, name, description, stages, is_preset, preset_id, github_user_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    "legacy-preset",
+                    "PVT_PRESETS_CLEANUP",
+                    "Legacy",
+                    "Old built-in preset",
+                    stale_stage,
+                    1,
+                    "easy",
+                    "12345",
+                    now,
+                    now,
+                ),
+                (
+                    "custom-copy",
+                    "PVT_PRESETS_CLEANUP",
+                    "Custom Legacy",
+                    "User copy should remain",
+                    stale_stage,
+                    0,
+                    "easy",
+                    "",
+                    now,
+                    now,
+                ),
+            ],
+        )
+        await mock_db.commit()
+
+        result = await PipelineService(mock_db).seed_presets(
+            "PVT_PRESETS_CLEANUP",
+            github_user_id="12345",
+        )
+
+        assert set(result["seeded"]) == {"github", "spec-kit", "default", "app-builder"}
+
+        cursor = await mock_db.execute(
+            """
+            SELECT id, is_preset, preset_id
+            FROM pipeline_configs
+            WHERE project_id = ?
+            ORDER BY id
+            """,
+            ("PVT_PRESETS_CLEANUP",),
+        )
+        rows = await cursor.fetchall()
+
+        assert ("legacy-preset", 1, "easy") not in {
+            (row["id"], row["is_preset"], row["preset_id"]) for row in rows
+        }
+        assert ("custom-copy", 0, "easy") in {
+            (row["id"], row["is_preset"], row["preset_id"]) for row in rows
+        }
+        assert {row["preset_id"] for row in rows if row["is_preset"] == 1} == {
+            "app-builder",
+            "default",
+            "github",
+            "spec-kit",
+        }
+
 
 class TestPipelineAssignment:
     """Tests for project pipeline assignment endpoints."""

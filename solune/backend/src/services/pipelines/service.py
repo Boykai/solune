@@ -70,7 +70,7 @@ def _grouped_stage(
         "groups": [_group(gid, 0, agents, mode)],
         # For backward compatibility, expose a flattened list of agents at the stage level.
         "agents": agents,
-        "execution_mode": "sequential",
+        "execution_mode": mode,
     }
 
 
@@ -117,7 +117,7 @@ _PRESET_DEFINITIONS = [
     {
         "preset_id": "default",
         "name": "Default",
-        "description": "End-to-end workflow: spec, plan, implement, QA, test, lint, review, and judge.",
+        "description": "End-to-end workflow: specify, plan, tasks, analyze, implement, QA, test, lint, review, and judge.",
         "stages": [
             _grouped_stage(
                 "preset-df-stage-1",
@@ -480,8 +480,25 @@ class PipelineService:
         seeded: list[str] = []
         skipped: list[str] = []
         did_update_existing = False
+        did_delete_stale = False
 
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        valid_preset_ids = tuple(preset["preset_id"] for preset in _PRESET_DEFINITIONS)
+
+        stale_placeholders = ", ".join("?" for _ in valid_preset_ids)
+        stale_query = f"""
+            DELETE FROM pipeline_configs
+            WHERE project_id = ?
+              AND is_preset = 1
+              AND preset_id NOT IN ({stale_placeholders})
+        """
+        stale_params: list[str] = [project_id, *valid_preset_ids]
+        if github_user_id:
+            stale_query += " AND (github_user_id = ? OR github_user_id = '')"
+            stale_params.append(github_user_id)
+
+        stale_cursor = await self._db.execute(stale_query, stale_params)
+        did_delete_stale = stale_cursor.rowcount > 0
 
         for preset in _PRESET_DEFINITIONS:
             preset_id = preset["preset_id"]
@@ -561,7 +578,7 @@ class PipelineService:
             except aiosqlite.IntegrityError:
                 skipped.append(preset_id)
 
-        if seeded or did_update_existing:
+        if seeded or did_update_existing or did_delete_stale:
             await self._db.commit()
 
         return {"seeded": seeded, "skipped": skipped, "total": len(seeded) + len(skipped)}
