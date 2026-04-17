@@ -31,7 +31,7 @@ export function AgentChatFlow({
 }: AgentChatFlowProps) {
   const [normalizedInitialMessage] = useState(() => initialMessage.trim());
   const hasSentInitialMessageRef = useRef(false);
-  const [messages, setMessages] = useState<ChatMessage[]>(
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
     normalizedInitialMessage ? [{ role: 'user', content: normalizedInitialMessage }] : [],
   );
   const [input, setInput] = useState('');
