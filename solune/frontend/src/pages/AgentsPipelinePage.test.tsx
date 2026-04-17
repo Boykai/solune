@@ -14,6 +14,19 @@ const mockDeletePipeline = vi.fn();
 const mockSavePipeline = vi.fn();
 const mockDiscardChanges = vi.fn();
 const mockRefetchAgents = vi.fn();
+const mockBoardColumns: Array<{
+  status: { name: string; option_id: string; color: string };
+  item_count: number;
+}> = [
+  {
+    status: {
+      name: 'Ready',
+      option_id: 'status-ready',
+      color: 'blue',
+    },
+    item_count: 2,
+  },
+];
 
 const mockPipelineConfig = {
   boardState: 'editing' as const,
@@ -111,16 +124,7 @@ vi.mock('@/hooks/useProjects', () => ({
 vi.mock('@/hooks/useProjectBoard', () => ({
   useProjectBoard: () => ({
     boardData: {
-      columns: [
-        {
-          status: {
-            name: 'Ready',
-            option_id: 'status-ready',
-            color: 'blue',
-          },
-          item_count: 2,
-        },
-      ],
+      columns: mockBoardColumns,
     },
     boardLoading: false,
   }),
@@ -169,7 +173,9 @@ vi.mock('@/components/common/CelestialLoader', () => ({
 }));
 
 vi.mock('@/components/pipeline/PipelineBoard', () => ({
-  PipelineBoard: () => <div>Pipeline Board</div>,
+  PipelineBoard: ({ columnCount }: { columnCount: number }) => (
+    <div>Pipeline Board {columnCount}</div>
+  ),
 }));
 
 vi.mock('@/components/pipeline/PipelineToolbar', () => ({
@@ -266,6 +272,32 @@ describe('AgentsPipelinePage', () => {
     vi.clearAllMocks();
     mockPipelineConfig.isDirty = true;
     mockPipelineConfig.boardState = 'editing';
+    mockPipelineConfig.pipeline = {
+      id: 'pipeline-1',
+      name: 'Existing Pipeline',
+      description: '',
+      stages: [
+        {
+          id: 'stage-1',
+          name: 'Ready',
+          order: 0,
+          agents: [],
+        },
+      ],
+      is_preset: false,
+      preset_id: '',
+      created_at: '2026-03-10T18:00:00Z',
+      updated_at: '2026-03-10T18:00:00Z',
+      project_id: 'project-1',
+    };
+    mockBoardColumns.splice(0, mockBoardColumns.length, {
+      status: {
+        name: 'Ready',
+        option_id: 'status-ready',
+        color: 'blue',
+      },
+      item_count: 2,
+    });
   });
 
   it('passes the pipeline summary badge and stats into the compact header', () => {
@@ -318,6 +350,42 @@ describe('AgentsPipelinePage', () => {
     expect(
       screen.getByText('Copying a saved workflow will discard your changes')
     ).toBeInTheDocument();
+  });
+
+  it('uses three columns as the minimum pipeline canvas width', () => {
+    mockPipelineConfig.pipeline = {
+      ...mockPipelineConfig.pipeline,
+      stages: [],
+    };
+    mockBoardColumns.splice(0, mockBoardColumns.length);
+
+    render(<AgentsPipelinePage />);
+
+    expect(screen.getByText('Pipeline Board 3')).toBeInTheDocument();
+  });
+
+  it('preserves the selected pipeline stage count when it exceeds board columns', () => {
+    mockPipelineConfig.pipeline = {
+      ...mockPipelineConfig.pipeline,
+      stages: [
+        { id: 'stage-1', name: 'Backlog', order: 0, agents: [] },
+        { id: 'stage-2', name: 'In progress', order: 1, agents: [] },
+        { id: 'stage-3', name: 'Done', order: 2, agents: [] },
+        { id: 'stage-4', name: 'Released', order: 3, agents: [] },
+      ],
+    };
+    mockBoardColumns.splice(0, mockBoardColumns.length, {
+      status: {
+        name: 'Ready',
+        option_id: 'status-ready',
+        color: 'blue',
+      },
+      item_count: 2,
+    });
+
+    render(<AgentsPipelinePage />);
+
+    expect(screen.getByText('Pipeline Board 4')).toBeInTheDocument();
   });
 
   it('renders Pipeline Analytics section when pipelines exist', () => {

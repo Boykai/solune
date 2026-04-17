@@ -1,0 +1,1 @@
+export const DEFAULT_PIPELINE_STAGE_NAMES = ['Backlog', 'In progress', 'Done'] as const;

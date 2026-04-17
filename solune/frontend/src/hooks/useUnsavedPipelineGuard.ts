@@ -8,6 +8,7 @@ import type { ConfirmationOptions } from '@/hooks/useConfirmation';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { useUndoableDelete } from '@/hooks/useUndoableDelete';
 import { pipelineKeys } from '@/hooks/usePipelineConfig';
+import { DEFAULT_PIPELINE_STAGE_NAMES } from '@/constants/pipeline';
 
 interface PipelineConfigActions {
   isDirty: boolean;
@@ -92,7 +93,10 @@ export function useUnsavedPipelineGuard({
   );
 
   const handleNewPipeline = useCallback(() => {
-    const initialStageNames = columns.map((column) => column.status.name);
+    const initialStageNames =
+      columns.length > 0
+        ? columns.map((column) => column.status.name)
+        : [...DEFAULT_PIPELINE_STAGE_NAMES];
 
     if (pipelineConfig.isDirty) {
       setUnsavedDialog({
