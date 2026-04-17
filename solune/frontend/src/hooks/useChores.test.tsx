@@ -316,6 +316,7 @@ describe('useEvaluateChoresTriggers', () => {
   });
 
   it('handles API failure without throwing', async () => {
+    vi.useRealTimers(); // This test only needs microtask flushing, not fake timers
     const consoleSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
     mockChoresApi.evaluateTriggers.mockRejectedValue(new Error('Network error'));
 
@@ -325,7 +326,7 @@ describe('useEvaluateChoresTriggers', () => {
     );
 
     // Wait for the promise rejection to be handled
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith(
         '[useChores] evaluateTriggers failed:',
         expect.any(Error),

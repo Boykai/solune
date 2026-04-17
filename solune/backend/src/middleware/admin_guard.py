@@ -37,9 +37,8 @@ class AdminGuardMiddleware(BaseHTTPMiddleware):
 
         if result.locked:
             logger.warning(
-                "Guard BLOCKED (adminlock): %s paths locked — %s",
+                "Guard BLOCKED (adminlock): %s paths locked",
                 len(result.locked),
-                ", ".join(result.locked),
             )
             return Response(
                 content=(
@@ -52,9 +51,8 @@ class AdminGuardMiddleware(BaseHTTPMiddleware):
 
         if result.admin_blocked:
             logger.warning(
-                "Guard BLOCKED (admin): %s paths require elevation — %s",
+                "Guard BLOCKED (admin): %s paths require elevation",
                 len(result.admin_blocked),
-                ", ".join(result.admin_blocked),
             )
             return Response(
                 content=(
