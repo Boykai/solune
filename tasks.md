@@ -23,10 +23,10 @@
 
 **Purpose**: Establish secure development environment and validate tooling prerequisites
 
-- [ ] T001 Review current codebase state against all 21 audit findings in specs/001-security-review/plan.md
-- [ ] T002 [P] Verify Python 3.11+ with FastAPI, slowapi, and cryptography (Fernet) dependencies in solune/backend/pyproject.toml
-- [ ] T003 [P] Verify Node.js 20+ with React 19 and Vite dependencies in solune/frontend/package.json
-- [ ] T004 [P] Verify Docker and Docker Compose configuration supports non-root containers in solune/docker-compose.yml
+- [x] T001 Review current codebase state against all 21 audit findings in specs/001-security-review/plan.md
+- [x] T002 [P] Verify Python 3.11+ with FastAPI, slowapi, and cryptography (Fernet) dependencies in solune/backend/pyproject.toml
+- [x] T003 [P] Verify Node.js 20+ with React 19 and Vite dependencies in solune/frontend/package.json
+- [x] T004 [P] Verify Docker and Docker Compose configuration supports non-root containers in solune/docker-compose.yml
 
 ---
 
@@ -36,10 +36,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement startup configuration validation framework in solune/backend/src/config.py with `_validate_production_settings()` that enforces mandatory secrets and secure defaults in non-debug mode
-- [ ] T006 [P] Implement centralized project access verification dependency `verify_project_access()` in solune/backend/src/dependencies.py using FastAPI dependency injection
-- [ ] T007 [P] Integrate slowapi rate limiting middleware into FastAPI application in solune/backend/src/main.py with Limiter instance and SlowAPIMiddleware
-- [ ] T008 [P] Configure Fernet at-rest encryption service in solune/backend/src/services/encryption.py with legacy plaintext token detection via GitHub token prefix pattern
+- [x] T005 Implement startup configuration validation framework in solune/backend/src/config.py with `_validate_production_settings()` that enforces mandatory secrets and secure defaults in non-debug mode
+- [x] T006 [P] Implement centralized project access verification dependency `verify_project_access()` in solune/backend/src/dependencies.py using FastAPI dependency injection
+- [x] T007 [P] Integrate slowapi rate limiting middleware into FastAPI application in solune/backend/src/main.py with Limiter instance and SlowAPIMiddleware
+- [x] T008 [P] Configure Fernet at-rest encryption service in solune/backend/src/services/encryption.py with legacy plaintext token detection via GitHub token prefix pattern
 
 **Checkpoint**: Foundation ready — user story implementation can now begin in parallel
 
@@ -55,10 +55,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Implement `_set_session_cookie()` helper in solune/backend/src/api/auth.py that sets HttpOnly, SameSite=Strict, Secure cookie on the response
-- [ ] T010 [US1] Modify OAuth callback handler in solune/backend/src/api/auth.py to redirect to frontend with no credentials in the URL, using `_set_session_cookie()` to deliver the session
-- [ ] T011 [P] [US1] Ensure frontend `useAuth` hook in solune/frontend/src/hooks/useAuth.ts does not read or parse credentials from URL parameters
-- [ ] T012 [US1] Verify cookie attributes (HttpOnly, SameSite=Strict, Secure) are correctly set by inspecting OAuth callback response headers
+- [x] T009 [US1] Implement `_set_session_cookie()` helper in solune/backend/src/api/auth.py that sets HttpOnly, SameSite=Strict, Secure cookie on the response
+- [x] T010 [US1] Modify OAuth callback handler in solune/backend/src/api/auth.py to redirect to frontend with no credentials in the URL, using `_set_session_cookie()` to deliver the session
+- [x] T011 [P] [US1] Ensure frontend `useAuth` hook in solune/frontend/src/hooks/useAuth.ts does not read or parse credentials from URL parameters
+- [x] T012 [US1] Verify cookie attributes (HttpOnly, SameSite=Strict, Secure) are correctly set by inspecting OAuth callback response headers
 
 **Checkpoint**: User Story 1 complete — OAuth login produces no URL-visible credentials; session cookie is secure
 
@@ -74,13 +74,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Enforce mandatory ENCRYPTION_KEY at startup in non-debug mode in solune/backend/src/config.py — refuse to start if missing
-- [ ] T014 [P] [US2] Enforce mandatory GITHUB_WEBHOOK_SECRET at startup in non-debug mode in solune/backend/src/config.py — refuse to start if missing
-- [ ] T015 [P] [US2] Enforce SESSION_SECRET_KEY minimum length of 64 characters at startup in solune/backend/src/config.py — refuse to start if shorter
-- [ ] T016 [P] [US2] Enforce Secure cookie flag in non-debug mode in solune/backend/src/config.py via `effective_cookie_secure` property — refuse to start if not Secure
-- [ ] T017 [P] [US2] Validate CORS origins as well-formed URLs with scheme and hostname in `cors_origins_list` property in solune/backend/src/config.py — refuse to start on malformed values
-- [ ] T018 [US2] Ensure encryption service in solune/backend/src/services/encryption.py handles legacy plaintext token detection (GitHub token prefix matching) for migration path
-- [ ] T019 [US2] Verify debug mode logs warnings instead of failing for missing configuration in solune/backend/src/config.py
+- [x] T013 [US2] Enforce mandatory ENCRYPTION_KEY at startup in non-debug mode in solune/backend/src/config.py — refuse to start if missing
+- [x] T014 [P] [US2] Enforce mandatory GITHUB_WEBHOOK_SECRET at startup in non-debug mode in solune/backend/src/config.py — refuse to start if missing
+- [x] T015 [P] [US2] Enforce SESSION_SECRET_KEY minimum length of 64 characters at startup in solune/backend/src/config.py — refuse to start if shorter
+- [x] T016 [P] [US2] Enforce Secure cookie flag in non-debug mode in solune/backend/src/config.py via `effective_cookie_secure` property — refuse to start if not Secure
+- [x] T017 [P] [US2] Validate CORS origins as well-formed URLs with scheme and hostname in `cors_origins_list` property in solune/backend/src/config.py — refuse to start on malformed values
+- [x] T018 [US2] Ensure encryption service in solune/backend/src/services/encryption.py handles legacy plaintext token detection (GitHub token prefix matching) for migration path
+- [x] T019 [US2] Verify debug mode logs warnings instead of failing for missing configuration in solune/backend/src/config.py
 
 **Checkpoint**: User Story 2 complete — production deployments cannot start without proper security configuration
 
@@ -96,9 +96,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T020 [P] [US3] Configure frontend Dockerfile in solune/frontend/Dockerfile to create `nginx-app` non-root user with `addgroup -S` and `adduser -S`, set `USER nginx-app`, and use unprivileged port 8080
-- [ ] T021 [P] [US3] Verify backend Dockerfile in solune/backend/Dockerfile creates and uses `appuser` non-root user
-- [ ] T022 [US3] Update nginx configuration in solune/frontend/nginx.conf to listen on unprivileged port 8080 compatible with non-root execution
+- [x] T020 [P] [US3] Configure frontend Dockerfile in solune/frontend/Dockerfile to create `nginx-app` non-root user with `addgroup -S` and `adduser -S`, set `USER nginx-app`, and use unprivileged port 8080
+- [x] T021 [P] [US3] Verify backend Dockerfile in solune/backend/Dockerfile creates and uses `appuser` non-root user
+- [x] T022 [US3] Update nginx configuration in solune/frontend/nginx.conf to listen on unprivileged port 8080 compatible with non-root execution
 
 **Checkpoint**: User Story 3 complete — all containers run as non-root users
 
@@ -114,12 +114,12 @@
 
 ### Implementation for User Story 4
 
-- [ ] T023 [US4] Implement `verify_project_access()` dependency in solune/backend/src/dependencies.py with in-memory cache, GitHub API fallback, and 403 Forbidden response for unauthorized access
-- [ ] T024 [P] [US4] Apply `verify_project_access()` to task endpoints in solune/backend/src/api/tasks.py via FastAPI Depends()
-- [ ] T025 [P] [US4] Apply `verify_project_access()` to project endpoints in solune/backend/src/api/projects.py via FastAPI Depends()
-- [ ] T026 [P] [US4] Apply `verify_project_access()` to settings endpoints in solune/backend/src/api/settings.py via FastAPI Depends()
-- [ ] T027 [P] [US4] Apply `verify_project_access()` to workflow endpoints in solune/backend/src/api/workflow.py via FastAPI Depends()
-- [ ] T028 [US4] Ensure WebSocket connections in project-scoped endpoints verify access before upgrade — reject unauthorized connections before any data is sent
+- [x] T023 [US4] Implement `verify_project_access()` dependency in solune/backend/src/dependencies.py with in-memory cache, GitHub API fallback, and 403 Forbidden response for unauthorized access
+- [x] T024 [P] [US4] Apply `verify_project_access()` to task endpoints in solune/backend/src/api/tasks.py via FastAPI Depends()
+- [x] T025 [P] [US4] Apply `verify_project_access()` to project endpoints in solune/backend/src/api/projects.py via FastAPI Depends()
+- [x] T026 [P] [US4] Apply `verify_project_access()` to settings endpoints in solune/backend/src/api/settings.py via FastAPI Depends()
+- [x] T027 [P] [US4] Apply `verify_project_access()` to workflow endpoints in solune/backend/src/api/workflow.py via FastAPI Depends()
+- [x] T028 [US4] Ensure WebSocket connections in project-scoped endpoints verify access before upgrade — reject unauthorized connections before any data is sent
 
 **Checkpoint**: User Story 4 complete — all project-scoped endpoints enforce centralized access control
 
@@ -135,10 +135,10 @@
 
 ### Implementation for User Story 5
 
-- [ ] T029 [US5] Implement constant-time secret comparison using `hmac.compare_digest()` for Signal webhook verification in solune/backend/src/api/signal.py
-- [ ] T030 [P] [US5] Verify GitHub webhook handler in solune/backend/src/api/webhooks.py uses `hmac.compare_digest()` for HMAC-SHA256 signature verification unconditionally (no debug bypass)
-- [ ] T031 [P] [US5] Remove any debug-mode conditional bypass of webhook signature verification in solune/backend/src/api/webhooks.py — verification must always execute
-- [ ] T032 [US5] Modify dev login endpoint in solune/backend/src/api/auth.py to accept credentials exclusively via POST request body (JSON), not URL parameters
+- [x] T029 [US5] Implement constant-time secret comparison using `hmac.compare_digest()` for Signal webhook verification in solune/backend/src/api/signal.py
+- [x] T030 [P] [US5] Verify GitHub webhook handler in solune/backend/src/api/webhooks.py uses `hmac.compare_digest()` for HMAC-SHA256 signature verification unconditionally (no debug bypass)
+- [x] T031 [P] [US5] Remove any debug-mode conditional bypass of webhook signature verification in solune/backend/src/api/webhooks.py — verification must always execute
+- [x] T032 [US5] Modify dev login endpoint in solune/backend/src/api/auth.py to accept credentials exclusively via POST request body (JSON), not URL parameters
 
 **Checkpoint**: User Story 5 complete — all secret comparisons are constant-time; webhook verification is unconditional
 
@@ -154,12 +154,12 @@
 
 ### Implementation for User Story 6
 
-- [ ] T033 [US6] Add Content-Security-Policy header to solune/frontend/nginx.conf restricting default-src, script-src, style-src, img-src (self + avatars.githubusercontent.com), connect-src (self + ws/wss), frame-ancestors none
-- [ ] T034 [P] [US6] Add Strict-Transport-Security header with max-age=31536000 and includeSubDomains to solune/frontend/nginx.conf
-- [ ] T035 [P] [US6] Add Referrer-Policy (strict-origin-when-cross-origin) header to solune/frontend/nginx.conf
-- [ ] T036 [P] [US6] Add Permissions-Policy (camera=(), microphone=(), geolocation=()) header to solune/frontend/nginx.conf
-- [ ] T037 [P] [US6] Remove deprecated X-XSS-Protection header from solune/frontend/nginx.conf
-- [ ] T038 [US6] Set `server_tokens off` directive in solune/frontend/nginx.conf to prevent nginx version disclosure
+- [x] T033 [US6] Add Content-Security-Policy header to solune/frontend/nginx.conf restricting default-src, script-src, style-src, img-src (self + avatars.githubusercontent.com), connect-src (self + ws/wss), frame-ancestors none
+- [x] T034 [P] [US6] Add Strict-Transport-Security header with max-age=31536000 and includeSubDomains to solune/frontend/nginx.conf
+- [x] T035 [P] [US6] Add Referrer-Policy (strict-origin-when-cross-origin) header to solune/frontend/nginx.conf
+- [x] T036 [P] [US6] Add Permissions-Policy (camera=(), microphone=(), geolocation=()) header to solune/frontend/nginx.conf
+- [x] T037 [P] [US6] Remove deprecated X-XSS-Protection header from solune/frontend/nginx.conf
+- [x] T038 [US6] Set `server_tokens off` directive in solune/frontend/nginx.conf to prevent nginx version disclosure
 
 **Checkpoint**: User Story 6 complete — all security headers present; no version disclosure
 
@@ -175,8 +175,8 @@
 
 ### Implementation for User Story 7
 
-- [ ] T039 [US7] Configure OAuth scopes to `read:user read:org project repo` in solune/backend/src/services/github_auth.py with inline documentation explaining rationale for `repo` scope retention
-- [ ] T040 [US7] Verify all write operations (issue creation, label management, project board mutations) function correctly with configured scopes in staging
+- [x] T039 [US7] Configure OAuth scopes to `read:user read:org project repo` in solune/backend/src/services/github_auth.py with inline documentation explaining rationale for `repo` scope retention
+- [x] T040 [US7] Verify all write operations (issue creation, label management, project board mutations) function correctly with configured scopes in staging
 
 **Checkpoint**: User Story 7 complete — OAuth scopes documented and minimized within functional constraints
 
@@ -192,11 +192,11 @@
 
 ### Implementation for User Story 8
 
-- [ ] T041 [US8] Bind backend service port to `127.0.0.1:8000` in solune/docker-compose.yml instead of `0.0.0.0`
-- [ ] T042 [P] [US8] Bind frontend service port to `127.0.0.1:5173` in solune/docker-compose.yml instead of `0.0.0.0`
-- [ ] T043 [P] [US8] Mount data volume at `/var/lib/solune/data` using named volume `solune-data` in solune/docker-compose.yml (outside application root)
-- [ ] T044 [US8] Create database directory with 0o700 permissions in solune/backend/src/database.py using `os.makedirs()` with explicit mode
-- [ ] T045 [P] [US8] Set database file permissions to 0o600 in solune/backend/src/database.py using `os.chmod()` after file creation
+- [x] T041 [US8] Bind backend service port to `127.0.0.1:8000` in solune/docker-compose.yml instead of `0.0.0.0`
+- [x] T042 [P] [US8] Bind frontend service port to `127.0.0.1:5173` in solune/docker-compose.yml instead of `0.0.0.0`
+- [x] T043 [P] [US8] Mount data volume at `/var/lib/solune/data` using named volume `solune-data` in solune/docker-compose.yml (outside application root)
+- [x] T044 [US8] Create database directory with 0o700 permissions in solune/backend/src/database.py using `os.makedirs()` with explicit mode
+- [x] T045 [P] [US8] Set database file permissions to 0o600 in solune/backend/src/database.py using `os.chmod()` after file creation
 
 **Checkpoint**: User Story 8 complete — infrastructure hardened with restrictive bindings, volumes, and permissions
 
@@ -212,11 +212,11 @@
 
 ### Implementation for User Story 9
 
-- [ ] T046 [US9] Configure slowapi Limiter instance with in-memory storage in solune/backend/src/main.py and register SlowAPIMiddleware and SlowAPIASGIMiddleware
-- [ ] T047 [P] [US9] Apply per-IP rate limit (20/minute) to OAuth callback endpoint in solune/backend/src/api/auth.py using slowapi @limiter.limit decorator
-- [ ] T048 [P] [US9] Apply per-user rate limit (10/minute) to chat endpoints in solune/backend/src/api/chat.py using slowapi @limiter.limit decorator
-- [ ] T049 [P] [US9] Apply per-user rate limit (5/minute) to agent invocation endpoints in solune/backend/src/api/agents.py using slowapi @limiter.limit decorator
-- [ ] T050 [US9] Verify rate-limited endpoints return proper 429 response with Retry-After header when threshold is exceeded
+- [x] T046 [US9] Configure slowapi Limiter instance with in-memory storage in solune/backend/src/main.py and register SlowAPIMiddleware and SlowAPIASGIMiddleware
+- [x] T047 [P] [US9] Apply per-IP rate limit (20/minute) to OAuth callback endpoint in solune/backend/src/api/auth.py using slowapi @limiter.limit decorator
+- [x] T048 [P] [US9] Apply per-user rate limit (10/minute) to chat endpoints in solune/backend/src/api/chat.py using slowapi @limiter.limit decorator
+- [x] T049 [P] [US9] Apply per-user rate limit (5/minute) to agent invocation endpoints in solune/backend/src/api/agents.py using slowapi @limiter.limit decorator
+- [x] T050 [US9] Verify rate-limited endpoints return proper 429 response with Retry-After header when threshold is exceeded
 
 **Checkpoint**: User Story 9 complete — all expensive/sensitive endpoints enforce rate limits
 
@@ -232,9 +232,9 @@
 
 ### Implementation for User Story 10
 
-- [ ] T051 [US10] Implement in-memory-only chat history in solune/frontend/src/hooks/useChatHistory.ts — messages stored as React state, never persisted to localStorage or sessionStorage
-- [ ] T052 [P] [US10] Add `clearLegacyStorage('chat-message-history')` call on hook initialization in solune/frontend/src/hooks/useChatHistory.ts to remove pre-v2 localStorage data
-- [ ] T053 [US10] Implement localStorage cleanup on logout in solune/frontend/src/hooks/useAuth.ts — clear all application data including any legacy storage keys
+- [x] T051 [US10] Implement in-memory-only chat history in solune/frontend/src/hooks/useChatHistory.ts — messages stored as React state, never persisted to localStorage or sessionStorage
+- [x] T052 [P] [US10] Add `clearLegacyStorage('chat-message-history')` call on hook initialization in solune/frontend/src/hooks/useChatHistory.ts to remove pre-v2 localStorage data
+- [x] T053 [US10] Implement localStorage cleanup on logout in solune/frontend/src/hooks/useAuth.ts — clear all application data including any legacy storage keys
 
 **Checkpoint**: User Story 10 complete — no sensitive data persists in browser storage after logout
 
@@ -250,9 +250,9 @@
 
 ### Implementation for User Story 11
 
-- [ ] T054 [P] [US11] Add `enable_docs: bool = False` configuration field in solune/backend/src/config.py gated on ENABLE_DOCS environment variable, independent of DEBUG
-- [ ] T055 [US11] Gate Swagger/ReDoc endpoint availability on `settings.enable_docs` in solune/backend/src/main.py instead of DEBUG flag
-- [ ] T056 [P] [US11] Sanitize GraphQL error responses in solune/backend/src/services/github_projects/service.py — log full error with `logger.error()`, raise generic `ValueError("GitHub API request failed")` to API consumers
+- [x] T054 [P] [US11] Add `enable_docs: bool = False` configuration field in solune/backend/src/config.py gated on ENABLE_DOCS environment variable, independent of DEBUG
+- [x] T055 [US11] Gate Swagger/ReDoc endpoint availability on `settings.enable_docs` in solune/backend/src/main.py instead of DEBUG flag
+- [x] T056 [P] [US11] Sanitize GraphQL error responses in solune/backend/src/services/github_projects/service.py — log full error with `logger.error()`, raise generic `ValueError("GitHub API request failed")` to API consumers
 
 **Checkpoint**: User Story 11 complete — API docs independently controlled; no internal error details exposed
 
@@ -268,8 +268,8 @@
 
 ### Implementation for User Story 12
 
-- [ ] T057 [P] [US12] Set default `permissions: {}` at workflow level and grant only `issues: write` and `contents: read` at job level with justification comments in .github/workflows/branch-issue-link.yml
-- [ ] T058 [P] [US12] Implement avatar URL validation in solune/frontend/src/components/board/IssueCard.tsx with `ALLOWED_AVATAR_HOSTS` allowlist (avatars.githubusercontent.com), HTTPS protocol check, and SVG placeholder fallback for invalid URLs
+- [x] T057 [P] [US12] Set default `permissions: {}` at workflow level and grant only `issues: write` and `contents: read` at job level with justification comments in .github/workflows/branch-issue-link.yml
+- [x] T058 [P] [US12] Implement avatar URL validation in solune/frontend/src/components/board/IssueCard.tsx with `ALLOWED_AVATAR_HOSTS` allowlist (avatars.githubusercontent.com), HTTPS protocol check, and SVG placeholder fallback for invalid URLs
 
 **Checkpoint**: User Story 12 complete — minimal workflow permissions; external URLs validated
 
@@ -279,13 +279,13 @@
 
 **Purpose**: Final verification across all user stories and cross-cutting improvements
 
-- [ ] T059 [P] Run behavior-based verification checklist from specs/001-security-review/quickstart.md against all 10 verification checks
-- [ ] T060 [P] Verify all security behavioral contracts in specs/001-security-review/contracts/ are satisfied (security-headers.yaml, startup-validation.yaml, access-control.yaml, rate-limiting.yaml)
-- [ ] T061 Run full backend test suite from solune/backend with `uv run pytest --cov=src --cov-report=term-missing` to confirm no regressions
-- [ ] T062 [P] Run full frontend test suite from solune/frontend with `npm run test` and `npm run type-check` to confirm no regressions
-- [ ] T063 [P] Run backend linting and security scanning with `uv run ruff check src tests` and `uv run bandit -r src/ -ll -ii` from solune/backend
-- [ ] T064 Validate Docker build succeeds for both frontend and backend containers with `docker compose build` from solune/
-- [ ] T065 Run quickstart.md verification steps: security headers check, container user check, database permissions check, port binding check
+- [x] T059 [P] Run behavior-based verification checklist from specs/001-security-review/quickstart.md against all 10 verification checks
+- [x] T060 [P] Verify all security behavioral contracts in specs/001-security-review/contracts/ are satisfied (security-headers.yaml, startup-validation.yaml, access-control.yaml, rate-limiting.yaml)
+- [x] T061 Run full backend test suite from solune/backend with `uv run pytest --cov=src --cov-report=term-missing` to confirm no regressions
+- [x] T062 [P] Run full frontend test suite from solune/frontend with `npm run test` and `npm run type-check` to confirm no regressions
+- [x] T063 [P] Run backend linting and security scanning with `uv run ruff check src tests` and `uv run bandit -r src/ -ll -ii` from solune/backend
+- [x] T064 Validate Docker build succeeds for both frontend and backend containers with `docker compose build` from solune/
+- [x] T065 Run quickstart.md verification steps: security headers check, container user check, database permissions check, port binding check
 
 ---
 
