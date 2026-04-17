@@ -1,0 +1,44 @@
+# Security Headers Contract
+# Defines required HTTP response headers for the frontend (nginx)
+
+contract:
+  name: Security Headers
+  version: "1.0"
+  scope: Frontend nginx responses
+
+required_headers:
+  - name: Content-Security-Policy
+    value: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://avatars.githubusercontent.com data:; connect-src 'self' ws: wss:; frame-ancestors 'none'"
+    applies_to: all responses
+
+  - name: Strict-Transport-Security
+    value: "max-age=31536000; includeSubDomains"
+    applies_to: all responses
+
+  - name: Referrer-Policy
+    value: "strict-origin-when-cross-origin"
+    applies_to: all responses
+
+  - name: Permissions-Policy
+    value: "camera=(), microphone=(), geolocation=()"
+    applies_to: all responses
+
+  - name: X-Frame-Options
+    value: "SAMEORIGIN"
+    applies_to: all responses
+
+  - name: X-Content-Type-Options
+    value: "nosniff"
+    applies_to: all responses
+
+prohibited_headers:
+  - name: X-XSS-Protection
+    reason: "Deprecated in modern browsers; can introduce vulnerabilities"
+
+server_configuration:
+  - directive: "server_tokens off"
+    reason: "Prevents nginx version disclosure in Server header"
+
+verification:
+  method: "curl -I <frontend_url>"
+  expected: "All required headers present; no server version in Server header; X-XSS-Protection absent"

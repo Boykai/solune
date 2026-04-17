@@ -1,0 +1,52 @@
+# Access Control Contract
+# Defines project-level authorization requirements
+
+contract:
+  name: Project Access Control
+  version: "1.0"
+  scope: All project-scoped backend endpoints
+
+authorization_check:
+  function: verify_project_access()
+  location: src/dependencies.py
+  type: FastAPI dependency injection
+  applies_to:
+    - REST endpoints accepting project_id
+    - WebSocket endpoints accepting project_id
+    - Task creation, modification, deletion
+    - Project settings updates
+    - Workflow operations
+    - Board subscriptions
+
+behavior:
+  authorized:
+    response: Proceed with requested operation
+    verification_order:
+      - Check in-memory user projects cache
+      - If cache miss, query GitHub API for user's projects
+      - Cache result for subsequent requests
+
+  unauthorized:
+    status_code: 403
+    response: Forbidden error with no data leakage
+    websocket: Connection rejected before any data is sent
+    logging: Log unauthorized access attempt with user_id and project_id
+
+secret_comparisons:
+  rule: All secret/token comparisons must use constant-time functions
+  function: hmac.compare_digest()
+  applies_to:
+    - GitHub webhook signature verification (webhooks.py)
+    - Signal webhook secret verification (signal.py)
+    - Any future secret comparison
+
+webhook_verification:
+  rule: Signature verification must never be conditional on DEBUG mode
+  behavior: Always verify webhook signatures using HMAC-SHA256
+  developer_workflow: Use a locally configured test secret for development
+
+dev_login:
+  rule: Credentials must arrive in POST request body (JSON), never in URL
+  restriction: Only available when DEBUG=true
+  method: POST
+  content_type: application/json
