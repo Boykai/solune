@@ -1,0 +1,65 @@
+# Startup Validation Contract
+# Defines configuration validation requirements at application startup
+
+contract:
+  name: Startup Configuration Validation
+  version: "1.0"
+  scope: Backend application startup (non-debug mode)
+
+mandatory_secrets:
+  - name: ENCRYPTION_KEY
+    validation: Must be set (non-empty)
+    failure_behavior: Application refuses to start with error message
+    error_message: "ENCRYPTION_KEY is required in production mode"
+    owasp: A02
+
+  - name: GITHUB_WEBHOOK_SECRET
+    validation: Must be set (non-empty)
+    failure_behavior: Application refuses to start with error message
+    error_message: "GITHUB_WEBHOOK_SECRET is required in production mode"
+    owasp: A02
+
+  - name: SESSION_SECRET_KEY
+    validation: Must be at least 64 characters
+    failure_behavior: Application refuses to start with error message
+    error_message: "SESSION_SECRET_KEY must be at least 64 characters"
+    owasp: A07
+
+cookie_security:
+  - name: COOKIE_SECURE
+    validation: Must be true, or FRONTEND_URL must start with "https://"
+    failure_behavior: Application refuses to start with error message
+    error_message: "Cookies must be Secure in production. Set COOKIE_SECURE=true or use an https:// FRONTEND_URL"
+    owasp: A02
+
+cors_validation:
+  - name: CORS_ORIGINS
+    validation: Each comma-separated origin must be a well-formed URL with scheme and hostname
+    failure_behavior: Application refuses to start with error message
+    error_message: "Malformed CORS origin: {origin}. Each origin must have a scheme and hostname"
+    owasp: A05
+
+api_documentation:
+  - name: ENABLE_DOCS
+    validation: Boolean flag, independent of DEBUG
+    default: false
+    behavior: When true, Swagger/ReDoc endpoints are available; when false, they return 404
+    owasp: A05
+
+debug_mode_behavior:
+  non_debug:
+    missing_secrets: Application refuses to start (hard failure)
+    missing_cookie_secure: Application refuses to start (hard failure)
+    malformed_cors: Application refuses to start (hard failure)
+  debug:
+    missing_secrets: Warning logged, application continues
+    missing_cookie_secure: Warning logged, application continues
+    malformed_cors: Warning logged, application continues
+
+session_cookie:
+  attributes:
+    httponly: true
+    samesite: strict
+    secure: Determined by effective_cookie_secure
+  delivery: Set on OAuth callback response, never in URL
+  credential_in_url: Never — no session tokens, OAuth tokens, or PATs in URL parameters
