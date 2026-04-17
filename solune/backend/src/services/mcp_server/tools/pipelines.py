@@ -196,7 +196,8 @@ async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> di
         }
 
     orchestrator = get_workflow_orchestrator()
-    agent_index = getattr(state, "current_agent_index", 0) or 0
+    raw_index = getattr(state, "current_agent_index", None)
+    agent_index = raw_index if raw_index is not None else 0
     success = await orchestrator.assign_agent_for_status(
         wf_ctx, state.status, agent_index=agent_index
     )

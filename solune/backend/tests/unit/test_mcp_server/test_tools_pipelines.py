@@ -177,3 +177,50 @@ class TestRetryPipeline:
         ctx = _make_ctx()
         result = await retry_pipeline(ctx, "PVT_abc", 999)
         assert "error" in result
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    @patch("src.services.pipeline_state_store.set_pipeline_state")
+    @patch("src.services.workflow_orchestrator.orchestrator.get_workflow_orchestrator")
+    @patch("src.services.workflow_orchestrator.config.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.utils.resolve_repository", new_callable=AsyncMock)
+    @patch("src.services.github_projects.GitHubProjectsService")
+    async def test_retry_uses_none_agent_index_as_zero(
+        self,
+        MockGHSvc,
+        mock_resolve_repo,
+        mock_get_config,
+        mock_get_orch,
+        mock_set_state,
+        mock_get_state,
+        mock_access,
+    ):
+        """Regression: when current_agent_index is None the retry must
+        default to 0 instead of passing None to assign_agent_for_status."""
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = False
+        state.current_agent = "copilot"
+        state.current_agent_index = None  # explicitly None
+        state.status = "Todo"
+        state.error = "stalled"
+        mock_get_state.return_value = state
+
+        mock_resolve_repo.return_value = ("owner", "repo")
+        mock_get_config.return_value = MagicMock()
+        mock_orch = mock_get_orch.return_value
+        mock_orch.assign_agent_for_status = AsyncMock(return_value=True)
+        MockGHSvc.return_value.get_issue_with_comments = AsyncMock(
+            return_value={"node_id": "I_abc", "html_url": "https://github.com/test/1"}
+        )
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 10)
+
+        assert result["success"] is True
+        # The agent_index kwarg must be int 0, not None
+        call_kwargs = mock_orch.assign_agent_for_status.call_args
+        assert call_kwargs.kwargs["agent_index"] == 0
