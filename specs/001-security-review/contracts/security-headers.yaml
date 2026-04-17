@@ -24,7 +24,7 @@ required_headers:
     applies_to: all responses
 
   - name: X-Frame-Options
-    value: "SAMEORIGIN"
+    value: "DENY"
     applies_to: all responses
 
   - name: X-Content-Type-Options
