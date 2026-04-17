@@ -215,6 +215,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - N/A for this feature (no new persisted client or server state) (003-agents-page-ui)
 - Python 3.13 (backend), TypeScript 6.x / React 19.x (frontend), Bicep (infra) + FastAPI, Ruff, Pyright, Bandit, pytest (backend); ESLint, Vitest, Stryker, Playwright (frontend); Azure Bicep CLI (infra) (003-remove-lint-ignores)
 - N/A — no schema or data changes (003-remove-lint-ignores)
+- Python 3.12 (backend), TypeScript 5.x / ES2022 (frontend) + FastAPI, Pydantic, githubkit, httpx, aiosqlite, cryptography (backend); React 18, Vite, Radix UI, dnd-kit, Zustand (frontend) (001-bug-basher)
+- SQLite via aiosqlite (backend), browser localStorage/sessionStorage (frontend) (001-bug-basher)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
