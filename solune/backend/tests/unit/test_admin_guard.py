@@ -125,3 +125,44 @@ class TestAdminGuardMiddleware:
         assert "override" not in response.text.lower()
         # Must not reveal the protected path
         assert "src/main.py" not in response.text
+
+    def test_locked_multiple_paths_count_in_message(self, monkeypatch):
+        """When multiple paths are locked, the error message should report
+        the correct count without revealing individual paths."""
+        locked_paths = [".github/workflows/ci.yml", "infra/secrets/prod.env", ".env"]
+        monkeypatch.setattr(
+            "src.middleware.admin_guard.check_guard",
+            lambda _paths, elevated=False: GuardResult(locked=locked_paths),
+        )
+        client = _make_client()
+
+        response = client.get(
+            "/test",
+            headers={"X-Target-Paths": ",".join(locked_paths)},
+        )
+
+        assert response.status_code == 403
+        assert "3 path(s)" in response.text
+        # None of the actual paths should appear in the response body
+        for p in locked_paths:
+            assert p not in response.text
+
+    def test_admin_blocked_multiple_paths_count_in_message(self, monkeypatch):
+        """When multiple paths require elevation, the error message should
+        report the correct count without revealing individual paths."""
+        blocked_paths = ["src/main.py", "src/config.py"]
+        monkeypatch.setattr(
+            "src.middleware.admin_guard.check_guard",
+            lambda _paths, elevated=False: GuardResult(admin_blocked=blocked_paths),
+        )
+        client = _make_client()
+
+        response = client.get(
+            "/test",
+            headers={"X-Target-Paths": ",".join(blocked_paths)},
+        )
+
+        assert response.status_code == 403
+        assert "2 path(s)" in response.text
+        for p in blocked_paths:
+            assert p not in response.text
