@@ -131,7 +131,7 @@ npm run build
 | `src/services/encryption.py` | Fernet at-rest token encryption |
 | `src/services/github_auth.py` | OAuth scopes configuration |
 | `src/services/github_projects/service.py` | GraphQL error sanitization |
-| `src/database.py` | File permission enforcement (0700/0600) |
+| `src/services/database.py` | File permission enforcement (0700/0600) |
 | `src/main.py` | Rate limiting, ENABLE_DOCS toggle |
 
 ### Frontend

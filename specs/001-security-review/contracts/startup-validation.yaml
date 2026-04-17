@@ -54,7 +54,7 @@ debug_mode_behavior:
   debug:
     missing_secrets: Warning logged, application continues
     missing_cookie_secure: Warning logged, application continues
-    malformed_cors: Warning logged, application continues
+    malformed_cors: Application refuses to start (hard failure — CORS validation is always strict)
 
 session_cookie:
   attributes:
