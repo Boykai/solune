@@ -235,6 +235,99 @@ describe('IssueCard', () => {
       const img = screen.getByAltText('noavatar') as HTMLImageElement;
       expect(img.src).toContain(PLACEHOLDER_SVG_PREFIX);
     });
+
+    it('rejects subdomain bypass attempts', () => {
+      const item = createBoardItem({
+        assignees: [
+          {
+            login: 'subdomainattacker',
+            avatar_url: 'https://avatars.githubusercontent.com.evil.com/avatar.png',
+          },
+        ],
+      });
+      render(<IssueCard item={item} onClick={vi.fn()} />);
+
+      const img = screen.getByAltText('subdomainattacker') as HTMLImageElement;
+      expect(img.src).toContain(PLACEHOLDER_SVG_PREFIX);
+    });
+
+    it('allows avatar URLs with custom ports when hostname matches', () => {
+      const item = createBoardItem({
+        assignees: [
+          {
+            login: 'portuser',
+            avatar_url: 'https://avatars.githubusercontent.com:8080/u/12345',
+          },
+        ],
+      });
+      render(<IssueCard item={item} onClick={vi.fn()} />);
+
+      const img = screen.getByAltText('portuser') as HTMLImageElement;
+      // URL constructor parses hostname separately from port, so the
+      // hostname check still passes.  This documents the actual behavior.
+      expect(img.src).toBe(
+        'https://avatars.githubusercontent.com:8080/u/12345',
+      );
+    });
+
+    it('accepts valid avatar with query parameters', () => {
+      const item = createBoardItem({
+        assignees: [
+          {
+            login: 'queryuser',
+            avatar_url: 'https://avatars.githubusercontent.com/u/12345?v=4&s=40',
+          },
+        ],
+      });
+      render(<IssueCard item={item} onClick={vi.fn()} />);
+
+      const img = screen.getByAltText('queryuser') as HTMLImageElement;
+      expect(img.src).toBe(
+        'https://avatars.githubusercontent.com/u/12345?v=4&s=40',
+      );
+    });
+
+    it('rejects javascript: protocol avatar URLs', () => {
+      const item = createBoardItem({
+        assignees: [
+          {
+            login: 'xssattacker',
+            avatar_url: 'javascript:alert(1)',
+          },
+        ],
+      });
+      render(<IssueCard item={item} onClick={vi.fn()} />);
+
+      const img = screen.getByAltText('xssattacker') as HTMLImageElement;
+      expect(img.src).toContain(PLACEHOLDER_SVG_PREFIX);
+    });
+
+    it('rejects data: URI avatar URLs', () => {
+      const item = createBoardItem({
+        assignees: [
+          {
+            login: 'datauser',
+            avatar_url: 'data:image/svg+xml,<svg></svg>',
+          },
+        ],
+      });
+      render(<IssueCard item={item} onClick={vi.fn()} />);
+
+      const img = screen.getByAltText('datauser') as HTMLImageElement;
+      expect(img.src).toContain(PLACEHOLDER_SVG_PREFIX);
+    });
+
+    it('renders placeholder for undefined avatar URL', () => {
+      const item = createBoardItem({
+        assignees: [
+          { login: 'undefinedavatar', avatar_url: undefined as unknown as string },
+        ],
+      });
+      render(<IssueCard item={item} onClick={vi.fn()} />);
+
+      const img = screen.getByAltText('undefinedavatar') as HTMLImageElement;
+      expect(img.src).toContain(PLACEHOLDER_SVG_PREFIX);
+    });
   });
 
   it('has no accessibility violations', async () => {
