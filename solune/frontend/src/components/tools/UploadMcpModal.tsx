@@ -104,7 +104,6 @@ export function UploadMcpModal({
   const [mode, setMode] = useState<'paste' | 'file'>('paste');
   const [nameError, setNameError] = useState<string | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [multiServerWarning, setMultiServerWarning] = useState<string | null>(null);
   const isEditMode = editingTool !== null;
   const reservedNames = useMemo(
@@ -124,7 +123,6 @@ export function UploadMcpModal({
     setMode('paste');
     setNameError(null);
     setConfigError(null);
-    setDuplicateWarning(null);
     setMultiServerWarning(null);
   }, []);
 
@@ -142,6 +140,7 @@ export function UploadMcpModal({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleClose]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: form hydration from editingTool/initialDraft props requires synchronous state resets when modal opens */
   useEffect(() => {
     if (!isOpen) return;
     if (editingTool) {
@@ -152,7 +151,6 @@ export function UploadMcpModal({
       setMode('paste');
       setNameError(null);
       setConfigError(null);
-      setDuplicateWarning(null);
       setMultiServerWarning(null);
       return;
     }
@@ -164,22 +162,23 @@ export function UploadMcpModal({
       setMode('paste');
       setNameError(null);
       setConfigError(null);
-      setDuplicateWarning(null);
       setMultiServerWarning(null);
       return;
     }
     resetForm();
   }, [editingTool, initialDraft, isOpen, resetForm]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  useEffect(() => {
-    if (name.trim() && reservedNames.includes(name.trim())) {
-      setDuplicateWarning(`A tool named "${name.trim()}" already exists`);
-    } else {
-      setDuplicateWarning(null);
+  const duplicateWarning = useMemo(() => {
+    const trimmed = name.trim();
+    if (trimmed && reservedNames.includes(trimmed)) {
+      return `A tool named "${trimmed}" already exists`;
     }
+    return null;
   }, [name, reservedNames]);
 
   // Auto-populate name from mcpServers key when name is empty
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: imperative auto-populate of name from parsed config; conditionally writes to name state only when empty */
   useEffect(() => {
     if (name.trim()) return; // Don't overwrite user-entered names
     if (!configContent.trim()) {
@@ -214,6 +213,7 @@ export function UploadMcpModal({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: intentionally omits name/setName to only auto-populate when configContent changes (not on manual name edits)
   }, [configContent]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null;
 

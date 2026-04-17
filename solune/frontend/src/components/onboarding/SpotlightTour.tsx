@@ -228,6 +228,7 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
   }, [step]);
 
   // On step change: scroll target into view, retry if missing, fall back to centered
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: DOM element discovery with retry loop requires imperative setState for targetMissing */
   useEffect(() => {
     if (!isActive || !step?.targetSelector) {
       resetShellScroll();
@@ -264,6 +265,7 @@ export function SpotlightTour({ isSidebarCollapsed, onToggleSidebar }: Spotlight
       if (timerId !== undefined) clearTimeout(timerId);
     };
   }, [isActive, step]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Auto-expand sidebar for sidebar-related steps (steps 2–9)
   useEffect(() => {

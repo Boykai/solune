@@ -49,9 +49,11 @@ export function useMetadata(owner: string | null, repo: string | null): UseMetad
     }
   }, [owner, repo]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: data fetching effect; fetchMetadata sets loading/error/data state asynchronously via API call */
   useEffect(() => {
     fetchMetadata();
   }, [fetchMetadata]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return { metadata, loading, error, refresh };
 }

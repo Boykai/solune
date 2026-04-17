@@ -97,9 +97,11 @@ export function PipelineBoard({
     gridTemplateColumns: `repeat(${Math.max(columnCount, 1)}, minmax(${effectiveMinWidth}rem, 1fr))`,
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: syncs prop to editable local state; standard controlled-input reset pattern */
   useEffect(() => {
     setEditNameValue(pipelineName);
   }, [pipelineName]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (showInlineNameInput && nameInputRef.current) {
