@@ -40,7 +40,8 @@ class TestAdminGuardMiddleware:
 
         assert response.status_code == 403
         assert "@adminlock" in response.text
-        assert ".github/workflows/ci.yml" in response.text
+        # Error message must NOT reveal the exact protected paths (info-disclosure fix)
+        assert ".github/workflows/ci.yml" not in response.text
 
     def test_admin_paths_require_elevation(self, monkeypatch):
         monkeypatch.setattr(
@@ -55,7 +56,9 @@ class TestAdminGuardMiddleware:
 
         assert response.status_code == 403
         assert "@admin" in response.text
-        assert "X-Guard-Elevated: true" in response.text
+        # Error message must NOT reveal bypass instructions or protected paths
+        assert "X-Guard-Elevated: true" not in response.text
+        assert "solune/backend/src/main.py" not in response.text
 
     def test_trims_target_paths_and_passes_elevation_to_guard(self, monkeypatch):
         captured: dict[str, object] = {}
@@ -89,3 +92,36 @@ class TestAdminGuardMiddleware:
 
         assert response.status_code == 200
         assert response.json() == {"ok": True}
+
+    def test_error_responses_do_not_leak_protected_paths(self, monkeypatch):
+        """Regression: 403 responses must not reveal the exact file paths that are
+        protected.  Leaking the paths aids an attacker in mapping the guard config."""
+        secret_path = "infra/secrets/production.env"
+        monkeypatch.setattr(
+            "src.middleware.admin_guard.check_guard",
+            lambda _paths, elevated=False: GuardResult(locked=[secret_path]),
+        )
+        client = _make_client()
+
+        response = client.get("/test", headers={"X-Target-Paths": secret_path})
+
+        assert response.status_code == 403
+        assert secret_path not in response.text
+
+    def test_error_responses_do_not_leak_bypass_instructions(self, monkeypatch):
+        """Regression: 403 responses must not instruct the caller on how to
+        bypass the guard (e.g. 'Set X-Guard-Elevated: true to override')."""
+        monkeypatch.setattr(
+            "src.middleware.admin_guard.check_guard",
+            lambda _paths, elevated=False: GuardResult(admin_blocked=["src/main.py"]),
+        )
+        client = _make_client()
+
+        response = client.get("/test", headers={"X-Target-Paths": "src/main.py"})
+
+        assert response.status_code == 403
+        # Must not contain bypass instructions
+        assert "X-Guard-Elevated" not in response.text
+        assert "override" not in response.text.lower()
+        # Must not reveal the protected path
+        assert "src/main.py" not in response.text
