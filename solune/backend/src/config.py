@@ -37,7 +37,7 @@ class Settings(BaseSettings):
 
     # Session
     session_secret_key: str = Field(repr=False)
-    session_expire_hours: int = 8
+    session_expire_hours: int = 8  # -1 disables session expiry entirely
 
     # Server
     host: str = "0.0.0.0"

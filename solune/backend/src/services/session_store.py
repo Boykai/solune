@@ -122,16 +122,18 @@ async def get_session(db: aiosqlite.Connection, session_id: str | UUID) -> UserS
         return None
 
     # Check expiry: session is expired if updated_at + session_expire_hours < now
+    # When session_expire_hours is -1, sessions never expire.
     settings = get_settings()
-    updated_at = datetime.fromisoformat(row["updated_at"])
-    if updated_at.tzinfo is None:
-        updated_at = updated_at.replace(tzinfo=UTC)
-    expiry = updated_at + timedelta(hours=settings.session_expire_hours)
+    if settings.session_expire_hours >= 0:
+        updated_at = datetime.fromisoformat(row["updated_at"])
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=UTC)
+        expiry = updated_at + timedelta(hours=settings.session_expire_hours)
 
-    if datetime.now(UTC) > expiry:
-        logger.debug("Session %s expired, deleting", sid)
-        await delete_session(db, sid)
-        return None
+        if datetime.now(UTC) > expiry:
+            logger.debug("Session %s expired, deleting", sid)
+            await delete_session(db, sid)
+            return None
 
     # Reconstruct UserSession from row
     return _row_to_session(row)
@@ -168,6 +170,10 @@ async def purge_expired_sessions(db: aiosqlite.Connection) -> int:
     Returns the number of sessions purged.
     """
     settings = get_settings()
+    if settings.session_expire_hours < 0:
+        logger.debug("Session expiry disabled, skipping purge")
+        return 0
+
     cutoff = (datetime.now(UTC) - timedelta(hours=settings.session_expire_hours)).isoformat()
 
     cursor = await db.execute("DELETE FROM user_sessions WHERE updated_at < ?", (cutoff,))
