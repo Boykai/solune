@@ -24,7 +24,7 @@ required_headers:
     applies_to: all responses
 
   - name: X-Frame-Options
-    value: "SAMEORIGIN"
+    value: "DENY"
     applies_to: all responses
 
   - name: X-Content-Type-Options
@@ -42,3 +42,9 @@ server_configuration:
 verification:
   method: "curl -I <frontend_url>"
   expected: "All required headers present; no server version in Server header; X-XSS-Protection absent"
+
+implementation_notes:
+  nginx_add_header_inheritance: |
+    nginx does not inherit server-level add_header directives into location
+    blocks that define their own add_header.  Every location block that uses
+    add_header must repeat the security headers explicitly.
