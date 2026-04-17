@@ -270,3 +270,69 @@ describe('useChoresListPaginated', () => {
     await waitFor(() => expect(mockChoresApi.listPaginated).toHaveBeenCalledTimes(2));
   });
 });
+
+// ── useEvaluateChoresTriggers ──
+
+import { useEvaluateChoresTriggers } from './useChores';
+
+describe('useEvaluateChoresTriggers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('calls evaluateTriggers immediately when boardLoaded is true', async () => {
+    mockChoresApi.evaluateTriggers.mockResolvedValue({ triggered: 0 });
+
+    renderHook(
+      () => useEvaluateChoresTriggers('proj-1', 5, true),
+      { wrapper: createWrapper() },
+    );
+
+    // The hook calls evaluateTriggers immediately on mount
+    expect(mockChoresApi.evaluateTriggers).toHaveBeenCalledWith('proj-1', 5);
+  });
+
+  it('does not call evaluateTriggers when projectId is null', () => {
+    renderHook(
+      () => useEvaluateChoresTriggers(null, 5, true),
+      { wrapper: createWrapper() },
+    );
+
+    expect(mockChoresApi.evaluateTriggers).not.toHaveBeenCalled();
+  });
+
+  it('does not call evaluateTriggers when boardLoaded is false', () => {
+    renderHook(
+      () => useEvaluateChoresTriggers('proj-1', 5, false),
+      { wrapper: createWrapper() },
+    );
+
+    expect(mockChoresApi.evaluateTriggers).not.toHaveBeenCalled();
+  });
+
+  it('handles API failure without throwing', async () => {
+    vi.useRealTimers(); // This test only needs microtask flushing, not fake timers
+    const consoleSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    mockChoresApi.evaluateTriggers.mockRejectedValue(new Error('Network error'));
+
+    renderHook(
+      () => useEvaluateChoresTriggers('proj-1', 5, true),
+      { wrapper: createWrapper() },
+    );
+
+    // Wait for the promise rejection to be handled
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[useChores] evaluateTriggers failed:',
+        expect.any(Error),
+      );
+    });
+
+    consoleSpy.mockRestore();
+  });
+});

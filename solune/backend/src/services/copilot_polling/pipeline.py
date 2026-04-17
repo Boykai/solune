@@ -2893,7 +2893,9 @@ async def _transition_after_pipeline_complete(
         if _pipeline_state is not None:
             _pipeline_auto_merge = bool(getattr(_pipeline_state, "auto_merge", False))
     except Exception:
-        pass
+        logger.debug(
+            "Could not read pipeline auto_merge flag for issue #%d", issue_number, exc_info=True
+        )
 
     # Helper to remove pipeline state and auto-unregister when no pipelines remain.
     def _remove_state_and_unregister() -> None:
@@ -2977,7 +2979,9 @@ async def _transition_after_pipeline_complete(
                     if _config:
                         done_status = getattr(_config, "status_done", None) or "Done"
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Could not resolve done status from workflow config", exc_info=True
+                    )
 
                 await _cp.github_projects_service.update_item_status_by_name(
                     access_token=access_token,
@@ -3202,7 +3206,7 @@ async def _transition_after_pipeline_complete(
             if isinstance(_cfg_done, str) and _cfg_done.strip():
                 _done_status_name = _cfg_done.strip().lower()
     except Exception:
-        pass
+        logger.debug("Could not resolve done status from workflow config", exc_info=True)
 
     if to_status.lower() == _done_status_name:
         _auto_merge_handled = True
@@ -3224,7 +3228,9 @@ async def _transition_after_pipeline_complete(
                 db = get_db()
                 _done_auto_merge_active = await is_auto_merge_enabled(db, project_id)
             except Exception:
-                pass
+                logger.debug(
+                    "Could not check auto-merge setting for project %s", project_id, exc_info=True
+                )
             # Also honour pipeline-level auto-merge (captured before state removal).
             _done_auto_merge_active = _done_auto_merge_active or _pipeline_auto_merge
 

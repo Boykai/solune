@@ -177,3 +177,189 @@ class TestRetryPipeline:
         ctx = _make_ctx()
         result = await retry_pipeline(ctx, "PVT_abc", 999)
         assert "error" in result
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    @patch("src.services.pipeline_state_store.set_pipeline_state")
+    @patch("src.services.workflow_orchestrator.orchestrator.get_workflow_orchestrator")
+    @patch("src.services.workflow_orchestrator.config.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.utils.resolve_repository", new_callable=AsyncMock)
+    @patch("src.services.github_projects.GitHubProjectsService")
+    async def test_retry_uses_none_agent_index_as_zero(
+        self,
+        MockGHSvc,
+        mock_resolve_repo,
+        mock_get_config,
+        mock_get_orch,
+        mock_set_state,
+        mock_get_state,
+        mock_access,
+    ):
+        """Regression: when current_agent_index is None the retry must
+        default to 0 instead of passing None to assign_agent_for_status."""
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = False
+        state.current_agent = "copilot"
+        state.current_agent_index = None  # explicitly None
+        state.status = "Todo"
+        state.error = "stalled"
+        mock_get_state.return_value = state
+
+        mock_resolve_repo.return_value = ("owner", "repo")
+        mock_get_config.return_value = MagicMock()
+        mock_orch = mock_get_orch.return_value
+        mock_orch.assign_agent_for_status = AsyncMock(return_value=True)
+        MockGHSvc.return_value.get_issue_with_comments = AsyncMock(
+            return_value={"node_id": "I_abc", "html_url": "https://github.com/test/1"}
+        )
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 10)
+
+        assert result["success"] is True
+        # The agent_index kwarg must be int 0, not None
+        call_kwargs = mock_orch.assign_agent_for_status.call_args
+        assert call_kwargs.kwargs["agent_index"] == 0
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    @patch("src.services.pipeline_state_store.set_pipeline_state")
+    @patch("src.services.workflow_orchestrator.orchestrator.get_workflow_orchestrator")
+    @patch("src.services.workflow_orchestrator.config.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.utils.resolve_repository", new_callable=AsyncMock)
+    @patch("src.services.github_projects.GitHubProjectsService")
+    async def test_retry_preserves_zero_agent_index(
+        self,
+        MockGHSvc,
+        mock_resolve_repo,
+        mock_get_config,
+        mock_get_orch,
+        mock_set_state,
+        mock_get_state,
+        mock_access,
+    ):
+        """Regression: current_agent_index=0 is a valid index and must NOT be
+        replaced with a default.  The old `getattr(..., 0) or 0` would have
+        treated 0 identically to None — the fix must preserve 0 as-is."""
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = False
+        state.current_agent = "copilot"
+        state.current_agent_index = 0  # falsy but valid
+        state.status = "Todo"
+        state.error = "stalled"
+        mock_get_state.return_value = state
+
+        mock_resolve_repo.return_value = ("owner", "repo")
+        mock_get_config.return_value = MagicMock()
+        mock_orch = mock_get_orch.return_value
+        mock_orch.assign_agent_for_status = AsyncMock(return_value=True)
+        MockGHSvc.return_value.get_issue_with_comments = AsyncMock(
+            return_value={"node_id": "I_abc", "html_url": "https://github.com/test/1"}
+        )
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 10)
+
+        assert result["success"] is True
+        call_kwargs = mock_orch.assign_agent_for_status.call_args
+        assert call_kwargs.kwargs["agent_index"] == 0
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    async def test_retry_completed_pipeline_returns_message(self, mock_get_state, mock_access):
+        """A completed pipeline should not be retried; return informative message."""
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = True
+        mock_get_state.return_value = state
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 42)
+
+        assert result["message"] == "Pipeline already complete"
+        assert result["issue_number"] == 42
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    async def test_retry_wrong_project_returns_error(self, mock_get_state, mock_access):
+        """When pipeline state belongs to a different project, return error."""
+        state = MagicMock()
+        state.project_id = "PVT_other"
+        mock_get_state.return_value = state
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 42)
+
+        assert "error" in result
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    async def test_retry_no_pending_agent_returns_message(self, mock_get_state, mock_access):
+        """When there's no current agent to retry, return informative message."""
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = False
+        state.current_agent = None
+        mock_get_state.return_value = state
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 42)
+
+        assert result["message"] == "No pending agent to retry"
+
+    @patch(
+        "src.services.mcp_server.tools.pipelines.verify_mcp_project_access",
+        new_callable=AsyncMock,
+    )
+    @patch("src.services.pipeline_state_store.get_pipeline_state")
+    @patch("src.services.pipeline_state_store.set_pipeline_state")
+    @patch("src.services.workflow_orchestrator.config.get_workflow_config", new_callable=AsyncMock)
+    @patch("src.utils.resolve_repository", new_callable=AsyncMock)
+    @patch("src.services.github_projects.GitHubProjectsService")
+    async def test_retry_issue_fetch_failure_returns_error(
+        self,
+        MockGHSvc,
+        mock_resolve_repo,
+        mock_get_config,
+        mock_set_state,
+        mock_get_state,
+        mock_access,
+    ):
+        """When fetching issue data fails, return a descriptive error."""
+        state = MagicMock()
+        state.project_id = "PVT_abc"
+        state.is_complete = False
+        state.current_agent = "copilot"
+        state.current_agent_index = 0
+        state.status = "Todo"
+        state.error = "stalled"
+        mock_get_state.return_value = state
+
+        mock_resolve_repo.return_value = ("owner", "repo")
+        mock_get_config.return_value = MagicMock()
+        MockGHSvc.return_value.get_issue_with_comments = AsyncMock(
+            side_effect=RuntimeError("GitHub API error")
+        )
+
+        ctx = _make_ctx()
+        result = await retry_pipeline(ctx, "PVT_abc", 42)
+
+        assert result["success"] is False
+        assert "Could not fetch issue" in result["message"]

@@ -353,8 +353,9 @@ export function useEvaluateChoresTriggers(
             queryClient.invalidateQueries({ queryKey: choreKeys.list(projectId) });
           }
         })
-        .catch(() => {
-          // Polling failures are non-critical; silent ignore
+        .catch((err: unknown) => {
+          // Polling failures are non-critical; log for diagnostics only
+          console.debug('[useChores] evaluateTriggers failed:', err);
         });
     };
 

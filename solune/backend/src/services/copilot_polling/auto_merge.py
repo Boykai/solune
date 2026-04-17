@@ -756,7 +756,9 @@ async def _auto_merge_retry_loop(
                     if _config:
                         done_status = getattr(_config, "status_done", None) or "Done"
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Could not resolve done status from workflow config", exc_info=True
+                    )
 
                 try:
                     await _cp.github_projects_service.update_item_status_by_name(
@@ -796,7 +798,9 @@ async def _auto_merge_retry_loop(
 
                     clear_issue_main_branch(issue_number)
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Could not clear main branch for issue #%d", issue_number, exc_info=True
+                    )
 
                 await _cp.connection_manager.broadcast_to_project(
                     project_id,
@@ -891,7 +895,11 @@ async def _auto_merge_retry_loop(
             try:
                 _cp.remove_pipeline_state(issue_number)
             except Exception:
-                pass
+                logger.debug(
+                    "Could not remove pipeline state for issue #%d during cleanup",
+                    issue_number,
+                    exc_info=True,
+                )
         _pending_auto_merge_retries.pop(issue_number, None)
 
 

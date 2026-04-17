@@ -43,7 +43,7 @@ class AdminGuardMiddleware(BaseHTTPMiddleware):
             return Response(
                 content=(
                     f"Access denied: {len(result.locked)} path(s) are permanently locked "
-                    f"(@adminlock). Locked paths: {', '.join(result.locked)}"
+                    f"(@adminlock)."
                 ),
                 status_code=403,
                 media_type="text/plain",
@@ -57,8 +57,7 @@ class AdminGuardMiddleware(BaseHTTPMiddleware):
             return Response(
                 content=(
                     f"Access denied: {len(result.admin_blocked)} path(s) require elevated "
-                    f"permissions (@admin). Blocked paths: {', '.join(result.admin_blocked)}. "
-                    "Set X-Guard-Elevated: true to override."
+                    f"permissions (@admin)."
                 ),
                 status_code=403,
                 media_type="text/plain",

@@ -917,6 +917,132 @@ class TestWatchdogGracePeriod:
 # ── GitHub API fallback tests for _discover_and_register_active_projects ────
 
 
+class TestDiscoverExceptionHandling:
+    """Regression: exception handlers in _discover_and_register_active_projects must
+    log debug messages and continue execution instead of silently swallowing errors."""
+
+    def _make_state(self, project_id="PVT_abc", **kwargs):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        defaults = {
+            "issue_number": 1,
+            "project_id": project_id,
+            "status": "In Progress",
+            "agents": ["copilot"],
+            "repository_owner": "Boykai",
+            "repository_name": "solune",
+        }
+        defaults.update(kwargs)
+        return PipelineState(**defaults)
+
+    async def test_session_query_failure_continues_with_fallback_token(self):
+        """When the session query raises, the function should log and fall back
+        to the webhook token instead of crashing."""
+        from src.main import _discover_and_register_active_projects
+
+        state = self._make_state()
+
+        # DB that raises on the session query but succeeds for project_settings
+        call_count = 0
+
+        async def _execute(sql, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if "user_sessions" in sql:
+                raise RuntimeError("DB connection lost")
+            cursor = AsyncMock()
+            cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        registered = []
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: state},
+            ),
+            patch(
+                "src.services.pipeline_state_store.set_pipeline_state",
+                new_callable=AsyncMock,
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.config.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.register_project",
+                side_effect=lambda pid, o, r, t: registered.append((pid, o, r)) or True,
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="ghp_fallback",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            count = await _discover_and_register_active_projects()
+
+        # Must still register using the webhook fallback token
+        assert count == 1
+        assert registered == [("PVT_abc", "Boykai", "solune")]
+
+    async def test_project_settings_query_failure_continues(self):
+        """When the project_settings query raises, the function should log
+        and continue with an empty repo map (fallback to default repo)."""
+        from src.main import _discover_and_register_active_projects
+
+        state = self._make_state(repository_owner="", repository_name="")
+
+        # DB that succeeds for session but raises for project_settings
+        async def _execute(sql, *args, **kwargs):
+            if "user_sessions" in sql:
+                cursor = AsyncMock()
+                cursor.fetchone = AsyncMock(return_value={"access_token": "tok"})
+                return cursor
+            if "project_settings" in sql:
+                raise RuntimeError("table not found")
+            cursor = AsyncMock()
+            cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        registered = []
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={1: state},
+            ),
+            patch(
+                "src.services.pipeline_state_store.set_pipeline_state",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("API down too"),
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.config.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.register_project",
+                side_effect=lambda pid, o, r, t: registered.append((pid, o, r)) or True,
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="tok",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            count = await _discover_and_register_active_projects()
+
+        # Should fall back to default repo despite project_settings failure
+        assert count == 1
+        assert registered == [("PVT_abc", "Boykai", "solune")]
+
+
 class TestDiscoverGitHubApiFallback:
     """Tests for the resolve_repository() fallback in _discover_and_register_active_projects."""
 
@@ -1147,3 +1273,112 @@ class TestRestoreGitHubApiFallback:
         mock_persist.assert_awaited_once()
         assert state.repository_owner == "Boykai"
         assert state.repository_name == "kitton"
+
+
+class TestRestoreExceptionHandling:
+    """Regression: exception handlers in _restore_app_pipeline_polling must
+    log debug messages and continue instead of silently swallowing errors."""
+
+    def _make_state(
+        self,
+        issue_number: int = 42,
+        project_id: str = "PVT_cross",
+        repository_owner: str = "OtherOrg",
+        repository_name: str = "other-repo",
+    ):
+        from src.services.workflow_orchestrator.models import PipelineState
+
+        return PipelineState(
+            issue_number=issue_number,
+            project_id=project_id,
+            status="In Progress",
+            agents=["speckit.implement"],
+            repository_owner=repository_owner,
+            repository_name=repository_name,
+        )
+
+    async def test_session_query_failure_falls_back_to_webhook_token(self):
+        """When the session token query raises, the function should log
+        the error and fall back to the webhook token."""
+        from src.main import _restore_app_pipeline_polling
+
+        state = self._make_state()
+
+        async def _execute(sql, *args, **kwargs):
+            if "user_sessions" in sql:
+                raise RuntimeError("DB locked")
+            cursor = AsyncMock()
+            cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={42: state},
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.main.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.ensure_app_pipeline_polling",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_poll,
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="ghp_webhook",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            restored = await _restore_app_pipeline_polling()
+
+        # Must still restore using the webhook token (state repo != default)
+        assert restored == 1
+        mock_poll.assert_awaited_once()
+
+    async def test_project_settings_query_failure_continues(self):
+        """When the project_settings query raises, the function should log
+        and continue — using embedded state repo info if available."""
+        from src.main import _restore_app_pipeline_polling
+
+        state = self._make_state()
+
+        async def _execute(sql, *args, **kwargs):
+            if "user_sessions" in sql:
+                cursor = AsyncMock()
+                cursor.fetchone = AsyncMock(return_value=None)
+                return cursor
+            if "project_settings" in sql:
+                raise RuntimeError("table corrupted")
+            cursor = AsyncMock()
+            cursor.fetchall = AsyncMock(return_value=[])
+            return cursor
+
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(side_effect=_execute)
+
+        with (
+            patch(
+                "src.services.pipeline_state_store.get_all_pipeline_states",
+                return_value={42: state},
+            ),
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch("src.main.get_settings") as mock_s,
+            patch(
+                "src.services.copilot_polling.ensure_app_pipeline_polling",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_poll,
+        ):
+            mock_s.return_value = MagicMock(
+                github_webhook_token="tok",
+                default_repo_owner="Boykai",
+                default_repo_name="solune",
+            )
+            restored = await _restore_app_pipeline_polling()
+
+        # State has embedded repo info different from default, so it should still restore
+        assert restored == 1
+        mock_poll.assert_awaited_once()

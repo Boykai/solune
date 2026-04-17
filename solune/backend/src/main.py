@@ -253,7 +253,7 @@ async def _discover_and_register_active_projects() -> int:
         if row:
             session_token = row["access_token"]
     except Exception:
-        pass
+        logger.debug("Could not fetch recent session token for polling", exc_info=True)
 
     token = session_token or fallback_token
     if not token:
@@ -276,7 +276,7 @@ async def _discover_and_register_active_projects() -> int:
             except (json.JSONDecodeError, TypeError):
                 continue
     except Exception:
-        pass
+        logger.debug("Could not load project repo map from project_settings", exc_info=True)
 
     # Fallback: default repo from settings
     default_owner = settings.default_repo_owner or ""
@@ -364,7 +364,7 @@ async def _restore_app_pipeline_polling() -> int:
             if session:
                 token = session.access_token
     except Exception:
-        pass
+        logger.debug("Could not fetch session token for app pipeline polling", exc_info=True)
 
     if not token:
         token = settings.github_webhook_token
@@ -389,7 +389,7 @@ async def _restore_app_pipeline_polling() -> int:
             except (json.JSONDecodeError, TypeError):
                 continue
     except Exception:
-        pass
+        logger.debug("Could not load project repo map for app pipeline polling", exc_info=True)
 
     restored = 0
     for issue_number, state in get_all_pipeline_states().items():
