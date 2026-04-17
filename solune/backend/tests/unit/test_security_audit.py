@@ -129,19 +129,17 @@ class TestWebhookSignatureEdgeCases:
         assert verify_webhook_signature(payload, f"sha256={sig}", secret) is True
 
     def test_signature_case_sensitivity(self):
-        """Hex digest comparison should be case-insensitive (hmac.compare_digest handles this)."""
+        """Uppercase hex digests must be rejected to avoid permissive signature parsing."""
         from src.api.webhooks import verify_webhook_signature
 
         payload = b'{"test": true}'
         secret = "test-secret"
         sig = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-        # The implementation generates lowercase hex, so uppercase input should fail
+        # The implementation generates lowercase hex, so uppercase input should fail.
         upper_sig = f"sha256={sig.upper()}"
-        # hmac.compare_digest is case-sensitive for hex strings
-        # This test documents the expected behavior
-        result = verify_webhook_signature(payload, upper_sig, secret)
-        # Either pass or fail is acceptable - this documents the behavior
-        assert isinstance(result, bool)
+        # hmac.compare_digest is case-sensitive for hex strings, so uppercase
+        # signatures must not be accepted as valid matches.
+        assert verify_webhook_signature(payload, upper_sig, secret) is False
 
     def test_uses_constant_time_comparison(self):
         """verify_webhook_signature must use hmac.compare_digest (not == or !=)."""
@@ -630,8 +628,8 @@ class TestRateLimitKeyIsolation:
         req.client = MagicMock(host="10.0.0.5")
 
         key = get_user_key(req)
-        # Empty session ID is falsy, should fall back to IP
-        assert "ip:" in key or "user:" in key
+        # Empty session ID is falsy, so the key must use the IP-based fallback.
+        assert key.startswith("ip:")
 
 
 # =============================================================================

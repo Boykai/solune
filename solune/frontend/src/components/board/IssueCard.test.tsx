@@ -251,21 +251,23 @@ describe('IssueCard', () => {
       expect(img.src).toContain(PLACEHOLDER_SVG_PREFIX);
     });
 
-    it('rejects avatar URLs with custom ports', () => {
+    it('allows avatar URLs with custom ports when hostname matches', () => {
       const item = createBoardItem({
         assignees: [
           {
-            login: 'portattacker',
+            login: 'portuser',
             avatar_url: 'https://avatars.githubusercontent.com:8080/u/12345',
           },
         ],
       });
       render(<IssueCard item={item} onClick={vi.fn()} />);
 
-      const img = screen.getByAltText('portattacker') as HTMLImageElement;
-      // URL constructor preserves the port but hostname check still matches
-      // Port-based attacks don't change the hostname, so this tests parse integrity
-      expect(img.src).toBeDefined();
+      const img = screen.getByAltText('portuser') as HTMLImageElement;
+      // URL constructor parses hostname separately from port, so the
+      // hostname check still passes.  This documents the actual behavior.
+      expect(img.src).toBe(
+        'https://avatars.githubusercontent.com:8080/u/12345',
+      );
     });
 
     it('accepts valid avatar with query parameters', () => {

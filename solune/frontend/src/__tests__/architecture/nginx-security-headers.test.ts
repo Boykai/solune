@@ -9,7 +9,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const NGINX_CONF_PATH = resolve(__dirname, '../../../nginx.conf');
 const nginxConf = readFileSync(NGINX_CONF_PATH, 'utf-8');
@@ -97,6 +101,14 @@ describe('nginx.conf security headers (SC-006)', () => {
     expect(nginxConf).toContain('camera=()');
     expect(nginxConf).toContain('microphone=()');
     expect(nginxConf).toContain('geolocation=()');
+  });
+
+  it('/health location does not use add_header (preserves server-level inheritance)', () => {
+    const healthBlock = extractLocationBlock(nginxConf, '/health');
+    expect(healthBlock).toBeDefined();
+    if (healthBlock) {
+      expect(healthBlock).not.toContain('add_header');
+    }
   });
 });
 
