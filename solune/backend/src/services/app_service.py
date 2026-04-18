@@ -202,7 +202,7 @@ async def _enhance_app_descriptions(
             if len(repo_desc) > 350:
                 repo_desc = repo_desc[:347] + "..."
             return repo_desc, full_desc
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "AI enhancement failed for app '%s', using original: %s",
             display_name,
@@ -317,9 +317,9 @@ async def create_app(
                         project_id=github_project_id,
                         repository_id=repository_id,
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.warning("Non-blocking: could not link project to repo: %s", exc)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Non-blocking: project creation failed for app '%s': %s",
                 payload.name,
@@ -362,7 +362,7 @@ async def create_app(
     # Flush WAL to disk so the app record survives an ungraceful shutdown.
     try:
         await db.execute("PRAGMA wal_checkpoint(PASSIVE);")
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("WAL checkpoint after app creation failed", exc_info=True)
 
     logger.info(
@@ -466,7 +466,7 @@ async def create_app_with_new_repo(
             head_oid = info.get("head_oid")
             if head_oid:
                 break
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
             last_poll_exc = exc
         if attempt < max_attempts - 1:
             await asyncio.sleep(min(1.0 * (1.5**attempt), 4.0))
@@ -520,7 +520,7 @@ async def create_app_with_new_repo(
                 "AZURE_CLIENT_SECRET",
                 payload.azure_client_secret,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to store Azure credentials for '%s': %s",
                 payload.name,
@@ -556,9 +556,9 @@ async def create_app_with_new_repo(
                         project_id=github_project_id,
                         repository_id=repo_data["node_id"],
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.warning("Non-blocking: could not link project to repo: %s", exc)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Non-blocking: project creation failed for app '%s': %s",
                 payload.name,
@@ -604,7 +604,7 @@ async def create_app_with_new_repo(
     # Flush WAL to disk so the app record survives an ungraceful shutdown.
     try:
         await db.execute("PRAGMA wal_checkpoint(PASSIVE);")
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("WAL checkpoint after new-repo app creation failed", exc_info=True)
 
     logger.info(
@@ -678,7 +678,7 @@ async def create_standalone_project(
                     project_id=project["id"],
                     repository_id=repo_node_id,
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Non-blocking: could not link project to repo: %s", exc)
 
     return result
@@ -855,7 +855,7 @@ async def get_app_assets(
                             source = event.get("source", {}).get("issue", {})
                             if source.get("number"):
                                 sub_issues.append(source["number"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.debug("Could not fetch sub-issues for app '%s': %s", name, exc)
 
         # Fetch branches matching the app name pattern
@@ -871,7 +871,7 @@ async def get_app_assets(
                     ref_name = ref.get("ref", "").removeprefix("refs/heads/")
                     if ref_name:
                         branches.append(ref_name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug("Could not fetch branches for app '%s': %s", name, exc)
 
     return AppAssetInventory(
@@ -940,7 +940,7 @@ async def delete_app(
                     owner,
                     repo,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Could not close parent issue #%d for app '%s': %s",
                     app.parent_issue_number,
@@ -976,7 +976,7 @@ async def delete_app(
                             source = event.get("source", {}).get("issue", {})
                             if source.get("number"):
                                 all_issues.append(source["number"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.debug("Could not fetch sub-issues: %s", exc)
 
         for issue_number in all_issues:
@@ -989,7 +989,7 @@ async def delete_app(
                 )
                 result.issues_closed += 1
                 await asyncio.sleep(RATE_LIMIT_DELAY)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
                 result.errors.append(f"Could not close issue #{issue_number}: {exc}")
 
         # 2. Delete app-related branches
@@ -1010,9 +1010,9 @@ async def delete_app(
                             )
                             result.branches_deleted += 1
                             await asyncio.sleep(RATE_LIMIT_DELAY)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
                             result.errors.append(f"Could not delete branch '{branch_name}': {exc}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
             result.errors.append(f"Could not list branches: {exc}")
 
         # 3. Delete GitHub project (new-repo apps only)
@@ -1020,7 +1020,7 @@ async def delete_app(
             try:
                 await github_service.delete_project_v2(access_token, app.github_project_id)
                 result.project_deleted = True
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
                 result.errors.append(f"Could not delete project: {exc}")
 
         # 4. Delete GitHub repository (new-repo apps only)
@@ -1028,7 +1028,7 @@ async def delete_app(
             try:
                 await github_service.delete_repository(access_token, owner, repo)
                 result.repo_deleted = True
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
                 result.errors.append(f"Could not delete repository: {exc}")
 
     # 5. Delete database record

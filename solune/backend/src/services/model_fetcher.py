@@ -408,7 +408,7 @@ class ModelFetcherService:
                     message="Rate limit reached. Please try again later.",
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Failed to fetch models from %s: %s", provider, e)
                 if cached:
                     return ModelsResponse(
@@ -453,7 +453,7 @@ class ModelFetcherService:
                 ttl_seconds=self._ttl_seconds,
             )
             logger.info("Background refresh complete for %s", provider)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Background refresh failed for %s: %s", provider, e)
 
     def _apply_backoff(self, key: str, retry_after: str | None) -> None:

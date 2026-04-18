@@ -121,7 +121,7 @@ async def get_repo_config(
             repo=repo,
             access_token=session.access_token,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "fetch repository MCP config", GitHubAPIError)
 
 
@@ -141,7 +141,7 @@ async def update_repo_server(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -175,7 +175,7 @@ async def delete_repo_server(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -226,7 +226,7 @@ async def browse_catalog(
         )
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "browse MCP catalog", AppException)
 
 
@@ -262,7 +262,7 @@ async def import_from_catalog(
         )
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "fetch catalog for import", AppException)
 
     if target is None:
@@ -285,7 +285,7 @@ async def import_from_catalog(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -336,7 +336,7 @@ async def create_tool(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -409,7 +409,7 @@ async def update_tool(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -470,7 +470,7 @@ async def sync_tool(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     return await service.sync_tool_to_github(
@@ -510,7 +510,7 @@ async def delete_tool(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     result = await service.delete_tool(

@@ -301,7 +301,7 @@ async def _build_retry_context(
         user_chat_model = effective_user_settings.ai.model
         user_agent_model = effective_user_settings.ai.agent_model
         user_reasoning_effort = effective_user_settings.ai.reasoning_effort
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Could not load effective user settings for session %s; user_chat_model left empty",
             session.session_id,
@@ -335,7 +335,7 @@ async def _build_retry_context(
         ctx.issue_id = str(issue_data.get("node_id", ""))
         ctx.issue_number = issue_number
         ctx.issue_url = str(issue_data.get("html_url", ""))
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, f"fetch issue #{issue_number}", ValidationError)
 
     return ctx
@@ -507,7 +507,7 @@ async def confirm_recommendation(
         user_chat_model = effective_user_settings.ai.model
         user_agent_model = effective_user_settings.ai.agent_model
         user_reasoning_effort = effective_user_settings.ai.reasoning_effort
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Could not load effective user settings for session %s; user_chat_model left empty",
             session.session_id,
@@ -593,7 +593,7 @@ async def confirm_recommendation(
                     recommendation.status.value,
                     data=json.dumps(recommendation.model_dump(mode="json")),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Failed to update recommendation status in SQLite", exc_info=True)
 
             # Broadcast WebSocket notification for issue creation
@@ -647,7 +647,7 @@ async def confirm_recommendation(
         # so the global AppException handler returns the correct HTTP status (422)
         # and preserves the structured ``details`` payload.
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "create issue from recommendation")
 
 
@@ -680,7 +680,7 @@ async def reject_recommendation(
             recommendation.status.value,
             data=json.dumps(recommendation.model_dump(mode="json")),
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to update recommendation status in SQLite", exc_info=True)
     logger.info("Recommendation %s rejected", recommendation_id)
 
@@ -832,7 +832,7 @@ async def get_config(
         # have been consolidated; this site is a deliberate exception.
         try:
             owner, repo = await resolve_repository(session.access_token, project_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug("Could not resolve repository for config fallback: %s", e)
             owner = session.github_username or ""
             repo = ""
@@ -964,7 +964,7 @@ async def list_agents(
                 )
                 for discovered_agent in discovered_agents_result
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: asyncio gather; child exceptions unbounded
             logger.debug("Could not discover repo agents: %s", e)
 
     if resolved_owner and resolved_repo and agent_prefs:

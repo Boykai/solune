@@ -220,7 +220,7 @@ async def check_user_permission(
                 "to delete branches and close pull requests."
             )
         return False, f"Unable to verify permissions: HTTP {response.status_code}"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.error("Permission check failed: %s", e)
         return False, f"Permission check failed: {e}"
 
@@ -534,7 +534,7 @@ async def fetch_parent_issue_states(
                     results[num] = None
                     continue
                 results[num] = issue_data.get("parent")  # None when no parent
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to fetch parent issue states for batch starting at index %d: %s",
                 i,
@@ -1052,7 +1052,7 @@ async def execute_cleanup(
                 )
             )
             issues_deleted += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "GraphQL deleteIssue failed for #%s (node_id=%s): %s — falling back to close",
                 issue_number,

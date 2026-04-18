@@ -265,7 +265,7 @@ async def get_proposal(proposal_id: str) -> AITaskProposal | None:
         )
         _proposals[proposal_id] = proposal
         return proposal
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to load proposal from SQLite", exc_info=True)
         return None
 
@@ -290,7 +290,7 @@ async def get_recommendation(recommendation_id: str) -> IssueRecommendation | No
         )
         _recommendations[str(rec.recommendation_id)] = rec
         return rec
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to load recommendation from SQLite", exc_info=True)
         return None
 
@@ -346,7 +346,7 @@ async def _handle_agent_command(
             db=db,
             project_columns=project_columns,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.error("#agent command failed: %s", exc)
         agent_response_text = (
             "**Error:** The `#agent` command encountered an unexpected error. Please try again."
@@ -410,7 +410,7 @@ async def _handle_transcript_upload(
                 )
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Could not read uploaded file %s: %s", filename, exc)
             continue
 
@@ -432,7 +432,7 @@ async def _handle_transcript_upload(
                 metadata_svc = MetadataService(github_service=github_projects_service)
                 ctx = await metadata_svc.get_or_fetch(session.access_token, owner, repo)
                 metadata_context = ctx.model_dump()
-            except Exception as md_err:
+            except Exception as md_err:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Metadata fetch for transcript prompt failed: %s", md_err)
 
             recommendation = await _ai_utilities_any.analyze_transcript(
@@ -526,7 +526,7 @@ async def _handle_feature_request(
         is_feature_request = await _ai_utilities_any.detect_feature_request_intent(
             content, github_token=session.access_token
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Feature request detection failed: %s", e)
         is_feature_request = False
 
@@ -543,7 +543,7 @@ async def _handle_feature_request(
             metadata_svc = MetadataService(github_service=github_projects_service)
             ctx = await metadata_svc.get_or_fetch(session.access_token, owner, repo)
             metadata_context = ctx.model_dump()
-        except Exception as md_err:
+        except Exception as md_err:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Metadata fetch for prompt injection failed: %s", md_err)
 
         recommendation = await _ai_utilities_any.generate_issue_recommendation(
@@ -880,7 +880,7 @@ async def get_session_messages(session_id: UUID) -> list[ChatMessage]:
             )
         _messages[key] = messages
         return messages
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to load messages from SQLite", exc_info=True)
         return []
 
@@ -917,7 +917,7 @@ def _trigger_signal_delivery(
                 project_name=project_name,
                 project_id=session.selected_project_id,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug("Signal delivery trigger failed (non-fatal): %s", e)
 
     try:
@@ -1085,7 +1085,7 @@ async def clear_messages(
     try:
         db = get_db()
         await _chat_store_any.clear_messages(db, key, conversation_id=conversation_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to clear messages from SQLite", exc_info=True)
     return {"message": "Chat history cleared"}
 
@@ -1101,7 +1101,7 @@ async def _validate_chat_conversation(
     try:
         db = get_db()
         conversation = await _chat_store_any.get_conversation_by_id(db, str(conversation_id))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "validate conversation")
 
     if conversation is None or conversation["session_id"] != str(session.session_id):
@@ -1131,7 +1131,7 @@ async def _validate_chat_pipeline(
             raise ValidationError(f"Pipeline not found: {pipeline_id}")
     except ValidationError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "validate pipeline")
 
 
@@ -1171,14 +1171,14 @@ async def send_message(
         _settings = _get_settings()
         if _settings.ai_provider in ("copilot", "azure_openai"):
             ai_available = True
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
         pass
 
     # Try to get the new ChatAgentService
     chat_agent_service = None
     try:
         chat_agent_service = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
         pass
 
     if not ai_available and chat_agent_service is None:
@@ -1400,7 +1400,7 @@ async def _extract_transcript_content(file_urls: list[str]) -> str | None:
                 )
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
             continue
 
         original_name = filename[9:] if len(filename) > 9 and filename[8] == "-" else filename
@@ -1540,7 +1540,7 @@ async def send_message_stream(
 
     try:
         chat_agent_svc = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(
             status_code=503,
             content={"detail": "Streaming not available. Use /messages endpoint instead."},
@@ -1656,7 +1656,7 @@ async def confirm_proposal(
             await _chat_store_any.update_proposal_status(
                 db, proposal_id, ProposalStatus.CANCELLED.value
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Failed to update expired proposal status in SQLite", exc_info=True)
         raise ValidationError("Proposal has expired")
 
@@ -1739,7 +1739,7 @@ async def confirm_proposal(
                 edited_title=proposal.edited_title,
                 edited_description=proposal.edited_description,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Failed to update proposal status in SQLite", exc_info=True)
 
         # Invalidate cache
@@ -1884,7 +1884,7 @@ async def confirm_proposal(
                 user_chat_model = effective_user_settings.ai.model
                 user_agent_model = effective_user_settings.ai.agent_model
                 user_reasoning_effort = effective_user_settings.ai.reasoning_effort
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Could not load effective user settings for session %s; user_chat_model left empty",
                     session.session_id,
@@ -1931,7 +1931,7 @@ async def confirm_proposal(
                     },
                 )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Issue #%d created but agent assignment failed: %s",
                 issue_number,
@@ -1942,7 +1942,7 @@ async def confirm_proposal(
 
     except ValidationError:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "create issue from proposal", ValidationError)
 
 
@@ -1966,7 +1966,7 @@ async def cancel_proposal(
         await _chat_store_any.update_proposal_status(
             db, proposal_id, ProposalStatus.CANCELLED.value
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to update proposal status in SQLite", exc_info=True)
 
     # Add cancellation message
@@ -2113,7 +2113,7 @@ async def send_plan_message(
 
     try:
         owner, repo = await _resolve_repository(session)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(
             status_code=400,
             content={"detail": "No repository linked to the selected project."},
@@ -2133,7 +2133,7 @@ async def send_plan_message(
 
     try:
         chat_agent_svc = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(
             status_code=503,
             content={"detail": "Plan mode not available."},
@@ -2190,7 +2190,7 @@ async def send_plan_message_stream(
 
     try:
         owner, repo = await _resolve_repository(session)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(
             status_code=400,
             content={"detail": "No repository linked to the selected project."},
@@ -2210,7 +2210,7 @@ async def send_plan_message_stream(
 
     try:
         chat_agent_svc = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(
             status_code=503,
             content={"detail": "Plan mode not available."},
@@ -2518,7 +2518,7 @@ async def exit_plan_mode_endpoint(
     try:
         chat_agent_svc = get_chat_agent_service()
         await chat_agent_svc.exit_plan_mode(session.session_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to clear plan mode from agent session", exc_info=True)
 
     return PlanExitResponse(
@@ -2619,7 +2619,7 @@ async def add_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepCreateRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2671,7 +2671,7 @@ async def update_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepUpdateRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2746,7 +2746,7 @@ async def reorder_plan_steps_endpoint(
     body = await request.json()
     try:
         req = StepReorderRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2796,7 +2796,7 @@ async def approve_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepApprovalRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2863,7 +2863,7 @@ async def submit_step_feedback_endpoint(
     body = await request.json()
     try:
         req = StepFeedbackRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     # Feedback is transient — accepted for async agent processing

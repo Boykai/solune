@@ -575,7 +575,7 @@ class ChoresService:
             # Always ensure "chore" is present
             if "chore" not in labels:
                 labels.append("chore")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Label classification failed for chore %s, using fallback: %s", chore.name, e
             )
@@ -612,7 +612,7 @@ class ChoresService:
                     item_id,
                     {"priority": classification_priority.value},
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Failed to set issue metadata for chore %s: %s", chore.name, e)
 
         # Run full agent pipeline (mirrors _run_workflow_orchestration)
@@ -660,7 +660,7 @@ class ChoresService:
                         )
                         if _pipeline_result.agent_mappings:
                             config.agent_mappings = _pipeline_result.agent_mappings
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.debug(
                         "Pipeline mapping resolution failed for chore %s; using config defaults",
                         chore.name,
@@ -698,7 +698,7 @@ class ChoresService:
                         )
                         user_agent_model = effective_user_settings.ai.agent_model or ""
                         user_reasoning_effort = effective_user_settings.ai.reasoning_effort or ""
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                         logger.debug(
                             "Failed to load user agent model for chore %s: %s", chore.name, e
                         )
@@ -944,7 +944,7 @@ class ChoresService:
                     if isinstance(encoded_content, str):
                         try:
                             current_content = b64decode(encoded_content).decode("utf-8")
-                        except Exception:
+                        except Exception:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
                             current_content = None
                     raise ChoreConflictError(
                         "File has been modified since page load",

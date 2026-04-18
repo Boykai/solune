@@ -144,7 +144,7 @@ async def on_post_tool_use_hook(
             if plan:
                 to_version = plan.get("version", 1)
                 from_version = max(1, to_version - 1)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
             logger.debug("Could not read plan version for plan_diff event")
 
     return {
@@ -206,7 +206,7 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort
+        config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key]
 
     session = await client.create_session(config)
     logger.info(

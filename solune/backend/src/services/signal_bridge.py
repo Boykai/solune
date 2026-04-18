@@ -105,7 +105,7 @@ async def _get_registered_phone() -> str | None:
         accounts = await get_accounts()
         if accounts:
             return accounts[0]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.debug("Could not auto-discover Signal phone: %s", e)
     return None
 
@@ -133,7 +133,7 @@ async def check_link_complete() -> dict:
                 return {"linked": False, "number": None}
             # No env var — return the first registered account
             return {"linked": True, "number": accounts[0]}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.warning("Failed to check link status: %s", e)
         return {"linked": False, "number": None}
 
@@ -467,7 +467,7 @@ async def send_welcome_message(phone: str) -> None:
     try:
         await send_message(phone, text)
         logger.info("Sent welcome message to newly linked Signal user")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.warning("Failed to send welcome message: %s", e)
 
 
@@ -732,7 +732,7 @@ async def _send_auto_reply(recipient: str, text: str) -> None:
     """Send an auto-reply message via Signal."""
     try:
         await send_message(recipient, text)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.warning("Failed to send auto-reply to %s: %s", recipient[:6], e)
 
 
@@ -748,7 +748,7 @@ async def _resolve_project_by_name(github_user_id: str, name: str) -> str | None
             if p_name.lower().replace(" ", "-") == name.lower() or p_name.lower() == name.lower():
                 return p_id
         return None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.debug("Project ID lookup failed for '%s': %s", name, e)
         return None
 
@@ -785,6 +785,6 @@ async def _list_user_projects(github_user_id: str) -> list[tuple[str, str]]:
             cache.set(get_user_projects_cache_key(github_user_id), fetched)
             return [(p.name, p.project_id) for p in fetched]
         return []
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.debug("Failed to list projects for user %s: %s", github_user_id, e, exc_info=True)
         return []

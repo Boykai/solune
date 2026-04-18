@@ -106,7 +106,7 @@ class BoundedDict[K, V]:
             if self._on_evict is not None:
                 try:
                     self._on_evict(evicted_key, evicted_value)
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.debug(
                         "BoundedDict on_evict callback failed for key %s",
                         evicted_key,
@@ -347,7 +347,7 @@ async def _resolve_repository_rest(access_token: str, project_id: str) -> tuple[
                     return (owner, repo)
 
         return None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("REST repository resolution failed for project %s: %s", project_id, e)
         return None
 

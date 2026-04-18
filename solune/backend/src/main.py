@@ -90,7 +90,7 @@ async def _auto_start_copilot_polling() -> bool:
                 owner, repo = await resolve_repository(
                     session.access_token, session.selected_project_id
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Could not resolve repo for project %s — skipping: %s",
                     session.selected_project_id,
@@ -254,7 +254,7 @@ async def _discover_and_register_active_projects() -> int:
         row = await cursor.fetchone()
         if row:
             session_token = row["access_token"]
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not fetch recent session token for polling", exc_info=True)
 
     token = session_token or fallback_token
@@ -277,7 +277,7 @@ async def _discover_and_register_active_projects() -> int:
                     project_repo_map[ps_row["project_id"]] = (wf_owner, wf_repo)
             except (json.JSONDecodeError, TypeError):
                 continue
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not load project repo map from project_settings", exc_info=True)
 
     # Fallback: default repo from settings
@@ -311,7 +311,7 @@ async def _discover_and_register_active_projects() -> int:
                             state.repository_owner = owner
                             state.repository_name = repo
                             await set_pipeline_state(state.issue_number, state)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Could not resolve repository for project %s via API, "
                     "falling back to default repo",
@@ -365,7 +365,7 @@ async def _restore_app_pipeline_polling() -> int:
             session = await get_session(db, row["session_id"])
             if session:
                 token = session.access_token
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not fetch session token for app pipeline polling", exc_info=True)
 
     if not token:
@@ -390,7 +390,7 @@ async def _restore_app_pipeline_polling() -> int:
                     project_repo_map[ps_row["project_id"]] = (wf_owner, wf_repo)
             except (json.JSONDecodeError, TypeError):
                 continue
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not load project repo map for app pipeline polling", exc_info=True)
 
     restored = 0
@@ -425,7 +425,7 @@ async def _restore_app_pipeline_polling() -> int:
                     state.repository_owner = owner
                     state.repository_name = repo
                     await set_pipeline_state(issue_number, state)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Could not resolve repository for project %s via API, "
                     "falling back to default repo",
@@ -494,7 +494,7 @@ async def _startup_agent_mcp_sync(db: aiosqlite.Connection) -> None:
 
     try:
         owner, repo = await resolve_repository(session.access_token, session.selected_project_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not resolve repo for startup MCP sync: %s", e)
         return
 
@@ -581,7 +581,7 @@ async def _polling_watchdog_loop() -> None:
                         and len(get_queued_pipelines_for_project(mp.project_id)) == 0
                     ):
                         unregister_project(mp.project_id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.debug("Watchdog multi-project sync failed: %s", e)
         except asyncio.CancelledError:
             logger.debug("Polling watchdog task cancelled")
@@ -749,21 +749,21 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         # for multi-project monitoring (survives container restarts).
         try:
             await _discover_and_register_active_projects()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Multi-project discovery failed (non-fatal): %s", e)
 
         # Restore scoped app-pipeline polling for new-repo / external-repo
         # apps whose polling tasks were lost during the restart.
         try:
             await _restore_app_pipeline_polling()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("App-pipeline polling restore failed (non-fatal): %s", e)
 
         # Agent MCP sync — fire-and-forget via TaskRegistry
         async def _run_startup_agent_mcp_sync_background() -> None:
             try:
                 await _startup_agent_mcp_sync(db)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Startup agent MCP sync failed (non-fatal): %s", e)
 
         task_registry.create_task(_run_startup_agent_mcp_sync_background(), name="startup-mcp-sync")
@@ -793,7 +793,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
             if get_polling_status()["is_running"]:
                 await stop_polling()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Error stopping Copilot polling during shutdown: %s", e, exc_info=True)
 
         if db is not None:
@@ -901,7 +901,7 @@ def create_app() -> FastAPI:
                         {"path": _request.url.path, "method": _request.method},
                     )
                     sentry_sdk.capture_exception(exc)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
             pass  # Sentry capture is best-effort
 
         return JSONResponse(

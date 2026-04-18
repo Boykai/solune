@@ -243,7 +243,7 @@ async def update_project_settings_endpoint(
                     getattr(_workflow_config_mod, "_workflow_configs"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
                 )
                 workflow_configs.pop(project_id, None)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.debug(
                     "Cache invalidation skipped for project=%s: %s", project_id, e, exc_info=True
                 )
