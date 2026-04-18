@@ -35,28 +35,28 @@ from src.services.settings_store import (
 # floor sees concrete dict[str, Any] arguments/results.
 flatten_global_settings_update: Callable[[dict[str, Any]], dict[str, Any]] = cast(
     "Callable[[dict[str, Any]], dict[str, Any]]",
-    getattr(_settings_store, "flatten_global_settings_update"),  # noqa: B009
+    getattr(_settings_store, "flatten_global_settings_update"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
 )
 flatten_user_preferences_update: Callable[[dict[str, Any]], dict[str, Any]] = cast(
     "Callable[[dict[str, Any]], dict[str, Any]]",
-    getattr(_settings_store, "flatten_user_preferences_update"),  # noqa: B009
+    getattr(_settings_store, "flatten_user_preferences_update"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
 )
 update_global_settings: Callable[
     [aiosqlite.Connection, dict[str, Any]], Awaitable[GlobalSettingsResponse]
 ] = cast(
     "Callable[[aiosqlite.Connection, dict[str, Any]], Awaitable[GlobalSettingsResponse]]",
-    getattr(_settings_store, "update_global_settings"),  # noqa: B009
+    getattr(_settings_store, "update_global_settings"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
 )
 upsert_project_settings: Callable[
     [aiosqlite.Connection, str, str, dict[str, Any]], Awaitable[None]
 ] = cast(
     "Callable[[aiosqlite.Connection, str, str, dict[str, Any]], Awaitable[None]]",
-    getattr(_settings_store, "upsert_project_settings"),  # noqa: B009
+    getattr(_settings_store, "upsert_project_settings"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
 )
 upsert_user_preferences: Callable[[aiosqlite.Connection, str, dict[str, Any]], Awaitable[None]] = (
     cast(
         "Callable[[aiosqlite.Connection, str, dict[str, Any]], Awaitable[None]]",
-        getattr(_settings_store, "upsert_user_preferences"),  # noqa: B009
+        getattr(_settings_store, "upsert_user_preferences"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
     )
 )
 
@@ -240,7 +240,7 @@ async def update_project_settings_endpoint(
 
                 workflow_configs = cast(
                     "dict[str, Any]",
-                    getattr(_workflow_config_mod, "_workflow_configs"),  # noqa: B009
+                    getattr(_workflow_config_mod, "_workflow_configs"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
                 )
                 workflow_configs.pop(project_id, None)
             except Exception as e:
@@ -255,7 +255,7 @@ async def update_project_settings_endpoint(
             # Invalidate the queue mode in-memory cache
             queue_mode_cache = cast(
                 "dict[str, Any]",
-                getattr(_settings_store, "_queue_mode_cache"),  # noqa: B009
+                getattr(_settings_store, "_queue_mode_cache"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
             )
             queue_mode_cache.pop(project_id, None)
 
@@ -266,7 +266,7 @@ async def update_project_settings_endpoint(
             # Invalidate the auto merge in-memory cache
             auto_merge_cache = cast(
                 "dict[str, Any]",
-                getattr(_settings_store, "_auto_merge_cache"),  # noqa: B009
+                getattr(_settings_store, "_auto_merge_cache"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
             )
             auto_merge_cache.pop(project_id, None)
 

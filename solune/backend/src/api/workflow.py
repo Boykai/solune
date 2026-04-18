@@ -543,7 +543,7 @@ async def confirm_recommendation(
             from src.api import chat as _chat_mod
             from src.api.chat import add_message
 
-            trigger_signal_delivery: Any = getattr(  # noqa: B009
+            trigger_signal_delivery: Any = getattr(  # noqa: B009 - reason: chat module helper is resolved lazily so monkeypatches stay visible
                 _chat_mod, "_trigger_signal_delivery"
             )
 
@@ -737,7 +737,7 @@ async def retry_pipeline(
 
         pending_agent_assignments = cast(
             "dict[str, Any]",
-            getattr(_cp_mod, "_pending_agent_assignments"),  # noqa: B009
+            getattr(_cp_mod, "_pending_agent_assignments"),  # noqa: B009 - reason: retry flow clears module-level dedupe state through getattr for tests
         )
         pending_key = f"{issue_number}:{current_agent}"
         pending_agent_assignments.pop(pending_key, None)
@@ -1236,7 +1236,7 @@ async def check_all_in_progress_issues(
 
     from src.services import copilot_polling as _cp_mod
 
-    check_in_progress_issues_fn: Any = getattr(  # noqa: B009
+    check_in_progress_issues_fn: Any = getattr(  # noqa: B009 - reason: polling entrypoint is resolved lazily so monkeypatches stay visible
         _cp_mod, "check_in_progress_issues"
     )
 

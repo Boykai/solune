@@ -81,7 +81,7 @@ def _check_polling_loop() -> dict[str, Any]:
         from src.services.copilot_polling import state as _cp_state
 
         polling_task: Any = getattr(_cp, "_polling_task", None)
-        polling_state: Any = getattr(_cp_state, "_polling_state")  # noqa: B009
+        polling_state: Any = getattr(_cp_state, "_polling_state")  # noqa: B009 - reason: testable module-level state is intentionally accessed via getattr
 
         if polling_task is not None and not polling_task.done():
             return {"status": "pass", "observed_value": "running"}
@@ -254,7 +254,7 @@ def _readiness_check_polling() -> ReadinessCheckResult:
         from src.services.copilot_polling import state as _cp_state
 
         polling_task: Any = getattr(_cp, "_polling_task", None)
-        polling_state: Any = getattr(_cp_state, "_polling_state")  # noqa: B009
+        polling_state: Any = getattr(_cp_state, "_polling_state")  # noqa: B009 - reason: testable module-level state is intentionally accessed via getattr
 
         if polling_task is not None and not polling_task.done():
             return ReadinessCheckResult(component_id="polling:alive", status="pass", time=now)

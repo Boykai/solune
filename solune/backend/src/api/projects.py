@@ -39,7 +39,7 @@ _selection_warmup_tasks: dict[str, asyncio.Task[Any]] = {}
 
 # Re-export for monkeypatching in tests; bound through Any to satisfy strict mode
 # without modifying the upstream service signature.
-create_standalone_project: Any = getattr(  # noqa: B009
+create_standalone_project: Any = getattr(  # noqa: B009 - reason: service factory is resolved lazily so monkeypatches stay visible
     _app_service, "create_standalone_project"
 )
 

@@ -51,7 +51,7 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
 
         issue_main_branches = cast(
             "dict[int, dict[str, Any]]",
-            getattr(_wf_orch, "_issue_main_branches"),  # noqa: B009
+            getattr(_wf_orch, "_issue_main_branches"),  # noqa: B009 - reason: webhook fallback inspects module-level cache through getattr for tests
         )
         for issue_num, info in issue_main_branches.items():
             if info.get("pr_number") == pr_number:
@@ -128,7 +128,7 @@ async def _get_auto_merge_pipeline(
 
                     issue_main_branches = cast(
                         "dict[int, dict[str, Any]]",
-                        getattr(_wf_transitions, "_issue_main_branches"),  # noqa: B009
+                        getattr(_wf_transitions, "_issue_main_branches"),  # noqa: B009 - reason: webhook fallback inspects module-level cache through getattr for tests
                     )
                     branch_info = issue_main_branches.get(issue_number)
                     if branch_info:
@@ -1005,7 +1005,7 @@ async def handle_check_suite_event(payload: CheckSuiteEvent) -> dict[str, Any]:
             try:
                 from src.services.copilot_polling import auto_merge as _auto_merge_mod
 
-                attempt_auto_merge_fn: Any = getattr(  # noqa: B009
+                attempt_auto_merge_fn: Any = getattr(  # noqa: B009 - reason: webhook bridge intentionally resolves module-private helper lazily for tests
                     _auto_merge_mod, "_attempt_auto_merge"
                 )
 

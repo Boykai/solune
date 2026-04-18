@@ -20,11 +20,11 @@ from src.services import activity_service as _activity_service
 # narrows them to the desired signatures.
 get_activity_stats: Callable[..., Awaitable[dict[str, Any]]] = cast(
     "Callable[..., Awaitable[dict[str, Any]]]",
-    getattr(_activity_service, "get_activity_stats"),  # noqa: B009
+    getattr(_activity_service, "get_activity_stats"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
 )
 _query_events: Callable[..., Awaitable[dict[str, Any]]] = cast(
     "Callable[..., Awaitable[dict[str, Any]]]",
-    getattr(_activity_service, "query_events"),  # noqa: B009
+    getattr(_activity_service, "query_events"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
 )
 
 router = APIRouter()

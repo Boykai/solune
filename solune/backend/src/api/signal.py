@@ -55,19 +55,19 @@ from src.services.signal_bridge import (
 # while keeping the strict floor happy (no direct `_private` access at the
 # call sites and no cached references).
 def _hash_phone(phone: str) -> str:
-    fn = cast("Callable[[str], str]", getattr(_signal_bridge, "_hash_phone"))  # noqa: B009
+    fn = cast("Callable[[str], str]", getattr(_signal_bridge, "_hash_phone"))  # noqa: B009 - reason: signal bridge helper is resolved lazily so monkeypatches stay visible
     return fn(phone)
 
 
 def _get_encryption() -> Any:
-    fn = cast("Callable[[], Any]", getattr(_signal_bridge, "_get_encryption"))  # noqa: B009
+    fn = cast("Callable[[], Any]", getattr(_signal_bridge, "_get_encryption"))  # noqa: B009 - reason: signal bridge helper is resolved lazily so monkeypatches stay visible
     return fn()
 
 
 async def check_link_complete() -> dict[str, Any]:
     fn = cast(
         "Callable[[], Awaitable[dict[str, Any]]]",
-        getattr(_signal_bridge, "check_link_complete"),  # noqa: B009
+        getattr(_signal_bridge, "check_link_complete"),  # noqa: B009 - reason: signal bridge helper is resolved lazily so monkeypatches stay visible
     )
     return await fn()
 

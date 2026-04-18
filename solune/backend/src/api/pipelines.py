@@ -336,7 +336,7 @@ async def execute_pipeline_launch(
         try:
             from src.services import ai_utilities as _ai_mod
 
-            analyze_transcript_fn: Any = getattr(_ai_mod, "analyze_transcript")  # noqa: B009
+            analyze_transcript_fn: Any = getattr(_ai_mod, "analyze_transcript")  # noqa: B009 - reason: transcript analyzer is resolved lazily so monkeypatches stay visible
 
             recommendation = await analyze_transcript_fn(
                 transcript_content=issue_description,
