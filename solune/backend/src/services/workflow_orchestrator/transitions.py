@@ -3,6 +3,8 @@
 State is stored in-memory (BoundedDict L1 cache) and persisted to SQLite
 via ``pipeline_state_store`` for durability across container restarts.
 """
+# pyright: basic
+# reason: Legacy workflow state machine; dict-based state mutation pending dataclass migration.
 
 from collections.abc import Coroutine
 from typing import Any

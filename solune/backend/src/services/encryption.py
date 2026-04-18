@@ -5,6 +5,8 @@ GitHub OAuth tokens persisted in SQLite.  When no key is configured the
 service operates in *passthrough* mode — plaintext in, plaintext out —
 and logs a warning on startup.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

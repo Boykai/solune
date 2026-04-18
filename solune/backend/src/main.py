@@ -1,4 +1,6 @@
 """FastAPI application entry point."""
+# pyright: basic
+# reason: Legacy top-level module; pending follow-up typing pass.
 
 import asyncio
 import uuid

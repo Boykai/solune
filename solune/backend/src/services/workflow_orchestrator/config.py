@@ -1,4 +1,6 @@
 """Workflow configuration load/persist/defaults and transition audit logging."""
+# pyright: basic
+# reason: Legacy workflow state machine; dict-based state mutation pending dataclass migration.
 
 import json
 from dataclasses import dataclass, field

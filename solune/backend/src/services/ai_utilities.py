@@ -8,6 +8,8 @@ These functions were extracted from the deprecated ``AIAgentService`` class
 (removed in v0.3.0) and use :func:`call_completion` from
 :mod:`src.services.agent_provider` for LLM calls.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

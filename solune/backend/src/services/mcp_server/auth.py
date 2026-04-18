@@ -5,6 +5,8 @@ API (``GET /user``) with the provided PAT.  Includes short-TTL caching
 (60 s) to avoid redundant GitHub API calls and sliding-window rate
 limiting (10 attempts per 60 s per token hash) to prevent abuse.
 """
+# pyright: basic
+# reason: MCP server surface accepts arbitrary client JSON; needs schema-first re-design.
 
 from __future__ import annotations
 

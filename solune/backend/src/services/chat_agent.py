@@ -10,6 +10,8 @@ Key design decisions:
 - The Agent is created per invocation; provider-specific caching may be
   introduced as an optimization if needed.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

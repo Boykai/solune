@@ -8,6 +8,8 @@ versioning.
 All SDK calls are wrapped behind this module to absorb breaking changes
 in the ``github-copilot-sdk`` public preview.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

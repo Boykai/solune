@@ -1,4 +1,6 @@
 """Pipeline state management, status checking, and advancement logic."""
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 import asyncio
 import math

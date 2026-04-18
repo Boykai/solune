@@ -3,6 +3,8 @@
 Provides labels, branches, milestones, and collaborators from the GitHub REST API,
 persisted in SQLite with an in-memory L1 cache layer for performance.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

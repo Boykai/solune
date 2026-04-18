@@ -4,6 +4,8 @@ Stores MCP configurations in the ``mcp_configurations`` table and syncs them
 to the connected GitHub repository's supported MCP config files via the
 Contents API.
 """
+# pyright: basic
+# reason: Tools catalog/service handles partially-typed registry entries pending schema rework.
 
 from __future__ import annotations
 

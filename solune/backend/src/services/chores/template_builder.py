@@ -1,4 +1,6 @@
 """Template builder — generates and commits GitHub Issue Templates for chores."""
+# pyright: basic
+# reason: Legacy chores pipeline; mixed YAML/JSON config payloads pending Pydantic models.
 
 from __future__ import annotations
 

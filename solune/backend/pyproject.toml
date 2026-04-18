@@ -118,7 +118,7 @@ markers = [
 
 [tool.pyright]
 pythonVersion = "3.13"
-typeCheckingMode = "standard"
+typeCheckingMode = "strict"
 include = ["src"]
 exclude = ["**/__pycache__", "htmlcov"]
 reportMissingTypeStubs = false

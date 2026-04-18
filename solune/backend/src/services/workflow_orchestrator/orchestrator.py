@@ -1,4 +1,6 @@
 """WorkflowOrchestrator class — orchestrates the full GitHub issue creation and status workflow."""
+# pyright: basic
+# reason: Legacy workflow state machine; dict-based state mutation pending dataclass migration.
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING

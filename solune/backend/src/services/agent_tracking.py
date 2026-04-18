@@ -24,6 +24,8 @@ State values:
     🔄 Active    — currently assigned to Copilot
     ✅ Done      — "<agent>: Done!" comment posted
 """
+# pyright: basic
+# reason: Legacy agent providers + tools predate typed agent SDK surface.
 
 from __future__ import annotations
 

@@ -9,6 +9,8 @@ Architecture note: All MCP tools, REST API endpoints, and internal
 ``WorkflowOrchestrator``, ``ChatAgentService``, etc.  This ensures a
 single source of truth — no business logic duplication (FR-038, FR-039).
 """
+# pyright: basic
+# reason: MCP server surface accepts arbitrary client JSON; needs schema-first re-design.
 
 from __future__ import annotations
 

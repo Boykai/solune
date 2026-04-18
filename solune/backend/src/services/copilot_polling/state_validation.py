@@ -4,6 +4,8 @@ Provides a single ``validate_pipeline_labels()`` entry-point that
 cross-checks pipeline labels against the Markdown tracking table and
 corrects whichever source is stale.
 """
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 import src.services.copilot_polling as _cp
 from src.constants import (

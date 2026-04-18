@@ -3,6 +3,8 @@
 Security: all target paths are validated with ``os.path.realpath()`` to block
 path-traversal attacks (R3 decision in research.md).
 """
+# pyright: basic
+# reason: Template loader/renderer reads arbitrary YAML; typed once template schema is finalised.
 
 import logging
 import os

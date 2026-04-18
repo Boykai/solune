@@ -5,6 +5,8 @@ signatures and instance attributes that ``GitHubProjectsService`` defines,
 so that each mixin file can reference ``self._rest``, ``self._graphql``,
 etc. without disabling ``reportAttributeAccessIssue`` at the file level.
 """
+# pyright: basic
+# reason: Legacy githubkit response shapes; awaiting upstream typed accessors.
 
 from __future__ import annotations
 

@@ -11,6 +11,8 @@ Supported providers:
 - ``copilot``: Uses ``GitHubCopilotAgent`` (per-user OAuth token).
 - ``azure_openai``: Uses ``Agent`` with ``AzureAIClient``.
 """
+# pyright: basic
+# reason: Legacy agent providers + tools predate typed agent SDK surface.
 
 from __future__ import annotations
 

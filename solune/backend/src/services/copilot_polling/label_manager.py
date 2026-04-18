@@ -4,6 +4,8 @@ Manages pipeline state labels on GitHub repositories. Labels follow the
 format ``solune:pipeline:{run_id}:stage:{stage_id}:{status}`` and are used
 for state recovery on startup, reducing GitHub API calls by ~60%.
 """
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 from __future__ import annotations
 

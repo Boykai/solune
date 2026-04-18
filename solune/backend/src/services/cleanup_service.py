@@ -4,6 +4,8 @@ Provides preflight analysis, sequential execution, and audit trail for
 deleting stale branches and closing stale PRs while preserving items
 linked to open issues on the associated GitHub Project board.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

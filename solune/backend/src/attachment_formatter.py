@@ -4,6 +4,8 @@ Converts a list of file URLs into a formatted markdown attachments section
 that is appended to the GitHub issue body when a proposal or recommendation
 is confirmed.
 """
+# pyright: basic
+# reason: Legacy top-level module; pending follow-up typing pass.
 
 from __future__ import annotations
 

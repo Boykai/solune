@@ -1,4 +1,6 @@
 """PipelineService — CRUD operations for Agent Pipeline configurations."""
+# pyright: basic
+# reason: Legacy pipeline runner; pending refactor onto typed pipeline_run.PipelineRunStageState.
 
 from __future__ import annotations
 

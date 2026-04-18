@@ -8,6 +8,8 @@ Entry points:
 - ``handle_agent_command()`` — called from ``api/chat.py`` and ``signal_chat.py``
   when a message starts with ``#agent`` or an active creation session exists.
 """
+# pyright: basic
+# reason: Legacy agent providers + tools predate typed agent SDK surface.
 
 from __future__ import annotations
 

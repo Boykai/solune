@@ -6,6 +6,8 @@ signal_bridge.send_message, and tracks delivery status in signal_messages.
 Uses tenacity for exponential-backoff retry (30s → 2min → 8min per FR-008).
 Fire-and-forget via asyncio.create_task so the chat response is not blocked.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

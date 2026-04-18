@@ -3,6 +3,8 @@
 Parses ``## Implementation Phases`` sections into structured ``PlanPhase``
 objects and groups them into dependency-ordered execution waves.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

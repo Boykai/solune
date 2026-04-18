@@ -4,6 +4,8 @@ Provides durable SQLite-backed storage for pipeline orchestration state,
 with ``BoundedDict`` as an L1 in-memory cache.  All writes go through
 both layers atomically under ``asyncio.Lock``.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

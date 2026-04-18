@@ -111,31 +111,31 @@ Web app structure (per plan.md). All edits live under `solune/backend/`, `solune
 
 ### Re-verification of pre-existing ignores (FR-012, Phase 0 R10)
 
-- [ ] T023 [US3] In a worktree-only edit, flip `typeCheckingMode = "standard"` → `"strict"` in [solune/backend/pyproject.toml](solune/backend/pyproject.toml) WITHOUT yet adding any `# pyright: basic` pragmas. Run `uv run pyright 2>&1 | grep -E 'agent_provider\.py:501|plan_agent_provider\.py:207'`.
-- [ ] T024 [US3] If T023 flagged [solune/backend/src/services/agent_provider.py:501](solune/backend/src/services/agent_provider.py#L501) with `reportUnnecessaryTypeIgnoreComment`, delete the `# type: ignore[reportGeneralTypeIssues] — reason: …` comment in this PR. Otherwise leave it in place.
-- [ ] T025 [US3] If T023 flagged [solune/backend/src/services/plan_agent_provider.py:207](solune/backend/src/services/plan_agent_provider.py#L207) with `reportUnnecessaryTypeIgnoreComment`, delete the `# type: ignore[reportGeneralTypeIssues] — reason: …` comment in this PR. Otherwise leave it in place.
+- [X] T023 [US3] In a worktree-only edit, flip `typeCheckingMode = "standard"` → `"strict"` in [solune/backend/pyproject.toml](solune/backend/pyproject.toml) WITHOUT yet adding any `# pyright: basic` pragmas. Run `uv run pyright 2>&1 | grep -E 'agent_provider\.py:501|plan_agent_provider\.py:207'`.
+- [X] T024 [US3] If T023 flagged [solune/backend/src/services/agent_provider.py:501](solune/backend/src/services/agent_provider.py#L501) with `reportUnnecessaryTypeIgnoreComment`, delete the `# type: ignore[reportGeneralTypeIssues] — reason: …` comment in this PR. Otherwise leave it in place.
+- [X] T025 [US3] If T023 flagged [solune/backend/src/services/plan_agent_provider.py:207](solune/backend/src/services/plan_agent_provider.py#L207) with `reportUnnecessaryTypeIgnoreComment`, delete the `# type: ignore[reportGeneralTypeIssues] — reason: …` comment in this PR. Otherwise leave it in place.
 
 ### Enumerate legacy failures (still strict, still no pragmas)
 
-- [ ] T026 [US3] With the worktree-only `strict` mode still active, run `uv run pyright --outputjson | jq -r '.generalDiagnostics[] | select(.severity == "error") | .file' | sort -u > /tmp/phase3-failing-files.txt` per `quickstart.md` § Phase 3 Step 2. This is the canonical set of files that need `# pyright: basic`.
+- [X] T026 [US3] With the worktree-only `strict` mode still active, run `uv run pyright --outputjson | jq -r '.generalDiagnostics[] | select(.severity == "error") | .file' | sort -u > /tmp/phase3-failing-files.txt` per `quickstart.md` § Phase 3 Step 2. This is the canonical set of files that need `# pyright: basic`.
 
 ### Add pragmas (one per file in `/tmp/phase3-failing-files.txt`)
 
 > The exact file list comes from T026; the user request anticipates `src/services/github_projects/**`, `src/services/copilot_polling/**`, `src/main.py`, `src/services/chat_agent.py`. Each pragma + reason pair is a discrete edit; they may be done in parallel (different files).
 
-- [ ] T027 [P] [US3] For each candidate path under [solune/backend/src/services/github_projects/](solune/backend/src/services/github_projects/) that appears in T026's output, add `# pyright: basic` + `# reason: <one-line justification>` at the top of the file per `contracts/pragma-contract.md` § P3 (after any module docstring, before imports). Do NOT use `# pyright: off` (FR-007, P2).
-- [ ] T028 [P] [US3] Same as T027 for files under [solune/backend/src/services/copilot_polling/](solune/backend/src/services/copilot_polling/) that appear in T026's output.
-- [ ] T029 [P] [US3] Same as T027 for [solune/backend/src/main.py](solune/backend/src/main.py) if it appears in T026's output.
-- [ ] T030 [P] [US3] Same as T027 for [solune/backend/src/services/chat_agent.py](solune/backend/src/services/chat_agent.py) if it appears in T026's output.
-- [ ] T031 [P] [US3] Same as T027 for any *additional* file in T026's output not covered by T027–T030 (e.g., other top-level modules under `solune/backend/src/`). One pragma per file.
+- [X] T027 [P] [US3] For each candidate path under [solune/backend/src/services/github_projects/](solune/backend/src/services/github_projects/) that appears in T026's output, add `# pyright: basic` + `# reason: <one-line justification>` at the top of the file per `contracts/pragma-contract.md` § P3 (after any module docstring, before imports). Do NOT use `# pyright: off` (FR-007, P2).
+- [X] T028 [P] [US3] Same as T027 for files under [solune/backend/src/services/copilot_polling/](solune/backend/src/services/copilot_polling/) that appear in T026's output.
+- [X] T029 [P] [US3] Same as T027 for [solune/backend/src/main.py](solune/backend/src/main.py) if it appears in T026's output.
+- [X] T030 [P] [US3] Same as T027 for [solune/backend/src/services/chat_agent.py](solune/backend/src/services/chat_agent.py) if it appears in T026's output.
+- [X] T031 [P] [US3] Same as T027 for any *additional* file in T026's output not covered by T027–T030 (e.g., other top-level modules under `solune/backend/src/`). One pragma per file.
 
 ### Commit the global flip and ADR
 
-- [ ] T032 [US3] Update `[tool.pyright]` in [solune/backend/pyproject.toml](solune/backend/pyproject.toml) so `typeCheckingMode = "strict"` per `contracts/pyright-config-contract.md` § C1 Phase 3 exemplar (keep all other keys, including the Phase 2 `strict = [...]` array).
-- [ ] T033 [US3] Create [solune/docs/decisions/007-backend-pyright-strict-downgrades.md](solune/docs/decisions/007-backend-pyright-strict-downgrades.md) per `data-model.md` § E5: standard ADR header (Status / Date / Context / Decision / Consequences) matching the existing `001-githubkit-sdk.md`–`006-signal-sidecar.md` style, plus a table with one row per file in T026's output (columns: `file path | reason | owner | target removal milestone`). Update [solune/docs/decisions/README.md](solune/docs/decisions/README.md) to include the new ADR in its index.
-- [ ] T034 [US3] From `solune/backend/`, run `uv run pyright`; MUST exit 0 (FR-003, SC-004). Verify ADR consistency: the set of files in the ADR table MUST equal `grep -rl '^# pyright: basic$' solune/backend/src/` (data-model invariant 2; quickstart Phase 3 verify).
-- [ ] T035 [US3] Push a throwaway canary branch deleting the pragma from one file in T026's output; confirm `uv run pyright` exits non-zero on that file alone. Delete the branch. Record output in the PR description (US3 Independent Test).
-- [ ] T036 [US3] Re-measure the post-Phase-3 Pyright wall-clock (median of three runs) per Phase 0 R9; record in the PR description and confirm the ratio against T001's baseline does not exceed 1.25× (SC-005).
+- [X] T032 [US3] Update `[tool.pyright]` in [solune/backend/pyproject.toml](solune/backend/pyproject.toml) so `typeCheckingMode = "strict"` per `contracts/pyright-config-contract.md` § C1 Phase 3 exemplar (keep all other keys, including the Phase 2 `strict = [...]` array).
+- [X] T033 [US3] Create [solune/docs/decisions/007-backend-pyright-strict-downgrades.md](solune/docs/decisions/007-backend-pyright-strict-downgrades.md) per `data-model.md` § E5: standard ADR header (Status / Date / Context / Decision / Consequences) matching the existing `001-githubkit-sdk.md`–`006-signal-sidecar.md` style, plus a table with one row per file in T026's output (columns: `file path | reason | owner | target removal milestone`). Update [solune/docs/decisions/README.md](solune/docs/decisions/README.md) to include the new ADR in its index.
+- [X] T034 [US3] From `solune/backend/`, run `uv run pyright`; MUST exit 0 (FR-003, SC-004). Verify ADR consistency: the set of files in the ADR table MUST equal `grep -rl '^# pyright: basic$' solune/backend/src/` (data-model invariant 2; quickstart Phase 3 verify).
+- [X] T035 [US3] Push a throwaway canary branch deleting the pragma from one file in T026's output; confirm `uv run pyright` exits non-zero on that file alone. Delete the branch. Record output in the PR description (US3 Independent Test).
+- [X] T036 [US3] Re-measure the post-Phase-3 Pyright wall-clock (median of three runs) per Phase 0 R9; record in the PR description and confirm the ratio against T001's baseline does not exceed 1.25× (SC-005).
 
 **Checkpoint**: Phase 3 PR ready. Global strict active; legacy debt enumerated and visible.
 
@@ -149,13 +149,13 @@ Web app structure (per plan.md). All edits live under `solune/backend/`, `solune
 
 ### Implementation for User Story 4
 
-- [ ] T037 [P] [US4] Append a `# Pyright pragma gate (Phase 4)` section to [solune/scripts/pre-commit](solune/scripts/pre-commit) per `contracts/burn-down-gate-contract.md` § G2 + § G5. Guard with the existing `STAGED_BACKEND_CHANGES` variable so it only runs when backend files are staged. Stage 1 calls `exit 1` on floor violation; stage 2 prints the count line unconditionally and does not affect exit status. Reproduce the failure-message format from § G6 verbatim.
-- [ ] T038 [P] [US4] Add a `Pyright pragma gate` step to the `backend` job in [.github/workflows/ci.yml](.github/workflows/ci.yml) immediately after the existing `Type check with pyright` step (line 51) per `contracts/burn-down-gate-contract.md` § G5. Stage 1 runs only on `pull_request` events (uses `git diff origin/${{ github.base_ref }}...HEAD --name-only --diff-filter=ACM` as the changed-files source per § G1); stage 2 always runs. Reproduce the failure-message format from § G6 verbatim.
-- [ ] T039 [US4] From the repo root, re-run [solune/scripts/setup-hooks.sh](solune/scripts/setup-hooks.sh) so the new pre-commit content mirrors into `.git/hooks/pre-commit`.
-- [ ] T040 [US4] Run [solune/scripts/pre-commit](solune/scripts/pre-commit) directly with no staged changes; confirm the literal output line `# pyright: basic count: <N>` appears (matches `^# pyright: basic count: [0-9]+$`). `<N>` should equal the count of files changed in T027–T031.
-- [ ] T041 [US4] Execute Canary 1 from `contracts/burn-down-gate-contract.md` § G7: stage a `# pyright: basic` + `# reason: canary` addition to a file under [solune/backend/src/api/](solune/backend/src/api/); attempt to commit; confirm `solune/scripts/pre-commit` exits 1 with the canonical message `# pyright: basic is not allowed inside the strict floor.` Revert.
-- [ ] T042 [US4] Execute Canary 2 from `contracts/burn-down-gate-contract.md` § G7: stage the same pragma in a non-floor file (e.g., [solune/backend/src/utils.py](solune/backend/src/utils.py)); confirm pre-commit exits 0 and the count line shows N+1. Revert.
-- [ ] T043 [US4] Open the Phase 4 PR; verify in the CI log that the `Pyright pragma gate` step prints exactly one line matching `^# pyright: basic count: [0-9]+$` (SC-006).
+- [X] T037 [P] [US4] Append a `# Pyright pragma gate (Phase 4)` section to [solune/scripts/pre-commit](solune/scripts/pre-commit) per `contracts/burn-down-gate-contract.md` § G2 + § G5. Guard with the existing `STAGED_BACKEND_CHANGES` variable so it only runs when backend files are staged. Stage 1 calls `exit 1` on floor violation; stage 2 prints the count line unconditionally and does not affect exit status. Reproduce the failure-message format from § G6 verbatim.
+- [X] T038 [P] [US4] Add a `Pyright pragma gate` step to the `backend` job in [.github/workflows/ci.yml](.github/workflows/ci.yml) immediately after the existing `Type check with pyright` step (line 51) per `contracts/burn-down-gate-contract.md` § G5. Stage 1 runs only on `pull_request` events (uses `git diff origin/${{ github.base_ref }}...HEAD --name-only --diff-filter=ACM` as the changed-files source per § G1); stage 2 always runs. Reproduce the failure-message format from § G6 verbatim.
+- [X] T039 [US4] From the repo root, re-run [solune/scripts/setup-hooks.sh](solune/scripts/setup-hooks.sh) so the new pre-commit content mirrors into `.git/hooks/pre-commit`.
+- [X] T040 [US4] Run [solune/scripts/pre-commit](solune/scripts/pre-commit) directly with no staged changes; confirm the literal output line `# pyright: basic count: <N>` appears (matches `^# pyright: basic count: [0-9]+$`). `<N>` should equal the count of files changed in T027–T031.
+- [X] T041 [US4] Execute Canary 1 from `contracts/burn-down-gate-contract.md` § G7: stage a `# pyright: basic` + `# reason: canary` addition to a file under [solune/backend/src/api/](solune/backend/src/api/); attempt to commit; confirm `solune/scripts/pre-commit` exits 1 with the canonical message `# pyright: basic is not allowed inside the strict floor.` Revert.
+- [X] T042 [US4] Execute Canary 2 from `contracts/burn-down-gate-contract.md` § G7: stage the same pragma in a non-floor file (e.g., [solune/backend/src/utils.py](solune/backend/src/utils.py)); confirm pre-commit exits 0 and the count line shows N+1. Revert.
+- [X] T043 [US4] Open the Phase 4 PR; verify in the CI log that the `Pyright pragma gate` step prints exactly one line matching `^# pyright: basic count: [0-9]+$` (SC-006).
 
 **Checkpoint**: Phase 4 PR ready. Burn-down gate live in both pre-commit and CI.
 

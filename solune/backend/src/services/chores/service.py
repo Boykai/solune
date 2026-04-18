@@ -1,4 +1,6 @@
 """ChoresService — CRUD operations for recurring maintenance chores."""
+# pyright: basic
+# reason: Legacy chores pipeline; mixed YAML/JSON config payloads pending Pydantic models.
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
 """Shared data classes and pure helpers for the workflow orchestrator package."""
+# pyright: basic
+# reason: Legacy workflow state machine; dict-based state mutation pending dataclass migration.
 
 from dataclasses import dataclass, field
 from datetime import datetime

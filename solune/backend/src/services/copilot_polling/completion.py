@@ -1,4 +1,6 @@
 """PR completion detection — merge, child PR, main PR, and review logic."""
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 import asyncio
 from datetime import datetime

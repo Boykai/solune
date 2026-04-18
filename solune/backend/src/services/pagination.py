@@ -1,4 +1,6 @@
 """Pagination utility — cursor-based pagination for in-memory lists."""
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

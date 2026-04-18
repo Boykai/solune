@@ -374,6 +374,35 @@ if [ -n "$STAGED_ARCH_FILES" ]; then
 fi
 
 # ============================================
+# Pyright pragma gate (Phase 4)
+# ============================================
+# Stage 1: refuse new `# pyright: basic` inside the strict floor.
+# Stage 2: print the global pragma count for SC-006 visibility.
+# See solune/specs/001-backend-pyright-strict/contracts/burn-down-gate-contract.md.
+if [ -n "$STAGED_BACKEND_CHANGES" ]; then
+    floor_violations=$(echo "$STAGED_BACKEND_CHANGES" \
+        | grep -E '^solune/backend/src/(api|models|services/agents)/[^/]+(/.*)?\.py$' \
+        | xargs -r -I{} grep -lE '^# pyright: basic[[:space:]]*$' "$REPO_ROOT/{}" 2>/dev/null \
+        || true)
+
+    if [ -n "$floor_violations" ]; then
+        echo ""
+        echo -e "${RED}# pyright: basic is not allowed inside the strict floor.${NC}"
+        echo "Offending files:"
+        printf '  %s\n' $floor_violations
+        echo ""
+        echo "Remove the pragma and either fix the strict-mode errors or remove"
+        echo "the file from the strict floor by amending [tool.pyright] strict."
+        FAILED=1
+    fi
+fi
+
+# Stage 2 — pragma count line (always runs, never affects exit)
+pragma_count=$(grep -rEc '^# pyright: basic[[:space:]]*$' "$BACKEND_DIR/src" 2>/dev/null \
+                | awk -F: '{s+=$2} END{print s+0}')
+echo "# pyright: basic count: $pragma_count"
+
+# ============================================
 # Final Result
 # ============================================
 echo ""

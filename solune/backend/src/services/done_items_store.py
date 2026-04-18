@@ -9,6 +9,8 @@ Two item types are stored:
   - ``task``  — lightweight ``Task`` dicts used by GET /projects/{id}/tasks
   - ``board`` — rich ``BoardItem`` dicts used by GET /board/projects/{id}
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

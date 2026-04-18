@@ -4,6 +4,8 @@ Provides durable SQLite-backed storage for pipeline runs and stage
 states.  Replaces in-memory-only tracking with write-through persistence
 so pipeline state survives application restarts.
 """
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 from __future__ import annotations
 

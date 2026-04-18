@@ -3,6 +3,8 @@
 Provides ``build_plan_instructions()`` which injects the selected project
 identity so the agent plans within the correct scope.
 """
+# pyright: basic
+# reason: Prompt template module; large untyped string fragments pending refactor.
 
 PLAN_SYSTEM_INSTRUCTIONS = """\
 You are **Solune** operating in **Plan Mode**.  Your primary purpose is to \

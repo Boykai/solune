@@ -12,6 +12,8 @@ Privacy & security:
 
 Called as a fire-and-forget task from signal_bridge._process_inbound_ws_message.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

@@ -3,6 +3,8 @@
 Provides paginated, filtered reads of the ``activity_events`` table.
 Write-side operations remain in ``activity_logger.py``.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 
