@@ -110,7 +110,7 @@ Web app structure (per plan.md). All edits live under `solune/backend/src/`, `so
 
 - [ ] T031 [US2] Run `uv run pytest --timeout=120 -x -q` from `solune/backend/`; MUST exit 0 (SC-005). Verify registry completeness: `python -c "from src.main import create_app; from src.services.resettable_state import _registry; print(len(_registry))"` — count MUST be ≥ 30 (data-model.md § E4). Run the canary from `quickstart.md` § Story 2. Verify `_clear_test_caches()` fixture body contains only `reset_all()` calls and `yield` (SC-003).
 
-**Checkpoint**: Story 2 complete. The resettable registry covers all previously ad-hoc-cleared state. The autouse fixture is reduced to three lines. Any new mutable state registered with `@resettable_state` is automatically cleaned up.
+**Checkpoint**: Story 2 complete. The resettable registry covers all previously ad-hoc-cleared state. The autouse fixture is reduced to three lines. Any new mutable state registered with `register_resettable()` is automatically cleaned up.
 
 ---
 
