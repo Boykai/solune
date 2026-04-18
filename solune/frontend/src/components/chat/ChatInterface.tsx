@@ -241,6 +241,7 @@ export function ChatInterface({
   // Update autocomplete state when input changes.
   // Derive filtered commands internally via useCommands() so autocomplete
   // works even when the parent (e.g. ChatPopup) does not pass command props.
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: autocomplete derivation with handleMentionDismiss side-effect; cannot be pure useMemo */
   useEffect(() => {
     const trimmed = input.trimStart();
     const shouldShow = trimmed.startsWith('/') && !trimmed.slice(1).includes(' ');
@@ -264,6 +265,7 @@ export function ChatInterface({
       setShowAutocomplete(false);
     }
   }, [input, getFilteredCommands, isAutocompleteOpen, handleMentionDismiss]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleAutocompleteSelect = useCallback(
     (command: CommandDefinition) => {
@@ -430,12 +432,14 @@ export function ChatInterface({
   }, [showHistoryPopover]);
 
   // Clear validation error when tokens change
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: intentional validation clearing on token change; cannot derive because error is set from multiple sources */
   useEffect(() => {
     if (mentionValidationError) {
       setMentionValidationError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: intentionally omits mentionValidationError to avoid clearing on every render; only reacts to token changes
   }, [mention.mentionTokens]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Listen for global Ctrl+K focus-chat event
   useEffect(() => {

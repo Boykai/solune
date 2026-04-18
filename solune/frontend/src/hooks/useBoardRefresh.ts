@@ -69,6 +69,7 @@ export function useBoardRefresh({
   // Seed lastRefreshedAt from the TanStack Query cache so the Page Visibility
   // handler doesn't treat every first tab-switch as "stale since epoch".
   // This runs once when boardData first arrives (lastRefreshedAt is still null).
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: one-time cache seeding; reads query cache timestamp on first mount then early-returns */
   useEffect(() => {
     if (lastRefreshedAt !== null || !projectId) return;
     const queryState = queryClient.getQueryState(['board', 'data', projectId]);
@@ -76,13 +77,16 @@ export function useBoardRefresh({
       setLastRefreshedAt(new Date(queryState.dataUpdatedAt));
     }
   }, [projectId, lastRefreshedAt, queryClient, boardData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Update rate limit info reactively from board data responses
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: merges rate_limit from boardData props with error-derived rate_limit; cannot derive purely because error path also sets this state */
   useEffect(() => {
     if (boardData?.rate_limit) {
       setRateLimitInfo(boardData.rate_limit);
     }
   }, [boardData?.rate_limit]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const timerRef = useRef<number | null>(null);
   const isRefreshingRef = useRef(false);

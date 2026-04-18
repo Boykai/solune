@@ -5,7 +5,7 @@
  * Provides isDirty flag, per-column dirty detection, and CRUD operations.
  */
 
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { AgentAssignment, WorkflowConfiguration, AvailableAgent } from '@/types';
@@ -60,7 +60,7 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
-  const serverMappingsRef = useRef<Record<string, AgentAssignment[]>>({});
+  const [serverMappings, setServerMappings] = useState<Record<string, AgentAssignment[]>>({});
 
   // Stable loadConfig that only depends on projectId (not an unstable getConfig ref).
   // The old version captured `getConfig` from useWorkflow which changed identity every
@@ -99,7 +99,7 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
         }
         // else keep existing (already has agents, or both empty)
       }
-      serverMappingsRef.current = deduped;
+      setServerMappings(deduped);
       setLocalMappings(structuredClone(deduped));
       setIsLoaded(true);
     } catch {
@@ -108,19 +108,21 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
   }, [projectId, queryClient]);
 
   // Load config when projectId changes
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: async data fetch via loadConfig and synchronous state reset when projectId clears */
   useEffect(() => {
     if (projectId) {
       loadConfig();
     } else {
       setServerConfig(null);
       setLocalMappings({});
-      serverMappingsRef.current = {};
+      setServerMappings({});
       setIsLoaded(false);
     }
   }, [projectId, loadConfig]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const isDirty = useMemo(() => {
-    const server = serverMappingsRef.current;
+    const server = serverMappings;
     const statuses = new Set([...Object.keys(server), ...Object.keys(localMappings)]);
     for (const status of statuses) {
       const serverAgents = server[status] ?? [];
@@ -131,11 +133,11 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
       }
     }
     return false;
-  }, [localMappings]);
+  }, [localMappings, serverMappings]);
 
   const isColumnDirty = useCallback(
     (status: string): boolean => {
-      const serverAgents = serverMappingsRef.current[status] ?? [];
+      const serverAgents = serverMappings[status] ?? [];
       const localAgents = localMappings[status] ?? [];
       if (serverAgents.length !== localAgents.length) return true;
       for (let i = 0; i < serverAgents.length; i++) {
@@ -143,7 +145,7 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
       }
       return false;
     },
-    [localMappings]
+    [localMappings, serverMappings]
   );
 
   const addAgent = useCallback((status: string, agent: AvailableAgent) => {
@@ -282,7 +284,7 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
         agent_mappings: localMappings,
       });
       const mappings = updatedConfig.agent_mappings ?? {};
-      serverMappingsRef.current = mappings;
+      setServerMappings(mappings);
       setLocalMappings(structuredClone(mappings));
       setServerConfig(updatedConfig);
       toast.success('Agent configuration saved');
@@ -296,9 +298,9 @@ export function useAgentConfig(projectId?: string | null): UseAgentConfigReturn 
   }, [serverConfig, localMappings, updateConfig]);
 
   const discard = useCallback(() => {
-    setLocalMappings(structuredClone(serverMappingsRef.current));
+    setLocalMappings(structuredClone(serverMappings));
     setSaveError(null);
-  }, []);
+  }, [serverMappings]);
 
   return {
     localMappings,

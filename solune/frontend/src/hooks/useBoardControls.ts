@@ -184,10 +184,12 @@ export function useBoardControls(
   const [hydratedProjectId, setHydratedProjectId] = useState<string | null>(projectId);
 
   // Reload controls when projectId changes
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: localStorage hydration on projectId change; must reset both controls state and hydration tracker */
   useEffect(() => {
     setControlsState(loadControls(projectId));
     setHydratedProjectId(projectId);
   }, [projectId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist on change
   useEffect(() => {

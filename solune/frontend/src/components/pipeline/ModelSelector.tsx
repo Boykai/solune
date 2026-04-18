@@ -3,7 +3,7 @@
  * Groups models by provider, shows metadata, tracks recently used.
  */
 
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { useModels, formatReasoningLabel } from '@/hooks/useModels';
 import { Brain, ChevronDown, Search, Check, Zap, DollarSign, Crown } from '@/lib/icons';
@@ -91,7 +91,7 @@ export function ModelSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const { models, modelsByProvider, isLoading, isRefreshing, refreshModels } = useModels();
-  const recentModelKeysRef = useRef<string[]>([]);
+  const [recentModelKeys, setRecentModelKeys] = useState<string[]>([]);
 
   const getModelKey = useCallback((model: AIModel) => {
     return model.reasoning_effort ? `${model.id}::${model.reasoning_effort}` : model.id;
@@ -99,20 +99,18 @@ export function ModelSelector({
 
   const addRecentModel = useCallback((model: AIModel) => {
     const key = model.reasoning_effort ? `${model.id}::${model.reasoning_effort}` : model.id;
-    const keys = recentModelKeysRef.current;
-    const idx = keys.indexOf(key);
-    if (idx !== -1) keys.splice(idx, 1);
-    keys.unshift(key);
-    if (keys.length > 3) keys.pop();
+    setRecentModelKeys((prev) => {
+      const filtered = prev.filter((k) => k !== key);
+      return [key, ...filtered].slice(0, 3);
+    });
   }, []);
 
   const recentModels = useMemo(
     () =>
-      recentModelKeysRef.current
+      recentModelKeys
         .map((key) => models.find((m) => (m.reasoning_effort ? `${m.id}::${m.reasoning_effort}` : m.id) === key))
         .filter((m): m is AIModel => m !== undefined),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: recentModelKeysRef is a ref (stable); isOpen forces recompute when dropdown opens
-    [models, isOpen]
+    [models, recentModelKeys]
   );
 
   const filteredProviderGroups = useMemo(() => {

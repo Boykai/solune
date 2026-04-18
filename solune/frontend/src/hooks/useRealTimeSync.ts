@@ -38,10 +38,13 @@ export function useRealTimeSync(
   const onRefreshTriggeredRef = useRef(options?.onRefreshTriggered);
   /** Timestamp of the last reconnection invalidation for debounce. */
   const lastReconnectInvalidationRef = useRef(0);
-
+  /** Ref to the latest connect function for self-referential reconnection. */
+  const connectRef = useRef<(() => void) | null>(null);
 
   // Keep the callback ref up to date
-  onRefreshTriggeredRef.current = options?.onRefreshTriggered;
+  useEffect(() => {
+    onRefreshTriggeredRef.current = options?.onRefreshTriggered;
+  });
 
   const handleMessage = useCallback(
     (event: MessageEvent) => {
@@ -196,7 +199,7 @@ export function useRealTimeSync(
 
         reconnectTimeoutRef.current = window.setTimeout(() => {
           if (projectId) {
-            connect();
+            connectRef.current?.();
           }
         }, expDelay + jitter);
       };
@@ -208,7 +211,13 @@ export function useRealTimeSync(
     }
   }, [projectId, handleMessage, startPolling, stopPolling]);
 
+  // Keep connectRef in sync so reconnection timeouts call the latest version
+  useEffect(() => {
+    connectRef.current = connect;
+  });
+
   // Connect when project changes
+  /* eslint-disable react-hooks/set-state-in-effect -- reason: setStatus('disconnected') is an intentional state reset when projectId becomes null; no external-system alternative */
   useEffect(() => {
     if (projectId) {
       reconnectAttempts.current = 0;
@@ -235,6 +244,7 @@ export function useRealTimeSync(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reason: connect is stable enough; startPolling/stopPolling included via connect's closure
   }, [projectId, connect]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     status,
