@@ -123,6 +123,10 @@ include = ["src"]
 exclude = ["**/__pycache__", "htmlcov"]
 reportMissingTypeStubs = false
 reportMissingImports = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportMissingParameterType = "error"
+reportUnknownParameterType = "warning"
+reportUnknownMemberType = "warning"
 stubPath = "src/typestubs"
 
 [tool.coverage.run]

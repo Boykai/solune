@@ -498,7 +498,7 @@ async def _create_copilot_agent(
         options["mcp_servers"] = mcp_servers
 
     if reasoning_effort:
-        options["reasoning_effort"] = reasoning_effort  # type: ignore[reportGeneralTypeIssues] — reason: GitHubCopilotOptions TypedDict doesn't declare reasoning_effort yet; SDK preview field
+        options["reasoning_effort"] = reasoning_effort
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

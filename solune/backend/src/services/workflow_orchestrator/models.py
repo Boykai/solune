@@ -3,12 +3,12 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from src.models.workflow import WorkflowConfiguration
 
 
-def _ci_get(mappings: dict, key: str, default=None):
+def _ci_get(mappings: dict, key: str, default: Any = None):
     """Case-insensitive dict lookup for status names."""
     if key in mappings:
         return mappings[key]

@@ -3,6 +3,7 @@
 import json
 from typing import Annotated
 
+import aiosqlite
 from fastapi import APIRouter, Depends, Query
 
 from src.api.auth import get_session_dep
@@ -39,7 +40,7 @@ router = APIRouter()
 
 async def _log_settings_update(
     *,
-    db,
+    db: aiosqlite.Connection,
     session: UserSession,
     project_id: str,
     scope: str,

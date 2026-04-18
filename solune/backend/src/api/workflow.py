@@ -23,6 +23,7 @@ from src.models.agent import (
     AgentSource as AvailableAgentSource,
 )
 from src.models.chat import ActionType, ChatMessage, SenderType
+from src.models.pipeline import PipelineConfig
 from src.models.recommendation import RecommendationStatus
 from src.models.user import UserSession
 from src.models.workflow import (
@@ -39,6 +40,7 @@ from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
 from src.services.websocket import connection_manager
 from src.services.workflow_orchestrator import (
+    PipelineState,
     WorkflowContext,
     get_agent_slugs,
     get_all_pipeline_states,
@@ -98,7 +100,7 @@ def _check_duplicate(original_input: str, recommendation_id: str) -> bool:
 
 
 def _build_pipeline_agent_mappings(
-    config: WorkflowConfiguration, pipeline
+    config: WorkflowConfiguration, pipeline: PipelineConfig
 ) -> dict[str, list[AgentAssignment]]:
     """Map a saved pipeline's ordered stages onto the workflow engine's fixed statuses."""
     status_order = [
@@ -140,7 +142,7 @@ def _build_pipeline_agent_mappings(
     return mappings
 
 
-def _serialize_pipeline_state(state) -> dict:
+def _serialize_pipeline_state(state: PipelineState) -> dict:
     """Serialize runtime pipeline state for API responses."""
 
     agent_statuses = _get_pipeline_agent_statuses(state)
@@ -161,7 +163,7 @@ def _serialize_pipeline_state(state) -> dict:
     }
 
 
-def _get_pipeline_agent_statuses(state) -> dict[str, str]:
+def _get_pipeline_agent_statuses(state: PipelineState) -> dict[str, str]:
     """Compute the per-agent runtime state shown to the UI."""
 
     agent_statuses = dict.fromkeys(state.agents, "pending")
@@ -189,7 +191,7 @@ def _get_pipeline_agent_statuses(state) -> dict[str, str]:
     return agent_statuses
 
 
-def _resolve_retry_agent(state, requested_agent: str | None) -> tuple[str, int]:
+def _resolve_retry_agent(state: PipelineState, requested_agent: str | None) -> tuple[str, int]:
     """Validate and resolve which agent can be retried for the current pipeline state."""
 
     current_agent = state.current_agent
@@ -230,7 +232,9 @@ def _resolve_retry_agent(state, requested_agent: str | None) -> tuple[str, int]:
     return requested_agent, state.agents.index(requested_agent)
 
 
-def _prepare_pipeline_state_for_retry(issue_number: int, state, agent_name: str) -> None:
+def _prepare_pipeline_state_for_retry(
+    issue_number: int, state: PipelineState, agent_name: str
+) -> None:
     """Clear transient failure markers before re-dispatching an agent."""
 
     state.error = None
@@ -278,7 +282,9 @@ def _finalize_pipeline_retry_state(issue_number: int, agent_name: str, success: 
     set_pipeline_state(issue_number, latest_state)
 
 
-async def _build_retry_context(session: UserSession, state, issue_number: int) -> WorkflowContext:
+async def _build_retry_context(
+    session: UserSession, state: PipelineState, issue_number: int
+) -> WorkflowContext:
     """Build the workflow context needed to retry an agent assignment."""
 
     config = await get_workflow_config(state.project_id)

@@ -6,8 +6,9 @@ import asyncio
 import json
 import os
 import tempfile
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
@@ -51,8 +52,10 @@ from src.services.cache import (
 )
 from src.services.chat_agent import get_chat_agent_service
 from src.services.database import get_db
+from src.services.github_projects.service import GitHubProjectsService
 from src.services.pipeline_launcher import start_pipeline
 from src.services.settings_store import get_effective_user_settings
+from src.services.websocket import ConnectionManager
 from src.services.workflow_orchestrator import (
     WorkflowContext,
     get_agent_slugs,
@@ -108,10 +111,10 @@ def _get_lock(key: str) -> asyncio.Lock:
 
 
 async def _retry_persist(
-    fn,
-    *args,
+    fn: Callable[..., Awaitable[None]],
+    *args: Any,
     context: str = "",
-    **kwargs,
+    **kwargs: Any,
 ) -> None:
     """Retry a persistence function with exponential backoff.
 
@@ -1643,8 +1646,8 @@ async def confirm_proposal(
     proposal_id: str,
     request: ProposalConfirmRequest | None,
     session: Annotated[UserSession, Depends(get_session_dep)],
-    github_projects_service=Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
-    connection_manager=Depends(get_connection_manager),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    github_projects_service: GitHubProjectsService = Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    connection_manager: ConnectionManager = Depends(get_connection_manager),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> AITaskProposal:
     """Confirm an AI task proposal and create the task."""
     proposal = await get_proposal(proposal_id)

@@ -5,6 +5,8 @@ deleting stale branches and closing stale PRs while preserving items
 linked to open issues on the associated GitHub Project board.
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import re
@@ -12,6 +14,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+import aiosqlite
 
 from src.logging_utils import get_logger
 from src.models.cleanup import (
@@ -27,6 +32,9 @@ from src.models.cleanup import (
     OrphanedIssueInfo,
     PullRequestInfo,
 )
+
+if TYPE_CHECKING:
+    from src.services.github_projects.service import GitHubProjectsService
 
 logger = get_logger(__name__)
 
@@ -184,7 +192,7 @@ def _is_solune_owned_branch(
 
 
 async def check_user_permission(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -216,7 +224,7 @@ async def check_user_permission(
 
 
 async def fetch_all_branches(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -259,7 +267,7 @@ async def fetch_all_branches(
 
 
 async def fetch_open_prs(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -302,7 +310,7 @@ async def fetch_open_prs(
 
 
 async def fetch_open_issues_on_board(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     project_id: str,
 ) -> list[dict]:
@@ -369,7 +377,7 @@ async def fetch_open_issues_on_board(
 
 
 async def fetch_app_created_open_issues(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -429,7 +437,7 @@ async def fetch_app_created_open_issues(
 
 
 async def fetch_all_open_issues(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -476,7 +484,7 @@ async def fetch_all_open_issues(
 
 
 async def fetch_parent_issue_states(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -713,7 +721,7 @@ def _categorize_pr(
 
 
 async def preflight(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     username: str,
     request: CleanupPreflightRequest,
@@ -898,12 +906,12 @@ async def preflight(
 
 
 async def execute_cleanup(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
     request: CleanupExecuteRequest,
-    db,
+    db: aiosqlite.Connection,
     github_user_id: str,
 ) -> CleanupExecuteResponse:
     """Execute the cleanup operation: delete branches and close PRs sequentially.
@@ -1135,7 +1143,7 @@ async def execute_cleanup(
 
 
 async def get_cleanup_history(
-    db,
+    db: aiosqlite.Connection,
     github_user_id: str,
     owner: str,
     repo: str,

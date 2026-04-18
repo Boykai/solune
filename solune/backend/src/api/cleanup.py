@@ -2,6 +2,7 @@
 
 from typing import Annotated
 
+import aiosqlite
 from fastapi import APIRouter, Depends, Query
 
 from src.api.auth import get_session_dep
@@ -18,6 +19,7 @@ from src.models.cleanup import (
 from src.models.user import UserSession
 from src.services import cleanup_service
 from src.services.activity_logger import log_event
+from src.services.github_projects.service import GitHubProjectsService
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -27,7 +29,7 @@ router = APIRouter()
 async def cleanup_preflight(
     request: CleanupPreflightRequest,
     session: Annotated[UserSession, Depends(get_session_dep)],
-    github_service=Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    github_service: GitHubProjectsService = Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> CleanupPreflightResponse:
     """Perform a preflight check: fetch branches, PRs, and project board issues.
 
@@ -54,8 +56,8 @@ async def cleanup_preflight(
 async def cleanup_execute(
     request: CleanupExecuteRequest,
     session: Annotated[UserSession, Depends(get_session_dep)],
-    github_service=Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
-    db=Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    github_service: GitHubProjectsService = Depends(get_github_service),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> CleanupExecuteResponse:
     """Execute the cleanup operation: delete branches, close PRs, and delete orphaned issues.
 
@@ -122,7 +124,7 @@ async def cleanup_history(
     owner: Annotated[str, Query(description="Repository owner")],
     repo: Annotated[str, Query(description="Repository name")],
     limit: Annotated[int, Query(description="Max results", ge=1, le=50)] = 10,
-    db=Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> CleanupHistoryResponse:
     """Retrieve audit trail of past cleanup operations."""
     try:

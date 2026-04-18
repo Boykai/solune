@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import aiosqlite
 from fastapi import APIRouter, Depends, Query, Request
 
 from src.api.auth import get_session_dep
@@ -28,7 +29,7 @@ async def get_activity_feed(
     event_type: Annotated[
         str | None, Query(description="Comma-separated event type filter")
     ] = None,
-    db=Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> dict:
     """Paginated activity feed scoped to a project."""
     await verify_project_access(request, project_id, session)
@@ -46,7 +47,7 @@ async def get_activity_stats_endpoint(
     request: Request,
     session: Annotated[UserSession, Depends(get_session_dep)],
     project_id: Annotated[str, Query(description="Project ID to scope the stats")],
-    db=Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> dict:
     """Aggregated activity statistics scoped to a project."""
     await verify_project_access(request, project_id, session)
@@ -62,7 +63,7 @@ async def get_entity_history(
     project_id: Annotated[str, Query(description="Project ID to scope entity history")],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
-    db=Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
+    db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> dict:
     """Activity history for a specific entity."""
     if entity_type not in ALLOWED_ENTITY_TYPES:

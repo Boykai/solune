@@ -3,7 +3,7 @@
 import asyncio
 import math
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import src.services.copilot_polling as _cp
 from src.constants import ACTIVE_LABEL, build_agent_label, find_agent_label, find_pipeline_label
@@ -23,6 +23,10 @@ from .state import (
     _processed_issue_prs,
     _system_marked_ready_prs,
 )
+
+if TYPE_CHECKING:
+    from src.services.workflow_orchestrator.models import WorkflowContext
+    from src.services.workflow_orchestrator.orchestrator import WorkflowOrchestrator
 
 logger = get_logger(__name__)
 
@@ -893,9 +897,9 @@ async def _process_pipeline_completion(
             async def _assign_missing_agent(
                 agent_name: str,
                 flat_idx: int,
-                workflow_orchestrator=orchestrator,
-                workflow_context=ctx,
-                assign_status=effective_assign_status,
+                workflow_orchestrator: "WorkflowOrchestrator" = orchestrator,
+                workflow_context: "WorkflowContext" = ctx,
+                assign_status: str = effective_assign_status,
                 issue_number: int = task.issue_number,
             ) -> tuple[str, bool]:
                 try:
