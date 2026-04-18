@@ -9,6 +9,7 @@ import { useDroppable } from '@dnd-kit/core';
 import type { BoardColumn as BoardColumnType, BoardItem, AvailableAgent } from '@/types';
 import type { BoardGroup } from '@/hooks/useBoardControls';
 import { cn } from '@/lib/utils';
+import { Moon, Sun } from '@/lib/icons';
 import { statusColorToCSS } from './colorUtils';
 import { IssueCard } from './IssueCard';
 import { InfiniteScrollContainer } from '@/components/common/InfiniteScrollContainer';
@@ -25,6 +26,12 @@ interface BoardColumnProps {
   hasMore?: boolean;
   /** Ref callback from useBoardProjection for the scroll sentinel. */
   scrollSentinelRef?: (node: HTMLElement | null) => void;
+  /**
+   * Called when the user clicks the column-header "+" button. When provided,
+   * the button is enabled; otherwise it is rendered disabled with a
+   * "Coming soon" tooltip.
+   */
+  onNewItem?: () => void;
 }
 
 export const BoardColumn = memo(function BoardColumn({
@@ -37,6 +44,7 @@ export const BoardColumn = memo(function BoardColumn({
   fetchNextPage,
   hasMore = false,
   scrollSentinelRef,
+  onNewItem,
 }: BoardColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `column-${column.status.name}`,
@@ -68,23 +76,38 @@ export const BoardColumn = memo(function BoardColumn({
               {column.estimate_total}pt
             </span>
           )}
-          <button
-            className="rounded-full p-1.5 text-muted-foreground/60 transition-colors hover:bg-primary/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-            title="Coming soon"
-            disabled
-            aria-disabled="true"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
+          {onNewItem ? (
+            <button
+              type="button"
+              className="backlog-cta celestial-focus inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]"
+              title="New item"
+              aria-label={`New item in ${column.status.name}`}
+              onClick={onNewItem}
             >
-              <path d="M8 3v10M3 8h10" />
-            </svg>
-          </button>
+              <Sun className="h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
+              <Moon className="hidden h-3.5 w-3.5 dark:inline" aria-hidden="true" />
+              <span>+ New item</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="rounded-full p-1.5 text-muted-foreground/60 transition-colors hover:bg-primary/10 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              title="Coming soon"
+              disabled
+              aria-disabled="true"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M8 3v10M3 8h10" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 

@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProjectSettings } from '@/hooks/useSettings';
 import { IssueDetailModal } from '@/components/board/IssueDetailModal';
 import { BoardToolbar } from '@/components/board/BoardToolbar';
-import { ProjectIssueLaunchPanel } from '@/components/board/ProjectIssueLaunchPanel';
+import { NewBacklogItemDialog } from '@/components/board/NewBacklogItemDialog';
 import { RefreshButton } from '@/components/board/RefreshButton';
 import { PipelineStagesSection } from '@/components/board/PipelineStagesSection';
 import { ProjectBoardErrorBanners } from '@/components/board/ProjectBoardErrorBanners';
@@ -96,6 +96,7 @@ export function ProjectsPage() {
   }, [resetTimer]);
 
   const [selectedItem, setSelectedItem] = useState<BoardItem | null>(null);
+  const [isNewItemDialogOpen, setIsNewItemDialogOpen] = useState(false);
 
   const { agents: availableAgents, isLoading: agentsLoading } = useAvailableAgents(selectedProjectId);
 
@@ -509,25 +510,6 @@ export function ProjectsPage() {
             </div>
           )}
 
-          <ProjectIssueLaunchPanel
-            projectId={selectedProjectId}
-            projectName={selectedProject?.name}
-            pipelines={savedPipelines?.pipelines ?? []}
-            isLoadingPipelines={savedPipelinesLoading}
-            pipelinesError={
-              savedPipelinesError instanceof Error ? savedPipelinesError.message : null
-            }
-            onRetryPipelines={() => {
-              void refetchSavedPipelines();
-            }}
-            onLaunched={() => {
-              refresh();
-              void queryClient.invalidateQueries({
-                queryKey: ['pipelines', 'assignment', selectedProjectId],
-              });
-            }}
-          />
-
           <PipelineStagesSection
             key={selectedProjectId}
             columns={transformedBoardData.columns}
@@ -542,8 +524,32 @@ export function ProjectsPage() {
             onCardClick={handleCardClick}
             availableAgents={availableAgents}
             onStatusUpdate={handleStatusUpdate}
+            onNewBacklogItem={() => setIsNewItemDialogOpen(true)}
           />
         </div>
+      )}
+
+      {selectedProjectId && (
+        <NewBacklogItemDialog
+          open={isNewItemDialogOpen}
+          onOpenChange={setIsNewItemDialogOpen}
+          projectId={selectedProjectId}
+          projectName={selectedProject?.name}
+          pipelines={savedPipelines?.pipelines ?? []}
+          isLoadingPipelines={savedPipelinesLoading}
+          pipelinesError={
+            savedPipelinesError instanceof Error ? savedPipelinesError.message : null
+          }
+          onRetryPipelines={() => {
+            void refetchSavedPipelines();
+          }}
+          onLaunched={() => {
+            refresh();
+            void queryClient.invalidateQueries({
+              queryKey: ['pipelines', 'assignment', selectedProjectId],
+            });
+          }}
+        />
       )}
 
       {selectedItem && <IssueDetailModal item={selectedItem} onClose={handleCloseModal} />}

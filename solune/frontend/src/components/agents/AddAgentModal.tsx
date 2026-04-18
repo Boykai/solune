@@ -17,6 +17,7 @@ import { useToolsList } from '@/hooks/useTools';
 import type { AgentConfig } from '@/services/api';
 import { ToolsEditor } from './ToolsEditor';
 import { Tooltip } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { CharacterCounter } from '@/components/ui/character-counter';
 import { useFirstErrorFocus } from '@/hooks/useFirstErrorFocus';
@@ -214,19 +215,6 @@ function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalCo
   }, [isDirty, resetAndClose]);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      if (event.defaultPrevented || showToolSelector || showEditToolSelector || showCloseConfirm) {
-        return;
-      }
-      handleRequestClose();
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleRequestClose, showCloseConfirm, showEditToolSelector, showToolSelector]);
-
-  useEffect(() => {
     if (!isDirty) return;
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -349,18 +337,27 @@ function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalCo
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-agent-modal-base)] flex items-start justify-center overflow-y-auto bg-background/80 px-4 py-6 backdrop-blur-sm"
-      role="presentation"
-      onClick={handleRequestClose}
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) handleRequestClose();
+      }}
     >
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- reason: modal dialog stopPropagation pattern; parent backdrop handles keyboard dismiss */}
-      <div
-        className="celestial-panel celestial-fade-in relative my-auto flex max-h-[min(92vh,58rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.7rem] border border-border/80 bg-card shadow-xl"
-        role="dialog"
-        aria-modal="true"
+      <DialogContent
+        hideClose
         aria-labelledby="add-agent-title"
-        onClick={(event) => event.stopPropagation()}
+        className="celestial-panel celestial-fade-in flex max-h-[min(92vh,58rem)] w-[min(48rem,95vw)] max-w-none flex-col overflow-hidden rounded-[1.7rem] border border-border/80 bg-card p-0 shadow-xl"
+        onInteractOutside={(event) => {
+          if (showToolSelector || showEditToolSelector) {
+            event.preventDefault();
+            return;
+          }
+          // Preserve the unsaved-changes confirmation flow when clicking outside.
+          if (isDirty) {
+            event.preventDefault();
+            handleRequestClose();
+          }
+        }}
       >
         <div className="border-b border-border/70 px-6 py-5">
           <p className="text-[11px] uppercase tracking-[0.24em] text-primary/80">
@@ -368,13 +365,13 @@ function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalCo
           </p>
           <div className="mt-2 flex items-start justify-between gap-4">
             <div>
-              <h2 id="add-agent-title" className="font-display text-2xl font-medium">
+              <DialogTitle id="add-agent-title" className="font-display text-2xl font-medium">
                 {isEditMode ? 'Edit Agent' : 'Add Agent'}
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              </DialogTitle>
+              <DialogDescription className="mt-2 text-sm text-muted-foreground">
                 Define the agent prompt, assign tools, and optionally choose a dedicated celestial
                 icon.
-              </p>
+              </DialogDescription>
             </div>
             <button
               type="button"
@@ -559,7 +556,7 @@ function AddAgentModalContent({ projectId, onClose, editAgent }: AddAgentModalCo
             projectId={projectId}
           />
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

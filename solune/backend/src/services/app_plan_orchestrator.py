@@ -73,6 +73,7 @@ class AppPlanOrchestrator:
         orchestration_id: str | None = None,
         speckit_timeout: int = 1200,
         poll_interval: int = 30,
+        global_timeout: int | None = None,
     ) -> OrchestrationResult:
         """Orchestrate the full plan-driven app creation flow.
 
@@ -87,92 +88,136 @@ class AppPlanOrchestrator:
             orchestration_id: Unique ID for this orchestration (auto-generated if omitted).
             speckit_timeout: Max seconds to wait for speckit.plan completion.
             poll_interval: Seconds between completion checks.
+            global_timeout: Overall timeout for the entire orchestration.
+                Defaults to ``Settings.orchestration_global_timeout_seconds``.
 
         Returns:
             OrchestrationResult with status and phase information.
         """
+        if global_timeout is None:
+            from src.config import get_settings
+
+            global_timeout = get_settings().orchestration_global_timeout_seconds
+
         orch_id = orchestration_id or str(uuid.uuid4())
 
         try:
-            # Step 1: planning — generate structured plan via chat agent
-            await self._update_status(orch_id, project_id, "planning", app_name=app_name)
-            plan_summary = await self._run_plan_agent(description, project_id, access_token)
+            async with asyncio.timeout(global_timeout):
+                # Step 1: planning — generate structured plan via chat agent
+                await self._update_status(orch_id, project_id, "planning", app_name=app_name)
+                plan_summary = await self._run_plan_agent(description, project_id, access_token)
 
-            # Step 2: speckit_running — launch speckit.plan on a temporary issue
-            await self._update_status(orch_id, project_id, "speckit_running", app_name=app_name)
-            plan_md_content = await self._run_speckit_plan(
-                plan_summary=plan_summary,
-                app_name=app_name,
-                project_id=project_id,
-                access_token=access_token,
-                owner=owner,
-                repo=repo,
-                speckit_max_wait=speckit_timeout,
-                poll_interval=poll_interval,
+                # Step 2: speckit_running — launch speckit.plan on a temporary issue
+                await self._update_status(orch_id, project_id, "speckit_running", app_name=app_name)
+                plan_md_content = await self._run_speckit_plan(
+                    plan_summary=plan_summary,
+                    app_name=app_name,
+                    project_id=project_id,
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                    speckit_max_wait=speckit_timeout,
+                    poll_interval=poll_interval,
+                )
+
+                # Step 3: parsing_phases — parse plan.md into PlanPhase objects
+                await self._update_status(orch_id, project_id, "parsing_phases", app_name=app_name)
+                phases = parse_plan(plan_md_content)
+                if not phases:
+                    msg = "No phases found in plan.md"
+                    raise ValueError(msg)
+
+                # Step 4: creating_issues — create GitHub parent issues per phase
+                await self._update_status(orch_id, project_id, "creating_issues", app_name=app_name)
+                phase_issue_numbers = await self._create_phase_issues(
+                    phases=phases,
+                    app_name=app_name,
+                    description=description,
+                    project_id=project_id,
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                )
+
+                # Step 5: launching_pipelines — launch with wave-based queuing
+                await self._update_status(
+                    orch_id, project_id, "launching_pipelines", app_name=app_name
+                )
+                await self._launch_phase_pipelines(
+                    phases=phases,
+                    phase_issue_numbers=phase_issue_numbers,
+                    project_id=project_id,
+                    pipeline_id=pipeline_id,
+                    access_token=access_token,
+                    owner=owner,
+                    repo=repo,
+                )
+
+                # Step 6: active — orchestration complete
+                await self._update_status(orch_id, project_id, "active", app_name=app_name)
+
+                # Persist final state
+                await self._save_orchestration(
+                    orch_id,
+                    app_name=app_name,
+                    project_id=project_id,
+                    status="active",
+                    plan_md_content=plan_md_content,
+                    phase_count=len(phases),
+                    phase_issue_numbers=phase_issue_numbers,
+                )
+
+                # Broadcast terminal success event
+                await self._broadcast(
+                    project_id,
+                    {
+                        "type": "plan_orchestration_complete",
+                        "orchestration_id": orch_id,
+                        "app_name": app_name,
+                        "phase_count": len(phases),
+                    },
+                )
+
+                return OrchestrationResult(
+                    success=True,
+                    orchestration_id=orch_id,
+                    status="active",
+                    phase_count=len(phases),
+                    phase_issue_numbers=phase_issue_numbers,
+                )
+
+        except TimeoutError:
+            logger.error(
+                "Orchestration %s timed out after %ds for app %s",
+                orch_id,
+                global_timeout,
+                app_name,
             )
-
-            # Step 3: parsing_phases — parse plan.md into PlanPhase objects
-            await self._update_status(orch_id, project_id, "parsing_phases", app_name=app_name)
-            phases = parse_plan(plan_md_content)
-            if not phases:
-                msg = "No phases found in plan.md"
-                raise ValueError(msg)
-
-            # Step 4: creating_issues — create GitHub parent issues per phase
-            await self._update_status(orch_id, project_id, "creating_issues", app_name=app_name)
-            phase_issue_numbers = await self._create_phase_issues(
-                phases=phases,
-                app_name=app_name,
-                description=description,
-                project_id=project_id,
-                access_token=access_token,
-                owner=owner,
-                repo=repo,
+            error_msg = f"Orchestration timed out after {global_timeout}s"
+            await self._update_status(
+                orch_id, project_id, "failed", app_name=app_name, error=error_msg
             )
-
-            # Step 5: launching_pipelines — launch with wave-based queuing
-            await self._update_status(orch_id, project_id, "launching_pipelines", app_name=app_name)
-            await self._launch_phase_pipelines(
-                phases=phases,
-                phase_issue_numbers=phase_issue_numbers,
-                project_id=project_id,
-                pipeline_id=pipeline_id,
-                access_token=access_token,
-                owner=owner,
-                repo=repo,
-            )
-
-            # Step 6: active — orchestration complete
-            await self._update_status(orch_id, project_id, "active", app_name=app_name)
-
-            # Persist final state
             await self._save_orchestration(
                 orch_id,
                 app_name=app_name,
                 project_id=project_id,
-                status="active",
-                plan_md_content=plan_md_content,
-                phase_count=len(phases),
-                phase_issue_numbers=phase_issue_numbers,
+                status="failed",
+                error_message=error_msg,
             )
-
-            # Broadcast terminal success event
             await self._broadcast(
                 project_id,
                 {
-                    "type": "plan_orchestration_complete",
+                    "type": "plan_orchestration_failed",
                     "orchestration_id": orch_id,
                     "app_name": app_name,
-                    "phase_count": len(phases),
+                    "error": error_msg,
                 },
             )
-
             return OrchestrationResult(
-                success=True,
+                success=False,
                 orchestration_id=orch_id,
-                status="active",
-                phase_count=len(phases),
-                phase_issue_numbers=phase_issue_numbers,
+                status="failed",
+                error_message=error_msg,
             )
 
         except Exception as exc:
@@ -219,15 +264,20 @@ class AppPlanOrchestrator:
         access_token: str,
     ) -> str:
         """Run the chat plan agent to generate a structured plan summary."""
+        from src.config import get_settings
         from src.services.chat_agent import get_chat_agent_service
 
         chat_agent = get_chat_agent_service()
         session_id = uuid.uuid4()
-        result = await chat_agent.run_plan(
-            message=description,
-            session_id=session_id,
-            github_token=access_token,
-            project_id=project_id,
+        timeout = get_settings().agent_copilot_timeout_seconds
+        result = await asyncio.wait_for(
+            chat_agent.run_plan(
+                message=description,
+                session_id=session_id,
+                github_token=access_token,
+                project_id=project_id,
+            ),
+            timeout=timeout,
         )
         return result.content if hasattr(result, "content") else str(result)
 

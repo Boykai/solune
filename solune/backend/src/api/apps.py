@@ -668,3 +668,56 @@ async def _resolve_repo(access_token: str, project_id: str) -> tuple[str, str]:
     from src.utils import resolve_repository
 
     return await resolve_repository(access_token, project_id)
+
+
+@router.delete("/{app_name}/plan-orchestration", status_code=200)
+async def cancel_plan_orchestration_endpoint(
+    request: Request,
+    app_name: str,
+    session: _SessionDep,
+) -> dict[str, str]:
+    """Cancel a running plan-driven app creation orchestration.
+
+    Sets the orchestration status to ``failed`` with a cancellation message.
+    The background task checks this status and stops processing.
+    """
+    from src.dependencies import verify_project_access
+    from src.utils import utcnow
+
+    db = get_db()
+    cursor = await db.execute(
+        """SELECT id, project_id, status
+           FROM app_plan_orchestrations
+           WHERE app_name = ?
+           ORDER BY created_at DESC LIMIT 1""",
+        (app_name,),
+    )
+    row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="No plan orchestration found for this app")
+
+    await verify_project_access(request, row["project_id"], session)
+
+    if row["status"] in ("active", "failed"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Orchestration already in terminal state: {row['status']}",
+        )
+
+    now = utcnow().isoformat()
+    await db.execute(
+        """UPDATE app_plan_orchestrations
+           SET status = 'failed', error_message = 'Cancelled by user', updated_at = ?
+           WHERE id = ?""",
+        (now, row["id"]),
+    )
+    await db.commit()
+
+    logger.info(
+        "Plan orchestration %s for app '%s' cancelled by %s",
+        row["id"],
+        app_name,
+        session.github_username,
+    )
+
+    return {"status": "cancelled", "orchestration_id": row["id"]}

@@ -248,7 +248,7 @@ export function AgentsPanel({
 
   return (
     <div className="celestial-fade-in flex min-w-0 flex-col gap-6">
-      {/* Quick actions bar — Refresh agents + Add Agent */}
+      {/* Quick actions bar — Refresh agents + Add agent */}
       <div className="flex flex-wrap items-center justify-end gap-3">
         <Button
           variant="outline"
@@ -262,7 +262,7 @@ export function AgentsPanel({
           onClick={handleOpenAddModal}
           size="lg"
         >
-          + Add Agent
+          + Add agent
         </Button>
       </div>
 

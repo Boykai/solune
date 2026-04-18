@@ -24,6 +24,8 @@ interface ProjectBoardContentProps {
   onCardClick: (item: BoardItem) => void;
   availableAgents: AvailableAgent[];
   onStatusUpdate?: (itemId: string, newStatus: string) => void | Promise<void>;
+  /** Opens the "New backlog item" dialog from the Backlog column header. */
+  onNewBacklogItem?: () => void;
 }
 
 /** Inner content that consumes the UndoRedoContext. */
@@ -33,6 +35,7 @@ function ProjectBoardContentInner({
   onCardClick,
   availableAgents,
   onStatusUpdate,
+  onNewBacklogItem,
 }: ProjectBoardContentProps) {
   const { nextUndoDescription, canUndo, undo } = useUndoRedo();
   const allEmpty = boardData.columns.every((col) => col.items.length === 0);
@@ -80,6 +83,7 @@ function ProjectBoardContentInner({
         availableAgents={availableAgents}
         getGroups={boardControls.getGroups}
         onStatusUpdate={onStatusUpdate}
+        onNewBacklogItem={onNewBacklogItem}
       />
       {/* Undo toast banner — visible when an undoable action is available */}
       {canUndo && nextUndoDescription && (

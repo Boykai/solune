@@ -141,6 +141,14 @@ class Settings(BaseSettings):
     # Sentry — disabled when DSN is empty
     sentry_dsn: str = Field(default="", repr=False)
 
+    # Agent recovery: if Copilot is assigned but produces no WIP PR after
+    # this many seconds, treat as a permanent failure instead of retrying.
+    agent_no_pr_timeout_seconds: int = 600  # 10 minutes
+
+    # Global timeout (seconds) for plan-driven app creation orchestration.
+    # Covers the full flow: chat plan → speckit.plan → parse → issues → launch.
+    orchestration_global_timeout_seconds: int = 3600  # 1 hour
+
     # Alert dispatcher — log-only by default
     pipeline_stall_alert_minutes: int = 30
     agent_timeout_alert_minutes: int = 15

@@ -24,6 +24,7 @@ from .state import (
     _polling_state,
     _polling_state_lock,
     _recovery_attempt_counts,
+    _recovery_escalated,
     _recovery_last_attempt,
 )
 
@@ -148,18 +149,29 @@ async def _should_skip_recovery(
     task_owner: str,
     task_repo: str,
     now: Any,
-) -> bool:
-    """Check if recovery should be skipped for this issue (cooldown or max retries)."""
+) -> str:
+    """Check if recovery should be skipped for this issue.
+
+    Returns:
+        ``""`` — proceed with recovery.
+        ``"cooldown"`` — in cooldown window, skip.
+        ``"exhausted"`` — max retries reached, needs escalation.
+        ``"escalated"`` — already escalated, skip silently.
+    """
+    # Already escalated (failure comment posted) — skip permanently
+    if issue_number in _recovery_escalated:
+        return "escalated"
+
     # Max retries check
     attempts = _recovery_attempt_counts.get(issue_number, 0)
     if attempts >= MAX_RECOVERY_RETRIES:
         logger.debug(
-            "Recovery: issue #%d exceeded max retries (%d/%d) — skipping",
+            "Recovery: issue #%d exceeded max retries (%d/%d) — needs escalation",
             issue_number,
             attempts,
             MAX_RECOVERY_RETRIES,
         )
-        return True
+        return "exhausted"
 
     # Cooldown check
     last_attempt = _recovery_last_attempt.get(issue_number)
@@ -172,9 +184,79 @@ async def _should_skip_recovery(
                 elapsed,
                 RECOVERY_COOLDOWN_SECONDS,
             )
-            return True
+            return "cooldown"
 
-    return False
+    return ""
+
+
+async def _escalate_exhausted_recovery(
+    access_token: str,
+    owner: str,
+    repo: str,
+    issue_number: int,
+    agent_name: str,
+    project_id: str,
+) -> None:
+    """Escalate a permanently stalled agent after recovery retries are exhausted.
+
+    Posts a failure comment on the issue and dispatches a pipeline_agent_exhausted
+    alert so the user knows the pipeline has halted.
+    """
+    _recovery_escalated.add(issue_number)
+
+    # Post failure comment on the issue
+    comment_body = (
+        f"⚠️ **Pipeline stalled — agent recovery exhausted**\n\n"
+        f"Agent `{agent_name}` failed to start after "
+        f"{MAX_RECOVERY_RETRIES} recovery attempts on issue #{issue_number}.\n\n"
+        f"The pipeline has been halted. Please investigate and re-trigger manually."
+    )
+    try:
+        await _cp.github_projects_service.create_issue_comment(
+            access_token=access_token,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            body=comment_body,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Recovery escalation: failed to post failure comment on issue #%d: %s",
+            issue_number,
+            exc,
+        )
+
+    # Dispatch alert
+    try:
+        from src.config import get_settings as _get_settings
+        from src.services.alert_dispatcher import get_dispatcher
+
+        _settings = _get_settings()
+        dispatcher = get_dispatcher()
+        if dispatcher is not None:
+            await dispatcher.dispatch_alert(
+                alert_type="pipeline_agent_exhausted",
+                summary=(
+                    f"Agent '{agent_name}' exhausted recovery on issue #{issue_number} "
+                    f"after {MAX_RECOVERY_RETRIES} attempts"
+                ),
+                details={
+                    "issue_number": issue_number,
+                    "agent_name": agent_name,
+                    "project_id": project_id,
+                    "max_retries": MAX_RECOVERY_RETRIES,
+                },
+            )
+    except Exception as alert_err:
+        logger.debug("Failed to dispatch pipeline_agent_exhausted alert: %s", alert_err)
+
+    logger.warning(
+        "Recovery escalation: agent '%s' on issue #%d permanently failed after %d retries. "
+        "Posted failure comment and halted pipeline.",
+        agent_name,
+        issue_number,
+        MAX_RECOVERY_RETRIES,
+    )
 
 
 async def _attempt_reassignment(
@@ -497,9 +579,11 @@ async def recover_stalled_issues(
             if not task_owner or not task_repo:
                 continue
 
-            # Cooldown guard
-            if await _should_skip_recovery(issue_number, task_owner, task_repo, now):
+            # Cooldown / exhaustion guard
+            skip_reason = await _should_skip_recovery(issue_number, task_owner, task_repo, now)
+            if skip_reason in ("cooldown", "escalated"):
                 continue
+            # "exhausted" is handled after we determine the agent name below
 
             # NOTE: A label-based early exit was previously here, skipping
             # issues with an agent:* label on the assumption that the agent
@@ -665,6 +749,28 @@ async def recover_stalled_issues(
             agent_name = expected_agent.agent_name
             agent_status = expected_agent.status  # e.g. "Backlog", "Ready"
 
+            # ── Recovery exhaustion escalation ────────────────────────────
+            # If max retries are reached, escalate: post a failure comment
+            # on the issue and dispatch an alert instead of silently giving up.
+            if skip_reason == "exhausted":
+                await _escalate_exhausted_recovery(
+                    access_token=access_token,
+                    owner=task_owner,
+                    repo=task_repo,
+                    issue_number=issue_number,
+                    agent_name=agent_name,
+                    project_id=project_id,
+                )
+                results.append(
+                    {
+                        "status": "exhausted",
+                        "issue_number": issue_number,
+                        "agent_name": agent_name,
+                        "attempts": MAX_RECOVERY_RETRIES,
+                    }
+                )
+                continue
+
             # ── Merge-blocked / errored pipeline guard ───────────────────
             # If the pipeline is halted due to merge failures or has an
             # error state, the agent's work is done but its PR can't merge.
@@ -757,6 +863,32 @@ async def recover_stalled_issues(
                 issue_number=issue_number,
                 agent_name=agent_name,
                 recovery_pipeline=recovery_pipeline,
+            )
+
+            attempts = _recovery_attempt_counts.get(issue_number, 0)
+            logger.info(
+                "Recovery: issue #%d agent '%s' — copilot_assigned=%s, "
+                "has_wip_pr=%s, wip_pr=#%s, recovery_attempts=%d/%d",
+                issue_number,
+                agent_name,
+                copilot_assigned,
+                has_wip_pr,
+                wip_pr_number,
+                attempts,
+                MAX_RECOVERY_RETRIES,
+            )
+
+            attempts = _recovery_attempt_counts.get(issue_number, 0)
+            logger.info(
+                "Recovery: issue #%d agent '%s' — copilot_assigned=%s, "
+                "has_wip_pr=%s, wip_pr=#%s, recovery_attempts=%d/%d",
+                issue_number,
+                agent_name,
+                copilot_assigned,
+                has_wip_pr,
+                wip_pr_number,
+                attempts,
+                MAX_RECOVERY_RETRIES,
             )
 
             # ── Evaluate whether recovery is needed ───────────────────────

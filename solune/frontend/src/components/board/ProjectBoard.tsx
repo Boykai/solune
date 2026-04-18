@@ -31,6 +31,11 @@ interface ProjectBoardProps {
   onStatusUpdate?: (itemId: string, newStatus: string) => void | Promise<void>;
   /** Optional board projection config for lazy loading. */
   projectionConfig?: BoardProjectionConfig;
+  /**
+   * Called when the user clicks the "+ New item" button in the Backlog
+   * column header. Only the Backlog column renders an enabled add button.
+   */
+  onNewBacklogItem?: () => void;
 }
 
 export function ProjectBoard({
@@ -40,6 +45,7 @@ export function ProjectBoard({
   getGroups,
   onStatusUpdate,
   projectionConfig,
+  onNewBacklogItem,
 }: ProjectBoardProps) {
   const columnCount = Math.max(boardData.columns.length, 1);
   const isMobile = useMediaQuery('(max-width: 767px)');
@@ -127,6 +133,11 @@ export function ProjectBoard({
                 getGroups={getGroups}
                 hasMore={projection?.hasMore}
                 scrollSentinelRef={observerRef(column.status.name)}
+                onNewItem={
+                  onNewBacklogItem && column.status.name.toLowerCase() === 'backlog'
+                    ? onNewBacklogItem
+                    : undefined
+                }
               />
             );
           })}
