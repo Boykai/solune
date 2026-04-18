@@ -255,8 +255,9 @@ vi.mock('@/components/board/BoardToolbar', () => ({
   BoardToolbar: () => <div data-testid="board-toolbar" />,
 }));
 
-vi.mock('@/components/board/ProjectIssueLaunchPanel', () => ({
-  ProjectIssueLaunchPanel: () => <div data-testid="launch-panel" />,
+vi.mock('@/components/board/NewBacklogItemDialog', () => ({
+  NewBacklogItemDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="new-backlog-item-dialog" /> : null,
 }));
 
 vi.mock('@/components/board/RefreshButton', () => ({

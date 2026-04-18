@@ -94,9 +94,9 @@ describe('ChoresPage — with selected project', () => {
     projectsState.selectedProject = { project_id: 'PVT_1', name: 'Project Alpha' };
   });
 
-  it('renders "+ Create Chore" and opens the modal', () => {
+  it('renders "+ Add chore" and opens the modal', () => {
     render(<ChoresPage />);
-    const createButton = screen.getByRole('button', { name: /\+ create chore/i });
+    const createButton = screen.getByRole('button', { name: /\+ add chore/i });
     expect(createButton).toBeInTheDocument();
 
     fireEvent.click(createButton);
@@ -108,7 +108,7 @@ describe('ChoresPage — with selected project', () => {
     const { rerender } = render(<ChoresPage />);
 
     // Open the modal
-    fireEvent.click(screen.getByRole('button', { name: /\+ create chore/i }));
+    fireEvent.click(screen.getByRole('button', { name: /\+ add chore/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
     // Simulate project deselection then re-selection

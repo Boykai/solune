@@ -1748,6 +1748,136 @@
     transform: translateY(0);
   }
 
+  /* ── Backlog "+ New item" CTA ──
+     Sunrise-style glowing button in light mode, moonrise glow in dark mode.
+     Uses --gold/--glow for the sun and --star-soft/--star for the moon. */
+  .backlog-cta {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid hsl(var(--gold) / 0.5);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--gold) / 0.28) 0%,
+      hsl(var(--glow) / 0.18) 60%,
+      hsl(var(--gold) / 0.12) 100%
+    );
+    color: hsl(var(--foreground));
+    box-shadow:
+      inset 0 1px 0 hsl(var(--glow) / 0.45),
+      0 0 0 1px hsl(var(--gold) / 0.18),
+      0 8px 22px hsl(var(--gold) / 0.22),
+      0 0 28px hsl(var(--glow) / 0.32);
+    transition:
+      border-color var(--transition-cosmic-fast),
+      background var(--transition-cosmic-fast),
+      box-shadow var(--transition-cosmic-fast),
+      transform var(--transition-cosmic-fast);
+    animation: backlog-cta-sunrise 4.6s ease-in-out infinite alternate;
+  }
+  .backlog-cta:hover {
+    transform: translateY(-1px);
+    border-color: hsl(var(--gold) / 0.75);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--gold) / 0.4) 0%,
+      hsl(var(--glow) / 0.28) 60%,
+      hsl(var(--gold) / 0.18) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 hsl(var(--glow) / 0.6),
+      0 0 0 1px hsl(var(--gold) / 0.32),
+      0 14px 32px hsl(var(--gold) / 0.3),
+      0 0 42px hsl(var(--glow) / 0.48);
+  }
+  .backlog-cta:active {
+    transform: translateY(0);
+  }
+  .backlog-cta:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--gold) / 0.6),
+      0 0 24px hsl(var(--glow) / 0.45);
+  }
+
+  .dark .backlog-cta {
+    border: 1px solid hsl(var(--star-soft) / 0.55);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--star-soft) / 0.22) 0%,
+      hsl(var(--primary) / 0.22) 60%,
+      hsl(var(--star) / 0.14) 100%
+    );
+    color: hsl(var(--foreground));
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.32),
+      0 0 0 1px hsl(var(--star-soft) / 0.2),
+      0 10px 26px hsl(var(--primary) / 0.28),
+      0 0 32px hsl(var(--star-soft) / 0.35);
+    animation: backlog-cta-moonrise 5.2s ease-in-out infinite alternate;
+  }
+  .dark .backlog-cta:hover {
+    border-color: hsl(var(--star-soft) / 0.8);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--star-soft) / 0.32) 0%,
+      hsl(var(--primary) / 0.32) 60%,
+      hsl(var(--star) / 0.2) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 hsl(var(--star-soft) / 0.45),
+      0 0 0 1px hsl(var(--star-soft) / 0.35),
+      0 16px 36px hsl(var(--primary) / 0.38),
+      0 0 48px hsl(var(--star-soft) / 0.5);
+  }
+  .dark .backlog-cta:focus-visible {
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--star-soft) / 0.65),
+      0 0 28px hsl(var(--star-soft) / 0.55);
+  }
+
+  @keyframes backlog-cta-sunrise {
+    0% {
+      box-shadow:
+        inset 0 1px 0 hsl(var(--glow) / 0.4),
+        0 0 0 1px hsl(var(--gold) / 0.18),
+        0 8px 22px hsl(var(--gold) / 0.2),
+        0 0 24px hsl(var(--glow) / 0.28);
+    }
+    100% {
+      box-shadow:
+        inset 0 1px 0 hsl(var(--glow) / 0.55),
+        0 0 0 1px hsl(var(--gold) / 0.28),
+        0 12px 30px hsl(var(--gold) / 0.32),
+        0 0 42px hsl(var(--glow) / 0.5);
+    }
+  }
+
+  @keyframes backlog-cta-moonrise {
+    0% {
+      box-shadow:
+        inset 0 1px 0 hsl(var(--star-soft) / 0.28),
+        0 0 0 1px hsl(var(--star-soft) / 0.18),
+        0 10px 26px hsl(var(--primary) / 0.24),
+        0 0 28px hsl(var(--star-soft) / 0.3);
+    }
+    100% {
+      box-shadow:
+        inset 0 1px 0 hsl(var(--star-soft) / 0.45),
+        0 0 0 1px hsl(var(--star-soft) / 0.32),
+        0 14px 34px hsl(var(--primary) / 0.4),
+        0 0 50px hsl(var(--star-soft) / 0.55);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .backlog-cta,
+    .dark .backlog-cta {
+      animation: none;
+    }
+  }
+
   /* ── Celestial orbit transition ── */
   .celestial-orbit {
     transition: border-color var(--transition-cosmic-slow);

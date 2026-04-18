@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
-import { Search, ChevronDown, RefreshCw, Download, CheckCircle2, Loader2, AlertCircle } from '@/lib/icons';
+import { Search, ChevronDown, RefreshCw, Download, CheckCircle2, Loader2, AlertCircle, Moon, Sun } from '@/lib/icons';
 import { useAgentsListPaginated, usePendingAgentsList, useClearPendingAgents, useCatalogAgents, useImportAgent } from '@/hooks/useAgents';
 import { useConfirmation } from '@/hooks/useConfirmation';
 import { AgentCard } from './AgentCard';
@@ -248,7 +248,7 @@ export function AgentsPanel({
 
   return (
     <div className="celestial-fade-in flex min-w-0 flex-col gap-6">
-      {/* Quick actions bar — Refresh agents + Add Agent */}
+      {/* Quick actions bar — Refresh agents + Add agent */}
       <div className="flex flex-wrap items-center justify-end gap-3">
         <Button
           variant="outline"
@@ -258,12 +258,15 @@ export function AgentsPanel({
         >
           {catalogLoading ? 'Refreshing agents…' : 'Refresh agents'}
         </Button>
-        <Button
+        <button
+          type="button"
           onClick={handleOpenAddModal}
-          size="lg"
+          className="backlog-cta celestial-focus inline-flex h-11 items-center justify-center gap-2 rounded-full px-8 text-sm font-medium"
         >
-          + Add Agent
-        </Button>
+          <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
+          <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
+          <span>+ Add agent</span>
+        </button>
       </div>
 
       {saveResult && (
@@ -483,7 +486,7 @@ export function AgentsPanel({
                   <Tooltip contentKey="agents.panel.bulkUpdateButton">
                     <Button variant="outline" size="sm" onClick={() => setBulkUpdateOpen(true)}>
                       <RefreshCw className="mr-2 h-4 w-4" />
-                      Update All Models
+                      Update agents
                     </Button>
                   </Tooltip>
                 </div>

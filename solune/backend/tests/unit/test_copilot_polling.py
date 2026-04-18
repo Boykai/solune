@@ -4158,13 +4158,17 @@ class TestRecoverStalledIssues:
     @pytest.fixture(autouse=True)
     def clear_recovery_state(self):
         """Clear global recovery state before each test."""
+        from src.services.copilot_polling.state import _recovery_escalated
+
         _recovery_last_attempt.clear()
         _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
+        _recovery_escalated.clear()
         yield
         _recovery_last_attempt.clear()
         _recovery_attempt_counts.clear()
         _pending_agent_assignments.clear()
+        _recovery_escalated.clear()
 
     @pytest.fixture
     def mock_backlog_task(self):
@@ -4423,19 +4427,25 @@ class TestRecoverStalledIssues:
         mock_orchestrator.assign_agent_for_status.assert_called_once()
 
     @pytest.mark.asyncio
+    @patch(
+        "src.services.copilot_polling.recovery._escalate_exhausted_recovery", new_callable=AsyncMock
+    )
     @patch("src.services.copilot_polling.get_issue_main_branch")
     @patch("src.services.copilot_polling.github_projects_service")
     @patch("src.services.copilot_polling.get_workflow_config", new_callable=AsyncMock)
     async def test_respects_max_recovery_retries(
-        self, mock_config, mock_service, mock_get_branch, mock_backlog_task
+        self, mock_config, mock_service, mock_get_branch, mock_escalate, mock_backlog_task
     ):
-        """Should skip issues that have exceeded MAX_RECOVERY_RETRIES."""
+        """Should escalate when max retries are exhausted instead of silently skipping."""
         from src.services.copilot_polling.state import MAX_RECOVERY_RETRIES
 
         mock_config.return_value = MagicMock(
             status_in_review="In Review",
             agent_mappings={"Backlog": ["speckit.specify"]},
         )
+        mock_service.get_issue_with_comments = AsyncMock(return_value={"body": self.TRACKING_BODY})
+        mock_service.check_agent_completion_comment = AsyncMock(return_value=False)
+        mock_get_branch.return_value = None
 
         # Simulate having hit the max retry limit
         _recovery_attempt_counts[100] = MAX_RECOVERY_RETRIES
@@ -4448,8 +4458,11 @@ class TestRecoverStalledIssues:
             tasks=[mock_backlog_task],
         )
 
-        assert results == []
-        mock_service.get_issue_with_comments.assert_not_called()
+        assert len(results) == 1
+        assert results[0]["status"] == "exhausted"
+        assert results[0]["issue_number"] == 100
+        assert results[0]["attempts"] == MAX_RECOVERY_RETRIES
+        mock_escalate.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("src.services.copilot_polling.get_issue_main_branch")

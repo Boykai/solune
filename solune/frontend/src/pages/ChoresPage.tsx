@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { workflowApi, choresApi } from '@/services/api';
 import { countParentIssues } from '@/utils/parentIssueCount';
+import { Moon, Sun } from '@/lib/icons';
 
 export function ChoresPage() {
   const { user } = useAuth();
@@ -122,9 +123,15 @@ export function ChoresPage() {
                 repo={repoName}
                 projectId={projectId}
               />
-              <Button variant="default" size="lg" onClick={() => setAddModalProjectId(projectId)}>
-                + Create Chore
-              </Button>
+              <button
+                type="button"
+                onClick={() => setAddModalProjectId(projectId)}
+                className="backlog-cta celestial-focus inline-flex h-11 items-center justify-center gap-2 rounded-full px-8 text-sm font-medium"
+              >
+                <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
+                <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
+                <span>+ Add chore</span>
+              </button>
             </>
           ) : undefined
         }

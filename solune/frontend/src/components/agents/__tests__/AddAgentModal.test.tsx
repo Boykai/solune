@@ -64,24 +64,18 @@ describe('AddAgentModal', () => {
     mockUseToolsList.mockReturnValue({ tools: [] });
   });
 
-  it('uses the shared opaque dialog shell styling when open', () => {
+  it('renders a centered dialog front-and-center when open', () => {
     render(<AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />);
 
     const dialog = screen.getByRole('dialog', { name: /add agent/i });
-    const overlay = dialog.parentElement;
 
-    expect(dialog).toHaveClass('celestial-panel', 'bg-card', 'border-border/80', 'overflow-hidden');
-    expect(overlay).toHaveClass('bg-background/80', 'backdrop-blur-sm');
-  });
-
-  it('uses items-start on the overlay so tall modals scroll from top', () => {
-    render(<AddAgentModal projectId="PVT_1" isOpen={true} onClose={vi.fn()} />);
-
-    const dialog = screen.getByRole('dialog', { name: /add agent/i });
-    const overlay = dialog.parentElement;
-
-    expect(overlay).toHaveClass('items-start');
-    expect(overlay).not.toHaveClass('items-center');
+    // Shell retains the celestial styling.
+    expect(dialog).toHaveClass('celestial-panel', 'bg-card', 'overflow-hidden');
+    // Radix Dialog centers via translate, so the content sits front-and-center
+    // rather than anchored to the top of the viewport.
+    expect(dialog.className).toMatch(/-translate-x-1\/2/);
+    expect(dialog.className).toMatch(/-translate-y-1\/2/);
+    expect(dialog.className).not.toMatch(/items-start/);
   });
 
   it('saves from the unsaved-changes dialog without relying on the unmounted form element', async () => {

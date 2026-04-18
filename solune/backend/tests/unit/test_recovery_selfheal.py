@@ -32,7 +32,7 @@ class TestShouldSkipRecovery:
             from src.services.copilot_polling.recovery import _should_skip_recovery
 
             result = await _should_skip_recovery(42, "o", "r", _utcnow())
-        assert result is False
+        assert result == ""
 
     async def test_returns_true_when_within_cooldown(self):
         now = _utcnow()
@@ -43,7 +43,7 @@ class TestShouldSkipRecovery:
             from src.services.copilot_polling.recovery import _should_skip_recovery
 
             result = await _should_skip_recovery(42, "o", "r", now)
-        assert result is True
+        assert result == "cooldown"
 
     async def test_returns_false_when_cooldown_expired(self):
         now = _utcnow()
@@ -54,7 +54,7 @@ class TestShouldSkipRecovery:
             from src.services.copilot_polling.recovery import _should_skip_recovery
 
             result = await _should_skip_recovery(42, "o", "r", now)
-        assert result is False
+        assert result == ""
 
 
 # ── _validate_and_reconcile_tracking_table ─────────────────────────

@@ -203,6 +203,12 @@ _recovery_attempt_counts: BoundedDict[int, int] = BoundedDict(
 )  # issue_number -> attempt count
 MAX_RECOVERY_RETRIES: int = 5
 
+# Recovery escalation: tracks issues that have already been escalated after
+# exhausting all recovery retries.  Once an issue is in this set, recovery
+# will not re-escalate (the failure comment and tracking-table update are
+# one-shot actions).
+_recovery_escalated: BoundedSet = BoundedSet(maxlen=200)  # issue_number
+
 # Merge failure counter: tracks consecutive merge failures per issue.
 # When the count exceeds MAX_MERGE_RETRIES the pipeline halts and sets
 # an error state, preventing cascading conflicts from advancing past

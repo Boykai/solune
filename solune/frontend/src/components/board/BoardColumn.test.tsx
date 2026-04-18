@@ -83,6 +83,18 @@ describe('BoardColumn', () => {
     expect(btn).toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('renders an enabled "Add item" button that calls onNewItem when provided', async () => {
+    const onNewItem = vi.fn();
+    render(
+      <BoardColumn column={createColumn()} onCardClick={vi.fn()} onNewItem={onNewItem} />
+    );
+
+    const btn = screen.getByTitle('Add item');
+    expect(btn).not.toBeDisabled();
+    await userEvent.setup().click(btn);
+    expect(onNewItem).toHaveBeenCalledTimes(1);
+  });
+
   it('has no accessibility violations', async () => {
     const { container } = render(<BoardColumn column={createColumn()} onCardClick={vi.fn()} />);
     await expectNoA11yViolations(container);
