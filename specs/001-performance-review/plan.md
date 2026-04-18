@@ -81,7 +81,7 @@ solune/
 │   └── tests/
 │       └── unit/
 │           ├── test_cache.py          # 38 tests — cache TTL, hashing, coalesced fetch
-│           ├── test_api_board.py      # 92 tests — board cache, sub-issue invalidation
+│           ├── test_api_board.py      # 75 tests — board cache, sub-issue invalidation
 │           └── test_copilot_polling.py # 317 tests — polling lifecycle, rate limits
 ├── frontend/
 │   ├── src/
