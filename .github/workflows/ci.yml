@@ -56,7 +56,7 @@ jobs:
         # See specs/001-backend-pyright-strict/contracts/burn-down-gate-contract.md.
         working-directory: .
         run: |
-          set -e
+          VIOLATIONS=""
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}" || true
             CHANGED=$(git diff "origin/${{ github.base_ref }}...HEAD" --name-only --diff-filter=ACM || true)
@@ -64,19 +64,19 @@ jobs:
               | grep -E '^solune/backend/src/(api|models|services/agents)/[^/]+(/.*)?\.py$' \
               | xargs -r -I{} grep -lE '^# pyright: basic[[:space:]]*$' "{}" 2>/dev/null \
               || true)
-            if [ -n "$VIOLATIONS" ]; then
-              echo "# pyright: basic is not allowed inside the strict floor."
-              echo "Offending files:"
-              printf '  %s\n' $VIOLATIONS
-              echo ""
-              echo "Remove the pragma and either fix the strict-mode errors or remove"
-              echo "the file from the strict floor by amending [tool.pyright] strict."
-              exit 1
-            fi
           fi
           COUNT=$(grep -rEc '^# pyright: basic[[:space:]]*$' solune/backend/src 2>/dev/null \
                   | awk -F: '{s+=$2} END{print s+0}')
           echo "# pyright: basic count: $COUNT"
+          if [ -n "$VIOLATIONS" ]; then
+            echo "ERROR: # pyright: basic is not allowed inside the strict floor."
+            echo "Offending files:"
+            printf '  %s\n' $VIOLATIONS
+            echo ""
+            echo "Remove the pragma and either fix the strict-mode errors or remove"
+            echo "the file from the strict floor by amending [tool.pyright] strict."
+            exit 1
+          fi
 
       - name: Type check backend tests with pyright
         run: uv run pyright -p pyrightconfig.tests.json

@@ -378,7 +378,7 @@ fi
 # ============================================
 # Stage 1: refuse new `# pyright: basic` inside the strict floor.
 # Stage 2: print the global pragma count for SC-006 visibility.
-# See solune/specs/001-backend-pyright-strict/contracts/burn-down-gate-contract.md.
+# See specs/001-backend-pyright-strict/contracts/burn-down-gate-contract.md.
 if [ -n "$STAGED_BACKEND_CHANGES" ]; then
     floor_violations=$(echo "$STAGED_BACKEND_CHANGES" \
         | grep -E '^solune/backend/src/(api|models|services/agents)/[^/]+(/.*)?\.py$' \
@@ -387,7 +387,7 @@ if [ -n "$STAGED_BACKEND_CHANGES" ]; then
 
     if [ -n "$floor_violations" ]; then
         echo ""
-        echo -e "${RED}# pyright: basic is not allowed inside the strict floor.${NC}"
+        echo "ERROR: # pyright: basic is not allowed inside the strict floor."
         echo "Offending files:"
         printf '  %s\n' $floor_violations
         echo ""

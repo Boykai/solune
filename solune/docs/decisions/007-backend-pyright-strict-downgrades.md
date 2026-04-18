@@ -1,7 +1,7 @@
 # ADR-007: Backend Pyright strict-mode legacy downgrades
 
 **Status**: Accepted
-**Date**: 2025-Q4
+**Date**: 2026-04-18
 
 ## Context
 
