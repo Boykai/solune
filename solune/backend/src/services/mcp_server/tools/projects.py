@@ -3,6 +3,8 @@
 Tier 1 tools (FR-011 - FR-014):
 - list_projects, get_project, get_board, get_project_tasks
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

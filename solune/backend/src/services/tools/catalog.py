@@ -3,6 +3,8 @@
 Proxies the public Glama API to let users discover MCP servers, then maps
 their install configs into the existing ``McpToolConfig`` persistence model.
 """
+# pyright: basic
+# reason: Tools catalog/service handles partially-typed registry entries pending schema rework.
 
 from __future__ import annotations
 

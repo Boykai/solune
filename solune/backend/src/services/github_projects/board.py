@@ -1,3 +1,6 @@
+# pyright: basic
+# reason: Legacy githubkit response shapes; awaiting upstream typed accessors.
+
 from __future__ import annotations
 
 import asyncio
@@ -8,6 +11,7 @@ if TYPE_CHECKING:
 
 from src.constants import StatusNames
 from src.logging_utils import get_logger
+from src.models.board import BoardLoadMode
 from src.services.done_items_store import get_done_items, save_done_items
 from src.services.github_projects._mixin_base import _ServiceMixin
 from src.services.github_projects.graphql import (
@@ -279,7 +283,7 @@ class BoardMixin(_ServiceMixin):
                 if si.id:
                     all_sub_issue_ids.add(si.id)
 
-        def _is_sub_issue(item) -> bool:
+        def _is_sub_issue(item: BoardItem) -> bool:
             if item.content_id and item.content_id in all_sub_issue_ids:
                 return True
             return any(lb.name == SUB_ISSUE_LABEL for lb in item.labels)
@@ -299,7 +303,7 @@ class BoardMixin(_ServiceMixin):
         project_id: str,
         limit: int = 100,
         *,
-        load_mode="initial",
+        load_mode: BoardLoadMode | str = "initial",
         warmed_by_selection: bool = False,
     ):
         """
@@ -439,15 +443,15 @@ class BoardMixin(_ServiceMixin):
         skipped_done_or_closed_fetches = 0
         restored_cached_done_sub_issues = 0
 
-        def _is_sub_issue_label(board_item) -> bool:
+        def _is_sub_issue_label(board_item: BoardItem) -> bool:
             return any(lb.name == _SUB_ISSUE_LABEL for lb in board_item.labels)
 
-        def _should_skip_live_sub_issues(board_item) -> bool:
+        def _should_skip_live_sub_issues(board_item: BoardItem) -> bool:
             if board_item.status == StatusNames.DONE:
                 return True
             return (board_item.content_state or "").upper() == "CLOSED"
 
-        def _restore_cached_sub_issues(board_item) -> None:
+        def _restore_cached_sub_issues(board_item: BoardItem) -> None:
             nonlocal restored_cached_done_sub_issues
             cache_key = board_item.content_id or board_item.item_id or str(board_item.number or "")
             cached_done_item = cached_done_items_by_key.get(cache_key)
@@ -481,7 +485,7 @@ class BoardMixin(_ServiceMixin):
             if board_item.sub_issues:
                 restored_cached_done_sub_issues += 1
 
-        async def _fetch_sub_issues_for(board_item):
+        async def _fetch_sub_issues_for(board_item: BoardItem):
             nonlocal skipped_done_or_closed_fetches
             if (
                 board_item.content_type != ContentType.ISSUE
@@ -834,7 +838,7 @@ class BoardMixin(_ServiceMixin):
         # Fetch sub-issues for reconciled items in parallel
         _sem = asyncio.Semaphore(20)
 
-        async def _fetch_reconciled_sub_issues(board_item):
+        async def _fetch_reconciled_sub_issues(board_item: BoardItem):
             if not board_item.number or not board_item.repository:
                 return
             async with _sem:

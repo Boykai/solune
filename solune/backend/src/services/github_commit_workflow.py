@@ -3,6 +3,8 @@
 Extracts the common pattern used by both the ``#agent`` chat command
 (``agent_creator.py``) and the Agents section REST API.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

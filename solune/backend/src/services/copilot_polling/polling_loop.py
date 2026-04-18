@@ -1,4 +1,6 @@
 """Polling lifecycle — start, stop, tick, and status reporting."""
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 import asyncio
 from collections.abc import Awaitable, Callable

@@ -3,6 +3,8 @@
 Tier 1 tools (FR-021, FR-022):
 - get_activity, update_item_status
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

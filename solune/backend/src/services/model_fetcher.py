@@ -4,6 +4,8 @@ Provides a unified interface to fetch available model options from different
 AI providers (GitHub Copilot, Azure OpenAI), with in-memory caching, rate-limit
 awareness, and stale-while-revalidate semantics.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 import asyncio
 import hashlib

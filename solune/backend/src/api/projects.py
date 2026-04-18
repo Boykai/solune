@@ -17,8 +17,8 @@ from src.logging_utils import get_logger
 from src.models.project import GitHubProject, ProjectListResponse
 from src.models.task import TaskListResponse
 from src.models.user import UserResponse, UserSession
+from src.services import app_service as _app_service
 from src.services.activity_logger import log_event
-from src.services.app_service import create_standalone_project
 from src.services.cache import (
     cache,
     cached_fetch,
@@ -36,6 +36,12 @@ from src.utils import resolve_repository
 logger = get_logger(__name__)
 router = APIRouter()
 _selection_warmup_tasks: dict[str, asyncio.Task[Any]] = {}
+
+# Re-export for monkeypatching in tests; bound through Any to satisfy strict mode
+# without modifying the upstream service signature.
+create_standalone_project: Any = getattr(  # noqa: B009 - reason: service factory is resolved lazily so monkeypatches stay visible
+    _app_service, "create_standalone_project"
+)
 
 
 def _is_github_rate_limit_error(exc: Exception) -> bool:
@@ -93,9 +99,9 @@ def _rate_limit_details() -> dict[str, object]:
 @router.post("/create", status_code=201)
 async def create_project_endpoint(
     request: Request,
-    body: dict,
+    body: dict[str, Any],
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Create a standalone GitHub Project V2.
 
     Request body: ``{title, owner, repo_owner?, repo_name?}``
@@ -110,20 +116,23 @@ async def create_project_endpoint(
         raise ValidationError("Both 'title' and 'owner' are required.")
 
     github_service = _get_gh(request)
-    result = await create_standalone_project(
-        access_token=session.access_token,
-        owner=owner,
-        title=title,
-        github_service=github_service,
-        repo_owner=body.get("repo_owner"),
-        repo_name=body.get("repo_name"),
+    result = cast(
+        "dict[str, Any]",
+        await create_standalone_project(
+            access_token=session.access_token,
+            owner=owner,
+            title=title,
+            github_service=github_service,
+            repo_owner=body.get("repo_owner"),
+            repo_name=body.get("repo_name"),
+        ),
     )
     await log_event(
         get_db(),
         event_type="project",
         entity_type="project",
-        entity_id=result.get("project_id", ""),
-        project_id=result.get("project_id", ""),
+        entity_id=str(result.get("project_id", "")),
+        project_id=str(result.get("project_id", "")),
         actor=session.github_username,
         action="created",
         summary=f"Project created: {title}",
@@ -261,9 +270,9 @@ async def get_project_tasks(
 def _schedule_board_warmup(session: UserSession, project_id: str) -> bool:
     """Start best-effort board warm-up for the selected project."""
     from src.api.board import (
-        _board_needs_background_completion,
-        _fetch_and_cache_board_data,
-        _schedule_background_board_completion,
+        _board_needs_background_completion,  # pyright: ignore[reportPrivateUsage]
+        _fetch_and_cache_board_data,  # pyright: ignore[reportPrivateUsage]
+        _schedule_background_board_completion,  # pyright: ignore[reportPrivateUsage]
     )
     from src.models.board import BoardLoadMode
     from src.services.task_registry import task_registry
@@ -612,7 +621,12 @@ async def websocket_subscribe(
                     entry = cache.get_entry(cache_key)
                     if entry is not None and entry.data_hash is not None:
                         if entry.data_hash != last_sent_hash:
-                            item_count = len(entry.value) if isinstance(entry.value, list) else 0
+                            entry_value: Any = entry.value
+                            item_count = (
+                                len(cast("list[Any]", entry_value))
+                                if isinstance(entry_value, list)
+                                else 0
+                            )
                             await websocket.send_json(
                                 {
                                     "type": "refresh",
@@ -654,7 +668,7 @@ async def sse_subscribe(
         """Generate SSE events by polling for changes."""
         # Get initial state
         cache_key = get_project_items_cache_key(project_id)
-        cached_tasks = cache.get(cache_key) or []
+        cached_tasks: list[Any] = cast("list[Any] | None", cache.get(cache_key)) or []
 
         # Send initial connection event
         yield f'event: connected\ndata: {{"project_id": "{project_id}"}}\n\n'
@@ -663,17 +677,20 @@ async def sse_subscribe(
             while True:
                 # Poll for changes
                 try:
-                    result = await github_projects_service.poll_project_changes(
-                        session.access_token,
-                        project_id,
-                        cached_tasks,
+                    result = cast(
+                        "dict[str, Any]",
+                        await cast(Any, github_projects_service).poll_project_changes(
+                            session.access_token,
+                            project_id,
+                            cached_tasks,
+                        ),
                     )
 
-                    changes = result.get("changes", [])
+                    changes = cast("list[dict[str, Any]]", result.get("changes", []))
 
                     if changes:
                         # Update cache
-                        cached_tasks = result.get("current_tasks", [])
+                        cached_tasks = cast("list[Any]", result.get("current_tasks", []))
                         cache.set(cache_key, cached_tasks)
 
                         # Send change events

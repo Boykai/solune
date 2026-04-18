@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -85,16 +86,16 @@ class AgentCreationState(BaseModel):
     )
     preview: AgentPreview | None = Field(default=None, description="AI-generated agent preview")
     pipeline_results: list[PipelineStepResult] = Field(
-        default_factory=list, description="Results from each pipeline step"
+        default_factory=list[PipelineStepResult], description="Results from each pipeline step"
     )
     created_at: datetime = Field(default_factory=utcnow)
     # Columns presented to the user for disambiguation (transient)
     ambiguous_columns: list[str] = Field(
-        default_factory=list, description="Columns to present when status is ambiguous"
+        default_factory=list[str], description="Columns to present when status is ambiguous"
     )
     # Available projects for Signal multi-project selection (transient)
-    available_projects: list[dict] = Field(
-        default_factory=list, description="Projects for selection (id, name)"
+    available_projects: list[dict[str, Any]] = Field(
+        default_factory=list[dict[str, Any]], description="Projects for selection (id, name)"
     )
 
 

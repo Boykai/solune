@@ -14,8 +14,9 @@ deployment gates (Phase 5 — FR-001 through FR-005).
 import time
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
-from typing import Any
+from typing import Any, cast
 
+import aiosqlite
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -25,20 +26,25 @@ from src.logging_utils import get_logger
 logger = get_logger(__name__)
 router = APIRouter()
 
-try:
-    _APP_VERSION = version("solune-backend")
-except PackageNotFoundError:
-    _APP_VERSION = "0.0.0-dev"
+
+def _resolve_app_version() -> str:
+    try:
+        return version("solune-backend")
+    except PackageNotFoundError:
+        return "0.0.0-dev"
 
 
-def get_db():
+_APP_VERSION: str = _resolve_app_version()
+
+
+def get_db() -> aiosqlite.Connection:
     """Import lazily to avoid circular imports."""
     from src.services.database import get_db as _get_db
 
     return _get_db()
 
 
-async def _check_database() -> dict:
+async def _check_database() -> dict[str, Any]:
     """Check database connectivity with SELECT 1."""
     try:
         db = get_db()
@@ -51,7 +57,7 @@ async def _check_database() -> dict:
         return {"status": "fail", "output": "database connectivity"}
 
 
-async def _check_github_api() -> dict:
+async def _check_github_api() -> dict[str, Any]:
     """Check GitHub API reachability via /rate_limit."""
     try:
         import httpx
@@ -68,15 +74,18 @@ async def _check_github_api() -> dict:
         return {"status": "fail", "output": "GitHub API connectivity"}
 
 
-def _check_polling_loop() -> dict:
+def _check_polling_loop() -> dict[str, Any]:
     """Check if the copilot polling task is alive."""
     try:
-        from src.services.copilot_polling import _polling_task
-        from src.services.copilot_polling.state import _polling_state
+        from src.services import copilot_polling as _cp
+        from src.services.copilot_polling import state as _cp_state
 
-        if _polling_task is not None and not _polling_task.done():
+        polling_task: Any = getattr(_cp, "_polling_task", None)
+        polling_state: Any = getattr(_cp_state, "_polling_state")  # noqa: B009 - reason: testable module-level state is intentionally accessed via getattr
+
+        if polling_task is not None and not polling_task.done():
             return {"status": "pass", "observed_value": "running"}
-        if _polling_state.is_running:
+        if polling_state.is_running:
             return {"status": "pass", "observed_value": "running"}
         return {"status": "warn", "observed_value": "stopped"}
     except Exception as exc:
@@ -84,7 +93,7 @@ def _check_polling_loop() -> dict:
         return {"status": "warn", "observed_value": "error"}
 
 
-def _check_startup_config() -> dict:
+def _check_startup_config() -> dict[str, Any]:
     """Validate that startup configuration is complete and secure."""
     try:
         from src.config import get_settings
@@ -127,7 +136,7 @@ async def health_check() -> JSONResponse:
     polling_result = _check_polling_loop()
     startup_result = _check_startup_config()
 
-    checks = {
+    checks: dict[str, list[dict[str, Any]]] = {
         "database": [db_result],
         "github_api": [github_result],
         "polling_loop": [polling_result],
@@ -241,12 +250,15 @@ def _readiness_check_polling() -> ReadinessCheckResult:
         if settings.copilot_polling_interval == 0:
             return ReadinessCheckResult(component_id="polling:alive", status="pass", time=now)
 
-        from src.services.copilot_polling import _polling_task
-        from src.services.copilot_polling.state import _polling_state
+        from src.services import copilot_polling as _cp
+        from src.services.copilot_polling import state as _cp_state
 
-        if _polling_task is not None and not _polling_task.done():
+        polling_task: Any = getattr(_cp, "_polling_task", None)
+        polling_state: Any = getattr(_cp_state, "_polling_state")  # noqa: B009 - reason: testable module-level state is intentionally accessed via getattr
+
+        if polling_task is not None and not polling_task.done():
             return ReadinessCheckResult(component_id="polling:alive", status="pass", time=now)
-        if _polling_state.is_running:
+        if polling_state.is_running:
             return ReadinessCheckResult(component_id="polling:alive", status="pass", time=now)
         return ReadinessCheckResult(
             component_id="polling:alive",
@@ -313,7 +325,7 @@ async def rate_limit_history(
     from src.services.rate_limit_tracker import RateLimitTracker
 
     tracker = RateLimitTracker()
-    snapshots = await tracker.get_history(hours=hours)
+    snapshots = cast("list[dict[str, Any]]", await cast(Any, tracker).get_history(hours=hours))
     return JSONResponse(
         content={
             "snapshots": snapshots,

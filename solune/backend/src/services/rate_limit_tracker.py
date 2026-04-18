@@ -4,6 +4,8 @@ Stores point-in-time GitHub API rate-limit data in SQLite with 24-hour
 automatic retention.  Snapshots are recorded once per polling cycle and
 exposed via ``GET /api/v1/rate-limit/history``.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

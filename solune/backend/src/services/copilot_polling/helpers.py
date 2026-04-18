@@ -1,4 +1,6 @@
 """Issue body tracking helpers — shared across multiple polling sub-modules."""
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 import re
 from datetime import UTC, datetime

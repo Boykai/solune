@@ -3,6 +3,8 @@
 Tier 1 tools (FR-017 - FR-020):
 - list_pipelines, launch_pipeline, get_pipeline_states, retry_pipeline
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

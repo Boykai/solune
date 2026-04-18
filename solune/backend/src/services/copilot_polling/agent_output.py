@@ -1,4 +1,6 @@
 """Agent output extraction and posting from completed PRs."""
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 import asyncio
 from dataclasses import dataclass, field

@@ -1,6 +1,6 @@
 """Tasks API endpoints."""
 
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
@@ -27,6 +27,9 @@ from src.utils import resolve_repository
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+# Any-typed locals lets us cast the call results to concrete dict[str, Any]
+# at use sites without the method-access expression itself being flagged.
 
 
 async def _create_parent_issue_sub_issues(
@@ -69,7 +72,10 @@ async def _create_parent_issue_sub_issues(
     ctx.issue_number = issue_number
     ctx.project_item_id = item_id
 
-    agent_sub_issues = await get_workflow_orchestrator().create_all_sub_issues(ctx)
+    agent_sub_issues = cast(
+        "dict[str, dict[str, Any]]",
+        await cast(Any, get_workflow_orchestrator()).create_all_sub_issues(ctx),
+    )
     if agent_sub_issues:
         logger.info(
             "Pre-created %d sub-issues for task issue #%d",
@@ -110,19 +116,22 @@ async def create_task(
     )
 
     # Step 1: Create a real GitHub Issue via REST API
-    issue = await github_projects_service.create_issue(
-        access_token=session.access_token,
-        owner=owner,
-        repo=repo,
-        title=request.title,
-        body=request.description or "",
-        labels=issue_labels,
+    issue = cast(
+        "dict[str, Any]",
+        await cast(Any, github_projects_service).create_issue(
+            access_token=session.access_token,
+            owner=owner,
+            repo=repo,
+            title=request.title,
+            body=request.description or "",
+            labels=issue_labels,
+        ),
     )
 
-    issue_number = issue["number"]
-    issue_node_id = issue["node_id"]
-    issue_url = issue["html_url"]
-    issue_database_id = issue["id"]
+    issue_number: int = int(issue["number"])
+    issue_node_id: str = str(issue["node_id"])
+    issue_url: str = str(issue["html_url"])
+    issue_database_id: int = int(issue["id"])
 
     # Step 2: Add the issue to the project
     item_id = await github_projects_service.add_issue_to_project(
@@ -167,16 +176,14 @@ async def create_task(
     cache.delete(get_project_items_cache_key(project_id))
 
     # Broadcast WebSocket message to connected clients
-    await connection_manager.broadcast_to_project(
-        project_id,
-        {
-            "type": "task_created",
-            "task_id": item_id,
-            "title": request.title,
-            "issue_number": issue_number,
-            "issue_url": issue_url,
-        },
-    )
+    broadcast_message: dict[str, Any] = {
+        "type": "task_created",
+        "task_id": item_id,
+        "title": request.title,
+        "issue_number": issue_number,
+        "issue_url": issue_url,
+    }
+    await cast(Any, connection_manager).broadcast_to_project(project_id, broadcast_message)
 
     logger.info("Created issue #%d in project %s", issue_number, project_id)
     return task

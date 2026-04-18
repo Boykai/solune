@@ -4,6 +4,8 @@ Coordinates the full flow: generate plan via chat agent → run speckit.plan →
 parse phases from plan.md → create GitHub parent issues per phase → launch
 pipelines with wave-based prerequisite queuing.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

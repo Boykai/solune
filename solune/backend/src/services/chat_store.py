@@ -6,6 +6,8 @@ persistence using the tables created by ``023_consolidated_schema.sql``.
 All write operations use ``BEGIN IMMEDIATE`` transactions to prevent
 concurrent writers from causing inconsistent state.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

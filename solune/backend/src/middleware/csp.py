@@ -1,14 +1,15 @@
 """Content Security Policy and HTTP security headers middleware (FR-025)."""
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp
 
 
 class CSPMiddleware(BaseHTTPMiddleware):
     """Add Content-Security-Policy and other security headers to all responses."""
 
-    def __init__(self, app, policy: str | None = None):
+    def __init__(self, app: ASGIApp, policy: str | None = None):
         super().__init__(app)
         self.policy = policy or self.default_policy()
 
@@ -28,7 +29,7 @@ class CSPMiddleware(BaseHTTPMiddleware):
             ]
         )
 
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
         response.headers["Content-Security-Policy"] = self.policy
         response.headers["X-Content-Type-Options"] = "nosniff"

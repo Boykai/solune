@@ -1,4 +1,6 @@
 """Shared utility functions for the backend application."""
+# pyright: basic
+# reason: Legacy top-level module; pending follow-up typing pass.
 
 from __future__ import annotations
 

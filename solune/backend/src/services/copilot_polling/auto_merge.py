@@ -5,6 +5,8 @@ mergeability, and performs a squash merge when all conditions are met.
 Also implements dispatch_devops_agent() for CI failure recovery and
 schedule_auto_merge_retry() for delayed retries when CI is still pending.
 """
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 from __future__ import annotations
 

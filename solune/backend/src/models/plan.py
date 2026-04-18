@@ -85,7 +85,7 @@ class Plan(BaseModel):
     parent_issue_url: str | None = Field(
         default=None, description="Parent issue URL (post-approval)"
     )
-    steps: list[PlanStep] = Field(default_factory=list, description="Ordered plan steps")
+    steps: list[PlanStep] = Field(default_factory=list[PlanStep], description="Ordered plan steps")
     created_at: str | None = Field(default=None, description="Creation timestamp")
     updated_at: str | None = Field(default=None, description="Last-updated timestamp")
 

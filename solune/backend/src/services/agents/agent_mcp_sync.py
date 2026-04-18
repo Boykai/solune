@@ -20,7 +20,7 @@ import base64
 import json
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import aiosqlite
 import yaml
@@ -37,7 +37,7 @@ _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n?(.*)", re.DOTALL)
 
 # ── Built-in MCP server definitions ─────────────────────────────────────
 # Mirrors frontend/src/lib/buildGitHubMcpConfig.ts BUILTIN_MCPS constant.
-BUILTIN_MCPS: dict[str, dict] = {
+BUILTIN_MCPS: dict[str, dict[str, Any]] = {
     "context7": {
         "type": "http",
         "url": "https://mcp.context7.com/mcp",
@@ -57,15 +57,15 @@ class AgentMcpSyncResult:
     files_updated: int = 0
     files_skipped: int = 0
     files_unchanged: int = 0
-    warnings: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    synced_mcps: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list[str])
+    errors: list[str] = field(default_factory=list[str])
+    synced_mcps: list[str] = field(default_factory=list[str])
 
 
 # ── Helper functions ─────────────────────────────────────────────────────
 
 
-def _parse_agent_file(content: str) -> tuple[dict | None, str]:
+def _parse_agent_file(content: str) -> tuple[dict[str, Any] | None, str]:
     """Split file content into (frontmatter dict, markdown body).
 
     Returns ``(None, content)`` for files that lack parseable YAML
@@ -79,12 +79,12 @@ def _parse_agent_file(content: str) -> tuple[dict | None, str]:
         fm = yaml.safe_load(match.group(1))
         if not isinstance(fm, dict):
             return None, content
-        return fm, match.group(2)
+        return cast(dict[str, Any], fm), match.group(2)
     except yaml.YAMLError:
         return None, content
 
 
-def _serialize_agent_file(frontmatter: dict, body: str) -> str:
+def _serialize_agent_file(frontmatter: dict[str, Any], body: str) -> str:
     """Re-serialize updated frontmatter and concatenate with Markdown body.
 
     The body is joined with ``\\n`` after the closing ``---`` fence.
@@ -96,12 +96,14 @@ def _serialize_agent_file(frontmatter: dict, body: str) -> str:
     return f"---\n{fm_yaml}\n---{separator}{body}"
 
 
-async def _build_active_mcp_dict(db: aiosqlite.Connection, project_id: str) -> dict[str, dict]:
+async def _build_active_mcp_dict(
+    db: aiosqlite.Connection, project_id: str
+) -> dict[str, dict[str, Any]]:
     """Build the merged MCP dict: user-activated MCPs + built-in MCPs.
 
     Built-in MCPs take precedence on server-key conflicts (FR-014).
     """
-    mcps: dict[str, dict] = {}
+    mcps: dict[str, dict[str, Any]] = {}
 
     # 1. Load user-activated MCPs from the database
     cursor = await db.execute(
@@ -113,14 +115,19 @@ async def _build_active_mcp_dict(db: aiosqlite.Connection, project_id: str) -> d
 
     for row in rows:
         try:
-            config = json.loads(row["config_content"])
-            servers = config.get("mcpServers", {})
-            if isinstance(servers, dict):
+            config_text = cast(str, row["config_content"])
+            config = cast(dict[str, Any], json.loads(config_text))
+            servers_raw: object = config.get("mcpServers", {})
+            if isinstance(servers_raw, dict):
+                servers = cast(dict[str, Any], servers_raw)
                 for key, server_config in servers.items():
                     if isinstance(server_config, dict) and key not in mcps:
-                        mcps[key] = dict(server_config)
+                        mcps[key] = dict(cast(dict[str, Any], server_config))
         except (json.JSONDecodeError, TypeError):
-            logger.warning("Skipping MCP '%s' — invalid config_content JSON", row["name"])
+            logger.warning(
+                "Skipping MCP '%s' — invalid config_content JSON",
+                cast(str, row["name"]),
+            )
             continue
 
     # 2. Merge built-in MCPs (override user MCPs on key conflict)
@@ -137,7 +144,7 @@ async def _discover_agent_files(
     repo: str,
     token: str,
     github_service: GitHubProjectsService | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Discover all ``*.agent.md`` files in ``.github/agents/`` via GitHub API.
 
     Returns a list of dicts with keys: ``path``, ``sha``, ``download_url``.
@@ -165,26 +172,34 @@ async def _discover_agent_files(
         )
         return []
 
-    entries = resp.json()
-    if not isinstance(entries, list):
+    entries_raw: object = resp.json()
+    if not isinstance(entries_raw, list):
         return []
+    entries = cast(list[Any], entries_raw)
 
-    return [
-        {
-            "path": entry["path"],
-            "sha": entry["sha"],
-            "download_url": entry.get("download_url", ""),
-        }
-        for entry in entries
-        if isinstance(entry, dict) and entry.get("name", "").endswith(".agent.md")
-    ]
+    discovered: list[dict[str, Any]] = []
+    for entry_raw in entries:
+        if not isinstance(entry_raw, dict):
+            continue
+        entry = cast(dict[str, Any], entry_raw)
+        name = entry.get("name", "")
+        if not (isinstance(name, str) and name.endswith(".agent.md")):
+            continue
+        discovered.append(
+            {
+                "path": entry["path"],
+                "sha": entry["sha"],
+                "download_url": entry.get("download_url", ""),
+            }
+        )
+    return discovered
 
 
 def _merge_mcps_into_frontmatter(
-    frontmatter: dict,
-    active_mcps: dict[str, dict],
+    frontmatter: dict[str, Any],
+    active_mcps: dict[str, dict[str, Any]],
     file_path: str = "",
-) -> tuple[dict, list[str]]:
+) -> tuple[dict[str, Any], list[str]]:
     """Merge active MCPs into frontmatter.
 
     Returns ``(updated_frontmatter, warnings)``.
@@ -207,7 +222,7 @@ def _merge_mcps_into_frontmatter(
     return frontmatter, warnings
 
 
-def _validate_agent_frontmatter(frontmatter: dict, file_path: str) -> list[str]:
+def _validate_agent_frontmatter(frontmatter: dict[str, Any], file_path: str) -> list[str]:
     """Lightweight schema validation for agent frontmatter after sync.
 
     Returns a list of error strings (empty if valid).
@@ -215,24 +230,26 @@ def _validate_agent_frontmatter(frontmatter: dict, file_path: str) -> list[str]:
     errors: list[str] = []
 
     # mcp-servers must be a dict
-    mcp_servers = frontmatter.get("mcp-servers")
-    if not isinstance(mcp_servers, dict):
+    mcp_servers_raw: object = frontmatter.get("mcp-servers")
+    if not isinstance(mcp_servers_raw, dict):
         errors.append(
-            f"{file_path}: 'mcp-servers' is not a dict — got {type(mcp_servers).__name__}"
+            f"{file_path}: 'mcp-servers' is not a dict — got {type(mcp_servers_raw).__name__}"
         )
         return errors
+    mcp_servers = cast(dict[str, Any], mcp_servers_raw)
 
     # Each server entry must have 'type' and either 'url' or 'command'
     for key, server in mcp_servers.items():
         if not isinstance(server, dict):
             errors.append(f"{file_path}: mcp-servers.{key} is not a dict")
             continue
-        if "type" not in server:
+        server_dict = cast(dict[str, Any], server)
+        if "type" not in server_dict:
             errors.append(f"{file_path}: mcp-servers.{key} missing 'type' field")
-        server_type = server.get("type", "")
-        if server_type in ("http", "sse") and "url" not in server:
+        server_type = server_dict.get("type", "")
+        if server_type in ("http", "sse") and "url" not in server_dict:
             errors.append(f"{file_path}: mcp-servers.{key} (type={server_type}) missing 'url'")
-        if server_type in ("stdio", "local") and "command" not in server:
+        if server_type in ("stdio", "local") and "command" not in server_dict:
             errors.append(f"{file_path}: mcp-servers.{key} (type={server_type}) missing 'command'")
 
     return errors
@@ -300,7 +317,7 @@ async def sync_agent_mcps(
 
         # 3. Process each agent file
         for agent_entry in agent_files:
-            file_path = agent_entry["path"]
+            file_path = cast(str, agent_entry["path"])
             try:
                 await _process_agent_file(
                     github_service=github_service,
@@ -340,7 +357,7 @@ async def _process_agent_file(
     owner: str,
     repo: str,
     file_path: str,
-    active_mcps: dict[str, dict],
+    active_mcps: dict[str, dict[str, Any]],
     result: AgentMcpSyncResult,
 ) -> None:
     """Fetch, merge, validate, and (if changed) write back a single agent file."""
@@ -352,7 +369,7 @@ async def _process_agent_file(
         result.files_skipped += 1
         return
 
-    file_data = resp.json()
+    file_data = cast(dict[str, Any], resp.json())
     file_sha = file_data.get("sha")
     raw_content = base64.b64decode(file_data.get("content", "")).decode("utf-8")
 

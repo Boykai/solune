@@ -1,4 +1,6 @@
 """Custom application exceptions."""
+# pyright: basic
+# reason: Legacy top-level module; pending follow-up typing pass.
 
 from fastapi import status
 

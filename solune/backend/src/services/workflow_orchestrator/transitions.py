@@ -3,6 +3,11 @@
 State is stored in-memory (BoundedDict L1 cache) and persisted to SQLite
 via ``pipeline_state_store`` for durability across container restarts.
 """
+# pyright: basic
+# reason: Legacy workflow state machine; dict-based state mutation pending dataclass migration.
+
+from collections.abc import Coroutine
+from typing import Any
 
 from src.logging_utils import get_logger
 from src.services.pipeline_state_store import (
@@ -56,7 +61,7 @@ logger = get_logger(__name__)
 AGENT_TRIGGER_STALE_SECONDS = 120
 
 
-def _schedule_persist(coro) -> None:
+def _schedule_persist(coro: Coroutine[Any, Any, Any]) -> None:
     """Schedule a persistence coroutine in the background (fire-and-forget).
 
     If no event loop is running (e.g. in sync tests), the persist is skipped

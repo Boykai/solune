@@ -94,7 +94,7 @@ class CheckRunData(BaseModel):
     status: str = ""
     conclusion: str | None = None
     head_sha: str = ""
-    pull_requests: list[CheckRunPR] = Field(default_factory=list)
+    pull_requests: list[CheckRunPR] = Field(default_factory=list[CheckRunPR])
 
 
 class CheckSuiteData(BaseModel):
@@ -106,7 +106,7 @@ class CheckSuiteData(BaseModel):
     status: str = ""
     conclusion: str | None = None
     head_sha: str = ""
-    pull_requests: list[CheckRunPR] = Field(default_factory=list)
+    pull_requests: list[CheckRunPR] = Field(default_factory=list[CheckRunPR])
 
 
 class CheckRunEvent(BaseModel):

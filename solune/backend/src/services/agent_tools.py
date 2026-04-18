@@ -6,6 +6,8 @@ Runtime context (project_id, github_token, session_id) is injected via
 
 Tool registration is designed to accommodate future MCP tool integration (v0.4.0).
 """
+# pyright: basic
+# reason: Legacy agent providers + tools predate typed agent SDK surface.
 
 from __future__ import annotations
 

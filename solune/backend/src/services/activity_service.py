@@ -3,12 +3,16 @@
 Provides paginated, filtered reads of the ``activity_events`` table.
 Write-side operations remain in ``activity_logger.py``.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 
 import base64
 import json
 from datetime import UTC, datetime, timedelta
+
+import aiosqlite
 
 from src.logging_utils import get_logger
 from src.models.activity import ActivityEvent, ActivityStats
@@ -30,7 +34,7 @@ def decode_cursor(cursor: str) -> tuple[str, str]:
 
 
 async def query_events(
-    db,
+    db: aiosqlite.Connection,
     *,
     project_id: str | None = None,
     entity_type: str | None = None,
@@ -88,7 +92,7 @@ async def query_events(
     params.append(limit + 1)
 
     rows = await db.execute(query, params)
-    results = await rows.fetchall()
+    results = list(await rows.fetchall())
 
     has_more = len(results) > limit
     page_rows = results[:limit]
@@ -141,7 +145,7 @@ async def query_events(
 
 
 async def get_activity_stats(
-    db,
+    db: aiosqlite.Connection,
     *,
     project_id: str,
 ) -> dict:

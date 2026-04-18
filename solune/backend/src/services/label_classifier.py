@@ -17,6 +17,8 @@ ensures the label set satisfies the invariants defined in the contract:
 * All labels belong to the predefined taxonomy (``constants.LABELS``).
 * No duplicates.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

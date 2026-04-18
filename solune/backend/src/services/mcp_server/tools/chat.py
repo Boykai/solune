@@ -3,6 +3,8 @@
 Tier 2 tools (FR-026 - FR-028):
 - send_chat_message, get_metadata, cleanup_preflight
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

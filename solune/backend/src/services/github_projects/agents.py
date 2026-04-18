@@ -1,3 +1,6 @@
+# pyright: basic
+# reason: Legacy githubkit response shapes; awaiting upstream typed accessors.
+
 from __future__ import annotations
 
 import re

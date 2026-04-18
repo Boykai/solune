@@ -1,3 +1,6 @@
+# pyright: basic
+# reason: Legacy githubkit response shapes; awaiting upstream typed accessors.
+
 from __future__ import annotations
 
 import asyncio
@@ -5,11 +8,13 @@ import contextvars
 import hashlib
 import json as json_mod
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from src.logging_utils import get_logger
 
 if TYPE_CHECKING:
+    from githubkit.response import Response
+
     from src.services.github_projects import GitHubClientFactory
 
 # Domain mixins — method implementations live in separate files
@@ -210,7 +215,7 @@ class GitHubProjectsService(
         access_token: str,
         method: str,
         path: str,
-        **kwargs,
+        **kwargs: Any,
     ):
         """Public REST request — for code outside this module that needs GitHub REST access."""
         return await self._rest_response(access_token, method, path, **kwargs)
@@ -329,7 +334,7 @@ class GitHubProjectsService(
         """
         return _request_rate_limit.get() or self._last_rate_limit
 
-    def _extract_rate_limit_headers(self, response) -> None:
+    def _extract_rate_limit_headers(self, response: Response[Any, Any]) -> None:
         """Extract rate-limit headers from any HTTP response (REST or GraphQL)."""
         try:
             limit = response.headers.get("X-RateLimit-Limit")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -47,8 +49,8 @@ class PipelineRun(BaseModel):
     completed_at: str | None = None
     trigger: str = "manual"
     error_message: str | None = None
-    metadata: dict | None = None
-    stages: list[PipelineRunStageState] = Field(default_factory=list)
+    metadata: dict[str, Any] | None = None
+    stages: list[PipelineRunStageState] = Field(default_factory=list[PipelineRunStageState])
     created_at: str = ""
     updated_at: str = ""
     # Phase 8: Concurrent execution tracking

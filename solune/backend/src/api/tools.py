@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -64,7 +64,7 @@ async def list_tools(
     session: Annotated[UserSession, Depends(get_session_dep)],
     limit: Annotated[int | None, Query(ge=1, le=100, description="Items per page")] = None,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
-) -> McpToolConfigListResponse | dict:
+) -> McpToolConfigListResponse | dict[str, Any]:
     """List all MCP tool configurations for a project."""
     service = _get_service()
     result = await service.list_tools(

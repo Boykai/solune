@@ -60,5 +60,5 @@ class MCPConfigUpdated:
     project_id: str
     owner: str
     repo: str
-    tools: list[str] = field(default_factory=list)
+    tools: list[str] = field(default_factory=list[str])
     timestamp: str = ""

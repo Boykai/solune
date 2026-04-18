@@ -3,6 +3,8 @@
 Tier 2 tools (FR-024):
 - list_apps, get_app_status, create_app
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

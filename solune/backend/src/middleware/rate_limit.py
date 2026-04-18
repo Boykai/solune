@@ -10,6 +10,7 @@ import asyncio
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.requests import Request
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from src.constants import SESSION_COOKIE_NAME
 from src.logging_utils import get_logger
@@ -71,10 +72,10 @@ class RateLimitKeyMiddleware:
     will use the session cookie or IP.
     """
 
-    def __init__(self, app):
+    def __init__(self, app: ASGIApp):
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return

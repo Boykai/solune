@@ -25,3 +25,4 @@ What are the trade-offs, benefits, and known limitations?
 | [ADR-004](004-pluggable-completion-provider.md) | Pluggable `CompletionProvider` abstraction for LLM backends | Accepted |
 | [ADR-005](005-sub-issue-per-agent-pipeline.md) | Sub-issue-per-agent pipeline with durable tracking table | Accepted |
 | [ADR-006](006-signal-sidecar.md) | Signal messaging via `signal-cli-rest-api` sidecar | Accepted |
+| [ADR-007](007-backend-pyright-strict-downgrades.md) | Backend Pyright strict-mode legacy downgrades | Accepted |

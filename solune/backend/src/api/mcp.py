@@ -7,7 +7,7 @@ exception handler in ``src.main``.  This keeps the format consistent
 with the rest of the API and with the frontend ``ApiError`` parser.
 """
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, status
 
@@ -92,7 +92,7 @@ async def update_mcp_configuration(
 async def delete_mcp_configuration(
     mcp_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Remove an MCP configuration. Only the owning user can delete."""
     db = get_db()
     deleted = await delete_mcp(db, session.github_user_id, mcp_id)

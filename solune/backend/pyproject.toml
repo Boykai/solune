@@ -118,11 +118,16 @@ markers = [
 
 [tool.pyright]
 pythonVersion = "3.13"
-typeCheckingMode = "standard"
+typeCheckingMode = "strict"
 include = ["src"]
 exclude = ["**/__pycache__", "htmlcov"]
 reportMissingTypeStubs = false
 reportMissingImports = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportMissingParameterType = "error"
+reportUnknownParameterType = "warning"
+reportUnknownMemberType = "warning"
+strict = ["src/api", "src/models", "src/services/agents"]
 stubPath = "src/typestubs"
 
 [tool.coverage.run]

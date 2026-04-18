@@ -4,6 +4,8 @@ Exposes pipeline states, board state, and activity as subscribable MCP
 resources (FR-031 - FR-033).  Clients can subscribe to these URIs and
 receive ``resource-updated`` notifications when data changes.
 """
+# pyright: basic
+# reason: MCP server surface accepts arbitrary client JSON; needs schema-first re-design.
 
 from __future__ import annotations
 

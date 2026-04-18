@@ -1,4 +1,6 @@
 """Module-level mutable state and constants for the polling service."""
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
 
 from __future__ import annotations
 

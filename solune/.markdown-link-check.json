@@ -16,6 +16,9 @@
       "pattern": "^https://github\\.com/Boykai/solune/blob/main/"
     },
     {
+      "pattern": "^https://github\\.com/Boykai/solune/actions/workflows/mutation-testing\\.yml$"
+    },
+    {
       "pattern": "^https://aka\\.ms/deploytoazurebutton$"
     },
     {

@@ -1,7 +1,7 @@
 """Authentication API endpoints - OAuth flow."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Cookie, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -163,7 +163,7 @@ async def get_current_user(
 async def logout(
     response: Response,
     session_id: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
-) -> dict:
+) -> dict[str, Any]:
     """Logout current user by revoking session."""
     if session_id:
         await github_auth_service.revoke_session(session_id)

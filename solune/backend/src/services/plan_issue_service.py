@@ -3,6 +3,8 @@
 Renders chat-generated plans into the same markdown shape used when a user
 copies a plan into Parent Issue Intake before launching the shared pipeline.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

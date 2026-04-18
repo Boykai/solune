@@ -3,6 +3,8 @@
 Tier 2 tools (FR-025):
 - list_chores, trigger_chore
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

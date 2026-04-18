@@ -18,8 +18,9 @@ async function openPipelinePage(page: Page) {
   }
 
   await page.goto('/pipeline');
-  await expect(page.getByRole('button', { name: /^New pipeline$/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^\+ Add pipeline$/ })).toBeVisible();
   await expect(page.getByText(PIPELINE_PROJECT_BADGE)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Pipeline stages' })).toBeVisible();
 }
 
 test.describe('Responsive Pipeline Layout', () => {

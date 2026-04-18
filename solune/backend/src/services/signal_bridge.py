@@ -6,6 +6,8 @@ for QR code linking, message sending/receiving, and account management.
 User-story-specific methods (connection lifecycle — T009, WebSocket — T018)
 are added in later tasks; this module establishes the shared foundation.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

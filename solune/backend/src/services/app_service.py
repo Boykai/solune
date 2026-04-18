@@ -5,6 +5,8 @@
 Handles CRUD operations, state transitions, GitHub-based directory scaffolding,
 and path validation for applications managed by the platform.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 

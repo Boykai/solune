@@ -1,4 +1,6 @@
 """ChoresService — CRUD operations for recurring maintenance chores."""
+# pyright: basic
+# reason: Legacy chores pipeline; mixed YAML/JSON config payloads pending Pydantic models.
 
 from __future__ import annotations
 
@@ -7,12 +9,24 @@ import uuid
 from base64 import b64decode
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
 from src.logging_utils import get_logger
-from src.models.chores import Chore, ChoreCreate, ChoreStatus, ChoreTriggerResult, ChoreUpdate
+from src.models.chores import (
+    Chore,
+    ChoreCreate,
+    ChoreCreateWithConfirmation,
+    ChoreInlineUpdate,
+    ChoreStatus,
+    ChoreTriggerResult,
+    ChoreUpdate,
+)
 from src.services.pipeline_launcher import start_pipeline
+
+if TYPE_CHECKING:
+    from src.services.github_projects.service import GitHubProjectsService
 
 logger = get_logger(__name__)
 
@@ -427,7 +441,7 @@ class ChoresService:
         )
         await self._db.commit()
 
-    async def update_chore_fields(self, chore_id: str, **kwargs) -> None:
+    async def update_chore_fields(self, chore_id: str, **kwargs: Any) -> None:
         """Update arbitrary fields on a chore by keyword arguments.
 
         Used internally to set PR/tracking-issue metadata after creation.
@@ -463,7 +477,7 @@ class ChoresService:
         self,
         chore: Chore,
         *,
-        github_service,
+        github_service: GitHubProjectsService,
         access_token: str,
         owner: str,
         repo: str,
@@ -775,7 +789,7 @@ class ChoresService:
     async def evaluate_triggers(
         self,
         *,
-        github_service,
+        github_service: GitHubProjectsService,
         access_token: str,
         owner: str,
         repo: str,
@@ -875,9 +889,9 @@ class ChoresService:
     async def inline_update_chore(
         self,
         chore_id: str,
-        body,
+        body: ChoreInlineUpdate,
         *,
-        github_service=None,
+        github_service: GitHubProjectsService | None = None,
         access_token: str | None = None,
         owner: str | None = None,
         repo: str | None = None,
@@ -1001,9 +1015,9 @@ class ChoresService:
     async def create_chore_with_auto_merge(
         self,
         project_id: str,
-        body,
+        body: ChoreCreateWithConfirmation,
         *,
-        github_service,
+        github_service: GitHubProjectsService,
         access_token: str,
         owner: str,
         repo: str,

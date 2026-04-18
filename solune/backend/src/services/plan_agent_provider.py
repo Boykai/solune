@@ -8,6 +8,8 @@ versioning.
 All SDK calls are wrapped behind this module to absorb breaking changes
 in the ``github-copilot-sdk`` public preview.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 
@@ -204,7 +206,7 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort  # type: ignore[reportGeneralTypeIssues] — reason: SessionConfig TypedDict doesn't declare reasoning_effort yet; SDK preview field
+        config["reasoning_effort"] = reasoning_effort
 
     session = await client.create_session(config)
     logger.info(

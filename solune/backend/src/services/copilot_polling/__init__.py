@@ -10,6 +10,9 @@ When a Copilot PR is detected as complete (no longer a draft):
 
 This provides a fallback mechanism in addition to webhooks.
 """
+# pyright: basic
+# reason: Legacy Copilot polling pipeline; deep GitHub REST/GraphQL JSON shapes pending typed wrappers.
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Phase 1: Import all EXTERNAL dependencies so that mock.patch targets like

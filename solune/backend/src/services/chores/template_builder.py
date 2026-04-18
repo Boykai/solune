@@ -1,11 +1,17 @@
 """Template builder — generates and commits GitHub Issue Templates for chores."""
+# pyright: basic
+# reason: Legacy chores pipeline; mixed YAML/JSON config payloads pending Pydantic models.
 
 from __future__ import annotations
 
 import re
 import time
+from typing import TYPE_CHECKING
 
 from src.logging_utils import get_logger
+
+if TYPE_CHECKING:
+    from src.services.github_projects.service import GitHubProjectsService
 
 logger = get_logger(__name__)
 
@@ -94,7 +100,7 @@ def is_sparse_input(text: str) -> bool:
 
 
 async def commit_template_to_repo(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -221,7 +227,7 @@ def _slugify(name: str) -> str:
 
 
 async def update_template_in_repo(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,
@@ -307,7 +313,7 @@ async def update_template_in_repo(
 
 
 async def merge_chore_pr(
-    github_service,
+    github_service: GitHubProjectsService,
     access_token: str,
     owner: str,
     repo: str,

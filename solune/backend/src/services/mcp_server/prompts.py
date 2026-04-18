@@ -6,6 +6,8 @@ common Solune workflows (FR-036):
 - ``pipeline-status``: Check all running pipelines
 - ``daily-standup``: Summarize recent activity across projects
 """
+# pyright: basic
+# reason: MCP server surface accepts arbitrary client JSON; needs schema-first re-design.
 
 from __future__ import annotations
 

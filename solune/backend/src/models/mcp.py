@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -66,7 +67,7 @@ class CollisionOperation:
     initiated_by: str  # "user" | "automation"
     user_id: str | None = None
     timestamp: datetime = field(default_factory=utcnow)
-    payload: dict = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict[str, Any])
     version_expected: int = 0
 
 

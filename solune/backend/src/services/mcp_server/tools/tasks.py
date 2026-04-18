@@ -3,6 +3,8 @@
 Tier 1 tools (FR-015, FR-016):
 - create_task, create_issue
 """
+# pyright: basic
+# reason: MCP tool wrappers forward heterogeneous payloads; typed once tools/ catalog stabilises.
 
 from __future__ import annotations
 

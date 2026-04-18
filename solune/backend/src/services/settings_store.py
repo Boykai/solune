@@ -1,4 +1,6 @@
 """Database-backed settings store for user preferences, global settings, and project settings."""
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 import json
 from typing import Any

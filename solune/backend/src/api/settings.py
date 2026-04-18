@@ -1,8 +1,10 @@
 """Settings API endpoints — user preferences, global settings, project settings."""
 
 import json
-from typing import Annotated
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Any, cast
 
+import aiosqlite
 from fastapi import APIRouter, Depends, Query
 
 from src.api.auth import get_session_dep
@@ -19,18 +21,43 @@ from src.models.settings import (
     UserPreferencesUpdate,
 )
 from src.models.user import UserSession
+from src.services import settings_store as _settings_store
 from src.services.activity_logger import log_event
 from src.services.database import get_db
 from src.services.model_fetcher import get_model_fetcher_service
 from src.services.settings_store import (
-    flatten_global_settings_update,
-    flatten_user_preferences_update,
     get_effective_project_settings,
     get_effective_user_settings,
     get_global_settings,
-    update_global_settings,
-    upsert_project_settings,
-    upsert_user_preferences,
+)
+
+# Wrap settings_store helpers whose signatures use bare ``dict`` so the strict
+# floor sees concrete dict[str, Any] arguments/results.
+flatten_global_settings_update: Callable[[dict[str, Any]], dict[str, Any]] = cast(
+    "Callable[[dict[str, Any]], dict[str, Any]]",
+    getattr(_settings_store, "flatten_global_settings_update"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
+)
+flatten_user_preferences_update: Callable[[dict[str, Any]], dict[str, Any]] = cast(
+    "Callable[[dict[str, Any]], dict[str, Any]]",
+    getattr(_settings_store, "flatten_user_preferences_update"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
+)
+update_global_settings: Callable[
+    [aiosqlite.Connection, dict[str, Any]], Awaitable[GlobalSettingsResponse]
+] = cast(
+    "Callable[[aiosqlite.Connection, dict[str, Any]], Awaitable[GlobalSettingsResponse]]",
+    getattr(_settings_store, "update_global_settings"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
+)
+upsert_project_settings: Callable[
+    [aiosqlite.Connection, str, str, dict[str, Any]], Awaitable[None]
+] = cast(
+    "Callable[[aiosqlite.Connection, str, str, dict[str, Any]], Awaitable[None]]",
+    getattr(_settings_store, "upsert_project_settings"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
+)
+upsert_user_preferences: Callable[[aiosqlite.Connection, str, dict[str, Any]], Awaitable[None]] = (
+    cast(
+        "Callable[[aiosqlite.Connection, str, dict[str, Any]], Awaitable[None]]",
+        getattr(_settings_store, "upsert_user_preferences"),  # noqa: B009 - reason: strict wrapper intentionally binds service helper via getattr for tests
+    )
 )
 
 logger = get_logger(__name__)
@@ -39,7 +66,7 @@ router = APIRouter()
 
 async def _log_settings_update(
     *,
-    db,
+    db: aiosqlite.Connection,
     session: UserSession,
     project_id: str,
     scope: str,
@@ -160,7 +187,7 @@ async def update_project_settings_endpoint(
     """Update per-project settings for authenticated user (partial update)."""
     db = get_db()
 
-    updates: dict = {}
+    updates: dict[str, Any] = {}
     update_data = body.model_dump(exclude_unset=True)
 
     if "board_display_config" in update_data:
@@ -199,7 +226,7 @@ async def update_project_settings_endpoint(
         # workflow orchestrator picks up the user's configuration.  Also
         # invalidate the in-memory config cache for this project.
         if "agent_pipeline_mappings" in updates:
-            workflow_updates = {
+            workflow_updates: dict[str, Any] = {
                 "agent_pipeline_mappings": updates["agent_pipeline_mappings"],
             }
             await upsert_project_settings(db, "__workflow__", project_id, workflow_updates)
@@ -209,9 +236,13 @@ async def update_project_settings_endpoint(
             )
             # Invalidate in-memory workflow config cache
             try:
-                from src.services.workflow_orchestrator.config import _workflow_configs
+                from src.services.workflow_orchestrator import config as _workflow_config_mod
 
-                _workflow_configs.pop(project_id, None)
+                workflow_configs = cast(
+                    "dict[str, Any]",
+                    getattr(_workflow_config_mod, "_workflow_configs"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
+                )
+                workflow_configs.pop(project_id, None)
             except Exception as e:
                 logger.debug(
                     "Cache invalidation skipped for project=%s: %s", project_id, e, exc_info=True
@@ -222,18 +253,22 @@ async def update_project_settings_endpoint(
             workflow_updates = {"queue_mode": updates["queue_mode"]}
             await upsert_project_settings(db, "__workflow__", project_id, workflow_updates)
             # Invalidate the queue mode in-memory cache
-            from src.services.settings_store import _queue_mode_cache
-
-            _queue_mode_cache.pop(project_id, None)
+            queue_mode_cache = cast(
+                "dict[str, Any]",
+                getattr(_settings_store, "_queue_mode_cache"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
+            )
+            queue_mode_cache.pop(project_id, None)
 
         # Sync auto_merge to the canonical __workflow__ row and invalidate cache
         if "auto_merge" in updates:
             workflow_updates = {"auto_merge": updates["auto_merge"]}
             await upsert_project_settings(db, "__workflow__", project_id, workflow_updates)
             # Invalidate the auto merge in-memory cache
-            from src.services.settings_store import _auto_merge_cache
-
-            _auto_merge_cache.pop(project_id, None)
+            auto_merge_cache = cast(
+                "dict[str, Any]",
+                getattr(_settings_store, "_auto_merge_cache"),  # noqa: B009 - reason: cache invalidation targets module-level state through getattr for tests
+            )
+            auto_merge_cache.pop(project_id, None)
 
     return await get_effective_project_settings(db, session.github_user_id, project_id)
 

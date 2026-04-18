@@ -1,4 +1,6 @@
 """Chore chat — in-memory conversation state for sparse-input template building."""
+# pyright: basic
+# reason: Legacy chores pipeline; mixed YAML/JSON config payloads pending Pydantic models.
 
 from __future__ import annotations
 

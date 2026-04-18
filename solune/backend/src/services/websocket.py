@@ -1,4 +1,6 @@
 """WebSocket connection manager for real-time updates."""
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 import asyncio
 

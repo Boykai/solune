@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
 
@@ -52,7 +52,7 @@ async def list_agents(
     session: Annotated[UserSession, Depends(get_session_dep)],
     limit: Annotated[int | None, Query(ge=1, le=100, description="Items per page")] = None,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
-) -> list[Agent] | dict:
+) -> list[Agent] | dict[str, Any]:
     """List agents visible on the repository default branch under .github/agents/."""
     service = _get_service()
 
@@ -497,7 +497,7 @@ async def agent_chat(
 async def sync_agent_mcps_endpoint(
     project_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Synchronize MCP configurations across all agent files in the repository."""
     from src.services.agents.agent_mcp_sync import sync_agent_mcps
 

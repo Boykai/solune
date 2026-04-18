@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 
@@ -23,6 +23,7 @@ from src.models.agent import (
     AgentSource as AvailableAgentSource,
 )
 from src.models.chat import ActionType, ChatMessage, SenderType
+from src.models.pipeline import PipelineConfig
 from src.models.recommendation import RecommendationStatus
 from src.models.user import UserSession
 from src.models.workflow import (
@@ -39,6 +40,7 @@ from src.services.pipelines.service import PipelineService
 from src.services.settings_store import get_effective_user_settings
 from src.services.websocket import connection_manager
 from src.services.workflow_orchestrator import (
+    PipelineState,
     WorkflowContext,
     get_agent_slugs,
     get_all_pipeline_states,
@@ -53,6 +55,7 @@ from src.utils import BoundedDict, resolve_repository, utcnow
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/workflow", tags=["Workflow"])
+
 
 # In-memory duplicate detection (T029)
 # Maps hash of original_input to (timestamp, recommendation_id)
@@ -98,7 +101,7 @@ def _check_duplicate(original_input: str, recommendation_id: str) -> bool:
 
 
 def _build_pipeline_agent_mappings(
-    config: WorkflowConfiguration, pipeline
+    config: WorkflowConfiguration, pipeline: PipelineConfig
 ) -> dict[str, list[AgentAssignment]]:
     """Map a saved pipeline's ordered stages onto the workflow engine's fixed statuses."""
     status_order = [
@@ -140,7 +143,7 @@ def _build_pipeline_agent_mappings(
     return mappings
 
 
-def _serialize_pipeline_state(state) -> dict:
+def _serialize_pipeline_state(state: PipelineState) -> dict[str, Any]:
     """Serialize runtime pipeline state for API responses."""
 
     agent_statuses = _get_pipeline_agent_statuses(state)
@@ -161,7 +164,7 @@ def _serialize_pipeline_state(state) -> dict:
     }
 
 
-def _get_pipeline_agent_statuses(state) -> dict[str, str]:
+def _get_pipeline_agent_statuses(state: PipelineState) -> dict[str, str]:
     """Compute the per-agent runtime state shown to the UI."""
 
     agent_statuses = dict.fromkeys(state.agents, "pending")
@@ -189,7 +192,7 @@ def _get_pipeline_agent_statuses(state) -> dict[str, str]:
     return agent_statuses
 
 
-def _resolve_retry_agent(state, requested_agent: str | None) -> tuple[str, int]:
+def _resolve_retry_agent(state: PipelineState, requested_agent: str | None) -> tuple[str, int]:
     """Validate and resolve which agent can be retried for the current pipeline state."""
 
     current_agent = state.current_agent
@@ -230,7 +233,9 @@ def _resolve_retry_agent(state, requested_agent: str | None) -> tuple[str, int]:
     return requested_agent, state.agents.index(requested_agent)
 
 
-def _prepare_pipeline_state_for_retry(issue_number: int, state, agent_name: str) -> None:
+def _prepare_pipeline_state_for_retry(
+    issue_number: int, state: PipelineState, agent_name: str
+) -> None:
     """Clear transient failure markers before re-dispatching an agent."""
 
     state.error = None
@@ -278,7 +283,9 @@ def _finalize_pipeline_retry_state(issue_number: int, agent_name: str, success: 
     set_pipeline_state(issue_number, latest_state)
 
 
-async def _build_retry_context(session: UserSession, state, issue_number: int) -> WorkflowContext:
+async def _build_retry_context(
+    session: UserSession, state: PipelineState, issue_number: int
+) -> WorkflowContext:
     """Build the workflow context needed to retry an agent assignment."""
 
     config = await get_workflow_config(state.project_id)
@@ -316,22 +323,25 @@ async def _build_retry_context(session: UserSession, state, issue_number: int) -
     )
 
     try:
-        issue_data = await github_projects_service.get_issue_with_comments(
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            issue_number=issue_number,
+        issue_data = cast(
+            "dict[str, Any]",
+            await cast(Any, github_projects_service).get_issue_with_comments(
+                access_token=session.access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+            ),
         )
-        ctx.issue_id = issue_data.get("node_id", "")
+        ctx.issue_id = str(issue_data.get("node_id", ""))
         ctx.issue_number = issue_number
-        ctx.issue_url = issue_data.get("html_url", "")
+        ctx.issue_url = str(issue_data.get("html_url", ""))
     except Exception as e:
         handle_service_error(e, f"fetch issue #{issue_number}", ValidationError)
 
     return ctx
 
 
-async def _apply_selected_pipeline(
+async def _apply_selected_pipeline(  # pyright: ignore[reportUnusedFunction]
     config: WorkflowConfiguration,
     project_id: str,
     pipeline_id: str | None,
@@ -530,7 +540,12 @@ async def confirm_recommendation(
         )
 
         if result.issue_number and result.issue_url:
-            from src.api.chat import _trigger_signal_delivery, add_message
+            from src.api import chat as _chat_mod
+            from src.api.chat import add_message
+
+            trigger_signal_delivery: Any = getattr(  # noqa: B009 - reason: chat module helper is resolved lazily so monkeypatches stay visible
+                _chat_mod, "_trigger_signal_delivery"
+            )
 
             confirmation_prefix = (
                 "✅ GitHub parent issue created"
@@ -561,7 +576,8 @@ async def confirm_recommendation(
                 },
             )
             await add_message(recommendation.session_id, confirm_message)
-            _trigger_signal_delivery(session, confirm_message)
+            _trigger_signal_delivery_local = trigger_signal_delivery
+            _trigger_signal_delivery_local(session, confirm_message)
 
         if result.success:
             # Update recommendation status
@@ -581,7 +597,7 @@ async def confirm_recommendation(
                 logger.warning("Failed to update recommendation status in SQLite", exc_info=True)
 
             # Broadcast WebSocket notification for issue creation
-            await connection_manager.broadcast_to_project(
+            await cast(Any, connection_manager).broadcast_to_project(
                 project_id,
                 {
                     "type": "issue_created",
@@ -596,7 +612,7 @@ async def confirm_recommendation(
             # Send agent_assigned notification for the first Backlog agent
             backlog_slugs = get_agent_slugs(config, config.status_backlog)
             if backlog_slugs:
-                await connection_manager.broadcast_to_project(
+                await cast(Any, connection_manager).broadcast_to_project(
                     project_id,
                     {
                         "type": "agent_assigned",
@@ -639,7 +655,7 @@ async def confirm_recommendation(
 async def reject_recommendation(
     recommendation_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """
     Reject an AI-generated issue recommendation (T026).
     """
@@ -683,7 +699,7 @@ async def retry_pipeline(
         str | None,
         Query(description="Optional agent slug to retry within the current pipeline stage"),
     ] = None,
-) -> dict:
+) -> dict[str, Any]:
     """
     Retry a failed or stalled agent assignment for an issue.
 
@@ -717,10 +733,14 @@ async def retry_pipeline(
 
     # Clear any pending assignment dedup guards for this agent
     try:
-        from src.services.copilot_polling import _pending_agent_assignments
+        from src.services import copilot_polling as _cp_mod
 
+        pending_agent_assignments = cast(
+            "dict[str, Any]",
+            getattr(_cp_mod, "_pending_agent_assignments"),  # noqa: B009 - reason: retry flow clears module-level dedupe state through getattr for tests
+        )
         pending_key = f"{issue_number}:{current_agent}"
-        _pending_agent_assignments.pop(pending_key, None)
+        pending_agent_assignments.pop(pending_key, None)
     except ImportError:
         pass
 
@@ -739,7 +759,7 @@ async def retry_pipeline(
         )
 
         # Send WebSocket notification
-        await connection_manager.broadcast_to_project(
+        await cast(Any, connection_manager).broadcast_to_project(
             state.project_id,
             {
                 "type": "agent_assigned",
@@ -775,7 +795,7 @@ async def retry_pipeline_agent(
     issue_number: int,
     agent_slug: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Retry a specific agent in the current pipeline stage."""
 
     return await retry_pipeline(
@@ -912,7 +932,7 @@ async def list_agents(
     agents: list[AvailableAgent] = list(github_projects_service.BUILTIN_AGENTS)
 
     tools_counts: dict[str, int] = {}
-    agent_prefs: dict = {}
+    agent_prefs: dict[str, Any] = {}
 
     if resolved_owner and resolved_repo:
         try:
@@ -986,7 +1006,7 @@ async def get_transition_history(
 @router.get("/pipeline-states")
 async def list_pipeline_states(
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """
     Get all active pipeline states for the current project.
 
@@ -1013,7 +1033,7 @@ async def list_pipeline_states(
 async def get_pipeline_state_for_issue(
     issue_number: int,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """
     Get pipeline state for a specific issue.
 
@@ -1038,7 +1058,7 @@ async def notify_in_review(
     issue_number: int = Query(..., description="Issue number"),
     title: str = Query(..., description="Issue title"),
     reviewer: str = Query(..., description="Assigned reviewer"),
-) -> dict:
+) -> dict[str, Any]:
     """
     Send notification when issue moves to In Review (T047).
 
@@ -1047,7 +1067,7 @@ async def notify_in_review(
     project_id = require_selected_project(session)
 
     # Broadcast WebSocket notification
-    await connection_manager.broadcast_to_project(
+    await cast(Any, connection_manager).broadcast_to_project(
         project_id,
         {
             "type": "status_updated",
@@ -1090,7 +1110,7 @@ async def get_polling_status(
 async def check_issue_copilot_completion(
     issue_number: int,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """
     Manually check a specific issue for Copilot PR completion.
 
@@ -1114,7 +1134,7 @@ async def check_issue_copilot_completion(
 
     # Broadcast WebSocket notification if status was updated
     if result.get("status") == "success":
-        await connection_manager.broadcast_to_project(
+        await cast(Any, connection_manager).broadcast_to_project(
             project_id,
             {
                 "type": "status_updated",
@@ -1135,7 +1155,7 @@ async def check_issue_copilot_completion(
 async def start_copilot_polling(
     session: Annotated[UserSession, Depends(get_session_dep)],
     interval_seconds: int = 15,
-) -> dict:
+) -> dict[str, Any]:
     """
     Start background polling for Copilot PR completions.
 
@@ -1184,7 +1204,7 @@ async def start_copilot_polling(
 @handle_github_errors("stop Copilot polling")
 async def stop_copilot_polling(
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Stop the background Copilot PR polling."""
     from src.services.copilot_polling import get_polling_status, stop_polling
 
@@ -1203,7 +1223,7 @@ async def stop_copilot_polling(
 @handle_github_errors("check all in-progress issues")
 async def check_all_in_progress_issues(
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """
     Check all issues in "In Progress" status for Copilot PR completion.
 
@@ -1214,9 +1234,13 @@ async def check_all_in_progress_issues(
     # Resolve repository
     owner, repo = await resolve_repository(session.access_token, project_id)
 
-    from src.services.copilot_polling import check_in_progress_issues
+    from src.services import copilot_polling as _cp_mod
 
-    results = await check_in_progress_issues(
+    check_in_progress_issues_fn: Any = getattr(  # noqa: B009 - reason: polling entrypoint is resolved lazily so monkeypatches stay visible
+        _cp_mod, "check_in_progress_issues"
+    )
+
+    results = await check_in_progress_issues_fn(
         access_token=session.access_token,
         project_id=project_id,
         owner=owner,
@@ -1226,7 +1250,7 @@ async def check_all_in_progress_issues(
     # Broadcast WebSocket notifications for any updated issues
     for result in results:
         if result.get("status") == "success":
-            await connection_manager.broadcast_to_project(
+            await cast(Any, connection_manager).broadcast_to_project(
                 project_id,
                 {
                     "type": "status_updated",

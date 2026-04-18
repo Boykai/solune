@@ -1,4 +1,6 @@
 """Template loader — reads template.json from disk and returns an AppTemplate."""
+# pyright: basic
+# reason: Template loader/renderer reads arbitrary YAML; typed once template schema is finalised.
 
 import json
 import logging

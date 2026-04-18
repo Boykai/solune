@@ -10,6 +10,8 @@ Decomposed from a single 2048-line file into focused sub-modules:
 All public names are re-exported here for backward compatibility.
 Existing ``from src.services.workflow_orchestrator import X`` imports continue to work.
 """
+# pyright: basic
+# reason: Legacy workflow state machine; dict-based state mutation pending dataclass migration.
 
 from .config import (
     _load_workflow_config_from_db,

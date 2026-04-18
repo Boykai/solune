@@ -4,6 +4,8 @@ Provides durable SQLite-backed storage for pipeline orchestration state,
 with ``BoundedDict`` as an L1 in-memory cache.  All writes go through
 both layers atomically under ``asyncio.Lock``.
 """
+# pyright: basic
+# reason: Legacy service module; pending follow-up typing pass.
 
 from __future__ import annotations
 
@@ -181,7 +183,7 @@ def _safe_parse_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def _row_to_pipeline_state(row) -> Any:
+def _row_to_pipeline_state(row: aiosqlite.Row | tuple[Any, ...]) -> Any:
     """Convert a database row to a PipelineState dataclass."""
     from .workflow_orchestrator.models import PipelineState
 
@@ -299,7 +301,7 @@ def _pipeline_state_to_row(issue_number: int, state: Any) -> tuple:
     )
 
 
-def _row_to_main_branch(row) -> MainBranchInfo:
+def _row_to_main_branch(row: aiosqlite.Row | tuple[Any, ...]) -> MainBranchInfo:
     """Convert a database row to a MainBranchInfo TypedDict."""
     from .workflow_orchestrator.models import MainBranchInfo
 
@@ -312,7 +314,7 @@ def _row_to_main_branch(row) -> MainBranchInfo:
     )
 
 
-def _row_to_sub_issue_entry(row) -> dict:
+def _row_to_sub_issue_entry(row: aiosqlite.Row | tuple[Any, ...]) -> dict:
     """Convert a database row to a sub-issue entry dict."""
     if isinstance(row, tuple):
         return {

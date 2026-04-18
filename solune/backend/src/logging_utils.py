@@ -29,6 +29,8 @@ Usage::
     except Exception as e:
         handle_service_error(e, "fetch board projects", GitHubAPIError)
 """
+# pyright: basic
+# reason: Legacy top-level module; pending follow-up typing pass.
 
 from __future__ import annotations
 
