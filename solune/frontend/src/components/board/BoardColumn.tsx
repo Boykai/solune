@@ -80,13 +80,13 @@ export const BoardColumn = memo(function BoardColumn({
             <button
               type="button"
               className="backlog-cta celestial-focus inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]"
-              title="New item"
-              aria-label={`New item in ${column.status.name}`}
+              title="Add item"
+              aria-label={`Add item in ${column.status.name}`}
               onClick={onNewItem}
             >
               <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
               <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
-              <span>+ New item</span>
+              <span>+ Add item</span>
             </button>
           ) : (
             <button

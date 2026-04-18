@@ -32,7 +32,7 @@ interface ProjectBoardProps {
   /** Optional board projection config for lazy loading. */
   projectionConfig?: BoardProjectionConfig;
   /**
-   * Called when the user clicks the "+ New item" button in the Backlog
+  * Called when the user clicks the "+ Add item" button in the Backlog
    * column header. Only the Backlog column renders an enabled add button.
    */
   onNewBacklogItem?: () => void;

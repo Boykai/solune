@@ -313,7 +313,7 @@ describe('AgentsPipelinePage', () => {
         { label: 'Project', value: 'Project Solune' },
       ],
     });
-    expect(screen.getByRole('button', { name: '+ New pipeline' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ Add pipeline' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Saved workflows' })).toHaveAttribute(
       'href',
       '#saved-pipelines',
@@ -331,7 +331,7 @@ describe('AgentsPipelinePage', () => {
 
     render(<AgentsPipelinePage />);
 
-    await user.click(screen.getByRole('button', { name: '+ New pipeline' }));
+    await user.click(screen.getByRole('button', { name: '+ Add pipeline' }));
 
     expect(mockNewPipeline).not.toHaveBeenCalled();
     expect(

@@ -173,6 +173,14 @@ describe('AgentsPanel', () => {
     });
   });
 
+  it('renders the themed add agent CTA', () => {
+    render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
+
+    const addButton = screen.getByRole('button', { name: /\+ add agent/i });
+    expect(addButton).toBeInTheDocument();
+    expect(addButton).toHaveClass('backlog-cta');
+  });
+
   it('does not render Featured Agents section', () => {
     const agents = [
       createAgent({ id: 'a1', slug: 'alpha', name: 'Alpha', created_at: '2026-03-01T00:00:00Z' }),
@@ -391,7 +399,7 @@ describe('AgentsPanel', () => {
     render(<AgentsPanel projectId="PVT_1" />, { wrapper: createWrapper() });
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: /update all models/i }));
+    await user.click(screen.getByRole('button', { name: /update agents/i }));
 
     expect(screen.getByRole('dialog', { name: 'Update All Agent Models' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Update All Agent Models' })).toBeInTheDocument();

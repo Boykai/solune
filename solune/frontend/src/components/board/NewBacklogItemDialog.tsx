@@ -3,7 +3,7 @@
  * an agent pipeline from a pasted or imported GitHub parent issue description.
  *
  * Replaces the Projects-page "Parent issue intake" collapsible panel. Opened
- * from the "+ New item" button in the Backlog column header.
+ * from the "+ Add item" button in the Backlog column header.
  */
 
 import { useCallback, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';

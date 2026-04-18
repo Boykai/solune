@@ -130,7 +130,7 @@ export function ChoresPage() {
               >
                 <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
                 <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
-                <span>+ New chore</span>
+                <span>+ Add chore</span>
               </button>
             </>
           ) : undefined

@@ -100,7 +100,7 @@ export function AddAgentPopover({
           aria-label={`Add agent to ${status}`}
           type="button"
         >
-          + Add Agent
+          + Add agent
         </button>
       </PopoverTrigger>
 
