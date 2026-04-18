@@ -3,7 +3,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { ApiError, appsApi } from '@/services/api';
 import { useInfiniteList } from '@/hooks/useInfiniteList';
@@ -462,14 +462,18 @@ const PLAN_POLL_MAX_MS = 30 * 60 * 1000;
 
 /** Poll the plan orchestration status for an app. */
 export function useAppPlanStatus(appName: string | null, options?: { enabled?: boolean }) {
-  const startedAt = useRef<number>(Date.now());
+  const startedAt = useRef<number | null>(null);
 
-  // Reset timer when appName changes (new orchestration)
-  const prevApp = useRef(appName);
-  if (prevApp.current !== appName) {
-    prevApp.current = appName;
+  // Reset timer when appName changes (new orchestration).
+  // Keep this in an effect so we do not call Date.now() during render.
+  useEffect(() => {
+    if (!appName) {
+      startedAt.current = null;
+      return;
+    }
+
     startedAt.current = Date.now();
-  }
+  }, [appName]);
 
   return useQuery<AppPlanStatusResponse, ApiError>({
     queryKey: appKeys.planStatus(appName ?? ''),
@@ -480,7 +484,9 @@ export function useAppPlanStatus(appName: string | null, options?: { enabled?: b
       // Stop polling when orchestration reaches a terminal state
       if (status === 'active' || status === 'failed') return false;
       // Stop polling after max duration to avoid indefinite spinning
-      if (Date.now() - startedAt.current > PLAN_POLL_MAX_MS) return false;
+      if (startedAt.current !== null && Date.now() - startedAt.current > PLAN_POLL_MAX_MS) {
+        return false;
+      }
       return 5_000; // Poll every 5 seconds while in progress
     },
     staleTime: 2_000,
