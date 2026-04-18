@@ -84,8 +84,8 @@ export const BoardColumn = memo(function BoardColumn({
               aria-label={`New item in ${column.status.name}`}
               onClick={onNewItem}
             >
-              <Sun className="h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
-              <Moon className="hidden h-3.5 w-3.5 dark:inline" aria-hidden="true" />
+              <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
+              <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
               <span>+ New item</span>
             </button>
           ) : (

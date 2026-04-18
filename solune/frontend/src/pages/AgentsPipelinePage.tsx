@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { ThemedAgentIcon } from '@/components/common/ThemedAgentIcon';
 import { DEFAULT_PIPELINE_STAGE_NAMES } from '@/constants/pipeline';
+import { Moon, Sun } from '@/lib/icons';
 
 export function AgentsPipelinePage() {
   const { user } = useAuth();
@@ -131,9 +132,15 @@ export function AgentsPipelinePage() {
         ]}
         actions={
           <>
-            <Button variant="default" size="lg" onClick={handleNewPipeline}>
-              New pipeline
-            </Button>
+            <button
+              type="button"
+              onClick={handleNewPipeline}
+              className="backlog-cta celestial-focus inline-flex h-11 items-center justify-center gap-2 rounded-full px-8 text-sm font-medium"
+            >
+              <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
+              <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
+              <span>+ New pipeline</span>
+            </button>
             <Button variant="outline" size="lg" asChild>
               <a href="#saved-pipelines">Saved workflows</a>
             </Button>

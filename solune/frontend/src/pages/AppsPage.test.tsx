@@ -131,10 +131,10 @@ describe('AppsPage', () => {
     mocks.pendingDeleteIds = new Set<string>();
   });
 
-  it('opens the create dialog from the create app button', async () => {
+  it('opens the create dialog from the new app button', async () => {
     render(<AppsPage />);
 
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+    await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
 
     expect(screen.getByRole('heading', { name: /create app/i })).toBeInTheDocument();
     expect(mocks.createReset).toHaveBeenCalledOnce();
@@ -143,7 +143,7 @@ describe('AppsPage', () => {
   it('does not render Target Branch or Name Override fields in the create dialog', async () => {
     render(<AppsPage />);
 
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+    await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
 
     expect(screen.queryByLabelText(/target branch/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/name override/i)).not.toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('AppsPage', () => {
 
     render(<AppsPage />);
 
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+    await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
     await userEvent.type(screen.getByLabelText(/display name/i), '  My Awesome App  ');
     await userEvent.type(screen.getByLabelText(/description/i), '  Sample app  ');
 
@@ -199,7 +199,7 @@ describe('AppsPage', () => {
 
     render(<AppsPage />);
 
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+  await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
     await userEvent.type(screen.getByLabelText(/display name/i), 'My Awesome App');
 
     const dialog = screen.getByRole('dialog');
@@ -268,7 +268,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
 
   it('shows Azure credential fields only when new-repo is selected', async () => {
     render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+    await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
 
     // Azure fields should not be visible in same-repo mode (default)
     expect(screen.queryByLabelText(/azure client id/i)).not.toBeInTheDocument();
@@ -277,7 +277,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
 
   it('validates that only one Azure field provided shows an error', async () => {
     render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+    await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
 
     // Navigate to new-repo tab
     const newRepoButtons = screen.getAllByRole('button');
@@ -326,7 +326,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
     );
 
     render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+  await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
 
     // Switch to new-repo
     const newRepoButtons = screen.getAllByRole('button');
@@ -381,7 +381,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
     );
 
     render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+  await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
     await userEvent.type(screen.getByLabelText(/display name/i), 'Azure App');
 
     const dialog = screen.getByRole('dialog');
@@ -419,7 +419,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
     );
 
     render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+  await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
     await userEvent.type(screen.getByLabelText(/display name/i), 'Multi Warn App');
 
     const dialog = screen.getByRole('dialog');
@@ -456,7 +456,7 @@ describe('AppsPage — Azure credentials (new-repo)', () => {
     );
 
     render(<AppsPage />);
-    await userEvent.click(screen.getByRole('button', { name: /create app/i }));
+  await userEvent.click(screen.getByRole('button', { name: /\+ new app/i }));
     await userEvent.type(screen.getByLabelText(/display name/i), 'Pipeline App');
 
     const dialog = screen.getByRole('dialog');

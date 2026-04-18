@@ -6,7 +6,7 @@
  * from the "+ New item" button in the Backlog column header.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import {
   CheckCircle2,
@@ -107,12 +107,15 @@ export function NewBacklogItemDialog({
     setSubmissionError(null);
   }, []);
 
-  // Reset state when the dialog closes so re-opening starts fresh.
-  useEffect(() => {
-    if (!open) {
-      resetForm();
-    }
-  }, [open, resetForm]);
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        resetForm();
+      }
+      onOpenChange(nextOpen);
+    },
+    [onOpenChange, resetForm]
+  );
 
   const selectedPipeline = useMemo(
     () => pipelines.find((pipeline) => pipeline.id === pipelineId) ?? null,
@@ -134,7 +137,7 @@ export function NewBacklogItemDialog({
           toast.info(result.message);
         }
         // Close the dialog on successful launch so the user returns to the board.
-        onOpenChange(false);
+        handleOpenChange(false);
         return;
       }
 
@@ -252,7 +255,7 @@ export function NewBacklogItemDialog({
   const hasPipelineOptions = pipelines.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] w-[min(64rem,95vw)] max-w-none overflow-y-auto sm:w-[min(64rem,95vw)]">
         <DialogHeader>
           <DialogTitle>New backlog item</DialogTitle>
@@ -485,7 +488,7 @@ export function NewBacklogItemDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+              onClick={() => handleOpenChange(false)}
             disabled={launchMutation.isPending}
           >
             Cancel

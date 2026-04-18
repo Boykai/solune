@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { GitBranch, Plus, RefreshCw } from '@/lib/icons';
+import { GitBranch, Moon, RefreshCw, Sun } from '@/lib/icons';
 import {
   useApp,
   useApps,
@@ -219,10 +219,12 @@ export function AppsPage() {
             <button
               ref={createButtonRef}
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              className="backlog-cta celestial-focus inline-flex h-11 items-center justify-center gap-2 rounded-full px-8 text-sm font-medium"
               onClick={() => openCreateDialog()}
             >
-              <Plus aria-hidden="true" className="h-4 w-4" /> Create App
+              <Sun className="block h-3.5 w-3.5 dark:hidden" aria-hidden="true" />
+              <Moon className="hidden h-3.5 w-3.5 dark:block" aria-hidden="true" />
+              <span>+ New app</span>
             </button>
           </div>
         </div>
