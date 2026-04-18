@@ -217,6 +217,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - N/A — no schema or data changes (003-remove-lint-ignores)
 - Python 3.12 (backend), TypeScript 5.x / ES2022 (frontend) + FastAPI, Pydantic, githubkit, httpx, aiosqlite, cryptography (backend); React 18, Vite, Radix UI, dnd-kit, Zustand (frontend) (001-bug-basher)
 - SQLite via aiosqlite (backend), browser localStorage/sessionStorage (frontend) (001-bug-basher)
+- Python 3.13 (pyright `pythonVersion = "3.13"`) + FastAPI, githubkit, aiosqlite, agent-framework-github-copilot SDK (001-tighten-backend-pyright)
+- aiosqlite (SQLite via async wrapper) (001-tighten-backend-pyright)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
