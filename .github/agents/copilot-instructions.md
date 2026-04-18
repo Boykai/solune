@@ -219,6 +219,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - SQLite via aiosqlite (backend), browser localStorage/sessionStorage (frontend) (001-bug-basher)
 - Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`) + Pyright (invoked via `uv run pyright`); FastAPI/Starlette (typing surface for `Depends()`); `aiosqlite` (typing surface for `Row`); `githubkit` and `agent_framework_github_copilot` (third-party libraries with partial type stubs in `solune/backend/src/typestubs/`) (001-backend-pyright-strict)
 - N/A — tooling/configuration change. Touches `solune/backend/pyproject.toml` (`[tool.pyright]` block at line 119) and `solune/backend/pyrightconfig.tests.json`. (001-backend-pyright-strict)
+- Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`) + FastAPI (lifespan, `Depends()`, `app.state`, `dependency_overrides`); Starlette (Request, State); pytest / pytest-asyncio (autouse fixtures, `conftest.py`) (002-dual-init-singleton)
+- aiosqlite (existing; not modified by this feature — only the `get_database` accessor is refactored) (002-dual-init-singleton)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
