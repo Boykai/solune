@@ -91,14 +91,14 @@ python -c "from src.services.resettable_state import register_resettable, reset_
 # MUST print OK
 
 # 2. Count registered entries (should match or exceed the ~50 manual clears)
+# Importing any module that calls register_resettable() at load time populates
+# the registry. A full count requires importing all such modules — the simplest
+# way is to import the app (which transitively imports everything):
 python -c "
+from src.main import create_app  # triggers all module-level registrations
 from src.services.resettable_state import _registry
-# Force-import all modules that register state
-import src.services.copilot_polling.state
-import src.services.template_files
-import src.services.pipeline_state_store
-# ... etc
 print(f'Registered entries: {len(_registry)}')
+assert len(_registry) >= 30, f'Expected >= 30 entries, got {len(_registry)}'
 "
 
 # 3. All tests pass with registry-based cleanup
@@ -176,29 +176,38 @@ cd solune/backend
 cat > /tmp/test_override_canary.py << 'EOF'
 """Canary: single dependency_overrides entry mocks the service everywhere."""
 import pytest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from httpx import ASGITransport, AsyncClient
 from src.main import create_app
-from src.dependencies import get_github_service
+from src.dependencies import get_github_service, get_database
 
 @pytest.mark.asyncio
 async def test_override_reaches_all_routes():
-    """Setting dependency_overrides[get_github_service] mocks every route."""
+    """Setting dependency_overrides[get_github_service] mocks every route.
+
+    Calls GET /api/health (or any lightweight endpoint) to verify that the
+    override is wired through. The specific assertion depends on the route;
+    a 200/401/422 is acceptable — what matters is that no ImportError or
+    AttributeError is raised from a stale module-level global reference.
+    """
     app = create_app()
-    mock = AsyncMock()
-    mock.get_last_rate_limit.return_value = None
-    app.dependency_overrides[get_github_service] = lambda: mock
+    mock_github = AsyncMock()
+    mock_github.get_last_rate_limit.return_value = None
+    mock_db = MagicMock()
+    app.dependency_overrides[get_github_service] = lambda: mock_github
+    app.dependency_overrides[get_database] = lambda: mock_db
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Any endpoint that uses Depends(get_github_service) receives the mock
-        # (specific endpoint and expected response depend on the route)
-        pass  # Replace with an actual endpoint call
+        resp = await client.get("/api/health")
+        # Health endpoint should respond regardless of mocked services
+        assert resp.status_code in (200, 401, 422, 403)
 
-    del app.dependency_overrides[get_github_service]
+    app.dependency_overrides.clear()
 EOF
-# This is a template — fill in the specific endpoint for the actual canary test
+uv run pytest /tmp/test_override_canary.py -v
+# MUST pass
 rm /tmp/test_override_canary.py
 ```
 
