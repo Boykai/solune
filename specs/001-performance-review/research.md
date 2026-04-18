@@ -145,7 +145,7 @@ Optimization approach:
 
 **Rationale**: Existing tests provide comprehensive coverage:
 - `test_cache.py` (38 tests): Covers TTL, hashing, coalesced fetch, stale fallback
-- `test_api_board.py` (92 tests): Covers cache hit/miss, sub-issue invalidation, manual refresh
+- `test_api_board.py` (75 tests): Covers cache hit/miss, sub-issue invalidation, manual refresh
 - `test_copilot_polling.py` (317 tests): Covers polling lifecycle, rate limits, step skipping
 
 New tests should validate:
