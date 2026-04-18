@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
@@ -53,10 +53,13 @@ _background_tasks: set[asyncio.Task[None]] = set()
 async def list_owners_endpoint(
     request: Request,
     session: _SessionDep,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """List accounts where the authenticated user can create repositories."""
     github_service = get_github_service(request)
-    return await github_service.list_available_owners(session.access_token)
+    return cast(
+        "list[dict[str, Any]]",
+        await cast(Any, github_service).list_available_owners(session.access_token),
+    )
 
 
 @router.get("")
@@ -65,7 +68,7 @@ async def list_apps_endpoint(
     status: Annotated[AppStatus | None, Query(description="Filter by app status")] = None,
     limit: Annotated[int | None, Query(ge=1, le=100, description="Items per page")] = None,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
-) -> list[App] | dict:
+) -> list[App] | dict[str, Any]:
     """List all managed applications."""
     db = get_db()
     apps = await list_apps(db, status_filter=status)
@@ -389,7 +392,7 @@ class PlanStatusResponse(BaseModel):
     app_name: str
     status: str
     phase_count: int | None = None
-    phase_issues: list[PhaseIssueInfo] = Field(default_factory=list)
+    phase_issues: list[PhaseIssueInfo] = Field(default_factory=list[PhaseIssueInfo])
     error_message: str | None = None
     created_at: str | None = None
     updated_at: str | None = None

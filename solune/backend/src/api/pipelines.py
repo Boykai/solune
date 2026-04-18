@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 
@@ -191,7 +191,7 @@ async def list_pipelines(
     order: str = "desc",
     limit: Annotated[int | None, Query(ge=1, le=100, description="Items per page")] = None,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
-) -> PipelineConfigListResponse | dict:
+) -> PipelineConfigListResponse | dict[str, Any]:
     """List all pipeline configurations for the authenticated user."""
     service = _get_service()
     result = await service.list_pipelines(
@@ -225,10 +225,14 @@ async def list_pipelines(
 async def seed_presets(
     project_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Idempotently seed preset pipeline configurations for a project."""
     service = _get_service()
-    return await service.seed_presets(project_id, github_user_id=session.github_user_id)
+    _service_any: Any = service
+    return cast(
+        "dict[str, Any]",
+        await _service_any.seed_presets(project_id, github_user_id=session.github_user_id),
+    )
 
 
 # ── Assignment ──
@@ -330,9 +334,11 @@ async def execute_pipeline_launch(
     detection = detect_transcript("pasted_content.txt", issue_description)
     if detection.is_transcript:
         try:
-            from src.services.ai_utilities import analyze_transcript
+            from src.services import ai_utilities as _ai_mod
 
-            recommendation = await analyze_transcript(
+            analyze_transcript_fn: Any = getattr(_ai_mod, "analyze_transcript")  # noqa: B009
+
+            recommendation = await analyze_transcript_fn(
                 transcript_content=issue_description,
                 project_name=project_id,
                 session_id=str(session.session_id),
@@ -400,13 +406,16 @@ async def execute_pipeline_launch(
             if pipeline_label not in issue_labels:
                 issue_labels.append(pipeline_label)
 
-        issue = await github_projects_service.create_issue(
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            title=issue_title,
-            body=issue_body,
-            labels=issue_labels,
+        issue = cast(
+            "dict[str, Any]",
+            await cast(Any, github_projects_service).create_issue(
+                access_token=session.access_token,
+                owner=owner,
+                repo=repo,
+                title=issue_title,
+                body=issue_body,
+                labels=issue_labels,
+            ),
         )
         if resolved_pipeline_id:
             await service.set_assignment(
@@ -468,7 +477,7 @@ async def execute_pipeline_launch(
                     "start_date": metadata.start_date,
                     "target_date": metadata.target_date,
                 }
-                await github_projects_service.set_issue_metadata(
+                await cast(Any, github_projects_service).set_issue_metadata(
                     access_token=session.access_token,
                     project_id=project_id,
                     item_id=ctx.project_item_id,
@@ -694,7 +703,7 @@ async def delete_pipeline(
     project_id: str,
     pipeline_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Delete a pipeline configuration."""
     service = _get_service()
     deleted = await service.delete_pipeline(
@@ -740,7 +749,7 @@ async def create_pipeline_run(
     pipeline_id: str,
     body: PipelineRunCreate,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Create and start a new pipeline run (FR-001, FR-016)."""
     # Verify the pipeline exists
     service = _get_service()
@@ -754,10 +763,11 @@ async def create_pipeline_run(
     stages = [{"stage_id": stage.id, "group_id": None} for stage in pipeline.stages]
 
     run_service = _get_run_service()
-    run = await run_service.create_run(
+    _run_service_any: Any = run_service
+    run = await _run_service_any.create_run(
         pipeline_config_id=pipeline_id,
         project_id=session.selected_project_id or "",
-        trigger=body.trigger if isinstance(body, PipelineRunCreate) else "manual",
+        trigger=body.trigger,
         stages=stages,
     )
     await log_event(
@@ -781,7 +791,7 @@ async def list_pipeline_runs(
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
-) -> dict:
+) -> dict[str, Any]:
     """List all runs for a pipeline configuration (FR-003).
 
     No artificial cap on total results.
@@ -809,7 +819,7 @@ async def get_pipeline_run(
     pipeline_id: str,
     run_id: int,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Get detailed run state with all stages/groups (FR-001, FR-002)."""
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
@@ -833,7 +843,7 @@ async def cancel_pipeline_run(
     pipeline_id: str,
     run_id: int,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Cancel a running or pending pipeline run."""
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
@@ -879,7 +889,7 @@ async def recover_pipeline_run(
     pipeline_id: str,
     run_id: int,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Rebuild state and resume a pipeline run (FR-002)."""
     # Verify the pipeline belongs to the user's selected project
     service = _get_service()
@@ -917,7 +927,7 @@ async def recover_pipeline_run(
 async def list_stage_groups(
     pipeline_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """List stage groups for a pipeline configuration."""
     run_service = _get_run_service()
     result = await run_service.list_groups(pipeline_id)
@@ -927,9 +937,9 @@ async def list_stage_groups(
 @router.put("/{pipeline_id}/groups")
 async def upsert_stage_groups(
     pipeline_id: str,
-    body: list[dict],
+    body: list[dict[str, Any]],
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Create or update stage groups atomically."""
     # Validate input
     for group in body:
@@ -939,5 +949,6 @@ async def upsert_stage_groups(
             raise ValidationError("Each group must have an order_index")
 
     run_service = _get_run_service()
-    result = await run_service.upsert_groups(pipeline_id, body)
-    return result.model_dump()
+    _run_service_any: Any = run_service
+    result = await _run_service_any.upsert_groups(pipeline_id, body)
+    return cast("dict[str, Any]", result.model_dump())

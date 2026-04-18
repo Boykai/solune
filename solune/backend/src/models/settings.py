@@ -43,7 +43,7 @@ class ModelsResponse(BaseModel):
     """Response from the /settings/models/{provider} endpoint."""
 
     status: str  # "success", "auth_required", "rate_limited", "error"
-    models: list[ModelOption] = Field(default_factory=list)
+    models: list[ModelOption] = Field(default_factory=list[ModelOption])
     fetched_at: str | None = None
     cache_hit: bool = False
     rate_limit_warning: bool = False

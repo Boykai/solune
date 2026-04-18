@@ -12,6 +12,7 @@ import json
 import re
 import time
 import uuid
+from typing import TYPE_CHECKING, Any, cast
 
 import aiosqlite
 import yaml
@@ -35,11 +36,42 @@ from src.models.agents import (
     ImportAgentResult,
     InstallAgentResult,
 )
-from src.services.agent_creator import generate_config_files, generate_issue_body
+from src.services.agent_creator import generate_issue_body
 from src.services.cache import cache, get_repo_agents_cache_key
-from src.services.github_commit_workflow import commit_files_workflow
+from src.services.github_commit_workflow import CommitWorkflowResult
 from src.services.github_projects import github_projects_service
 from src.utils import utcnow
+
+# ── Typed re-bindings of externally-defined untyped helpers ─────────────
+# Both functions live outside the strict-mode floor and use bare ``list[dict]``
+# in their signatures, which Pyright treats as ``list[dict[Unknown, Unknown]]``.
+# Re-declare them here with concrete types under TYPE_CHECKING so callers in
+# this module type-check cleanly without modifying out-of-scope files.
+if TYPE_CHECKING:
+
+    def generate_config_files(preview: AgentPreview) -> list[dict[str, Any]]: ...
+
+    async def commit_files_workflow(
+        *,
+        access_token: str,
+        owner: str,
+        repo: str,
+        branch_name: str,
+        files: list[dict[str, Any]],
+        commit_message: str,
+        pr_title: str,
+        pr_body: str,
+        issue_title: str | None = None,
+        issue_body: str | None = None,
+        issue_labels: list[str] | None = None,
+        project_id: str | None = None,
+        target_status: str | None = None,
+        delete_files: list[str] | None = None,
+    ) -> CommitWorkflowResult: ...
+
+else:
+    from src.services.agent_creator import generate_config_files
+    from src.services.github_commit_workflow import commit_files_workflow
 
 logger = get_logger(__name__)
 
@@ -50,7 +82,7 @@ _TOOL_METADATA_KEY = "solune-tool-ids"
 # ── Chat sessions (bounded) ─────────────────────────────────────────────
 _MAX_CHAT_SESSIONS = 200
 _SESSION_TTL_SECONDS = 30 * 60  # 30 minutes
-_chat_sessions: dict[str, list[dict]] = {}
+_chat_sessions: dict[str, list[dict[str, Any]]] = {}
 _chat_session_timestamps: dict[str, float] = {}
 
 
@@ -63,6 +95,38 @@ def _prune_expired_sessions() -> None:
     for sid in expired:
         _chat_sessions.pop(sid, None)
         _chat_session_timestamps.pop(sid, None)
+
+
+def _row_to_dict(row: object, cursor: aiosqlite.Cursor) -> dict[str, Any]:
+    """Coerce an ``aiosqlite.Row`` (or already-decoded dict) into a typed dict."""
+    if isinstance(row, dict):
+        return cast(dict[str, Any], row)
+    description = cursor.description or []
+    keys = [d[0] for d in description]
+    return dict(zip(keys, cast(Any, row), strict=False))
+
+
+# Typed wrappers around ``github_projects_service`` methods whose bare ``list[dict]``
+# / ``dict | None`` return types are partially-unknown under strict mode. Routing
+# through ``Any`` here avoids leaking the unknown method types into call sites.
+async def _gh_get_directory_contents(
+    *, access_token: str, owner: str, repo: str, path: str
+) -> list[dict[str, Any]]:
+    svc: Any = github_projects_service
+    result = await svc.get_directory_contents(
+        access_token=access_token, owner=owner, repo=repo, path=path
+    )
+    return cast(list[dict[str, Any]], result)
+
+
+async def _gh_get_file_content(
+    *, access_token: str, owner: str, repo: str, path: str
+) -> dict[str, Any] | None:
+    svc: Any = github_projects_service
+    result = await svc.get_file_content(
+        access_token=access_token, owner=owner, repo=repo, path=path
+    )
+    return cast(dict[str, Any] | None, result)
 
 
 class AgentsService:
@@ -111,11 +175,12 @@ class AgentsService:
 
         cached_agents = cache.get(cache_key)
         if isinstance(cached_agents, list):
+            cached_repo_agents = cast(list[Agent], cached_agents)
             await self._cleanup_resolved_pending_agents(
                 project_id=project_id,
-                repo_agents=cached_agents,
+                repo_agents=cached_repo_agents,
             )
-            hydrated_agents = await _overlay_runtime_preferences(cached_agents)
+            hydrated_agents = await _overlay_runtime_preferences(cached_repo_agents)
             return sorted(hydrated_agents, key=lambda a: a.name.lower())
 
         repo_agents, repo_available = await self._list_repo_agents(
@@ -135,7 +200,8 @@ class AgentsService:
 
         stale_agents = cache.get_stale(cache_key)
         if isinstance(stale_agents, list):
-            hydrated_agents = await _overlay_runtime_preferences(stale_agents)
+            stale_repo_agents = cast(list[Agent], stale_agents)
+            hydrated_agents = await _overlay_runtime_preferences(stale_repo_agents)
             return sorted(hydrated_agents, key=lambda a: a.name.lower())
 
         return []
@@ -250,11 +316,7 @@ class AgentsService:
         rows = await cursor.fetchall()
         result: dict[str, dict[str, str]] = {}
         for row in rows:
-            r = (
-                dict(row)
-                if isinstance(row, dict)
-                else dict(zip([d[0] for d in cursor.description], row, strict=False))
-            )
+            r = _row_to_dict(row, cursor)
             model_id = r.get("default_model_id", "") or ""
             model_name = r.get("default_model_name", "") or ""
             icon_name = r.get("icon_name", "") or ""
@@ -279,14 +341,12 @@ class AgentsService:
         rows = await cursor.fetchall()
         agents: list[Agent] = []
         for row in rows:
-            r = (
-                dict(row)
-                if isinstance(row, dict)
-                else dict(zip([d[0] for d in cursor.description], row, strict=False))
-            )
-            tools = []
+            r = _row_to_dict(row, cursor)
+            tools: list[str] = []
             try:
-                tools = json.loads(r.get("tools", "[]"))
+                raw_tools = json.loads(r.get("tools", "[]"))
+                if isinstance(raw_tools, list):
+                    tools = [str(t) for t in cast(list[Any], raw_tools)]
             except (json.JSONDecodeError, TypeError):
                 pass
 
@@ -319,12 +379,12 @@ class AgentsService:
         return agents
 
     @staticmethod
-    def _normalize_mcp_server_config(server_config: object) -> dict[str, object] | None:
+    def _normalize_mcp_server_config(server_config: object) -> dict[str, Any] | None:
         """Normalize uploaded MCP JSON into GitHub custom-agent YAML shape."""
         if not isinstance(server_config, dict):
             return None
 
-        normalized = dict(server_config)
+        normalized: dict[str, Any] = dict(cast(dict[str, Any], server_config))
         server_type = normalized.get("type")
         if not server_type:
             if normalized.get("command"):
@@ -339,7 +399,7 @@ class AgentsService:
             normalized["type"] = server_type
 
         tools = normalized.get("tools")
-        if not isinstance(tools, list) or len(tools) == 0:
+        if not isinstance(tools, list) or len(cast(list[Any], tools)) == 0:
             normalized["tools"] = ["*"]
 
         return normalized
@@ -350,7 +410,7 @@ class AgentsService:
         project_id: str,
         github_user_id: str,
         requested_tools: list[str],
-    ) -> tuple[list[str], list[str], list[str], dict[str, object]]:
+    ) -> tuple[list[str], list[str], list[str], dict[str, Any]]:
         """Split raw agent tool selections into display tools, allowlist items, stored IDs, and MCP servers."""
         if not requested_tools:
             return [], [], [], {}
@@ -365,12 +425,12 @@ class AgentsService:
                 (project_id, github_user_id, *requested_ids),
             )
             rows = await cursor.fetchall()
-            tool_rows_by_id = {row["id"]: row for row in rows}
+            tool_rows_by_id = {cast(str, row["id"]): row for row in rows}
 
         display_tools: list[str] = []
         explicit_allowlist: list[str] = []
         selected_tool_ids: list[str] = []
-        mcp_servers: dict[str, object] = {}
+        mcp_servers: dict[str, Any] = {}
         seen_display: set[str] = set()
         seen_allowlist: set[str] = set()
 
@@ -385,21 +445,24 @@ class AgentsService:
                     seen_allowlist.add(tool)
                 continue
 
-            selected_tool_ids.append(row["id"])
-            if row["name"] not in seen_display:
-                display_tools.append(row["name"])
-                seen_display.add(row["name"])
+            row_id = cast(str, row["id"])
+            row_name = cast(str, row["name"])
+            selected_tool_ids.append(row_id)
+            if row_name not in seen_display:
+                display_tools.append(row_name)
+                seen_display.add(row_name)
 
             try:
-                config_data = json.loads(row["config_content"] or "{}")
+                config_text = cast(str, row["config_content"]) or "{}"
+                config_data = cast(dict[str, Any], json.loads(config_text))
             except json.JSONDecodeError:
                 continue
 
-            raw_servers = config_data.get("mcpServers", {})
+            raw_servers: object = config_data.get("mcpServers", {})
             if not isinstance(raw_servers, dict):
                 continue
 
-            for server_name, server_config in raw_servers.items():
+            for server_name, server_config in cast(dict[str, Any], raw_servers).items():
                 normalized = self._normalize_mcp_server_config(server_config)
                 if normalized is not None:
                     mcp_servers[str(server_name)] = normalized
@@ -420,7 +483,7 @@ class AgentsService:
     ) -> tuple[list[Agent], bool]:
         """Read ``.github/agents/*.agent.md`` from the GitHub repo."""
         try:
-            tree_entries = await github_projects_service.get_directory_contents(
+            tree_entries = await _gh_get_directory_contents(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -433,24 +496,24 @@ class AgentsService:
         # Identify agent files that need their content fetched.
         agent_entries: list[tuple[str, str, str]] = []  # (name, slug, inline_content)
         for entry in tree_entries:
-            name = entry.get("name", "")
+            name = str(entry.get("name", ""))
             if not name.endswith(".agent.md"):
                 continue
             slug = name.removesuffix(".agent.md")
-            agent_entries.append((name, slug, entry.get("content", "")))
+            agent_entries.append((name, slug, str(entry.get("content", ""))))
 
         # Fetch file contents in parallel for entries lacking inline content.
         async def _fetch_content(name: str, inline: str) -> str:
             if inline:
                 return inline
             try:
-                file_data = await github_projects_service.get_file_content(
+                file_data = await _gh_get_file_content(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     path=f".github/agents/{name}",
                 )
-                return file_data.get("content", "") if file_data else ""
+                return str(file_data.get("content", "")) if file_data else ""
             except Exception:
                 return ""
 
@@ -476,17 +539,21 @@ class AgentsService:
             match = _FRONTMATTER_RE.match(content)
             if match:
                 try:
-                    fm = yaml.safe_load(match.group(1))
-                    if isinstance(fm, dict):
-                        description = fm.get("description", "")
-                        agent_name = fm.get("name")
+                    fm_loaded = yaml.safe_load(match.group(1))
+                    if isinstance(fm_loaded, dict):
+                        fm = cast(dict[str, Any], fm_loaded)
+                        description = str(fm.get("description", ""))
+                        raw_agent_name = fm.get("name")
+                        agent_name = (
+                            str(raw_agent_name) if isinstance(raw_agent_name, str) else None
+                        )
                         raw_icon_name = fm.get("icon") or fm.get("icon_name")
                         if raw_icon_name is not None:
                             icon_name = str(raw_icon_name)
                         metadata = fm.get("metadata")
                         metadata_tool_ids: list[str] = []
                         if isinstance(metadata, dict):
-                            metadata_value = metadata.get(_TOOL_METADATA_KEY)
+                            metadata_value = cast(dict[str, Any], metadata).get(_TOOL_METADATA_KEY)
                             if isinstance(metadata_value, str) and metadata_value.strip():
                                 metadata_tool_ids = [
                                     value.strip()
@@ -497,7 +564,7 @@ class AgentsService:
                         if metadata_tool_ids:
                             tools = metadata_tool_ids
                         elif isinstance(raw_tools, list):
-                            tools = [str(t) for t in raw_tools]
+                            tools = [str(t) for t in cast(list[Any], raw_tools)]
                 except yaml.YAMLError:
                     pass
                 system_prompt = match.group(2).strip()
@@ -561,7 +628,7 @@ class AgentsService:
 
         # Check for duplicates in the repo (.github/agents/<slug>.agent.md)
         try:
-            existing_file = await github_projects_service.get_file_content(
+            existing_file = await _gh_get_file_content(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -888,11 +955,7 @@ class AgentsService:
         if not row:
             raise LookupError(f"Agent '{agent_id}' not found.")
 
-        r = (
-            dict(row)
-            if isinstance(row, dict)
-            else dict(zip([d[0] for d in cursor.description], row, strict=False))
-        )
+        r = _row_to_dict(row, cursor)
 
         if r.get("lifecycle_status") != AgentStatus.IMPORTED.value:
             raise ValueError("Agent is not in imported state.")
@@ -1436,7 +1499,7 @@ class AgentsService:
             logger.error("Agent chat completion failed: %s", exc)
             raise
 
-        reply = response if isinstance(response, str) else str(response)
+        reply = str(response)
         history.append({"role": "assistant", "content": reply})
         _chat_sessions[sid] = history
         _chat_session_timestamps[sid] = time.monotonic()
@@ -1475,26 +1538,29 @@ class AgentsService:
             return None
 
         try:
-            config = json.loads(match.group(1))
-            if not isinstance(config, dict):
+            config_loaded = json.loads(match.group(1))
+            if not isinstance(config_loaded, dict):
                 return None
+            config = cast(dict[str, Any], config_loaded)
 
             name = config.get("name", "")
             if not isinstance(name, str) or not name.strip():
                 return None
-            tools = config.get("tools", [])
-            if not isinstance(tools, list):
+            raw_tools = config.get("tools", [])
+            if not isinstance(raw_tools, list):
                 return None
-            if not all(isinstance(t, str) and t.strip() for t in tools):
+            tools_list = cast(list[Any], raw_tools)
+            if not all(isinstance(t, str) and t.strip() for t in tools_list):
                 return None
+            tools: list[str] = [cast(str, t) for t in tools_list]
 
             slug = AgentPreview.name_to_slug(name)
             return AgentPreview(
                 name=name,
                 slug=slug,
-                description=config.get("description", ""),
-                system_prompt=config.get("system_prompt", ""),
-                status_column=config.get("status_column", ""),
+                description=str(config.get("description", "")),
+                system_prompt=str(config.get("system_prompt", "")),
+                status_column=str(config.get("status_column", "")),
                 tools=tools,
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
@@ -1510,7 +1576,7 @@ class AgentsService:
         owner: str,
         repo: str,
         access_token: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Use AI to enhance user input into a robust, well-structured agent definition.
 
         Reads existing agents from the repo as style references. Generates an enhanced
@@ -1573,11 +1639,13 @@ class AgentsService:
             text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
         try:
-            result = json.loads(text)
+            result = cast(dict[str, Any], json.loads(text))
             enhanced_prompt = str(result.get("system_prompt", system_prompt))
             desc = str(result.get("description", name))[:500]
             raw_tools = result.get("tools", [])
-            tools = [str(t) for t in raw_tools] if isinstance(raw_tools, list) else []
+            tools = (
+                [str(t) for t in cast(list[Any], raw_tools)] if isinstance(raw_tools, list) else []
+            )
             return {
                 "system_prompt": enhanced_prompt,
                 "description": desc,
@@ -1595,7 +1663,7 @@ class AgentsService:
     ) -> list[str]:
         """Read up to 3 existing .agent.md files from the repo as style references."""
         try:
-            entries = await github_projects_service.get_directory_contents(
+            entries = await _gh_get_directory_contents(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
@@ -1606,20 +1674,20 @@ class AgentsService:
 
         examples: list[str] = []
         for entry in entries:
-            name = entry.get("name", "")
+            name = str(entry.get("name", ""))
             if not name.endswith(".agent.md") or name == "copilot-instructions.md":
                 continue
             if len(examples) >= 3:
                 break
             try:
-                file_data = await github_projects_service.get_file_content(
+                file_data = await _gh_get_file_content(
                     access_token=access_token,
                     owner=owner,
                     repo=repo,
                     path=f".github/agents/{name}",
                 )
                 if file_data and file_data.get("content"):
-                    content = file_data["content"]
+                    content = str(file_data["content"])
                     # Trim to first 1500 chars to avoid token overload
                     examples.append(f"### {name}\n```\n{content[:1500]}\n```")
             except Exception as exc:
@@ -1634,7 +1702,7 @@ class AgentsService:
         name: str,
         system_prompt: str,
         access_token: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Use AI to generate a description and tools list from the system prompt.
 
         Returns ``{"description": str, "tools": list[str]}``.
@@ -1675,10 +1743,12 @@ class AgentsService:
             text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
         try:
-            result = json.loads(text)
+            result = cast(dict[str, Any], json.loads(text))
             desc = str(result.get("description", name))[:500]
             raw_tools = result.get("tools", [])
-            tools = [str(t) for t in raw_tools] if isinstance(raw_tools, list) else []
+            tools = (
+                [str(t) for t in cast(list[Any], raw_tools)] if isinstance(raw_tools, list) else []
+            )
             return {"description": desc, "tools": tools}
         except (json.JSONDecodeError, AttributeError):
             logger.warning("Could not parse AI metadata response: %s", text[:200])
@@ -1693,7 +1763,7 @@ class AgentsService:
         system_prompt: str,
         tools: list[str],
         access_token: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Use AI to generate detailed GitHub Issue body and PR body.
 
         Returns ``{"issue_body": str, "pr_body": str}``.
@@ -1746,7 +1816,7 @@ class AgentsService:
             text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
 
         try:
-            result = json.loads(text)
+            result = cast(dict[str, Any], json.loads(text))
             return {
                 "issue_body": str(result.get("issue_body", "")),
                 "pr_body": str(result.get("pr_body", "")),
@@ -1790,14 +1860,12 @@ class AgentsService:
         if not row:
             return None
 
-        r = (
-            dict(row)
-            if isinstance(row, dict)
-            else dict(zip([d[0] for d in cursor.description], row, strict=False))
-        )
-        tools = []
+        r = _row_to_dict(row, cursor)
+        tools: list[str] = []
         try:
-            tools = json.loads(r.get("tools", "[]"))
+            raw_tools = json.loads(r.get("tools", "[]"))
+            if isinstance(raw_tools, list):
+                tools = [str(t) for t in cast(list[Any], raw_tools)]
         except (json.JSONDecodeError, TypeError):
             pass
 

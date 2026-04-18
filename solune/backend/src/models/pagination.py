@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from pydantic import BaseModel, Field
 
 
@@ -15,7 +17,7 @@ class PaginationParams(BaseModel):
 class PaginatedResponse[T](BaseModel):
     """Generic paginated response envelope."""
 
-    items: list[T] = Field(default_factory=list)
+    items: list[T] = Field(default_factory=cast("type[list[T]]", list))
     next_cursor: str | None = Field(default=None)
     has_more: bool = Field(default=False)
     total_count: int | None = Field(default=None)

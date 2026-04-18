@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -15,7 +17,7 @@ class PipelineAgentNode(BaseModel):
     model_name: str = ""
     tool_ids: list[str] = Field(default_factory=list)
     tool_count: int = 0
-    config: dict = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict[str, Any])
 
 
 class ExecutionGroup(BaseModel):
@@ -24,7 +26,7 @@ class ExecutionGroup(BaseModel):
     id: str
     order: int = 0
     execution_mode: str = Field(default="sequential")
-    agents: list[PipelineAgentNode] = Field(default_factory=list)
+    agents: list[PipelineAgentNode] = Field(default_factory=list[PipelineAgentNode])
 
     @field_validator("execution_mode")
     @classmethod
@@ -40,8 +42,8 @@ class PipelineStage(BaseModel):
     id: str
     name: str = Field(..., min_length=1, max_length=100)
     order: int
-    groups: list[ExecutionGroup] = Field(default_factory=list)
-    agents: list[PipelineAgentNode] = Field(default_factory=list)
+    groups: list[ExecutionGroup] = Field(default_factory=list[ExecutionGroup])
+    agents: list[PipelineAgentNode] = Field(default_factory=list[PipelineAgentNode])
     execution_mode: str = Field(default="sequential")
 
     @field_validator("execution_mode")
@@ -59,7 +61,7 @@ class PipelineConfig(BaseModel):
     project_id: str
     name: str
     description: str = ""
-    stages: list[PipelineStage] = Field(default_factory=list)
+    stages: list[PipelineStage] = Field(default_factory=list[PipelineStage])
     is_preset: bool = False
     preset_id: str = ""
     created_at: str
@@ -71,7 +73,7 @@ class PipelineConfigCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     description: str = Field(default="", max_length=500)
-    stages: list[PipelineStage] = Field(default_factory=list)
+    stages: list[PipelineStage] = Field(default_factory=list[PipelineStage])
 
 
 class PipelineConfigUpdate(BaseModel):
@@ -93,7 +95,7 @@ class PipelineConfigSummary(BaseModel):
     total_tool_count: int = 0
     is_preset: bool = False
     preset_id: str = ""
-    stages: list[PipelineStage] = Field(default_factory=list)
+    stages: list[PipelineStage] = Field(default_factory=list[PipelineStage])
     updated_at: str
 
 

@@ -95,7 +95,7 @@ class RepoMcpConfigResponse(BaseModel):
     paths_checked: list[str] = Field(default_factory=list)
     available_paths: list[str] = Field(default_factory=list)
     primary_path: str | None = None
-    servers: list[RepoMcpServerConfig] = Field(default_factory=list)
+    servers: list[RepoMcpServerConfig] = Field(default_factory=list[RepoMcpServerConfig])
 
 
 class McpPresetResponse(BaseModel):
@@ -149,7 +149,7 @@ class ToolDeleteResult(BaseModel):
 
     success: bool
     deleted_id: str | None = None
-    affected_agents: list[AgentToolInfo] = Field(default_factory=list)
+    affected_agents: list[AgentToolInfo] = Field(default_factory=list[AgentToolInfo])
 
 
 # ── MCP Catalog Models ──

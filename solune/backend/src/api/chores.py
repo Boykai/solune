@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query
 
@@ -58,7 +58,7 @@ def _get_service() -> ChoresService:
 async def seed_presets(
     project_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Idempotently seed built-in chore presets for a project."""
     # Verify the authenticated user has access to this project
     await resolve_repository(session.access_token, project_id)
@@ -92,13 +92,16 @@ async def evaluate_triggers(
     except Exception as e:
         handle_service_error(e, "resolve repository for chore triggers")
 
-    result = await service.evaluate_triggers(
-        github_service=github_projects_service,
-        access_token=session.access_token,
-        owner=owner,
-        repo=repo,
-        project_id=project_id,
-        parent_issue_count=parent_issue_count,
+    result = cast(
+        "dict[str, Any]",
+        await cast(Any, service).evaluate_triggers(
+            github_service=github_projects_service,
+            access_token=session.access_token,
+            owner=owner,
+            repo=repo,
+            project_id=project_id,
+            parent_issue_count=parent_issue_count,
+        ),
     )
     return EvaluateChoreTriggersResponse(**result)
 
@@ -124,26 +127,34 @@ async def list_templates(
         )
         return []
 
-    entries = await github_projects_service.get_directory_contents(
-        session.access_token, owner, repo, ".github/ISSUE_TEMPLATE"
+    entries = cast(
+        "list[dict[str, Any]]",
+        await cast(Any, github_projects_service).get_directory_contents(
+            session.access_token, owner, repo, ".github/ISSUE_TEMPLATE"
+        ),
     )
     chore_files = [
         e
         for e in entries
-        if e.get("name", "").startswith("chore-") and e.get("name", "").endswith(".md")
+        if str(e.get("name", "")).startswith("chore-") and str(e.get("name", "")).endswith(".md")
     ]
 
     templates: list[ChoreTemplate] = []
     for entry in chore_files:
-        file_data = await github_projects_service.get_file_content(
-            session.access_token, owner, repo, entry["path"]
+        file_data = cast(
+            "dict[str, Any] | None",
+            await cast(Any, github_projects_service).get_file_content(
+                session.access_token, owner, repo, entry["path"]
+            ),
         )
         if not file_data:
             continue
-        raw = file_data["content"]
+        raw = str(file_data["content"])
 
         # Parse YAML front matter
-        tpl_name = entry["name"].replace("chore-", "").replace(".md", "").replace("-", " ").title()
+        tpl_name = (
+            str(entry["name"]).replace("chore-", "").replace(".md", "").replace("-", " ").title()
+        )
         about = ""
         fm_match = _re.match(r"^---\n(.*?)\n---", raw, _re.DOTALL)
         if fm_match:
@@ -157,7 +168,7 @@ async def list_templates(
             ChoreTemplate(
                 name=tpl_name,
                 about=about,
-                path=entry["path"],
+                path=str(entry["path"]),
                 content=raw,
             )
         )
@@ -205,7 +216,7 @@ async def list_chores(
         Query(description="Sort field"),
     ] = None,
     order: Annotated[Literal["asc", "desc"] | None, Query(description="Sort order")] = None,
-) -> list[Chore] | dict:
+) -> list[Chore] | dict[str, Any]:
     """List all chores for a project."""
     await resolve_repository(session.access_token, project_id)
     service = _get_service()
@@ -370,7 +381,7 @@ async def delete_chore(
     project_id: str,
     chore_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Remove a chore, closing any open associated issue."""
     service = _get_service()
 
@@ -533,14 +544,17 @@ async def inline_update_chore(
             ) from exc
 
     try:
-        result = await service.inline_update_chore(
-            chore_id,
-            body,
-            github_service=github_projects_service,
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            project_id=project_id,
+        result = cast(
+            "dict[str, Any]",
+            await cast(Any, service).inline_update_chore(
+                chore_id,
+                body,
+                github_service=github_projects_service,
+                access_token=session.access_token,
+                owner=owner,
+                repo=repo,
+                project_id=project_id,
+            ),
         )
     except ChoreConflictError as exc:
         raise AppException(
@@ -583,14 +597,17 @@ async def create_chore_with_merge(
         raise ValidationError("Could not resolve repository for this project") from exc
 
     try:
-        result = await service.create_chore_with_auto_merge(
-            project_id,
-            body,
-            github_service=github_projects_service,
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            github_user_id=session.github_user_id,
+        result = cast(
+            "dict[str, Any]",
+            await cast(Any, service).create_chore_with_auto_merge(
+                project_id,
+                body,
+                github_service=github_projects_service,
+                access_token=session.access_token,
+                owner=owner,
+                repo=repo,
+                github_user_id=session.github_user_id,
+            ),
         )
     except ValueError as exc:
         logger.warning("Invalid chore creation: %s", exc)

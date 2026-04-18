@@ -69,7 +69,7 @@ Web app structure (per plan.md). All edits live under `solune/backend/`, `solune
 
 ### Baseline measurement (do NOT commit)
 
-- [ ] T010 [US2] Apply the temporary `strict = [...]` edit from `quickstart.md` § Phase 2 baseline measurement, run `uv run pyright --outputjson`, and record per-tree error counts (`src/api`, `src/models`, `src/services/agents`) in the Phase 2 PR description. Discard the temporary edit (`git checkout -- pyproject.toml`). This drives the cheapest-first split decision per Phase 0 R5.
+- [X] T010 [US2] Apply the temporary `strict = [...]` edit from `quickstart.md` § Phase 2 baseline measurement, run `uv run pyright --outputjson`, and record per-tree error counts (`src/api`, `src/models`, `src/services/agents`) in the Phase 2 PR description. Discard the temporary edit (`git checkout -- pyproject.toml`). This drives the cheapest-first split decision per Phase 0 R5.
 
 ### Implementation per tree (each may be its own sub-PR)
 
@@ -77,27 +77,27 @@ Web app structure (per plan.md). All edits live under `solune/backend/`, `solune
 
 #### Tree A — `src/models/` (anticipated cheapest)
 
-- [ ] T011 [US2] Fix every strict-mode error Pyright reports under [solune/backend/src/models/](solune/backend/src/models/) when `strict = ["src/models"]` is locally enabled. Drive by Pyright output; preserve runtime behaviour. If a fix requires a third-party stub addition, place it under [solune/backend/src/typestubs/](solune/backend/src/typestubs/) (Phase 0 R6) — never add `# type: ignore` inside the floor.
-- [ ] T012 [US2] Re-run `uv run pyright` with the local `strict = ["src/models"]` override; MUST exit 0. Discard the local override before opening any sub-PR (the global commit happens in T020).
+- [X] T011 [US2] Fix every strict-mode error Pyright reports under [solune/backend/src/models/](solune/backend/src/models/) when `strict = ["src/models"]` is locally enabled. Drive by Pyright output; preserve runtime behaviour. If a fix requires a third-party stub addition, place it under [solune/backend/src/typestubs/](solune/backend/src/typestubs/) (Phase 0 R6) — never add `# type: ignore` inside the floor.
+- [X] T012 [US2] Re-run `uv run pyright` with the local `strict = ["src/models"]` override; MUST exit 0. Discard the local override before opening any sub-PR (the global commit happens in T020).
 
 #### Tree B — `src/api/`
 
-- [ ] T013 [P] [US2] Anticipated hotspot — type the `Depends()` return signatures in [solune/backend/src/api/chat.py](solune/backend/src/api/chat.py) (Phase 0 R5). Confirm by re-running Pyright with `strict = ["src/api"]` locally enabled.
-- [ ] T014 [P] [US2] Anticipated hotspot — annotate WebSocket payload types in [solune/backend/src/api/projects.py](solune/backend/src/api/projects.py); replace any `Any` on receive/send paths with the concrete payload type (Phase 0 R5).
-- [ ] T015 [US2] Fix every remaining strict-mode error Pyright reports under [solune/backend/src/api/](solune/backend/src/api/) with `strict = ["src/api"]` locally enabled. Same stub-not-ignore policy as T011.
-- [ ] T016 [US2] Re-run `uv run pyright` with the local `strict = ["src/api"]` override; MUST exit 0. Discard the local override.
+- [X] T013 [P] [US2] Anticipated hotspot — type the `Depends()` return signatures in [solune/backend/src/api/chat.py](solune/backend/src/api/chat.py) (Phase 0 R5). Confirm by re-running Pyright with `strict = ["src/api"]` locally enabled.
+- [X] T014 [P] [US2] Anticipated hotspot — annotate WebSocket payload types in [solune/backend/src/api/projects.py](solune/backend/src/api/projects.py); replace any `Any` on receive/send paths with the concrete payload type (Phase 0 R5).
+- [X] T015 [US2] Fix every remaining strict-mode error Pyright reports under [solune/backend/src/api/](solune/backend/src/api/) with `strict = ["src/api"]` locally enabled. Same stub-not-ignore policy as T011.
+- [X] T016 [US2] Re-run `uv run pyright` with the local `strict = ["src/api"]` override; MUST exit 0. Discard the local override.
 
 #### Tree C — `src/services/agents/`
 
-- [ ] T017 [US2] Anticipated hotspot — replace index-based `aiosqlite.Row` access with the typed accessor in [solune/backend/src/services/agents/service.py](solune/backend/src/services/agents/service.py) around line 71 (Phase 0 R5). Add a typed `Row` wrapper to [solune/backend/src/typestubs/](solune/backend/src/typestubs/) if needed.
-- [ ] T018 [US2] Fix every remaining strict-mode error Pyright reports under [solune/backend/src/services/agents/](solune/backend/src/services/agents/) with `strict = ["src/services/agents"]` locally enabled.
-- [ ] T019 [US2] Re-run `uv run pyright` with the local `strict = ["src/services/agents"]` override; MUST exit 0. Discard the local override.
+- [X] T017 [US2] Anticipated hotspot — replace index-based `aiosqlite.Row` access with the typed accessor in [solune/backend/src/services/agents/service.py](solune/backend/src/services/agents/service.py) around line 71 (Phase 0 R5). Add a typed `Row` wrapper to [solune/backend/src/typestubs/](solune/backend/src/typestubs/) if needed.
+- [X] T018 [US2] Fix every remaining strict-mode error Pyright reports under [solune/backend/src/services/agents/](solune/backend/src/services/agents/) with `strict = ["src/services/agents"]` locally enabled.
+- [X] T019 [US2] Re-run `uv run pyright` with the local `strict = ["src/services/agents"]` override; MUST exit 0. Discard the local override.
 
 ### Commit the floor (only after T012, T016, T019 are all green)
 
-- [ ] T020 [US2] Add `strict = ["src/api", "src/models", "src/services/agents"]` to `[tool.pyright]` in [solune/backend/pyproject.toml](solune/backend/pyproject.toml) per `contracts/pyright-config-contract.md` § C1 Phase 2 exemplar. Keep `typeCheckingMode = "standard"`.
-- [ ] T021 [US2] From `solune/backend/`, run `uv run pyright`; MUST exit 0. Run `uv run pyright --outputjson | jq -e '[.generalDiagnostics[] | select(.severity == "error")] | length == 0'`. Verify floor exclusivity: `! grep -rE '^# pyright:\s*(basic|off)\b' solune/backend/src/api solune/backend/src/models solune/backend/src/services/agents` (FR-005).
-- [ ] T022 [US2] Push a throwaway canary branch adding `def regress(x): pass` to a file under [solune/backend/src/api/](solune/backend/src/api/); confirm `uv run pyright` exits non-zero on that file. Delete the branch. Record output in the PR description (US2 Independent Test).
+- [X] T020 [US2] Add `strict = ["src/api", "src/models", "src/services/agents"]` to `[tool.pyright]` in [solune/backend/pyproject.toml](solune/backend/pyproject.toml) per `contracts/pyright-config-contract.md` § C1 Phase 2 exemplar. Keep `typeCheckingMode = "standard"`.
+- [X] T021 [US2] From `solune/backend/`, run `uv run pyright`; MUST exit 0. Run `uv run pyright --outputjson | jq -e '[.generalDiagnostics[] | select(.severity == "error")] | length == 0'`. Verify floor exclusivity: `! grep -rE '^# pyright:\s*(basic|off)\b' solune/backend/src/api solune/backend/src/models solune/backend/src/services/agents` (FR-005).
+- [X] T022 [US2] Push a throwaway canary branch adding `def regress(x): pass` to a file under [solune/backend/src/api/](solune/backend/src/api/); confirm `uv run pyright` exits non-zero on that file. Delete the branch. Record output in the PR description (US2 Independent Test).
 
 **Checkpoint**: Phase 2 PR(s) ready. Strict floor active; global mode still `"standard"`.
 

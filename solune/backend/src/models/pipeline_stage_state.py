@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -19,7 +21,7 @@ class PipelineStageState(BaseModel):
     started_at: str | None = None
     completed_at: str | None = None
     agent_id: str | None = None
-    output: dict | None = None
+    output: dict[str, Any] | None = None
     label_name: str | None = None
     error_message: str | None = None
     created_at: str = ""
@@ -33,6 +35,6 @@ class PipelineStageStateUpdate(BaseModel):
     started_at: str | None = None
     completed_at: str | None = None
     agent_id: str | None = None
-    output: dict | None = None
+    output: dict[str, Any] | None = None
     label_name: str | None = None
     error_message: str | None = None

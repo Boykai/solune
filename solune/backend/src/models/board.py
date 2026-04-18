@@ -180,9 +180,9 @@ class SubIssue(BaseModel):
     assigned_agent: str | None = Field(
         default=None, description="Agent slug assigned to this sub-issue"
     )
-    assignees: list[Assignee] = Field(default_factory=list, description="Assigned users")
+    assignees: list[Assignee] = Field(default_factory=list[Assignee], description="Assigned users")
     linked_prs: list[LinkedPR] = Field(
-        default_factory=list, description="PRs linked to this sub-issue"
+        default_factory=list[LinkedPR], description="PRs linked to this sub-issue"
     )
 
 
@@ -204,19 +204,19 @@ class BoardItem(BaseModel):
     body: str | None = Field(default=None, description="Issue body/description")
     status: str = Field(..., description="Current status option name")
     status_option_id: str = Field(..., description="Status option ID")
-    assignees: list[Assignee] = Field(default_factory=list, description="Assigned users")
+    assignees: list[Assignee] = Field(default_factory=list[Assignee], description="Assigned users")
     priority: CustomFieldValue | None = Field(
         default=None, description="Priority custom field value"
     )
     size: CustomFieldValue | None = Field(default=None, description="Size custom field value")
     estimate: float | None = Field(default=None, description="Estimate value (numeric)")
     linked_prs: list[LinkedPR] = Field(
-        default_factory=list, description="Pull requests linked to this issue"
+        default_factory=list[LinkedPR], description="Pull requests linked to this issue"
     )
     sub_issues: list[SubIssue] = Field(
-        default_factory=list, description="Sub-issues for agent work"
+        default_factory=list[SubIssue], description="Sub-issues for agent work"
     )
-    labels: list[Label] = Field(default_factory=list, description="GitHub issue labels")
+    labels: list[Label] = Field(default_factory=list[Label], description="GitHub issue labels")
     issue_type: str | None = Field(
         default=None,
         description="GitHub Issue Type name (e.g. 'Bug', 'Feature', 'Chore')",
@@ -231,7 +231,9 @@ class BoardColumn(BaseModel):
     """A board column representing a status with its items."""
 
     status: StatusOption = Field(..., description="Status option for this column")
-    items: list[BoardItem] = Field(default_factory=list, description="Items in this column")
+    items: list[BoardItem] = Field(
+        default_factory=list[BoardItem], description="Items in this column"
+    )
     item_count: int = Field(default=0, description="Total items in this column")
     estimate_total: float = Field(
         default=0.0, description="Sum of estimates for items in this column"

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from collections.abc import Awaitable, Callable
+from typing import Annotated, Any, cast
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Query, Request
@@ -11,8 +12,20 @@ from src.api.auth import get_session_dep
 from src.dependencies import get_database, verify_project_access
 from src.models.activity import ActivityStats
 from src.models.user import UserSession
-from src.services.activity_service import get_activity_stats
-from src.services.activity_service import query_events as _query_events
+from src.services import activity_service as _activity_service
+
+# The underlying service functions are typed as returning bare ``dict``; wrap
+# them in typed Callables so the strict floor sees concrete dict[str, Any]
+# results. ``cast`` accepts the raw callables (Any-typed via getattr) and
+# narrows them to the desired signatures.
+get_activity_stats: Callable[..., Awaitable[dict[str, Any]]] = cast(
+    "Callable[..., Awaitable[dict[str, Any]]]",
+    getattr(_activity_service, "get_activity_stats"),  # noqa: B009
+)
+_query_events: Callable[..., Awaitable[dict[str, Any]]] = cast(
+    "Callable[..., Awaitable[dict[str, Any]]]",
+    getattr(_activity_service, "query_events"),  # noqa: B009
+)
 
 router = APIRouter()
 
@@ -30,7 +43,7 @@ async def get_activity_feed(
         str | None, Query(description="Comma-separated event type filter")
     ] = None,
     db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
-) -> dict:
+) -> dict[str, Any]:
     """Paginated activity feed scoped to a project."""
     await verify_project_access(request, project_id, session)
     return await _query_events(
@@ -48,7 +61,7 @@ async def get_activity_stats_endpoint(
     session: Annotated[UserSession, Depends(get_session_dep)],
     project_id: Annotated[str, Query(description="Project ID to scope the stats")],
     db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
-) -> dict:
+) -> dict[str, Any]:
     """Aggregated activity statistics scoped to a project."""
     await verify_project_access(request, project_id, session)
     return await get_activity_stats(db, project_id=project_id)
@@ -64,7 +77,7 @@ async def get_entity_history(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     cursor: Annotated[str | None, Query(description="Pagination cursor")] = None,
     db: aiosqlite.Connection = Depends(get_database),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
-) -> dict:
+) -> dict[str, Any]:
     """Activity history for a specific entity."""
     if entity_type not in ALLOWED_ENTITY_TYPES:
         from src.exceptions import ValidationError

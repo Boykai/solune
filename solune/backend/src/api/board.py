@@ -585,6 +585,7 @@ async def get_board_data(
     if column_limit is not None or column_cursors is not None:
         import copy
         import json as _json
+        from typing import cast
 
         from src.services.pagination import apply_pagination
 
@@ -599,7 +600,8 @@ async def get_board_data(
                     raise ValidationError(
                         "column_cursors must be a JSON object mapping column IDs to cursor strings"
                     )
-                cursors_map = parsed
+                parsed_dict = cast("dict[Any, Any]", parsed)
+                cursors_map = {str(k): str(v) for k, v in parsed_dict.items()}
             except (ValueError, TypeError) as exc:
                 raise ValidationError(f"column_cursors is not valid JSON: {exc}") from exc
 

@@ -132,7 +132,7 @@ class AppAssetInventory(BaseModel):
     github_repo: str | None = None
     github_project_id: str | None = None
     parent_issue_number: int | None = None
-    sub_issues: list[int] = Field(default_factory=list)
+    sub_issues: list[int] = Field(default_factory=list[int])
     branches: list[str] = Field(default_factory=list)
     has_azure_secrets: bool = False
 

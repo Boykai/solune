@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -20,7 +20,7 @@ _SessionDep = Annotated[UserSession, Depends(get_session_dep)]
 async def list_templates_endpoint(
     _session: _SessionDep,
     category: Annotated[str | None, Query(description="Filter by category")] = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """List all available app templates."""
     cat: AppCategory | None = None
     if category:
@@ -39,7 +39,7 @@ async def list_templates_endpoint(
 async def get_template_endpoint(
     template_id: str,
     _session: _SessionDep,
-) -> dict:
+) -> dict[str, Any]:
     """Get detailed template information including file manifest."""
     template = get_template(template_id)
     if template is None:

@@ -1,7 +1,7 @@
 """Agent assignment and discovery models."""
 
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, BeforeValidator, Field
@@ -20,12 +20,12 @@ class AgentAssignment(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="Unique instance ID")
     slug: str = Field(..., description="Agent identifier slug")
     display_name: str | None = Field(default=None, description="Human-readable display name")
-    config: dict | None = Field(
+    config: dict[str, Any] | None = Field(
         default=None, description="Reserved for future per-assignment config"
     )
 
 
-def _coerce_agent(v: str | dict | AgentAssignment) -> AgentAssignment | dict:
+def _coerce_agent(v: str | dict[str, Any] | AgentAssignment) -> AgentAssignment | dict[str, Any]:
     """Accept a bare slug string and promote to AgentAssignment."""
     if isinstance(v, str):
         return AgentAssignment(slug=v)

@@ -8,7 +8,7 @@ import os
 import tempfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
@@ -45,6 +45,7 @@ from src.models.recommendation import (
 from src.models.user import UserSession
 from src.models.workflow import WorkflowConfiguration
 from src.services import ai_utilities
+from src.services import chat_store as _chat_store_module
 from src.services.cache import (
     cache,
     get_project_items_cache_key,
@@ -68,6 +69,12 @@ from src.utils import resolve_repository, utcnow
 logger = get_logger(__name__)
 router = APIRouter()
 
+# Several legacy services declare bare ``dict`` in their signatures, which the
+# strict floor flags as partially unknown. Re-binding the service objects to
+# Any-typed locals lets us call them without method-access errors.
+_chat_store_any: Any = _chat_store_module
+_ai_utilities_any: Any = ai_utilities
+
 # ── File upload validation constants ─────────────────────────────────────
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_FILES_PER_MESSAGE = 5
@@ -90,7 +97,7 @@ class FileUploadResponse(BaseModel):
 # ── SQLite-backed chat persistence ───────────────────────────────────────
 #
 # Chat messages, proposals, and recommendations are persisted to SQLite
-# via chat_store.py (tables from 023_consolidated_schema.sql).  In-memory
+# via _chat_store_any.py (tables from 023_consolidated_schema.sql).  In-memory
 # dicts act as a read-through cache backed by SQLite (single source of truth).
 # Writes go to SQLite first, then update the cache on success.
 
@@ -155,11 +162,10 @@ async def _retry_persist(
 
 async def _persist_message(session_id: UUID, message: ChatMessage) -> None:
     """Persist a chat message to SQLite with retry."""
-    from src.services import chat_store
 
     db = get_db()
     await _retry_persist(
-        chat_store.save_message,
+        _chat_store_any.save_message,
         db,
         session_id=str(session_id),
         message_id=str(message.message_id),
@@ -174,11 +180,10 @@ async def _persist_message(session_id: UUID, message: ChatMessage) -> None:
 
 async def _persist_proposal(proposal: AITaskProposal) -> None:
     """Persist a proposal to SQLite with retry."""
-    from src.services import chat_store
 
     db = get_db()
     await _retry_persist(
-        chat_store.save_proposal,
+        _chat_store_any.save_proposal,
         db,
         session_id=str(proposal.session_id),
         proposal_id=str(proposal.proposal_id),
@@ -198,11 +203,10 @@ async def _persist_proposal(proposal: AITaskProposal) -> None:
 
 async def _persist_recommendation(recommendation: IssueRecommendation) -> None:
     """Persist a recommendation to SQLite with retry."""
-    from src.services import chat_store
 
     db = get_db()
     await _retry_persist(
-        chat_store.save_recommendation,
+        _chat_store_any.save_recommendation,
         db,
         session_id=str(recommendation.session_id),
         recommendation_id=str(recommendation.recommendation_id),
@@ -234,10 +238,8 @@ async def get_proposal(proposal_id: str) -> AITaskProposal | None:
 
     # Slow path: load from SQLite
     try:
-        from src.services import chat_store
-
         db = get_db()
-        row = await chat_store.get_proposal_by_id(db, proposal_id)
+        row = await _chat_store_any.get_proposal_by_id(db, proposal_id)
         if row is None:
             return None
         from datetime import datetime as _dt
@@ -277,15 +279,15 @@ async def get_recommendation(recommendation_id: str) -> IssueRecommendation | No
 
     # Slow path: load from SQLite
     try:
-        from src.services import chat_store
-
         db = get_db()
-        row = await chat_store.get_recommendation_by_id(db, recommendation_id)
+        row = await _chat_store_any.get_recommendation_by_id(db, recommendation_id)
         if row is None:
             return None
         data = json.loads(row["data"]) if isinstance(row["data"], str) else row["data"]
         rec = IssueRecommendation.model_validate(data)
-        rec.status = RecommendationStatus(chat_store.recommendation_status_from_db(row["status"]))
+        rec.status = RecommendationStatus(
+            _chat_store_any.recommendation_status_from_db(row["status"])
+        )
         _recommendations[str(rec.recommendation_id)] = rec
         return rec
     except Exception:
@@ -421,7 +423,7 @@ async def _handle_transcript_upload(
 
         # Transcript detected — run through the Transcribe agent
         try:
-            metadata_context: dict | None = None
+            metadata_context: dict[str, Any] | None = None
             try:
                 owner, repo = await _resolve_repository(session)
                 from src.services.github_projects import github_projects_service
@@ -433,7 +435,7 @@ async def _handle_transcript_upload(
             except Exception as md_err:
                 logger.warning("Metadata fetch for transcript prompt failed: %s", md_err)
 
-            recommendation = await ai_utilities.analyze_transcript(
+            recommendation = await _ai_utilities_any.analyze_transcript(
                 transcript_content=content,
                 project_name=project_name,
                 session_id=str(session.session_id),
@@ -521,7 +523,7 @@ async def _handle_feature_request(
     Returns an assistant ChatMessage if the intent was a feature request, None otherwise.
     """
     try:
-        is_feature_request = await ai_utilities.detect_feature_request_intent(
+        is_feature_request = await _ai_utilities_any.detect_feature_request_intent(
             content, github_token=session.access_token
         )
     except Exception as e:
@@ -532,7 +534,7 @@ async def _handle_feature_request(
         return None
 
     try:
-        metadata_context: dict | None = None
+        metadata_context: dict[str, Any] | None = None
         try:
             owner, repo = await _resolve_repository(session)
             from src.services.github_projects import github_projects_service
@@ -544,7 +546,7 @@ async def _handle_feature_request(
         except Exception as md_err:
             logger.warning("Metadata fetch for prompt injection failed: %s", md_err)
 
-        recommendation = await ai_utilities.generate_issue_recommendation(
+        recommendation = await _ai_utilities_any.generate_issue_recommendation(
             user_input=content,
             project_name=project_name,
             session_id=str(session.session_id),
@@ -621,9 +623,9 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
 async def _handle_status_change(
     session: UserSession,
     content: str,
-    current_tasks: list,
+    current_tasks: list[Any],
     project_columns: list[str],
-    cached_projects: list | None,
+    cached_projects: list[Any] | None,
     selected_project_id: str,
     project_name: str,
 ) -> ChatMessage | None:
@@ -631,7 +633,7 @@ async def _handle_status_change(
 
     Returns an assistant ChatMessage if a status change was detected, None otherwise.
     """
-    status_change = await ai_utilities.parse_status_change_request(
+    status_change = await _ai_utilities_any.parse_status_change_request(
         user_input=content,
         available_tasks=[t.title for t in current_tasks],
         available_statuses=(project_columns or DEFAULT_STATUS_COLUMNS),
@@ -640,7 +642,7 @@ async def _handle_status_change(
     if not status_change:
         return None
 
-    target_task = ai_utilities.identify_target_task(
+    target_task = _ai_utilities_any.identify_target_task(
         task_reference=status_change.task_reference,
         available_tasks=current_tasks,
     )
@@ -710,7 +712,7 @@ async def _handle_task_generation(
     """
     if not ai_enhance:
         try:
-            title = await ai_utilities.generate_title_from_description(
+            title = await _ai_utilities_any.generate_title_from_description(
                 user_input=content,
                 project_name=project_name,
                 github_token=session.access_token,
@@ -757,7 +759,7 @@ async def _handle_task_generation(
 
     # Full AI pipeline: generate both title and description via AI
     try:
-        generated = await ai_utilities.generate_task_from_description(
+        generated = await _ai_utilities_any.generate_task_from_description(
             user_input=content,
             project_name=project_name,
             github_token=session.access_token,
@@ -856,11 +858,9 @@ async def get_session_messages(session_id: UUID) -> list[ChatMessage]:
 
     # Load from SQLite on cache miss
     try:
-        from src.services import chat_store
-
         db = get_db()
-        rows = await chat_store.get_messages(db, key)
-        messages = []
+        rows = cast("list[dict[str, Any]]", await _chat_store_any.get_messages(db, key))
+        messages: list[ChatMessage] = []
         for row in rows:
             action_data = None
             if row.get("action_data"):
@@ -937,11 +937,10 @@ async def create_conversation(
     body: ConversationCreateRequest = Body(default_factory=ConversationCreateRequest),  # noqa: B008 — reason: FastAPI Depends() pattern — evaluated per-request, not at import time
 ) -> Conversation:
     """Create a new conversation for the current session."""
-    from src.services import chat_store
 
     db = get_db()
     conv_id = str(uuid4())
-    row = await chat_store.save_conversation(
+    row = await _chat_store_any.save_conversation(
         db,
         session_id=str(session.session_id),
         conversation_id=conv_id,
@@ -961,10 +960,9 @@ async def list_conversations(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> ConversationsListResponse:
     """List conversations for the current session."""
-    from src.services import chat_store
 
     db = get_db()
-    rows = await chat_store.get_conversations(db, str(session.session_id))
+    rows = await _chat_store_any.get_conversations(db, str(session.session_id))
     conversations = [
         Conversation(
             conversation_id=r["conversation_id"],
@@ -985,16 +983,15 @@ async def update_conversation(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> Conversation:
     """Update a conversation title."""
-    from src.services import chat_store
 
     db = get_db()
     # Verify ownership before updating
-    existing = await chat_store.get_conversation_by_id(db, conversation_id)
+    existing = await _chat_store_any.get_conversation_by_id(db, conversation_id)
     if existing is None:
         raise NotFoundError(f"Conversation {conversation_id} not found")
     if existing["session_id"] != str(session.session_id):
         raise NotFoundError(f"Conversation {conversation_id} not found")
-    row = await chat_store.update_conversation(db, conversation_id, body.title)
+    row = await _chat_store_any.update_conversation(db, conversation_id, body.title)
     if row is None:
         raise NotFoundError(f"Conversation {conversation_id} not found")
     return Conversation(
@@ -1012,16 +1009,15 @@ async def delete_conversation(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ) -> dict[str, str]:
     """Delete a conversation."""
-    from src.services import chat_store
 
     db = get_db()
     # Verify ownership before deleting
-    existing = await chat_store.get_conversation_by_id(db, conversation_id)
+    existing = await _chat_store_any.get_conversation_by_id(db, conversation_id)
     if existing is None:
         raise NotFoundError(f"Conversation {conversation_id} not found")
     if existing["session_id"] != str(session.session_id):
         raise NotFoundError(f"Conversation {conversation_id} not found")
-    await chat_store.delete_conversation(db, conversation_id)
+    await _chat_store_any.delete_conversation(db, conversation_id)
     return {"message": f"Conversation {conversation_id} deleted"}
 
 
@@ -1040,15 +1036,14 @@ async def get_messages(
     When *conversation_id* is provided, only messages for that conversation
     are returned.
     """
-    from src.services import chat_store
 
     limit = max(1, min(limit, 200))
     offset = max(0, offset)
     key = str(session.session_id)
 
     db = get_db()
-    total = await chat_store.count_messages(db, key, conversation_id=conversation_id)
-    rows = await chat_store.get_messages(
+    total = await _chat_store_any.count_messages(db, key, conversation_id=conversation_id)
+    rows = await _chat_store_any.get_messages(
         db, key, limit=limit, offset=offset, conversation_id=conversation_id
     )
     paginated: list[ChatMessage] = []
@@ -1088,10 +1083,8 @@ async def clear_messages(
     key = str(session.session_id)
     _messages.pop(key, None)
     try:
-        from src.services import chat_store
-
         db = get_db()
-        await chat_store.clear_messages(db, key, conversation_id=conversation_id)
+        await _chat_store_any.clear_messages(db, key, conversation_id=conversation_id)
     except Exception:
         logger.warning("Failed to clear messages from SQLite", exc_info=True)
     return {"message": "Chat history cleared"}
@@ -1105,11 +1098,9 @@ async def _validate_chat_conversation(
     if conversation_id is None:
         return
 
-    from src.services import chat_store
-
     try:
         db = get_db()
-        conversation = await chat_store.get_conversation_by_id(db, str(conversation_id))
+        conversation = await _chat_store_any.get_conversation_by_id(db, str(conversation_id))
     except Exception as exc:
         handle_service_error(exc, "validate conversation")
 
@@ -1224,7 +1215,7 @@ async def send_message(
 
     # Get current tasks for context
     tasks_cache_key = get_project_items_cache_key(selected_project_id)
-    current_tasks = cache.get(tasks_cache_key) or []
+    current_tasks: list[Any] = cache.get(tasks_cache_key) or []
 
     # ── Priority 0: #agent command — custom agent creation ──────────
     agent_msg = await _handle_agent_command(
@@ -1427,7 +1418,7 @@ async def _post_process_agent_response(
     project_name: str,
     pipeline_id: str | None,
     file_urls: list[str] | None,
-    cached_projects: list | None,
+    cached_projects: list[Any] | None,
     selected_project_id: str,
     user_content: str = "",
 ) -> ChatMessage:
@@ -1584,7 +1575,7 @@ async def send_message_stream(
                 break
 
     tasks_cache_key = get_project_items_cache_key(selected_project_id)
-    current_tasks = cache.get(tasks_cache_key) or []
+    current_tasks: list[Any] = cache.get(tasks_cache_key) or []
 
     # Extract transcript content from uploaded files (mirrors non-streaming path)
     stream_message = chat_request.content
@@ -1661,10 +1652,10 @@ async def confirm_proposal(
     if proposal.is_expired:
         proposal.status = ProposalStatus.CANCELLED
         try:
-            from src.services import chat_store
-
             db = get_db()
-            await chat_store.update_proposal_status(db, proposal_id, ProposalStatus.CANCELLED.value)
+            await _chat_store_any.update_proposal_status(
+                db, proposal_id, ProposalStatus.CANCELLED.value
+            )
         except Exception:
             logger.warning("Failed to update expired proposal status in SQLite", exc_info=True)
         raise ValidationError("Proposal has expired")
@@ -1713,13 +1704,16 @@ async def confirm_proposal(
     # Create the issue in GitHub
     try:
         # Step 1: Create a real GitHub Issue via REST API
-        issue = await github_projects_service.create_issue(
-            access_token=session.access_token,
-            owner=owner,
-            repo=repo,
-            title=proposal.final_title,
-            body=body,
-            labels=[],
+        issue = cast(
+            "dict[str, Any]",
+            await cast(Any, github_projects_service).create_issue(
+                access_token=session.access_token,
+                owner=owner,
+                repo=repo,
+                title=proposal.final_title,
+                body=body,
+                labels=[],
+            ),
         )
 
         issue_number = issue["number"]
@@ -1728,7 +1722,7 @@ async def confirm_proposal(
         issue_database_id = issue["id"]  # Integer database ID for REST API fallback
 
         # Step 2: Add the issue to the project
-        item_id = await github_projects_service.add_issue_to_project(
+        item_id = await cast(Any, github_projects_service).add_issue_to_project(
             access_token=session.access_token,
             project_id=project_id,
             issue_node_id=issue_node_id,
@@ -1737,10 +1731,8 @@ async def confirm_proposal(
 
         proposal.status = ProposalStatus.CONFIRMED
         try:
-            from src.services import chat_store
-
             db = get_db()
-            await chat_store.update_proposal_status(
+            await _chat_store_any.update_proposal_status(
                 db,
                 proposal_id,
                 ProposalStatus.CONFIRMED.value,
@@ -1754,7 +1746,7 @@ async def confirm_proposal(
         cache.delete(get_project_items_cache_key(project_id))
 
         # Broadcast WebSocket message to connected clients
-        await connection_manager.broadcast_to_project(
+        await cast(Any, connection_manager).broadcast_to_project(
             project_id,
             {
                 "type": "task_created",
@@ -1872,7 +1864,7 @@ async def confirm_proposal(
 
             # Set issue status to Backlog on the project
             backlog_status = config.status_backlog
-            await github_projects_service.update_item_status_by_name(
+            await cast(Any, github_projects_service).update_item_status_by_name(
                 access_token=session.access_token,
                 project_id=project_id,
                 item_id=item_id,
@@ -1929,7 +1921,7 @@ async def confirm_proposal(
 
             # Send agent_assigned WebSocket notification
             if launch_result.initial_agent and not launch_result.error:
-                await connection_manager.broadcast_to_project(
+                await cast(Any, connection_manager).broadcast_to_project(
                     project_id,
                     {
                         "type": "agent_assigned",
@@ -1958,7 +1950,7 @@ async def confirm_proposal(
 async def cancel_proposal(
     proposal_id: str,
     session: Annotated[UserSession, Depends(get_session_dep)],
-) -> dict:
+) -> dict[str, Any]:
     """Cancel an AI task proposal."""
     proposal = await get_proposal(proposal_id)
 
@@ -1970,10 +1962,10 @@ async def cancel_proposal(
 
     proposal.status = ProposalStatus.CANCELLED
     try:
-        from src.services import chat_store
-
         db = get_db()
-        await chat_store.update_proposal_status(db, proposal_id, ProposalStatus.CANCELLED.value)
+        await _chat_store_any.update_proposal_status(
+            db, proposal_id, ProposalStatus.CANCELLED.value
+        )
     except Exception:
         logger.warning("Failed to update proposal status in SQLite", exc_info=True)
 
@@ -2274,10 +2266,9 @@ async def get_plan_endpoint(
 ):
     """Retrieve a plan with all steps."""
     from src.models.plan import PlanResponse, PlanStepResponse
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
@@ -2325,13 +2316,12 @@ async def update_plan_endpoint(
 ):
     """Update plan metadata (title and/or summary)."""
     from src.models.plan import PlanResponse, PlanStepResponse, PlanUpdateRequest
-    from src.services import chat_store
 
     body = await request.json()
     update_req = PlanUpdateRequest(**body)
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2342,8 +2332,10 @@ async def update_plan_endpoint(
             content={"detail": "Only draft plans can be updated."},
         )
 
-    await chat_store.update_plan(db, plan_id, title=update_req.title, summary=update_req.summary)
-    updated = await chat_store.get_plan(db, plan_id)
+    await _chat_store_any.update_plan(
+        db, plan_id, title=update_req.title, summary=update_req.summary
+    )
+    updated = await _chat_store_any.get_plan(db, plan_id)
     if updated is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found after update."})
     steps = [
@@ -2384,11 +2376,10 @@ async def approve_plan_endpoint(
     """Approve a plan and launch it through the shared parent-issue pipeline flow."""
     from src.api.pipelines import execute_pipeline_launch
     from src.models.plan import PlanApprovalResponse, PlanStepResponse
-    from src.services import chat_store
     from src.services.plan_issue_service import format_plan_issue_markdown
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2405,7 +2396,7 @@ async def approve_plan_endpoint(
         )
 
     # Set status to approved before creating issues
-    await chat_store.update_plan_status(db, plan_id, "approved")
+    await _chat_store_any.update_plan_status(db, plan_id, "approved")
 
     try:
         workflow_result = await execute_pipeline_launch(
@@ -2416,7 +2407,7 @@ async def approve_plan_endpoint(
         )
     except Exception:
         logger.error("Plan issue creation failed", exc_info=True)
-        await chat_store.update_plan_status(db, plan_id, "failed")
+        await _chat_store_any.update_plan_status(db, plan_id, "failed")
         return JSONResponse(
             status_code=502,
             content={
@@ -2428,7 +2419,7 @@ async def approve_plan_endpoint(
         )
 
     if workflow_result.issue_number and workflow_result.issue_url:
-        await chat_store.update_plan_parent_issue(
+        await _chat_store_any.update_plan_parent_issue(
             db,
             plan_id,
             workflow_result.issue_number,
@@ -2436,7 +2427,7 @@ async def approve_plan_endpoint(
         )
 
     if not workflow_result.issue_number:
-        await chat_store.update_plan_status(db, plan_id, "failed")
+        await _chat_store_any.update_plan_status(db, plan_id, "failed")
         return JSONResponse(
             status_code=502,
             content={
@@ -2455,7 +2446,7 @@ async def approve_plan_endpoint(
             workflow_result.message,
         )
 
-    await chat_store.update_plan_status(db, plan_id, "completed")
+    await _chat_store_any.update_plan_status(db, plan_id, "completed")
 
     if workflow_result.issue_number and workflow_result.issue_url:
         confirmation_prefix = (
@@ -2486,7 +2477,7 @@ async def approve_plan_endpoint(
         _trigger_signal_delivery(session, confirm_message)
 
     # Re-fetch for accurate state
-    updated_plan = await chat_store.get_plan(db, plan_id)
+    updated_plan = await _chat_store_any.get_plan(db, plan_id)
     steps = [
         PlanStepResponse(
             step_id=s["step_id"],
@@ -2515,10 +2506,9 @@ async def exit_plan_mode_endpoint(
 ):
     """Exit plan mode and return to normal chat."""
     from src.models.plan import PlanExitResponse
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2583,16 +2573,15 @@ async def get_plan_history_endpoint(
 ):
     """Retrieve version history for a plan, ordered by version descending."""
     from src.models.plan import PlanHistoryResponse, PlanVersionResponse
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
-    versions = await chat_store.get_plan_versions(db, plan_id)
+    versions = await _chat_store_any.get_plan_versions(db, plan_id)
     return PlanHistoryResponse(
         plan_id=plan_id,
         current_version=plan.get("version", 1),
@@ -2619,10 +2608,9 @@ async def add_plan_step_endpoint(
 ):
     """Add a new step to a plan."""
     from src.models.plan import PlanStepResponse, StepCreateRequest
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2635,7 +2623,7 @@ async def add_plan_step_endpoint(
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
-        step = await chat_store.add_plan_step(
+        step = await _chat_store_any.add_plan_step(
             db,
             plan_id,
             title=req.title,
@@ -2672,10 +2660,9 @@ async def update_plan_step_endpoint(
 ):
     """Update an existing plan step."""
     from src.models.plan import PlanStepResponse, StepUpdateRequest
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2688,7 +2675,7 @@ async def update_plan_step_endpoint(
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
-        step = await chat_store.update_plan_step(
+        step = await _chat_store_any.update_plan_step(
             db,
             plan_id,
             step_id,
@@ -2720,17 +2707,16 @@ async def delete_plan_step_endpoint(
     session: Annotated[UserSession, Depends(get_session_dep)],
 ):
     """Delete a plan step."""
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
     try:
-        deleted = await chat_store.delete_plan_step(db, plan_id, step_id)
+        deleted = await _chat_store_any.delete_plan_step(db, plan_id, step_id)
     except ValueError as e:
         status, detail = _safe_validation_detail(e)
         return JSONResponse(status_code=status, content={"detail": detail})
@@ -2749,10 +2735,9 @@ async def reorder_plan_steps_endpoint(
 ):
     """Reorder plan steps with DAG re-validation."""
     from src.models.plan import PlanStepResponse, StepReorderRequest
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2765,7 +2750,7 @@ async def reorder_plan_steps_endpoint(
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
-        reordered = await chat_store.reorder_plan_steps(db, plan_id, req.step_ids)
+        reordered = await _chat_store_any.reorder_plan_steps(db, plan_id, req.step_ids)
     except ValueError as e:
         status, detail = _safe_validation_detail(e)
         return JSONResponse(status_code=status, content={"detail": detail})
@@ -2774,7 +2759,7 @@ async def reorder_plan_steps_endpoint(
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
     # Re-fetch the plan to return the updated steps in new order
-    updated_plan = await chat_store.get_plan(db, plan_id)
+    updated_plan = await _chat_store_any.get_plan(db, plan_id)
     if updated_plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
 
@@ -2800,10 +2785,9 @@ async def approve_plan_step_endpoint(
 ):
     """Update the approval status of a single plan step."""
     from src.models.plan import PlanStepResponse, StepApprovalRequest
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2816,7 +2800,7 @@ async def approve_plan_step_endpoint(
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
-        updated = await chat_store.update_step_approval(
+        updated = await _chat_store_any.update_step_approval(
             db, plan_id, step_id, req.approval_status.value
         )
     except ValueError as e:
@@ -2827,7 +2811,7 @@ async def approve_plan_step_endpoint(
         return JSONResponse(status_code=404, content={"detail": "Step not found."})
 
     # Re-fetch step to return full response
-    updated_plan = await chat_store.get_plan(db, plan_id)
+    updated_plan = await _chat_store_any.get_plan(db, plan_id)
     step_data = None
     if updated_plan:
         for s in updated_plan.get("steps", []):
@@ -2863,10 +2847,9 @@ async def submit_step_feedback_endpoint(
     Copilot SDK upgrade lands.
     """
     from src.models.plan import StepFeedbackRequest, StepFeedbackResponse
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
@@ -2901,10 +2884,9 @@ async def export_plan_endpoint(
     format: str = "markdown",
 ):
     """Export a plan as markdown or GitHub issues format."""
-    from src.services import chat_store
 
     db = get_db()
-    plan = await chat_store.get_plan(db, plan_id)
+    plan = await _chat_store_any.get_plan(db, plan_id)
     if plan is None:
         return JSONResponse(status_code=404, content={"detail": "Plan not found."})
     if plan["session_id"] != str(session.session_id):
