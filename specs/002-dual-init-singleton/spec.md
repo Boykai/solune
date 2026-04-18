@@ -86,7 +86,7 @@ A contributor is debugging a test failure caused by stale cached data. Today, th
 
 ### Functional Requirements
 
-- **FR-001**: System MUST register every service singleton (GitHubProjectsService, ConnectionManager, ChatAgentService, PipelineRunService, GitHubAuthService, AlertDispatcher) as a named attribute on `app.state` during the application lifespan startup.
+- **FR-001**: System MUST register every service singleton as a named attribute on `app.state` during the application lifespan startup. The current inventory includes GitHubProjectsService, ConnectionManager, ChatAgentService, PipelineRunService, GitHubAuthService, and AlertDispatcher; any additional singletons discovered during implementation must follow the same pattern.
 - **FR-002**: System MUST provide a `Depends()`-compatible accessor function in `dependencies.py` for every service singleton that reads exclusively from `request.app.state` with no module-level global fallback.
 - **FR-003**: System MUST reduce former module-level global variables for service singletons to `None` sentinel values (or remove them entirely) so that no production code path reads from them.
 - **FR-004**: System MUST provide a resettable state registry mechanism (e.g., `@resettable_state` decorator) that allows any piece of mutable state to register itself for automatic reset between tests.
