@@ -10,5 +10,6 @@ class PipelineCacheStep:
     async def run(self, ctx: StartupContext) -> None:
         from src.services.pipeline_state_store import init_pipeline_state_store
 
-        assert ctx.db is not None, "database step must run before pipeline_cache"
+        if ctx.db is None:
+            raise RuntimeError("database step must run before pipeline_cache")
         await init_pipeline_state_store(ctx.db)

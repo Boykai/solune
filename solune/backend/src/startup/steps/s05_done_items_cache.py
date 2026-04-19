@@ -10,5 +10,6 @@ class DoneItemsCacheStep:
     async def run(self, ctx: StartupContext) -> None:
         from src.services.done_items_store import init_done_items_store
 
-        assert ctx.db is not None, "database step must run before done_items_cache"
+        if ctx.db is None:
+            raise RuntimeError("database step must run before done_items_cache")
         await init_done_items_store(ctx.db)

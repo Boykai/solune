@@ -161,7 +161,7 @@
 ### Validation for User Story 5
 
 - [x] T049 [US5] Verify `main.py` contains ≤ 250 lines (SC-002) — trim any remaining dead code, unused imports, or orphaned comments in `solune/backend/src/main.py`
-- [x] T050 [US5] Verify no single file in `src/startup/` exceeds 120 lines (SC-003) — split any oversized module if needed under `solune/backend/src/startup/`
+- [ ] T050 [US5] Verify no single file in `src/startup/` exceeds 120 lines (SC-003) — split any oversized module if needed under `solune/backend/src/startup/`
 
 **Checkpoint**: Line-count targets met. `main.py` ≤ 250 lines, all startup files ≤ 120 lines.
 
