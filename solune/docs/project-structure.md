@@ -29,12 +29,13 @@ backend/
 │   ├── models/             # Pydantic request/response/domain models
 │   ├── prompts/            # AI prompt templates
 │   ├── services/           # Business logic and integrations
+│   ├── startup/            # Declarative startup step runner and 15 named steps
 │   ├── config.py           # Environment settings schema
 │   ├── constants.py        # Shared constants and labels
 │   ├── dependencies.py     # FastAPI dependency helpers
 │   ├── exceptions.py       # AppException hierarchy
 │   ├── logging_utils.py    # Structured logging helpers
-│   ├── main.py             # App factory and startup lifecycle
+│   ├── main.py             # App factory and lifespan orchestrator
 │   └── utils.py            # Shared utility functions
 └── tests/
     ├── architecture/
