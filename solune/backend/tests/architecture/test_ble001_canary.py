@@ -2,7 +2,7 @@
 
 Verifies that:
 1. An untagged ``except Exception`` handler triggers a BLE001 violation.
-2. A tagged handler with ``# noqa: BLE001`` suppresses the violation.
+2. A tagged handler with a BLE001 noqa directive suppresses the violation.
 3. Narrowed exception types do not trigger BLE001.
 4. BLE001 is not explicitly ignored in pyproject.toml.
 
@@ -76,7 +76,7 @@ class TestBLE001LintCanary:
             Path(canary_path).unlink(missing_ok=True)
 
     def test_tagged_except_exception_passes_ble001(self):
-        """A file with `# noqa: BLE001` on the handler must pass cleanly."""
+        """A file with a BLE001 noqa directive on the handler must pass cleanly."""
         canary_code = textwrap.dedent("""\
             try:
                 x = 1
