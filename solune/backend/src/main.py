@@ -708,7 +708,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
         try:
             _app.state.chat_agent_service = ChatAgentService()
-        except Exception:  # noqa: BLE001 — reason: fail-fast startup; logged before re-raise
+        except Exception:
             logger.critical("Failed to initialise ChatAgentService", exc_info=True)
             raise
 
@@ -718,7 +718,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 
         try:
             _app.state.pipeline_run_service = PipelineRunService(db)
-        except Exception:  # noqa: BLE001 — reason: fail-fast startup; logged before re-raise
+        except Exception:
             logger.critical("Failed to initialise PipelineRunService", exc_info=True)
             raise
 

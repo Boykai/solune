@@ -1,12 +1,12 @@
 """FastAPI dependency-injection helpers.
 
 Provide singleton services stored on ``app.state`` to endpoint handlers via
-``Depends()``.  The lifespan in ``main.py`` is responsible for registering
+``Depends()``. The lifespan in ``main.py`` is responsible for registering
 instances on ``app.state`` at startup.
 
-During the transition period, each getter falls back to the module-level
-global when ``app.state`` has not yet been populated (e.g. in tests that
-don't go through the full lifespan).
+Legacy getters for GitHub, WebSocket, and database access still fall back to
+module-level globals during the transition. New singleton accessors are
+``app.state``-only and fail fast with a clear error when startup has not run.
 """
 
 from __future__ import annotations
@@ -32,6 +32,17 @@ if TYPE_CHECKING:
     from src.services.websocket import ConnectionManager
 
 logger = get_logger(__name__)
+
+
+def _get_required_app_state_attr(request: Request, attr: str, service_name: str) -> object:
+    """Return a required ``app.state`` attribute or raise a clear startup error."""
+    try:
+        return getattr(request.app.state, attr)
+    except AttributeError as exc:
+        raise RuntimeError(
+            f"{service_name} is not initialised on app.state; "
+            "did you forget to run lifespan startup?"
+        ) from exc
 
 
 def get_github_service(request: Request) -> GitHubProjectsService:
@@ -67,22 +78,22 @@ def get_database(request: Request) -> aiosqlite.Connection:
 
 def get_chat_agent_service(request: Request) -> ChatAgentService:
     """Return the singleton :class:`ChatAgentService` from ``app.state``."""
-    return request.app.state.chat_agent_service  # type: ignore[no-any-return]
+    return _get_required_app_state_attr(request, "chat_agent_service", "ChatAgentService")  # type: ignore[no-any-return]
 
 
 def get_pipeline_run_service(request: Request) -> PipelineRunService:
     """Return the singleton :class:`PipelineRunService` from ``app.state``."""
-    return request.app.state.pipeline_run_service  # type: ignore[no-any-return]
+    return _get_required_app_state_attr(request, "pipeline_run_service", "PipelineRunService")  # type: ignore[no-any-return]
 
 
 def get_github_auth_service(request: Request) -> GitHubAuthService:
     """Return the singleton :class:`GitHubAuthService` from ``app.state``."""
-    return request.app.state.github_auth_service  # type: ignore[no-any-return]
+    return _get_required_app_state_attr(request, "github_auth_service", "GitHubAuthService")  # type: ignore[no-any-return]
 
 
 def get_alert_dispatcher(request: Request) -> AlertDispatcher:
     """Return the singleton :class:`AlertDispatcher` from ``app.state``."""
-    return request.app.state.alert_dispatcher  # type: ignore[no-any-return]
+    return _get_required_app_state_attr(request, "alert_dispatcher", "AlertDispatcher")  # type: ignore[no-any-return]
 
 
 def _get_session_dep():

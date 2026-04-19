@@ -118,15 +118,15 @@ class TestServiceGetters:
 
         assert get_alert_dispatcher(request) is dispatcher
 
-    # ── new accessors raise when app.state attribute is missing ──────────
+    # ── new accessors fail fast when app.state attribute is missing ──────
 
     def test_get_chat_agent_service_raises_when_missing(self):
-        """New-style accessors have no fallback — missing attr raises."""
+        """New-style accessors raise a clear startup error."""
         from src.dependencies import get_chat_agent_service
 
         request = _request_with_state()
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(RuntimeError, match="ChatAgentService is not initialised"):
             get_chat_agent_service(request)
 
     def test_get_pipeline_run_service_raises_when_missing(self):
@@ -134,7 +134,7 @@ class TestServiceGetters:
 
         request = _request_with_state()
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(RuntimeError, match="PipelineRunService is not initialised"):
             get_pipeline_run_service(request)
 
     def test_get_github_auth_service_raises_when_missing(self):
@@ -142,7 +142,7 @@ class TestServiceGetters:
 
         request = _request_with_state()
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(RuntimeError, match="GitHubAuthService is not initialised"):
             get_github_auth_service(request)
 
     def test_get_alert_dispatcher_raises_when_missing(self):
@@ -150,7 +150,7 @@ class TestServiceGetters:
 
         request = _request_with_state()
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(RuntimeError, match="AlertDispatcher is not initialised"):
             get_alert_dispatcher(request)
 
     @pytest.mark.asyncio
