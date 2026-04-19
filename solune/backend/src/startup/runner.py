@@ -152,13 +152,15 @@ async def run_shutdown(
         results.append(StepOutcome("shutdown-stop-polling", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-stop-polling failed: %s", exc, exc_info=True)
 
-    # 3. Close database
+    # 3. Close database (unconditional — close_database() is a no-op when
+    #    _connection is None, and gating on ctx.db can miss the module-level
+    #    connection when init_database() succeeded but the step failed before
+    #    assigning ctx.db)
     start = time.perf_counter()
     try:
-        if ctx.db is not None:
-            from src.services.database import close_database
+        from src.services.database import close_database
 
-            await close_database()
+        await close_database()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "ok", duration_ms, None))
     except (asyncio.CancelledError, Exception) as exc:
