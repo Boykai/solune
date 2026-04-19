@@ -45,7 +45,7 @@ class McpAuthMiddleware:
             if token:
                 try:
                     access_token = await self.verifier.verify_token(token)
-                except Exception as exc:  # noqa: BLE001 — reason: MCP middleware resilience; failure logged, request continues
+                except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
                     logger.warning("MCP token verification failed: %s", exc, exc_info=True)
                     await self._send_unauthorized(send)
                     return

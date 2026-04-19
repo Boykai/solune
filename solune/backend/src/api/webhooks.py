@@ -56,7 +56,7 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
         for issue_num, info in issue_main_branches.items():
             if info.get("pr_number") == pr_number:
                 return issue_num
-    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         logger.debug("_resolve_issue_for_pr failed", exc_info=True)
     return None
 
@@ -102,7 +102,7 @@ async def _get_auto_merge_pipeline(
                         "devops_attempts": 0,
                         "devops_active": False,
                     }
-            except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.debug("L2 SQLite fallback failed for issue %s", issue_number, exc_info=True)
 
         # Step C: Project-level fallback (state already removed, but project has auto-merge)
@@ -133,7 +133,7 @@ async def _get_auto_merge_pipeline(
                     branch_info = issue_main_branches.get(issue_number)
                     if branch_info:
                         project_id = cast("str | None", branch_info.get("project_id"))
-                except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+                except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.debug("_issue_main_branches lookup failed", exc_info=True)
 
             if project_id:
@@ -144,9 +144,9 @@ async def _get_auto_merge_pipeline(
                         "devops_attempts": 0,
                         "devops_active": False,
                     }
-        except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug("Step C project-level fallback failed for issue %s", issue_number, exc_info=True)
-    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         logger.debug("_get_auto_merge_pipeline failed for issue %s", issue_number, exc_info=True)
     return None
 
