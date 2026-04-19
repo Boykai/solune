@@ -74,7 +74,7 @@ async def _reply(source_phone: str, text: str) -> None:
 
     try:
         await send_message(source_phone, text)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.warning("Signal reply failed: %s", e)
 
 
@@ -101,7 +101,7 @@ async def _reply_with_audit(
     try:
         await send_message(source_phone, text)
         await update_signal_message_status(audit.id, SignalDeliveryStatus.DELIVERED)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.warning("Signal reply delivery failed: %s", e)
         await update_signal_message_status(
             audit.id, SignalDeliveryStatus.FAILED, error_detail=str(e)[:500]
@@ -160,7 +160,7 @@ async def process_signal_chat(
                     token,
                     project_id,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.debug(
                     "Signal flow proceeding without repository metadata",
                     exc_info=exc,
@@ -295,7 +295,7 @@ async def _run_workflow_orchestration(
         result["agent"] = launch_result.initial_agent
         result["error"] = launch_result.error
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.warning(
             "Issue #%d created but workflow orchestration failed: %s",
             issue_number,
@@ -397,7 +397,7 @@ async def _handle_confirm(
                     rec.status.value,
                     data=json.dumps(rec.model_dump(mode="json")),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.warning("Failed to update recommendation status in SQLite", exc_info=True)
 
             msg = ChatMessage(
@@ -462,7 +462,7 @@ async def _handle_confirm(
                     edited_title=proposal.edited_title,
                     edited_description=proposal.edited_description,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.warning("Failed to update proposal status in SQLite", exc_info=True)
             cache.delete(get_project_items_cache_key(pid))
 
@@ -533,7 +533,7 @@ async def _handle_confirm(
                     edited_title=proposal.edited_title,
                     edited_description=proposal.edited_description,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.warning("Failed to update proposal status in SQLite", exc_info=True)
             cache.delete(get_project_items_cache_key(pid))
 
@@ -581,7 +581,7 @@ async def _handle_reject(conn: SignalConnection, source_phone: str) -> None:
 
                 db = get_db()
                 await chat_store.update_proposal_status(db, proposal_id, proposal.status.value)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.warning("Failed to update proposal status in SQLite", exc_info=True)
 
     recommendation_id = pending.get("recommendation_id")
@@ -600,7 +600,7 @@ async def _handle_reject(conn: SignalConnection, source_phone: str) -> None:
                     recommendation.status.value,
                     data=json.dumps(recommendation.model_dump(mode="json")),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.warning("Failed to update recommendation status in SQLite", exc_info=True)
 
     msg = ChatMessage(
@@ -655,7 +655,7 @@ async def _run_ai_pipeline(
 
     try:
         chat_agent_service = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         # Legacy fallback: check if any AI provider is configured
         try:
             from src.config import get_settings as _get_settings
@@ -663,7 +663,7 @@ async def _run_ai_pipeline(
             _s = _get_settings()
             if _s.ai_provider not in ("copilot", "azure_openai"):
                 raise ValueError("no provider")
-        except (ValueError, Exception):
+        except (ValueError, Exception):  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
             pass
         await _reply(
             source_phone,

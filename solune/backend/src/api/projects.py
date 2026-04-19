@@ -293,7 +293,7 @@ def _schedule_board_warmup(session: UserSession, project_id: str) -> bool:
                 _schedule_background_board_completion(session, project_id)
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug(
                 "Non-critical: board warm-up failed for user %s project %s",
                 session.github_username,
@@ -393,7 +393,7 @@ async def _start_copilot_polling(session: UserSession, project_id: str) -> None:
     # Resolve repository info for the project
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Could not determine repository for project %s, polling not started",
             project_id,
@@ -445,7 +445,7 @@ async def _restore_app_pipelines_for_project(access_token: str, project_id: str)
                         resolved_repo[0],
                         resolved_repo[1],
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.warning(
                         "Could not resolve repository for project %s, "
                         "scoped app-pipeline polling not restored",
@@ -491,7 +491,7 @@ async def _prefetch_agents(access_token: str, project_id: str) -> None:
     """Pre-warm the AgentsService repo-agents cache after project selection."""
     try:
         owner, repo = await resolve_repository(access_token, project_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return
     try:
         from src.services.agents.service import AgentsService
@@ -503,7 +503,7 @@ async def _prefetch_agents(access_token: str, project_id: str) -> None:
             repo=repo,
             access_token=access_token,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         pass  # Best-effort; errors logged inside list_agents
 
 
@@ -531,7 +531,7 @@ async def websocket_subscribe(
     session_id = websocket.cookies.get(SESSION_COOKIE_NAME)
     try:
         session = await get_current_session(session_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.error("WebSocket authentication failed: %s", e)
         await websocket.close(code=1008, reason="Authentication required")
         return
@@ -563,7 +563,7 @@ async def websocket_subscribe(
             )
             await websocket.close(code=4403, reason="Project access denied")
             return
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.error("WebSocket project access check failed: %s", e)
         await websocket.close(code=4403, reason="Project access denied")
         return
@@ -646,7 +646,7 @@ async def websocket_subscribe(
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected for project %s", project_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.error("WebSocket error for project %s: %s", project_id, e)
     finally:
         connection_manager.disconnect(websocket)
@@ -702,7 +702,7 @@ async def sse_subscribe(
                     # Send heartbeat
                     yield f'event: heartbeat\ndata: {{"timestamp": "{asyncio.get_running_loop().time()}"}}\n\n'
 
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.error("SSE polling error: %s", e)
                     # Serve stale cached data on fetch failure instead of
                     # cascading the error to the client (SC-005 safety).

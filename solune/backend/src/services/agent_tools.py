@@ -1401,7 +1401,7 @@ async def load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str,
         )
         return mcp_servers
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
         logger.warning(
             "load_mcp_tools: failed to load MCP tools for project %s: %s",
             project_id[:20],

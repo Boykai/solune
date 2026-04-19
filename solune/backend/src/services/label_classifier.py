@@ -117,7 +117,7 @@ async def classify_labels(
         raw_labels = _parse_labels_response(raw_response)
         return validate_labels(raw_labels)
 
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Label classification failed for title=%r; using fallback labels",
             title[:80],
@@ -173,7 +173,7 @@ async def classify_labels_with_priority(
         validated_labels = validate_labels(labels)
         return ClassificationResult(labels=validated_labels, priority=priority)
 
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Label classification with priority failed for title=%r; using fallback labels",
             title[:80],

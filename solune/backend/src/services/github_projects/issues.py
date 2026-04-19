@@ -59,7 +59,7 @@ class IssuesMixin(_ServiceMixin):
                     response.status_code,
                     response.text[:200] if getattr(response, "text", None) else "",
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.warning(
                     "Failed to ensure label '%s' in %s/%s: %s",
                     label,
@@ -198,7 +198,7 @@ class IssuesMixin(_ServiceMixin):
             logger.info("Updated body of issue #%d in %s/%s", issue_number, owner, repo)
             self._invalidate_cycle_cache(f"issue:{owner}/{repo}/{issue_number}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.error("Failed to update issue #%d body: %s", issue_number, e)
             return False
 
@@ -258,7 +258,7 @@ class IssuesMixin(_ServiceMixin):
                 repo,
             )
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning("Failed to update issue #%d state: %s", issue_number, e)
             return False
 
@@ -378,7 +378,7 @@ class IssuesMixin(_ServiceMixin):
                 ):
                     return True
             return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.debug("Verification query failed: %s", e)
             return False
 
@@ -425,7 +425,7 @@ class IssuesMixin(_ServiceMixin):
                     )
                     logger.info("Deleted item %s before REST re-add", item_id)
                     await asyncio.sleep(2)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                     logger.debug("Failed to delete item before REST re-add: %s", e)
 
             # Build REST API URL based on owner type
@@ -460,7 +460,7 @@ class IssuesMixin(_ServiceMixin):
                 )
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning("REST API fallback failed: %s", e)
             return None
 
@@ -590,7 +590,7 @@ class IssuesMixin(_ServiceMixin):
 
         try:
             return await self._cycle_cached(cache_key, _fetch)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.error("Failed to fetch issue #%d with comments: %s", issue_number, e)
             return {"title": "", "body": "", "comments": [], "user": {"login": ""}}
 
@@ -633,7 +633,7 @@ class IssuesMixin(_ServiceMixin):
                 return True
             logger.warning("Error checking issue #%d state: %s", issue_number, e)
             return False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning("Error checking issue #%d state: %s", issue_number, e)
             return False
 
@@ -680,7 +680,7 @@ class IssuesMixin(_ServiceMixin):
                 "GET",
                 f"/repos/{owner}/{repo}/issues/{issue_number}",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning(
                 "Failed to load issue #%d from %s/%s: %s",
                 issue_number,
@@ -716,7 +716,7 @@ class IssuesMixin(_ServiceMixin):
 
         try:
             data = await self._graphql(access_token, query, {"issueId": issue_node_id})
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning(
                 "Failed to query project items for issue #%d (%s): %s",
                 issue_number,
@@ -742,7 +742,7 @@ class IssuesMixin(_ServiceMixin):
                     project_id=project_id,
                     issue_node_id=issue_node_id,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.warning(
                     "Failed to attach issue #%d to project %s: %s",
                     issue_number,
@@ -811,7 +811,7 @@ class IssuesMixin(_ServiceMixin):
                 sub_issue_number,
                 parent_issue_number,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning(
                 "Failed to attach sub-issue #%d to parent #%d: %s",
                 sub_issue_number,
@@ -870,7 +870,7 @@ class IssuesMixin(_ServiceMixin):
 
         try:
             return await cached_fetch(cache, cache_key, _fetch, ttl_seconds=600)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.debug("Failed to get sub-issues for issue #%d: %s", issue_number, e)
             return []
 
@@ -925,7 +925,7 @@ class IssuesMixin(_ServiceMixin):
                 )
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.error("Error creating comment on issue #%d: %s", issue_number, e)
             return None
 
@@ -975,6 +975,6 @@ class IssuesMixin(_ServiceMixin):
                 )
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.error("Error deleting comment %d: %s", comment_database_id, e)
             return False

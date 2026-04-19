@@ -89,7 +89,7 @@ async def evaluate_triggers(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "resolve repository for chore triggers")
 
     result = cast(
@@ -119,7 +119,7 @@ async def list_templates(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Failed to resolve repository for project %s when listing chore templates",
             project_id,
@@ -405,7 +405,7 @@ async def delete_chore(
                 state_reason="not_planned",
             )
             closed_issue_number = existing.current_issue_number
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to close issue #%s when deleting chore %s",
                 existing.current_issue_number,
@@ -499,7 +499,7 @@ async def chore_chat(
             github_token=session.access_token,
             ai_enhance=body.ai_enhance,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(exc, "complete chat", AppException)
 
     return ChoreChatResponse(

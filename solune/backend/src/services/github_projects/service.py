@@ -266,7 +266,7 @@ class GitHubProjectsService(
             if verify_fn is not None:
                 try:
                     verified = await verify_fn()
-                except Exception as verify_err:
+                except Exception as verify_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                     logger.warning(
                         "%s: verification failed (%s), trying fallback",
                         operation,
@@ -283,7 +283,7 @@ class GitHubProjectsService(
                         fallback_result = await fallback_fn()
                         logger.info("%s: fallback strategy succeeded", operation)
                         return fallback_result
-                    except Exception as fallback_err:
+                    except Exception as fallback_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                         logger.warning(
                             "%s: fallback also failed (%s), returning primary result",
                             operation,
@@ -292,7 +292,7 @@ class GitHubProjectsService(
                         return result
 
             return result
-        except Exception as primary_err:
+        except Exception as primary_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning(
                 "%s: primary strategy failed (%s), trying fallback",
                 operation,
@@ -303,7 +303,7 @@ class GitHubProjectsService(
                 result = await fallback_fn()
                 logger.info("%s: fallback strategy succeeded", operation)
                 return result
-            except Exception as fallback_err:
+            except Exception as fallback_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.warning(
                     "%s: both strategies failed. Primary: %s; Fallback: %s",
                     operation,

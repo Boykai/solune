@@ -105,7 +105,7 @@ async def _record_copilot_review_request_timestamp(
             (issue_number, effective_requested_at.isoformat(), None),
         )
         await db.commit()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to persist copilot-review request timestamp to SQLite for issue #%d: %s",
             issue_number,
@@ -129,7 +129,7 @@ async def _record_copilot_review_request_timestamp(
                 issue_number=issue_number,
                 body=updated_body,
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to persist copilot-review request timestamp for issue #%d: %s",
             issue_number,
@@ -360,7 +360,7 @@ async def _check_copilot_review_done(
                     "Restored copilot-review request timestamp for issue #%d from SQLite",
                     parent_issue_number,
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.warning(
                 "Failed to recover copilot-review timestamp from SQLite for issue #%d: %s",
                 parent_issue_number,
@@ -410,7 +410,7 @@ async def _check_copilot_review_done(
                         comment_database_id=db_id,
                         issue_number=parent_issue_number,
                     )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                     logger.warning(
                         "Failed to delete stale copilot-review marker on issue #%d: %s",
                         parent_issue_number,
@@ -626,7 +626,7 @@ async def _check_copilot_review_done(
             "Posted 'copilot-review: Done!' marker on issue #%d",
             parent_issue_number,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to post copilot-review Done! marker on issue #%d: %s",
             parent_issue_number,
@@ -673,7 +673,7 @@ async def _check_human_agent_done(
                     parent_issue_number,
                 )
                 return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.warning("Failed to check Human sub-issue #%d state: %s", sub_number, e)
 
     # Signal 2: Check if the assigned user commented exactly 'Done!' on the parent issue
@@ -728,7 +728,7 @@ async def _check_human_agent_done(
                             assignee,
                             parent_issue_number,
                         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to check Human Done! comment on issue #%d: %s", parent_issue_number, e
         )
@@ -840,7 +840,7 @@ async def _update_issue_tracking(
                 issue_number,
             )
         return success
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning("Failed to update tracking for issue #%d: %s", issue_number, e)
         return False
 
@@ -944,7 +944,7 @@ async def _discover_main_pr_for_review(
                         pr_number=pr_number,
                         issue_number=parent_issue_number,
                     )
-                except Exception as link_err:
+                except Exception as link_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                     logger.debug(
                         "Non-blocking: could not link PR #%d to parent issue #%d: %s",
                         pr_number,
@@ -957,7 +957,7 @@ async def _discover_main_pr_for_review(
                 "head_ref": head_ref,
                 "is_draft": is_draft,
             }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Strategy 2 (find_existing_pr) failed for issue #%d: %s",
             parent_issue_number,
@@ -1063,7 +1063,7 @@ async def _discover_main_pr_for_review(
                     candidate_pr = pr_det
                     candidate_branch = head_ref
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Strategy 3 (sub-issue PR discovery) failed for issue #%d: %s",
             parent_issue_number,
@@ -1126,7 +1126,7 @@ async def _discover_main_pr_for_review(
                             pr_number=pr_num,
                             issue_number=parent_issue_number,
                         )
-                    except Exception as link_err:
+                    except Exception as link_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.debug(
                             "Non-blocking: could not link PR #%d to parent issue #%d: %s",
                             pr_num,
@@ -1147,7 +1147,7 @@ async def _discover_main_pr_for_review(
                         "head_ref": head_ref,
                         "is_draft": is_draft,
                     }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.debug(
                 "Strategy 4 (REST PR search) failed for issue #%d: %s",
                 parent_issue_number,
@@ -1205,7 +1205,7 @@ async def _discover_main_pr_for_review(
                     "head_ref": candidate_branch,
                     "is_draft": False,
                 }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.warning(
                 "Strategy 5 (create PR) failed for issue #%d branch '%s': %s",
                 parent_issue_number,
@@ -1381,7 +1381,7 @@ async def _link_prs_to_parent(
                 pr_num,
                 parent_issue_number,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.debug(
                 "Could not link PR #%d to parent issue #%d: %s",
                 pr_num,
@@ -1427,7 +1427,7 @@ async def _reconstruct_sub_issue_mappings(
             # Also persist to the global store so mappings survive pipeline resets
             _cp.set_issue_sub_issues(issue_number, mappings)
         return mappings
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Could not reconstruct sub-issue mappings for issue #%d: %s",
             issue_number,

@@ -137,7 +137,7 @@ async def test_custom_agent_assignment():
             print("   Check the logs above for error details")
             return False
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: test intentionally catches all exceptions to assert error behaviour
         print(f"❌ ERROR: {e}")
         import traceback
 

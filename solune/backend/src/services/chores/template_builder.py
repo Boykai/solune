@@ -203,7 +203,7 @@ async def commit_template_to_repo(
     # 6. Add tracking issue to project
     try:
         await github_service.add_issue_to_project(access_token, project_id, tracking_issue_node_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning(
             "Failed to add tracking issue #%d to project %s",
             tracking_issue_number,
@@ -352,6 +352,6 @@ async def merge_chore_pr(
         if result and result.get("merged"):
             return True, None
         return False, "Merge was not completed"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to merge PR #%s: %s", pr_number, exc)
         return False, str(exc)
