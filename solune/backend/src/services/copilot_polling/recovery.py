@@ -19,9 +19,11 @@ from .helpers import _get_sub_issue_number
 from .label_manager import ParsedLabel
 from .pipeline import _wait_if_rate_limited
 from .state import (
+    ADVANCE_PIPELINE_LOCK_TTL_SECONDS,
     ASSIGNMENT_GRACE_PERIOD_SECONDS,
     MAX_RECOVERY_RETRIES,
     RECOVERY_COOLDOWN_SECONDS,
+    _advance_pipeline_locks,
     _pending_agent_assignments,
     _polling_state,
     _polling_state_lock,
@@ -31,6 +33,126 @@ from .state import (
 )
 
 logger = get_logger(__name__)
+
+
+async def _drive_advance_after_self_heal(
+    access_token: str,
+    project_id: str,
+    owner: str,
+    repo: str,
+    task: Any,
+    issue_number: int,
+    agent_name: str,
+    config: Any,
+) -> bool:
+    """Synchronously drive ``_advance_pipeline`` after a self-heal Done! marker.
+
+    The recovery code paths post a synthetic ``<agent>: Done!`` marker
+    when an agent's child PR was merged (or completed) but the marker
+    was never written — typically because the backend restarted before
+    the normal completion handler ran.  Without this helper, the
+    pipeline would only advance on the *next* polling cycle, leaving a
+    dormant window where a second restart strands the pipeline forever.
+
+    This helper closes that race by reconstructing the in-memory
+    ``PipelineState`` from the durable tracking table and invoking
+    ``_advance_pipeline`` directly. A short-lived single-flight lock
+    keyed on ``(issue_number, agent_name)`` deduplicates overlapping
+    recovery-driven advances for the same agent while this helper is in
+    flight. The normal poll-driven advance path does not consult this lock.
+
+    Returns ``True`` when the advance was driven (or determined to be
+    in-flight elsewhere), ``False`` when reconstruction failed or the
+    advance could not be invoked.
+    """
+    lock_key = f"{issue_number}:{agent_name}"
+    now = utcnow()
+    held = _advance_pipeline_locks.get(lock_key)
+    if held is not None:
+        age = (now - held).total_seconds()
+        if age < ADVANCE_PIPELINE_LOCK_TTL_SECONDS:
+            logger.debug(
+                "Self-heal advance for issue #%d agent '%s' skipped — "
+                "lock held by another recovery path (%.0fs ago)",
+                issue_number,
+                agent_name,
+                age,
+            )
+            return True  # Treat as in-flight; not a failure
+
+    _advance_pipeline_locks[lock_key] = now
+
+    try:
+        from .agent_output import _reconstruct_pipeline_if_missing
+        from .pipeline import _advance_pipeline
+
+        pipeline = _cp.get_pipeline_state(issue_number)
+        if pipeline is None or pipeline.is_complete or pipeline.current_agent != agent_name:
+            pipeline = await _reconstruct_pipeline_if_missing(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+                project_id=project_id,
+                preserve_current_agent=agent_name,
+            )
+
+        if pipeline is None:
+            logger.warning(
+                "Self-heal advance for issue #%d agent '%s' aborted — "
+                "could not reconstruct pipeline state",
+                issue_number,
+                agent_name,
+            )
+            return False
+
+        if pipeline.current_agent != agent_name:
+            logger.info(
+                "Self-heal advance for issue #%d agent '%s' skipped — "
+                "pipeline current agent is '%s'",
+                issue_number,
+                agent_name,
+                pipeline.current_agent,
+            )
+            return True
+
+        # Resolve transition targets from the workflow config.
+        from_status = pipeline.original_status or pipeline.status or ""
+        to_status = (
+            _cp.get_next_status(config, from_status) if (config and from_status) else ""
+        ) or from_status
+
+        await _advance_pipeline(
+            access_token=access_token,
+            project_id=project_id,
+            item_id=task.github_item_id,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            issue_node_id=task.github_content_id,
+            pipeline=pipeline,
+            from_status=from_status,
+            to_status=to_status,
+            task_title=task.title or f"Issue #{issue_number}",
+        )
+        logger.info(
+            "Self-heal advance: drove _advance_pipeline for issue #%d "
+            "agent '%s' (from='%s' → to='%s')",
+            issue_number,
+            agent_name,
+            from_status,
+            to_status,
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
+        logger.warning(
+            "Self-heal advance for issue #%d agent '%s' failed: %s",
+            issue_number,
+            agent_name,
+            exc,
+            exc_info=True,
+        )
+        return False
 
 
 # ── Phase 8: Label-Driven State Recovery Models ──
@@ -135,7 +257,7 @@ async def _validate_and_reconcile_tracking_table(
             issue_number,
             len(corrections),
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Recovery: issue #%d — failed to push reconciled tracking table: %s "
             "(continuing with corrected in-memory state)",
@@ -221,7 +343,7 @@ async def _escalate_exhausted_recovery(
             issue_number=issue_number,
             body=comment_body,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Recovery escalation: failed to post failure comment on issue #%d: %s",
             issue_number,
@@ -249,7 +371,7 @@ async def _escalate_exhausted_recovery(
                     "max_retries": MAX_RECOVERY_RETRIES,
                 },
             )
-    except Exception as alert_err:
+    except Exception as alert_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug("Failed to dispatch pipeline_agent_exhausted alert: %s", alert_err)
 
     logger.warning(
@@ -311,7 +433,7 @@ async def _attempt_reassignment(
             issue_number=issue_number,
             labels_add=[STALLED_LABEL],
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Non-blocking: failed to apply stalled label on issue #%d: %s",
             issue_number,
@@ -328,7 +450,7 @@ async def _attempt_reassignment(
         assigned = await orchestrator.assign_agent_for_status(
             ctx, agent_status, agent_index=agent_index
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Recovery: failed to re-assign agent '%s' for issue #%d: %s",
             agent_name,
@@ -482,7 +604,7 @@ async def _check_copilot_session_health(
             pr_number=wip_pr_number,
         )
         return not errored
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Recovery: could not check Copilot session error on PR #%s for issue #%d: %s",
             wip_pr_number,
@@ -605,7 +727,7 @@ async def recover_stalled_issues(
                     repo=task_repo,
                     issue_number=issue_number,
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Recovery: could not fetch issue #%d: %s", issue_number, e)
                 continue
 
@@ -641,7 +763,7 @@ async def recover_stalled_issues(
                         issue_number=issue_number,
                     )
                     body = refreshed.get("body", body)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                     logger.debug(
                         "Recovery: issue #%d — failed to re-fetch issue body after self-heal: %s "
                         "(continuing with stale body)",
@@ -736,7 +858,7 @@ async def recover_stalled_issues(
                             current_status,
                             to_status,
                         )
-                except Exception as trans_err:
+                except Exception as trans_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                     logger.error(
                         "Recovery: failed to force-transition issue #%d to '%s': %s",
                         issue_number,
@@ -987,6 +1109,7 @@ async def recover_stalled_issues(
                     # Post the missing Done! marker so subsequent cycles
                     # detect completion via the normal comment-based path.
                     marker = f"{agent_name}: Done!"
+                    marker_posted = False
                     try:
                         await _cp.github_projects_service.create_issue_comment(
                             access_token=access_token,
@@ -995,13 +1118,30 @@ async def recover_stalled_issues(
                             issue_number=issue_number,
                             body=marker,
                         )
-                    except Exception as marker_err:
+                        marker_posted = True
+                    except Exception as marker_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.warning(
                             "Recovery: issue #%d — failed to post Done! marker "
                             "for '%s': %s (skipping re-assignment anyway)",
                             issue_number,
                             agent_name,
                             marker_err,
+                        )
+                    if marker_posted:
+                        # Synchronously drive _advance_pipeline so the next
+                        # agent is dispatched immediately, closing the race
+                        # window where a backend restart between Done! and
+                        # the next poll cycle would leave the pipeline
+                        # dormant.
+                        await _drive_advance_after_self_heal(
+                            access_token=access_token,
+                            project_id=project_id,
+                            owner=task_owner,
+                            repo=task_repo,
+                            task=task,
+                            issue_number=issue_number,
+                            agent_name=agent_name,
+                            config=config,
                         )
                     _recovery_last_attempt[issue_number] = now
                     continue
@@ -1020,6 +1160,7 @@ async def recover_stalled_issues(
                         ", ".join(missing),
                     )
                     marker = f"{agent_name}: Done!"
+                    marker_posted = False
                     try:
                         await _cp.github_projects_service.create_issue_comment(
                             access_token=access_token,
@@ -1028,13 +1169,28 @@ async def recover_stalled_issues(
                             issue_number=issue_number,
                             body=marker,
                         )
-                    except Exception as marker_err:
+                        marker_posted = True
+                    except Exception as marker_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.warning(
                             "Recovery: issue #%d — failed to post Done! marker "
                             "for '%s': %s (skipping re-assignment anyway)",
                             issue_number,
                             agent_name,
                             marker_err,
+                        )
+                    if marker_posted:
+                        # Synchronously drive _advance_pipeline so the
+                        # safety-net merge + next-agent assignment runs
+                        # in this cycle (see merged-child branch above).
+                        await _drive_advance_after_self_heal(
+                            access_token=access_token,
+                            project_id=project_id,
+                            owner=task_owner,
+                            repo=task_repo,
+                            task=task,
+                            issue_number=issue_number,
+                            agent_name=agent_name,
+                            config=config,
                         )
                     _recovery_last_attempt[issue_number] = now
                     continue
@@ -1077,7 +1233,7 @@ async def recover_stalled_issues(
                                 "pipeline_state": "active" if active_step else "pending",
                             },
                         )
-            except Exception as alert_err:
+            except Exception as alert_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Failed to dispatch pipeline_stall alert: %s", alert_err)
 
             # Re-assign the agent (T040)

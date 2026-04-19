@@ -160,7 +160,7 @@ async def create_app_endpoint(
                         "parent_issue_url": result.issue_url,
                     }
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Pipeline launch failed for app '%s': %s", app.name, exc)
             warnings = list(app.warnings or [])
             warnings.append(f"Pipeline launch failed: {exc}")

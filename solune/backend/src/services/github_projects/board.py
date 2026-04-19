@@ -531,7 +531,7 @@ class BoardMixin(_ServiceMixin):
                                 assignees=si_assignees,
                             )
                         )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                     logger.debug(
                         "Failed to fetch sub-issues for item #%s: %s",
                         board_item.number,
@@ -565,7 +565,7 @@ class BoardMixin(_ServiceMixin):
             config = await get_workflow_config(project_id)
             if config and config.repository_owner and config.repository_name:
                 repos_seen.add((config.repository_owner, config.repository_name))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.debug("Suppressed error: %s", e)
 
         async def _reconcile_repo(owner: str, repo_name: str) -> list:
@@ -586,7 +586,7 @@ class BoardMixin(_ServiceMixin):
                         repo_name,
                     )
                 return reconciled or []
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.debug("Board reconciliation failed for %s/%s: %s", owner, repo_name, e)
                 return []
 
@@ -643,7 +643,7 @@ class BoardMixin(_ServiceMixin):
             ]
             try:
                 await save_done_items(project_id, done_board_items, item_type="board")
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.debug(
                     "Non-critical: failed to persist done board items cache", exc_info=True
                 )
@@ -873,7 +873,7 @@ class BoardMixin(_ServiceMixin):
                                 assignees=si_assignees,
                             )
                         )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                     logger.debug(
                         "Failed to fetch sub-issues for reconciled item #%s: %s",
                         board_item.number,

@@ -86,12 +86,20 @@ async def _reconstruct_pipeline_if_missing(
     repo: str,
     issue_number: int,
     project_id: str,
+    preserve_current_agent: str | None = None,
 ) -> "_cp.PipelineState | None":
     """Reconstruct in-memory pipeline state from the durable tracking table.
 
     When volatile state is lost (e.g. after a container restart), this reads
     the issue body and comments to rebuild a PipelineState so that agent
     completions are detected and Done! markers posted correctly.
+
+    Args:
+        preserve_current_agent: Optional agent slug to keep as the
+            reconstructed ``current_agent`` when the tracking table still
+            shows that agent as active but a newly-posted synthetic
+            ``Done!`` marker would otherwise shift reconstruction to the
+            next agent.
 
     Returns the reconstructed pipeline, or None if reconstruction failed.
     """
@@ -110,7 +118,7 @@ async def _reconstruct_pipeline_if_missing(
         status_key = active_step.status
         status_agents = [s.agent_name for s in steps if s.status == status_key]
 
-        # Determine completed agents by checking Done! comments
+        # Determine completed agents by checking Done! comments.
         completed: list[str] = []
         last_done_ts: str | None = None
         for agent in status_agents:
@@ -128,6 +136,23 @@ async def _reconstruct_pipeline_if_missing(
                 last_done_ts = done_c.get("created_at") or last_done_ts
             else:
                 break  # Sequential — stop at first incomplete
+
+        # Recovery can post a synthetic Done! marker before the tracking
+        # table is updated. In that window, comment-based reconstruction
+        # would jump to the next agent even though the table still shows
+        # ``preserve_current_agent`` as active.
+        anchored_agent: str | None = None
+        if (
+            preserve_current_agent
+            and active_step.agent_name == preserve_current_agent
+            and preserve_current_agent in status_agents
+        ):
+            anchored_agent = preserve_current_agent
+
+        current_agent_index = len(completed)
+        if anchored_agent is not None:
+            current_agent_index = status_agents.index(anchored_agent)
+            completed = status_agents[:current_agent_index]
 
         # Derive started_at from the last Done! marker
         recon_started: datetime | None = None
@@ -164,7 +189,7 @@ async def _reconstruct_pipeline_if_missing(
             project_id=project_id,
             status=status_key,
             agents=status_agents,
-            current_agent_index=len(completed),
+            current_agent_index=current_agent_index,
             completed_agents=completed,
             started_at=recon_started,
             agent_assigned_sha=recon_sha,
@@ -232,7 +257,7 @@ async def _reconstruct_pipeline_if_missing(
                             existing_pr["number"],
                             issue_number,
                         )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug(
                     "Could not reconstruct main branch for issue #%d: %s",
                     issue_number,
@@ -269,14 +294,14 @@ async def _reconstruct_pipeline_if_missing(
                                     recon_agent,
                                     issue_number,
                                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug(
                     "Could not reconstruct child PR claims for issue #%d: %s",
                     issue_number,
                     e,
                 )
         return pipeline
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Could not reconstruct pipeline for issue #%d: %s",
             issue_number,
@@ -361,7 +386,7 @@ async def _detect_completion_signals(
                             pr_number=pr_num,
                             issue_number=issue_number,
                         )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.debug("Suppressed error: %s", e)
 
                 if is_subsequent_agent and main_pr_number is not None and pr_num != main_pr_number:
@@ -916,7 +941,7 @@ async def _process_task_agent_completion(
             pr_details=pr_details,
             head_ref=head_ref,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to track main branch for issue #%d PR #%d — continuing with completion",
             task.issue_number,
@@ -1012,7 +1037,7 @@ async def _track_main_branch_if_needed(
             pr_number=pr_number,
             issue_number=issue_number,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to link PR #%d to issue #%d: %s",
             pr_number,

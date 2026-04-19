@@ -210,7 +210,7 @@ async def _delivery_task(
             SignalDeliveryStatus.DELIVERED,
         )
         logger.info("Signal message %s delivered", signal_message_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.error(
             "Signal message %s failed after all retries: %s",
             signal_message_id,
@@ -254,7 +254,7 @@ async def deliver_chat_message_via_signal(
     enc = _get_encryption()
     try:
         phone = enc.decrypt(conn.signal_phone_encrypted)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         logger.error("Failed to decrypt phone for user %s: %s", github_user_id, e)
         return
 

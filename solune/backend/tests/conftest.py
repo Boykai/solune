@@ -37,7 +37,7 @@ os.environ["TESTING"] = "1"
 
 try:
     import mutmut
-except Exception:
+except ImportError:
     mutmut = None
 else:
     mutmut_main = types.ModuleType("mutmut.__main__")

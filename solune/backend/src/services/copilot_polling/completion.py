@@ -96,7 +96,7 @@ async def _find_open_child_pr(
                 "is_child_pr": True,
                 "is_draft": pr_details.get("is_draft", False),
             }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Could not find open child PR for agent '%s' on issue #%d: %s",
             agent_name,
@@ -405,7 +405,7 @@ async def _merge_child_pr_if_applicable(
 
         return None
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Error merging child PR for issue #%d: %s",
             issue_number,
@@ -690,7 +690,7 @@ async def _find_completed_child_pr(
         )
         return None
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Error finding child PR for issue #%d: %s",
             issue_number,
@@ -857,7 +857,7 @@ async def _check_child_pr_completion(
         )
         return False
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Error checking child PR completion for issue #%d: %s",
             issue_number,
@@ -1200,7 +1200,7 @@ async def _check_main_pr_completion(
         )
         return False
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Error checking main PR #%d completion for issue #%d: %s",
             main_pr_number,
@@ -1351,7 +1351,7 @@ async def check_in_review_issues_for_copilot_review(
             if result:
                 results.append(result)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error("Error checking in-review issues for Copilot review: %s", e)
 
     return results
@@ -1536,7 +1536,7 @@ async def ensure_copilot_review_requested(
                 "error": "Failed to request Copilot review",
             }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Error ensuring Copilot review for issue #%d: %s",
             issue_number,
@@ -1613,7 +1613,7 @@ async def check_issue_for_copilot_completion(
             "message": "No completed Copilot PR found",
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error("Error checking issue #%d: %s", issue_number, e)
         return {
             "status": "error",

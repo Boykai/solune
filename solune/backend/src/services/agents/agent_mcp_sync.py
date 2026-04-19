@@ -157,7 +157,7 @@ async def _discover_agent_files(
     path = f"/repos/{owner}/{repo}/contents/.github/agents"
     try:
         resp = await github_service.rest_request(token, "GET", path)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
         logger.error("Network error listing .github/agents/ in %s/%s", owner, repo)
         return []
 

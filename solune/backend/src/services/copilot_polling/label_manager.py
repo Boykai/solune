@@ -134,7 +134,7 @@ async def delete_pipeline_label(
         )
         logger.debug("Deleted pipeline label: %s", label_name)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug("Could not delete pipeline label %s (may not exist)", label_name)
         return False
 

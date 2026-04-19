@@ -105,7 +105,7 @@ async def close_database() -> None:
         try:
             await _connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")
             logger.info("WAL checkpoint (TRUNCATE) completed before close")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("WAL checkpoint before close failed", exc_info=True)
         await _connection.close()
         _connection = None

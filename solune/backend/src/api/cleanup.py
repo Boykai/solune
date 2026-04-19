@@ -48,7 +48,7 @@ async def cleanup_preflight(
             session.github_username,
             request,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "perform cleanup preflight", GitHubAPIError)
 
 
@@ -97,7 +97,7 @@ async def cleanup_execute(
         )
     except AppException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "execute cleanup operation", GitHubAPIError)
 
     await log_event(
@@ -131,5 +131,5 @@ async def cleanup_history(
         return await cleanup_service.get_cleanup_history(
             db, session.github_user_id, owner, repo, limit
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "fetch cleanup history", GitHubAPIError)
