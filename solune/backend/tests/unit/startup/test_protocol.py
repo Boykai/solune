@@ -41,7 +41,7 @@ def test_step_without_skip_if_is_valid():
 def test_step_outcome_frozen():
     outcome = StepOutcome(name="test", status="ok", duration_ms=1.0)
     with pytest.raises((AttributeError, TypeError)):
-        outcome.name = "other"  # type: ignore[misc]
+        outcome.name = "other"  # pyright: ignore[reportAttributeAccessIssue] — reason: intentionally testing frozen dataclass immutability
 
 
 def test_step_outcome_error_field():

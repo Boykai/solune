@@ -27,7 +27,11 @@ async def run_startup(
     names = [s.name for s in steps]
     if len(names) != len(set(names)):
         seen: set[str] = set()
-        dupes = [n for n in names if n in seen or seen.add(n)]  # type: ignore[func-returns-value]
+        dupes: list[str] = []
+        for n in names:
+            if n in seen:
+                dupes.append(n)
+            seen.add(n)
         raise ValueError(f"Duplicate step names: {dupes}")
 
     results: list[StepOutcome] = []
@@ -37,7 +41,7 @@ async def run_startup(
         start = time.perf_counter()
         outcome: StepOutcome
         try:
-            if hasattr(step, "skip_if") and step.skip_if(ctx):  # type: ignore[union-attr]
+            if hasattr(step, "skip_if") and step.skip_if(ctx):  # type: ignore[union-attr] — reason: guarded by hasattr; Protocol does not mandate skip_if
                 duration_ms = (time.perf_counter() - start) * 1000
                 outcome = StepOutcome(step.name, "skipped", duration_ms, None)
                 logger.info(
