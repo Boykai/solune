@@ -71,9 +71,9 @@ The unit suite covers the main product domains rather than a small fixed list of
 
 ### Resettable-state registry
 
-`src/services/resettable_state.py` provides a lightweight registry for mutable module-level state that must be reset between tests to prevent cross-test leaks. Production code registers state entries at module-load time via `register_resettable(name, reset_fn)`. The `conftest.py` autouse fixture calls `reset_all()` before and after every test.
+`src/services/resettable_state.py` provides a lightweight registry for mutable module-level state that should be reset between tests to prevent cross-test leaks. Production code can register state entries at module-load time via `register_resettable(name, reset_fn)`, but `tests/conftest.py` is not yet wired to call `reset_all()` before and after every test.
 
-This replaces ad-hoc manual cleanup (e.g. `_devops_tracking.clear()` in individual tests) with a single enumerated teardown path. Service mocks should use `app.dependency_overrides` rather than patching module-level globals at multiple import paths.
+For now, test isolation still relies in part on manual cleanup in `tests/conftest.py` and in individual tests. The registry is the intended path to consolidate that cleanup into a single enumerated teardown mechanism. Service mocks should use `app.dependency_overrides` rather than patching module-level globals at multiple import paths.
 
 ## Frontend Tests
 
