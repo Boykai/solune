@@ -108,13 +108,18 @@ async def run_shutdown(
                 "Shutdown hook ok",
                 extra={"step": hook_name, "status": "ok", "duration_ms": duration_ms},
             )
-        except (TimeoutError, Exception) as exc:
+        except (TimeoutError, asyncio.CancelledError, Exception) as exc:
             duration_ms = (time.perf_counter() - start) * 1000
-            outcome = StepOutcome(hook_name, "failed", duration_ms, str(exc))
+            error_message = (
+                f"timed out after {shutdown_timeout}s"
+                if isinstance(exc, TimeoutError)
+                else str(exc)
+            )
+            outcome = StepOutcome(hook_name, "failed", duration_ms, error_message)
             logger.warning(
                 "Shutdown hook failed: %s — %s",
                 hook_name,
-                exc,
+                error_message,
                 exc_info=True,
                 extra={"step": hook_name, "status": "failed", "duration_ms": duration_ms},
             )
@@ -128,7 +133,7 @@ async def run_shutdown(
         await ctx.task_registry.drain(drain_timeout=shutdown_timeout)
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-drain", "ok", duration_ms, None))
-    except Exception as exc:
+    except (asyncio.CancelledError, Exception) as exc:
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-drain", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-drain failed: %s", exc, exc_info=True)
@@ -142,7 +147,7 @@ async def run_shutdown(
             await stop_polling()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-stop-polling", "ok", duration_ms, None))
-    except Exception as exc:
+    except (asyncio.CancelledError, Exception) as exc:
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-stop-polling", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-stop-polling failed: %s", exc, exc_info=True)
@@ -156,7 +161,7 @@ async def run_shutdown(
             await close_database()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "ok", duration_ms, None))
-    except Exception as exc:
+    except (asyncio.CancelledError, Exception) as exc:
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-close-db failed: %s", exc, exc_info=True)

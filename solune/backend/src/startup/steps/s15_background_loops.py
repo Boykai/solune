@@ -219,6 +219,12 @@ async def _polling_watchdog_loop() -> None:
                             if _reg_proj(_pid, _o, _r, _token):
                                 _registered += 1
 
+                    if _registered:
+                        logger.debug(
+                            "Watchdog multi-project sync: registered %d project(s)",
+                            _registered,
+                        )
+
                 # Auto-unregister projects whose pipelines have all completed
                 _now = _utcnow()
                 for mp in get_monitored_projects():

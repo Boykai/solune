@@ -12,7 +12,8 @@ class AgentMcpSyncStep:
 
     async def run(self, ctx: StartupContext) -> None:
         """Fire-and-forget agent MCP sync via TaskRegistry."""
-        assert ctx.db is not None, "database step must run before agent_mcp_sync"
+        if ctx.db is None:
+            raise RuntimeError("database step must run before agent_mcp_sync")
         db = ctx.db
 
         async def _run_background() -> None:
@@ -60,6 +61,10 @@ class AgentMcpSyncStep:
                     repo,
                 )
             except Exception as e:
-                logger.warning("Startup agent MCP sync failed (non-fatal): %s", e)
+                logger.warning(
+                    "Startup agent MCP sync failed (non-fatal): %s",
+                    e,
+                    exc_info=True,
+                )
 
         ctx.task_registry.create_task(_run_background(), name="startup-mcp-sync")
