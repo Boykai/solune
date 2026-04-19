@@ -155,6 +155,20 @@ _pending_agent_assignments: BoundedDict[str, datetime] = BoundedDict(
 # Copilot typically takes 30-90s to create a WIP PR after assignment.
 ASSIGNMENT_GRACE_PERIOD_SECONDS = 120
 
+# Single-flight locks for ``_advance_pipeline`` invocations driven from
+# self-healing code paths.  When recovery posts a synthetic ``Done!``
+# marker for an agent whose child PR was already merged (or completed),
+# it also invokes ``_advance_pipeline`` directly instead of waiting for
+# the next polling cycle (which might be many seconds away and could be
+# interrupted by another restart). The lock deduplicates overlapping
+# recovery-driven advances for the same issue/agent while the helper is
+# in flight. The normal poll-driven advance path does not consult this
+# lock. Keys are ``f"{issue_number}:{agent_name}"``.
+_advance_pipeline_locks: BoundedDict[str, datetime] = BoundedDict(
+    maxlen=500
+)  # key -> lock-acquisition timestamp
+ADVANCE_PIPELINE_LOCK_TTL_SECONDS = 180
+
 # Track PRs that OUR system converted from draft → ready.
 # This prevents _check_main_pr_completion Signal 1 from misinterpreting
 # a non-draft PR as agent completion when we ourselves marked it ready.

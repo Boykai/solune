@@ -86,12 +86,20 @@ async def _reconstruct_pipeline_if_missing(
     repo: str,
     issue_number: int,
     project_id: str,
+    preserve_current_agent: str | None = None,
 ) -> "_cp.PipelineState | None":
     """Reconstruct in-memory pipeline state from the durable tracking table.
 
     When volatile state is lost (e.g. after a container restart), this reads
     the issue body and comments to rebuild a PipelineState so that agent
     completions are detected and Done! markers posted correctly.
+
+    Args:
+        preserve_current_agent: Optional agent slug to keep as the
+            reconstructed ``current_agent`` when the tracking table still
+            shows that agent as active but a newly-posted synthetic
+            ``Done!`` marker would otherwise shift reconstruction to the
+            next agent.
 
     Returns the reconstructed pipeline, or None if reconstruction failed.
     """
@@ -110,7 +118,7 @@ async def _reconstruct_pipeline_if_missing(
         status_key = active_step.status
         status_agents = [s.agent_name for s in steps if s.status == status_key]
 
-        # Determine completed agents by checking Done! comments
+        # Determine completed agents by checking Done! comments.
         completed: list[str] = []
         last_done_ts: str | None = None
         for agent in status_agents:
@@ -128,6 +136,23 @@ async def _reconstruct_pipeline_if_missing(
                 last_done_ts = done_c.get("created_at") or last_done_ts
             else:
                 break  # Sequential — stop at first incomplete
+
+        # Recovery can post a synthetic Done! marker before the tracking
+        # table is updated. In that window, comment-based reconstruction
+        # would jump to the next agent even though the table still shows
+        # ``preserve_current_agent`` as active.
+        anchored_agent: str | None = None
+        if (
+            preserve_current_agent
+            and active_step.agent_name == preserve_current_agent
+            and preserve_current_agent in status_agents
+        ):
+            anchored_agent = preserve_current_agent
+
+        current_agent_index = len(completed)
+        if anchored_agent is not None:
+            current_agent_index = status_agents.index(anchored_agent)
+            completed = status_agents[:current_agent_index]
 
         # Derive started_at from the last Done! marker
         recon_started: datetime | None = None
@@ -164,7 +189,7 @@ async def _reconstruct_pipeline_if_missing(
             project_id=project_id,
             status=status_key,
             agents=status_agents,
-            current_agent_index=len(completed),
+            current_agent_index=current_agent_index,
             completed_agents=completed,
             started_at=recon_started,
             agent_assigned_sha=recon_sha,
