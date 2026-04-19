@@ -12,7 +12,6 @@ from src.startup.protocol import StartupContext, StartupError
 from src.startup.runner import run_shutdown, run_startup
 from tests.unit.startup.conftest import FakeStep, make_test_ctx
 
-
 # ── run_startup scenarios ──────────────────────────────────────────────
 
 
@@ -269,9 +268,9 @@ async def test_structured_log_extras_on_success(caplog):
         await run_startup(steps, ctx)
     records = [r for r in caplog.records if getattr(r, "step", None) == "extras-check"]
     assert len(records) == 1
-    assert records[0].step == "extras-check"  # type: ignore[attr-defined]
-    assert records[0].status == "ok"  # type: ignore[attr-defined]
-    assert records[0].duration_ms >= 0  # type: ignore[attr-defined]
+    assert records[0].step == "extras-check"  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
+    assert records[0].status == "ok"  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
+    assert records[0].duration_ms >= 0  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
 
 
 @pytest.mark.asyncio
@@ -283,8 +282,8 @@ async def test_structured_log_extras_on_non_fatal_failure(caplog):
         await run_startup(steps, ctx)
     records = [r for r in caplog.records if getattr(r, "step", None) == "warn-step"]
     assert len(records) == 1
-    assert records[0].status == "failed"  # type: ignore[attr-defined]
-    assert records[0].duration_ms >= 0  # type: ignore[attr-defined]
+    assert records[0].status == "failed"  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
+    assert records[0].duration_ms >= 0  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
 
 
 @pytest.mark.asyncio
@@ -297,8 +296,8 @@ async def test_structured_log_extras_on_fatal_failure(caplog):
             await run_startup(steps, ctx)
     records = [r for r in caplog.records if getattr(r, "step", None) == "fatal-log"]
     assert len(records) == 1
-    assert records[0].status == "failed"  # type: ignore[attr-defined]
-    assert records[0].duration_ms >= 0  # type: ignore[attr-defined]
+    assert records[0].status == "failed"  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
+    assert records[0].duration_ms >= 0  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
 
 
 @pytest.mark.asyncio
@@ -310,7 +309,7 @@ async def test_structured_log_extras_on_skip(caplog):
         await run_startup(steps, ctx)
     records = [r for r in caplog.records if getattr(r, "step", None) == "skip-log"]
     assert len(records) == 1
-    assert records[0].status == "skipped"  # type: ignore[attr-defined]
+    assert records[0].status == "skipped"  # type: ignore[attr-defined] — reason: logging extra attrs not in LogRecord stub
 
 
 @pytest.mark.asyncio
