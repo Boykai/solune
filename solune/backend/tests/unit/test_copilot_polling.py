@@ -8899,7 +8899,7 @@ class TestPollingWatchdog:
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_watchdog_restarts_stopped_polling(self, mock_sleep):
-        """When is_running=False the watchdog attempts to restart polling."""
+        """When is_running=False the watchdog calls ensure_polling_started to restart."""
         import asyncio
 
         sleep_calls = 0

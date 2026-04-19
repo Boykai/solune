@@ -51,8 +51,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
 # These helpers were extracted to src/startup/steps/ as part of the lifespan
 # refactor. Re-exporting them here preserves test imports without changes.
 
-# Re-export session cleanup loop for tests that import from src.main
-from src.startup.steps.s15_background_loops import (  # noqa: E402 — reason: backward-compat re-export for test_main.py
+# Re-export session cleanup loop for existing tests that import from src.main
+from src.startup.steps.s15_background_loops import (  # noqa: E402 — reason: backward-compat re-export for existing tests
     _session_cleanup_loop,
 )
 
