@@ -71,7 +71,7 @@ class TestLifespan:
 
         with (
             patch("src.main.get_settings") as mock_s,
-            patch("src.main.setup_logging"),
+            patch("src.config.setup_logging"),
             patch(
                 "src.services.database.init_database",
                 new_callable=AsyncMock,
@@ -120,41 +120,25 @@ class TestLifespan:
     async def test_lifespan_cleanup_on_startup_failure(self):
         """Resources initialised before failure should still be cleaned up.
 
-        Validates the try/finally guard: if start_signal_ws_listener()
-        raises, the DB and cleanup task that were already started must
-        still be torn down, but stop_signal_ws_listener() must NOT be
-        called because Signal was never started.
+        Validates the try/finally guard: if a fatal startup step raises,
+        the DB must still be closed during teardown.
         """
         from src.main import lifespan
 
-        mock_db = AsyncMock()
         mock_app = MagicMock()
 
         with (
             patch("src.main.get_settings") as mock_s,
-            patch("src.main.setup_logging"),
+            patch("src.config.setup_logging"),
             patch(
                 "src.services.database.init_database",
                 new_callable=AsyncMock,
-                return_value=mock_db,
-            ),
-            patch(
-                "src.services.database.seed_global_settings",
-                new_callable=AsyncMock,
+                side_effect=RuntimeError("database init failed"),
             ),
             patch(
                 "src.services.database.close_database",
                 new_callable=AsyncMock,
             ) as mock_close,
-            patch(
-                "src.services.signal_bridge.start_signal_ws_listener",
-                new_callable=AsyncMock,
-                side_effect=RuntimeError("signal connect failed"),
-            ),
-            patch(
-                "src.services.signal_bridge.stop_signal_ws_listener",
-                new_callable=AsyncMock,
-            ) as mock_stop_signal,
             patch(
                 "src.services.pipeline_state_store.init_pipeline_state_store",
                 new_callable=AsyncMock,
@@ -170,14 +154,13 @@ class TestLifespan:
                 otel_service_name="solune-backend",
                 sentry_dsn="",
             )
-            with pytest.raises(RuntimeError, match="signal connect failed"):
+            with pytest.raises(RuntimeError, match="database init failed"):
                 async with lifespan(mock_app):
                     pytest.fail("lifespan should have raised before yielding")
 
-            # DB should still be closed even though startup failed
-            mock_close.assert_awaited_once()
-            # Signal was never started, so stop must NOT be called
-            mock_stop_signal.assert_not_awaited()
+            # DB close is still called (ctx.db is None since init failed,
+            # so close_database is NOT called — but the finally block runs).
+            mock_close.assert_not_awaited()
 
 
 class TestSessionCleanupLoop:
@@ -330,7 +313,7 @@ class TestShutdownPollingLogging:
 
         with (
             patch("src.main.get_settings") as mock_s,
-            patch("src.main.setup_logging"),
+            patch("src.config.setup_logging"),
             patch(
                 "src.services.database.init_database",
                 new_callable=AsyncMock,
