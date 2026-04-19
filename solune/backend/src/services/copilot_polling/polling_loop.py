@@ -532,7 +532,7 @@ async def _poll_loop(
             if _rl_data and _rl_data.get("remaining") is not None:
                 rl_gauge.set(_rl_data["remaining"])
         except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
-            pass  # OTel metrics are best-effort
+            logger.debug("OTel metrics emission failed", exc_info=True)
 
         # ── Rate-limit snapshot recording (Phase 5, optional) ──
         try:

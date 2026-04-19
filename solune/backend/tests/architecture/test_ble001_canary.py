@@ -99,13 +99,20 @@ class TestBLE001LintCanary:
 
     def test_ble001_not_in_ignore_list(self):
         """BLE001 must NOT appear in the ignore or per-file-ignores lists."""
-        content = PYPROJECT.read_text(encoding="utf-8")
-        # Check that BLE001 is not explicitly ignored
-        assert (
-            "BLE001" not in content.split("[tool.ruff.lint]")[1].split("select")[0]
-            if ("[tool.ruff.lint]" in content)
-            else True
-        ), "BLE001 should not be in ignore list"
+        import tomllib
+
+        with PYPROJECT.open("rb") as f:
+            config = tomllib.load(f)
+
+        lint_config = config.get("tool", {}).get("ruff", {}).get("lint", {})
+        ignore_list = lint_config.get("ignore", [])
+        per_file_ignores = lint_config.get("per-file-ignores", {})
+
+        assert "BLE001" not in ignore_list, "BLE001 should not be in [tool.ruff.lint] ignore list"
+        for pattern, rules in per_file_ignores.items():
+            assert "BLE001" not in rules, (
+                f"BLE001 should not be in per-file-ignores for {pattern}"
+            )
 
     @pytest.mark.parametrize(
         "exception_type",

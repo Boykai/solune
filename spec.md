@@ -11,7 +11,7 @@
 
 A developer opens the project, runs the linter, and receives clear violations for every overly-broad `except Exception` handler that has not been explicitly justified. This gives the team immediate, automated visibility into which error handlers are intentionally broad versus accidentally silencing failures.
 
-**Why this priority**: This is the foundation for both workstreams. Without an enforced lint rule, broad-except handlers will continue to accumulate unchecked. Enabling the rule surfaces the full scope of the problem (~570 occurrences across ~76 files today) and prevents new violations from landing in the codebase.
+**Why this priority**: This is the foundation for both workstreams. Without an enforced lint rule, broad-except handlers will continue to accumulate unchecked. Enabling the rule surfaces the full scope of the problem (~570 occurrences across ~87 files today) and prevents new violations from landing in the codebase.
 
 **Independent Test**: Can be fully tested by running the linter on the current codebase and confirming it reports all unjustified broad-except handlers. Delivers value by establishing the guardrail that prevents regression.
 
@@ -69,7 +69,7 @@ A developer working on code that calls external services (particularly GitHub AP
 1. **Given** a service function that makes a best-effort HTTP call with an ad-hoc try/except, **When** a developer replaces it with the domain-error helper, **Then** the function produces identical logging output and returns the same fallback value on failure.
 2. **Given** the domain-error helper is available, **When** a developer writes a new best-effort HTTP call, **Then** they use the helper instead of writing a raw try/except and the code review process enforces this.
 3. **Given** the domain-error helper handles a network failure, **When** the call fails, **Then** the failure is logged at the appropriate severity level and the helper returns the configured fallback value without raising an exception.
-4. **Given** the domain-error helper handles an unexpected non-network error, **When** the call fails with a non-HTTP exception, **Then** the error propagates to the caller (is not silently swallowed).
+4. **Given** the domain-error helper handles any `Exception`, **When** the call fails, **Then** the exception is logged and the helper returns the configured fallback. `BaseException` subclasses (e.g. `KeyboardInterrupt`, `SystemExit`) are never caught and always propagate.
 
 ---
 
@@ -96,7 +96,7 @@ A developer working on code that calls external services (particularly GitHub AP
 #### Workstream B — Domain-Error Helper
 
 - **FR-006**: The project MUST provide a shared helper for the "best-effort HTTP call" pattern that encapsulates: attempting the call, logging failures at a configurable severity, and returning a caller-specified fallback value.
-- **FR-007**: The domain-error helper MUST only catch expected failure types (network errors, HTTP errors) and MUST NOT silently swallow unexpected exceptions.
+- **FR-007**: The domain-error helper MUST catch only `Exception` subclasses (allowing `BaseException` subclasses such as `KeyboardInterrupt` and `SystemExit` to propagate) and MUST log every caught exception before returning the caller-specified fallback.
 - **FR-008**: Existing ad-hoc best-effort HTTP wrappers in the pull-request and project service layers MUST be replaced with the shared helper.
 - **FR-009**: The domain-error helper MUST preserve the existing logging behaviour (severity level, message format) of the ad-hoc wrappers it replaces.
 

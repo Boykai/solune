@@ -65,7 +65,8 @@ solune/
 │   └── src/
 │       ├── services/
 │       │   ├── github_projects/
-│       │   │   ├── service.py                  # _ServiceMixin base — host best_effort() helper
+│       │   │   ├── _mixin_base.py              # _ServiceMixin TYPE_CHECKING stub — add type stub for _best_effort()
+│       │   │   ├── service.py                  # GitHubProjectsService runtime — host _best_effort() implementation
 │       │   │   ├── pull_requests.py            # 12 except Exception → refactor to best_effort()
 │       │   │   ├── projects.py                 # 11 except Exception → refactor to best_effort()
 │       │   │   ├── copilot.py                  # 14 except Exception → refactor to best_effort()

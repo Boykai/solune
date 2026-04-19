@@ -327,12 +327,12 @@ class GitHubProjectsService(
 
         This is the canonical wrapper for "best-effort" operations where
         the caller explicitly accepts that the call may fail silently.
-        Non-HTTP exceptions (``KeyboardInterrupt``, ``SystemExit``) are
-        never caught — only ``Exception`` subclasses.
+        ``BaseException`` subclasses that are not ``Exception``
+        (e.g. ``KeyboardInterrupt``, ``SystemExit``) are never caught.
         """
         try:
             return await fn(*args, **kwargs)
-        except Exception as exc:  # noqa: BLE001 — reason: canonical best-effort wrapper; callers pass context
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
             logger.log(log_level, "%s: %s", context, exc)
             return fallback
 

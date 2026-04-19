@@ -72,7 +72,7 @@ class TestCriticalImports:
             module_name = f"src.api.{py_file.stem}"
             try:
                 importlib.import_module(module_name)
-            except Exception as exc:  # noqa: BLE001 — reason: test intentionally catches all exceptions to assert error behaviour
+            except Exception as exc:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
                 pytest.fail(f"Failed to import {module_name}: {exc}")
 
     def test_all_middleware_imports(self) -> None:
@@ -84,7 +84,7 @@ class TestCriticalImports:
             module_name = f"src.middleware.{py_file.stem}"
             try:
                 importlib.import_module(module_name)
-            except Exception as exc:  # noqa: BLE001 — reason: test intentionally catches all exceptions to assert error behaviour
+            except Exception as exc:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
                 pytest.fail(f"Failed to import {module_name}: {exc}")
 
     def test_all_model_imports(self) -> None:
@@ -96,5 +96,5 @@ class TestCriticalImports:
             module_name = f"src.models.{py_file.stem}"
             try:
                 importlib.import_module(module_name)
-            except Exception as exc:  # noqa: BLE001 — reason: test intentionally catches all exceptions to assert error behaviour
+            except Exception as exc:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
                 pytest.fail(f"Failed to import {module_name}: {exc}")
