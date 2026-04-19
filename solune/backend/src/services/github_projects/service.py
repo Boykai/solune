@@ -332,7 +332,7 @@ class GitHubProjectsService(
         """
         try:
             return await fn(*args, **kwargs)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: canonical best-effort wrapper; callers pass context
             logger.log(log_level, "%s: %s", context, exc)
             return fallback
 
