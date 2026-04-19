@@ -59,7 +59,7 @@ async def _auto_start_copilot_polling(settings: Any) -> None:
             owner, repo = await resolve_repository(
                 session.access_token, session.selected_project_id
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.warning(
                 "Could not resolve repo for project %s — skipping: %s",
                 session.selected_project_id,

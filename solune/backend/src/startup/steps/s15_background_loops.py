@@ -123,7 +123,7 @@ async def _polling_watchdog_loop() -> None:
                         and len(get_queued_pipelines_for_project(mp.project_id)) == 0
                     ):
                         unregister_project(mp.project_id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Watchdog multi-project sync failed: %s", e)
         except asyncio.CancelledError:
             logger.debug("Polling watchdog task cancelled")
