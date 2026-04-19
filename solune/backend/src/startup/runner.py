@@ -108,7 +108,8 @@ async def run_shutdown(
                 "Shutdown hook ok",
                 extra={"step": hook_name, "status": "ok", "duration_ms": duration_ms},
             )
-        except (TimeoutError, asyncio.CancelledError, Exception) as exc:
+        # reason: shutdown resilience; failure recorded, shutdown continues
+        except (TimeoutError, asyncio.CancelledError, Exception) as exc:  # noqa: BLE001
             duration_ms = (time.perf_counter() - start) * 1000
             error_message = (
                 f"timed out after {shutdown_timeout}s"
@@ -133,7 +134,8 @@ async def run_shutdown(
         await ctx.task_registry.drain(drain_timeout=shutdown_timeout)
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-drain", "ok", duration_ms, None))
-    except (asyncio.CancelledError, Exception) as exc:
+    # reason: shutdown resilience; failure recorded, shutdown continues
+    except (asyncio.CancelledError, Exception) as exc:  # noqa: BLE001
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-drain", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-drain failed: %s", exc, exc_info=True)
@@ -147,7 +149,8 @@ async def run_shutdown(
             await stop_polling()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-stop-polling", "ok", duration_ms, None))
-    except (asyncio.CancelledError, Exception) as exc:
+    # reason: shutdown resilience; failure recorded, shutdown continues
+    except (asyncio.CancelledError, Exception) as exc:  # noqa: BLE001
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-stop-polling", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-stop-polling failed: %s", exc, exc_info=True)
@@ -162,7 +165,8 @@ async def run_shutdown(
         await close_database()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "ok", duration_ms, None))
-    except (asyncio.CancelledError, Exception) as exc:
+    # reason: shutdown resilience; failure recorded, shutdown continues
+    except (asyncio.CancelledError, Exception) as exc:  # noqa: BLE001
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-close-db failed: %s", exc, exc_info=True)

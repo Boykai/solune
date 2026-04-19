@@ -187,7 +187,8 @@ def create_app() -> FastAPI:
                         {"path": _request.url.path, "method": _request.method},
                     )
                     sentry_sdk.capture_exception(exc)
-        except Exception:
+        # reason: best-effort operation; response must still be returned
+        except Exception:  # noqa: BLE001
             pass  # Sentry capture is best-effort
 
         return JSONResponse(

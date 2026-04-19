@@ -49,7 +49,8 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
         row = await cursor.fetchone()
         if row:
             session_token = row["access_token"]
-    except Exception:
+    # reason: polling resilience; failure logged, polling startup continues
+    except Exception:  # noqa: BLE001
         logger.debug("Could not fetch recent session token for polling", exc_info=True)
 
     token = session_token or fallback_token
@@ -71,7 +72,8 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
                     project_repo_map[ps_row["project_id"]] = (wf_owner, wf_repo)
             except (json.JSONDecodeError, TypeError):
                 continue
-    except Exception:
+    # reason: polling resilience; failure logged, polling startup continues
+    except Exception:  # noqa: BLE001
         logger.debug("Could not load project repo map from project_settings", exc_info=True)
 
     default_owner = settings.default_repo_owner or ""
@@ -99,7 +101,8 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
                             state.repository_owner = owner
                             state.repository_name = repo
                             await set_pipeline_state(state.issue_number, state)
-            except Exception:
+            # reason: polling resilience; failure logged, polling startup continues
+            except Exception:  # noqa: BLE001
                 logger.warning(
                     "Could not resolve repository for project %s via API, "
                     "falling back to default repo",
