@@ -179,6 +179,171 @@ class TestLifespan:
             # Signal was never started, so stop must NOT be called
             mock_stop_signal.assert_not_awaited()
 
+    async def test_lifespan_registers_services_on_app_state(self):
+        """Lifespan must register ChatAgentService, PipelineRunService,
+        GitHubAuthService, and AlertDispatcher on app.state."""
+        from src.main import lifespan
+
+        mock_db = AsyncMock()
+        mock_app = MagicMock()
+
+        mock_chat_agent = MagicMock(name="ChatAgentService")
+        mock_pipeline_run = MagicMock(name="PipelineRunService")
+        mock_github_auth = MagicMock(name="github_auth_service")
+
+        async def _noop_loop():
+            return
+
+        with (
+            patch("src.main.get_settings") as mock_s,
+            patch("src.main.setup_logging"),
+            patch(
+                "src.services.database.init_database",
+                new_callable=AsyncMock,
+                return_value=mock_db,
+            ),
+            patch("src.services.database.seed_global_settings", new_callable=AsyncMock),
+            patch("src.services.database.close_database", new_callable=AsyncMock),
+            patch("src.main._session_cleanup_loop", side_effect=_noop_loop),
+            patch("src.main._polling_watchdog_loop", side_effect=_noop_loop),
+            patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock),
+            patch(
+                "src.services.signal_bridge.start_signal_ws_listener",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.signal_bridge.stop_signal_ws_listener",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.pipeline_state_store.init_pipeline_state_store",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.chat_agent.ChatAgentService",
+                return_value=mock_chat_agent,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline_state_service.PipelineRunService",
+                return_value=mock_pipeline_run,
+            ),
+            patch("src.services.github_auth.github_auth_service", mock_github_auth),
+        ):
+            mock_s.return_value = MagicMock(
+                debug=True,
+                session_cleanup_interval=999999,
+                alert_webhook_url="https://hooks.example.com",
+                alert_cooldown_minutes=30,
+                otel_enabled=False,
+                otel_endpoint="http://localhost:4317",
+                otel_service_name="solune-backend",
+                sentry_dsn="",
+            )
+            async with lifespan(mock_app):
+                assert mock_app.state.chat_agent_service is mock_chat_agent
+                assert mock_app.state.pipeline_run_service is mock_pipeline_run
+                assert mock_app.state.github_auth_service is mock_github_auth
+                assert hasattr(mock_app.state, "alert_dispatcher")
+
+    async def test_lifespan_logs_critical_and_reraises_on_chat_agent_init_failure(self, caplog):
+        """ChatAgentService init failure must log CRITICAL and re-raise."""
+        import logging
+
+        from src.main import lifespan
+
+        mock_db = AsyncMock()
+        mock_app = MagicMock()
+
+        with (
+            patch("src.main.get_settings") as mock_s,
+            patch("src.main.setup_logging"),
+            patch(
+                "src.services.database.init_database",
+                new_callable=AsyncMock,
+                return_value=mock_db,
+            ),
+            patch("src.services.database.seed_global_settings", new_callable=AsyncMock),
+            patch("src.services.database.close_database", new_callable=AsyncMock),
+            patch(
+                "src.services.pipeline_state_store.init_pipeline_state_store",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.chat_agent.ChatAgentService",
+                side_effect=RuntimeError("agent init failed"),
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                debug=True,
+                session_cleanup_interval=999999,
+                alert_webhook_url="",
+                alert_cooldown_minutes=15,
+                otel_enabled=False,
+                otel_endpoint="http://localhost:4317",
+                otel_service_name="solune-backend",
+                sentry_dsn="",
+            )
+            with (
+                caplog.at_level(logging.CRITICAL),
+                pytest.raises(RuntimeError, match="agent init failed"),
+            ):
+                async with lifespan(mock_app):
+                    pytest.fail("lifespan should have raised before yielding")
+
+            assert "Failed to initialise ChatAgentService" in caplog.text
+
+    async def test_lifespan_logs_critical_and_reraises_on_pipeline_run_init_failure(self, caplog):
+        """PipelineRunService init failure must log CRITICAL and re-raise."""
+        import logging
+
+        from src.main import lifespan
+
+        mock_db = AsyncMock()
+        mock_app = MagicMock()
+        mock_chat_agent = MagicMock(name="ChatAgentService")
+
+        with (
+            patch("src.main.get_settings") as mock_s,
+            patch("src.main.setup_logging"),
+            patch(
+                "src.services.database.init_database",
+                new_callable=AsyncMock,
+                return_value=mock_db,
+            ),
+            patch("src.services.database.seed_global_settings", new_callable=AsyncMock),
+            patch("src.services.database.close_database", new_callable=AsyncMock),
+            patch(
+                "src.services.pipeline_state_store.init_pipeline_state_store",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.services.chat_agent.ChatAgentService",
+                return_value=mock_chat_agent,
+            ),
+            patch(
+                "src.services.copilot_polling.pipeline_state_service.PipelineRunService",
+                side_effect=RuntimeError("db init failed"),
+            ),
+        ):
+            mock_s.return_value = MagicMock(
+                debug=True,
+                session_cleanup_interval=999999,
+                alert_webhook_url="",
+                alert_cooldown_minutes=15,
+                otel_enabled=False,
+                otel_endpoint="http://localhost:4317",
+                otel_service_name="solune-backend",
+                sentry_dsn="",
+            )
+            with (
+                caplog.at_level(logging.CRITICAL),
+                pytest.raises(RuntimeError, match="db init failed"),
+            ):
+                async with lifespan(mock_app):
+                    pytest.fail("lifespan should have raised before yielding")
+
+            assert "Failed to initialise PipelineRunService" in caplog.text
+
 
 class TestSessionCleanupLoop:
     """Tests for _session_cleanup_loop background task."""

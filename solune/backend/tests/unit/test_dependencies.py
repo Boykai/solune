@@ -118,6 +118,41 @@ class TestServiceGetters:
 
         assert get_alert_dispatcher(request) is dispatcher
 
+    # ── new accessors raise when app.state attribute is missing ──────────
+
+    def test_get_chat_agent_service_raises_when_missing(self):
+        """New-style accessors have no fallback — missing attr raises."""
+        from src.dependencies import get_chat_agent_service
+
+        request = _request_with_state()
+
+        with pytest.raises(AttributeError):
+            get_chat_agent_service(request)
+
+    def test_get_pipeline_run_service_raises_when_missing(self):
+        from src.dependencies import get_pipeline_run_service
+
+        request = _request_with_state()
+
+        with pytest.raises(AttributeError):
+            get_pipeline_run_service(request)
+
+    def test_get_github_auth_service_raises_when_missing(self):
+        from src.dependencies import get_github_auth_service
+
+        request = _request_with_state()
+
+        with pytest.raises(AttributeError):
+            get_github_auth_service(request)
+
+    def test_get_alert_dispatcher_raises_when_missing(self):
+        from src.dependencies import get_alert_dispatcher
+
+        request = _request_with_state()
+
+        with pytest.raises(AttributeError):
+            get_alert_dispatcher(request)
+
     @pytest.mark.asyncio
     async def test_require_session_honors_fastapi_dependency_overrides(self):
         from src.api.auth import get_session_dep
@@ -281,3 +316,40 @@ class TestRequireSelectedProject:
 
         with pytest.raises(ValidationError, match="No project selected"):
             require_selected_project(_session(selected_project_id=None))
+
+
+class TestClientFixtureDependencyOverrides:
+    """Verify the client fixture uses dependency_overrides for all new service accessors."""
+
+    @pytest.mark.anyio
+    async def test_client_overrides_new_service_accessors(self, client):
+        """The client fixture must override all four new service dependency accessors."""
+        from src.dependencies import (
+            get_alert_dispatcher,
+            get_chat_agent_service,
+            get_github_auth_service,
+            get_pipeline_run_service,
+        )
+
+        overrides = client._transport.app.dependency_overrides
+        assert get_chat_agent_service in overrides, "get_chat_agent_service not overridden"
+        assert get_pipeline_run_service in overrides, "get_pipeline_run_service not overridden"
+        assert get_github_auth_service in overrides, "get_github_auth_service not overridden"
+        assert get_alert_dispatcher in overrides, "get_alert_dispatcher not overridden"
+
+    @pytest.mark.anyio
+    async def test_client_fixture_creates_fresh_app(self, client):
+        """The client fixture must use a fresh app so overrides don't bleed."""
+        app = client._transport.app
+        # Add a custom marker — if the app were shared, a second test
+        # would see it.
+        app.state._test_marker = "unique"
+        assert app.state._test_marker == "unique"
+
+    @pytest.mark.anyio
+    async def test_client_fixture_fresh_app_has_no_bleed(self, client):
+        """Verify no state from previous test leaked through."""
+        app = client._transport.app
+        assert not hasattr(app.state, "_test_marker"), (
+            "State from a previous test leaked — app is shared"
+        )
