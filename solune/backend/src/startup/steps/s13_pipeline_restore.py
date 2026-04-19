@@ -38,7 +38,7 @@ async def _restore_app_pipeline_polling(settings: Any) -> int:
             session = await get_session(db, row["session_id"])
             if session:
                 token = session.access_token
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not fetch session token for app pipeline polling", exc_info=True)
 
     if not token:
@@ -63,7 +63,7 @@ async def _restore_app_pipeline_polling(settings: Any) -> int:
                     project_repo_map[ps_row["project_id"]] = (wf_owner, wf_repo)
             except (json.JSONDecodeError, TypeError):
                 continue
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Could not load project repo map for app pipeline polling", exc_info=True)
 
     restored = 0
@@ -94,7 +94,7 @@ async def _restore_app_pipeline_polling(settings: Any) -> int:
                     state.repository_owner = owner
                     state.repository_name = repo
                     await set_pipeline_state(issue_number, state)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Could not resolve repository for project %s via API, "
                     "falling back to default repo",

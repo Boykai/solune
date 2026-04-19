@@ -43,7 +43,7 @@ class AgentMcpSyncStep:
                     owner, repo = await resolve_repository(
                         session.access_token, session.selected_project_id
                     )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     logger.debug("Could not resolve repo for startup MCP sync: %s", e)
                     return
 
@@ -60,7 +60,7 @@ class AgentMcpSyncStep:
                     owner,
                     repo,
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Startup agent MCP sync failed (non-fatal): %s",
                     e,

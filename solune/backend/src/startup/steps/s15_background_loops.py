@@ -118,7 +118,7 @@ async def _polling_watchdog_loop() -> None:
                             owner, repo = await resolve_repository(
                                 session.access_token, session.selected_project_id
                             )
-                        except Exception:
+                        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                             continue
                         register_project(
                             session.selected_project_id, owner, repo, session.access_token
@@ -164,7 +164,7 @@ async def _polling_watchdog_loop() -> None:
                     _row = await _cur.fetchone()
                     if _row:
                         _session_tok = _row["access_token"]
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                     pass
 
                 _token = _session_tok or _fallback_token
@@ -187,7 +187,7 @@ async def _polling_watchdog_loop() -> None:
                                     _proj_repo_map[_ps["project_id"]] = (_wo, _wr)
                             except (ValueError, TypeError):
                                 continue
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                         pass
 
                     _all_states = get_all_pipeline_states()
@@ -210,7 +210,7 @@ async def _polling_watchdog_loop() -> None:
                         if not _o or not _r:
                             try:
                                 _o, _r = await _resolve_repo(_token, _pid)
-                            except Exception:
+                            except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
                                 _o, _r = (
                                     (_settings.default_repo_owner or ""),
                                     (_settings.default_repo_name or ""),
@@ -236,7 +236,7 @@ async def _polling_watchdog_loop() -> None:
                         and len(get_queued_pipelines_for_project(mp.project_id)) == 0
                     ):
                         unregister_project(mp.project_id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Watchdog multi-project sync failed: %s", e)
         except asyncio.CancelledError:
             logger.debug("Polling watchdog task cancelled")
