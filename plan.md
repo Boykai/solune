@@ -1,23 +1,23 @@
-# Implementation Plan: Reduce Broad-Except + Log + Continue Pattern
+# Implementation Plan: Refactor main.py Lifespan into src/startup/ Step Package
 
-**Branch**: `002-reduce-broad-except` | **Date**: 2026-04-18 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/002-reduce-broad-except/spec.md`
+**Branch**: `002-lifespan-startup-steps` | **Date**: 2026-04-18 | **Spec**: [spec.md](./spec.md)
+**Input**: Feature specification from `/specs/002-lifespan-startup-steps/spec.md`
 
 ## Summary
 
-Drive two independent workstreams: (A) enable Ruff BLE001 to lint-enforce a ban on unjustified `except Exception` handlers, triage all ~568 existing violations into Narrow/Promote/Tagged buckets, and adopt a `# noqa: BLE001 — reason:` tag convention; (B) introduce a shared `best_effort` async helper in the GitHub-projects service layer to replace the ~50 repetitive "try → call → log → return fallback" wrappers concentrated in `pull_requests.py`, `projects.py`, `copilot.py`, and `issues.py`. Both workstreams are deliverable independently (FR-010).
+Extract the fifteen startup responsibilities currently inlined in `lifespan()` (main.py:642–802, ~160 lines of dense init logic) into a `src/startup/` package of named, individually-testable step classes. Each step implements a `Step` Protocol with `name`, `fatal`, `run(ctx)`, and optional `skip_if(ctx)`. A generic runner (`run_startup`) iterates a declarative step list, measures per-step timing, emits structured logs, and handles fatal-vs-non-fatal uniformly. Shutdown mirrors the pattern via `run_shutdown` with LIFO hook ordering. `create_app()` stays in `main.py`; only lifespan logic moves. Delivered across four independently-shippable PRs: scaffold+runner, pure-init steps, pipeline/polling steps, shutdown mirror.
 
 ## Technical Context
 
-**Language/Version**: Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`)
-**Primary Dependencies**: Ruff (linter, already in dev deps), githubkit (GitHub API client wrapping httpx), FastAPI/Starlette (web framework), aiosqlite (async SQLite)
-**Storage**: N/A — lint configuration + code refactor. No schema changes.
-**Testing**: pytest with `asyncio_mode = "auto"`. Existing test suite at `solune/backend/tests/` (unit, integration, e2e, property, fuzz, chaos, architecture). 75% coverage floor.
-**Target Platform**: CI runs on `ubuntu-latest` via `.github/workflows/ci.yml`; local developer loop is `cd solune/backend && uv run ruff check`.
+**Language/Version**: Python ≥3.12 (Pyright targets 3.13 per `solune/backend/pyproject.toml:119`)
+**Primary Dependencies**: FastAPI ≥0.135.0, aiosqlite ≥0.22.0, sentry-sdk[fastapi] ≥2.22.0, OpenTelemetry SDK ≥1.33.0 — all existing; no new dependencies added
+**Storage**: SQLite via aiosqlite (async wrapper in `src/services/database.py`); database connection is initialised in lifespan and passed through `StartupContext`
+**Testing**: pytest + pytest-asyncio (asyncio_mode = "auto"); new `tests/unit/startup/` package with one test file per step + runner tests. No new test dependencies.
+**Target Platform**: Linux server (CI: `ubuntu-latest` via `.github/workflows/ci.yml`); local dev via `uv run`
 **Project Type**: Web application — `solune/backend/` (Python) + `solune/frontend/` (TypeScript). This feature touches the backend tree only.
-**Performance Goals**: N/A — no runtime performance impact. Lint check time increase is negligible (BLE001 is a pattern-match rule with no import resolution).
-**Constraints**: Zero production-behaviour changes (SC-006). Existing test suite must pass without regressions (FR-011). The two workstreams must be independently deliverable (FR-010).
-**Scale/Scope**: ~568 `except Exception` handlers across ~87 files in `solune/backend/src/`. Top files: `pipeline.py` (47), `chat.py` (41), `orchestrator.py` (32), `app_service.py` (19), `main.py` (18). Domain-error helper targets ~50 handlers in `src/services/github_projects/` (pull_requests.py: 12, copilot.py: 14, issues.py: 15, projects.py: 11).
+**Performance Goals**: Startup wall-clock MUST NOT regress; per-step overhead of the runner (timing + logging) is <1ms per step. No new I/O paths.
+**Constraints**: Zero behaviour change to the running application between pre- and post-refactor boots. All existing integration tests pass without modification. `main.py` drops to ≤250 lines; no startup package file >120 lines.
+**Scale/Scope**: Backend is ~80 modules under `solune/backend/src/`. The refactor touches `main.py` (964 lines → ~250), creates ~20 new files in `src/startup/` and `tests/unit/startup/`. Six private helper functions (totalling ~620 lines) relocate verbatim.
 
 ## Constitution Check
 
@@ -25,34 +25,34 @@ Drive two independent workstreams: (A) enable Ruff BLE001 to lint-enforce a ban 
 
 | Principle | Compliance |
 |---|---|
-| **I. Specification-First Development** | ✅ `spec.md` exists with prioritised P1–P4 user stories, Given-When-Then acceptance scenarios per story, explicit Independent Test sections, edge cases, and bounded scope (two workstreams, four user stories). |
+| **I. Specification-First Development** | ✅ `spec.md` exists with five prioritised P1–P3 user stories, Given-When-Then acceptance scenarios per story, Independent Test sections, five edge cases, eighteen functional requirements, and bounded scope (four PR phases, startup/shutdown only). |
 | **II. Template-Driven Workflow** | ✅ `spec.md` and this `plan.md` follow `.specify/templates/`. No ad-hoc sections beyond the templates. |
 | **III. Agent-Orchestrated Execution** | ✅ This artifact is the `/speckit.plan` output; it explicitly hands off to `/speckit.tasks` for task decomposition. |
-| **IV. Test Optionality with Clarity** | ✅ Workstream A is a lint/config change validated by `ruff check` exit status. Workstream B introduces a helper that replaces existing behaviour 1:1 — validated by the existing test suite plus a targeted unit test for the helper itself. The spec does not mandate TDD. New tests are added only for the `best_effort` helper (novel code). |
-| **V. Simplicity and DRY** | ✅ Workstream A uses an existing Ruff rule (BLE001) — no new tool. Workstream B extracts a single helper to eliminate ~50 duplicate try/except blocks (DRY improvement). The helper is intentionally narrow (GitHub-projects HTTP calls only) to avoid premature abstraction. |
+| **IV. Test Optionality with Clarity** | ✅ Tests are explicitly requested: spec FR-018 mandates independently unit-testable steps, SC-001 requires sub-2s tests, SC-005 requires structured-log assertions. New `tests/unit/startup/` package is created as part of the feature. |
+| **V. Simplicity and DRY** | ✅ The Step Protocol is the minimal abstraction needed to make steps declarative and testable — three required members (`name`, `fatal`, `run`) plus one optional (`skip_if`). `StartupContext` is a mutable dataclass matching the existing `app.state` access pattern (no DI container). Four-PR phasing is the simplest delivery sequence. No Complexity Tracking entries required. |
 
 **Result**: PASS — proceed to Phase 0. No entries in Complexity Tracking.
 
 ### Post-Design Re-check (after Phase 1 artifacts)
 
-Re-evaluated after generating `research.md`, `data-model.md`, `contracts/`, and `quickstart.md`. The `best_effort` helper is a single async function (not a class hierarchy). No new abstractions beyond what was specified. Lint enablement adds one line to `pyproject.toml`. All constraints still satisfied. **Result**: PASS.
+Re-evaluated after generating `research.md`, `data-model.md`, `contracts/`, and `quickstart.md`. The Step Protocol introduces one new abstraction (justified by testability per spec P1 user story). `StartupContext` mirrors the existing mutable-state pattern (no new paradigm). No new external dependencies. Constraints still satisfied. **Result**: PASS.
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/002-reduce-broad-except/
+specs/002-lifespan-startup-steps/
 ├── plan.md              # This file (/speckit.plan command output)
 ├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output (configuration and code entities)
-├── quickstart.md        # Phase 1 output (per-workstream verification recipes)
+├── data-model.md        # Phase 1 output (Step, StepOutcome, StartupContext entities)
+├── quickstart.md        # Phase 1 output (per-PR verification recipes)
 ├── contracts/
-│   ├── ruff-config-contract.md       # Required [tool.ruff.lint] state per workstream
-│   ├── tag-convention-contract.md    # Format and placement rules for # noqa: BLE001
-│   └── best-effort-helper-contract.md # API surface and behaviour of best_effort()
+│   ├── step-protocol-contract.md    # Step Protocol and StepOutcome shape
+│   ├── runner-contract.md           # run_startup / run_shutdown semantics
+│   └── context-contract.md          # StartupContext fields and lifecycle
 ├── checklists/
-│   └── requirements.md  # Created during /speckit.specify
+│   └── requirements.md              # Created during /speckit.specify
 └── tasks.md             # Phase 2 output (/speckit.tasks - NOT created here)
 ```
 
@@ -61,32 +61,64 @@ specs/002-reduce-broad-except/
 ```text
 solune/
 ├── backend/
-│   ├── pyproject.toml                          # [tool.ruff.lint] block at line 85 — add "BLE" to select
-│   └── src/
-│       ├── services/
-│       │   ├── github_projects/
-│       │   │   ├── _mixin_base.py              # _ServiceMixin TYPE_CHECKING stub — add type stub for _best_effort()
-│       │   │   ├── service.py                  # GitHubProjectsService runtime — host _best_effort() implementation
-│       │   │   ├── pull_requests.py            # 12 except Exception → refactor to best_effort()
-│       │   │   ├── projects.py                 # 11 except Exception → refactor to best_effort()
-│       │   │   ├── copilot.py                  # 14 except Exception → refactor to best_effort()
-│       │   │   └── issues.py                   # 15 except Exception → refactor to best_effort()
-│       │   ├── copilot_polling/
-│       │   │   ├── pipeline.py                 # 47 except Exception → triage (Narrow/Tagged)
-│       │   │   ├── helpers.py                  # 16 except Exception → triage
-│       │   │   └── recovery.py                 # 15 except Exception → triage
-│       │   ├── workflow_orchestrator/
-│       │   │   └── orchestrator.py             # 32 except Exception → triage
-│       │   └── app_service.py                  # 19 except Exception → triage
-│       ├── api/
-│       │   └── chat.py                         # 41 except Exception → triage
-│       ├── main.py                             # 18 except Exception → triage
-│       └── exceptions.py                       # Existing exception hierarchy (unchanged)
-└── docs/
-    └── decisions/                              # ADR for tag convention (optional, per FR-005)
+│   ├── src/
+│   │   ├── main.py                          # Refactor target (964 → ~250 lines)
+│   │   │                                    #   create_app() stays here
+│   │   │                                    #   lifespan() shrinks to ~30-line orchestrator
+│   │   ├── startup/                         # NEW — startup step package
+│   │   │   ├── __init__.py                  # Re-exports: run_startup, run_shutdown,
+│   │   │   │                                #   StartupContext, Step, StepOutcome
+│   │   │   ├── protocol.py                  # Step Protocol + StepOutcome dataclass
+│   │   │   │                                #   + StartupContext dataclass
+│   │   │   ├── runner.py                    # run_startup(steps, ctx) / run_shutdown(steps, ctx)
+│   │   │   │                                #   timing, logging, error aggregation
+│   │   │   └── steps/                       # One module per step
+│   │   │       ├── __init__.py              # Exports STARTUP_STEPS list
+│   │   │       ├── s01_logging.py           # setup_logging()
+│   │   │       ├── s02_asyncio_exc.py       # asyncio exception handler
+│   │   │       ├── s03_database.py          # init_database + migrations
+│   │   │       ├── s04_pipeline_cache.py    # init_pipeline_state_store
+│   │   │       ├── s05_done_items_cache.py  # init_done_items_store
+│   │   │       ├── s06_singleton_svcs.py    # github_projects_service, connection_manager
+│   │   │       ├── s07_alert_dispatcher.py  # AlertDispatcher init
+│   │   │       ├── s08_otel.py              # OpenTelemetry (skip_if not otel_enabled)
+│   │   │       ├── s09_sentry.py            # Sentry (skip_if not sentry_dsn)
+│   │   │       ├── s10_signal_ws.py         # Signal WebSocket listener
+│   │   │       ├── s11_copilot_polling.py   # _auto_start_copilot_polling (verbatim)
+│   │   │       ├── s12_multi_project.py     # _discover_and_register_active_projects (verbatim)
+│   │   │       ├── s13_pipeline_restore.py  # _restore_app_pipeline_polling (verbatim)
+│   │   │       ├── s14_agent_mcp_sync.py    # _startup_agent_mcp_sync (via task_registry)
+│   │   │       └── s15_background_loops.py  # enqueue _session_cleanup_loop + _polling_watchdog_loop
+│   │   ├── services/
+│   │   │   └── task_registry.py             # Unchanged; StartupContext holds reference
+│   │   └── middleware/
+│   │       └── request_id.py                # Unchanged; runner wraps request_id_var per step
+│   └── tests/
+│       └── unit/
+│           └── startup/                     # NEW — startup test package
+│               ├── __init__.py
+│               ├── conftest.py              # Shared fixtures (mock ctx, fake steps)
+│               ├── test_runner.py           # Runner semantics (fatal, non-fatal, skip, timing)
+│               ├── test_protocol.py         # Protocol conformance
+│               ├── test_s01_logging.py      # Per-step tests
+│               ├── test_s02_asyncio_exc.py
+│               ├── test_s03_database.py
+│               ├── test_s04_pipeline_cache.py
+│               ├── test_s05_done_items_cache.py
+│               ├── test_s06_singleton_svcs.py
+│               ├── test_s07_alert_dispatcher.py
+│               ├── test_s08_otel.py
+│               ├── test_s09_sentry.py
+│               ├── test_s10_signal_ws.py
+│               ├── test_s11_copilot_polling.py
+│               ├── test_s12_multi_project.py
+│               ├── test_s13_pipeline_restore.py
+│               ├── test_s14_agent_mcp_sync.py
+│               └── test_s15_background_loops.py
+└── (frontend/ unchanged)
 ```
 
-**Structure Decision**: Web-application backend. All source edits are confined to `solune/backend/`. Workstream A modifies `pyproject.toml` and every file containing `except Exception`. Workstream B adds `best_effort()` to the existing `service.py` mixin and refactors the four `github_projects/` service files. No new directories or packages are created.
+**Structure Decision**: Web application (Option 2). All source edits are confined to `solune/backend/`. The new `src/startup/` package is a sibling of `src/services/`, `src/api/`, and `src/middleware/` — matching the existing flat-module layout under `src/`. Step modules use a numbered prefix (`s01_`, `s02_`, …) so that file-system ordering matches execution order. No existing directories are moved or renamed.
 
 ## Complexity Tracking
 

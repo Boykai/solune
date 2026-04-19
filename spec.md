@@ -1,126 +1,165 @@
-# Feature Specification: Reduce Broad-Except + Log + Continue Pattern
+# Feature Specification: Refactor main.py Lifespan into src/startup/ Step Package
 
-**Feature Branch**: `002-reduce-broad-except`
+**Feature Branch**: `002-lifespan-startup-steps`
 **Created**: 2026-04-18
 **Status**: Draft
-**Input**: User description: "Reduce Broad-Except + Log + Continue Pattern"
+**Input**: User description: "Refactor main.py Lifespan into src/startup/ Step Package — Extract the fifteen responsibilities currently inlined in lifespan() into a src/startup/ package of named, individually-testable steps."
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 — Enable Lint Rule for Broad Exception Handlers (Priority: P1)
+### User Story 1 — Developer Tests a Single Startup Step in Isolation (Priority: P1)
 
-A developer opens the project, runs the linter, and receives clear violations for every overly-broad `except Exception` handler that has not been explicitly justified. This gives the team immediate, automated visibility into which error handlers are intentionally broad versus accidentally silencing failures.
+A backend developer wants to verify that the database initialization step works correctly without booting the entire application. Today, the only way to test any startup logic is to launch the full server because all fifteen responsibilities are woven into a single 160-line function. After this refactor, the developer writes a unit test that creates a minimal context, runs the database step, and asserts the expected side-effects — all in under one second.
 
-**Why this priority**: This is the foundation for both workstreams. Without an enforced lint rule, broad-except handlers will continue to accumulate unchecked. Enabling the rule surfaces the full scope of the problem (~570 occurrences across ~87 files today) and prevents new violations from landing in the codebase.
+**Why this priority**: Testability is the primary driver for this refactor. Until steps can be tested independently, every startup change carries regression risk that can only be caught by slow, flaky integration tests.
 
-**Independent Test**: Can be fully tested by running the linter on the current codebase and confirming it reports all unjustified broad-except handlers. Delivers value by establishing the guardrail that prevents regression.
+**Independent Test**: Can be fully tested by running a single step with a mock context and asserting the expected outcome — no server boot required.
 
 **Acceptance Scenarios**:
 
-1. **Given** the lint configuration has the broad-exception rule enabled, **When** a developer runs the linter on the backend, **Then** every `except Exception` handler without a justification tag is reported as a violation.
-2. **Given** the lint configuration has the broad-exception rule enabled, **When** a developer adds a new `except Exception` handler without a justification tag, **Then** the linter blocks the change (or reports a violation in CI).
-3. **Given** the lint configuration has the broad-exception rule enabled, **When** a developer adds a new `except Exception` handler with the approved justification tag, **Then** the linter accepts it without reporting a violation.
+1. **Given** a step module exists for "database initialization", **When** a developer runs its unit test with a mocked database connection, **Then** the test passes or fails in under 2 seconds and validates that the database is initialised and assigned to the application state.
+2. **Given** a step module exists for "pipeline state cache", **When** a developer runs its unit test with a mock database, **Then** the test asserts the cache initialisation function was called exactly once.
+3. **Given** a step module has `fatal=True`, **When** it raises an exception during its test, **Then** the test verifies the runner propagates the exception (does not swallow it).
 
 ---
 
-### User Story 2 — Triage and Narrow Existing Broad Handlers (Priority: P2)
+### User Story 2 — Developer Reorders or Adds a Startup Step (Priority: P2)
 
-A developer reviews each existing broad-except handler and assigns it to one of three resolution buckets: **Narrow** (replace with a specific exception type), **Promote** (remove the handler entirely so the caller handles the error), or **Tagged** (keep the broad handler with an explicit justification). After triage, every handler in the codebase is intentional, documented, and auditable.
+A backend developer needs to add a new initialisation step (e.g., a new cache warm-up) to the application startup sequence. Today, this means editing the middle of a dense 160-line function and hoping the insertion point is correct. After this refactor, the developer creates a new step module, adds it to the declarative step list at the desired position, and marks it `fatal` or non-fatal. The runner executes it in order automatically.
 
-**Why this priority**: The lint rule (P1) surfaces the violations; this story resolves them. Until triage is complete the codebase cannot pass lint cleanly. This story is intentionally decoupled from the lint enablement so the rule can ship first (fail-open or per-file suppressed) without waiting for every handler to be resolved.
+**Why this priority**: Maintainability directly impacts developer velocity. A declarative step list makes ordering explicit and changes reviewable at a glance.
 
-**Independent Test**: Can be tested by running the linter after triage and confirming zero unresolved violations remain. Each handler resolution can be verified individually through code review.
+**Independent Test**: Can be fully tested by injecting a list of fake steps into the runner and asserting execution order matches the list order.
 
 **Acceptance Scenarios**:
 
-1. **Given** a broad-except handler that wraps a known operation (e.g., a database call or a JSON parse), **When** a developer triages it as "Narrow," **Then** the handler is replaced with the specific exception type(s) for that operation and the lint rule passes.
-2. **Given** a broad-except handler where the caller already has error-handling logic, **When** a developer triages it as "Promote," **Then** the handler is removed entirely and the error propagates to the caller.
-3. **Given** a broad-except handler that wraps genuinely unbounded calls (e.g., third-party callbacks, task-group drains), **When** a developer triages it as "Tagged," **Then** the handler retains `except Exception` with the approved justification tag and the lint rule passes.
-4. **Given** all existing handlers have been triaged, **When** the linter runs on the full backend codebase, **Then** zero broad-except violations are reported.
+1. **Given** a declarative startup step list, **When** a developer adds a new step at position 5, **Then** the runner executes it after step 4 and before step 6.
+2. **Given** a step list with 15 entries, **When** a developer removes a step from the middle, **Then** all remaining steps still execute in their declared order without code changes to the runner.
 
 ---
 
-### User Story 3 — Adopt a Justification Tag Convention (Priority: P3)
+### User Story 3 — Operations Engineer Diagnoses a Slow or Failing Boot (Priority: P2)
 
-A developer who genuinely needs a broad-except handler follows a documented convention to tag it with a reason. The tag is machine-readable (the linter recognises it as a suppression) and human-readable (a reviewer can understand why the broad handler exists). This mirrors the existing inline-suppression convention already used elsewhere in the codebase.
+An operations engineer notices the application is taking longer than usual to start. Today, startup logs are mixed in with general application output and lack timing information. After this refactor, each step emits a structured log line with the step name, status (ok/failed/skipped), and duration in milliseconds. The engineer can quickly identify which step is slow or failing.
 
-**Why this priority**: Without a clear convention, developers will suppress the lint rule inconsistently (or not at all). This story establishes the standard and ensures long-term maintainability. It is lower priority because the convention can be communicated informally while P1 and P2 are in progress.
+**Why this priority**: Observability during startup is critical for production incident response. Structured per-step logs eliminate guesswork.
 
-**Independent Test**: Can be tested by searching the codebase for all justification tags and confirming each one follows the documented format. A reviewer can verify any single tagged handler in isolation.
+**Independent Test**: Can be fully tested by running the startup runner with fake steps and capturing log output, asserting each log line contains the required fields.
 
 **Acceptance Scenarios**:
 
-1. **Given** a developer needs to keep a broad-except handler, **When** they add the justification tag following the documented convention, **Then** the linter accepts the handler and the tag includes a human-readable reason.
-2. **Given** a developer adds a justification tag with an empty or missing reason, **When** the linter runs, **Then** the suppression still applies (the linter does not parse the reason text), but code review policy requires a meaningful reason.
-3. **Given** the project documentation, **When** a new contributor looks up how to handle a necessary broad-except, **Then** they find clear instructions on the tag format, when it is appropriate, and examples of valid reasons.
+1. **Given** the application starts up, **When** all steps succeed, **Then** one structured log line per step is emitted containing `step`, `status`, and `duration_ms` fields.
+2. **Given** a non-fatal step fails during startup, **When** the engineer reviews logs, **Then** the failed step's log entry shows status "failed" with error details, and subsequent steps still appear in the log.
+3. **Given** a conditional step (e.g., telemetry) is skipped, **When** the engineer reviews logs, **Then** the log entry for that step shows status "skipped".
 
 ---
 
-### User Story 4 — Introduce a Domain-Error Helper for Best-Effort HTTP Calls (Priority: P4)
+### User Story 4 — Developer Verifies Shutdown Correctness After a Fatal Step Failure (Priority: P3)
 
-A developer working on code that calls external services (particularly GitHub APIs) uses a shared helper instead of writing ad-hoc try/except blocks for "best-effort" HTTP calls. The helper encapsulates the pattern of "attempt the call, log any failure, return a safe fallback" — reducing the roughly 50+ repetitive wrappers concentrated in the pull-request and project service layers.
+A developer wants to ensure that even when a fatal startup step fails and aborts the boot, critical cleanup still happens — for example, the database connection is closed. Today, there is a single `finally` block that handles all cleanup, and its behaviour when certain steps haven't run is hard to reason about. After this refactor, shutdown hooks run in reverse-registration order, and built-in trailing hooks (drain tasks, stop polling, close database) always execute regardless of which startup step failed.
 
-**Why this priority**: This is the refactor workstream and is intentionally independent of the lint-policy workstream. It delivers value by reducing code duplication and making the best-effort pattern consistent, but it is lower priority because the lint rule (P1–P3) can ship independently without waiting for the refactor.
+**Why this priority**: Resource cleanup correctness prevents connection leaks and data corruption, but it is an edge case (fatal failures are rare).
 
-**Independent Test**: Can be tested by verifying that callers using the helper produce the same observable behaviour (logging, fallback values) as the original ad-hoc handlers, and that new best-effort calls use the helper instead of raw try/except.
+**Independent Test**: Can be fully tested by injecting a fatal step that raises an exception and asserting the database-close hook still runs.
 
 **Acceptance Scenarios**:
 
-1. **Given** a service function that makes a best-effort HTTP call with an ad-hoc try/except, **When** a developer replaces it with the domain-error helper, **Then** the function produces identical logging output and returns the same fallback value on failure.
-2. **Given** the domain-error helper is available, **When** a developer writes a new best-effort HTTP call, **Then** they use the helper instead of writing a raw try/except and the code review process enforces this.
-3. **Given** the domain-error helper handles a network failure, **When** the call fails, **Then** the failure is logged at the appropriate severity level and the helper returns the configured fallback value without raising an exception.
-4. **Given** the domain-error helper handles any `Exception`, **When** the call fails, **Then** the exception is logged and the helper returns the configured fallback. `BaseException` subclasses (e.g. `KeyboardInterrupt`, `SystemExit`) are never caught and always propagate.
+1. **Given** a fatal step fails during startup, **When** the shutdown sequence runs, **Then** the database connection is still closed.
+2. **Given** three shutdown hooks were registered in order A → B → C, **When** shutdown executes, **Then** hooks run in order C → B → A (LIFO).
+3. **Given** a shutdown hook itself fails, **When** the remaining hooks execute, **Then** the failure is logged but does not prevent subsequent hooks from running.
+
+---
+
+### User Story 5 — Developer Reduces main.py Line Count (Priority: P3)
+
+A developer wants the main application entry point to be concise and focused on orchestration rather than business logic. Today, main.py is approximately 900 lines, with over half dedicated to startup/shutdown logic and private helper functions. After this refactor, main.py shrinks to approximately 250 lines, with the startup/shutdown logic distributed across focused, single-responsibility modules.
+
+**Why this priority**: Codebase readability and onboarding speed improve when the entry point is a short orchestrator, but this is a secondary benefit behind testability and maintainability.
+
+**Independent Test**: Can be verified by counting lines in main.py and confirming no module in the new startup package exceeds 120 lines.
+
+**Acceptance Scenarios**:
+
+1. **Given** the refactor is complete, **When** main.py is measured, **Then** it contains no more than 250 lines.
+2. **Given** the startup package is complete, **When** any single file in the package is measured, **Then** it contains no more than 120 lines.
 
 ---
 
 ### Edge Cases
 
-- What happens when a broad-except handler catches `KeyboardInterrupt` or `SystemExit`? These should never be silently swallowed; the lint rule should surface them, and triage should narrow or promote them.
-- What happens when a tagged handler's justification becomes outdated (e.g., a third-party library adds typed exceptions)? Periodic review of tagged handlers should be part of maintenance.
-- What happens when the domain-error helper is used for a call that should NOT be best-effort (i.e., the caller needs to know about the failure)? The helper must only be used where silent fallback is the correct behaviour; misuse should be caught in code review.
-- What happens when multiple exception types need to be caught in a single handler? The "Narrow" triage bucket should produce union exception types (e.g., catching both database and OS errors) rather than falling back to a broad handler.
-- What happens when a file has dozens of handlers to triage? Large files (e.g., pipeline.py with ~47 occurrences, chat.py with ~41) should be triaged incrementally to keep pull requests reviewable.
+- What happens when a conditional step's skip condition itself throws an exception? The runner MUST treat this as a step failure and apply the step's fatal/non-fatal policy.
+- What happens when the same step name appears twice in the step list? The runner MUST reject duplicate names at startup with a clear error.
+- What happens when a non-fatal step modifies shared state and then a later fatal step fails? Shutdown hooks MUST still run, and any partial state changes from the non-fatal step are not automatically rolled back (this mirrors current behaviour).
+- What happens when a background loop coroutine is queued but the task group never starts (because a fatal step fails before that point)? The queued coroutines MUST be discarded without execution, and this MUST be logged.
+- What happens during shutdown when a hook takes longer than expected? Each shutdown hook MUST be subject to a reasonable timeout to prevent shutdown from hanging indefinitely.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-#### Workstream A — Lint Policy
+- **FR-001**: The system MUST extract each startup responsibility from the current lifespan function into a separate, named step module.
+- **FR-002**: Each step MUST have a stable name identifier used in logs, metrics, and the startup outcome report.
+- **FR-003**: Each step MUST be marked as either fatal (failure aborts startup) or non-fatal (failure is logged and startup continues).
+- **FR-004**: Each step MAY have an optional skip condition that, when true, causes the runner to record the step as "skipped" and proceed to the next step.
+- **FR-005**: The startup runner MUST execute steps sequentially in the order they appear in the declared step list.
+- **FR-006**: The startup runner MUST measure wall-clock duration for each step and include it in the log output.
+- **FR-007**: The startup runner MUST set a per-step correlation identifier for log tracing before executing each step.
+- **FR-008**: When a fatal step fails, the runner MUST log the exception and re-raise it so the application framework aborts the cold start.
+- **FR-009**: When a non-fatal step fails, the runner MUST log a warning with exception details and continue to the next step.
+- **FR-010**: After all steps complete, the runner MUST collect and surface a startup outcome report (step name, status, duration, error if any) on the application state for future introspection.
+- **FR-011**: The shutdown runner MUST execute registered shutdown hooks in reverse-registration order (LIFO).
+- **FR-012**: Built-in trailing shutdown hooks (drain task registry, stop polling, close database) MUST always run, even if a fatal startup step failed or a shutdown hook itself fails.
+- **FR-013**: Background loop coroutines queued by steps MUST be started inside the existing task group after all steps have completed.
+- **FR-014**: The main entry point file MUST remain the location of the application factory function; only startup and shutdown logic moves to the new package.
+- **FR-015**: All fifteen existing startup responsibilities MUST be preserved with identical side-effects and ordering after the refactor.
+- **FR-016**: The private helper functions that implement long-running loops and startup tasks MUST be relocated verbatim (no behaviour changes) into the new step modules.
+- **FR-017**: The refactor MUST be deliverable in multiple independent, individually-shippable pull requests that do not break the application between merges.
+- **FR-018**: Each step module MUST be independently unit-testable with mocked dependencies and no requirement to boot the full application.
 
-- **FR-001**: The lint configuration MUST include a rule that flags every `except Exception` handler that lacks an approved justification tag.
-- **FR-002**: The lint rule MUST run as part of the existing CI pipeline so that new unjustified broad-except handlers fail the build.
-- **FR-003**: Every existing broad-except handler in the backend codebase MUST be triaged into exactly one of three buckets: **Narrow** (replaced with specific exception types), **Promote** (removed so error propagates), or **Tagged** (retained with justification).
-- **FR-004**: Each tagged (retained) broad-except handler MUST include an inline justification tag that follows the project's existing suppression convention — specifically: an inline comment with the rule code, an em-dash separator, `reason:`, and a human-readable explanation.
-- **FR-005**: The project MUST document the justification tag convention (format, when to use it, examples) so that contributors know how to handle legitimate broad-except cases.
+### Key Entities
 
-#### Workstream B — Domain-Error Helper
-
-- **FR-006**: The project MUST provide a shared helper for the "best-effort HTTP call" pattern that encapsulates: attempting the call, logging failures at a configurable severity, and returning a caller-specified fallback value.
-- **FR-007**: The domain-error helper MUST catch only `Exception` subclasses (allowing `BaseException` subclasses such as `KeyboardInterrupt` and `SystemExit` to propagate) and MUST log every caught exception before returning the caller-specified fallback.
-- **FR-008**: Existing ad-hoc best-effort HTTP wrappers in the pull-request and project service layers MUST be replaced with the shared helper.
-- **FR-009**: The domain-error helper MUST preserve the existing logging behaviour (severity level, message format) of the ad-hoc wrappers it replaces.
-
-#### Cross-Cutting
-
-- **FR-010**: Workstream A (lint policy) and Workstream B (domain-error helper) MUST be deliverable independently — neither workstream's completion should be gated on the other.
-- **FR-011**: All changes MUST pass the existing test suite without regressions.
-
-## Assumptions
-
-- The existing CI pipeline already runs the linter on every pull request; enabling the new rule will automatically integrate without additional CI configuration.
-- The ~570 existing broad-except handlers will be triaged across multiple pull requests to keep changes reviewable, not in a single monolithic change.
-- The majority of broad-except handlers in `main.py` (e.g., around database and file-system operations) will collapse to specific exception types (database errors, OS errors), reducing the tagged-handler count significantly.
-- The existing inline-suppression convention (rule code + em-dash + `reason:`) already in use elsewhere in the codebase is the standard to follow for justification tags.
-- The domain-error helper targets HTTP/network call wrappers specifically and is not intended as a general-purpose exception-handling utility.
-- "Best-effort" means the caller explicitly accepts that the call may fail and has defined a fallback; the helper is not appropriate for calls where failure must be surfaced to the user.
+- **Step**: A named unit of startup work with a stable identifier, a fatal/non-fatal designation, an async execution body, and an optional skip condition. Steps are the primary organisational unit of the new startup package.
+- **StepOutcome**: The result of executing a single step, containing the step name, final status (ok, failed, skipped), wall-clock duration in milliseconds, and any captured error. A list of StepOutcomes forms the startup report.
+- **StartupContext**: A mutable container passed to every step during execution. Holds references to the application instance, settings, database connection, task registry, a list of queued background coroutines, and a list of registered shutdown hooks. Steps read from and write to this context.
+- **Startup Report**: An ordered list of StepOutcomes stashed on the application state after startup completes. Provides a machine-readable record of what happened during boot.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of backend broad-except handlers are either narrowed to specific types, promoted (removed), or tagged with a documented justification — zero unresolved lint violations remain.
-- **SC-002**: The lint rule runs on every pull request and blocks merging of new unjustified broad-except handlers, preventing regression from the first day of enablement.
-- **SC-003**: The number of broad-except handlers retained with justification tags is reduced to fewer than 15% of the original count (~570), meaning at least 85% are narrowed or promoted.
-- **SC-004**: All ad-hoc best-effort HTTP wrappers in the pull-request and project service layers (estimated 50+ occurrences) are consolidated into calls to the shared domain-error helper, reducing duplicated error-handling code by at least 80% in those files.
-- **SC-005**: Developer onboarding friction related to exception handling is eliminated — a new contributor can find the justification tag convention and the domain-error helper documented within 2 minutes.
-- **SC-006**: No production behaviour changes — all narrowed, promoted, and refactored handlers produce the same observable behaviour (logging output, fallback values, error propagation) as the original handlers.
+- **SC-001**: Every startup step can be unit-tested in isolation — no step requires the full application to boot for testing — and test execution time for any single step is under 2 seconds.
+- **SC-002**: The main entry point file contains no more than 250 lines after the full refactor is complete, down from approximately 900 lines today.
+- **SC-003**: No single file in the new startup package exceeds 120 lines, ensuring each module stays focused on a single responsibility.
+- **SC-004**: All existing integration tests continue to pass without modification, confirming zero behaviour change to the running application.
+- **SC-005**: Each startup step produces exactly one structured log line containing the step name, execution status, and duration — verified via log capture in unit tests.
+- **SC-006**: A fatal step failure during startup still results in the database connection being properly closed — verified by a dedicated shutdown-correctness test.
+- **SC-007**: The refactor is delivered across four or fewer independently-shippable pull requests, with no PR introducing a broken state.
+- **SC-008**: The startup step execution order after the refactor exactly matches the current execution order — verified by comparing log output between pre- and post-refactor boots.
+
+## Assumptions
+
+- The existing task group-based background task strategy is retained as-is; this refactor does not change how background tasks are managed at the async runtime level.
+- Module-level singleton globals (e.g., `github_projects_service`, `connection_manager`) are out of scope for this refactor and will be addressed by a separate "dual-init" cleanup plan.
+- The internal logic of each helper function (polling, cleanup, discovery) is unchanged; only the try/except wrapper and the physical file location change.
+- The application factory function remains in the main entry point file; only the lifespan/startup/shutdown logic is extracted.
+- A future health check endpoint may surface the startup report, but building that endpoint is out of scope for this feature.
+- Pyright strict mode and Ruff BLE policy changes are handled by separate plans and are not part of this refactor.
+
+## Scope Boundaries
+
+### In Scope
+
+- Creating the new startup package with protocol, runner, and step modules
+- Relocating the fifteen startup responsibilities into individual step modules
+- Relocating private helper functions (polling watchdog loop, session cleanup loop, copilot polling autostart, multi-project discovery, app pipeline polling restore, agent MCP sync) into step modules
+- Building the startup and shutdown runner with timing, logging, and error handling
+- Adding unit tests for the runner and each step
+- Reducing main.py line count to approximately 250 lines
+
+### Out of Scope
+
+- Removing module-level singleton globals (separate "dual-init" cleanup plan)
+- Adding a `/api/v1/healthz/startup` endpoint to expose the startup report
+- Changing the task group-based background task lifecycle strategy
+- Altering any step's internal business logic (moves are verbatim)
+- Pyright strict mode or Ruff BLE policy changes
