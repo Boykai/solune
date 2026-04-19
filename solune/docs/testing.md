@@ -194,6 +194,7 @@ Any lint, type-check, test-skip, coverage, or mutation suppression that remains 
 |---------|---------------|
 | `# noqa: B008` | FastAPI `Depends()` / `Body()` / `File()` — evaluated per-request, not at import time |
 | `# noqa: B010` | Intentional frozen dataclass mutation test; `setattr` required to trigger `FrozenInstanceError` |
+| `# noqa: BLE001` | Broad `except Exception` kept intentionally — e.g. best-effort operation, polling resilience, boundary handler. See [ADR-008](decisions/008-ble001-blind-except-policy.md) for the full policy and allowed reason categories |
 | `# noqa: PTH119` | CodeQL-recognised path sanitizer; `pathlib.PurePath.name` not recognised by CodeQL |
 | `# type: ignore[...]` | SDK `TypedDict` preview field not yet declared in stubs |
 | `eslint-disable react-hooks/exhaustive-deps` | Mount-only effect or intentionally omitted dependency with stable ref |
