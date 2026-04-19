@@ -70,7 +70,7 @@ class BranchesMixin(_ServiceMixin):
                 )
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.error("Failed to delete branch '%s': %s", branch_name, e)
             return False
 

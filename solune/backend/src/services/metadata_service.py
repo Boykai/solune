@@ -100,7 +100,7 @@ class MetadataService:
                 # Populate L1
                 self._l1.set(f"metadata:{repo_key}", ctx.model_dump(), ttl_seconds=ttl)
                 return ctx
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to read metadata from SQLite for %s: %s", repo_key, e, exc_info=True
             )
@@ -109,7 +109,7 @@ class MetadataService:
         try:
             ctx = await self.fetch_metadata(access_token, owner, repo)
             return ctx
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to fetch metadata from GitHub API for %s, falling back: %s",
                 repo_key,
@@ -124,7 +124,7 @@ class MetadataService:
                 ctx.source = "cache"
                 ctx.is_stale = True
                 return ctx
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug("Suppressed error: %s", e)
 
         # Last resort: hardcoded constants
@@ -205,7 +205,7 @@ class MetadataService:
         if all_fetches_ok:
             try:
                 await self._write_to_sqlite(ctx)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Failed to write metadata to SQLite for %s: %s", repo_key, e, exc_info=True
                 )
@@ -246,7 +246,7 @@ class MetadataService:
                 ctx.source = "cache"
                 self._l1.set(f"metadata:{repo_key}", ctx.model_dump(), ttl_seconds=ttl)
                 return ctx
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to read metadata from SQLite for %s: %s", repo_key, e, exc_info=True
             )
@@ -268,7 +268,7 @@ class MetadataService:
             )
             await db.commit()
             logger.info("Invalidated metadata cache for %s", repo_key)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to invalidate SQLite cache for %s: %s", repo_key, e, exc_info=True
             )
@@ -315,7 +315,7 @@ class MetadataService:
                     path,
                     params=request_params,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 complete = False
                 logger.warning("Network error fetching %s", path)
                 break

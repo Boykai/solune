@@ -52,7 +52,7 @@ async def _check_database() -> dict[str, Any]:
         await db.execute("SELECT 1")
         elapsed = round((time.monotonic() - t0) * 1000)
         return {"status": "pass", "time": f"{elapsed}ms"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         logger.warning("Health check: database failed — %s", exc, exc_info=True)
         return {"status": "fail", "output": "database connectivity"}
 
@@ -69,7 +69,7 @@ async def _check_github_api() -> dict[str, Any]:
         if resp.status_code < 500:
             return {"status": "pass", "time": f"{elapsed}ms"}
         return {"status": "fail", "output": f"HTTP {resp.status_code}"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         logger.warning("Health check: github_api failed — %s", exc, exc_info=True)
         return {"status": "fail", "output": "GitHub API connectivity"}
 
@@ -88,7 +88,7 @@ def _check_polling_loop() -> dict[str, Any]:
         if polling_state.is_running:
             return {"status": "pass", "observed_value": "running"}
         return {"status": "warn", "observed_value": "stopped"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         logger.warning("Health check: polling_loop failed — %s", exc, exc_info=True)
         return {"status": "warn", "observed_value": "error"}
 
@@ -119,7 +119,7 @@ def _check_startup_config() -> dict[str, Any]:
                 "issues": issues,
             }
         return {"status": "pass", "observed_value": "valid"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         logger.warning("Health check: startup_checks failed — %s", exc, exc_info=True)
         return {"status": "warn", "observed_value": "error"}
 
@@ -187,7 +187,7 @@ async def _readiness_check_db() -> ReadinessCheckResult:
         await db.execute("DELETE FROM _readiness_scratch WHERE id = 1")
         await db.commit()
         return ReadinessCheckResult(component_id="database:writeable", status="pass", time=now)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         logger.warning("Readiness: database write check failed — %s", exc, exc_info=True)
         return ReadinessCheckResult(
             component_id="database:writeable",
@@ -230,7 +230,7 @@ def _readiness_check_encryption() -> ReadinessCheckResult:
             time=now,
             output="Encryption service is disabled (no valid key)",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         return ReadinessCheckResult(
             component_id="encryption:enabled",
             status="fail",
@@ -266,7 +266,7 @@ def _readiness_check_polling() -> ReadinessCheckResult:
             time=now,
             output="Polling task has crashed and is not intentionally disabled",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: health-check endpoint; must return degraded status, never crash
         return ReadinessCheckResult(
             component_id="polling:alive",
             status="fail",

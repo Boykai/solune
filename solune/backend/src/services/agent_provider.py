@@ -94,7 +94,7 @@ class CopilotClientPool:
         for _token_hash, client in list(self._clients.items()):
             try:
                 await client.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.warning("Error stopping CopilotClient: %s", e)
         self._clients.clear()
         logger.info("Cleaned up all CopilotClient instances")
@@ -106,7 +106,7 @@ class CopilotClientPool:
         if client:
             try:
                 await client.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.warning("Error stopping CopilotClient: %s", e)
 
 
@@ -217,7 +217,7 @@ async def _copilot_completion(
                 error_msg = getattr(event.data, "message", str(event.data))
                 error_content.append(error_msg)
                 done.set()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
             logger.warning("Error processing Copilot event: %s", e)
             done.set()
 
@@ -231,7 +231,7 @@ async def _copilot_completion(
     finally:
         try:
             await session.destroy()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
             logger.warning("Error destroying Copilot session: %s", e)
 
     if error_content:
@@ -391,7 +391,7 @@ def _wrap_copilot_tools_with_runtime_state(
                     "text_result_for_llm": text or str(result),
                     "result_type": "success",
                 }
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 return {
                     "text_result_for_llm": f"Error: {exc}",
                     "result_type": "failure",
@@ -500,7 +500,7 @@ async def _create_copilot_agent(
         options["mcp_servers"] = mcp_servers
 
     if reasoning_effort:
-        options["reasoning_effort"] = reasoning_effort
+        options["reasoning_effort"] = reasoning_effort  # pyright: ignore[reportIndexIssue] — reason: SDK TypedDict lacks reasoning_effort key; runtime-safe
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

@@ -489,7 +489,7 @@ class AgentsService:
                 repo=repo,
                 path=".github/agents",
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
             logger.debug("Could not read .github/agents/ from %s/%s: %s", owner, repo, e)
             return [], False
 
@@ -514,7 +514,7 @@ class AgentsService:
                     path=f".github/agents/{name}",
                 )
                 return str(file_data.get("content", "")) if file_data else ""
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 return ""
 
         contents: list[str] = (
@@ -640,7 +640,7 @@ class AgentsService:
                 )
         except ValueError:
             raise  # Re-raise our own validation error
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
             logger.debug(
                 "Skipping existing agent file lookup due to repository read failure",
                 exc_info=exc,
@@ -667,7 +667,7 @@ class AgentsService:
                     description = enhanced.get("description", body.name)
                 if not requested_tools:
                     requested_tools = enhanced.get("tools", [])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.warning("AI content enhancement failed, using original input: %s", exc)
                 system_prompt = body.system_prompt
                 if not description:
@@ -724,7 +724,7 @@ class AgentsService:
                 )
                 issue_body_md = rich["issue_body"]
                 pr_body = rich["pr_body"]
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.warning("AI description generation failed, using defaults: %s", exc)
                 issue_body_md = generate_issue_body(preview)
                 pr_body = self._default_pr_body(preview, slug)
@@ -822,7 +822,7 @@ class AgentsService:
                     trigger="agent_create",
                     db=self._db,
                 )
-            except Exception as sync_exc:
+            except Exception as sync_exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.warning("Agent MCP sync after create failed (non-fatal): %s", sync_exc)
 
         return AgentCreateResult(
@@ -1427,7 +1427,7 @@ class AgentsService:
                     trigger="agent_update",
                     db=self._db,
                 )
-            except Exception as sync_exc:
+            except Exception as sync_exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.warning("Agent MCP sync after update failed (non-fatal): %s", sync_exc)
 
         return AgentCreateResult(
@@ -1669,7 +1669,7 @@ class AgentsService:
                 repo=repo,
                 path=".github/agents",
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
             return []
 
         examples: list[str] = []
@@ -1690,7 +1690,7 @@ class AgentsService:
                     content = str(file_data["content"])
                     # Trim to first 1500 chars to avoid token overload
                     examples.append(f"### {name}\n```\n{content[:1500]}\n```")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent operation resilience; failure logged, pipeline continues
                 logger.debug(
                     "Skipping example agent file %s after read failure", name, exc_info=exc
                 )

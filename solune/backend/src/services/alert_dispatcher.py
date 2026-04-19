@@ -121,7 +121,7 @@ class AlertDispatcher:
                     headers={"Content-Type": "application/json"},
                 )
                 logger.debug("Webhook response: status=%d", resp.status_code)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Webhook delivery failed for alert %s: %s",
                 alert_type,

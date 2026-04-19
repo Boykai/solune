@@ -106,7 +106,7 @@ def redact(message: str) -> str:
             message = pattern.sub(replacement, message)
         if len(message) > MAX_LOG_MESSAGE_LENGTH:
             message = message[:MAX_LOG_MESSAGE_LENGTH] + "... [TRUNCATED]"
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
         # Resilience: never let sanitization crash the caller.
         message = "[REDACTION_ERROR] <message could not be sanitized>"
     return message
@@ -132,7 +132,7 @@ class SanitizingFormatter(logging.Formatter):
         try:
             formatted = super().format(record)
             return redact(formatted)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
             # Resilience: fall back to a minimal safe representation.
             return redact(f"{record.levelname} {record.name}: {record.getMessage()}")
 
@@ -173,7 +173,7 @@ class StructuredJsonFormatter(logging.Formatter):
                 entry["exception"] = redact(self.formatException(record.exc_info))
 
             return json.dumps(entry, default=str)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             # Resilience: never crash; emit a minimal JSON fallback.
             return json.dumps(
                 {
@@ -198,7 +198,7 @@ class RequestIDFilter(logging.Filter):
             from src.middleware.request_id import request_id_var
 
             record.__dict__["request_id"] = request_id_var.get("")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
             record.__dict__["request_id"] = ""
         return True
 

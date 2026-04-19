@@ -72,7 +72,7 @@ async def get_current_session(
             try:
                 session = await github_auth_service.refresh_token(session)
                 logger.info("Auto-refreshed token for user %s", session.github_username)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Token refresh failed for user %s — forcing re-login",
                     session.github_username,
@@ -146,7 +146,7 @@ async def github_callback(
     except ValueError as e:
         logger.warning("OAuth token exchange failed: %s", e)
         raise ValidationError("Authentication failed") from e
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "complete authentication", AppException)
 
 
@@ -214,5 +214,5 @@ async def dev_login(
         logger.info("Dev login successful for user: %s", session.github_username)
         return UserResponse.from_session(session)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: boundary handler; logs and re-raises as safe AppException
         handle_service_error(e, "dev login", AuthenticationError)

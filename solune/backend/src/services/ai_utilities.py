@@ -817,7 +817,7 @@ async def detect_feature_request_intent(user_input: str, github_token: str | Non
 
         return False
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to detect feature request intent: %s", e)
         return False
 
@@ -990,7 +990,7 @@ async def parse_status_change_request(
             confidence=confidence,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to parse status change intent: %s", e)
         return None
 
@@ -1082,7 +1082,7 @@ async def generate_title_from_description(
         if title:
             return _truncate_title(title)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.warning("Failed to generate title from description: %s", e)
 
     return _truncate_title(user_input)

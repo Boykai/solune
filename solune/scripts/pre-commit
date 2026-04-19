@@ -117,22 +117,36 @@ if [ -n "$STAGED_BACKEND_CHANGES" ]; then
         PYRIGHT_PYTHON_ARGS=(--pythonpath "$BACKEND_DIR/.venv/bin/python")
     fi
 
-    if $PYRIGHT "$BACKEND_DIR/src" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
+    # Run from the backend root so Pyright resolves pyproject.toml and stubPath
+    # exactly the same way as CI and local backend validation do.
+    if (
+        cd "$BACKEND_DIR"
+        $PYRIGHT src "${PYRIGHT_PYTHON_ARGS[@]}"
+    ) > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Type errors must be fixed manually${NC}"
-        $PYRIGHT "$BACKEND_DIR/src" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
+        (
+            cd "$BACKEND_DIR"
+            $PYRIGHT src "${PYRIGHT_PYTHON_ARGS[@]}"
+        ) 2>&1 | tail -10
         FAILED=1
     fi
 
     echo -n "  🧪 Pyright tests... "
-    if $PYRIGHT -p "$BACKEND_DIR/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" > /dev/null 2>&1; then
+    if (
+        cd "$BACKEND_DIR"
+        $PYRIGHT -p pyrightconfig.tests.json "${PYRIGHT_PYTHON_ARGS[@]}"
+    ) > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
     else
         echo -e "${RED}✗${NC}"
         echo -e "${YELLOW}    Test type errors must be fixed manually${NC}"
-        $PYRIGHT -p "$BACKEND_DIR/pyrightconfig.tests.json" "${PYRIGHT_PYTHON_ARGS[@]}" 2>&1 | tail -10
+        (
+            cd "$BACKEND_DIR"
+            $PYRIGHT -p pyrightconfig.tests.json "${PYRIGHT_PYTHON_ARGS[@]}"
+        ) 2>&1 | tail -10
         FAILED=1
     fi
 

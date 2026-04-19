@@ -375,7 +375,7 @@ async def ensure_polling_started(
                 project_id,
             )
             return True
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             _logger.warning("Failed to start polling: %s", err)
             return False
 
@@ -433,6 +433,6 @@ async def ensure_app_pipeline_polling(
             project_id,
         )
         return True
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         _logger.warning("Failed to start app-pipeline polling: %s", err)
         return False

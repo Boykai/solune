@@ -131,7 +131,7 @@ async def load_user_agent_mappings(
         from src.config import get_settings
 
         db_path = get_settings().database_path
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         return None
 
     try:
@@ -152,7 +152,7 @@ async def load_user_agent_mappings(
                     project_id,
                 )
                 return _parse_agent_mappings(raw_mappings)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         logger.warning(
             "Failed to load user agent mappings for user=%s project=%s",
             github_user_id,
@@ -171,7 +171,7 @@ async def _load_workflow_config_from_db(project_id: str) -> WorkflowConfiguratio
         from src.config import get_settings
 
         db_path = get_settings().database_path
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         return None
 
     try:
@@ -219,7 +219,7 @@ async def _load_workflow_config_from_db(project_id: str) -> WorkflowConfiguratio
                 try:
                     await _persist_workflow_config_to_db(project_id, config)
                     logger.info("Backfilled workflow_config column for project %s", project_id)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                     logger.debug("Suppressed error: %s", e)
                 return config
 
@@ -254,12 +254,12 @@ async def _load_workflow_config_from_db(project_id: str) -> WorkflowConfiguratio
                         "Backfilled workflow_config from user row for project %s",
                         project_id,
                     )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                     logger.debug("Suppressed error: %s", e)
                 return config
 
             return None
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         logger.warning(
             "Failed to load workflow config from DB for project %s", project_id, exc_info=True
         )
@@ -278,7 +278,7 @@ async def _persist_workflow_config_to_db(
         from src.config import get_settings
 
         db_path = get_settings().database_path
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         return
 
     # Deduplicate case-variant status keys before serialising
@@ -326,7 +326,7 @@ async def _persist_workflow_config_to_db(
                 )
             await db.commit()
         logger.info("Persisted workflow config to DB for project %s (user=%s)", project_id, user_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         logger.warning(
             "Failed to persist workflow config to DB for project %s", project_id, exc_info=True
         )
@@ -418,7 +418,7 @@ async def load_pipeline_as_agent_mappings(
             stage_execution_modes[stage.name] = getattr(stage, "execution_mode", "sequential")
 
         return agent_mappings, config.name, stage_execution_modes, group_mappings
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         logger.warning(
             "Failed to load pipeline %s for project %s",
             pipeline_id,
@@ -496,13 +496,13 @@ async def resolve_project_pipeline_mappings(
                         ("__workflow__", project_id),
                     )
                     await db.commit()
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Failed to clear stale pipeline assignment for project %s",
                     project_id,
                     exc_info=True,
                 )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
         logger.warning(
             "Failed to check project pipeline assignment for project %s",
             project_id,

@@ -56,8 +56,8 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
         for issue_num, info in issue_main_branches.items():
             if info.get("pr_number") == pr_number:
                 return issue_num
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+        logger.debug("_resolve_issue_for_pr failed", exc_info=True)
     return None
 
 
@@ -102,8 +102,8 @@ async def _get_auto_merge_pipeline(
                         "devops_attempts": 0,
                         "devops_active": False,
                     }
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+                logger.debug("L2 SQLite fallback failed for issue %s", issue_number, exc_info=True)
 
         # Step C: Project-level fallback (state already removed, but project has auto-merge)
         try:
@@ -133,8 +133,8 @@ async def _get_auto_merge_pipeline(
                     branch_info = issue_main_branches.get(issue_number)
                     if branch_info:
                         project_id = cast("str | None", branch_info.get("project_id"))
-                except Exception:
-                    pass
+                except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+                    logger.debug("_issue_main_branches lookup failed", exc_info=True)
 
             if project_id:
                 db = _cp.get_db()
@@ -144,10 +144,12 @@ async def _get_auto_merge_pipeline(
                         "devops_attempts": 0,
                         "devops_active": False,
                     }
-        except Exception:
-            pass
-    except Exception:
-        pass
+        except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+            logger.debug(
+                "Step C project-level fallback failed for issue %s", issue_number, exc_info=True
+            )
+    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+        logger.debug("_get_auto_merge_pipeline failed for issue %s", issue_number, exc_info=True)
     return None
 
 
@@ -754,7 +756,7 @@ async def update_issue_status_for_copilot_pr(
                 if target_project:
                     break
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Failed to get items for project %s: %s", project.project_id, e)
                 continue
 
@@ -940,7 +942,7 @@ async def handle_check_run_event(payload: CheckRunEvent) -> dict[str, Any]:
                     "DevOps agent dispatched for issue #%d via check_run webhook",
                     issue_number,
                 )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning(
                 "Failed to dispatch DevOps for issue #%d via check_run webhook",
                 issue_number,
@@ -1021,7 +1023,7 @@ async def handle_check_suite_event(payload: CheckSuiteEvent) -> dict[str, Any]:
                     issue_number,
                     merge_result.status,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Failed auto-merge attempt for issue #%d via check_suite webhook",
                     issue_number,
