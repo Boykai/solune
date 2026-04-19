@@ -56,9 +56,10 @@ async def _drive_advance_after_self_heal(
 
     This helper closes that race by reconstructing the in-memory
     ``PipelineState`` from the durable tracking table and invoking
-    ``_advance_pipeline`` directly.  A short-lived single-flight lock
-    keyed on ``(issue_number, agent_name)`` prevents the regular
-    polling cycle from racing with this synchronous advance.
+    ``_advance_pipeline`` directly. A short-lived single-flight lock
+    keyed on ``(issue_number, agent_name)`` deduplicates overlapping
+    recovery-driven advances for the same agent while this helper is in
+    flight. The normal poll-driven advance path does not consult this lock.
 
     Returns ``True`` when the advance was driven (or determined to be
     in-flight elsewhere), ``False`` when reconstruction failed or the
@@ -72,7 +73,7 @@ async def _drive_advance_after_self_heal(
         if age < ADVANCE_PIPELINE_LOCK_TTL_SECONDS:
             logger.debug(
                 "Self-heal advance for issue #%d agent '%s' skipped — "
-                "lock held by another path (%.0fs ago)",
+                "lock held by another recovery path (%.0fs ago)",
                 issue_number,
                 agent_name,
                 age,
@@ -86,13 +87,14 @@ async def _drive_advance_after_self_heal(
         from .pipeline import _advance_pipeline
 
         pipeline = _cp.get_pipeline_state(issue_number)
-        if pipeline is None or pipeline.is_complete:
+        if pipeline is None or pipeline.is_complete or pipeline.current_agent != agent_name:
             pipeline = await _reconstruct_pipeline_if_missing(
                 access_token=access_token,
                 owner=owner,
                 repo=repo,
                 issue_number=issue_number,
                 project_id=project_id,
+                preserve_current_agent=agent_name,
             )
 
         if pipeline is None:
@@ -103,6 +105,16 @@ async def _drive_advance_after_self_heal(
                 agent_name,
             )
             return False
+
+        if pipeline.current_agent != agent_name:
+            logger.info(
+                "Self-heal advance for issue #%d agent '%s' skipped — "
+                "pipeline current agent is '%s'",
+                issue_number,
+                agent_name,
+                pipeline.current_agent,
+            )
+            return True
 
         # Resolve transition targets from the workflow config.
         from_status = pipeline.original_status or pipeline.status or ""

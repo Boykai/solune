@@ -362,12 +362,23 @@ async def _startup_resume_scan(
     left dormant by a prior restart is resumed immediately.
 
     Errors are logged and swallowed — startup must never be blocked by
-    a recovery failure.
+    a recovery failure. Like the main polling loop's expensive recovery
+    step, this scan is skipped when the cached rate-limit budget is low.
     """
     logger.info(
         "Startup resume scan: checking project %s for stalled pipelines",
         project_id[:12],
     )
+    remaining, _ = await _check_rate_limit_budget()
+    if remaining is not None and remaining <= RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD:
+        logger.warning(
+            "Startup resume scan: skipping stalled recovery for project %s — "
+            "rate limit budget low (remaining=%d)",
+            project_id[:12],
+            remaining,
+        )
+        return
+
     try:
         results = await _cp.recover_stalled_issues(
             access_token=access_token,

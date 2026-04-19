@@ -160,9 +160,10 @@ ASSIGNMENT_GRACE_PERIOD_SECONDS = 120
 # marker for an agent whose child PR was already merged (or completed),
 # it also invokes ``_advance_pipeline`` directly instead of waiting for
 # the next polling cycle (which might be many seconds away and could be
-# interrupted by another restart).  The lock prevents the same advance
-# from racing with the regular polling cycle that will also detect the
-# newly-posted marker.  Keys are ``f"{issue_number}:{agent_name}"``.
+# interrupted by another restart). The lock deduplicates overlapping
+# recovery-driven advances for the same issue/agent while the helper is
+# in flight. The normal poll-driven advance path does not consult this
+# lock. Keys are ``f"{issue_number}:{agent_name}"``.
 _advance_pipeline_locks: BoundedDict[str, datetime] = BoundedDict(
     maxlen=500
 )  # key -> lock-acquisition timestamp

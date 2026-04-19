@@ -49,6 +49,7 @@ class TestDriveAdvanceAfterSelfHeal:
             is_complete=False,
             status="In Progress",
             original_status=None,
+            current_agent="architect",
         )
 
         with ExitStack() as stack:
@@ -119,10 +120,11 @@ class TestDriveAdvanceAfterSelfHeal:
         with ExitStack() as stack:
             stack.enter_context(patch(f"{_REC}._advance_pipeline_locks", {}))
             stack.enter_context(patch(f"{_CP}.get_pipeline_state", return_value=None))
+            reconstruct = AsyncMock(return_value=None)
             stack.enter_context(
                 patch(
                     f"{_CP}.agent_output._reconstruct_pipeline_if_missing",
-                    AsyncMock(return_value=None),
+                    reconstruct,
                 )
             )
             advance = AsyncMock()
@@ -145,6 +147,49 @@ class TestDriveAdvanceAfterSelfHeal:
 
         assert ok is False
         advance.assert_not_awaited()
+        assert reconstruct.await_args.kwargs["preserve_current_agent"] == "architect"
+
+    async def test_skips_when_reconstructed_pipeline_has_moved_past_agent(self):
+        """If reconstruction shows a later current agent, no second advance is driven."""
+        task = _make_task()
+        reconstructed = SimpleNamespace(
+            is_complete=False,
+            status="In Progress",
+            original_status=None,
+            current_agent="judge",
+        )
+
+        with ExitStack() as stack:
+            stack.enter_context(patch(f"{_REC}._advance_pipeline_locks", {}))
+            stack.enter_context(patch(f"{_CP}.get_pipeline_state", return_value=None))
+            reconstruct = AsyncMock(return_value=reconstructed)
+            stack.enter_context(
+                patch(
+                    f"{_CP}.agent_output._reconstruct_pipeline_if_missing",
+                    reconstruct,
+                )
+            )
+            advance = AsyncMock()
+            stack.enter_context(patch(f"{_CP}.pipeline._advance_pipeline", advance))
+
+            from src.services.copilot_polling.recovery import (
+                _drive_advance_after_self_heal,
+            )
+
+            ok = await _drive_advance_after_self_heal(
+                access_token="tok",
+                project_id="proj-1",
+                owner="octo",
+                repo="repo",
+                task=task,
+                issue_number=42,
+                agent_name="architect",
+                config=SimpleNamespace(),
+            )
+
+        assert ok is True
+        advance.assert_not_awaited()
+        assert reconstruct.await_args.kwargs["preserve_current_agent"] == "architect"
 
     async def test_expired_lock_does_not_block(self):
         """A lock older than the TTL is treated as released."""
@@ -160,6 +205,7 @@ class TestDriveAdvanceAfterSelfHeal:
             is_complete=False,
             status="In Progress",
             original_status=None,
+            current_agent="architect",
         )
 
         with ExitStack() as stack:
@@ -197,7 +243,10 @@ class TestStartupResumeScan:
     async def test_invokes_recover_stalled_issues(self):
         """The scan delegates to recover_stalled_issues and tolerates empty results."""
         recover = AsyncMock(return_value=[])
-        with patch(f"{_CP}.recover_stalled_issues", recover):
+        with (
+            patch(f"{_PL}._check_rate_limit_budget", AsyncMock(return_value=(None, None))),
+            patch(f"{_CP}.recover_stalled_issues", recover),
+        ):
             from src.services.copilot_polling.polling_loop import _startup_resume_scan
 
             await _startup_resume_scan("tok", "proj-1", "octo", "repo")
@@ -217,7 +266,10 @@ class TestStartupResumeScan:
                 {"issue_number": 43, "status": "recovered"},
             ]
         )
-        with patch(f"{_CP}.recover_stalled_issues", recover):
+        with (
+            patch(f"{_PL}._check_rate_limit_budget", AsyncMock(return_value=(None, None))),
+            patch(f"{_CP}.recover_stalled_issues", recover),
+        ):
             from src.services.copilot_polling.polling_loop import _startup_resume_scan
 
             # Should not raise on non-empty results
@@ -228,13 +280,96 @@ class TestStartupResumeScan:
     async def test_swallows_recover_exception(self):
         """Errors from recover_stalled_issues must not propagate to the loop."""
         recover = AsyncMock(side_effect=RuntimeError("boom"))
-        with patch(f"{_CP}.recover_stalled_issues", recover):
+        with (
+            patch(f"{_PL}._check_rate_limit_budget", AsyncMock(return_value=(None, None))),
+            patch(f"{_CP}.recover_stalled_issues", recover),
+        ):
             from src.services.copilot_polling.polling_loop import _startup_resume_scan
 
             # Must not raise — startup must never be blocked by recovery failure
             await _startup_resume_scan("tok", "proj-1", "octo", "repo")
 
         recover.assert_awaited_once()
+
+    async def test_skips_recovery_when_rate_limit_budget_low(self):
+        """Startup scan should not spend calls on expensive recovery when budget is low."""
+        from src.services.copilot_polling.state import RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD
+
+        recover = AsyncMock(return_value=[])
+        with (
+            patch(
+                f"{_PL}._check_rate_limit_budget",
+                AsyncMock(return_value=(RATE_LIMIT_SKIP_EXPENSIVE_THRESHOLD, None)),
+            ),
+            patch(f"{_CP}.recover_stalled_issues", recover),
+        ):
+            from src.services.copilot_polling.polling_loop import _startup_resume_scan
+
+            await _startup_resume_scan("tok", "proj-1", "octo", "repo")
+
+        recover.assert_not_awaited()
+
+
+class TestReconstructPipelineIfMissing:
+    """Tests for reconstruction anchored to the tracking table's active agent."""
+
+    async def test_preserves_tracking_tables_current_agent_when_requested(self):
+        """A synthetic Done! marker must not shift reconstruction to the next agent."""
+        body = """
+---
+
+## 🤖 Agents Pipelines
+
+| # | Status | Agent | Model | State |
+|---|--------|-------|-------|-------|
+| 1 | In Progress | `linter` | TBD | ✅ Done |
+| 2 | In Progress | `architect` | TBD | 🔄 Active |
+| 3 | In Progress | `judge` | TBD | ⏳ Pending |
+"""
+        comments = [
+            {"body": "linter: Done!", "created_at": "2026-04-19T00:00:00+00:00"},
+            {"body": "architect: Done!", "created_at": "2026-04-19T00:01:00+00:00"},
+        ]
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch(
+                    f"{_CP}._get_tracking_state_from_issue",
+                    AsyncMock(return_value=(body, comments)),
+                )
+            )
+            stack.enter_context(patch(f"{_CP}.get_pipeline_state", return_value=None))
+            stack.enter_context(patch(f"{_CP}.set_pipeline_state"))
+            stack.enter_context(
+                patch(
+                    f"{_CP}._reconstruct_sub_issue_mappings",
+                    AsyncMock(return_value={}),
+                )
+            )
+            stack.enter_context(
+                patch(
+                    f"{_CP}.get_issue_main_branch",
+                    return_value={"head_sha": "abc123", "branch": "main", "pr_number": 12},
+                )
+            )
+
+            from src.services.copilot_polling.agent_output import (
+                _reconstruct_pipeline_if_missing,
+            )
+
+            pipeline = await _reconstruct_pipeline_if_missing(
+                access_token="tok",
+                owner="octo",
+                repo="repo",
+                issue_number=42,
+                project_id="proj-1",
+                preserve_current_agent="architect",
+            )
+
+        assert pipeline is not None
+        assert pipeline.current_agent == "architect"
+        assert pipeline.current_agent_index == 1
+        assert pipeline.completed_agents == ["linter"]
 
 
 @pytest.fixture(autouse=True)
