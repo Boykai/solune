@@ -101,6 +101,7 @@ src/
 │   ├── agent_provider.py      # Agent factory plus shared Copilot/Azure completion access
 │   ├── database.py            # aiosqlite connection, WAL mode, schema migrations
 │   ├── github_auth.py         # OAuth token exchange
+│   ├── resettable_state.py    # Registry for mutable state reset between tests
 │   ├── session_store.py       # Session CRUD (async SQLite)
 │   ├── settings_store.py      # Settings persistence (async SQLite)
 │   ├── task_registry.py       # Centralized fire-and-forget asyncio.Task tracking + drain
