@@ -319,6 +319,25 @@ async def poll_for_copilot_completion(
     async with _polling_state_lock:
         _polling_state.is_running = True
 
+    # ── Startup resume: drive one immediate recovery sweep before the
+    # regular interval-based loop begins.  This catches pipelines that
+    # were mid-flight when the backend restarted (e.g. an agent posted
+    # ``Done!`` but ``_advance_pipeline`` did not complete its
+    # next-agent assignment because the process exited).  Without this,
+    # the first regular poll might be many seconds away and a second
+    # restart could strand the pipeline indefinitely.
+    try:
+        await _startup_resume_scan(access_token, project_id, owner, repo)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "Startup resume scan for project %s failed (non-fatal): %s",
+            project_id[:12],
+            exc,
+            exc_info=True,
+        )
+
     try:
         await _poll_loop(access_token, project_id, owner, repo, interval_seconds)
     except asyncio.CancelledError:
@@ -326,6 +345,60 @@ async def poll_for_copilot_completion(
     finally:
         async with _polling_state_lock:
             _polling_state.is_running = False
+
+
+async def _startup_resume_scan(
+    access_token: str,
+    project_id: str,
+    owner: str,
+    repo: str,
+) -> None:
+    """Run a one-shot recovery sweep on backend startup.
+
+    The regular polling loop already invokes ``recover_stalled_issues``
+    every cycle, but the first cycle is delayed by ``interval_seconds``
+    and may be skipped when the rate-limit budget is low.  By driving
+    the recovery path explicitly at startup we ensure that any pipeline
+    left dormant by a prior restart is resumed immediately.
+
+    Errors are logged and swallowed — startup must never be blocked by
+    a recovery failure.
+    """
+    logger.info(
+        "Startup resume scan: checking project %s for stalled pipelines",
+        project_id[:12],
+    )
+    try:
+        results = await _cp.recover_stalled_issues(
+            access_token=access_token,
+            project_id=project_id,
+            owner=owner,
+            repo=repo,
+        )
+    except Exception:
+        logger.warning(
+            "Startup resume scan: recover_stalled_issues raised for project %s",
+            project_id[:12],
+            exc_info=True,
+        )
+        return
+
+    if results:
+        logger.info(
+            "Startup resume scan for project %s drove %d recovery action(s): %s",
+            project_id[:12],
+            len(results),
+            ", ".join(
+                f"#{r.get('issue_number')}={r.get('status')}"
+                for r in results
+                if isinstance(r, dict)
+            ),
+        )
+    else:
+        logger.info(
+            "Startup resume scan for project %s: no stalled pipelines detected",
+            project_id[:12],
+        )
 
 
 async def _poll_single_project(

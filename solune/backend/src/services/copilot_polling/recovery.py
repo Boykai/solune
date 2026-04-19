@@ -19,9 +19,11 @@ from .helpers import _get_sub_issue_number
 from .label_manager import ParsedLabel
 from .pipeline import _wait_if_rate_limited
 from .state import (
+    ADVANCE_PIPELINE_LOCK_TTL_SECONDS,
     ASSIGNMENT_GRACE_PERIOD_SECONDS,
     MAX_RECOVERY_RETRIES,
     RECOVERY_COOLDOWN_SECONDS,
+    _advance_pipeline_locks,
     _pending_agent_assignments,
     _polling_state,
     _polling_state_lock,
@@ -31,6 +33,114 @@ from .state import (
 )
 
 logger = get_logger(__name__)
+
+
+async def _drive_advance_after_self_heal(
+    access_token: str,
+    project_id: str,
+    owner: str,
+    repo: str,
+    task: Any,
+    issue_number: int,
+    agent_name: str,
+    config: Any,
+) -> bool:
+    """Synchronously drive ``_advance_pipeline`` after a self-heal Done! marker.
+
+    The recovery code paths post a synthetic ``<agent>: Done!`` marker
+    when an agent's child PR was merged (or completed) but the marker
+    was never written — typically because the backend restarted before
+    the normal completion handler ran.  Without this helper, the
+    pipeline would only advance on the *next* polling cycle, leaving a
+    dormant window where a second restart strands the pipeline forever.
+
+    This helper closes that race by reconstructing the in-memory
+    ``PipelineState`` from the durable tracking table and invoking
+    ``_advance_pipeline`` directly.  A short-lived single-flight lock
+    keyed on ``(issue_number, agent_name)`` prevents the regular
+    polling cycle from racing with this synchronous advance.
+
+    Returns ``True`` when the advance was driven (or determined to be
+    in-flight elsewhere), ``False`` when reconstruction failed or the
+    advance could not be invoked.
+    """
+    lock_key = f"{issue_number}:{agent_name}"
+    now = utcnow()
+    held = _advance_pipeline_locks.get(lock_key)
+    if held is not None:
+        age = (now - held).total_seconds()
+        if age < ADVANCE_PIPELINE_LOCK_TTL_SECONDS:
+            logger.debug(
+                "Self-heal advance for issue #%d agent '%s' skipped — "
+                "lock held by another path (%.0fs ago)",
+                issue_number,
+                agent_name,
+                age,
+            )
+            return True  # Treat as in-flight; not a failure
+
+    _advance_pipeline_locks[lock_key] = now
+
+    try:
+        from .agent_output import _reconstruct_pipeline_if_missing
+        from .pipeline import _advance_pipeline
+
+        pipeline = _cp.get_pipeline_state(issue_number)
+        if pipeline is None or pipeline.is_complete:
+            pipeline = await _reconstruct_pipeline_if_missing(
+                access_token=access_token,
+                owner=owner,
+                repo=repo,
+                issue_number=issue_number,
+                project_id=project_id,
+            )
+
+        if pipeline is None:
+            logger.warning(
+                "Self-heal advance for issue #%d agent '%s' aborted — "
+                "could not reconstruct pipeline state",
+                issue_number,
+                agent_name,
+            )
+            return False
+
+        # Resolve transition targets from the workflow config.
+        from_status = pipeline.original_status or pipeline.status or ""
+        to_status = (
+            _cp.get_next_status(config, from_status) if (config and from_status) else ""
+        ) or from_status
+
+        await _advance_pipeline(
+            access_token=access_token,
+            project_id=project_id,
+            item_id=task.github_item_id,
+            owner=owner,
+            repo=repo,
+            issue_number=issue_number,
+            issue_node_id=task.github_content_id,
+            pipeline=pipeline,
+            from_status=from_status,
+            to_status=to_status,
+            task_title=task.title or f"Issue #{issue_number}",
+        )
+        logger.info(
+            "Self-heal advance: drove _advance_pipeline for issue #%d "
+            "agent '%s' (from='%s' → to='%s')",
+            issue_number,
+            agent_name,
+            from_status,
+            to_status,
+        )
+        return True
+    except Exception as exc:
+        logger.warning(
+            "Self-heal advance for issue #%d agent '%s' failed: %s",
+            issue_number,
+            agent_name,
+            exc,
+            exc_info=True,
+        )
+        return False
 
 
 # ── Phase 8: Label-Driven State Recovery Models ──
@@ -987,6 +1097,7 @@ async def recover_stalled_issues(
                     # Post the missing Done! marker so subsequent cycles
                     # detect completion via the normal comment-based path.
                     marker = f"{agent_name}: Done!"
+                    marker_posted = False
                     try:
                         await _cp.github_projects_service.create_issue_comment(
                             access_token=access_token,
@@ -995,6 +1106,7 @@ async def recover_stalled_issues(
                             issue_number=issue_number,
                             body=marker,
                         )
+                        marker_posted = True
                     except Exception as marker_err:
                         logger.warning(
                             "Recovery: issue #%d — failed to post Done! marker "
@@ -1002,6 +1114,22 @@ async def recover_stalled_issues(
                             issue_number,
                             agent_name,
                             marker_err,
+                        )
+                    if marker_posted:
+                        # Synchronously drive _advance_pipeline so the next
+                        # agent is dispatched immediately, closing the race
+                        # window where a backend restart between Done! and
+                        # the next poll cycle would leave the pipeline
+                        # dormant.
+                        await _drive_advance_after_self_heal(
+                            access_token=access_token,
+                            project_id=project_id,
+                            owner=task_owner,
+                            repo=task_repo,
+                            task=task,
+                            issue_number=issue_number,
+                            agent_name=agent_name,
+                            config=config,
                         )
                     _recovery_last_attempt[issue_number] = now
                     continue
@@ -1020,6 +1148,7 @@ async def recover_stalled_issues(
                         ", ".join(missing),
                     )
                     marker = f"{agent_name}: Done!"
+                    marker_posted = False
                     try:
                         await _cp.github_projects_service.create_issue_comment(
                             access_token=access_token,
@@ -1028,6 +1157,7 @@ async def recover_stalled_issues(
                             issue_number=issue_number,
                             body=marker,
                         )
+                        marker_posted = True
                     except Exception as marker_err:
                         logger.warning(
                             "Recovery: issue #%d — failed to post Done! marker "
@@ -1035,6 +1165,20 @@ async def recover_stalled_issues(
                             issue_number,
                             agent_name,
                             marker_err,
+                        )
+                    if marker_posted:
+                        # Synchronously drive _advance_pipeline so the
+                        # safety-net merge + next-agent assignment runs
+                        # in this cycle (see merged-child branch above).
+                        await _drive_advance_after_self_heal(
+                            access_token=access_token,
+                            project_id=project_id,
+                            owner=task_owner,
+                            repo=task_repo,
+                            task=task,
+                            issue_number=issue_number,
+                            agent_name=agent_name,
+                            config=config,
                         )
                     _recovery_last_attempt[issue_number] = now
                     continue
