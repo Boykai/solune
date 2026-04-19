@@ -67,6 +67,13 @@ The unit suite covers the main product domains rather than a small fixed list of
 - GitHub integration and orchestration (`test_github_*`, `test_workflow_*`, `test_polling_*`)
 - Agent/chat flows (`test_agent_*`, `test_chat_*`, `test_signal_*`)
 - Operational concerns (`test_rate_limiting.py`, `test_config*.py`, `test_logging_utils.py`, `test_database.py`)
+- DI and lifecycle (`test_dependencies.py`, `test_main.py`, `test_resettable_state.py`)
+
+### Resettable-state registry
+
+`src/services/resettable_state.py` provides a lightweight registry for mutable module-level state that must be reset between tests to prevent cross-test leaks. Production code registers state entries at module-load time via `register_resettable(name, reset_fn)`. The `conftest.py` autouse fixture calls `reset_all()` before and after every test.
+
+This replaces ad-hoc manual cleanup (e.g. `_devops_tracking.clear()` in individual tests) with a single enumerated teardown path. Service mocks should use `app.dependency_overrides` rather than patching module-level globals at multiple import paths.
 
 ## Frontend Tests
 

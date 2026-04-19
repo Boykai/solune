@@ -86,7 +86,7 @@ The backend is the operational core of Solune. It handles authentication, GitHub
 
 - **Framework**: FastAPI with async endpoints and Pydantic v2 models
 - **Database**: SQLite via `aiosqlite`, WAL mode, migrations `023` through `044`
-- **Dependency injection**: `app.state` singletons accessed through `dependencies.py`
+- **Dependency injection**: `app.state` singletons (GitHub service, connection manager, chat agent, pipeline runner, GitHub auth, alert dispatcher) accessed through `dependencies.py`
 - **Middleware**: request IDs, CSP/security headers, CSRF, rate limiting, and admin-guard protections
 - **Background execution**: `asyncio.TaskGroup` plus `TaskRegistry` for managed startup/shutdown work
 - **Observability**: structured logging, optional OpenTelemetry, optional Sentry, and alert dispatch hooks
@@ -104,7 +104,7 @@ The backend is the operational core of Solune. It handles authentication, GitHub
 
 | Responsibility | Services |
 |----------------|----------|
-| **Activity, observability, and alerts** | `activity_logger`, `activity_service`, `alert_dispatcher`, `logging_utils`, `otel_setup`, `rate_limit_tracker` |
+| **Activity, observability, and alerts** | `activity_logger`, `activity_service`, `alert_dispatcher`, `logging_utils`, `otel_setup`, `rate_limit_tracker`, `resettable_state` |
 | **Agents, plans, and chat execution** | `agent_creator`, `agent_middleware`, `agent_provider`, `agent_tools`, `agent_tracking`, `ai_utilities`, `chat_agent`, `chat_store`, `guard_service`, `label_classifier`, `plan_agent_provider`, `plan_issue_service`, `plan_parser`, `template_files`, `transcript_detector` |
 | **Apps and templates** | `app_plan_orchestrator`, `app_service`, `app_templates/loader`, `app_templates/registry`, `app_templates/renderer` |
 | **Pipeline lifecycle** | `cleanup_service`, `collision_resolver`, `copilot_polling/*`, `pipeline_estimate`, `pipeline_launcher`, `pipeline_orchestrator`, `pipeline_state_store`, `pipelines/pipeline_config`, `pipelines/service`, `task_registry`, `workflow_orchestrator/*` |
@@ -124,7 +124,7 @@ The backend is the operational core of Solune. It handles authentication, GitHub
 
 1. Configure logging and the global asyncio exception handler
 2. Open SQLite, run pending migrations, and seed default rows
-3. Register shared services on `app.state`
+3. Register shared services on `app.state` (GitHub service, connection manager, chat agent, pipeline runner, GitHub auth, alert dispatcher)
 4. Resume polling / Signal background loops
 5. Start session cleanup, watchdog, and MCP sync background tasks
 6. On shutdown, drain task registries, stop listeners, and close the database

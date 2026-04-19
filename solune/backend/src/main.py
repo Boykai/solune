@@ -702,6 +702,26 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         _app.state.github_service = github_projects_service
         _app.state.connection_manager = connection_manager
 
+        # ── Services migrated from module-level lazy singletons ──
+        from src.services.chat_agent import ChatAgentService
+        from src.services.github_auth import github_auth_service
+
+        try:
+            _app.state.chat_agent_service = ChatAgentService()
+        except Exception:  # noqa: BLE001 — reason: fail-fast startup; logged before re-raise
+            logger.critical("Failed to initialise ChatAgentService", exc_info=True)
+            raise
+
+        _app.state.github_auth_service = github_auth_service
+
+        from src.services.copilot_polling.pipeline_state_service import PipelineRunService
+
+        try:
+            _app.state.pipeline_run_service = PipelineRunService(db)
+        except Exception:  # noqa: BLE001 — reason: fail-fast startup; logged before re-raise
+            logger.critical("Failed to initialise PipelineRunService", exc_info=True)
+            raise
+
         # ── Observability: Alert dispatcher (Phase 5) ──
         from src.services.alert_dispatcher import AlertDispatcher, set_dispatcher
 

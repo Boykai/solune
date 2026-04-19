@@ -219,6 +219,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - SQLite via aiosqlite (backend), browser localStorage/sessionStorage (frontend) (001-bug-basher)
 - Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`) + Pyright (invoked via `uv run pyright`); FastAPI/Starlette (typing surface for `Depends()`); `aiosqlite` (typing surface for `Row`); `githubkit` and `agent_framework_github_copilot` (third-party libraries with partial type stubs in `solune/backend/src/typestubs/`) (001-backend-pyright-strict)
 - N/A — tooling/configuration change. Touches `solune/backend/pyproject.toml` (`[tool.pyright]` block at line 119) and `solune/backend/pyrightconfig.tests.json`. (001-backend-pyright-strict)
+- Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`) + FastAPI (lifespan, `Depends()`, `app.state`, `dependency_overrides`); Starlette (Request, State); pytest / pytest-asyncio (autouse fixtures, `conftest.py`) (002-dual-init-singleton)
+- aiosqlite (existing; not modified by this feature — only the `get_database` accessor is refactored) (002-dual-init-singleton)
 - Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`) + Ruff (linter, already in dev deps), githubkit (GitHub API client wrapping httpx), FastAPI/Starlette (web framework), aiosqlite (async SQLite) (002-reduce-broad-except)
 - N/A — lint configuration + code refactor. No schema changes. (002-reduce-broad-except)
 
