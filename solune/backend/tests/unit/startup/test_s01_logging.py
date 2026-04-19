@@ -24,3 +24,14 @@ async def test_logging_step_calls_setup_logging():
     with patch("src.config.setup_logging") as mock_setup:
         await step.run(ctx)
     mock_setup.assert_called_once_with(False, structured=True)
+
+
+@pytest.mark.asyncio
+async def test_logging_step_debug_mode_disables_structured():
+    """When debug=True, structured=False (human-readable logs)."""
+    step = LoggingStep()
+    ctx = make_test_ctx()
+    ctx.settings.debug = True
+    with patch("src.config.setup_logging") as mock_setup:
+        await step.run(ctx)
+    mock_setup.assert_called_once_with(True, structured=False)
