@@ -221,6 +221,8 @@ Canonical versions live in `solune/backend/pyproject.toml`, `solune/frontend/pac
 - N/A — tooling/configuration change. Touches `solune/backend/pyproject.toml` (`[tool.pyright]` block at line 119) and `solune/backend/pyrightconfig.tests.json`. (001-backend-pyright-strict)
 - Python 3.13 (per `[tool.pyright] pythonVersion = "3.13"` in `solune/backend/pyproject.toml`) + Ruff (linter, already in dev deps), githubkit (GitHub API client wrapping httpx), FastAPI/Starlette (web framework), aiosqlite (async SQLite) (002-reduce-broad-except)
 - N/A — lint configuration + code refactor. No schema changes. (002-reduce-broad-except)
+- Python `>=3.12` / Pyright `3.13` for `solune/backend`, TypeScript `~6.0.2` + Node.js `20` for `solune/frontend`, plus GitHub Actions YAML and Dockerfiles for infrastructure dependency updates + `uv`-managed backend dependencies in `solune/backend/pyproject.toml`, `npm`-managed frontend dependencies in `solune/frontend/package.json`, pinned GitHub Actions in `.github/workflows/*.yml`, Docker base images in `solune/backend/Dockerfile` and `solune/frontend/Dockerfile`, and Dependabot configuration in `.github/dependabot.yml` (003-dependabot-updates)
+- N/A for application data; the workflow mutates dependency manifests, lockfiles, workflow YAML, and Dockerfiles only (003-dependabot-updates)
 
 ## Recent Changes
 - 001-full-stack-plan-pipeline: Added Python 3.12+ (backend), TypeScript 6.0+ (frontend) + FastAPI 0.135+, `github-copilot-sdk>=0.1.30,<1`, `agent-framework-core>=1.0.0b1`, `agent-framework-github-copilot>=1.0.0b1`, React 19.2, `@tanstack/react-query` 5.96, `@dnd-kit` (existing)
