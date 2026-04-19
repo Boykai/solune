@@ -12,36 +12,40 @@ from src.startup.steps import s15_background_loops as loops
 @pytest.mark.asyncio
 async def test_polling_watchdog_attempts_restart_after_detecting_stopped_loop(monkeypatch) -> None:
     sleep_calls: list[float] = []
-    restart = AsyncMock(return_value=True)
+    restart = AsyncMock()
+    register_projects = AsyncMock(return_value=0)
 
     async def fake_sleep(delay: float) -> None:
         sleep_calls.append(delay)
         if len(sleep_calls) > 1:
             raise asyncio.CancelledError()
 
-    # Mock a DB that returns one session row for the inline restart logic
-    mock_cursor = AsyncMock()
-    mock_cursor.fetchall = AsyncMock(
-        return_value=[{"session_id": "sid1", "selected_project_id": "PVT_1"}],
-    )
-    mock_db = AsyncMock()
-    mock_db.execute = AsyncMock(return_value=mock_cursor)
-
-    mock_session = MagicMock(access_token="tok", selected_project_id="PVT_1")
-
     monkeypatch.setattr(loops.asyncio, "sleep", fake_sleep)
     monkeypatch.setattr(
-        "src.services.copilot_polling.get_polling_status",
-        lambda: {"is_running": False, "errors_count": 1, "last_error": "boom"},
+        "src.config.get_settings",
+        lambda: SimpleNamespace(
+            github_webhook_token="tok",
+            default_repo_owner="owner",
+            default_repo_name="repo",
+        ),
     )
-    monkeypatch.setattr("src.services.copilot_polling.ensure_polling_started", restart)
-    monkeypatch.setattr("src.services.database.get_db", lambda: mock_db)
     monkeypatch.setattr(
-        "src.services.session_store.get_session", AsyncMock(return_value=mock_session)
+        "src.services.copilot_polling.get_polling_status",
+        MagicMock(
+            side_effect=[
+                {"is_running": False, "errors_count": 1, "last_error": "boom"},
+                {"is_running": True, "errors_count": 1, "last_error": "boom"},
+            ]
+        ),
     )
-    monkeypatch.setattr("src.utils.resolve_repository", AsyncMock(return_value=("owner", "repo")))
-    monkeypatch.setattr("src.services.copilot_polling.state.register_project", MagicMock())
-    monkeypatch.setattr("src.services.pipeline_state_store.get_all_pipeline_states", lambda: {})
+    monkeypatch.setattr(
+        "src.startup.steps.s11_copilot_polling._auto_start_copilot_polling",
+        restart,
+    )
+    monkeypatch.setattr(
+        "src.startup.steps.s12_multi_project._discover_and_register_active_projects",
+        register_projects,
+    )
     monkeypatch.setattr("src.services.copilot_polling.get_monitored_projects", lambda: [])
     monkeypatch.setattr("src.services.copilot_polling.unregister_project", MagicMock())
 
@@ -49,6 +53,7 @@ async def test_polling_watchdog_attempts_restart_after_detecting_stopped_loop(mo
 
     assert sleep_calls[0] == 30
     restart.assert_awaited_once()
+    register_projects.assert_awaited_once()
 
 
 @pytest.mark.asyncio

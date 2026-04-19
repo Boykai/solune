@@ -31,9 +31,9 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
         task_registry=task_registry,
     )
 
-    logger.info("Starting Solune API")
     try:
         await run_startup(STARTUP_STEPS, ctx)
+        logger.info("Starting Solune API")
         try:
             async with asyncio.TaskGroup() as tg:
                 for coro in ctx.background:
@@ -41,7 +41,11 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
                 yield
         except* Exception as eg:
             for exc in eg.exceptions:
-                logger.error("Background task failed during lifespan: %s", exc, exc_info=exc)
+                logger.error(
+                    "Background task failed during lifespan: %s",
+                    exc,
+                    exc_info=(type(exc), exc, exc.__traceback__),
+                )
     finally:
         await run_shutdown(ctx)
         logger.info("Shutting down Solune API")
@@ -183,7 +187,7 @@ def create_app() -> FastAPI:
                         {"path": _request.url.path, "method": _request.method},
                     )
                     sentry_sdk.capture_exception(exc)
-        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
+        except Exception:
             pass  # Sentry capture is best-effort
 
         return JSONResponse(

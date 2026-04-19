@@ -1,7 +1,7 @@
 # Tasks: Refactor main.py Lifespan into src/startup/ Step Package
 
-**Input**: Design documents from `/specs/002-lifespan-startup-steps/`
-**Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅, quickstart.md ✅
+**Input**: Root design artifacts in the repository root (`spec.md`, `plan.md`)
+**Prerequisites**: plan.md ✅, spec.md ✅
 
 **Tests**: Explicitly requested — FR-018 mandates independently unit-testable steps, SC-001 requires sub-2s tests, SC-005 requires structured-log assertions.
 

@@ -8,7 +8,11 @@ class OtelStep:
     fatal = False
 
     def skip_if(self, ctx: StartupContext) -> bool:
-        return not ctx.settings.otel_enabled
+        if ctx.settings.otel_enabled:
+            return False
+        ctx.app.state.otel_tracer = None
+        ctx.app.state.otel_meter = None
+        return True
 
     async def run(self, ctx: StartupContext) -> None:
         from src.services.otel_setup import init_otel

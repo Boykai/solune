@@ -59,7 +59,7 @@ async def _auto_start_copilot_polling(settings: Any) -> None:
             owner, repo = await resolve_repository(
                 session.access_token, session.selected_project_id
             )
-        except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
+        except Exception as e:
             logger.warning(
                 "Could not resolve repo for project %s — skipping: %s",
                 session.selected_project_id,
@@ -156,6 +156,11 @@ async def _auto_start_copilot_polling(settings: Any) -> None:
             owner_name,
             repo_name,
         )
+
+
+async def auto_start_copilot_polling(settings: Any) -> None:
+    """Public wrapper for restart/resume logic shared with the watchdog loop."""
+    await _auto_start_copilot_polling(settings)
 
 
 class CopilotPollingStep:

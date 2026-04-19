@@ -376,11 +376,13 @@ async def test_shutdown_trailing_drain_calls_task_registry():
 
 @pytest.mark.asyncio
 async def test_shutdown_trailing_close_db_when_db_is_none():
-    """When ctx.db is None, shutdown-close-db still succeeds (no-op)."""
+    """When ctx.db is None, shutdown-close-db still calls close_database()."""
     ctx = make_test_ctx()
     ctx.db = None
     ctx.shutdown_hooks = []
-    outcomes = await run_shutdown(ctx)
+    with patch("src.services.database.close_database", new_callable=AsyncMock) as mock_close:
+        outcomes = await run_shutdown(ctx)
+    mock_close.assert_awaited_once()
     close_db = [o for o in outcomes if o.name == "shutdown-close-db"]
     assert len(close_db) == 1
     assert close_db[0].status == "ok"

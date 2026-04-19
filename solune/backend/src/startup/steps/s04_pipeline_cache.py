@@ -11,5 +11,5 @@ class PipelineCacheStep:
         from src.services.pipeline_state_store import init_pipeline_state_store
 
         if ctx.db is None:
-            raise RuntimeError("database step must run before pipeline_cache")
+            raise RuntimeError("database step must run before pipeline_state_cache")
         await init_pipeline_state_store(ctx.db)

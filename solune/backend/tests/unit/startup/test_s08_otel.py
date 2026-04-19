@@ -16,11 +16,13 @@ def test_step_conforms_to_protocol():
     assert step.fatal is False
 
 
-def test_skip_if_returns_true_when_otel_disabled():
+def test_skip_if_returns_true_when_otel_disabled_and_sets_app_state_defaults():
     step = OtelStep()
     ctx = make_test_ctx()
     ctx.settings.otel_enabled = False
     assert step.skip_if(ctx) is True
+    assert ctx.app.state.otel_tracer is None
+    assert ctx.app.state.otel_meter is None
 
 
 def test_skip_if_returns_false_when_otel_enabled():

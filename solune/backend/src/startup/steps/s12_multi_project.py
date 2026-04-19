@@ -49,7 +49,7 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
         row = await cursor.fetchone()
         if row:
             session_token = row["access_token"]
-    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
+    except Exception:
         logger.debug("Could not fetch recent session token for polling", exc_info=True)
 
     token = session_token or fallback_token
@@ -71,7 +71,7 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
                     project_repo_map[ps_row["project_id"]] = (wf_owner, wf_repo)
             except (json.JSONDecodeError, TypeError):
                 continue
-    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
+    except Exception:
         logger.debug("Could not load project repo map from project_settings", exc_info=True)
 
     default_owner = settings.default_repo_owner or ""
@@ -99,7 +99,7 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
                             state.repository_owner = owner
                             state.repository_name = repo
                             await set_pipeline_state(state.issue_number, state)
-            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
+            except Exception:
                 logger.warning(
                     "Could not resolve repository for project %s via API, "
                     "falling back to default repo",
@@ -118,6 +118,11 @@ async def _discover_and_register_active_projects(settings: Any) -> int:
             registered_count,
         )
     return registered_count
+
+
+async def discover_and_register_active_projects(settings: Any) -> int:
+    """Public wrapper for project registration logic shared with the watchdog loop."""
+    return await _discover_and_register_active_projects(settings)
 
 
 class MultiProjectStep:

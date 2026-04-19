@@ -108,7 +108,7 @@ async def run_shutdown(
                 "Shutdown hook ok",
                 extra={"step": hook_name, "status": "ok", "duration_ms": duration_ms},
             )
-        except (TimeoutError, asyncio.CancelledError, Exception) as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
+        except (TimeoutError, asyncio.CancelledError, Exception) as exc:
             duration_ms = (time.perf_counter() - start) * 1000
             error_message = (
                 f"timed out after {shutdown_timeout}s"
@@ -133,7 +133,7 @@ async def run_shutdown(
         await ctx.task_registry.drain(drain_timeout=shutdown_timeout)
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-drain", "ok", duration_ms, None))
-    except (asyncio.CancelledError, Exception) as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
+    except (asyncio.CancelledError, Exception) as exc:
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-drain", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-drain failed: %s", exc, exc_info=True)
@@ -147,21 +147,22 @@ async def run_shutdown(
             await stop_polling()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-stop-polling", "ok", duration_ms, None))
-    except (asyncio.CancelledError, Exception) as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
+    except (asyncio.CancelledError, Exception) as exc:
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-stop-polling", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-stop-polling failed: %s", exc, exc_info=True)
 
-    # 3. Close database
+    # 3. Close database (unconditional — close_database() is a no-op when
+    #    the module-level connection was never opened, and gating on ctx.db
+    #    can miss partial startup failures before ctx.db is assigned)
     start = time.perf_counter()
     try:
-        if ctx.db is not None:
-            from src.services.database import close_database
+        from src.services.database import close_database
 
-            await close_database()
+        await close_database()
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "ok", duration_ms, None))
-    except (asyncio.CancelledError, Exception) as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
+    except (asyncio.CancelledError, Exception) as exc:
         duration_ms = (time.perf_counter() - start) * 1000
         results.append(StepOutcome("shutdown-close-db", "failed", duration_ms, str(exc)))
         logger.warning("shutdown-close-db failed: %s", exc, exc_info=True)
