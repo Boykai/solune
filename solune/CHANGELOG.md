@@ -6,6 +6,7 @@
 
 ### Added
 
+- **Startup step runner** — Extracted the 15 startup responsibilities from `main.py`'s monolithic `lifespan()` into a declarative `src/startup/` package with named, individually-testable steps, a `Step` protocol, `StartupContext`, and `run_startup()`/`run_shutdown()` orchestrators. `lifespan()` is now a short delegator.
 - Shared Radix dialog and alert-dialog primitives for frontend modal workflows, including reusable character-count and first-error-focus helpers.
 - Test skip marker inventory documenting all 16 conditional infrastructure guards across backend and frontend suites.
 - Unit tests for `useUndoRedo` hook covering push, undo, redo, redo-stack clearing, and empty-stack edge cases.
