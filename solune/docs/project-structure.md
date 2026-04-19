@@ -63,7 +63,7 @@ backend/
 
 | Group | Current services |
 |-------|------------------|
-| **Activity / ops** | `activity_logger.py`, `activity_service.py`, `alert_dispatcher.py`, `otel_setup.py`, `rate_limit_tracker.py` |
+| **Activity / ops** | `activity_logger.py`, `activity_service.py`, `alert_dispatcher.py`, `otel_setup.py`, `rate_limit_tracker.py`, `resettable_state.py` |
 | **Agent + chat flows** | `agent_creator.py`, `agent_middleware.py`, `agent_provider.py`, `agent_tools.py`, `agent_tracking.py`, `ai_utilities.py`, `chat_agent.py`, `chat_store.py`, `guard_service.py`, `label_classifier.py`, `plan_agent_provider.py`, `plan_issue_service.py`, `plan_parser.py`, `template_files.py`, `transcript_detector.py` |
 | **Apps** | `app_plan_orchestrator.py`, `app_service.py`, `app_templates/` |
 | **Pipelines** | `cleanup_service.py`, `collision_resolver.py`, `copilot_polling/`, `pipeline_estimate.py`, `pipeline_launcher.py`, `pipeline_orchestrator.py`, `pipeline_state_store.py`, `pipelines/`, `task_registry.py`, `workflow_orchestrator/` |
