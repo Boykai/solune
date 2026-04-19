@@ -45,7 +45,7 @@ class TestConnectionPoolExhaustion:
                     mock_db.execute.return_value = AsyncMock(fetchone=AsyncMock(return_value=(1,)))
                 await mock_db.execute(f"SELECT {query_id}")
                 success_count += 1
-            except Exception:  # noqa: BLE001 — reason: test intentionally catches all exceptions to assert error behaviour
+            except Exception:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
                 error_count += 1
 
         tasks = [_make_query(i) for i in range(30)]

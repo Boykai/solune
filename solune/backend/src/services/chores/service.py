@@ -944,7 +944,7 @@ class ChoresService:
                     if isinstance(encoded_content, str):
                         try:
                             current_content = b64decode(encoded_content).decode("utf-8")
-                        except Exception:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+                        except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
                             current_content = None
                     raise ChoreConflictError(
                         "File has been modified since page load",

@@ -466,7 +466,7 @@ async def create_app_with_new_repo(
             head_oid = info.get("head_oid")
             if head_oid:
                 break
-        except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+        except Exception as exc:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
             last_poll_exc = exc
         if attempt < max_attempts - 1:
             await asyncio.sleep(min(1.0 * (1.5**attempt), 4.0))
@@ -989,7 +989,7 @@ async def delete_app(
                 )
                 result.issues_closed += 1
                 await asyncio.sleep(RATE_LIMIT_DELAY)
-            except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+            except Exception as exc:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
                 result.errors.append(f"Could not close issue #{issue_number}: {exc}")
 
         # 2. Delete app-related branches
@@ -1010,9 +1010,9 @@ async def delete_app(
                             )
                             result.branches_deleted += 1
                             await asyncio.sleep(RATE_LIMIT_DELAY)
-                        except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+                        except Exception as exc:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
                             result.errors.append(f"Could not delete branch '{branch_name}': {exc}")
-        except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+        except Exception as exc:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
             result.errors.append(f"Could not list branches: {exc}")
 
         # 3. Delete GitHub project (new-repo apps only)
@@ -1020,7 +1020,7 @@ async def delete_app(
             try:
                 await github_service.delete_project_v2(access_token, app.github_project_id)
                 result.project_deleted = True
-            except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+            except Exception as exc:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
                 result.errors.append(f"Could not delete project: {exc}")
 
         # 4. Delete GitHub repository (new-repo apps only)
@@ -1028,7 +1028,7 @@ async def delete_app(
             try:
                 await github_service.delete_repository(access_token, owner, repo)
                 result.repo_deleted = True
-            except Exception as exc:  # noqa: BLE001 — reason: service resilience; non-critical operation logged and skipped
+            except Exception as exc:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
                 result.errors.append(f"Could not delete repository: {exc}")
 
     # 5. Delete database record

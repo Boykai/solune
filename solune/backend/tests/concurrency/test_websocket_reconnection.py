@@ -66,7 +66,7 @@ class TestWebSocketReconnectionUnderLoad:
                     )
                 except (KeyError, RuntimeError):
                     pass  # Expected during concurrent disconnect
-                except Exception as exc:  # noqa: BLE001 — reason: test intentionally catches all exceptions to assert error behaviour
+                except Exception as exc:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
                     errors.append(exc)
                 await asyncio.sleep(0.01)
             assert not errors, f"Unexpected broadcast errors: {errors}"

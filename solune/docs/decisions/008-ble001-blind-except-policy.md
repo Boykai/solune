@@ -5,7 +5,7 @@
 
 ## Context
 
-The backend codebase contained ~454 `except Exception` handlers across ~70 source files. Most were intentional best-effort wrappers — logging the error and continuing — but the broad catch masked genuine bugs and prevented reviewers from distinguishing intentional resilience patterns from accidental exception swallowing.
+The backend codebase contained ~570 `except Exception` handlers across ~87 source files. Most were intentional best-effort wrappers — logging the error and continuing — but the broad catch masked genuine bugs and prevented reviewers from distinguishing intentional resilience patterns from accidental exception swallowing.
 
 Ruff's `BLE001` rule (flake8-blind-except) flags every `except Exception` that is not suppressed with an inline `# noqa`. Enabling it gives the linter a gate: new broad-excepts fail CI unless the author explicitly justifies the handler.
 
@@ -27,6 +27,7 @@ Ruff's `BLE001` rule (flake8-blind-except) flags every `except Exception` that i
    | `signal delivery resilience; failure logged, delivery continues` | Signal bridge/chat/delivery best-effort sends |
    | `health-check endpoint; must return degraded status, never crash` | `/health` and readiness probes |
    | `mixed exception surface; operation failure is non-critical` | Multiple unrelated exception sources (e.g. JSON + I/O + HTTP) |
+   | `test assertion; catches all exceptions to produce test-specific error` | Test code that intentionally catches broadly to call `pytest.fail()` or assert |
    | `asyncio gather; child exceptions unbounded` | `asyncio.gather` / `TaskGroup` drain |
 
 4. **New code** introducing `except Exception` must either:
@@ -38,5 +39,5 @@ Ruff's `BLE001` rule (flake8-blind-except) flags every `except Exception` that i
 - **+** CI now rejects silent exception swallowers — every broad catch must be justified.
 - **+** Tags are greppable (`grep -rn "noqa: BLE001"`) for auditing and burn-down tracking.
 - **+** The standardised category vocabulary makes it easy to find all handlers sharing a resilience pattern.
-- **−** ~454 existing handlers carry `# noqa` tags, adding line noise. This is intentional: each tag is a reviewed decision, not a blanket suppression.
+- **−** ~570 existing handlers carry `# noqa` tags, adding line noise. This is intentional: each tag is a reviewed decision, not a blanket suppression.
 - **−** Developers must learn the category vocabulary; the Suppression Policy table and this ADR are the canonical references.
