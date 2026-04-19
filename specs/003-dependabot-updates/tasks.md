@@ -74,7 +74,6 @@ All paths are repo-relative from the workspace root `/home/runner/work/solune/so
 **Purpose**: Document the execution result and clean up feature artifacts.
 
 - [X] T012 Record no-op execution result documenting: (a) discovery found zero open Dependabot PRs, (b) no updates were applied, (c) no batch PR was created, (d) this is a successful outcome per the specification.
-- [X] T013 [P] Clean up `analysis-report.md` at repo root — this file belongs to feature 002 and should not be part of this feature's deliverables.
 
 **Checkpoint**: All tasks complete. Feature 003 executed successfully via the no-op path.
 
@@ -97,9 +96,9 @@ All paths are repo-relative from the workspace root `/home/runner/work/solune/so
 | FR-012 (commit passing updates) | T010 | ✅ No-op: zero candidates |
 | FR-013 (skip failing updates) | T010 | ✅ No-op: zero candidates |
 | FR-014 (single batch PR) | T011 | ✅ No-op: no PR created |
-| FR-019 (no app code changes) | T001–T013 | ✅ Confirmed |
-| FR-021 (no non-Dependabot branch ops) | T001–T013 | ✅ Confirmed |
+| FR-019 (no app code changes) | T001–T012 | ✅ Confirmed |
+| FR-021 (no non-Dependabot branch ops) | T001–T012 | ✅ Confirmed |
 | SC-001 (100% PRs evaluated) | T008, T009 | ✅ 0/0 = complete |
 | SC-002 (zero regressions) | T010 | ✅ No changes made |
-| SC-004 (diff limited to deps) | T001–T013 | ✅ No diff |
+| SC-004 (diff limited to deps) | T001–T012 | ✅ No diff |
 | Edge Case: no open PRs | T009, T011, T012 | ✅ Handled |
