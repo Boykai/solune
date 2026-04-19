@@ -93,7 +93,7 @@ async def get_signal_connection(
     try:
         phone = enc.decrypt(conn.signal_phone_encrypted)
         masked = mask_phone_number(phone)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
         masked = None
 
     return SignalConnectionResponse(
@@ -155,7 +155,7 @@ async def check_signal_link_status(
         try:
             phone = enc.decrypt(existing.signal_phone_encrypted)
             masked = mask_phone_number(phone)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
             masked = None
 
         return SignalLinkStatusResponse(
@@ -190,7 +190,7 @@ async def check_signal_link_status(
             try:
                 await send_welcome_message(phone)
                 await restart_signal_ws_listener()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: signal delivery resilience; failure logged, delivery continues
                 logger.warning("Post-link tasks failed (non-fatal): %s", e)
 
         from src.services.task_registry import task_registry

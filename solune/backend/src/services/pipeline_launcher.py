@@ -250,7 +250,7 @@ async def start_pipeline(
         for agent_slug in assigned_agents:
             try:
                 await orchestrator._update_agent_tracking_state(ctx, agent_slug, "active")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning(
                     "Failed to reconcile tracking for initial parallel agent '%s' on issue #%s: %s",
                     agent_slug,

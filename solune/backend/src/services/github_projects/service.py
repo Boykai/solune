@@ -7,6 +7,7 @@ import asyncio
 import contextvars
 import hashlib
 import json as json_mod
+import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
@@ -266,7 +267,7 @@ class GitHubProjectsService(
             if verify_fn is not None:
                 try:
                     verified = await verify_fn()
-                except Exception as verify_err:
+                except Exception as verify_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                     logger.warning(
                         "%s: verification failed (%s), trying fallback",
                         operation,
@@ -283,7 +284,7 @@ class GitHubProjectsService(
                         fallback_result = await fallback_fn()
                         logger.info("%s: fallback strategy succeeded", operation)
                         return fallback_result
-                    except Exception as fallback_err:
+                    except Exception as fallback_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                         logger.warning(
                             "%s: fallback also failed (%s), returning primary result",
                             operation,
@@ -292,7 +293,7 @@ class GitHubProjectsService(
                         return result
 
             return result
-        except Exception as primary_err:
+        except Exception as primary_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.warning(
                 "%s: primary strategy failed (%s), trying fallback",
                 operation,
@@ -303,7 +304,7 @@ class GitHubProjectsService(
                 result = await fallback_fn()
                 logger.info("%s: fallback strategy succeeded", operation)
                 return result
-            except Exception as fallback_err:
+            except Exception as fallback_err:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.warning(
                     "%s: both strategies failed. Primary: %s; Fallback: %s",
                     operation,
@@ -312,6 +313,28 @@ class GitHubProjectsService(
                     exc_info=True,
                 )
                 return None
+
+    async def _best_effort(
+        self,
+        fn: Callable[..., Awaitable[_T]],
+        *args: Any,
+        fallback: _T,
+        context: str,
+        log_level: int = logging.ERROR,
+        **kwargs: Any,
+    ) -> _T:
+        """Execute *fn* and return *fallback* on failure, logging the error.
+
+        This is the canonical wrapper for "best-effort" operations where
+        the caller explicitly accepts that the call may fail silently.
+        ``BaseException`` subclasses that are not ``Exception``
+        (e.g. ``KeyboardInterrupt``, ``SystemExit``) are never caught.
+        """
+        try:
+            return await fn(*args, **kwargs)
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
+            logger.log(log_level, "%s: %s", context, exc, exc_info=True)
+            return fallback
 
     @staticmethod
     def is_copilot_author(login: str) -> bool:

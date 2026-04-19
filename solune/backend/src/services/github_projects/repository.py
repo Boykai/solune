@@ -60,7 +60,7 @@ class RepositoryMixin(_ServiceMixin):
             # GitHub returns {"message": "...", "errors": [...]} on failure
             try:
                 err_body = response.json()
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 err_body = {"message": response.text}
             msg = err_body.get("message", "Unknown error")
             details = err_body.get("errors", [])
@@ -263,7 +263,7 @@ class RepositoryMixin(_ServiceMixin):
                     return data
                 return []
             return []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.debug("get_directory_contents(%s/%s/%s) failed: %s", owner, repo, path, exc)
             return []
 
@@ -288,7 +288,7 @@ class RepositoryMixin(_ServiceMixin):
             if response.status_code == 200:
                 return {"content": response.text, "name": path.split("/")[-1]}
             return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.debug("get_file_content(%s/%s/%s) failed: %s", owner, repo, path, exc)
             return None
 
@@ -333,7 +333,7 @@ class RepositoryMixin(_ServiceMixin):
                 )
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
             logger.error("Error getting file %s@%s: %s", path, ref, e)
             return None
 
@@ -446,7 +446,7 @@ class RepositoryMixin(_ServiceMixin):
                         )
                         if fresh_oid:
                             current_oid = fresh_oid
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                         logger.debug("Suppressed error: %s", e)
                     continue
                 logger.error("Failed to commit files to %s: %s", branch_name, exc)

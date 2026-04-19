@@ -89,6 +89,7 @@ select = [
     "F",    # Pyflakes
     "I",    # isort
     "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-except (ban broad except Exception handlers)
     "C4",   # flake8-comprehensions
     "UP",   # pyupgrade
     "FURB", # refurb (more Pythonic alternatives)

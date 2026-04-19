@@ -628,7 +628,7 @@ class ToolsService:
                 trigger="tool_delete",
                 db=self.db,
             )
-        except Exception as sync_exc:
+        except Exception as sync_exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Agent MCP sync after tool deletion failed (non-fatal): %s", sync_exc)
 
         return ToolDeleteResult(success=True, deleted_id=tool_id, affected_agents=[])
@@ -959,7 +959,7 @@ class ToolsService:
                     trigger="tool_toggle",
                     db=self.db,
                 )
-            except Exception as sync_exc:
+            except Exception as sync_exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 logger.warning("Agent MCP sync after tool sync failed (non-fatal): %s", sync_exc)
 
             return McpToolConfigSyncResult(

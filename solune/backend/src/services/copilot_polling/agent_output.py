@@ -257,7 +257,7 @@ async def _reconstruct_pipeline_if_missing(
                             existing_pr["number"],
                             issue_number,
                         )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug(
                     "Could not reconstruct main branch for issue #%d: %s",
                     issue_number,
@@ -294,14 +294,14 @@ async def _reconstruct_pipeline_if_missing(
                                     recon_agent,
                                     issue_number,
                                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug(
                     "Could not reconstruct child PR claims for issue #%d: %s",
                     issue_number,
                     e,
                 )
         return pipeline
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Could not reconstruct pipeline for issue #%d: %s",
             issue_number,
@@ -386,7 +386,7 @@ async def _detect_completion_signals(
                             pr_number=pr_num,
                             issue_number=issue_number,
                         )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.debug("Suppressed error: %s", e)
 
                 if is_subsequent_agent and main_pr_number is not None and pr_num != main_pr_number:
@@ -941,7 +941,7 @@ async def _process_task_agent_completion(
             pr_details=pr_details,
             head_ref=head_ref,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to track main branch for issue #%d PR #%d — continuing with completion",
             task.issue_number,
@@ -1037,7 +1037,7 @@ async def _track_main_branch_if_needed(
             pr_number=pr_number,
             issue_number=issue_number,
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Failed to link PR #%d to issue #%d: %s",
             pr_number,

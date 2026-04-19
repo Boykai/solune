@@ -83,7 +83,7 @@ async def validate_pipeline_labels(
             )
             logger.warning(msg)
             corrections.append(msg)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             msg = f"Failed to correct agent label on #{issue_number}: {exc}"
             logger.warning(msg)
             corrections.append(msg)
@@ -102,7 +102,7 @@ async def validate_pipeline_labels(
             msg = f"Added missing agent:{table_agent} label to #{issue_number}"
             logger.warning(msg)
             corrections.append(msg)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             msg = f"Failed to add agent label to #{issue_number}: {exc}"
             logger.warning(msg)
             corrections.append(msg)
@@ -124,7 +124,7 @@ async def validate_pipeline_labels(
             )
             logger.warning(msg)
             corrections.append(msg)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             msg = f"Failed to remove stale agent label from #{issue_number}: {exc}"
             logger.warning(msg)
             corrections.append(msg)

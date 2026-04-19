@@ -350,11 +350,11 @@ async def ensure_pipeline_labels_exist(
                         resp.status_code,
                         resp.text,
                     )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
                 from src.logging_utils import get_logger
 
                 get_logger(__name__).warning("Failed to pre-create label '%s'", name, exc_info=True)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         from src.logging_utils import get_logger
 
         get_logger(__name__).warning("Failed to pre-create pipeline labels", exc_info=True)

@@ -330,7 +330,7 @@ async def poll_for_copilot_completion(
         await _startup_resume_scan(access_token, project_id, owner, repo)
     except asyncio.CancelledError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Startup resume scan for project %s failed (non-fatal): %s",
             project_id[:12],
@@ -386,7 +386,7 @@ async def _startup_resume_scan(
             owner=owner,
             repo=repo,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Startup resume scan: recover_stalled_issues raised for project %s",
             project_id[:12],
@@ -553,7 +553,7 @@ async def _poll_loop(
                                 "reset_at": rl_info.get("reset_at"),
                             },
                         )
-            except Exception as alert_err:
+            except Exception as alert_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Failed to dispatch rate_limit_critical alert: %s", alert_err)
 
             # ── Poll each registered project ──
@@ -615,8 +615,8 @@ async def _poll_loop(
             _rl_data = _cp.github_projects_service.get_last_rate_limit()
             if _rl_data and _rl_data.get("remaining") is not None:
                 rl_gauge.set(_rl_data["remaining"])
-        except Exception:
-            pass  # OTel metrics are best-effort
+        except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
+            logger.debug("OTel metrics emission failed", exc_info=True)
 
         # ── Rate-limit snapshot recording (Phase 5, optional) ──
         try:
@@ -634,7 +634,7 @@ async def _poll_loop(
                     limit=_rl_snap["limit"],
                     reset_at=_rl_snap["reset_at"],
                 )
-        except Exception as snap_err:
+        except Exception as snap_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
             logger.debug("Rate-limit snapshot recording failed: %s", snap_err)
 
         # ── Dynamic interval based on remaining rate-limit budget ──
@@ -822,7 +822,7 @@ async def poll_app_pipeline(
                 else:
                     consecutive_missing_state = 0
 
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.warning(
                     "Error in scoped app-pipeline polling for issue #%d: %s",
                     parent_issue_number,

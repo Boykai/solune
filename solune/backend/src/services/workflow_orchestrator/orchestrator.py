@@ -262,7 +262,7 @@ class WorkflowOrchestrator:
                     ctx.issue_number,
                 )
             return success
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.warning("Failed to update agent tracking for issue #%d: %s", ctx.issue_number, e)
             return False
 
@@ -337,7 +337,7 @@ class WorkflowOrchestrator:
                     "issue_number": ctx.issue_id or "",
                 },
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.debug("Activity logging skipped in orchestrator (non-fatal)")
 
         return transition
@@ -381,7 +381,7 @@ class WorkflowOrchestrator:
                 repo=ctx.repository_name,
                 labels=labels,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.warning(
                 "Failed to ensure sub-issue labels for issue #%s: %s",
                 ctx.issue_number,
@@ -423,7 +423,7 @@ class WorkflowOrchestrator:
             parent_body = parent_issue_data.get("body", "")
             parent_title = parent_issue_data.get("title", f"Issue #{ctx.issue_number}")
             parent_creator = (parent_issue_data.get("user") or {}).get("login", "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.warning("Failed to fetch parent issue for sub-issue creation: %s", e)
             return {}
 
@@ -515,7 +515,7 @@ class WorkflowOrchestrator:
                                 sub_number,
                                 parent_creator,
                             )
-                        except Exception as assign_err:
+                        except Exception as assign_err:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                             logger.warning(
                                 "Failed to assign Human sub-issue #%d to '%s': %s",
                                 sub_number,
@@ -536,7 +536,7 @@ class WorkflowOrchestrator:
                                 issue_number=ctx.issue_number,
                                 body=f"⚠️ Could not resolve issue creator for Human step assignment. Please manually assign sub-issue #{sub_number}.",
                             )
-                        except Exception as comment_err:
+                        except Exception as comment_err:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                             logger.warning(
                                 "Failed to post warning comment on issue #%d: %s",
                                 ctx.issue_number,
@@ -558,13 +558,13 @@ class WorkflowOrchestrator:
                             agent_sub_issues[agent_name].get("number"),
                             ctx.project_id,
                         )
-                    except Exception as proj_err:
+                    except Exception as proj_err:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                         logger.warning(
                             "Failed to add sub-issue #%d to project: %s",
                             agent_sub_issues[agent_name].get("number"),
                             proj_err,
                         )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Failed to create sub-issue for agent '%s' on issue #%d: %s",
                     agent_name,
@@ -610,7 +610,7 @@ class WorkflowOrchestrator:
                 owner=ctx.repository_owner,
                 repo=ctx.repository_name,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.debug("Non-blocking: failed to pre-create pipeline labels", exc_info=True)
 
         body = self.format_issue_body(recommendation)
@@ -655,7 +655,7 @@ class WorkflowOrchestrator:
                 _pc = await _svc.get_pipeline(ctx.project_id, ctx.selected_pipeline_id)
                 if _pc:
                     pipeline_config_name = _pc.name
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.debug("Could not resolve pipeline config name for label", exc_info=True)
 
         issue = await self.github.create_issue(
@@ -841,7 +841,7 @@ class WorkflowOrchestrator:
 
             logger.info("Metadata set results: %s", results)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             # Log but don't fail the workflow - metadata is nice-to-have
             logger.warning("Failed to set issue metadata: %s", e)
 
@@ -1026,7 +1026,7 @@ class WorkflowOrchestrator:
                         issue_number,
                     )
                     return tracking_agents
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.warning(
                 "Failed to fetch tracking table for issue #%d, falling back to config agents: %s",
                 issue_number,
@@ -1181,14 +1181,14 @@ class WorkflowOrchestrator:
                             pr_number=existing_pr["number"],
                             issue_number=ctx.issue_number,
                         )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                         logger.warning(
                             "Failed to link PR #%d to issue #%d: %s",
                             existing_pr["number"],
                             ctx.issue_number,
                             e,
                         )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning("Failed to check for existing PR: %s", e)
 
         return base_ref, current_head_sha, existing_pr
@@ -1300,7 +1300,7 @@ class WorkflowOrchestrator:
                             project_id=ctx.project_id,
                             issue_node_id=sub_node,
                         )
-                    except Exception as proj_err:
+                    except Exception as proj_err:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                         logger.warning(
                             "Failed to add on-the-fly sub-issue #%d to project: %s",
                             sub_issue_number,
@@ -1313,7 +1313,7 @@ class WorkflowOrchestrator:
                     agent_name,
                     ctx.issue_number,
                 )
-            except Exception as create_err:
+            except Exception as create_err:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "On-the-fly sub-issue creation failed for agent '%s' on "
                     "issue #%d: %s — falling back to parent issue",
@@ -1357,7 +1357,7 @@ class WorkflowOrchestrator:
                     state="open",
                     labels_add=["in-progress"],
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Failed to mark Human sub-issue #%d as in-progress: %s",
                     sub_issue_number,
@@ -1373,7 +1373,7 @@ class WorkflowOrchestrator:
                         sub_issue_node_id=sub_node_id,
                         status_name=(config.status_in_progress if config else "In Progress"),
                     )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Failed to update Human sub-issue #%d project board status: %s",
                     sub_issue_number,
@@ -1486,7 +1486,7 @@ class WorkflowOrchestrator:
                         repo=ctx.repository_name,
                         issue_number=sub_issue_number,
                     )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.debug(
                     "Could not check/un-assign Copilot SWE from sub-issue #%d: %s",
                     sub_issue_number,
@@ -1607,7 +1607,7 @@ class WorkflowOrchestrator:
                     state="open",
                     labels_add=["in-progress"],
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Failed to mark copilot-review sub-issue #%d as in-progress: %s",
                     sub_issue_number,
@@ -1623,7 +1623,7 @@ class WorkflowOrchestrator:
                         sub_issue_node_id=sub_node_id,
                         status_name=(config.status_in_progress if config else "In Progress"),
                     )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Failed to update copilot-review sub-issue #%d project status: %s",
                     sub_issue_number,
@@ -1766,7 +1766,7 @@ class WorkflowOrchestrator:
                     len(custom_instructions),
                     f"#{existing_pr['number']}" if existing_pr else "None",
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning("Failed to fetch issue context for agent '%s': %s", agent_name, e)
 
         # Dedup guard
@@ -1914,7 +1914,7 @@ class WorkflowOrchestrator:
                             sub_issue_number,
                             agent_name,
                         )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                         logger.warning(
                             "Failed to mark sub-issue #%d as in-progress: %s",
                             sub_issue_number,
@@ -1932,7 +1932,7 @@ class WorkflowOrchestrator:
                                     config.status_in_progress if config else "In Progress"
                                 ),
                             )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                         logger.warning(
                             "Failed to update sub-issue #%d project board status: %s",
                             sub_issue_number,
@@ -2077,7 +2077,7 @@ class WorkflowOrchestrator:
                 labels_add=[build_agent_label(agent_name)],
                 labels_remove=labels_to_remove,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.warning(
                 "Non-blocking: failed to swap agent label on issue #%s: %s",
                 ctx.issue_number,
@@ -2111,7 +2111,7 @@ class WorkflowOrchestrator:
                             issue_number=prev_sub,
                             labels_remove=[ACTIVE_LABEL],
                         )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.warning(
                     "Non-blocking: failed to move active label for issue #%s: %s",
                     ctx.issue_number,
@@ -2281,7 +2281,7 @@ class WorkflowOrchestrator:
                         "pipeline_id": ctx.selected_pipeline_id or "",
                     },
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.debug("Activity logging skipped for agent trigger (non-fatal)")
 
         return result
@@ -2660,7 +2660,7 @@ class WorkflowOrchestrator:
                     "reviewer": reviewer or "",
                 },
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
             logger.debug("Activity logging skipped for workflow completion (non-fatal)")
 
         return True
@@ -2838,7 +2838,7 @@ class WorkflowOrchestrator:
                 for agent_slug in active_agents:
                     try:
                         await self._update_agent_tracking_state(ctx, agent_slug, "active")
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                         logger.warning(
                             "Failed to reconcile tracking for initial parallel agent '%s' on issue #%s: %s",
                             agent_slug,
@@ -2915,7 +2915,7 @@ class WorkflowOrchestrator:
                 ),
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: asyncio gather; child exceptions unbounded
             logger.error("Workflow failed: %s", e)
             ctx.current_state = WorkflowState.ERROR
 
@@ -3027,7 +3027,7 @@ async def dispatch_pipelines(
                     "concurrent_group_id": concurrent_group_id,
                     "is_isolated": True,
                 }
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; step failure must not abort workflow
                 logger.error(
                     "Concurrent pipeline %s failed (group %s): %s",
                     pid,

@@ -144,7 +144,7 @@ async def _drive_advance_after_self_heal(
             to_status,
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Self-heal advance for issue #%d agent '%s' failed: %s",
             issue_number,
@@ -257,7 +257,7 @@ async def _validate_and_reconcile_tracking_table(
             issue_number,
             len(corrections),
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Recovery: issue #%d — failed to push reconciled tracking table: %s "
             "(continuing with corrected in-memory state)",
@@ -343,7 +343,7 @@ async def _escalate_exhausted_recovery(
             issue_number=issue_number,
             body=comment_body,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Recovery escalation: failed to post failure comment on issue #%d: %s",
             issue_number,
@@ -371,7 +371,7 @@ async def _escalate_exhausted_recovery(
                     "max_retries": MAX_RECOVERY_RETRIES,
                 },
             )
-    except Exception as alert_err:
+    except Exception as alert_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug("Failed to dispatch pipeline_agent_exhausted alert: %s", alert_err)
 
     logger.warning(
@@ -433,7 +433,7 @@ async def _attempt_reassignment(
             issue_number=issue_number,
             labels_add=[STALLED_LABEL],
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Non-blocking: failed to apply stalled label on issue #%d: %s",
             issue_number,
@@ -450,7 +450,7 @@ async def _attempt_reassignment(
         assigned = await orchestrator.assign_agent_for_status(
             ctx, agent_status, agent_index=agent_index
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.error(
             "Recovery: failed to re-assign agent '%s' for issue #%d: %s",
             agent_name,
@@ -604,7 +604,7 @@ async def _check_copilot_session_health(
             pr_number=wip_pr_number,
         )
         return not errored
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.debug(
             "Recovery: could not check Copilot session error on PR #%s for issue #%d: %s",
             wip_pr_number,
@@ -727,7 +727,7 @@ async def recover_stalled_issues(
                     repo=task_repo,
                     issue_number=issue_number,
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Recovery: could not fetch issue #%d: %s", issue_number, e)
                 continue
 
@@ -763,7 +763,7 @@ async def recover_stalled_issues(
                         issue_number=issue_number,
                     )
                     body = refreshed.get("body", body)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                     logger.debug(
                         "Recovery: issue #%d — failed to re-fetch issue body after self-heal: %s "
                         "(continuing with stale body)",
@@ -858,7 +858,7 @@ async def recover_stalled_issues(
                             current_status,
                             to_status,
                         )
-                except Exception as trans_err:
+                except Exception as trans_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                     logger.error(
                         "Recovery: failed to force-transition issue #%d to '%s': %s",
                         issue_number,
@@ -1119,7 +1119,7 @@ async def recover_stalled_issues(
                             body=marker,
                         )
                         marker_posted = True
-                    except Exception as marker_err:
+                    except Exception as marker_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.warning(
                             "Recovery: issue #%d — failed to post Done! marker "
                             "for '%s': %s (skipping re-assignment anyway)",
@@ -1170,7 +1170,7 @@ async def recover_stalled_issues(
                             body=marker,
                         )
                         marker_posted = True
-                    except Exception as marker_err:
+                    except Exception as marker_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                         logger.warning(
                             "Recovery: issue #%d — failed to post Done! marker "
                             "for '%s': %s (skipping re-assignment anyway)",
@@ -1233,7 +1233,7 @@ async def recover_stalled_issues(
                                 "pipeline_state": "active" if active_step else "pending",
                             },
                         )
-            except Exception as alert_err:
+            except Exception as alert_err:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
                 logger.debug("Failed to dispatch pipeline_stall alert: %s", alert_err)
 
             # Re-assign the agent (T040)

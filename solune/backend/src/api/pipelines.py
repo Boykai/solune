@@ -162,7 +162,7 @@ async def _load_user_agent_model(session: UserSession) -> str:
     try:
         effective_settings = await get_effective_user_settings(get_db(), session.github_user_id)
         return effective_settings.ai.agent_model or ""
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Failed to load user agent model for pipeline launch: %s", e)
         return ""
 
@@ -175,7 +175,7 @@ async def _load_user_reasoning_effort(session: UserSession) -> str:
     try:
         effective_settings = await get_effective_user_settings(get_db(), session.github_user_id)
         return effective_settings.ai.reasoning_effort or ""
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         logger.debug("Failed to load user reasoning effort for pipeline launch: %s", e)
         return ""
 
@@ -355,7 +355,7 @@ async def execute_pipeline_launch(
                 f"**Functional Requirements:**\n{reqs}\n\n"
                 f"**Technical Notes:** {recommendation.technical_notes}"
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Transcript analysis failed, using raw description: %s", exc)
 
     service = _get_service()
@@ -483,7 +483,7 @@ async def execute_pipeline_launch(
                     item_id=ctx.project_item_id,
                     metadata=metadata_dict,
                 )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.warning("Failed to set pipeline metadata", exc_info=True)
 
         status_name = config.status_backlog

@@ -101,7 +101,7 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
             endpoint,
         )
         return _tracer, _meter
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
         _tracer = None
         _meter = None
         logger.warning(

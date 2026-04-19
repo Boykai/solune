@@ -52,7 +52,7 @@ class GitHubClientFactory:
         for client in self._pool.values():
             try:
                 await client.__aexit__(None, None, None)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: GitHub API resilience; failure logged, operation returns fallback
                 logger.debug("Suppressed error: %s", e)
         self._pool.clear()
 

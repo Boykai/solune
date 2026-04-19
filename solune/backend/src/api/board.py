@@ -295,7 +295,7 @@ def _schedule_background_board_completion(session: UserSession, project_id: str)
                 project_id,
                 load_mode=BoardLoadMode.FULL,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort operation; failure logged, execution continues
             logger.debug(
                 "Non-critical: background board completion failed for project %s",
                 project_id,
@@ -436,7 +436,7 @@ async def _build_done_fallback_board(
 
     try:
         cached = await get_done_items(project_id, item_type="board")
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
         return None
 
     if not cached:

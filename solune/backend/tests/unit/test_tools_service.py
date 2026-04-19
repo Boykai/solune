@@ -995,7 +995,7 @@ class TestToolsServiceCrudAndAssociations:
                 repo="repo",
                 access_token="token",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
             assert "already exists" in str(exc)
         else:
             raise AssertionError("Expected duplicate tool name rejection")

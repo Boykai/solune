@@ -68,6 +68,16 @@ if TYPE_CHECKING:
             verify_fn: Callable[[], Awaitable[bool]] | None = None,
         ) -> _T | None: ...
 
+        async def _best_effort(
+            self,
+            fn: Callable[..., Awaitable[_T]],
+            *args: Any,
+            fallback: _T,
+            context: str,
+            log_level: int = ...,
+            **kwargs: Any,
+        ) -> _T: ...
+
         # Cross-mixin methods called from other mixins
         @staticmethod
         def is_copilot_author(login: str) -> bool: ...
