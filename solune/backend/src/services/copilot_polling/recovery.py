@@ -144,7 +144,7 @@ async def _drive_advance_after_self_heal(
             to_status,
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Self-heal advance for issue #%d agent '%s' failed: %s",
             issue_number,

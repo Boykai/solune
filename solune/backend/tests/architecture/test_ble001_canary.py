@@ -110,9 +110,7 @@ class TestBLE001LintCanary:
 
         assert "BLE001" not in ignore_list, "BLE001 should not be in [tool.ruff.lint] ignore list"
         for pattern, rules in per_file_ignores.items():
-            assert "BLE001" not in rules, (
-                f"BLE001 should not be in per-file-ignores for {pattern}"
-            )
+            assert "BLE001" not in rules, f"BLE001 should not be in per-file-ignores for {pattern}"
 
     @pytest.mark.parametrize(
         "exception_type",

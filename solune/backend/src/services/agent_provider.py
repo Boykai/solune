@@ -500,7 +500,7 @@ async def _create_copilot_agent(
         options["mcp_servers"] = mcp_servers
 
     if reasoning_effort:
-        options["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key] — reason: SDK TypedDict lacks reasoning_effort key; runtime-safe
+        options["reasoning_effort"] = reasoning_effort  # pyright: ignore[reportIndexIssue] — reason: SDK TypedDict lacks reasoning_effort key; runtime-safe
 
     client = await get_copilot_client_pool().get_or_create(github_token)
 

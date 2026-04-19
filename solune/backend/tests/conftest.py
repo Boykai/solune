@@ -37,7 +37,7 @@ os.environ["TESTING"] = "1"
 
 try:
     import mutmut
-except Exception:  # noqa: BLE001 — reason: test assertion; catches all exceptions to produce test-specific error
+except ImportError:
     mutmut = None
 else:
     mutmut_main = types.ModuleType("mutmut.__main__")

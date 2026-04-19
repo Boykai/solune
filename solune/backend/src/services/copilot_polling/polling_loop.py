@@ -330,7 +330,7 @@ async def poll_for_copilot_completion(
         await _startup_resume_scan(access_token, project_id, owner, repo)
     except asyncio.CancelledError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Startup resume scan for project %s failed (non-fatal): %s",
             project_id[:12],
@@ -386,7 +386,7 @@ async def _startup_resume_scan(
             owner=owner,
             repo=repo,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; failure logged, polling loop continues
         logger.warning(
             "Startup resume scan: recover_stalled_issues raised for project %s",
             project_id[:12],

@@ -190,7 +190,7 @@ async def retry_pipeline(ctx: Context, project_id: str, issue_number: int) -> di
         wf_ctx.issue_id = issue_data.get("node_id", "")
         wf_ctx.issue_number = issue_number
         wf_ctx.issue_url = issue_data.get("html_url", "")
-    except Exception:  # noqa: BLE001 — reason: MCP middleware resilience; failure logged, request continues
+    except Exception:  # noqa: BLE001 — reason: MCP tool resilience; failure logged, returns error response
         return {
             "success": False,
             "issue_number": issue_number,

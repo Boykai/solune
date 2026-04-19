@@ -333,7 +333,7 @@ class GitHubProjectsService(
         try:
             return await fn(*args, **kwargs)
         except Exception as exc:  # noqa: BLE001 — reason: best-effort operation; returns fallback value on failure
-            logger.log(log_level, "%s: %s", context, exc)
+            logger.log(log_level, "%s: %s", context, exc, exc_info=True)
             return fallback
 
     @staticmethod

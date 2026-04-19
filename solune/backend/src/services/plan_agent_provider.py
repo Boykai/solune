@@ -206,7 +206,7 @@ async def create_plan_session(
     if system_prompt:
         config["system_message"] = {"mode": "replace", "content": system_prompt}
     if reasoning_effort:
-        config["reasoning_effort"] = reasoning_effort  # type: ignore[typeddict-unknown-key] — reason: SDK TypedDict lacks reasoning_effort key; runtime-safe
+        config["reasoning_effort"] = reasoning_effort  # pyright: ignore[reportIndexIssue] — reason: SDK TypedDict lacks reasoning_effort key; runtime-safe
 
     session = await client.create_session(config)
     logger.info(

@@ -23,10 +23,12 @@ Ruff's `BLE001` rule (flake8-blind-except) flags every `except Exception` that i
    | `GitHub API resilience; failure logged, operation returns fallback` | GitHub REST/GraphQL calls behind `_best_effort` / `_with_fallback` |
    | `orchestrator resilience; step failure must not abort workflow` | Workflow/pipeline orchestrator steps |
    | `boundary handler; logs and re-raises as safe AppException` | API endpoint catch-all that converts unknown errors to HTTP 500 |
+   | `API endpoint resilience; failure logged, request continues` | Non-critical sub-operations inside an API endpoint where the request should still succeed |
    | `agent operation resilience; failure logged, pipeline continues` | Agent/chat pipeline steps |
    | `signal delivery resilience; failure logged, delivery continues` | Signal bridge/chat/delivery best-effort sends |
    | `health-check endpoint; must return degraded status, never crash` | `/health` and readiness probes |
    | `mixed exception surface; operation failure is non-critical` | Multiple unrelated exception sources (e.g. JSON + I/O + HTTP) |
+   | `MCP tool resilience; failure logged, returns error response` | MCP server middleware and tool handlers that must return an error dict, not crash |
    | `test assertion; catches all exceptions to produce test-specific error` | Test code that intentionally catches broadly to call `pytest.fail()` or assert |
    | `asyncio gather; child exceptions unbounded` | `asyncio.gather` / `TaskGroup` drain |
 

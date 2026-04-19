@@ -5,13 +5,13 @@
 
 ## Context
 
-The `001-backend-pyright-strict` rollout tightened [solune/backend/pyproject.toml](../../backend/pyproject.toml), flipping Pyright's global `typeCheckingMode` from `"standard"` to `"strict"` and locking a strict floor on the cleanest packages (`src/api`, `src/models`, `src/services/agents`).
+`solune/backend/pyproject.toml` was tightened in [spec 001-backend-pyright-strict](../../../specs/001-backend-pyright-strict/spec.md). The rollout flips Pyright's global `typeCheckingMode` from `"standard"` to `"strict"` and locks a strict floor on the cleanest packages (`src/api`, `src/models`, `src/services/agents`).
 
 Doing the strict flip in one shot would surface ~3,160 pre-existing type errors in legacy modules (`src/services/copilot_polling/**`, `src/services/github_projects/**`, `src/services/workflow_orchestrator/**`, `src/main.py`, etc.). Fixing all of them up front would block the rollout indefinitely.
 
 ## Decision
 
-Adopt a per-file `# pyright: basic` downgrade pragma for every module that fails strict, recorded in this ADR. Each pragma is paired with a `# reason:` line in the downgraded file. The burn-down gate in [solune/scripts/pre-commit](../../scripts/pre-commit) and [.github/workflows/ci.yml](../../../.github/workflows/ci.yml) prevents new pragmas from leaking into the strict floor and reports the global count on every CI run.
+Adopt a per-file `# pyright: basic` downgrade pragma for every module that fails strict, recorded in this ADR. Each pragma is paired with a `# reason:` line per [pragma-contract.md](../../../specs/001-backend-pyright-strict/contracts/pragma-contract.md) § P1. The burn-down gate ([burn-down-gate-contract.md](../../../specs/001-backend-pyright-strict/contracts/burn-down-gate-contract.md)) prevents new pragmas from leaking into the strict floor and reports the global count on every CI run.
 
 Removing a pragma — i.e., paying down legacy debt — requires deleting the matching row from this table in the same PR (FR-008, P5).
 

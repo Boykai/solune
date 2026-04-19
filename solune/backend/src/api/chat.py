@@ -1172,14 +1172,14 @@ async def send_message(
         if _settings.ai_provider in ("copilot", "azure_openai"):
             ai_available = True
     except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
-        pass
+        logger.debug("AI provider settings check failed", exc_info=True)
 
     # Try to get the new ChatAgentService
     chat_agent_service = None
     try:
         chat_agent_service = get_chat_agent_service()
     except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
-        pass
+        logger.debug("ChatAgentService initialization failed", exc_info=True)
 
     if not ai_available and chat_agent_service is None:
         # Neither service available — return error
@@ -1401,6 +1401,9 @@ async def _extract_transcript_content(file_urls: list[str]) -> str | None:
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+            logger.debug(
+                "Could not read file %s for transcript extraction", filename, exc_info=True
+            )
             continue
 
         original_name = filename[9:] if len(filename) > 9 and filename[8] == "-" else filename

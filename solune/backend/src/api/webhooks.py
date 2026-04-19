@@ -145,7 +145,9 @@ async def _get_auto_merge_pipeline(
                         "devops_active": False,
                     }
         except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
-            logger.debug("Step C project-level fallback failed for issue %s", issue_number, exc_info=True)
+            logger.debug(
+                "Step C project-level fallback failed for issue %s", issue_number, exc_info=True
+            )
     except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
         logger.debug("_get_auto_merge_pipeline failed for issue %s", issue_number, exc_info=True)
     return None
