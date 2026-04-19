@@ -13,6 +13,17 @@ if TYPE_CHECKING:
     from src.config import Settings
     from src.services.task_registry import TaskRegistry
 
+_BackgroundList = list[Coroutine[Any, Any, None]]
+_ShutdownHookList = list[Callable[[], Awaitable[None]]]
+
+
+def _empty_background() -> _BackgroundList:
+    return []
+
+
+def _empty_hooks() -> _ShutdownHookList:
+    return []
+
 
 @runtime_checkable
 class Step(Protocol):
@@ -45,8 +56,8 @@ class StartupContext:
     settings: Settings
     task_registry: TaskRegistry
     db: aiosqlite.Connection | None = None
-    background: list[Coroutine[Any, Any, None]] = field(default_factory=list)
-    shutdown_hooks: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
+    background: _BackgroundList = field(default_factory=_empty_background)
+    shutdown_hooks: _ShutdownHookList = field(default_factory=_empty_hooks)
 
 
 class StartupError(RuntimeError):

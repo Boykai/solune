@@ -8890,7 +8890,7 @@ class TestWipChildPrFalsePositive:
 
 
 class TestPollingWatchdog:
-    """Tests for the _polling_watchdog_loop watchdog in main.py.
+    """Tests for the _polling_watchdog_loop watchdog (now in s15_background_loops).
 
     The watchdog ensures the agent pipeline always recovers even when
     the polling loop stops unexpectedly (crash, task cancellation, etc.).
@@ -8899,7 +8899,7 @@ class TestPollingWatchdog:
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_watchdog_restarts_stopped_polling(self, mock_sleep):
-        """When is_running=False the watchdog calls _auto_start_copilot_polling."""
+        """When is_running=False the watchdog attempts to restart polling."""
         import asyncio
 
         sleep_calls = 0
@@ -8913,22 +8913,50 @@ class TestPollingWatchdog:
 
         mock_sleep.side_effect = sleep_side_effect
 
-        with patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock) as mock_restart:
-            with patch(
+        mock_cursor = AsyncMock()
+        mock_cursor.fetchall = AsyncMock(
+            return_value=[{"session_id": "sid1", "selected_project_id": "PVT_1"}],
+        )
+        mock_db = AsyncMock()
+        mock_db.execute = AsyncMock(return_value=mock_cursor)
+        mock_session = MagicMock(access_token="tok", selected_project_id="PVT_1")
+
+        with (
+            patch(
                 "src.services.copilot_polling.get_polling_status",
                 return_value={"is_running": False, "errors_count": 1, "last_error": "crash"},
-            ):
-                mock_restart.return_value = True
-                from src.main import _polling_watchdog_loop
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_restart,
+            patch("src.services.database.get_db", return_value=mock_db),
+            patch(
+                "src.services.session_store.get_session",
+                new_callable=AsyncMock,
+                return_value=mock_session,
+            ),
+            patch(
+                "src.utils.resolve_repository",
+                new_callable=AsyncMock,
+                return_value=("owner", "repo"),
+            ),
+            patch("src.services.copilot_polling.state.register_project"),
+            patch("src.services.pipeline_state_store.get_all_pipeline_states", return_value={}),
+            patch("src.services.copilot_polling.get_monitored_projects", return_value=[]),
+            patch("src.services.copilot_polling.unregister_project"),
+        ):
+            from src.startup.steps.s15_background_loops import _polling_watchdog_loop
 
-                await _polling_watchdog_loop()
+            await _polling_watchdog_loop()
 
         mock_restart.assert_awaited_once()
 
     @pytest.mark.asyncio
     @patch("asyncio.sleep", new_callable=AsyncMock)
     async def test_watchdog_does_not_restart_when_running(self, mock_sleep):
-        """When is_running=True the watchdog does NOT call _auto_start_copilot_polling."""
+        """When is_running=True the watchdog does NOT call ensure_polling_started."""
         import asyncio
 
         sleep_calls = 0
@@ -8941,14 +8969,22 @@ class TestPollingWatchdog:
 
         mock_sleep.side_effect = sleep_side_effect
 
-        with patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock) as mock_restart:
-            with patch(
+        with (
+            patch(
                 "src.services.copilot_polling.get_polling_status",
                 return_value={"is_running": True, "errors_count": 0, "last_error": None},
-            ):
-                from src.main import _polling_watchdog_loop
+            ),
+            patch(
+                "src.services.copilot_polling.ensure_polling_started",
+                new_callable=AsyncMock,
+            ) as mock_restart,
+            patch("src.services.pipeline_state_store.get_all_pipeline_states", return_value={}),
+            patch("src.services.copilot_polling.get_monitored_projects", return_value=[]),
+            patch("src.services.copilot_polling.unregister_project"),
+        ):
+            from src.startup.steps.s15_background_loops import _polling_watchdog_loop
 
-                await _polling_watchdog_loop()
+            await _polling_watchdog_loop()
 
         mock_restart.assert_not_awaited()
 
@@ -8968,16 +9004,20 @@ class TestPollingWatchdog:
 
         mock_sleep.side_effect = sleep_side_effect
 
-        with patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock) as mock_restart:
-            mock_restart.side_effect = RuntimeError("DB unavailable")
-            with patch(
+        with (
+            patch(
                 "src.services.copilot_polling.get_polling_status",
                 return_value={"is_running": False, "errors_count": 5, "last_error": "db error"},
-            ):
-                from src.main import _polling_watchdog_loop
+            ),
+            patch("src.services.database.get_db", side_effect=RuntimeError("DB unavailable")),
+            patch("src.services.pipeline_state_store.get_all_pipeline_states", return_value={}),
+            patch("src.services.copilot_polling.get_monitored_projects", return_value=[]),
+            patch("src.services.copilot_polling.unregister_project"),
+        ):
+            from src.startup.steps.s15_background_loops import _polling_watchdog_loop
 
-                # Should complete normally even though restart raised
-                await _polling_watchdog_loop()
+            # Should complete normally even though restart raised
+            await _polling_watchdog_loop()
 
 
 # ────────────────────────────────────────────────────────────────────
