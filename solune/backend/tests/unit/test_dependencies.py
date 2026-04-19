@@ -86,6 +86,38 @@ class TestServiceGetters:
 
         assert _get_session_dep() is auth_get_session_dep
 
+    def test_get_chat_agent_service_reads_app_state(self):
+        from src.dependencies import get_chat_agent_service
+
+        svc = object()
+        request = _request_with_state(chat_agent_service=svc)
+
+        assert get_chat_agent_service(request) is svc
+
+    def test_get_pipeline_run_service_reads_app_state(self):
+        from src.dependencies import get_pipeline_run_service
+
+        svc = object()
+        request = _request_with_state(pipeline_run_service=svc)
+
+        assert get_pipeline_run_service(request) is svc
+
+    def test_get_github_auth_service_reads_app_state(self):
+        from src.dependencies import get_github_auth_service
+
+        svc = object()
+        request = _request_with_state(github_auth_service=svc)
+
+        assert get_github_auth_service(request) is svc
+
+    def test_get_alert_dispatcher_reads_app_state(self):
+        from src.dependencies import get_alert_dispatcher
+
+        dispatcher = object()
+        request = _request_with_state(alert_dispatcher=dispatcher)
+
+        assert get_alert_dispatcher(request) is dispatcher
+
     @pytest.mark.asyncio
     async def test_require_session_honors_fastapi_dependency_overrides(self):
         from src.api.auth import get_session_dep

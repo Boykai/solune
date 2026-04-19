@@ -24,6 +24,10 @@ if TYPE_CHECKING:
     import aiosqlite
 
     from src.models.user import UserSession
+    from src.services.alert_dispatcher import AlertDispatcher
+    from src.services.chat_agent import ChatAgentService
+    from src.services.copilot_polling.pipeline_state_service import PipelineRunService
+    from src.services.github_auth import GitHubAuthService
     from src.services.github_projects import GitHubProjectsService
     from src.services.websocket import ConnectionManager
 
@@ -59,6 +63,26 @@ def get_database(request: Request) -> aiosqlite.Connection:
     from src.services.database import get_db
 
     return get_db()
+
+
+def get_chat_agent_service(request: Request) -> ChatAgentService:
+    """Return the singleton :class:`ChatAgentService` from ``app.state``."""
+    return request.app.state.chat_agent_service  # type: ignore[no-any-return]
+
+
+def get_pipeline_run_service(request: Request) -> PipelineRunService:
+    """Return the singleton :class:`PipelineRunService` from ``app.state``."""
+    return request.app.state.pipeline_run_service  # type: ignore[no-any-return]
+
+
+def get_github_auth_service(request: Request) -> GitHubAuthService:
+    """Return the singleton :class:`GitHubAuthService` from ``app.state``."""
+    return request.app.state.github_auth_service  # type: ignore[no-any-return]
+
+
+def get_alert_dispatcher(request: Request) -> AlertDispatcher:
+    """Return the singleton :class:`AlertDispatcher` from ``app.state``."""
+    return request.app.state.alert_dispatcher  # type: ignore[no-any-return]
 
 
 def _get_session_dep():

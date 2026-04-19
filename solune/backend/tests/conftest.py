@@ -415,8 +415,12 @@ async def client(
     """
     from src.api.auth import get_session_dep
     from src.dependencies import (
+        get_alert_dispatcher,
+        get_chat_agent_service,
         get_connection_manager,
+        get_github_auth_service,
         get_github_service,
+        get_pipeline_run_service,
         require_admin,
         verify_project_access,
     )
@@ -424,10 +428,17 @@ async def client(
 
     app = create_app()
 
-    # FastAPI dependency overrides
+    mock_alert_dispatcher_obj = AsyncMock(name="AlertDispatcher")
+    mock_pipeline_run_service_obj = AsyncMock(name="PipelineRunService")
+
+    # FastAPI dependency overrides — single source of truth for all service mocks
     app.dependency_overrides[get_session_dep] = lambda: mock_session
     app.dependency_overrides[get_github_service] = lambda: mock_github_service
     app.dependency_overrides[get_connection_manager] = lambda: mock_websocket_manager
+    app.dependency_overrides[get_github_auth_service] = lambda: mock_github_auth_service
+    app.dependency_overrides[get_chat_agent_service] = lambda: mock_chat_agent_service
+    app.dependency_overrides[get_pipeline_run_service] = lambda: mock_pipeline_run_service_obj
+    app.dependency_overrides[get_alert_dispatcher] = lambda: mock_alert_dispatcher_obj
     # Bypass project ownership check in unit tests — individual tests
     # that need to verify authorization behavior can re-enable it.
     app.dependency_overrides[verify_project_access] = lambda: None
