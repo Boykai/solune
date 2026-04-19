@@ -146,7 +146,7 @@ class ChatMessageRequest(BaseModel):
     def sanitize_content(cls, v: str) -> str:
         """Sanitize message content to prevent injection attacks."""
         if not v or not v.strip():
-            raise ValueError("Message content cannot be empty")
+            raise ValueError("Message content cannot be empty")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Strip leading/trailing whitespace
         v = v.strip()

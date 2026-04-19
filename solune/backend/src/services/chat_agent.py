@@ -432,7 +432,7 @@ class ChatAgentService:
                 result.action_type = ActionType(session_action_type)
                 result.action_data = session_action_data
                 result.content = _normalize_assistant_content(result.content, session_action_type)
-            return result
+            return result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except Exception as e:
             logger.error("Agent run failed: %s", e, exc_info=True)
             # Invalidate the session so the next attempt gets a fresh one
@@ -686,7 +686,7 @@ class ChatAgentService:
                         result.content,
                         recovered_action_type,
                     )
-            return result
+            return result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except Exception as e:
             logger.error("Plan agent run failed: %s", e, exc_info=True)
             await self._session_mapping.invalidate(sid)

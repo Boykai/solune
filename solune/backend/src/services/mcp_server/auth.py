@@ -205,7 +205,7 @@ class GitHubTokenVerifier:
                 logger.warning("GitHub /user response missing id or login")
                 return None
             logger.info("GitHub /user returned status %d", resp.status_code)
-            return None
+            return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except httpx.HTTPError as exc:
             logger.warning("GitHub API unreachable during token verification: %s", exc)
             return None

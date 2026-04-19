@@ -96,7 +96,7 @@ async def _find_open_child_pr(
                 "is_child_pr": True,
                 "is_draft": pr_details.get("is_draft", False),
             }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug(
             "Could not find open child PR for agent '%s' on issue #%d: %s",
             agent_name,
@@ -403,9 +403,9 @@ async def _merge_child_pr_if_applicable(
                     "agent": completed_agent,
                 }
 
-        return None
+        return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error(
             "Error merging child PR for issue #%d: %s",
             issue_number,
@@ -688,9 +688,9 @@ async def _find_completed_child_pr(
             issue_number,
             agent_name,
         )
-        return None
+        return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error(
             "Error finding child PR for issue #%d: %s",
             issue_number,
@@ -855,9 +855,9 @@ async def _check_child_pr_completion(
             issue_number,
             agent_name,
         )
-        return False
+        return False  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error(
             "Error checking child PR completion for issue #%d: %s",
             issue_number,
@@ -1198,9 +1198,9 @@ async def _check_main_pr_completion(
             agent_name,
             issue_number,
         )
-        return False
+        return False  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error(
             "Error checking main PR #%d completion for issue #%d: %s",
             main_pr_number,
@@ -1351,7 +1351,7 @@ async def check_in_review_issues_for_copilot_review(
             if result:
                 results.append(result)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error("Error checking in-review issues for Copilot review: %s", e)
 
     return results
@@ -1536,7 +1536,7 @@ async def ensure_copilot_review_requested(
                 "error": "Failed to request Copilot review",
             }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error(
             "Error ensuring Copilot review for issue #%d: %s",
             issue_number,
@@ -1607,13 +1607,13 @@ async def check_issue_for_copilot_completion(
             task_title=target_task.title or f"Issue #{issue_number}",
         )
 
-        return result or {
+        return result or {  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
             "status": "no_action",
             "issue_number": issue_number,
             "message": "No completed Copilot PR found",
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.error("Error checking issue #%d: %s", issue_number, e)
         return {
             "status": "error",

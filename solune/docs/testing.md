@@ -194,7 +194,12 @@ Any lint, type-check, test-skip, coverage, or mutation suppression that remains 
 |---------|---------------|
 | `# noqa: B008` | FastAPI `Depends()` / `Body()` / `File()` — evaluated per-request, not at import time |
 | `# noqa: B010` | Intentional frozen dataclass mutation test; `setattr` required to trigger `FrozenInstanceError` |
+| `# noqa: BLE001` | Blind-except with documented category — see [ADR-008](decisions/008-ble001-blind-except-policy.md) |
 | `# noqa: PTH119` | CodeQL-recognised path sanitizer; `pathlib.PurePath.name` not recognised by CodeQL |
+| `# noqa: TRY003` | Domain exception with descriptive message |
+| `# noqa: TRY300` | Return in try block; acceptable for this pattern |
+| `# noqa: TRY301` | Raise in except acceptable for this pattern |
+| `# noqa: TRY004` | TypeError preferred; keeping ValueError for consistency |
 | `# type: ignore[...]` | SDK `TypedDict` preview field not yet declared in stubs |
 | `eslint-disable react-hooks/exhaustive-deps` | Mount-only effect or intentionally omitted dependency with stable ref |
 | `react-hooks/rules-of-hooks: off` (eslint config, e2e scope) | Playwright `use` callback parameter triggers false positive |

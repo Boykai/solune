@@ -40,7 +40,7 @@ class EncryptionService:
                 logger.info("EncryptionService initialised with provided key")
             except Exception as e:
                 if not debug:
-                    raise ValueError(
+                    raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                         "Invalid ENCRYPTION_KEY — the key is set but is not a valid "
                         "Fernet key.  Generate a valid key with: python -c "
                         '"from cryptography.fernet import Fernet; '
@@ -106,10 +106,10 @@ class EncryptionService:
             except InvalidToken:
                 # Could be a key rotation scenario — treat as expired/invalid
                 logger.warning("Failed to decrypt token (key change?) — treating as invalid")
-                raise ValueError("Unable to decrypt token — possible key rotation") from None
+                raise ValueError("Unable to decrypt token — possible key rotation") from None  # noqa: TRY003 — reason: domain exception with descriptive message
             except UnicodeDecodeError:
                 logger.warning("Decrypted token contains invalid UTF-8 — treating as corrupted")
-                raise ValueError("Unable to decode decrypted token — corrupted data") from None
+                raise ValueError("Unable to decode decrypted token — corrupted data") from None  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 # ------------------------------------------------------------------

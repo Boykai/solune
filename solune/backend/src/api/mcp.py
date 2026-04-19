@@ -73,7 +73,7 @@ async def update_mcp_configuration(
     result, collision = await update_mcp(db, session.github_user_id, mcp_id, body)
 
     if result is None:
-        raise NotFoundError("MCP configuration not found")
+        raise NotFoundError("MCP configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     response = result.model_dump()
     if collision:
@@ -98,7 +98,7 @@ async def delete_mcp_configuration(
     deleted = await delete_mcp(db, session.github_user_id, mcp_id)
 
     if not deleted:
-        raise NotFoundError("MCP configuration not found")
+        raise NotFoundError("MCP configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     logger.info("User %s deleted MCP %s", session.github_username, mcp_id)
     return {"message": "MCP configuration deleted"}

@@ -69,7 +69,7 @@ async def commit_files_workflow(
             owner,
             repo,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
         logger.error(
             "Workflow: get_repository_info failed: %s",
             exc,
@@ -98,7 +98,7 @@ async def commit_files_workflow(
             issue_database_id = issue.get("id")
             result.issue_number = issue_number
             result.issue_node_id = issue_node_id
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "Workflow: create_issue failed: %s", exc, extra={"operation": "create_issue"}
             )
@@ -116,7 +116,7 @@ async def commit_files_workflow(
         if not ref_id:
             result.errors.append("create_branch returned None")
             return result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
         logger.error(
             "Workflow: create_branch failed: %s", exc, extra={"operation": "create_branch"}
         )
@@ -139,7 +139,7 @@ async def commit_files_workflow(
             result.errors.append("commit_files returned None")
             return result
         result.commit_oid = commit_oid
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
         logger.error("Workflow: commit_files failed: %s", exc, extra={"operation": "commit_files"})
         result.errors.append(f"Commit files failed: {exc}")
         return result
@@ -166,7 +166,7 @@ async def commit_files_workflow(
         else:
             result.errors.append("create_pull_request returned None")
             return result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
         logger.error(
             "Workflow: create_pull_request failed: %s",
             exc,
@@ -191,7 +191,7 @@ async def commit_files_workflow(
                     item_id=item_id,
                     status_name=target_status,
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning("Workflow: move issue to project board failed: %s", exc)
             result.errors.append(f"Move issue to board failed: {exc}")
             # Non-fatal — PR was already created

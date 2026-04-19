@@ -219,8 +219,8 @@ async def check_user_permission(
                 "You need at least push access to this repository "
                 "to delete branches and close pull requests."
             )
-        return False, f"Unable to verify permissions: HTTP {response.status_code}"
-    except Exception as e:
+        return False, f"Unable to verify permissions: HTTP {response.status_code}"  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as e:  # noqa: BLE001 — reason: background cleanup; logs and continues
         logger.error("Permission check failed: %s", e)
         return False, f"Permission check failed: {e}"
 
@@ -252,7 +252,7 @@ async def fetch_all_branches(
             # For a destructive feature, partial preflight data is unsafe.
             # Raise instead of returning incomplete results that could
             # misclassify branches that should be preserved.
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Failed to fetch branches from GitHub: HTTP {response.status_code} on page {page}"
             )
 
@@ -295,7 +295,7 @@ async def fetch_open_prs(
             # PR fetch failure is equally dangerous — branches that should
             # be preserved via PR body references could be incorrectly
             # slated for deletion.  Treat as a hard preflight failure.
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Failed to fetch pull requests from GitHub: HTTP {response.status_code} on page {page}"
             )
 
@@ -357,7 +357,7 @@ async def fetch_open_issues_on_board(
             # inaccessible.  If we silently return an empty issues list,
             # preflight will classify ALL non-main branches/PRs as
             # deletion candidates — extremely dangerous.  Fail loudly.
-            raise RuntimeError(
+            raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Failed to fetch project board issues: GraphQL returned no node. "
                 "The project_id may be invalid or inaccessible."
             )
@@ -411,7 +411,7 @@ async def fetch_app_created_open_issues(
                     page,
                     response.status_code,
                 )
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     f"Failed to fetch app-created issues from GitHub: "
                     f"HTTP {response.status_code} on page {page} for label '{label}'"
                 )
@@ -534,7 +534,7 @@ async def fetch_parent_issue_states(
                     results[num] = None
                     continue
                 results[num] = issue_data.get("parent")  # None when no parent
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: background cleanup; logs and continues
             logger.warning(
                 "Failed to fetch parent issue states for batch starting at index %d: %s",
                 i,
@@ -1052,7 +1052,7 @@ async def execute_cleanup(
                 )
             )
             issues_deleted += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: background cleanup; logs and continues
             logger.warning(
                 "GraphQL deleteIssue failed for #%s (node_id=%s): %s — falling back to close",
                 issue_number,

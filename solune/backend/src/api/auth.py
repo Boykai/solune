@@ -57,11 +57,11 @@ async def get_current_session(
     calls always use a valid token.
     """
     if not session_id:
-        raise AuthenticationError("No session cookie")
+        raise AuthenticationError("No session cookie")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     session = await github_auth_service.get_session(session_id)
     if not session:
-        raise AuthenticationError("Invalid or expired session")
+        raise AuthenticationError("Invalid or expired session")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Auto-refresh expired / nearly-expired tokens
     if (
@@ -72,13 +72,13 @@ async def get_current_session(
             try:
                 session = await github_auth_service.refresh_token(session)
                 logger.info("Auto-refreshed token for user %s", session.github_username)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
                 logger.warning(
                     "Token refresh failed for user %s — forcing re-login",
                     session.github_username,
                     exc_info=True,
                 )
-                raise AuthenticationError(
+                raise AuthenticationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     "Your GitHub session has expired. Please log in again."
                 ) from None
         else:
@@ -86,7 +86,7 @@ async def get_current_session(
                 "Token expired with no refresh_token for user %s",
                 session.github_username,
             )
-            raise AuthenticationError("Your GitHub session has expired. Please log in again.")
+            raise AuthenticationError("Your GitHub session has expired. Please log in again.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return session
 
@@ -119,7 +119,7 @@ async def github_callback(
     # Validate state
     if not github_auth_service.validate_state(state):
         logger.warning("Invalid OAuth state: %s", state[:20])
-        raise ValidationError("Invalid or expired OAuth state")
+        raise ValidationError("Invalid or expired OAuth state")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         # Create session
@@ -141,12 +141,12 @@ async def github_callback(
             "Created session for user: %s, redirecting to frontend",
             session.github_username,
         )
-        return redirect
+        return redirect  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
     except ValueError as e:
         logger.warning("OAuth token exchange failed: %s", e)
-        raise ValidationError("Authentication failed") from e
-    except Exception as e:
+        raise ValidationError("Authentication failed") from e  # noqa: TRY003 — reason: domain exception with descriptive message
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(e, "complete authentication", AppException)
 
 
@@ -203,7 +203,7 @@ async def dev_login(
     settings = get_settings()
 
     if not settings.debug:
-        raise NotFoundError("Not Found")
+        raise NotFoundError("Not Found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         session = await github_auth_service.create_session_from_token(body.github_token)
@@ -214,5 +214,5 @@ async def dev_login(
         logger.info("Dev login successful for user: %s", session.github_username)
         return UserResponse.from_session(session)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(e, "dev login", AuthenticationError)

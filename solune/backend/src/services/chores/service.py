@@ -249,11 +249,11 @@ class ChoresService:
             )
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
-            raise ValueError(f"A chore named '{body.name}' already exists") from exc
+            raise ValueError(f"A chore named '{body.name}' already exists") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
         chore = await self.get_chore(chore_id)
         if chore is None:
-            raise ValueError(f"Failed to retrieve created chore {chore_id}")
+            raise ValueError(f"Failed to retrieve created chore {chore_id}")  # noqa: TRY003 — reason: domain exception with descriptive message
         return chore
 
     async def list_chores(self, project_id: str, github_user_id: str = "") -> list[Chore]:
@@ -306,13 +306,13 @@ class ChoresService:
             effective_value = updates.get("schedule_value", current.schedule_value)
             # Both must be set or both NULL
             if (effective_type is None) != (effective_value is None):
-                raise ValueError(
+                raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     "schedule_type and schedule_value must both be set or both be null"
                 )
         elif schedule_type is not None and schedule_value is None:
-            raise ValueError("schedule_type and schedule_value must both be set or both be null")
+            raise ValueError("schedule_type and schedule_value must both be set or both be null")  # noqa: TRY003 — reason: domain exception with descriptive message
         elif schedule_type is None and schedule_value is not None:
-            raise ValueError("schedule_type and schedule_value must both be set or both be null")
+            raise ValueError("schedule_type and schedule_value must both be set or both be null")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         updates["updated_at"] = now
@@ -320,7 +320,7 @@ class ChoresService:
         # Reject unexpected column names (defense-in-depth against SQL injection)
         bad = set(updates) - _CHORE_UPDATABLE_COLUMNS
         if bad:
-            raise ValueError(f"Invalid update columns: {bad}")
+            raise ValueError(f"Invalid update columns: {bad}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Convert booleans to SQLite integers
         for key, val in list(updates.items()):
@@ -455,7 +455,7 @@ class ChoresService:
         # Reject unexpected column names (defense-in-depth against SQL injection)
         bad = set(kwargs) - _CHORE_UPDATABLE_COLUMNS
         if bad:
-            raise ValueError(f"Invalid update columns: {bad}")
+            raise ValueError(f"Invalid update columns: {bad}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Convert booleans to SQLite integers
         for key, val in kwargs.items():
@@ -575,7 +575,7 @@ class ChoresService:
             # Always ensure "chore" is present
             if "chore" not in labels:
                 labels.append("chore")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: background task; logs and continues
             logger.warning(
                 "Label classification failed for chore %s, using fallback: %s", chore.name, e
             )
@@ -612,7 +612,7 @@ class ChoresService:
                     item_id,
                     {"priority": classification_priority.value},
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: background task; logs and continues
                 logger.warning("Failed to set issue metadata for chore %s: %s", chore.name, e)
 
         # Run full agent pipeline (mirrors _run_workflow_orchestration)
@@ -660,7 +660,7 @@ class ChoresService:
                         )
                         if _pipeline_result.agent_mappings:
                             config.agent_mappings = _pipeline_result.agent_mappings
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: background task; logs and continues
                     logger.debug(
                         "Pipeline mapping resolution failed for chore %s; using config defaults",
                         chore.name,
@@ -698,7 +698,7 @@ class ChoresService:
                         )
                         user_agent_model = effective_user_settings.ai.agent_model or ""
                         user_reasoning_effort = effective_user_settings.ai.reasoning_effort or ""
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: background task; logs and continues
                         logger.debug(
                             "Failed to load user agent model for chore %s: %s", chore.name, e
                         )
@@ -911,7 +911,7 @@ class ChoresService:
 
         chore = await self.get_chore(chore_id)
         if chore is None:
-            raise ValueError(f"Chore {chore_id} not found")
+            raise ValueError(f"Chore {chore_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         if not updates:
             return {"chore": chore, "pr_number": None, "pr_url": None}
@@ -944,9 +944,9 @@ class ChoresService:
                     if isinstance(encoded_content, str):
                         try:
                             current_content = b64decode(encoded_content).decode("utf-8")
-                        except Exception:
+                        except Exception:  # noqa: BLE001 — reason: background task; logs and continues
                             current_content = None
-                    raise ChoreConflictError(
+                    raise ChoreConflictError(  # noqa: TRY003 — reason: domain exception with descriptive message
                         "File has been modified since page load",
                         current_sha=current_sha,
                         current_content=current_content,
@@ -958,7 +958,7 @@ class ChoresService:
         # Reject unexpected column names (defense-in-depth against SQL injection)
         bad = set(updates) - _CHORE_UPDATABLE_COLUMNS
         if bad:
-            raise ValueError(f"Invalid update columns: {bad}")
+            raise ValueError(f"Invalid update columns: {bad}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Convert booleans to SQLite integers
         for key, val in list(updates.items()):
@@ -976,7 +976,7 @@ class ChoresService:
 
         chore = await self.get_chore(chore_id)
         if chore is None:
-            raise ValueError(f"Chore {chore_id} not found after update")
+            raise ValueError(f"Chore {chore_id} not found after update")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         pr_number = None
         pr_url = None

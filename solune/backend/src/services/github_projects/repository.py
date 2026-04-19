@@ -60,7 +60,7 @@ class RepositoryMixin(_ServiceMixin):
             # GitHub returns {"message": "...", "errors": [...]} on failure
             try:
                 err_body = response.json()
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 err_body = {"message": response.text}
             msg = err_body.get("message", "Unknown error")
             details = err_body.get("errors", [])
@@ -81,7 +81,7 @@ class RepositoryMixin(_ServiceMixin):
                 msg,
                 details,
             )
-            raise GitHubAPIError(
+            raise GitHubAPIError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Failed to create repository '{name}': {msg}{detail_suffix}",
                 details={"github_errors": details, "status_code": response.status_code},
             )
@@ -122,7 +122,7 @@ class RepositoryMixin(_ServiceMixin):
             logger.info("Deleted repository %s/%s", owner, repo)
             return True
         if response.status_code == 403:
-            raise GitHubAPIError(
+            raise GitHubAPIError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Insufficient permissions to delete repository '{owner}/{repo}'. "
                 "The token requires the 'delete_repo' scope.",
                 details={"status_code": 403},
@@ -130,7 +130,7 @@ class RepositoryMixin(_ServiceMixin):
         if response.status_code == 404:
             logger.warning("Repository %s/%s not found (already deleted?)", owner, repo)
             return False
-        raise GitHubAPIError(
+        raise GitHubAPIError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Failed to delete repository '{owner}/{repo}' (status {response.status_code})",
             details={"status_code": response.status_code},
         )
@@ -262,8 +262,8 @@ class RepositoryMixin(_ServiceMixin):
                 if isinstance(data, list):
                     return data
                 return []
-            return []
-        except Exception as exc:
+            return []  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug("get_directory_contents(%s/%s/%s) failed: %s", owner, repo, path, exc)
             return []
 
@@ -287,8 +287,8 @@ class RepositoryMixin(_ServiceMixin):
             )
             if response.status_code == 200:
                 return {"content": response.text, "name": path.split("/")[-1]}
-            return None
-        except Exception as exc:
+            return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug("get_file_content(%s/%s/%s) failed: %s", owner, repo, path, exc)
             return None
 
@@ -333,7 +333,7 @@ class RepositoryMixin(_ServiceMixin):
                 )
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Error getting file %s@%s: %s", path, ref, e)
             return None
 
@@ -359,7 +359,7 @@ class RepositoryMixin(_ServiceMixin):
         )
         repo_data = data.get("repository")
         if not repo_data:
-            raise ValueError(f"Repository {owner}/{repo} not found")
+            raise ValueError(f"Repository {owner}/{repo} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         default_ref = repo_data.get("defaultBranchRef") or {}
         return {
@@ -424,7 +424,7 @@ class RepositoryMixin(_ServiceMixin):
                 commit = (data.get("createCommitOnBranch") or {}).get("commit") or {}
                 oid = commit.get("oid")
                 logger.info("Committed files to %s (oid=%s)", branch_name, oid)
-                return oid
+                return oid  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
             except ValueError as exc:
                 error_msg = str(exc).lower()
                 # GitHub may phrase OID mismatch as "expected head oid" or
@@ -446,7 +446,7 @@ class RepositoryMixin(_ServiceMixin):
                         )
                         if fresh_oid:
                             current_oid = fresh_oid
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                         logger.debug("Suppressed error: %s", e)
                     continue
                 logger.error("Failed to commit files to %s: %s", branch_name, exc)

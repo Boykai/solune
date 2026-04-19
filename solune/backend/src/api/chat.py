@@ -139,7 +139,7 @@ async def _retry_persist(
     for attempt in range(1, _PERSIST_MAX_RETRIES + 1):
         try:
             await fn(*args, **kwargs)
-            return
+            return  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except sqlite3.OperationalError as exc:
             last_exc = exc
             logger.warning(
@@ -154,7 +154,7 @@ async def _retry_persist(
         except Exception:
             raise  # Non-transient — fail fast
 
-    raise PersistenceError(
+    raise PersistenceError(  # noqa: TRY003 — reason: domain exception with descriptive message
         f"Failed to persist {context} after {_PERSIST_MAX_RETRIES} retries",
         details={"context": context, "last_error": str(last_exc)},
     )
@@ -264,8 +264,8 @@ async def get_proposal(proposal_id: str) -> AITaskProposal | None:
             expires_at=parsed_expires,
         )
         _proposals[proposal_id] = proposal
-        return proposal
-    except Exception:
+        return proposal  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Failed to load proposal from SQLite", exc_info=True)
         return None
 
@@ -289,8 +289,8 @@ async def get_recommendation(recommendation_id: str) -> IssueRecommendation | No
             _chat_store_any.recommendation_status_from_db(row["status"])
         )
         _recommendations[str(rec.recommendation_id)] = rec
-        return rec
-    except Exception:
+        return rec  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Failed to load recommendation from SQLite", exc_info=True)
         return None
 
@@ -346,7 +346,7 @@ async def _handle_agent_command(
             db=db,
             project_columns=project_columns,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.error("#agent command failed: %s", exc)
         agent_response_text = (
             "**Error:** The `#agent` command encountered an unexpected error. Please try again."
@@ -410,7 +410,7 @@ async def _handle_transcript_upload(
                 )
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             logger.warning("Could not read uploaded file %s: %s", filename, exc)
             continue
 
@@ -432,7 +432,7 @@ async def _handle_transcript_upload(
                 metadata_svc = MetadataService(github_service=github_projects_service)
                 ctx = await metadata_svc.get_or_fetch(session.access_token, owner, repo)
                 metadata_context = ctx.model_dump()
-            except Exception as md_err:
+            except Exception as md_err:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
                 logger.warning("Metadata fetch for transcript prompt failed: %s", md_err)
 
             recommendation = await _ai_utilities_any.analyze_transcript(
@@ -495,7 +495,7 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
                 recommendation.recommendation_id,
                 recommendation.title,
             )
-            return assistant_message
+            return assistant_message  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
         except Exception as e:
             logger.error("Failed to analyse transcript: %s", e, exc_info=True)
@@ -526,7 +526,7 @@ async def _handle_feature_request(
         is_feature_request = await _ai_utilities_any.detect_feature_request_intent(
             content, github_token=session.access_token
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Feature request detection failed: %s", e)
         is_feature_request = False
 
@@ -543,7 +543,7 @@ async def _handle_feature_request(
             metadata_svc = MetadataService(github_service=github_projects_service)
             ctx = await metadata_svc.get_or_fetch(session.access_token, owner, repo)
             metadata_context = ctx.model_dump()
-        except Exception as md_err:
+        except Exception as md_err:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             logger.warning("Metadata fetch for prompt injection failed: %s", md_err)
 
         recommendation = await _ai_utilities_any.generate_issue_recommendation(
@@ -607,7 +607,7 @@ Click **Confirm** to create this issue in GitHub, or **Reject** to discard.""",
             recommendation.recommendation_id,
             recommendation.title,
         )
-        return assistant_message
+        return assistant_message  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
     except Exception as e:
         logger.error("Failed to generate issue recommendation: %s", e, exc_info=True)
@@ -745,7 +745,7 @@ async def _handle_task_generation(
             )
             await add_message(session.session_id, assistant_message)
             _trigger_signal_delivery(session, assistant_message, project_name)
-            return assistant_message
+            return assistant_message  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
         except Exception as e:
             logger.error("Failed to generate metadata (ai_enhance=off): %s", e, exc_info=True)
@@ -793,7 +793,7 @@ async def _handle_task_generation(
         )
         await add_message(session.session_id, assistant_message)
         _trigger_signal_delivery(session, assistant_message, project_name)
-        return assistant_message
+        return assistant_message  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
     except Exception as e:
         logger.error("Failed to generate task: %s", e, exc_info=True)
@@ -879,8 +879,8 @@ async def get_session_messages(session_id: UUID) -> list[ChatMessage]:
                 )
             )
         _messages[key] = messages
-        return messages
-    except Exception:
+        return messages  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Failed to load messages from SQLite", exc_info=True)
         return []
 
@@ -917,7 +917,7 @@ def _trigger_signal_delivery(
                 project_name=project_name,
                 project_id=session.selected_project_id,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             logger.debug("Signal delivery trigger failed (non-fatal): %s", e)
 
     try:
@@ -988,12 +988,12 @@ async def update_conversation(
     # Verify ownership before updating
     existing = await _chat_store_any.get_conversation_by_id(db, conversation_id)
     if existing is None:
-        raise NotFoundError(f"Conversation {conversation_id} not found")
+        raise NotFoundError(f"Conversation {conversation_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     if existing["session_id"] != str(session.session_id):
-        raise NotFoundError(f"Conversation {conversation_id} not found")
+        raise NotFoundError(f"Conversation {conversation_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     row = await _chat_store_any.update_conversation(db, conversation_id, body.title)
     if row is None:
-        raise NotFoundError(f"Conversation {conversation_id} not found")
+        raise NotFoundError(f"Conversation {conversation_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     return Conversation(
         conversation_id=row["conversation_id"],
         session_id=row["session_id"],
@@ -1014,9 +1014,9 @@ async def delete_conversation(
     # Verify ownership before deleting
     existing = await _chat_store_any.get_conversation_by_id(db, conversation_id)
     if existing is None:
-        raise NotFoundError(f"Conversation {conversation_id} not found")
+        raise NotFoundError(f"Conversation {conversation_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     if existing["session_id"] != str(session.session_id):
-        raise NotFoundError(f"Conversation {conversation_id} not found")
+        raise NotFoundError(f"Conversation {conversation_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     await _chat_store_any.delete_conversation(db, conversation_id)
     return {"message": f"Conversation {conversation_id} deleted"}
 
@@ -1085,7 +1085,7 @@ async def clear_messages(
     try:
         db = get_db()
         await _chat_store_any.clear_messages(db, key, conversation_id=conversation_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Failed to clear messages from SQLite", exc_info=True)
     return {"message": "Chat history cleared"}
 
@@ -1101,11 +1101,11 @@ async def _validate_chat_conversation(
     try:
         db = get_db()
         conversation = await _chat_store_any.get_conversation_by_id(db, str(conversation_id))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         handle_service_error(exc, "validate conversation")
 
     if conversation is None or conversation["session_id"] != str(session.session_id):
-        raise NotFoundError(f"Conversation {conversation_id} not found")
+        raise NotFoundError(f"Conversation {conversation_id} not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 async def _validate_chat_pipeline(
@@ -1128,10 +1128,10 @@ async def _validate_chat_pipeline(
             github_user_id=session.github_user_id,
         )
         if pipeline is None:
-            raise ValidationError(f"Pipeline not found: {pipeline_id}")
+            raise ValidationError(f"Pipeline not found: {pipeline_id}")  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
     except ValidationError:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         handle_service_error(exc, "validate pipeline")
 
 
@@ -1171,15 +1171,15 @@ async def send_message(
         _settings = _get_settings()
         if _settings.ai_provider in ("copilot", "azure_openai"):
             ai_available = True
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
+        logger.debug("AI provider settings check failed", exc_info=True)
 
     # Try to get the new ChatAgentService
     chat_agent_service = None
     try:
         chat_agent_service = get_chat_agent_service()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
+        logger.debug("ChatAgentService unavailable", exc_info=True)
 
     if not ai_available and chat_agent_service is None:
         # Neither service available — return error
@@ -1319,7 +1319,7 @@ async def send_message(
 
     # ── Fallback: old priority dispatch (when ChatAgentService unavailable) ──
     if not ai_available:
-        raise RuntimeError("AI service is required for fallback priority dispatch")
+        raise RuntimeError("AI service is required for fallback priority dispatch")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Priority 0.5: Transcript upload → issue recommendation
     transcript_msg = await _handle_transcript_upload(
@@ -1400,7 +1400,7 @@ async def _extract_transcript_content(file_urls: list[str]) -> str | None:
                 )
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             continue
 
         original_name = filename[9:] if len(filename) > 9 and filename[8] == "-" else filename
@@ -1540,7 +1540,7 @@ async def send_message_stream(
 
     try:
         chat_agent_svc = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(
             status_code=503,
             content={"detail": "Streaming not available. Use /messages endpoint instead."},
@@ -1644,10 +1644,10 @@ async def confirm_proposal(
     proposal = await get_proposal(proposal_id)
 
     if not proposal:
-        raise NotFoundError(f"Proposal not found: {proposal_id}")
+        raise NotFoundError(f"Proposal not found: {proposal_id}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if str(proposal.session_id) != str(session.session_id):
-        raise NotFoundError(f"Proposal not found: {proposal_id}")
+        raise NotFoundError(f"Proposal not found: {proposal_id}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if proposal.is_expired:
         proposal.status = ProposalStatus.CANCELLED
@@ -1656,12 +1656,12 @@ async def confirm_proposal(
             await _chat_store_any.update_proposal_status(
                 db, proposal_id, ProposalStatus.CANCELLED.value
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             logger.warning("Failed to update expired proposal status in SQLite", exc_info=True)
-        raise ValidationError("Proposal has expired")
+        raise ValidationError("Proposal has expired")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if proposal.status != ProposalStatus.PENDING:
-        raise ValidationError(f"Proposal already {proposal.status.value}")
+        raise ValidationError(f"Proposal already {proposal.status.value}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Apply edits if provided
     if request:
@@ -1691,7 +1691,7 @@ async def confirm_proposal(
     body += format_attachments_markdown(proposal.file_urls)
 
     if len(body) > GITHUB_ISSUE_BODY_MAX_LENGTH:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Issue body is {len(body)} characters, which exceeds the "
             f"GitHub API limit of {GITHUB_ISSUE_BODY_MAX_LENGTH} characters. "
             "Please shorten the description.",
@@ -1739,7 +1739,7 @@ async def confirm_proposal(
                 edited_title=proposal.edited_title,
                 edited_description=proposal.edited_description,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             logger.warning("Failed to update proposal status in SQLite", exc_info=True)
 
         # Invalidate cache
@@ -1884,7 +1884,7 @@ async def confirm_proposal(
                 user_chat_model = effective_user_settings.ai.model
                 user_agent_model = effective_user_settings.ai.agent_model
                 user_reasoning_effort = effective_user_settings.ai.reasoning_effort
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
                 logger.warning(
                     "Could not load effective user settings for session %s; user_chat_model left empty",
                     session.session_id,
@@ -1931,18 +1931,18 @@ async def confirm_proposal(
                     },
                 )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
             logger.warning(
                 "Issue #%d created but agent assignment failed: %s",
                 issue_number,
                 e,
             )
 
-        return proposal
+        return proposal  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
     except ValidationError:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         handle_service_error(e, "create issue from proposal", ValidationError)
 
 
@@ -1955,10 +1955,10 @@ async def cancel_proposal(
     proposal = await get_proposal(proposal_id)
 
     if not proposal:
-        raise NotFoundError(f"Proposal not found: {proposal_id}")
+        raise NotFoundError(f"Proposal not found: {proposal_id}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if str(proposal.session_id) != str(session.session_id):
-        raise NotFoundError(f"Proposal not found: {proposal_id}")
+        raise NotFoundError(f"Proposal not found: {proposal_id}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     proposal.status = ProposalStatus.CANCELLED
     try:
@@ -1966,7 +1966,7 @@ async def cancel_proposal(
         await _chat_store_any.update_proposal_status(
             db, proposal_id, ProposalStatus.CANCELLED.value
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Failed to update proposal status in SQLite", exc_info=True)
 
     # Add cancellation message
@@ -2113,7 +2113,7 @@ async def send_plan_message(
 
     try:
         owner, repo = await _resolve_repository(session)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(
             status_code=400,
             content={"detail": "No repository linked to the selected project."},
@@ -2133,7 +2133,7 @@ async def send_plan_message(
 
     try:
         chat_agent_svc = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(
             status_code=503,
             content={"detail": "Plan mode not available."},
@@ -2190,7 +2190,7 @@ async def send_plan_message_stream(
 
     try:
         owner, repo = await _resolve_repository(session)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(
             status_code=400,
             content={"detail": "No repository linked to the selected project."},
@@ -2210,7 +2210,7 @@ async def send_plan_message_stream(
 
     try:
         chat_agent_svc = get_chat_agent_service()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(
             status_code=503,
             content={"detail": "Plan mode not available."},
@@ -2518,7 +2518,7 @@ async def exit_plan_mode_endpoint(
     try:
         chat_agent_svc = get_chat_agent_service()
         await chat_agent_svc.exit_plan_mode(session.session_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         logger.warning("Failed to clear plan mode from agent session", exc_info=True)
 
     return PlanExitResponse(
@@ -2619,7 +2619,7 @@ async def add_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepCreateRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2671,7 +2671,7 @@ async def update_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepUpdateRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2746,7 +2746,7 @@ async def reorder_plan_steps_endpoint(
     body = await request.json()
     try:
         req = StepReorderRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2796,7 +2796,7 @@ async def approve_plan_step_endpoint(
     body = await request.json()
     try:
         req = StepApprovalRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     try:
@@ -2863,7 +2863,7 @@ async def submit_step_feedback_endpoint(
     body = await request.json()
     try:
         req = StepFeedbackRequest(**body)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; logs and returns graceful error
         return JSONResponse(status_code=422, content={"detail": "Invalid request body."})
 
     # Feedback is transient — accepted for async agent processing

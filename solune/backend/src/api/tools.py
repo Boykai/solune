@@ -121,7 +121,7 @@ async def get_repo_config(
             repo=repo,
             access_token=session.access_token,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "fetch repository MCP config", GitHubAPIError)
 
 
@@ -141,7 +141,7 @@ async def update_repo_server(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -175,7 +175,7 @@ async def delete_repo_server(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -226,7 +226,7 @@ async def browse_catalog(
         )
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "browse MCP catalog", AppException)
 
 
@@ -262,16 +262,16 @@ async def import_from_catalog(
         )
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "fetch catalog for import", AppException)
 
     if target is None:
-        raise NotFoundError(
+        raise NotFoundError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Catalog server '{data.catalog_server_id}' not found in the current catalog results."
         )
 
     if target.already_installed:
-        raise AppException(
+        raise AppException(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Server '{target.name}' is already imported into this project.",
             status_code=409,
         )
@@ -281,11 +281,11 @@ async def import_from_catalog(
     except ValidationError:
         raise
     except Exception as exc:
-        raise ValidationError(f"Could not map catalog install config: {exc}") from exc
+        raise ValidationError(f"Could not map catalog install config: {exc}") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -336,7 +336,7 @@ async def create_tool(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -389,7 +389,7 @@ async def get_tool(
         github_user_id=session.github_user_id,
     )
     if not tool:
-        raise NotFoundError("Tool not found")
+        raise NotFoundError("Tool not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     return tool
 
 
@@ -409,7 +409,7 @@ async def update_tool(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     try:
@@ -466,11 +466,11 @@ async def sync_tool(
         github_user_id=session.github_user_id,
     )
     if not tool:
-        raise NotFoundError("Tool not found")
+        raise NotFoundError("Tool not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     return await service.sync_tool_to_github(
@@ -506,11 +506,11 @@ async def delete_tool(
         github_user_id=session.github_user_id,
     )
     if not tool:
-        raise NotFoundError("Tool not found")
+        raise NotFoundError("Tool not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository for project", ValidationError)
 
     result = await service.delete_tool(

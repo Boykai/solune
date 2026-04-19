@@ -56,8 +56,8 @@ def _resolve_issue_for_pr(pr_number: int) -> int | None:
         for issue_num, info in issue_main_branches.items():
             if info.get("pr_number") == pr_number:
                 return issue_num
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
+        logger.debug("Issue number lookup from PR %s failed", pr_number, exc_info=True)
     return None
 
 
@@ -102,8 +102,8 @@ async def _get_auto_merge_pipeline(
                         "devops_attempts": 0,
                         "devops_active": False,
                     }
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
+                logger.debug("L2 pipeline lookup failed", exc_info=True)
 
         # Step C: Project-level fallback (state already removed, but project has auto-merge)
         try:
@@ -133,8 +133,8 @@ async def _get_auto_merge_pipeline(
                     branch_info = issue_main_branches.get(issue_number)
                     if branch_info:
                         project_id = cast("str | None", branch_info.get("project_id"))
-                except Exception:
-                    pass
+                except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
+                    logger.debug("Branch info lookup failed", exc_info=True)
 
             if project_id:
                 db = _cp.get_db()
@@ -144,10 +144,10 @@ async def _get_auto_merge_pipeline(
                         "devops_attempts": 0,
                         "devops_active": False,
                     }
-        except Exception:
-            pass
-    except Exception:
-        pass
+        except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
+            logger.debug("Project-level auto-merge fallback failed", exc_info=True)
+    except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
+        logger.debug("Auto-merge pipeline lookup failed", exc_info=True)
     return None
 
 
@@ -341,7 +341,7 @@ async def handle_copilot_pr_ready(
 
         # The status update will be handled by finding the issue's project item
         # and updating its status field
-        return {
+        return {  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
             "status": "processed",
             "pr_number": pr_number,
             "issue_number": issue_number,
@@ -391,10 +391,10 @@ async def github_webhook(
     if settings.github_webhook_secret:
         if not verify_webhook_signature(body, x_hub_signature_256, settings.github_webhook_secret):
             logger.warning("Invalid webhook signature")
-            raise AuthenticationError("Invalid or missing webhook signature")
+            raise AuthenticationError("Invalid or missing webhook signature")  # noqa: TRY003 — reason: domain exception with descriptive message
     else:
         logger.warning("Webhook rejected: GITHUB_WEBHOOK_SECRET is not configured")
-        raise AuthenticationError("Invalid or missing webhook signature")
+        raise AuthenticationError("Invalid or missing webhook signature")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Deduplicate by delivery ID
     if x_github_delivery:
@@ -409,7 +409,7 @@ async def github_webhook(
         raw_payload = await request.json()
     except Exception as e:
         logger.error("Failed to parse webhook payload: %s", e)
-        raise AppException("Invalid JSON payload", status_code=400) from e
+        raise AppException("Invalid JSON payload", status_code=400) from e  # noqa: TRY003 — reason: domain exception with descriptive message
 
     payload: (
         PullRequestEvent
@@ -434,7 +434,7 @@ async def github_webhook(
             payload = raw_payload
     except PydanticValidationError as e:
         logger.warning("Invalid webhook payload for event %s: %s", x_github_event, e)
-        raise AppException(
+        raise AppException(  # noqa: TRY003 — reason: domain exception with descriptive message
             "Invalid webhook payload",
             status_code=422,
             details={"errors": e.errors()},
@@ -754,7 +754,7 @@ async def update_issue_status_for_copilot_pr(
                 if target_project:
                     break
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: webhook resilience; logs and continues
                 logger.warning("Failed to get items for project %s: %s", project.project_id, e)
                 continue
 
@@ -940,7 +940,7 @@ async def handle_check_run_event(payload: CheckRunEvent) -> dict[str, Any]:
                     "DevOps agent dispatched for issue #%d via check_run webhook",
                     issue_number,
                 )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
             logger.warning(
                 "Failed to dispatch DevOps for issue #%d via check_run webhook",
                 issue_number,
@@ -1021,7 +1021,7 @@ async def handle_check_suite_event(payload: CheckSuiteEvent) -> dict[str, Any]:
                     issue_number,
                     merge_result.status,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: webhook resilience; logs and continues
                 logger.warning(
                     "Failed auto-merge attempt for issue #%d via check_suite webhook",
                     issue_number,

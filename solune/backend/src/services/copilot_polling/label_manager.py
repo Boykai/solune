@@ -87,7 +87,7 @@ async def create_pipeline_label(
             logger.debug("Pipeline label already exists (422): %s", label_name)
             return label_name
         logger.warning("Failed to create pipeline label %s: %s", label_name, response)
-        return None
+        return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
     except Exception:
         logger.exception("Error creating pipeline label: %s", label_name)
         return None
@@ -133,8 +133,8 @@ async def delete_pipeline_label(
             f"/repos/{owner}/{repo}/labels/{quote(label_name, safe='')}",
         )
         logger.debug("Deleted pipeline label: %s", label_name)
-        return True
-    except Exception:
+        return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug("Could not delete pipeline label %s (may not exist)", label_name)
         return False
 

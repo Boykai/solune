@@ -189,7 +189,7 @@ def _get_rate_limit_remaining() -> tuple[int | None, int | None]:
             remaining = int(remaining)
         if reset_at is not None:
             reset_at = int(reset_at)
-        return remaining, reset_at
+        return remaining, reset_at  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
     except (TypeError, ValueError):
         return None, None
 
@@ -316,7 +316,7 @@ async def _self_heal_tracking_table(
             issue_number,
             len(steps),
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.warning(
             "Failed to embed self-healed tracking table for issue #%d: %s",
             issue_number,
@@ -357,7 +357,7 @@ async def _build_pipeline_from_labels(
         matched_config = next((c for c in response.pipelines if c.name == config_name), None)
         if not matched_config:
             return None
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         return None
 
     # Build ordered agent list from pipeline stages
@@ -586,7 +586,7 @@ async def _get_or_reconstruct_pipeline(
                         tracking_agents_for_status,
                     )
                     agents = tracking_agents_for_status
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug(
             "Could not check tracking table for issue #%d during pipeline reconstruction: %s",
             issue_number,
@@ -665,7 +665,7 @@ async def _process_pipeline_completion(
                             issue_number=task.issue_number,
                             body=updated_body,
                         )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.warning(
                     "Failed to batch-update tracking for issue #%d: %s",
                     task.issue_number,
@@ -702,7 +702,7 @@ async def _process_pipeline_completion(
                         issue_number=last_sub,
                         labels_remove=[ACTIVE_LABEL],
                     )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.warning(
                 "Non-blocking: failed to clean up pipeline labels for issue #%d: %s",
                 task.issue_number,
@@ -722,7 +722,7 @@ async def _process_pipeline_completion(
                 completed_agents=list(pipeline.completed_agents),
                 pipeline=pipeline,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.warning(
                 "Non-blocking: failed to sweep sub-issues for issue #%d: %s",
                 task.issue_number,
@@ -953,7 +953,7 @@ async def _process_pipeline_completion(
                 for agent_name in assigned_agents:
                     try:
                         await orchestrator._update_agent_tracking_state(ctx, agent_name, "active")
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
                         logger.warning(
                             "Failed to reconcile tracking for agent '%s' on issue #%d: %s",
                             agent_name,
@@ -1328,7 +1328,7 @@ async def _reconstruct_pipeline_state(
             agents=agents,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.warning("Could not reconstruct pipeline state for issue #%d: %s", issue_number, e)
 
     # Reconstruct main branch info if not present (e.g. after container restart).
@@ -1367,7 +1367,7 @@ async def _reconstruct_pipeline_state(
                         pr_number=existing_pr["number"],
                         issue_number=issue_number,
                     )
-                except Exception as link_err:
+                except Exception as link_err:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.debug(
                         "Non-blocking: could not link PR #%d to issue #%d: %s",
                         existing_pr["number"],
@@ -1381,7 +1381,7 @@ async def _reconstruct_pipeline_state(
                     existing_pr["number"],
                     issue_number,
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.debug(
                 "Could not reconstruct main branch for issue #%d: %s",
                 issue_number,
@@ -1424,7 +1424,7 @@ async def _reconstruct_pipeline_state(
                         issue_number,
                         len(completed),
                     )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.debug("Could not capture HEAD SHA during reconstruction: %s", e)
 
     reconstructed_started_at = _derive_pipeline_started_at(last_done_timestamp, issue_data)
@@ -1568,7 +1568,7 @@ async def _close_completed_sub_issues(
                 sub_info["number"],
                 agent_name,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.warning(
                 "Failed to close sub-issue #%d for agent '%s' (sweep): %s",
                 sub_info["number"],
@@ -1586,7 +1586,7 @@ async def _close_completed_sub_issues(
                     sub_issue_node_id=sub_node_id,
                     status_name="Done",
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.warning(
                     "Failed to update sub-issue #%d board status to Done (sweep): %s",
                     sub_info["number"],
@@ -1741,7 +1741,7 @@ async def _advance_pipeline(
                         pr_number=existing_pr["number"],
                         issue_number=issue_number,
                     )
-                except Exception as link_err:
+                except Exception as link_err:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.debug(
                         "Non-blocking: could not link PR #%d to issue #%d: %s",
                         existing_pr["number"],
@@ -1755,7 +1755,7 @@ async def _advance_pipeline(
                     existing_pr["number"],
                     issue_number,
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.debug(
                 "Could not reconstruct main branch for issue #%d: %s",
                 issue_number,
@@ -1838,7 +1838,7 @@ async def _advance_pipeline(
                                 f"#{blocked_pr} for agent **{completed_agent}**."
                             ),
                         )
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                         logger.warning(
                             "Could not post DevOps dispatch notice on issue #%d",
                             issue_number,
@@ -1934,7 +1934,7 @@ async def _advance_pipeline(
                                 f"conflicts manually and re-trigger the pipeline."
                             ),
                         )
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                         logger.warning(
                             "Could not post merge-halt warning on issue #%d",
                             issue_number,
@@ -2056,7 +2056,7 @@ async def _advance_pipeline(
             )
             if pr_det and pr_det.get("last_commit", {}).get("sha"):
                 _cp.update_issue_main_branch_sha(issue_number, pr_det["last_commit"]["sha"])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.debug(
                 "Could not refresh HEAD SHA for issue #%d: %s",
                 issue_number,
@@ -2117,7 +2117,7 @@ async def _advance_pipeline(
                         completed_agent,
                         issue_number,
                     )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.debug("Could not check main PR draft status during advance: %s", e)
 
     # Send agent_completed WebSocket notification
@@ -2245,7 +2245,7 @@ async def _advance_pipeline(
                         issue_number=sub_number,
                         body=f"⏱️ Auto-merge in {duration_str}",
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.warning(
                         "Failed to comment delay info on human sub-issue #%d",
                         sub_number,
@@ -2281,7 +2281,7 @@ async def _advance_pipeline(
                             )
                             cancelled_early = True
                             break
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                         logger.debug(
                             "Early cancel check failed for issue #%d, continuing delay",
                             issue_number,
@@ -2343,7 +2343,7 @@ async def _advance_pipeline(
                         state="closed",
                         state_reason="completed",
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.warning(
                         "Failed to close human sub-issue #%d after delay",
                         sub_number,
@@ -2441,7 +2441,7 @@ async def _advance_pipeline(
                                     state="closed",
                                     state_reason="not_planned",
                                 )
-                            except Exception:
+                            except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                                 logger.warning(
                                     "Failed to close human sub-issue #%d",
                                     sub_number,
@@ -2584,7 +2584,7 @@ async def _advance_pipeline(
             for slug in successful_agents:
                 try:
                     await orchestrator._update_agent_tracking_state(ctx, slug, "active")
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.warning(
                         "Failed to reconcile tracking for parallel agent '%s' on issue #%d: %s",
                         slug,
@@ -2712,7 +2712,7 @@ async def _resolve_main_pr_for_done_transition(
             repo=repo,
         )
         default_branch = repo_info.get("default_branch", "main") or "main"
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug(
             "Falling back to default branch 'main' while resolving main PR for issue #%d",
             issue_number,
@@ -2821,8 +2821,8 @@ async def _close_parent_issue_if_main_pr_merged_and_sub_issues_completed(
             pr_number,
             len(sub_issues),
         )
-        return True
-    except Exception:
+        return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug(
             "Done transition: could not validate merged-parent completion for issue #%d",
             issue_number,
@@ -2898,7 +2898,7 @@ async def _transition_after_pipeline_complete(
         _pipeline_state = _cp.get_pipeline_state(issue_number)
         if _pipeline_state is not None:
             _pipeline_auto_merge = bool(getattr(_pipeline_state, "auto_merge", False))
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug(
             "Could not read pipeline auto_merge flag for issue #%d", issue_number, exc_info=True
         )
@@ -2919,7 +2919,7 @@ async def _transition_after_pipeline_complete(
                 from src.services.copilot_polling.state import unregister_project
 
                 unregister_project(project_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.debug("Failed to auto-unregister project %s", project_id, exc_info=True)
 
     # Dequeue the next waiting pipeline if queue mode is active.
@@ -2952,7 +2952,7 @@ async def _transition_after_pipeline_complete(
 
             db = get_db()
             project_auto_merge = await is_auto_merge_enabled(db, project_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
             logger.debug(
                 "Auto-merge project-setting check skipped for issue #%d — database not available",
                 issue_number,
@@ -2984,7 +2984,7 @@ async def _transition_after_pipeline_complete(
                     _config = await _cp.get_workflow_config(project_id)
                     if _config:
                         done_status = getattr(_config, "status_done", None) or "Done"
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.debug(
                         "Could not resolve done status from workflow config", exc_info=True
                     )
@@ -3006,7 +3006,7 @@ async def _transition_after_pipeline_complete(
                         state="closed",
                         state_reason="completed",
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.warning(
                         "Auto-merge: failed to close parent issue #%d",
                         issue_number,
@@ -3211,7 +3211,7 @@ async def _transition_after_pipeline_complete(
             _cfg_done = getattr(_done_config, "status_done", None)
             if isinstance(_cfg_done, str) and _cfg_done.strip():
                 _done_status_name = _cfg_done.strip().lower()
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.debug("Could not resolve done status from workflow config", exc_info=True)
 
     if to_status.lower() == _done_status_name:
@@ -3233,7 +3233,7 @@ async def _transition_after_pipeline_complete(
 
                 db = get_db()
                 _done_auto_merge_active = await is_auto_merge_enabled(db, project_id)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.debug(
                     "Could not check auto-merge setting for project %s", project_id, exc_info=True
                 )
@@ -3268,7 +3268,7 @@ async def _transition_after_pipeline_complete(
                             state="closed",
                             state_reason="completed",
                         )
-                    except Exception:
+                    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                         logger.warning(
                             "Auto-merge (Done): failed to close issue #%d",
                             issue_number,
@@ -3399,7 +3399,7 @@ async def _transition_after_pipeline_complete(
                 )
                 if pr_details and pr_details.get("last_commit", {}).get("sha"):
                     _cp.update_issue_main_branch_sha(issue_number, pr_details["last_commit"]["sha"])
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.debug("Suppressed error: %s", e)
         else:
             # Try to find and capture the main branch from existing PRs
@@ -3439,7 +3439,7 @@ async def _transition_after_pipeline_complete(
                         pr_number=existing_pr["number"],
                         issue_number=issue_number,
                     )
-                except Exception as link_err:
+                except Exception as link_err:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.debug(
                         "Non-blocking: could not link PR #%d to issue #%d: %s",
                         existing_pr["number"],
@@ -3689,7 +3689,7 @@ async def check_in_review_issues(
                             project_id=project_id,
                             merge_result_context=merge_result.context,
                         )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.warning(
                     "DevOps recovery failed for issue #%d",
                     task.issue_number,

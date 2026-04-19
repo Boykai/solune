@@ -201,7 +201,7 @@ class PlanUpdateRequest(BaseModel):
         if v is None:
             return None
         if not v.strip():
-            raise ValueError("must not be empty or whitespace only")
+            raise ValueError("must not be empty or whitespace only")  # noqa: TRY003 — reason: domain exception with descriptive message
         return v
 
 
@@ -236,7 +236,7 @@ class StepUpdateRequest(BaseModel):
         if v is None:
             return None
         if not v.strip():
-            raise ValueError("must not be empty or whitespace only")
+            raise ValueError("must not be empty or whitespace only")  # noqa: TRY003 — reason: domain exception with descriptive message
         return v
 
 

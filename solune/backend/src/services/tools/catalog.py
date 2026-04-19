@@ -68,14 +68,14 @@ def validate_upstream_url(url: str) -> None:
     try:
         parsed = urlparse(url)
     except Exception as exc:
-        raise ValueError(f"Invalid upstream URL: {exc}") from exc
+        raise ValueError(f"Invalid upstream URL: {exc}") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if parsed.scheme != "https":
-        raise ValueError("Only HTTPS upstream URLs are allowed.")
+        raise ValueError("Only HTTPS upstream URLs are allowed.")  # noqa: TRY003 — reason: domain exception with descriptive message
     if parsed.hostname not in _ALLOWED_UPSTREAM_HOSTS:
-        raise ValueError(f"Upstream host '{parsed.hostname}' is not in the allowed list.")
+        raise ValueError(f"Upstream host '{parsed.hostname}' is not in the allowed list.")  # noqa: TRY003 — reason: domain exception with descriptive message
     if parsed.port is not None and parsed.port != 443:
-        raise ValueError("Only standard HTTPS port (443) is allowed for upstream URLs.")
+        raise ValueError("Only standard HTTPS port (443) is allowed for upstream URLs.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 # ── Upstream fetching ────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ async def _fetch_glama_servers(
         try:
             data = resp.json()
         except json.JSONDecodeError as exc:
-            raise CatalogUnavailableError(
+            raise CatalogUnavailableError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "MCP catalog upstream returned an invalid response.",
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 details={"reason": "The MCP catalog returned invalid JSON."},
@@ -287,7 +287,7 @@ def build_import_config(server: CatalogMcpServer) -> McpToolConfigCreate:
 
     if transport in ("http", "sse"):
         if not cfg.url:
-            raise ValidationError(f"Catalog server '{server.name}' ({transport}) requires a URL.")
+            raise ValidationError(f"Catalog server '{server.name}' ({transport}) requires a URL.")  # noqa: TRY003 — reason: domain exception with descriptive message
         server_config: dict[str, object] = {"type": transport, "url": cfg.url}
         if cfg.headers:
             server_config["headers"] = cfg.headers
@@ -298,7 +298,7 @@ def build_import_config(server: CatalogMcpServer) -> McpToolConfigCreate:
 
     elif transport in ("stdio", "local"):
         if not cfg.command:
-            raise ValidationError(
+            raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Catalog server '{server.name}' ({transport}) requires a command."
             )
         server_config = {"type": transport, "command": cfg.command}
@@ -310,7 +310,7 @@ def build_import_config(server: CatalogMcpServer) -> McpToolConfigCreate:
             server_config["tools"] = cfg.tools
 
     else:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Unsupported transport '{transport}' for catalog server '{server.name}'."
         )
 

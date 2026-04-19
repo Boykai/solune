@@ -374,8 +374,8 @@ async def ensure_polling_started(
                 log_suffix,
                 project_id,
             )
-            return True
-        except Exception as err:
+            return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as err:  # noqa: BLE001 — reason: polling resilience; logs and continues
             _logger.warning("Failed to start polling: %s", err)
             return False
 
@@ -432,7 +432,7 @@ async def ensure_app_pipeline_polling(
             repo,
             project_id,
         )
-        return True
-    except Exception as err:
+        return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as err:  # noqa: BLE001 — reason: polling resilience; logs and continues
         _logger.warning("Failed to start app-pipeline polling: %s", err)
         return False

@@ -70,7 +70,7 @@ class BranchesMixin(_ServiceMixin):
                 )
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to delete branch '%s': %s", branch_name, e)
             return False
 
@@ -106,7 +106,7 @@ class BranchesMixin(_ServiceMixin):
             ref_data = (data.get("createRef") or {}).get("ref") or {}
             ref_id = ref_data.get("id")
             logger.info("Created branch %s (ref=%s)", branch_name, ref_id)
-            return ref_id
+            return ref_id  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except ValueError as exc:
             error_msg = str(exc).lower()
             # Branch already exists — treat as success for idempotent pipeline

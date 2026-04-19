@@ -1024,7 +1024,7 @@ async def add_plan_step(
         return None
 
     if plan["status"] != "draft":
-        raise ValueError("Cannot add steps to a non-draft plan")
+        raise ValueError("Cannot add steps to a non-draft plan")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     existing_steps = plan.get("steps", [])
 
@@ -1048,7 +1048,7 @@ async def add_plan_step(
     proposed = [*existing_steps, new_step]
     is_valid, err = validate_dag(proposed)
     if not is_valid:
-        raise ValueError(f"DAG validation failed: {err}")
+        raise ValueError(f"DAG validation failed: {err}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     async with transaction(db):
         # Shift positions >= target position using a temporary offset so the
@@ -1111,7 +1111,7 @@ async def update_plan_step(
         return None
 
     if plan["status"] != "draft":
-        raise ValueError("Cannot update steps of a non-draft plan")
+        raise ValueError("Cannot update steps of a non-draft plan")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Find the target step
     target_step = None
@@ -1139,7 +1139,7 @@ async def update_plan_step(
 
     is_valid, err = validate_dag(proposed)
     if not is_valid:
-        raise ValueError(f"DAG validation failed: {err}")
+        raise ValueError(f"DAG validation failed: {err}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     from src.utils import utcnow
 
@@ -1192,7 +1192,7 @@ async def delete_plan_step(
         return False
 
     if plan["status"] != "draft":
-        raise ValueError("Cannot delete steps from a non-draft plan")
+        raise ValueError("Cannot delete steps from a non-draft plan")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     target = None
     for s in plan.get("steps", []):
@@ -1262,11 +1262,11 @@ async def reorder_plan_steps(
         return False
 
     if plan["status"] != "draft":
-        raise ValueError("Cannot reorder steps of a non-draft plan")
+        raise ValueError("Cannot reorder steps of a non-draft plan")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     existing_ids = {s["step_id"] for s in plan.get("steps", [])}
     if set(step_ids) != existing_ids:
-        raise ValueError("step_ids must contain exactly the current step IDs")
+        raise ValueError("step_ids must contain exactly the current step IDs")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Build reordered steps
     step_map = {s["step_id"]: s for s in plan["steps"]}
@@ -1277,7 +1277,7 @@ async def reorder_plan_steps(
 
     is_valid, err = validate_dag(reordered)
     if not is_valid:
-        raise ValueError(f"DAG validation failed: {err}")
+        raise ValueError(f"DAG validation failed: {err}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     from src.utils import utcnow
 
@@ -1318,7 +1318,7 @@ async def update_step_approval(
     # Validate the approval status value
     valid_statuses = {s.value for s in StepApprovalStatus}
     if approval_status not in valid_statuses:
-        raise ValueError(
+        raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Invalid approval_status {approval_status!r}; must be one of {sorted(valid_statuses)}"
         )
 
@@ -1327,7 +1327,7 @@ async def update_step_approval(
         return False
 
     if plan["status"] != "draft":
-        raise ValueError("Cannot change approval status of steps in a non-draft plan")
+        raise ValueError("Cannot change approval status of steps in a non-draft plan")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     from src.utils import utcnow
 

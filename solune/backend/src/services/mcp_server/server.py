@@ -90,7 +90,7 @@ def get_mcp_app() -> Starlette:
     Must be called after ``create_mcp_server()``.
     """
     if _mcp_server is None:
-        raise RuntimeError("MCP server not created. Call create_mcp_server() first.")
+        raise RuntimeError("MCP server not created. Call create_mcp_server() first.")  # noqa: TRY003 — reason: domain exception with descriptive message
     return _mcp_server.streamable_http_app()
 
 

@@ -382,7 +382,7 @@ async def dispatch_devops_agent(
             issue_number=issue_number,
             project_id=project_id,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.warning(
             "DevOps dispatch: failed to resolve issue node ID for #%d",
             issue_number,
@@ -489,7 +489,7 @@ async def _check_devops_done_comment(
             repo=repo,
             issue_number=issue_number,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
         logger.warning(
             "Failed to fetch comments for issue #%d (DevOps done check)",
             issue_number,
@@ -757,7 +757,7 @@ async def _auto_merge_retry_loop(
                     _config = await _cp.get_workflow_config(project_id)
                     if _config:
                         done_status = getattr(_config, "status_done", None) or "Done"
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.debug(
                         "Could not resolve done status from workflow config", exc_info=True
                     )
@@ -769,7 +769,7 @@ async def _auto_merge_retry_loop(
                         item_id=item_id,
                         status_name=done_status,
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.warning(
                         "Auto-merge retry: failed to update status to %s for issue #%d",
                         done_status,
@@ -786,7 +786,7 @@ async def _auto_merge_retry_loop(
                         state="closed",
                         state_reason="completed",
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.warning(
                         "Auto-merge retry: failed to close parent issue #%d",
                         issue_number,
@@ -799,7 +799,7 @@ async def _auto_merge_retry_loop(
                     )
 
                     clear_issue_main_branch(issue_number)
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                     logger.debug(
                         "Could not clear main branch for issue #%d", issue_number, exc_info=True
                     )
@@ -896,7 +896,7 @@ async def _auto_merge_retry_loop(
         if not pipeline_state_removed:
             try:
                 _cp.remove_pipeline_state(issue_number)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: polling resilience; logs and continues
                 logger.debug(
                     "Could not remove pipeline state for issue #%d during cleanup",
                     issue_number,

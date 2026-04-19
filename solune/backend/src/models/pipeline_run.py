@@ -64,9 +64,9 @@ class PipelineRun(BaseModel):
         terminal = {"completed", "failed", "cancelled"}
         active = {"pending", "running"}
         if self.status in terminal and not self.completed_at:
-            raise ValueError(f"completed_at must be set when status is '{self.status}'")
+            raise ValueError(f"completed_at must be set when status is '{self.status}'")  # noqa: TRY003 — reason: domain exception with descriptive message
         if self.status in active and self.completed_at:
-            raise ValueError(f"completed_at must be None when status is '{self.status}'")
+            raise ValueError(f"completed_at must be None when status is '{self.status}'")  # noqa: TRY003 — reason: domain exception with descriptive message
         return self
 
 

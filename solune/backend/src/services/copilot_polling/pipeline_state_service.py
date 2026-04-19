@@ -70,7 +70,7 @@ class PipelineRunService:
                 )
                 run_id = cursor.lastrowid
                 if run_id is None:
-                    raise RuntimeError("Failed to persist pipeline run ID")
+                    raise RuntimeError("Failed to persist pipeline run ID")  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
 
                 # Create stage states if stages are provided
                 stage_states: list[PipelineRunStageState] = []
@@ -86,7 +86,7 @@ class PipelineRunService:
                         )
                         stage_state_id = stage_cursor.lastrowid
                         if stage_state_id is None:
-                            raise RuntimeError("Failed to persist pipeline stage state ID")
+                            raise RuntimeError("Failed to persist pipeline stage state ID")  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                         stage_states.append(
                             PipelineRunStageState(
                                 id=stage_state_id,
@@ -393,7 +393,7 @@ class PipelineRunService:
                     )
                     group_id = cursor.lastrowid
                     if group_id is None:
-                        raise RuntimeError("Failed to persist pipeline stage group ID")
+                        raise RuntimeError("Failed to persist pipeline stage group ID")  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                     now = _now_iso()
                     created_groups.append(
                         StageGroup(
@@ -447,7 +447,7 @@ class PipelineRunService:
                 logger.info("Database integrity check passed")
                 return True
             logger.warning("Database integrity check returned: %s", result)
-            return False
+            return False  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except Exception:
             logger.exception("Database integrity check failed")
             return False

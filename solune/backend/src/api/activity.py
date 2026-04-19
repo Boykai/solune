@@ -82,7 +82,7 @@ async def get_entity_history(
     if entity_type not in ALLOWED_ENTITY_TYPES:
         from src.exceptions import ValidationError
 
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Invalid entity_type '{entity_type}'. "
             f"Must be one of: {', '.join(sorted(ALLOWED_ENTITY_TYPES))}"
         )

@@ -377,7 +377,7 @@ class BoardMixin(_ServiceMixin):
             if project_meta is None:
                 status_field_data = node.get("field")
                 if not status_field_data:
-                    raise ValueError(f"Project {project_id} has no Status field")
+                    raise ValueError(f"Project {project_id} has no Status field")  # noqa: TRY003 — reason: domain exception with descriptive message
 
                 status_options = [
                     StatusOption(
@@ -418,7 +418,7 @@ class BoardMixin(_ServiceMixin):
                 break
 
         if project_meta is None:
-            raise ValueError(f"Project not found: {project_id}")
+            raise ValueError(f"Project not found: {project_id}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         cached_done_items_by_key: dict[str, dict] = {}
         if effective_load_mode == BoardLoadMode.INITIAL:
@@ -531,7 +531,7 @@ class BoardMixin(_ServiceMixin):
                                 assignees=si_assignees,
                             )
                         )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                     logger.debug(
                         "Failed to fetch sub-issues for item #%s: %s",
                         board_item.number,
@@ -565,7 +565,7 @@ class BoardMixin(_ServiceMixin):
             config = await get_workflow_config(project_id)
             if config and config.repository_owner and config.repository_name:
                 repos_seen.add((config.repository_owner, config.repository_name))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug("Suppressed error: %s", e)
 
         async def _reconcile_repo(owner: str, repo_name: str) -> list:
@@ -585,8 +585,8 @@ class BoardMixin(_ServiceMixin):
                         owner,
                         repo_name,
                     )
-                return reconciled or []
-            except Exception as e:
+                return reconciled or []  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+            except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 logger.debug("Board reconciliation failed for %s/%s: %s", owner, repo_name, e)
                 return []
 
@@ -643,7 +643,7 @@ class BoardMixin(_ServiceMixin):
             ]
             try:
                 await save_done_items(project_id, done_board_items, item_type="board")
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 logger.debug(
                     "Non-critical: failed to persist done board items cache", exc_info=True
                 )
@@ -873,7 +873,7 @@ class BoardMixin(_ServiceMixin):
                                 assignees=si_assignees,
                             )
                         )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                     logger.debug(
                         "Failed to fetch sub-issues for reconciled item #%s: %s",
                         board_item.number,

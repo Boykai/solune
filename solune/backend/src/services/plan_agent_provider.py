@@ -144,7 +144,7 @@ async def on_post_tool_use_hook(
             if plan:
                 to_version = plan.get("version", 1)
                 from_version = max(1, to_version - 1)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
             logger.debug("Could not read plan version for plan_diff event")
 
     return {

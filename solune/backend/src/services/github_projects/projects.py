@@ -82,7 +82,7 @@ class ProjectsMixin(_ServiceMixin):
         try:
             user_data = _cast(dict, await self._rest(access_token, "GET", f"/users/{owner}"))
             owner_node_id: str = user_data["node_id"]
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             org_data = _cast(dict, await self._rest(access_token, "GET", f"/orgs/{owner}"))
             owner_node_id = org_data["node_id"]
 
@@ -106,7 +106,7 @@ class ProjectsMixin(_ServiceMixin):
         # Best-effort: configure the default Status field options.
         try:
             await self._configure_project_status(access_token, project_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning(
                 "Non-blocking: could not configure status columns for project %s: %s",
                 project_id,
@@ -190,8 +190,8 @@ class ProjectsMixin(_ServiceMixin):
         try:
             await self._graphql(access_token, delete_mutation, {"projectId": project_id})
             logger.info("Deleted project %s", project_id)
-            return True
-        except Exception as exc:
+            return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning(
                 "deleteProjectV2 failed for %s, falling back to close: %s", project_id, exc
             )
@@ -207,8 +207,8 @@ class ProjectsMixin(_ServiceMixin):
         try:
             await self._graphql(access_token, close_mutation, {"projectId": project_id})
             logger.info("Closed (archived) project %s", project_id)
-            return True
-        except Exception as exc:
+            return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning("Could not close project %s: %s", project_id, exc)
             return False
 
@@ -421,7 +421,7 @@ class ProjectsMixin(_ServiceMixin):
         done_tasks = [t.model_dump(mode="json") for t in all_tasks if t.status == StatusNames.DONE]
         try:
             await save_done_items(project_id, done_tasks, item_type="task")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug("Non-critical: failed to persist done tasks cache", exc_info=True)
 
         logger.info("Fetched %d total tasks from project %s", len(all_tasks), project_id)
@@ -518,8 +518,8 @@ class ProjectsMixin(_ServiceMixin):
 
             if project_number and owner_type and owner_login:
                 return (project_number, owner_type, owner_login)
-            return None
-        except Exception as e:
+            return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug("Failed to get project REST info: %s", e)
             return None
 
@@ -586,7 +586,7 @@ class ProjectsMixin(_ServiceMixin):
                 owner, name = valid_repos[0]
                 logger.info("Returning first linked repository %s/%s", owner, name)
                 return owner, name
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug(
                 "repositories connection unavailable for project %s, falling back to items",
                 project_id,
@@ -705,7 +705,7 @@ class ProjectsMixin(_ServiceMixin):
         """
         try:
             data = await self._graphql(access_token, query, {"issueId": sub_issue_node_id})
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning(
                 "GraphQL projectItems query failed for sub-issue %s: %s",
                 sub_issue_node_id,
@@ -746,7 +746,7 @@ class ProjectsMixin(_ServiceMixin):
                         sub_issue_node_id,
                         item_id,
                     )
-            except Exception as add_err:
+            except Exception as add_err:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 logger.warning(
                     "Failed to add sub-issue %s to project %s: %s",
                     sub_issue_node_id,
@@ -815,9 +815,9 @@ class ProjectsMixin(_ServiceMixin):
                     }
 
             logger.debug("Found %d project fields: %s", len(fields), list(fields.keys()))
-            return fields
+            return fields  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to get project fields: %s", e)
             return {}
 
@@ -922,9 +922,9 @@ class ProjectsMixin(_ServiceMixin):
                 return False
 
             logger.info("Updated field '%s' to '%s' for item %s", field_name, value, item_id)
-            return True
+            return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to update field '%s': %s", field_name, e)
             return False
 

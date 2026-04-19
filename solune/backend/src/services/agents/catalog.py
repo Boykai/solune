@@ -50,12 +50,12 @@ def validate_source_url(url: str) -> None:
     try:
         parsed = urlparse(url)
     except Exception as exc:
-        raise ValueError(f"Invalid source URL: {exc}") from exc
+        raise ValueError(f"Invalid source URL: {exc}") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if parsed.scheme != "https":
-        raise ValueError("Only HTTPS source URLs are allowed.")
+        raise ValueError("Only HTTPS source URLs are allowed.")  # noqa: TRY003 — reason: domain exception with descriptive message
     if parsed.hostname not in _ALLOWED_SOURCE_HOSTS:
-        raise ValueError(f"Source URL host '{parsed.hostname}' is not in the allowed list.")
+        raise ValueError(f"Source URL host '{parsed.hostname}' is not in the allowed list.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 def _slugify_catalog_value(value: str) -> str:

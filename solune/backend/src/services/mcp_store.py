@@ -42,11 +42,11 @@ def validate_url_not_ssrf(url: str) -> str:
 
     # Enforce HTTP(S) scheme
     if parsed.scheme not in ("http", "https"):
-        raise ValueError("Only http and https URLs are allowed")
+        raise ValueError("Only http and https URLs are allowed")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     hostname = parsed.hostname
     if not hostname:
-        raise ValueError("URL must have a valid hostname")
+        raise ValueError("URL must have a valid hostname")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Normalize hostname for consistent checks (strip whitespace, lowercase,
     # remove trailing dot so "localhost." is treated the same as "localhost").
@@ -60,7 +60,7 @@ def validate_url_not_ssrf(url: str) -> str:
         # Matching on the first DNS label catches "localhost", "localhost.localdomain", etc.
         labels = normalized_host.split(".") if normalized_host else []
         if labels and labels[0] == "localhost":
-            raise ValueError("URL points to a private or reserved IP address") from exc
+            raise ValueError("URL points to a private or reserved IP address") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
     else:
         if (
             ip.is_private
@@ -69,7 +69,7 @@ def validate_url_not_ssrf(url: str) -> str:
             or ip.is_link_local
             or ip.is_unspecified
         ):
-            raise ValueError("URL points to a private or reserved IP address")
+            raise ValueError("URL points to a private or reserved IP address")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return url
 
@@ -142,7 +142,7 @@ async def create_mcp(
     )
     row = await cursor.fetchone()
     if row and row["cnt"] >= MAX_MCPS_PER_USER:
-        raise McpLimitExceededError(
+        raise McpLimitExceededError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Maximum of {MAX_MCPS_PER_USER} MCP configurations per user reached"
         )
 

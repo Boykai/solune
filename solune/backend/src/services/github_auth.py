@@ -154,7 +154,7 @@ class GitHubAuthService:
         token_data = await self.exchange_code_for_token(code)
 
         if "error" in token_data:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"OAuth error: {token_data.get('error_description', token_data['error'])}"
             )
 
@@ -198,7 +198,7 @@ class GitHubAuthService:
             Updated session with new tokens
         """
         if not session.refresh_token:
-            raise ValueError("No refresh token available")
+            raise ValueError("No refresh token available")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         response = await GitHub(
             TokenAuthStrategy("placeholder"),
@@ -217,7 +217,7 @@ class GitHubAuthService:
         token_data = response.json()
 
         if "error" in token_data:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Token refresh error: {token_data.get('error_description', token_data['error'])}"
             )
 

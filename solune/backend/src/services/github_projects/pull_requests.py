@@ -103,9 +103,9 @@ class PullRequestsMixin(_ServiceMixin):
                 len(matched_prs),
                 issue_number,
             )
-            return matched_prs
+            return matched_prs  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("REST PR search error for issue #%d: %s", issue_number, e)
             return []
 
@@ -269,9 +269,9 @@ class PullRequestsMixin(_ServiceMixin):
                 result["is_draft"],
                 issue_number,
             )
-            return result
+            return result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Error finding existing PR for issue #%d: %s", issue_number, e)
             return None
 
@@ -348,7 +348,7 @@ class PullRequestsMixin(_ServiceMixin):
 
         try:
             return await self._cycle_cached(cache_key, _fetch)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to get linked PRs for issue #%d: %s", issue_number, e)
             return []
 
@@ -418,7 +418,7 @@ class PullRequestsMixin(_ServiceMixin):
 
         try:
             return await self._cycle_cached(cache_key, _fetch)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to get PR #%d: %s", pr_number, e)
             return None
 
@@ -462,7 +462,7 @@ class PullRequestsMixin(_ServiceMixin):
                 logger.warning("PR may not have been marked ready: %s", pr)
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to mark PR ready for review: %s", e)
             return False
 
@@ -535,7 +535,7 @@ class PullRequestsMixin(_ServiceMixin):
                 )
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to merge PR #%d: %s", pr_number or 0, e)
             return None
 
@@ -591,7 +591,7 @@ class PullRequestsMixin(_ServiceMixin):
                 )
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "Failed to update PR #%d base branch to '%s': %s",
                 pr_number,
@@ -682,7 +682,7 @@ class PullRequestsMixin(_ServiceMixin):
                 )
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "Failed to link PR #%d to issue #%d: %s",
                 pr_number,
@@ -722,7 +722,7 @@ class PullRequestsMixin(_ServiceMixin):
 
         try:
             return await self._cycle_cached(cache_key, _fetch)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "Failed to get timeline events for issue #%d: %s",
                 issue_number,
@@ -773,7 +773,7 @@ class PullRequestsMixin(_ServiceMixin):
                 )
                 return []
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Error getting PR #%d files: %s", pr_number, e)
             return []
 
@@ -820,7 +820,7 @@ class PullRequestsMixin(_ServiceMixin):
                 "url": pr.get("url", ""),
             }
             logger.info("Created PR #%d: %s", result["number"], title)
-            return result
+            return result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except ValueError as exc:
             error_msg = str(exc).lower()
             # PR already exists for this head→base — treat as existing

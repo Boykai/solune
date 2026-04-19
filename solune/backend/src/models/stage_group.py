@@ -20,14 +20,14 @@ class StageGroup(BaseModel):
     @classmethod
     def validate_execution_mode(cls, v: str) -> str:
         if v not in ("sequential", "parallel"):
-            raise ValueError("execution_mode must be 'sequential' or 'parallel'")
+            raise ValueError("execution_mode must be 'sequential' or 'parallel'")  # noqa: TRY003 — reason: domain exception with descriptive message
         return v
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
         if not v or not v.strip():
-            raise ValueError("name must not be empty")
+            raise ValueError("name must not be empty")  # noqa: TRY003 — reason: domain exception with descriptive message
         return v.strip()
 
 

@@ -295,7 +295,7 @@ def _schedule_background_board_completion(session: UserSession, project_id: str)
                 project_id,
                 load_mode=BoardLoadMode.FULL,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
             logger.debug(
                 "Non-critical: background board completion failed for project %s",
                 project_id,
@@ -381,7 +381,7 @@ async def list_board_projects(
                 "GitHub token invalid/expired for user %s — returning 401",
                 session.github_username,
             )
-            raise AuthenticationError(
+            raise AuthenticationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Your GitHub session has expired. Please log in again."
             ) from e
 
@@ -436,7 +436,7 @@ async def _build_done_fallback_board(
 
     try:
         cached = await get_done_items(project_id, item_type="board")
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         return None
 
     if not cached:
@@ -545,7 +545,7 @@ async def get_board_data(
         )
     except ValueError as e:
         logger.warning("Project not found: %s - %s", project_id, e)
-        raise NotFoundError("Project not found") from e
+        raise NotFoundError("Project not found") from e  # noqa: TRY003 — reason: domain exception with descriptive message
     except Exception as e:
         # On API failure, try serving DB-cached Done items as partial board
         db_fallback = await _build_done_fallback_board(project_id, e)
@@ -567,7 +567,7 @@ async def get_board_data(
                 "GitHub token invalid/expired for user %s — returning 401",
                 session.github_username,
             )
-            raise AuthenticationError(
+            raise AuthenticationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Your GitHub session has expired. Please log in again."
             ) from e
         logger.error("Failed to fetch board data: %s", e, exc_info=True)
@@ -597,13 +597,13 @@ async def get_board_data(
             try:
                 parsed = _json.loads(column_cursors)
                 if not isinstance(parsed, dict):
-                    raise ValidationError(
+                    raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                         "column_cursors must be a JSON object mapping column IDs to cursor strings"
                     )
                 parsed_dict = cast("dict[Any, Any]", parsed)
                 cursors_map = {str(k): str(v) for k, v in parsed_dict.items()}
             except (ValueError, TypeError) as exc:
-                raise ValidationError(f"column_cursors is not valid JSON: {exc}") from exc
+                raise ValidationError(f"column_cursors is not valid JSON: {exc}") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
         effective_limit = column_limit or 25
         for col in board_data.columns:
@@ -654,7 +654,7 @@ async def update_board_item_status(
                 details=_rate_limit_details(),
             ) from e
         if _is_github_auth_error(e):
-            raise AuthenticationError(
+            raise AuthenticationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Your GitHub session has expired. Please log in again."
             ) from e
         logger.error("Failed to update item status: %s", e, exc_info=True)
@@ -664,7 +664,7 @@ async def update_board_item_status(
         ) from e
 
     if not success:
-        raise NotFoundError("Status not found or update failed")
+        raise NotFoundError("Status not found or update failed")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Invalidate board data cache so subsequent fetches reflect the change
     board_cache_key = get_cache_key(CACHE_PREFIX_BOARD_DATA, project_id)

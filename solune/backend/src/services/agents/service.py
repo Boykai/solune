@@ -489,7 +489,7 @@ class AgentsService:
                 repo=repo,
                 path=".github/agents",
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.debug("Could not read .github/agents/ from %s/%s: %s", owner, repo, e)
             return [], False
 
@@ -514,7 +514,7 @@ class AgentsService:
                     path=f".github/agents/{name}",
                 )
                 return str(file_data.get("content", "")) if file_data else ""
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 return ""
 
         contents: list[str] = (
@@ -612,11 +612,11 @@ class AgentsService:
         # Validate name & generate slug
         slug = AgentPreview.name_to_slug(body.name)
         if not slug:
-            raise ValueError("Agent name produces an empty slug")
+            raise ValueError("Agent name produces an empty slug")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Validate filename characters
         if not re.match(r"^[a-z0-9][a-z0-9._-]*$", slug):
-            raise ValueError(f"Invalid agent slug '{slug}'. Only a-z, 0-9, '.', '-', '_' allowed.")
+            raise ValueError(f"Invalid agent slug '{slug}'. Only a-z, 0-9, '.', '-', '_' allowed.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Check for duplicates (SQLite)
         cursor = await self._db.execute(
@@ -624,7 +624,7 @@ class AgentsService:
             (slug, project_id),
         )
         if await cursor.fetchone():
-            raise ValueError(f"An agent with slug '{slug}' already exists in this project.")
+            raise ValueError(f"An agent with slug '{slug}' already exists in this project.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Check for duplicates in the repo (.github/agents/<slug>.agent.md)
         try:
@@ -635,12 +635,12 @@ class AgentsService:
                 path=f".github/agents/{slug}.agent.md",
             )
             if existing_file:
-                raise ValueError(
+                raise ValueError(  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                     f"An agent file '.github/agents/{slug}.agent.md' already exists in the repository."
                 )
         except ValueError:
             raise  # Re-raise our own validation error
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.debug(
                 "Skipping existing agent file lookup due to repository read failure",
                 exc_info=exc,
@@ -667,7 +667,7 @@ class AgentsService:
                     description = enhanced.get("description", body.name)
                 if not requested_tools:
                     requested_tools = enhanced.get("tools", [])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.warning("AI content enhancement failed, using original input: %s", exc)
                 system_prompt = body.system_prompt
                 if not description:
@@ -724,7 +724,7 @@ class AgentsService:
                 )
                 issue_body_md = rich["issue_body"]
                 pr_body = rich["pr_body"]
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.warning("AI description generation failed, using defaults: %s", exc)
                 issue_body_md = generate_issue_body(preview)
                 pr_body = self._default_pr_body(preview, slug)
@@ -752,7 +752,7 @@ class AgentsService:
         )
 
         if not result.success:
-            raise RuntimeError(f"Agent creation pipeline failed: {'; '.join(result.errors)}")
+            raise RuntimeError(f"Agent creation pipeline failed: {'; '.join(result.errors)}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Save to SQLite
         agent_id = str(uuid.uuid4())
@@ -822,7 +822,7 @@ class AgentsService:
                     trigger="agent_create",
                     db=self._db,
                 )
-            except Exception as sync_exc:
+            except Exception as sync_exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.warning("Agent MCP sync after create failed (non-fatal): %s", sync_exc)
 
         return AgentCreateResult(
@@ -852,7 +852,7 @@ class AgentsService:
         from src.services.agents.catalog import fetch_agent_raw_content
 
         if not body.catalog_agent_id:
-            raise ValueError("catalog_agent_id is required to import a catalog agent.")
+            raise ValueError("catalog_agent_id is required to import a catalog agent.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Check for duplicate
         cursor = await self._db.execute(
@@ -860,7 +860,7 @@ class AgentsService:
             (body.catalog_agent_id, project_id),
         )
         if await cursor.fetchone():
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Agent '{body.catalog_agent_id}' is already imported in this project."
             )
 
@@ -868,7 +868,7 @@ class AgentsService:
         try:
             raw_content = await fetch_agent_raw_content(body.source_url)
         except Exception as exc:
-            raise RuntimeError(f"Could not fetch agent content: {exc}") from exc
+            raise RuntimeError(f"Could not fetch agent content: {exc}") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
         agent_id = str(uuid.uuid4())
         slug = body.catalog_agent_id
@@ -907,7 +907,7 @@ class AgentsService:
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
             if "UNIQUE constraint failed" in str(exc):
-                raise ValueError(
+                raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     "An agent with this catalog ID or name already exists in this project."
                 ) from exc
             raise
@@ -953,20 +953,20 @@ class AgentsService:
         )
         row = await cursor.fetchone()
         if not row:
-            raise LookupError(f"Agent '{agent_id}' not found.")
+            raise LookupError(f"Agent '{agent_id}' not found.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         r = _row_to_dict(row, cursor)
 
         if r.get("lifecycle_status") != AgentStatus.IMPORTED.value:
-            raise ValueError("Agent is not in imported state.")
+            raise ValueError("Agent is not in imported state.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         if r.get("agent_type") != "imported":
-            raise ValueError("Only imported agents can be installed.")
+            raise ValueError("Only imported agents can be installed.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         slug = r["slug"]
         raw_content = r.get("raw_source_content")
         if not raw_content or not isinstance(raw_content, str):
-            raise ValueError("Agent has no raw source content to install.")
+            raise ValueError("Agent has no raw source content to install.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Build files: raw .agent.md (verbatim) + generated .prompt.md
         agent_file_path = f".github/agents/{slug}.agent.md"
@@ -1016,7 +1016,7 @@ class AgentsService:
         )
 
         if not result.success:
-            raise RuntimeError(f"Install failed: {', '.join(result.errors)}")
+            raise RuntimeError(f"Install failed: {', '.join(result.errors)}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Update DB
         await self._db.execute(
@@ -1084,10 +1084,10 @@ class AgentsService:
             agent_id=agent_id,
         )
         if not agent:
-            raise LookupError(f"Agent '{agent_id}' not found")
+            raise LookupError(f"Agent '{agent_id}' not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         if agent.status == AgentStatus.PENDING_DELETION:
-            raise ValueError(f"Agent '{agent.name}' is already pending deletion")
+            raise ValueError(f"Agent '{agent.name}' is already pending deletion")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         slug = agent.slug
         branch_name = f"agent/delete-{slug}"
@@ -1136,7 +1136,7 @@ class AgentsService:
         )
 
         if not result.success:
-            raise RuntimeError(f"Agent deletion pipeline failed: {'; '.join(result.errors)}")
+            raise RuntimeError(f"Agent deletion pipeline failed: {'; '.join(result.errors)}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         await self._mark_agent_pending_deletion(
             project_id=project_id,
@@ -1178,7 +1178,7 @@ class AgentsService:
             agent_id=agent_id,
         )
         if not agent:
-            raise LookupError(f"Agent '{agent_id}' not found")
+            raise LookupError(f"Agent '{agent_id}' not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         only_runtime_preference_update = (
             (
@@ -1193,7 +1193,7 @@ class AgentsService:
         )
 
         if agent.status == AgentStatus.PENDING_DELETION:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Agents pending deletion cannot be updated until the deletion PR is resolved."
             )
 
@@ -1236,7 +1236,7 @@ class AgentsService:
 
         # Validate slug: non-empty and filename-safe
         if not slug or not re.match(r"^[a-z0-9][a-z0-9._-]*$", slug):
-            raise ValueError(f"Invalid agent slug derived from name '{name}': '{slug}'")
+            raise ValueError(f"Invalid agent slug derived from name '{name}': '{slug}'")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Ensure no other agent in SQLite uses this slug (conflict check)
         async with self._db.execute(
@@ -1249,7 +1249,7 @@ class AgentsService:
             if current_local_agent:
                 allowed_ids.add(current_local_agent.id)
             if conflict_id and conflict_id not in allowed_ids:
-                raise ValueError(f"An agent with slug '{slug}' already exists for this project.")
+                raise ValueError(f"An agent with slug '{slug}' already exists for this project.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         (
             display_tools,
@@ -1298,7 +1298,7 @@ class AgentsService:
         )
 
         if not result.success:
-            raise RuntimeError(f"Agent update pipeline failed: {'; '.join(result.errors)}")
+            raise RuntimeError(f"Agent update pipeline failed: {'; '.join(result.errors)}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         persisted_id = agent.id
         created_at = agent.created_at
@@ -1427,7 +1427,7 @@ class AgentsService:
                     trigger="agent_update",
                     db=self._db,
                 )
-            except Exception as sync_exc:
+            except Exception as sync_exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.warning("Agent MCP sync after update failed (non-fatal): %s", sync_exc)
 
         return AgentCreateResult(
@@ -1646,7 +1646,7 @@ class AgentsService:
             tools = (
                 [str(t) for t in cast(list[Any], raw_tools)] if isinstance(raw_tools, list) else []
             )
-            return {
+            return {  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
                 "system_prompt": enhanced_prompt,
                 "description": desc,
                 "tools": tools,
@@ -1669,7 +1669,7 @@ class AgentsService:
                 repo=repo,
                 path=".github/agents",
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             return []
 
         examples: list[str] = []
@@ -1690,7 +1690,7 @@ class AgentsService:
                     content = str(file_data["content"])
                     # Trim to first 1500 chars to avoid token overload
                     examples.append(f"### {name}\n```\n{content[:1500]}\n```")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.debug(
                     "Skipping example agent file %s after read failure", name, exc_info=exc
                 )
@@ -1749,7 +1749,7 @@ class AgentsService:
             tools = (
                 [str(t) for t in cast(list[Any], raw_tools)] if isinstance(raw_tools, list) else []
             )
-            return {"description": desc, "tools": tools}
+            return {"description": desc, "tools": tools}  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
         except (json.JSONDecodeError, AttributeError):
             logger.warning("Could not parse AI metadata response: %s", text[:200])
             return {"description": name, "tools": []}

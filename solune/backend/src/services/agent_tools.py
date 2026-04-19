@@ -1399,9 +1399,9 @@ async def load_mcp_tools(project_id: str, db: aiosqlite.Connection) -> dict[str,
             len(mcp_servers),
             project_id[:20],
         )
-        return mcp_servers
+        return mcp_servers  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.warning(
             "load_mcp_tools: failed to load MCP tools for project %s: %s",
             project_id[:20],

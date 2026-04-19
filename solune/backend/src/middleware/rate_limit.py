@@ -103,7 +103,7 @@ class RateLimitKeyMiddleware:
                     RATE_LIMIT_SESSION_TIMEOUT,
                 )
                 request.state.rate_limit_key = f"ip:{get_remote_address(request)}"
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: middleware resilience; logs and continues
                 logger.debug("Rate limit key resolution failed", exc_info=True)
 
         await self.app(scope, receive, send)

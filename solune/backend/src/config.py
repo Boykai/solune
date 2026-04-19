@@ -176,7 +176,7 @@ class Settings(BaseSettings):
         # 1. ai_provider enum check — universal (fatal in all modes)
         _valid_providers = {"copilot", "azure_openai"}
         if self.ai_provider not in _valid_providers:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Unknown AI_PROVIDER {self.ai_provider!r}. "
                 f"Supported values: {', '.join(sorted(_valid_providers))}."
             )
@@ -278,7 +278,7 @@ class Settings(BaseSettings):
                 continue
             parsed = urlparse(origin)
             if parsed.scheme not in ("http", "https") or not parsed.hostname:
-                raise ValueError(
+                raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     f"Malformed CORS origin: {origin!r}. "
                     "Each origin must include a scheme (http/https) and hostname."
                 )

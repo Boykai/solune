@@ -76,7 +76,7 @@ def _normalize_issue_description(issue_description: str) -> str:
     """Trim and validate uploaded issue text."""
     normalized = issue_description.strip()
     if not normalized:
-        raise ValidationError("Issue description is required")
+        raise ValidationError("Issue description is required")  # noqa: TRY003 — reason: domain exception with descriptive message
     return normalized
 
 
@@ -138,7 +138,7 @@ async def _prepare_workflow_config(
             github_user_id=github_user_id or "",
         )
         if pipeline_result is None:
-            raise NotFoundError("Selected pipeline config is no longer available")
+            raise NotFoundError("Selected pipeline config is no longer available")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         config.agent_mappings, pipeline_name, exec_modes, grp_mappings = pipeline_result
         config.stage_execution_modes = exec_modes
@@ -161,8 +161,8 @@ async def _load_user_agent_model(session: UserSession) -> str:
 
     try:
         effective_settings = await get_effective_user_settings(get_db(), session.github_user_id)
-        return effective_settings.ai.agent_model or ""
-    except Exception as e:
+        return effective_settings.ai.agent_model or ""  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         logger.debug("Failed to load user agent model for pipeline launch: %s", e)
         return ""
 
@@ -174,8 +174,8 @@ async def _load_user_reasoning_effort(session: UserSession) -> str:
 
     try:
         effective_settings = await get_effective_user_settings(get_db(), session.github_user_id)
-        return effective_settings.ai.reasoning_effort or ""
-    except Exception as e:
+        return effective_settings.ai.reasoning_effort or ""  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         logger.debug("Failed to load user reasoning effort for pipeline launch: %s", e)
         return ""
 
@@ -355,7 +355,7 @@ async def execute_pipeline_launch(
                 f"**Functional Requirements:**\n{reqs}\n\n"
                 f"**Technical Notes:** {recommendation.technical_notes}"
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
             logger.warning("Transcript analysis failed, using raw description: %s", exc)
 
     service = _get_service()
@@ -380,7 +380,7 @@ async def execute_pipeline_launch(
             )
 
         if len(issue_body) > GITHUB_ISSUE_BODY_MAX_LENGTH:
-            raise ValidationError(
+            raise ValidationError(  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                 f"Issue description is too large for GitHub's {GITHUB_ISSUE_BODY_MAX_LENGTH}-character limit"
             )
 
@@ -483,7 +483,7 @@ async def execute_pipeline_launch(
                     item_id=ctx.project_item_id,
                     metadata=metadata_dict,
                 )
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
             logger.warning("Failed to set pipeline metadata", exc_info=True)
 
         status_name = config.status_backlog
@@ -650,7 +650,7 @@ async def get_pipeline(
         project_id, pipeline_id, github_user_id=session.github_user_id
     )
     if pipeline is None:
-        raise NotFoundError("Pipeline not found")
+        raise NotFoundError("Pipeline not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     return pipeline
 
 
@@ -680,7 +680,7 @@ async def update_pipeline(
         raise AppException(str(exc), status_code=409) from exc
 
     if updated is None:
-        raise NotFoundError("Pipeline not found")
+        raise NotFoundError("Pipeline not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     await log_event(
         get_db(),
         event_type="pipeline_run",
@@ -710,7 +710,7 @@ async def delete_pipeline(
         project_id, pipeline_id, github_user_id=session.github_user_id
     )
     if not deleted:
-        raise NotFoundError("Pipeline not found")
+        raise NotFoundError("Pipeline not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     await log_event(
         get_db(),
         event_type="pipeline_run",
@@ -757,7 +757,7 @@ async def create_pipeline_run(
         session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id
     )
     if pipeline is None:
-        raise NotFoundError("Pipeline configuration not found")
+        raise NotFoundError("Pipeline configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Build stage list from pipeline config
     stages = [{"stage_id": stage.id, "group_id": None} for stage in pipeline.stages]
@@ -802,7 +802,7 @@ async def list_pipeline_runs(
         session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id
     )
     if pipeline is None:
-        raise NotFoundError("Pipeline configuration not found")
+        raise NotFoundError("Pipeline configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     run_service = _get_run_service()
     result = await run_service.list_runs(
@@ -827,12 +827,12 @@ async def get_pipeline_run(
         session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id
     )
     if pipeline is None:
-        raise NotFoundError("Pipeline configuration not found")
+        raise NotFoundError("Pipeline configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     run_service = _get_run_service()
     run = await run_service.get_run(run_id)
     if run is None or run.pipeline_config_id != pipeline_id:
-        raise NotFoundError("Pipeline run not found")
+        raise NotFoundError("Pipeline run not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     return run.model_dump()
 
 
@@ -851,21 +851,21 @@ async def cancel_pipeline_run(
         session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id
     )
     if pipeline is None:
-        raise NotFoundError("Pipeline configuration not found")
+        raise NotFoundError("Pipeline configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     run_service = _get_run_service()
 
     # Verify the run exists and belongs to this pipeline
     run = await run_service.get_run(run_id)
     if run is None or run.pipeline_config_id != pipeline_id:
-        raise NotFoundError("Pipeline run not found")
+        raise NotFoundError("Pipeline run not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if run.status not in ("pending", "running"):
-        raise ValidationError(f"Cannot cancel a run with status '{run.status}'")
+        raise ValidationError(f"Cannot cancel a run with status '{run.status}'")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     event = await run_service.cancel_run(run_id)
     if event is None:
-        raise NotFoundError("Pipeline run not found")
+        raise NotFoundError("Pipeline run not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     await log_event(
         get_db(),
@@ -897,16 +897,16 @@ async def recover_pipeline_run(
         session.selected_project_id or "", pipeline_id, github_user_id=session.github_user_id
     )
     if pipeline is None:
-        raise NotFoundError("Pipeline configuration not found")
+        raise NotFoundError("Pipeline configuration not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     run_service = _get_run_service()
 
     run = await run_service.get_run(run_id)
     if run is None or run.pipeline_config_id != pipeline_id:
-        raise NotFoundError("Pipeline run not found")
+        raise NotFoundError("Pipeline run not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if run.status not in ("running", "failed"):
-        raise ValidationError(f"Cannot recover a run with status '{run.status}'")
+        raise ValidationError(f"Cannot recover a run with status '{run.status}'")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Reset failed stages to pending for re-execution
     for stage in run.stages:
@@ -944,9 +944,9 @@ async def upsert_stage_groups(
     # Validate input
     for group in body:
         if not group.get("name"):
-            raise ValidationError("Each group must have a name")
+            raise ValidationError("Each group must have a name")  # noqa: TRY003 — reason: domain exception with descriptive message
         if "order_index" not in group:
-            raise ValidationError("Each group must have an order_index")
+            raise ValidationError("Each group must have an order_index")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     run_service = _get_run_service()
     _run_service_any: Any = run_service

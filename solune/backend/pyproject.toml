@@ -89,7 +89,10 @@ select = [
     "F",    # Pyflakes
     "I",    # isort
     "B",    # flake8-bugbear
+    "BLE",  # flake8-blind-except (ADR-008)
     "C4",   # flake8-comprehensions
+    "S110", # try-except-pass detector (non-waivable)
+    "TRY",  # tryceratops (exception anti-patterns)
     "UP",   # pyupgrade
     "FURB", # refurb (more Pythonic alternatives)
     "PTH",  # pathlib (prefer pathlib over os.path)
@@ -97,8 +100,14 @@ select = [
     "RUF",  # Ruff-specific rules
 ]
 ignore = [
-    "E501",  # reason: line length enforced by ruff format, not lint
+    "E501",   # reason: line length enforced by ruff format, not lint
+    "TRY400", # reason: higher noise — logging.exception in except blocks
+    "TRY401", # reason: higher noise — verbose log messages in except blocks
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use broad exceptions and long error messages freely (ADR-008 §Tests).
+"tests/**/*.py" = ["BLE001", "TRY003", "TRY301"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]

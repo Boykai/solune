@@ -493,7 +493,7 @@ def _parse_json_response(content: str) -> dict:
             return repaired
 
     logger.error("Failed to parse JSON from response content: %s", content[:500])
-    raise ValueError("Invalid JSON response: could not extract JSON object")
+    raise ValueError("Invalid JSON response: could not extract JSON object")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 def _repair_truncated_json(content: str) -> dict | None:
@@ -587,7 +587,7 @@ def _is_valid_date(date_str: str) -> bool:
     """Check if date string is valid YYYY-MM-DD format."""
     try:
         datetime.strptime(date_str, "%Y-%m-%d")
-        return True
+        return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
     except ValueError:
         return False
 
@@ -633,7 +633,7 @@ def _validate_generated_task(data: dict) -> GeneratedTask:
     description = data.get("description", "").strip()
 
     if not title:
-        raise ValueError("Generated task missing title")
+        raise ValueError("Generated task missing title")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if len(title) > 256:
         title = title[:253] + "..."
@@ -752,11 +752,11 @@ def _parse_issue_recommendation_response(
     technical_notes = data.get("technical_notes", "").strip()
 
     if not title:
-        raise ValueError("AI response missing title")
+        raise ValueError("AI response missing title")  # noqa: TRY003 — reason: domain exception with descriptive message
     if not user_story:
-        raise ValueError("AI response missing user_story")
+        raise ValueError("AI response missing user_story")  # noqa: TRY003 — reason: domain exception with descriptive message
     if not functional_requirements or len(functional_requirements) < 1:
-        raise ValueError("AI response missing functional_requirements")
+        raise ValueError("AI response missing functional_requirements")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if len(title) > 256:
         title = title[:253] + "..."
@@ -815,9 +815,9 @@ async def detect_feature_request_intent(user_input: str, github_token: str | Non
                 logger.info("Detected feature request with confidence: %.2f", confidence)
                 return True
 
-        return False
+        return False  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: AI service resilience; logs and continues
         logger.warning("Failed to detect feature request intent: %s", e)
         return False
 
@@ -868,12 +868,12 @@ async def generate_issue_recommendation(
     except Exception as e:
         error_msg = str(e)
         if "401" in error_msg or "Access denied" in error_msg:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "AI provider authentication failed. Check your credentials "
                 "(GitHub OAuth token for Copilot, or API key for Azure OpenAI)."
             ) from e
         elif "404" in error_msg or "Resource not found" in error_msg:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "AI model/deployment not found. Verify your provider configuration."
             ) from e
         else:
@@ -925,17 +925,17 @@ async def analyze_transcript(
             content, original_input, session_id, metadata_context=metadata_context
         )
         recommendation.original_context = transcript_content
-        return recommendation
+        return recommendation  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
     except Exception as e:
         error_msg = str(e)
         if "401" in error_msg or "Access denied" in error_msg:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "AI provider authentication failed. Check your credentials "
                 "(GitHub OAuth token for Copilot, or API key for Azure OpenAI)."
             ) from e
         elif "404" in error_msg or "Resource not found" in error_msg:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "AI model/deployment not found. Verify your provider configuration."
             ) from e
         else:
@@ -990,7 +990,7 @@ async def parse_status_change_request(
             confidence=confidence,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: AI service resilience; logs and continues
         logger.warning("Failed to parse status change intent: %s", e)
         return None
 
@@ -1082,7 +1082,7 @@ async def generate_title_from_description(
         if title:
             return _truncate_title(title)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: AI service resilience; logs and continues
         logger.warning("Failed to generate title from description: %s", e)
 
     return _truncate_title(user_input)
@@ -1125,13 +1125,13 @@ async def generate_task_from_description(
     except Exception as e:
         error_msg = str(e)
         if "401" in error_msg or "Access denied" in error_msg:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "AI provider authentication failed. Check your credentials "
                 "(GitHub OAuth token for Copilot, or API key for Azure OpenAI). "
                 f"Original error: {error_msg}"
             ) from e
         elif "404" in error_msg or "Resource not found" in error_msg:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"AI model/deployment not found. Verify your provider configuration. "
                 f"Original error: {error_msg}"
             ) from e
@@ -1194,7 +1194,7 @@ async def generate_agent_config(
 
     for key in ("name", "description", "system_prompt"):
         if key not in result:
-            raise ValueError(f"Generated config missing required key: {key}")
+            raise ValueError(f"Generated config missing required key: {key}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return result
 
@@ -1240,6 +1240,6 @@ async def edit_agent_config(
 
     for key in ("name", "description", "system_prompt"):
         if key not in result:
-            raise ValueError(f"Edited config missing required key: {key}")
+            raise ValueError(f"Edited config missing required key: {key}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return result

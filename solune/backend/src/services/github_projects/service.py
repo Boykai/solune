@@ -163,7 +163,7 @@ class GitHubProjectsService(
             await asyncio.sleep(wait)
             from src.exceptions import RateLimitError
 
-            raise RateLimitError(
+            raise RateLimitError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "GitHub secondary rate limit exceeded",
                 retry_after=wait,
             )
@@ -266,7 +266,7 @@ class GitHubProjectsService(
             if verify_fn is not None:
                 try:
                     verified = await verify_fn()
-                except Exception as verify_err:
+                except Exception as verify_err:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                     logger.warning(
                         "%s: verification failed (%s), trying fallback",
                         operation,
@@ -282,8 +282,8 @@ class GitHubProjectsService(
                     try:
                         fallback_result = await fallback_fn()
                         logger.info("%s: fallback strategy succeeded", operation)
-                        return fallback_result
-                    except Exception as fallback_err:
+                        return fallback_result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+                    except Exception as fallback_err:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                         logger.warning(
                             "%s: fallback also failed (%s), returning primary result",
                             operation,
@@ -291,8 +291,8 @@ class GitHubProjectsService(
                         )
                         return result
 
-            return result
-        except Exception as primary_err:
+            return result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as primary_err:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning(
                 "%s: primary strategy failed (%s), trying fallback",
                 operation,
@@ -302,8 +302,8 @@ class GitHubProjectsService(
             try:
                 result = await fallback_fn()
                 logger.info("%s: fallback strategy succeeded", operation)
-                return result
-            except Exception as fallback_err:
+                return result  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+            except Exception as fallback_err:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 logger.warning(
                     "%s: both strategies failed. Primary: %s; Fallback: %s",
                     operation,
@@ -443,7 +443,7 @@ class GitHubProjectsService(
                         await asyncio.sleep(wait)
                         from src.exceptions import RateLimitError
 
-                        raise RateLimitError(
+                        raise RateLimitError(  # noqa: TRY003 — reason: domain exception with descriptive message
                             "GitHub secondary rate limit exceeded",
                             retry_after=wait,
                         )
@@ -451,7 +451,7 @@ class GitHubProjectsService(
                     if "errors" in result:
                         error_msg = "; ".join(e.get("message", str(e)) for e in result["errors"])
                         logger.error("GraphQL error: %s", error_msg)
-                        raise ValueError("GitHub API request failed")
+                        raise ValueError("GitHub API request failed")  # noqa: TRY003 — reason: domain exception with descriptive message
                     return result.get("data", {})
                 else:
                     # Standard GraphQL — SDK handles auth, retry, cache, errors
@@ -462,7 +462,7 @@ class GitHubProjectsService(
             except TimeoutError:
                 from src.exceptions import GitHubAPIError
 
-                raise GitHubAPIError(
+                raise GitHubAPIError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     "GitHub GraphQL request timed out",
                     details={"timeout_seconds": timeout},
                 ) from None

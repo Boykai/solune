@@ -99,7 +99,7 @@ async def is_admin_user(db: aiosqlite.Connection, github_user_id: str) -> bool:
             admin_id = row["admin_github_user_id"] if isinstance(row, dict) else row[0]
 
         return admin_id is not None and str(admin_id) == str(github_user_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.warning("Admin check failed — denying access: %s", e, exc_info=True)
         return False
 
@@ -198,7 +198,7 @@ def parse_command(command_text: str) -> tuple[str, str | None]:
     text = re.sub(r"^[/#]agent\s*", "", text, flags=re.IGNORECASE).strip()
 
     if not text:
-        raise ValueError("empty description")
+        raise ValueError("empty description")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Look for trailing #<status> — last token starting with #
     parts = text.rsplit("#", maxsplit=1)
@@ -206,7 +206,7 @@ def parse_command(command_text: str) -> tuple[str, str | None]:
         description = parts[0].strip()
         raw_status = parts[1].strip()
         if not description:
-            raise ValueError("empty description")
+            raise ValueError("empty description")  # noqa: TRY003 — reason: domain exception with descriptive message
         return description, raw_status
 
     return text, None
@@ -472,7 +472,7 @@ async def _generate_and_present_preview(
             status_column=state.resolved_status or "",
             github_token=access_token,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.error("Failed to generate agent config: %s", exc)
         clear_session(session_key)
         return (
@@ -581,7 +581,7 @@ async def _apply_edit(
             edit_instruction=edit_instruction,
             github_token=access_token,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.error("Failed to apply edit: %s", exc)
         return (
             f"**Error:** Could not apply edit. Please try again.\n\nDetail: {exc}\n\n"
@@ -648,7 +648,7 @@ async def _execute_creation_pipeline(
                 f"**Error:** An agent named **{preview.name}** already exists in this project. "
                 "Please choose a different name."
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.warning("Duplicate check failed (proceeding): %s", exc)
 
     # ── Step 2: Save agent config to database ──
@@ -683,7 +683,7 @@ async def _execute_creation_pipeline(
                 detail=f"ID: {agent_config_id}",
             )
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.error("Step 2 (save config) failed: %s", exc)
         results.append(
             PipelineStepResult(
@@ -705,7 +705,7 @@ async def _execute_creation_pipeline(
                     detail=f"Column '{preview.status_column}' will be created on assignment",
                 )
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.error("Step 3 (create column) failed: %s", exc)
             results.append(
                 PipelineStepResult(
@@ -753,9 +753,9 @@ async def _execute_creation_pipeline(
                     (issue_number, agent_config_id),
                 )
                 await db.commit()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.debug("Suppressed error: %s", e)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.error("Step 4 (create issue) failed: %s", exc)
         results.append(
             PipelineStepResult(
@@ -794,7 +794,7 @@ async def _execute_creation_pipeline(
                         (branch_name, agent_config_id),
                     )
                     await db.commit()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                     logger.debug("Suppressed error: %s", e)
         else:
             results.append(
@@ -804,7 +804,7 @@ async def _execute_creation_pipeline(
                     error="create_branch returned None",
                 )
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.error("Step 5 (create branch) failed: %s", exc)
         results.append(
             PipelineStepResult(
@@ -845,7 +845,7 @@ async def _execute_creation_pipeline(
                         error="commit_files returned None",
                     )
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.error("Step 6 (commit files) failed: %s", exc)
             results.append(
                 PipelineStepResult(
@@ -903,7 +903,7 @@ async def _execute_creation_pipeline(
                             (pr_number, agent_config_id),
                         )
                         await db.commit()
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                         logger.debug("Suppressed error: %s", e)
             else:
                 results.append(
@@ -913,7 +913,7 @@ async def _execute_creation_pipeline(
                         error="create_pull_request returned None",
                     )
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.error("Step 7 (create PR) failed: %s", exc)
             results.append(
                 PipelineStepResult(
@@ -964,7 +964,7 @@ async def _execute_creation_pipeline(
                         detail=f"Issue #{issue_number} moved to In Review",
                     )
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.error("Step 8 (move issue) failed: %s", exc)
             results.append(
                 PipelineStepResult(
@@ -990,7 +990,7 @@ async def _execute_creation_pipeline(
             status_column=preview.status_column,
             agent_slug=preview.slug,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.warning("Failed to update pipeline mappings: %s", exc)
 
     # ── Done ──
@@ -1117,7 +1117,7 @@ async def _handle_project_selection(
                 owner, repo = await _resolve_owner_repo(access_token, project["id"])
                 state.owner = owner
                 state.repo = repo
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.debug("Suppressed error: %s", e)
 
             return await _resolve_status_step(
@@ -1182,5 +1182,5 @@ async def _update_pipeline_mappings(
             status_column,
             project_id,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
         logger.warning("Could not update pipeline mappings: %s", exc)

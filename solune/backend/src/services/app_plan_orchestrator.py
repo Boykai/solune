@@ -127,7 +127,7 @@ class AppPlanOrchestrator:
                 phases = parse_plan(plan_md_content)
                 if not phases:
                     msg = "No phases found in plan.md"
-                    raise ValueError(msg)
+                    raise ValueError(msg)  # noqa: TRY301 — reason: raise in except acceptable for this pattern
 
                 # Step 4: creating_issues — create GitHub parent issues per phase
                 await self._update_status(orch_id, project_id, "creating_issues", app_name=app_name)
@@ -389,7 +389,7 @@ class AppPlanOrchestrator:
                     issue_number=issue_number,
                 )
                 logger.info("Closed planning issue #%d", issue_number)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.warning("Failed to close planning issue #%d", issue_number, exc_info=True)
 
     async def _discover_pr_branch(
@@ -410,7 +410,7 @@ class AppPlanOrchestrator:
             )
             if prs:
                 return prs[0].get("head", {}).get("ref", "main")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.warning(
                 "Could not discover PR branch for issue #%d, using main",
                 issue_number,
@@ -478,7 +478,7 @@ class AppPlanOrchestrator:
                         issue_node_id=issue_node_id,
                         issue_database_id=issue.get("id"),
                     )
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.warning(
                     "Failed to add phase issue #%d to project board",
                     issue_number,
@@ -602,7 +602,7 @@ class AppPlanOrchestrator:
                     (status, error, utcnow().isoformat(), orchestration_id),
                 )
                 await self._db.commit()
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.warning("Failed to update orchestration status in DB", exc_info=True)
 
         payload: dict[str, Any] = {
@@ -622,7 +622,7 @@ class AppPlanOrchestrator:
         if self._connection_manager:
             try:
                 await self._connection_manager.broadcast_to_project(project_id, payload)
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.warning("WebSocket broadcast failed", exc_info=True)
 
     async def _save_orchestration(
@@ -673,5 +673,5 @@ class AppPlanOrchestrator:
                 ),
             )
             await self._db.commit()
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.warning("Failed to save orchestration state", exc_info=True)

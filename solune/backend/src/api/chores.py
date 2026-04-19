@@ -89,7 +89,7 @@ async def evaluate_triggers(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(e, "resolve repository for chore triggers")
 
     result = cast(
@@ -119,7 +119,7 @@ async def list_templates(
 
     try:
         owner, repo = await resolve_repository(session.access_token, project_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         logger.warning(
             "Failed to resolve repository for project %s when listing chore templates",
             project_id,
@@ -307,7 +307,7 @@ async def create_chore(
         )
     except ValueError as exc:
         logger.warning("Invalid chore creation request: %s", exc)
-        raise ValidationError("Invalid chore configuration") from exc
+        raise ValidationError("Invalid chore configuration") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Update template_content to the fully-built version
     await service.update_chore_fields(
@@ -318,7 +318,7 @@ async def create_chore(
     # Re-fetch to include updated fields
     updated = await service.get_chore(chore.id)
     if updated is None:
-        raise AppException("Failed to retrieve created chore", status_code=500)
+        raise AppException("Failed to retrieve created chore", status_code=500)  # noqa: TRY003 — reason: domain exception with descriptive message
     await log_event(
         get_db(),
         event_type="chore_crud",
@@ -349,16 +349,16 @@ async def update_chore(
     # Verify the chore exists and belongs to this project
     existing = await service.get_chore(chore_id)
     if existing is None or existing.project_id != project_id:
-        raise NotFoundError("Chore not found")
+        raise NotFoundError("Chore not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         updated = await service.update_chore(chore_id, body)
     except ValueError as exc:
         logger.warning("Invalid chore update request: %s", exc)
-        raise ValidationError("Invalid chore configuration") from exc
+        raise ValidationError("Invalid chore configuration") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if updated is None:
-        raise NotFoundError("Chore not found after update")
+        raise NotFoundError("Chore not found after update")  # noqa: TRY003 — reason: domain exception with descriptive message
     await log_event(
         get_db(),
         event_type="chore_crud",
@@ -388,7 +388,7 @@ async def delete_chore(
     # Verify the chore exists and belongs to this project
     existing = await service.get_chore(chore_id)
     if existing is None or existing.project_id != project_id:
-        raise NotFoundError("Chore not found")
+        raise NotFoundError("Chore not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     closed_issue_number = None
 
@@ -405,7 +405,7 @@ async def delete_chore(
                 state_reason="not_planned",
             )
             closed_issue_number = existing.current_issue_number
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
             logger.warning(
                 "Failed to close issue #%s when deleting chore %s",
                 existing.current_issue_number,
@@ -444,7 +444,7 @@ async def trigger_chore(
 
     chore = await service.get_chore(chore_id)
     if chore is None or chore.project_id != project_id:
-        raise NotFoundError("Chore not found")
+        raise NotFoundError("Chore not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     owner, repo = await resolve_repository(session.access_token, project_id)
 
@@ -499,7 +499,7 @@ async def chore_chat(
             github_token=session.access_token,
             ai_enhance=body.ai_enhance,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "complete chat", AppException)
 
     return ChoreChatResponse(
@@ -525,7 +525,7 @@ async def inline_update_chore(
 
     existing = await service.get_chore(chore_id)
     if existing is None or existing.project_id != project_id:
-        raise NotFoundError("Chore not found")
+        raise NotFoundError("Chore not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     needs_pr = body.name is not None or body.template_content is not None
     owner = None
@@ -539,7 +539,7 @@ async def inline_update_chore(
                 project_id,
                 exc_info=True,
             )
-            raise ValidationError(
+            raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Could not resolve repository for project; inline update cannot create a pull request."
             ) from exc
 
@@ -594,7 +594,7 @@ async def create_chore_with_merge(
         logger.error(
             "Failed to resolve repository for project %s: %s", project_id, exc, exc_info=True
         )
-        raise ValidationError("Could not resolve repository for this project") from exc
+        raise ValidationError("Could not resolve repository for this project") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         result = cast(

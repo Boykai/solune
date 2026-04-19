@@ -143,7 +143,7 @@ async def commit_template_to_repo(
     # 2. Create branch (may already exist from a previous attempt)
     ref_id = await github_service.create_branch(access_token, repository_id, branch_name, head_oid)
     if ref_id is None:
-        raise RuntimeError(f"Failed to create branch {branch_name}")
+        raise RuntimeError(f"Failed to create branch {branch_name}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # If the branch already exists, its HEAD may differ from the default
     # branch HEAD.  Fetch the actual branch HEAD for the commit.
@@ -166,7 +166,7 @@ async def commit_template_to_repo(
         f"chore: add issue template for {name}",
     )
     if commit_oid is None:
-        raise RuntimeError(f"Failed to commit template to {branch_name}")
+        raise RuntimeError(f"Failed to commit template to {branch_name}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # 4. Create Pull Request
     pr = await github_service.create_pull_request(
@@ -203,7 +203,7 @@ async def commit_template_to_repo(
     # 6. Add tracking issue to project
     try:
         await github_service.add_issue_to_project(access_token, project_id, tracking_issue_node_id)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: background task; logs and continues
         logger.warning(
             "Failed to add tracking issue #%d to project %s",
             tracking_issue_number,
@@ -266,7 +266,7 @@ async def update_template_in_repo(
 
     ref_id = await github_service.create_branch(access_token, repository_id, branch_name, head_oid)
     if ref_id is None:
-        raise RuntimeError(f"Failed to create branch {branch_name}")
+        raise RuntimeError(f"Failed to create branch {branch_name}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     commit_base_oid = head_oid
     if ref_id == "existing":
@@ -292,7 +292,7 @@ async def update_template_in_repo(
         deletions=deletions,
     )
     if commit_oid is None:
-        raise RuntimeError(f"Failed to commit template update to {branch_name}")
+        raise RuntimeError(f"Failed to commit template update to {branch_name}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     pr = await github_service.create_pull_request(
         access_token,
@@ -351,7 +351,7 @@ async def merge_chore_pr(
         )
         if result and result.get("merged"):
             return True, None
-        return False, "Merge was not completed"
-    except Exception as exc:
+        return False, "Merge was not completed"  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as exc:  # noqa: BLE001 — reason: background task; logs and continues
         logger.warning("Failed to merge PR #%s: %s", pr_number, exc)
         return False, str(exc)

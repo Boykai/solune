@@ -94,7 +94,7 @@ class ConnectionManager:
         for websocket in list(connections):
             try:
                 await websocket.send_json(message)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                 logger.warning("Failed to send to WebSocket: %s", e)
                 disconnected.append(websocket)
 
@@ -135,7 +135,7 @@ class ConnectionManager:
         for websocket in sockets:
             try:
                 await websocket.close()
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                 logger.debug("Failed to close WebSocket during shutdown", exc_info=True)
 
 

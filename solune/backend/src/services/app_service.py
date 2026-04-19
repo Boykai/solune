@@ -56,19 +56,19 @@ def validate_app_name(name: str) -> None:
     Raises ``ValidationError`` on any violation.
     """
     if not re.match(APP_NAME_PATTERN, name):
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Invalid app name '{name}': must be 2-64 lowercase alphanumeric "
             "characters or hyphens, starting and ending with alphanumeric."
         )
     if len(name) < 2 or len(name) > 64:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Invalid app name '{name}': length must be between 2 and 64 characters."
         )
     if name in RESERVED_NAMES:
-        raise ValidationError(f"App name '{name}' is reserved and cannot be used.")
+        raise ValidationError(f"App name '{name}' is reserved and cannot be used.")  # noqa: TRY003 — reason: domain exception with descriptive message
     # Path traversal protection
     if ".." in name or "/" in name or "\\" in name:
-        raise ValidationError(f"Invalid app name '{name}': path traversal characters not allowed.")
+        raise ValidationError(f"Invalid app name '{name}': path traversal characters not allowed.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 def _build_scaffold_files(
@@ -202,7 +202,7 @@ async def _enhance_app_descriptions(
             if len(repo_desc) > 350:
                 repo_desc = repo_desc[:347] + "..."
             return repo_desc, full_desc
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
         logger.warning(
             "AI enhancement failed for app '%s', using original: %s",
             display_name,
@@ -236,7 +236,7 @@ async def create_app(
     # Check for duplicate
     cursor = await db.execute("SELECT name FROM apps WHERE name = ?", (payload.name,))
     if await cursor.fetchone():
-        raise ConflictError(f"App '{payload.name}' already exists.")
+        raise ConflictError(f"App '{payload.name}' already exists.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if payload.repo_type == RepoType.EXTERNAL_REPO:
         from src.utils import parse_github_url
@@ -247,11 +247,11 @@ async def create_app(
         owner = settings.default_repo_owner
         repo = settings.default_repo_name
         if not owner or not repo:
-            raise ValidationError("Default repository not configured (DEFAULT_REPOSITORY).")
+            raise ValidationError("Default repository not configured (DEFAULT_REPOSITORY).")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     branch_name = payload.branch
     if not branch_name:
-        raise ValidationError("Branch is required for same-repo and external-repo app types.")
+        raise ValidationError("Branch is required for same-repo and external-repo app types.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     # Resolve branch HEAD
     head_oid = await github_service.get_branch_head_oid(
@@ -261,7 +261,7 @@ async def create_app(
         branch_name,
     )
     if not head_oid:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Branch '{branch_name}' not found in {owner}/{repo}. "
             "Ensure the parent issue branch exists before creating an app."
         )
@@ -287,7 +287,7 @@ async def create_app(
         message=f"scaffold: create app `{payload.name}`",
     )
     if not commit_oid:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Failed to commit scaffold files for app '{payload.name}' to branch '{branch_name}'."
         )
 
@@ -317,9 +317,9 @@ async def create_app(
                         project_id=github_project_id,
                         repository_id=repository_id,
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                     logger.warning("Non-blocking: could not link project to repo: %s", exc)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.warning(
                 "Non-blocking: project creation failed for app '%s': %s",
                 payload.name,
@@ -362,7 +362,7 @@ async def create_app(
     # Flush WAL to disk so the app record survives an ungraceful shutdown.
     try:
         await db.execute("PRAGMA wal_checkpoint(PASSIVE);")
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
         logger.warning("WAL checkpoint after app creation failed", exc_info=True)
 
     logger.info(
@@ -377,7 +377,7 @@ async def create_app(
     cursor = await db.execute("SELECT * FROM apps WHERE name = ?", (payload.name,))
     row = await cursor.fetchone()
     if not row:
-        raise NotFoundError(f"App '{payload.name}' not found after creation.")
+        raise NotFoundError(f"App '{payload.name}' not found after creation.")  # noqa: TRY003 — reason: domain exception with descriptive message
     return _row_to_app(row)
 
 
@@ -410,10 +410,10 @@ async def create_app_with_new_repo(
     # Check for duplicate
     cursor = await db.execute("SELECT name FROM apps WHERE name = ?", (payload.name,))
     if await cursor.fetchone():
-        raise ConflictError(f"App '{payload.name}' already exists.")
+        raise ConflictError(f"App '{payload.name}' already exists.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if not payload.repo_owner:
-        raise ValidationError("repo_owner is required when creating a new repository.")
+        raise ValidationError("repo_owner is required when creating a new repository.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     is_private = payload.repo_visibility != "public"
 
@@ -466,14 +466,14 @@ async def create_app_with_new_repo(
             head_oid = info.get("head_oid")
             if head_oid:
                 break
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             last_poll_exc = exc
         if attempt < max_attempts - 1:
             await asyncio.sleep(min(1.0 * (1.5**attempt), 4.0))
 
     if not head_oid:
         detail = f" Last error: {last_poll_exc}" if last_poll_exc else ""
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Repository '{repo_data['full_name']}' was created but default branch "
             f"is not yet available. Please try again.{detail}"
         )
@@ -520,7 +520,7 @@ async def create_app_with_new_repo(
                 "AZURE_CLIENT_SECRET",
                 payload.azure_client_secret,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.warning(
                 "Failed to store Azure credentials for '%s': %s",
                 payload.name,
@@ -556,9 +556,9 @@ async def create_app_with_new_repo(
                         project_id=github_project_id,
                         repository_id=repo_data["node_id"],
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                     logger.warning("Non-blocking: could not link project to repo: %s", exc)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.warning(
                 "Non-blocking: project creation failed for app '%s': %s",
                 payload.name,
@@ -604,7 +604,7 @@ async def create_app_with_new_repo(
     # Flush WAL to disk so the app record survives an ungraceful shutdown.
     try:
         await db.execute("PRAGMA wal_checkpoint(PASSIVE);")
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
         logger.warning("WAL checkpoint after new-repo app creation failed", exc_info=True)
 
     logger.info(
@@ -617,7 +617,7 @@ async def create_app_with_new_repo(
     cursor = await db.execute("SELECT * FROM apps WHERE name = ?", (payload.name,))
     row = await cursor.fetchone()
     if not row:
-        raise NotFoundError(f"App '{payload.name}' not found after creation.")
+        raise NotFoundError(f"App '{payload.name}' not found after creation.")  # noqa: TRY003 — reason: domain exception with descriptive message
     app = _row_to_app(row)
     if warnings:
         app = app.model_copy(update={"warnings": warnings})
@@ -678,7 +678,7 @@ async def create_standalone_project(
                     project_id=project["id"],
                     repository_id=repo_node_id,
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.warning("Non-blocking: could not link project to repo: %s", exc)
 
     return result
@@ -706,7 +706,7 @@ async def get_app(db: aiosqlite.Connection, name: str) -> App:
     cursor = await db.execute("SELECT * FROM apps WHERE name = ?", (name,))
     row = await cursor.fetchone()
     if not row:
-        raise NotFoundError(f"App '{name}' not found.")
+        raise NotFoundError(f"App '{name}' not found.")  # noqa: TRY003 — reason: domain exception with descriptive message
     return _row_to_app(row)
 
 
@@ -728,7 +728,7 @@ async def update_app(db: aiosqlite.Connection, name: str, payload: AppUpdate) ->
     # Reject unexpected column names (defense-in-depth against SQL injection)
     bad = set(updates) - _APP_UPDATABLE_COLUMNS
     if bad:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             "Invalid fields in update payload.",
             details={"invalid_fields": sorted(bad)},
         )
@@ -758,7 +758,7 @@ async def start_app(db: aiosqlite.Connection, name: str) -> AppStatusResponse:
         )
 
     if AppStatus.ACTIVE not in _VALID_TRANSITIONS.get(app.status, set()):
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Cannot start app '{name}': invalid transition from '{app.status.value}' to 'active'."
         )
 
@@ -788,7 +788,7 @@ async def stop_app(db: aiosqlite.Connection, name: str) -> AppStatusResponse:
         )
 
     if AppStatus.STOPPED not in _VALID_TRANSITIONS.get(app.status, set()):
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Cannot stop app '{name}': invalid transition from '{app.status.value}' to 'stopped'."
         )
 
@@ -855,7 +855,7 @@ async def get_app_assets(
                             source = event.get("source", {}).get("issue", {})
                             if source.get("number"):
                                 sub_issues.append(source["number"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.debug("Could not fetch sub-issues for app '%s': %s", name, exc)
 
         # Fetch branches matching the app name pattern
@@ -871,7 +871,7 @@ async def get_app_assets(
                     ref_name = ref.get("ref", "").removeprefix("refs/heads/")
                     if ref_name:
                         branches.append(ref_name)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             logger.debug("Could not fetch branches for app '%s': %s", name, exc)
 
     return AppAssetInventory(
@@ -907,7 +907,7 @@ async def delete_app(
     app = await get_app(db, name)
 
     if app.status == AppStatus.ACTIVE:
-        raise ValidationError(f"Cannot delete app '{name}': must stop the app first.")
+        raise ValidationError(f"Cannot delete app '{name}': must stop the app first.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     validate_app_name(app.name)
 
@@ -940,7 +940,7 @@ async def delete_app(
                     owner,
                     repo,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.warning(
                     "Could not close parent issue #%d for app '%s': %s",
                     app.parent_issue_number,
@@ -976,7 +976,7 @@ async def delete_app(
                             source = event.get("source", {}).get("issue", {})
                             if source.get("number"):
                                 all_issues.append(source["number"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 logger.debug("Could not fetch sub-issues: %s", exc)
 
         for issue_number in all_issues:
@@ -989,7 +989,7 @@ async def delete_app(
                 )
                 result.issues_closed += 1
                 await asyncio.sleep(RATE_LIMIT_DELAY)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 result.errors.append(f"Could not close issue #{issue_number}: {exc}")
 
         # 2. Delete app-related branches
@@ -1010,9 +1010,9 @@ async def delete_app(
                             )
                             result.branches_deleted += 1
                             await asyncio.sleep(RATE_LIMIT_DELAY)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                             result.errors.append(f"Could not delete branch '{branch_name}': {exc}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
             result.errors.append(f"Could not list branches: {exc}")
 
         # 3. Delete GitHub project (new-repo apps only)
@@ -1020,7 +1020,7 @@ async def delete_app(
             try:
                 await github_service.delete_project_v2(access_token, app.github_project_id)
                 result.project_deleted = True
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 result.errors.append(f"Could not delete project: {exc}")
 
         # 4. Delete GitHub repository (new-repo apps only)
@@ -1028,7 +1028,7 @@ async def delete_app(
             try:
                 await github_service.delete_repository(access_token, owner, repo)
                 result.repo_deleted = True
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: orchestrator resilience; logs and continues
                 result.errors.append(f"Could not delete repository: {exc}")
 
     # 5. Delete database record

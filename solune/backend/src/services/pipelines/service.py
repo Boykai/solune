@@ -373,11 +373,11 @@ class PipelineService:
             )
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
-            raise ValueError(f"A pipeline named '{body.name}' already exists.") from exc
+            raise ValueError(f"A pipeline named '{body.name}' already exists.") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
         pipeline = await self.get_pipeline(project_id, pipeline_id, github_user_id=github_user_id)
         if pipeline is None:
-            raise RuntimeError(f"Pipeline {pipeline_id} was not found after creation")
+            raise RuntimeError(f"Pipeline {pipeline_id} was not found after creation")  # noqa: TRY003 — reason: domain exception with descriptive message
         return pipeline
 
     # ── Update ────────────────────────────────────────────────────────
@@ -400,7 +400,7 @@ class PipelineService:
             return None
 
         if existing.is_preset:
-            raise PermissionError(
+            raise PermissionError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "Cannot modify preset pipelines. Use 'Save as Copy' to create an editable version."
             )
 
@@ -443,7 +443,7 @@ class PipelineService:
             )
             await self._db.commit()
         except aiosqlite.IntegrityError as exc:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"A pipeline named '{updates.get('name', '')}' already exists."
             ) from exc
 
@@ -642,7 +642,7 @@ class PipelineService:
                 github_user_id=github_user_id,
             )
             if existing is None:
-                raise ValueError(f"Pipeline '{pipeline_id}' is no longer available.")
+                raise ValueError(f"Pipeline '{pipeline_id}' is no longer available.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         await self._db.execute(

@@ -142,7 +142,7 @@ async def create_task(
     )
 
     if not item_id:
-        raise ValidationError("Failed to add issue to GitHub Project")
+        raise ValidationError("Failed to add issue to GitHub Project")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         await _create_parent_issue_sub_issues(

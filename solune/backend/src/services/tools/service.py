@@ -178,11 +178,11 @@ class ToolsService:
         data = json.loads(config_content)
         servers = data.get("mcpServers") if isinstance(data, dict) else None
         if not isinstance(servers, dict) or len(servers) != 1:
-            raise ValueError("Configuration must contain exactly one MCP server entry")
+            raise ValueError("Configuration must contain exactly one MCP server entry")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         server_config = next(iter(servers.values()))
         if not isinstance(server_config, dict):
-            raise ValueError("MCP server config must be an object")
+            raise ValueError("MCP server config must be an object")  # noqa: TRY003, TRY004 — reason: domain exception with descriptive message
 
         return {server_name: dict(server_config)}
 
@@ -192,12 +192,12 @@ class ToolsService:
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise ValueError(
+            raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"Invalid JSON in repository MCP config file at {path}: {exc}"
             ) from exc
 
         if not isinstance(parsed, dict):
-            raise ValueError(f"Repository MCP config file at {path} must contain a JSON object")
+            raise ValueError(f"Repository MCP config file at {path} must contain a JSON object")  # noqa: TRY003, TRY004 — reason: domain exception with descriptive message
 
         return parsed
 
@@ -256,7 +256,7 @@ class ToolsService:
             f"'{server_name}' already used by {', '.join(sorted(tool_names))}"
             for server_name, tool_names in sorted(conflicts.items())
         )
-        raise DuplicateToolServerNameError(
+        raise DuplicateToolServerNameError(  # noqa: TRY003 — reason: domain exception with descriptive message
             "MCP server names must be unique per project because repository sync stores them under "
             f"`mcpServers` keys. Conflicts: {details}."
         )
@@ -367,7 +367,7 @@ class ToolsService:
         )
         row = await cursor.fetchone()
         if row and row["cnt"] > 0:
-            raise DuplicateToolNameError(
+            raise DuplicateToolNameError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"An MCP tool named '{data.name}' already exists in this project"
             )
 
@@ -385,7 +385,7 @@ class ToolsService:
         )
         row = await cursor.fetchone()
         if row and row["cnt"] >= MAX_TOOLS_PER_PROJECT:
-            raise ValueError(f"Maximum of {MAX_TOOLS_PER_PROJECT} MCP tools per project reached")
+            raise ValueError(f"Maximum of {MAX_TOOLS_PER_PROJECT} MCP tools per project reached")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         now = utcnow().isoformat()
         tool_id = str(uuid.uuid4())
@@ -462,7 +462,7 @@ class ToolsService:
         """Update an MCP tool configuration and re-sync it to GitHub."""
         existing_tool = await self.get_tool(project_id, tool_id, github_user_id)
         if not existing_tool:
-            raise LookupError("Tool not found")
+            raise LookupError("Tool not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         next_name = (data.name or existing_tool.name).strip()
         next_description = (
@@ -472,7 +472,7 @@ class ToolsService:
         next_repo_target = (data.github_repo_target or existing_tool.github_repo_target).strip()
 
         if not next_name:
-            raise ValueError("Name is required")
+            raise ValueError("Name is required")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         is_valid, error_msg = self.validate_mcp_config(next_config_content)
         if not is_valid:
@@ -484,7 +484,7 @@ class ToolsService:
         )
         duplicate = await cursor.fetchone()
         if duplicate:
-            raise DuplicateToolNameError(
+            raise DuplicateToolNameError(  # noqa: TRY003 — reason: domain exception with descriptive message
                 f"An MCP tool named '{next_name}' already exists in this project"
             )
 
@@ -628,7 +628,7 @@ class ToolsService:
                 trigger="tool_delete",
                 db=self.db,
             )
-        except Exception as sync_exc:
+        except Exception as sync_exc:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
             logger.warning("Agent MCP sync after tool deletion failed (non-fatal): %s", sync_exc)
 
         return ToolDeleteResult(success=True, deleted_id=tool_id, affected_agents=[])
@@ -657,7 +657,7 @@ class ToolsService:
             if resp.status_code == 404:
                 continue
             if resp.status_code != 200:
-                raise RuntimeError(f"GitHub API error: {resp.status_code} {resp.text[:200]}")
+                raise RuntimeError(f"GitHub API error: {resp.status_code} {resp.text[:200]}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
             available_paths.append(path)
             file_data = resp.json()
@@ -704,7 +704,7 @@ class ToolsService:
 
         next_name = data.name.strip()
         if not next_name:
-            raise ValueError("Name is required")
+            raise ValueError("Name is required")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         next_servers = self._extract_single_server_config(
             data.config_content, server_name=next_name
@@ -723,7 +723,7 @@ class ToolsService:
             if resp.status_code == 404:
                 continue
             if resp.status_code != 200:
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     f"GitHub API error for {path}: {resp.status_code} {resp.text[:200]}"
                 )
 
@@ -738,7 +738,7 @@ class ToolsService:
             if server_name not in mcp_servers:
                 continue
             if next_name != server_name and next_name in mcp_servers:
-                raise ValueError(f"An MCP server named '{next_name}' already exists in {path}")
+                raise ValueError(f"An MCP server named '{next_name}' already exists in {path}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
             mcp_servers.pop(server_name, None)
             mcp_servers.update(next_servers)
@@ -753,7 +753,7 @@ class ToolsService:
             )
 
         if not pending_updates:
-            raise LookupError(f"Repository MCP server '{server_name}' not found")
+            raise LookupError(f"Repository MCP server '{server_name}' not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         for api_path, existing_sha, existing_content in pending_updates:
             new_content = json.dumps(existing_content, indent=2) + "\n"
@@ -772,7 +772,7 @@ class ToolsService:
                 json=put_body,
             )
             if put_resp.status_code not in (200, 201):
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     f"GitHub API write error for {api_path.rsplit('/contents/', 1)[-1]}: {put_resp.status_code} {put_resp.text[:200]}"
                 )
             updated_paths.append(api_path.rsplit("/contents/", 1)[-1])
@@ -802,7 +802,7 @@ class ToolsService:
             if resp.status_code == 404:
                 continue
             if resp.status_code != 200:
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     f"GitHub API error for {path}: {resp.status_code} {resp.text[:200]}"
                 )
 
@@ -836,13 +836,13 @@ class ToolsService:
                 json=put_body,
             )
             if put_resp.status_code not in (200, 201):
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY003 — reason: domain exception with descriptive message
                     f"GitHub API write error for {path}: {put_resp.status_code} {put_resp.text[:200]}"
                 )
             removed_paths.append(path)
 
         if removed_config is None:
-            raise LookupError(f"Repository MCP server '{server_name}' not found")
+            raise LookupError(f"Repository MCP server '{server_name}' not found")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         return RepoMcpServerConfig(
             name=server_name,
@@ -885,7 +885,7 @@ class ToolsService:
                     f"'{server_name}' also exists in {', '.join(sorted(tool_names))}"
                     for server_name, tool_names in sorted(conflicts.items())
                 )
-                raise RuntimeError(
+                raise RuntimeError(  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                     f"MCP server-name collision detected during sync. Conflicts: {details}"
                 )
 
@@ -905,7 +905,7 @@ class ToolsService:
                     raw = base64.b64decode(file_data.get("content", "")).decode("utf-8")
                     existing_content = json.loads(raw)
                 elif resp.status_code != 404:
-                    raise RuntimeError(
+                    raise RuntimeError(  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                         f"GitHub API error for {path}: {resp.status_code} {resp.text[:200]}"
                     )
 
@@ -932,7 +932,7 @@ class ToolsService:
                     json=put_body,
                 )
                 if put_resp.status_code not in (200, 201):
-                    raise RuntimeError(
+                    raise RuntimeError(  # noqa: TRY003, TRY301 — reason: domain exception with descriptive message
                         f"GitHub API write error for {path}: {put_resp.status_code} {put_resp.text[:200]}"
                     )
                 synced_paths.append(path)
@@ -959,7 +959,7 @@ class ToolsService:
                     trigger="tool_toggle",
                     db=self.db,
                 )
-            except Exception as sync_exc:
+            except Exception as sync_exc:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                 logger.warning("Agent MCP sync after tool sync failed (non-fatal): %s", sync_exc)
 
             return McpToolConfigSyncResult(
@@ -1099,7 +1099,7 @@ class ToolsService:
             (agent_id, project_id, github_user_id),
         )
         if not await cursor.fetchone():
-            raise ValueError(f"Agent {agent_id} not found in this project")
+            raise ValueError(f"Agent {agent_id} not found in this project")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Validate all tool IDs exist
         if tool_ids:
@@ -1113,7 +1113,7 @@ class ToolsService:
             valid_ids = {row["id"] for row in valid_rows}
             invalid_ids = [tid for tid in tool_ids if tid not in valid_ids]
             if invalid_ids:
-                raise ValueError(f"Invalid tool IDs: {', '.join(invalid_ids)}")
+                raise ValueError(f"Invalid tool IDs: {', '.join(invalid_ids)}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         # Replace associations
         now = utcnow().isoformat()

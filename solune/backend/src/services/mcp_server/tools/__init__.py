@@ -27,7 +27,7 @@ def get_mcp_context(ctx: Any) -> McpContext:
 
         mcp_ctx = get_current_mcp_context()
     if mcp_ctx is None:
-        raise AuthorizationError("Authentication required")
+        raise AuthorizationError("Authentication required")  # noqa: TRY003 — reason: domain exception with descriptive message
     return mcp_ctx
 
 
@@ -52,6 +52,6 @@ async def verify_mcp_project_access(mcp_ctx: McpContext, project_id: str) -> Non
             exc,
             exc_info=True,
         )
-        raise AuthorizationError("Unable to verify project access") from exc
+        raise AuthorizationError("Unable to verify project access") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
-    raise AuthorizationError("You do not have access to this project")
+    raise AuthorizationError("You do not have access to this project")  # noqa: TRY003 — reason: domain exception with descriptive message

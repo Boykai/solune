@@ -89,7 +89,7 @@ async def get_global_settings(db: aiosqlite.Connection) -> GlobalSettingsRespons
     row = await cursor.fetchone()
 
     if row is None:
-        raise RuntimeError("Global settings not found — seed_global_settings() was not called")
+        raise RuntimeError("Global settings not found — seed_global_settings() was not called")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return _row_to_global_response(row)
 
@@ -373,7 +373,7 @@ async def _get_global_row(db: aiosqlite.Connection) -> aiosqlite.Row:
     cursor = await db.execute("SELECT * FROM global_settings WHERE id = 1")
     row = await cursor.fetchone()
     if row is None:
-        raise RuntimeError("Global settings not found")
+        raise RuntimeError("Global settings not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     return row
 
 

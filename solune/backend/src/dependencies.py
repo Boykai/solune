@@ -133,7 +133,7 @@ async def require_admin(
         if settings.admin_github_user_id:
             # Explicit admin designation via ADMIN_GITHUB_USER_ID env var
             if str(session.github_user_id) != str(settings.admin_github_user_id):
-                raise AuthorizationError("Admin access required")
+                raise AuthorizationError("Admin access required")  # noqa: TRY003 — reason: domain exception with descriptive message
             # Set the configured user as admin in the database
             await db.execute(
                 "UPDATE global_settings SET admin_github_user_id = ? WHERE id = 1",
@@ -198,7 +198,7 @@ async def require_admin(
         admin_user_id = row["admin_github_user_id"] if isinstance(row, dict) else row[0]
 
     if str(session.github_user_id) != str(admin_user_id):
-        raise AuthorizationError("Admin access required")
+        raise AuthorizationError("Admin access required")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return session
 
@@ -233,7 +233,7 @@ async def verify_project_access(
                 e,
                 exc_info=True,
             )
-            raise AuthorizationError("Unable to verify project access") from e
+            raise AuthorizationError("Unable to verify project access") from e  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if any(p.project_id == project_id for p in projects):
         # Stash on request state so downstream handlers can reuse without
@@ -241,7 +241,7 @@ async def verify_project_access(
         request.state.verified_projects = projects
         return
 
-    raise AuthorizationError("You do not have access to this project")
+    raise AuthorizationError("You do not have access to this project")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 def require_selected_project(session: UserSession) -> str:
@@ -260,5 +260,5 @@ def require_selected_project(session: UserSession) -> str:
     from src.exceptions import ValidationError
 
     if not session.selected_project_id:
-        raise ValidationError("No project selected. Please select a project first.")
+        raise ValidationError("No project selected. Please select a project first.")  # noqa: TRY003 — reason: domain exception with descriptive message
     return session.selected_project_id

@@ -96,7 +96,7 @@ def _read_template_dir(source_dir: Path) -> tuple[list[dict[str, str]], list[str
             else:
                 try:
                     content = file_path.read_text(encoding="utf-8")
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                     logger.warning("Could not read %s, skipping", file_path)
                     warnings.append(f"Failed to read template file: {relative}")
                     continue
@@ -114,7 +114,7 @@ def _read_template_dir(source_dir: Path) -> tuple[list[dict[str, str]], list[str
             try:
                 content = file_path.read_text(encoding="utf-8")
                 files.append({"path": root_file, "content": content})
-            except Exception:
+            except Exception:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                 logger.warning("Could not read root template %s, skipping", root_file)
                 warnings.append(f"Failed to read template file: {root_file}")
 

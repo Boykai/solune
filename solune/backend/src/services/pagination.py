@@ -21,7 +21,7 @@ def _decode_cursor(cursor: str) -> str:
     try:
         return base64.urlsafe_b64decode(cursor.encode()).decode()
     except Exception as exc:
-        raise ValueError(f"Invalid pagination cursor: {cursor}") from exc
+        raise ValueError(f"Invalid pagination cursor: {cursor}") from exc  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 def apply_pagination[T](
@@ -64,7 +64,7 @@ def apply_pagination[T](
                 start_index = i + 1
                 break
         else:
-            raise ValueError(f"Cursor target not found: {decoded}")
+            raise ValueError(f"Cursor target not found: {decoded}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     end_index = start_index + limit
     page_items = items[start_index:end_index]
@@ -88,4 +88,4 @@ def _default_key_fn(item: Any) -> str:
         return str(item.id)
     if isinstance(item, dict) and "id" in item:
         return str(item["id"])
-    raise TypeError(f"Cannot extract key from {type(item).__name__}; provide a key_fn")
+    raise TypeError(f"Cannot extract key from {type(item).__name__}; provide a key_fn")  # noqa: TRY003 — reason: domain exception with descriptive message

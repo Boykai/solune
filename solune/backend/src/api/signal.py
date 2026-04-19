@@ -93,7 +93,7 @@ async def get_signal_connection(
     try:
         phone = enc.decrypt(conn.signal_phone_encrypted)
         masked = mask_phone_number(phone)
-    except Exception:
+    except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         masked = None
 
     return SignalConnectionResponse(
@@ -115,7 +115,7 @@ async def initiate_signal_link(
     # Check for existing active connection
     existing = await get_connection_by_user(session.github_user_id)
     if existing and existing.status == SignalConnectionStatus.CONNECTED:
-        raise AppException("User already has an active Signal connection", status_code=409)
+        raise AppException("User already has an active Signal connection", status_code=409)  # noqa: TRY003 — reason: domain exception with descriptive message
 
     try:
         qr_base64 = await request_qr_code_base64(body.device_name)
@@ -132,7 +132,7 @@ async def initiate_signal_link(
         elif isinstance(e, (_httpx.ConnectError, _httpx.TimeoutException)):
             detail = f"Cannot reach Signal service: {type(e).__name__}"
         logger.error("Signal QR code request failed: %s", detail, exc_info=True)
-        raise AppException(
+        raise AppException(  # noqa: TRY003 — reason: domain exception with descriptive message
             "Failed to connect to the Signal service. Please try again later.",
             status_code=502,
         ) from e
@@ -155,7 +155,7 @@ async def check_signal_link_status(
         try:
             phone = enc.decrypt(existing.signal_phone_encrypted)
             masked = mask_phone_number(phone)
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
             masked = None
 
         return SignalLinkStatusResponse(
@@ -172,7 +172,7 @@ async def check_signal_link_status(
         phone_hash = _hash_phone(phone)
         existing_for_phone = await get_connection_by_phone_hash(phone_hash)
         if existing_for_phone and existing_for_phone.github_user_id != session.github_user_id:
-            raise AppException(
+            raise AppException(  # noqa: TRY003 — reason: domain exception with descriptive message
                 "This Signal number is already linked to another account",
                 status_code=409,
             )
@@ -190,7 +190,7 @@ async def check_signal_link_status(
             try:
                 await send_welcome_message(phone)
                 await restart_signal_ws_listener()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
                 logger.warning("Post-link tasks failed (non-fatal): %s", e)
 
         from src.services.task_registry import task_registry
@@ -212,7 +212,7 @@ async def disconnect_signal(
     """Disconnect Signal account and purge PII. FR-003, FR-014."""
     deleted = await disconnect_and_purge(session.github_user_id)
     if not deleted:
-        raise NotFoundError("No Signal connection exists")
+        raise NotFoundError("No Signal connection exists")  # noqa: TRY003 — reason: domain exception with descriptive message
     return {"message": "Signal account disconnected"}
 
 
@@ -226,7 +226,7 @@ async def get_signal_preferences(
     """Get Signal notification preferences. FR-007."""
     conn = await get_connection_by_user(session.github_user_id)
     if not conn:
-        raise NotFoundError("No Signal connection exists")
+        raise NotFoundError("No Signal connection exists")  # noqa: TRY003 — reason: domain exception with descriptive message
     return SignalPreferencesResponse(notification_mode=conn.notification_mode)
 
 
@@ -242,7 +242,7 @@ async def update_signal_preferences(
 
     conn = await get_connection_by_user(session.github_user_id)
     if not conn:
-        raise NotFoundError("No Signal connection exists")
+        raise NotFoundError("No Signal connection exists")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     db = get_db()
     now = datetime.now(UTC).isoformat()
@@ -283,7 +283,7 @@ async def dismiss_signal_banner(
     """Dismiss a conflict banner. FR-015."""
     dismissed = await dismiss_banner(banner_id, session.github_user_id)
     if not dismissed:
-        raise NotFoundError("Banner not found")
+        raise NotFoundError("Banner not found")  # noqa: TRY003 — reason: domain exception with descriptive message
     return {"message": "Banner dismissed"}
 
 
@@ -302,21 +302,21 @@ async def handle_inbound_signal_message(
     """
     settings = get_settings()
     if not settings.signal_webhook_secret:
-        raise AppException("Signal webhook not configured", status_code=503)
+        raise AppException("Signal webhook not configured", status_code=503)  # noqa: TRY003 — reason: domain exception with descriptive message
     if x_signal_secret is None or not hmac.compare_digest(
         x_signal_secret, settings.signal_webhook_secret
     ):
-        raise AuthorizationError("Invalid webhook secret")
+        raise AuthorizationError("Invalid webhook secret")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     source = body.source_number
     phone_hash = _hash_phone(source)
 
     conn = await get_connection_by_phone_hash(phone_hash)
     if not conn:
-        raise ValidationError("Unlinked sender")
+        raise ValidationError("Unlinked sender")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     if body.has_attachment and not body.message_text:
-        raise ValidationError("Only text messages are supported")
+        raise ValidationError("Only text messages are supported")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     chat_message_id = await store_inbound_message(
         conn, body.message_text, conn.last_active_project_id

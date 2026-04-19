@@ -94,7 +94,7 @@ class CopilotClientPool:
         for _token_hash, client in list(self._clients.items()):
             try:
                 await client.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.warning("Error stopping CopilotClient: %s", e)
         self._clients.clear()
         logger.info("Cleaned up all CopilotClient instances")
@@ -106,7 +106,7 @@ class CopilotClientPool:
         if client:
             try:
                 await client.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 logger.warning("Error stopping CopilotClient: %s", e)
 
 
@@ -159,7 +159,7 @@ async def call_completion(
             max_tokens=max_tokens,
         )
     else:
-        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")
+        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 async def _copilot_completion(
@@ -171,7 +171,7 @@ async def _copilot_completion(
 ) -> str:
     """Run a single completion using the GitHub Copilot SDK."""
     if not github_token:
-        raise ValueError(
+        raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
             "GitHub OAuth token required for Copilot provider. "
             "Ensure user is authenticated via GitHub OAuth."
         )
@@ -217,7 +217,7 @@ async def _copilot_completion(
                 error_msg = getattr(event.data, "message", str(event.data))
                 error_content.append(error_msg)
                 done.set()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.warning("Error processing Copilot event: %s", e)
             done.set()
 
@@ -231,11 +231,11 @@ async def _copilot_completion(
     finally:
         try:
             await session.destroy()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: agent service resilience; logs and continues
             logger.warning("Error destroying Copilot session: %s", e)
 
     if error_content:
-        raise ValueError(f"Copilot API error: {error_content[0]}")
+        raise ValueError(f"Copilot API error: {error_content[0]}")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     return "".join(result_content) if result_content else ""
 
@@ -250,7 +250,7 @@ async def _azure_completion(
     settings = get_settings()
 
     if not settings.azure_openai_endpoint or not settings.azure_openai_key:
-        raise ValueError(
+        raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
             "Azure OpenAI credentials not configured. "
             "Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY in .env"
         )
@@ -391,7 +391,7 @@ def _wrap_copilot_tools_with_runtime_state(
                     "text_result_for_llm": text or str(result),
                     "result_type": "success",
                 }
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — reason: agent service resilience; logs and continues
                 return {
                     "text_result_for_llm": f"Error: {exc}",
                     "result_type": "failure",
@@ -460,7 +460,7 @@ async def create_agent(
             tools=tools,
         )
     else:
-        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")
+        raise ValueError(f"Unknown AI_PROVIDER {provider!r}. Supported: 'copilot', 'azure_openai'.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
 
 async def _create_copilot_agent(
@@ -479,7 +479,7 @@ async def _create_copilot_agent(
     only one CLI server process exists per GitHub token.
     """
     if not github_token:
-        raise ValueError(
+        raise ValueError(  # noqa: TRY003 — reason: domain exception with descriptive message
             "GitHub OAuth token required for Copilot agent provider. "
             "Ensure user is authenticated via GitHub OAuth."
         )
@@ -529,7 +529,7 @@ def _create_azure_agent(
     settings = get_settings()
 
     if not settings.azure_openai_endpoint:
-        raise ValueError("Azure OpenAI endpoint not configured. Set AZURE_OPENAI_ENDPOINT in .env")
+        raise ValueError("Azure OpenAI endpoint not configured. Set AZURE_OPENAI_ENDPOINT in .env")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     from agent_framework import Agent
     from agent_framework_azure_ai import AzureAIClient

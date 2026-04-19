@@ -70,8 +70,8 @@ class CopilotMixin(_ServiceMixin):
                 repo,
                 [a.get("login") for a in actors],
             )
-            return None, repo_id
-        except Exception as e:
+            return None, repo_id  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning("Failed to get Copilot bot ID: %s", e)
             return None, None
 
@@ -127,9 +127,9 @@ class CopilotMixin(_ServiceMixin):
                     )
                     return True
 
-            return False
+            return False  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "Error checking agent completion comment for issue #%d: %s",
                 issue_number,
@@ -202,7 +202,7 @@ class CopilotMixin(_ServiceMixin):
                 # Don't fail - we'll try to assign anyway
                 return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Error unassigning Copilot from issue #%d: %s", issue_number, e)
             # Don't fail - we'll try to assign anyway
             return True
@@ -248,7 +248,7 @@ class CopilotMixin(_ServiceMixin):
 
         try:
             return await self._cycle_cached(cache_key, _fetch)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning("Error checking Copilot assignment for issue #%d: %s", issue_number, e)
             return True  # Assume still assigned on error (conservative)
 
@@ -461,7 +461,7 @@ class CopilotMixin(_ServiceMixin):
                 )
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "REST fallback failed for issue #%d for %s/%s with custom_agent='%s', base_ref='%s', model='%s': %s",
                 issue_number,
@@ -569,9 +569,9 @@ class CopilotMixin(_ServiceMixin):
                     assigned_logins,
                 )
 
-            return True
+            return True  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "GraphQL failed to assign Copilot for %s/%s issue_node=%s with custom_agent='%s', base_ref='%s', model='%s': %s",
                 owner,
@@ -642,7 +642,7 @@ class CopilotMixin(_ServiceMixin):
                     body,
                 )
                 # Fall through to GraphQL fallback
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 logger.warning(
                     "REST Copilot review request failed for PR #%d, trying GraphQL fallback: %s",
                     pr_number,
@@ -670,7 +670,7 @@ class CopilotMixin(_ServiceMixin):
                 logger.warning("GraphQL Copilot review request may have failed: %s", data)
                 return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to request Copilot review for PR #%d: %s", pr_number or 0, e)
             return False
 
@@ -767,7 +767,7 @@ class CopilotMixin(_ServiceMixin):
                             resp.status_code,
                             resp.text[:300] if resp.text else "",
                         )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                     logger.warning(
                         "Error dismissing Copilot review %s on PR #%d: %s",
                         review_id,
@@ -775,7 +775,7 @@ class CopilotMixin(_ServiceMixin):
                         exc,
                     )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.warning(
                 "Failed to list/dismiss Copilot reviews on PR #%d: %s",
                 pr_number,
@@ -885,8 +885,8 @@ class CopilotMixin(_ServiceMixin):
                         )
                         return True
 
-                return False
-            except Exception as e:
+                return False  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+            except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
                 logger.warning(
                     "REST Copilot review status check failed for PR #%d; falling back to GraphQL: %s",
                     pr_number,
@@ -967,7 +967,7 @@ class CopilotMixin(_ServiceMixin):
 
         try:
             return await self._cycle_cached(cache_key, _fetch)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error("Failed to check Copilot review status for PR #%d: %s", pr_number, e)
             return False
 
@@ -1083,7 +1083,7 @@ class CopilotMixin(_ServiceMixin):
                         body,
                     )
                     return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.debug("Could not check PR #%d comments for Copilot errors: %s", pr_number, e)
 
         return False
@@ -1258,9 +1258,9 @@ class CopilotMixin(_ServiceMixin):
                         pr_number,
                     )
 
-            return None
+            return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: best-effort GitHub API call; logs and returns default
             logger.error(
                 "Failed to check Copilot PR completion for issue #%d: %s",
                 issue_number,

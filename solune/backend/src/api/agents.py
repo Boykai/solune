@@ -60,7 +60,7 @@ async def list_agents(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     agents = await service.list_agents(
@@ -96,7 +96,7 @@ async def list_pending_agents(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     return await service.list_pending_agents(
@@ -119,7 +119,7 @@ async def purge_pending_agents(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     logger.info(
@@ -151,7 +151,7 @@ async def bulk_update_models(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     return await service.bulk_update_models(
@@ -183,7 +183,7 @@ async def browse_catalog(
         return await list_catalog_agents(project_id, get_db())
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "browse catalog", AppException)
 
 
@@ -208,7 +208,7 @@ async def import_agent(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     try:
@@ -261,7 +261,7 @@ async def install_agent(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     try:
@@ -315,7 +315,7 @@ async def create_agent(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     try:
@@ -368,7 +368,7 @@ async def update_agent(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     try:
@@ -421,7 +421,7 @@ async def delete_agent(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     try:
@@ -480,7 +480,7 @@ async def agent_chat(
             session_id=body.session_id,
             access_token=session.access_token,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "complete agent chat", AppException)
 
 
@@ -505,7 +505,7 @@ async def sync_agent_mcps_endpoint(
         owner, repo = await resolve_repository(session.access_token, project_id)
     except AppException:
         raise
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — reason: api boundary; re-raises as HTTP error
         handle_service_error(exc, "resolve repository", ValidationError)
 
     result = await sync_agent_mcps(

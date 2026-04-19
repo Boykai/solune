@@ -30,7 +30,7 @@ class ExecutionGroupMapping(BaseModel):
     @classmethod
     def validate_execution_mode(cls, v: str) -> str:
         if v not in ("sequential", "parallel"):
-            raise ValueError("execution_mode must be 'sequential' or 'parallel'")
+            raise ValueError("execution_mode must be 'sequential' or 'parallel'")  # noqa: TRY003 — reason: domain exception with descriptive message
         return v
 
 

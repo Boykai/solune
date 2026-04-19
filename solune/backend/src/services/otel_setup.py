@@ -100,8 +100,8 @@ def init_otel(service_name: str, endpoint: str) -> tuple[Tracer, Meter]:
             service_name,
             endpoint,
         )
-        return _tracer, _meter
-    except Exception as exc:
+        return _tracer, _meter  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as exc:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
         _tracer = None
         _meter = None
         logger.warning(

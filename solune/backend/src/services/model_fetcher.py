@@ -94,7 +94,7 @@ class GitHubCopilotModelFetcher(ModelFetchProvider):
 
     async def fetch_models(self, token: str | None = None) -> list[ModelOption]:
         if not token:
-            raise ValueError("GitHub OAuth token required for Copilot model fetching")
+            raise ValueError("GitHub OAuth token required for Copilot model fetching")  # noqa: TRY003 — reason: domain exception with descriptive message
 
         client = await self._pool.get_or_create(token)
 
@@ -408,7 +408,7 @@ class ModelFetcherService:
                     message="Rate limit reached. Please try again later.",
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                 logger.warning("Failed to fetch models from %s: %s", provider, e)
                 if cached:
                     return ModelsResponse(
@@ -453,7 +453,7 @@ class ModelFetcherService:
                 ttl_seconds=self._ttl_seconds,
             )
             logger.info("Background refresh complete for %s", provider)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
             logger.warning("Background refresh failed for %s: %s", provider, e)
 
     def _apply_backoff(self, key: str, retry_after: str | None) -> None:

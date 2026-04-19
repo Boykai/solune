@@ -29,7 +29,7 @@ class BoundedSet[T]:
 
     def __init__(self, maxlen: int) -> None:
         if maxlen <= 0:
-            raise ValueError("maxlen must be > 0")
+            raise ValueError("maxlen must be > 0")  # noqa: TRY003 — reason: domain exception with descriptive message
         self._maxlen = maxlen
         self._data: OrderedDict[T, None] = OrderedDict()
 
@@ -86,7 +86,7 @@ class BoundedDict[K, V]:
         on_evict: Callable[[K, V], object] | None = None,
     ) -> None:
         if maxlen <= 0:
-            raise ValueError("maxlen must be > 0")
+            raise ValueError("maxlen must be > 0")  # noqa: TRY003 — reason: domain exception with descriptive message
         self._maxlen = maxlen
         self._data: OrderedDict[K, V] = OrderedDict()
         self._on_evict = on_evict
@@ -106,7 +106,7 @@ class BoundedDict[K, V]:
             if self._on_evict is not None:
                 try:
                     self._on_evict(evicted_key, evicted_value)
-                except Exception:
+                except Exception:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
                     logger.debug(
                         "BoundedDict on_evict callback failed for key %s",
                         evicted_key,
@@ -184,12 +184,12 @@ def parse_github_url(url: str) -> tuple[str, str]:
     from src.exceptions import ValidationError
 
     if not url or not url.strip():
-        raise ValidationError("External repository URL is required.")
+        raise ValidationError("External repository URL is required.")  # noqa: TRY003 — reason: domain exception with descriptive message
 
     parsed = urlparse(url.strip())
 
     if parsed.scheme not in ("https", "http") or parsed.hostname != "github.com":
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Invalid external repository URL: only github.com URLs are supported, got '{url}'."
         )
 
@@ -198,7 +198,7 @@ def parse_github_url(url: str) -> tuple[str, str]:
 
     parts = path.split("/")
     if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise ValidationError(
+        raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
             f"Invalid external repository URL '{url}': expected format "
             "https://github.com/{{owner}}/{{repo}}."
         )
@@ -282,7 +282,7 @@ async def resolve_repository(access_token: str, project_id: str) -> tuple[str, s
         cache.set(cache_key, result, ttl_seconds=300)
         return result
 
-    raise ValidationError(
+    raise ValidationError(  # noqa: TRY003 — reason: domain exception with descriptive message
         "No repository found for this project. Configure DEFAULT_REPOSITORY in .env "
         "or ensure the project has at least one linked issue."
     )
@@ -346,8 +346,8 @@ async def _resolve_repository_rest(access_token: str, project_id: str) -> tuple[
                     )
                     return (owner, repo)
 
-        return None
-    except Exception as e:
+        return None  # noqa: TRY300 — reason: return in try block; acceptable for this pattern
+    except Exception as e:  # noqa: BLE001 — reason: 3rd-party callback; unbounded input
         logger.warning("REST repository resolution failed for project %s: %s", project_id, e)
         return None
 

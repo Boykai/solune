@@ -44,8 +44,8 @@ class McpContext:
 
     def __post_init__(self) -> None:
         if not self.github_token:
-            raise ValueError("github_token must be non-empty")
+            raise ValueError("github_token must be non-empty")  # noqa: TRY003 — reason: domain exception with descriptive message
         if self.github_user_id <= 0:
-            raise ValueError("github_user_id must be a positive integer")
+            raise ValueError("github_user_id must be a positive integer")  # noqa: TRY003 — reason: domain exception with descriptive message
         if not self.github_login:
-            raise ValueError("github_login must be non-empty")
+            raise ValueError("github_login must be non-empty")  # noqa: TRY003 — reason: domain exception with descriptive message

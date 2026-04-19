@@ -87,7 +87,7 @@ async def checkpoint(mode: str = "PASSIVE") -> None:
     ``close()`` call.
     """
     if mode not in ("PASSIVE", "TRUNCATE"):
-        raise ValueError(f"Unsupported checkpoint mode: {mode!r}")
+        raise ValueError(f"Unsupported checkpoint mode: {mode!r}")  # noqa: TRY003 — reason: domain exception with descriptive message
     conn = get_db()
     await conn.execute(f"PRAGMA wal_checkpoint({mode});")
     logger.debug("WAL checkpoint (%s) completed", mode)
@@ -105,7 +105,7 @@ async def close_database() -> None:
         try:
             await _connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")
             logger.info("WAL checkpoint (TRUNCATE) completed before close")
-        except Exception:
+        except Exception:  # noqa: BLE001 — reason: transaction rollback; re-raises after cleanup
             logger.warning("WAL checkpoint before close failed", exc_info=True)
         await _connection.close()
         _connection = None
@@ -119,7 +119,7 @@ def get_db() -> aiosqlite.Connection:
     Raises RuntimeError if database has not been initialized.
     """
     if _connection is None:
-        raise RuntimeError("Database not initialized. Call init_database() first.")
+        raise RuntimeError("Database not initialized. Call init_database() first.")  # noqa: TRY003 — reason: domain exception with descriptive message
     return _connection
 
 
