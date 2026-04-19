@@ -512,6 +512,9 @@ async def client(
             transport=transport,
             base_url="http://testserver",
         ) as ac:
+            # Expose the FastAPI app so tests can access dependency_overrides
+            # without reaching into the private httpx `_transport` attribute.
+            ac.app = app  # pyright: ignore[reportAttributeAccessIssue]
             yield ac
 
     app.dependency_overrides.clear()

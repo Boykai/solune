@@ -44,5 +44,5 @@ def reset_all() -> None:
     for name, reset_fn in _registry:
         try:
             reset_fn()
-        except Exception:  # noqa: BLE001 — reason: registry must continue past per-entry failures
+        except Exception:
             logger.exception("Failed to reset state: %s", name)

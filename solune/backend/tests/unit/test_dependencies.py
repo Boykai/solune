@@ -331,7 +331,7 @@ class TestClientFixtureDependencyOverrides:
             get_pipeline_run_service,
         )
 
-        overrides = client._transport.app.dependency_overrides
+        overrides = client.app.dependency_overrides
         assert get_chat_agent_service in overrides, "get_chat_agent_service not overridden"
         assert get_pipeline_run_service in overrides, "get_pipeline_run_service not overridden"
         assert get_github_auth_service in overrides, "get_github_auth_service not overridden"
@@ -340,7 +340,7 @@ class TestClientFixtureDependencyOverrides:
     @pytest.mark.anyio
     async def test_client_fixture_creates_fresh_app(self, client):
         """The client fixture must use a fresh app so overrides don't bleed."""
-        app = client._transport.app
+        app = client.app
         # Add a custom marker — if the app were shared, a second test
         # would see it.
         app.state._test_marker = "unique"
@@ -349,7 +349,7 @@ class TestClientFixtureDependencyOverrides:
     @pytest.mark.anyio
     async def test_client_fixture_fresh_app_has_no_bleed(self, client):
         """Verify no state from previous test leaked through."""
-        app = client._transport.app
+        app = client.app
         assert not hasattr(app.state, "_test_marker"), (
             "State from a previous test leaked — app is shared"
         )

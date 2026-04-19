@@ -228,6 +228,7 @@ class TestLifespan:
                 return_value=mock_pipeline_run,
             ),
             patch("src.services.github_auth.github_auth_service", mock_github_auth),
+            patch("src.services.alert_dispatcher.set_dispatcher"),
         ):
             mock_s.return_value = MagicMock(
                 debug=True,

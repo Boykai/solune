@@ -12,7 +12,7 @@ don't go through the full lifespan).
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from fastapi import Cookie, Depends, Request
 
@@ -67,22 +67,22 @@ def get_database(request: Request) -> aiosqlite.Connection:
 
 def get_chat_agent_service(request: Request) -> ChatAgentService:
     """Return the singleton :class:`ChatAgentService` from ``app.state``."""
-    return request.app.state.chat_agent_service  # type: ignore[no-any-return]
+    return cast("ChatAgentService", request.app.state.chat_agent_service)
 
 
 def get_pipeline_run_service(request: Request) -> PipelineRunService:
     """Return the singleton :class:`PipelineRunService` from ``app.state``."""
-    return request.app.state.pipeline_run_service  # type: ignore[no-any-return]
+    return cast("PipelineRunService", request.app.state.pipeline_run_service)
 
 
 def get_github_auth_service(request: Request) -> GitHubAuthService:
     """Return the singleton :class:`GitHubAuthService` from ``app.state``."""
-    return request.app.state.github_auth_service  # type: ignore[no-any-return]
+    return cast("GitHubAuthService", request.app.state.github_auth_service)
 
 
 def get_alert_dispatcher(request: Request) -> AlertDispatcher:
     """Return the singleton :class:`AlertDispatcher` from ``app.state``."""
-    return request.app.state.alert_dispatcher  # type: ignore[no-any-return]
+    return cast("AlertDispatcher", request.app.state.alert_dispatcher)
 
 
 def _get_session_dep():
