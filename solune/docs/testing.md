@@ -66,6 +66,7 @@ The unit suite covers the main product domains rather than a small fixed list of
 - Stores and persistence (`test_chat_store.py`, `test_session_store.py`, `test_settings_store.py`, etc.)
 - GitHub integration and orchestration (`test_github_*`, `test_workflow_*`, `test_polling_*`)
 - Agent/chat flows (`test_agent_*`, `test_chat_*`, `test_signal_*`)
+- Startup step runner and individual steps (`tests/unit/startup/test_runner.py`, `test_protocol.py`, `test_s01_logging.py` through `test_s15_background_loops.py`)
 - Operational concerns (`test_rate_limiting.py`, `test_config*.py`, `test_logging_utils.py`, `test_database.py`)
 
 ## Frontend Tests

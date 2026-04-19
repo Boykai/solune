@@ -27,17 +27,23 @@ When `DEBUG=true`:
 
 ## Architecture
 
-The backend follows a layered architecture: **API routes → Services → Models**, with three large service modules decomposed into focused sub-module packages. A `dependencies.py` module provides FastAPI DI helpers backed by `app.state` singletons registered in the lifespan handler.
+The backend follows a layered architecture: **API routes → Services → Models**, with three large service modules decomposed into focused sub-module packages. A `dependencies.py` module provides FastAPI DI helpers backed by `app.state` singletons registered during startup. Application startup is managed by a declarative step runner in `src/startup/`; the `lifespan()` handler in `main.py` delegates to `run_startup()` which iterates 15 named, individually-testable steps.
 
 ```text
 src/
-├── main.py                    # FastAPI app factory, lifespan (DB init, DI registration, TaskGroup)
+├── main.py                    # FastAPI app factory, lifespan orchestrator
 ├── config.py                  # Pydantic Settings from env / .env
 ├── constants.py               # Status names, agent mappings, display names, cache key helpers
 ├── dependencies.py            # FastAPI DI helpers (app.state → Depends())
 ├── exceptions.py              # Custom exception classes (AppException tree + PersistenceError)
 ├── protocols.py               # Protocol types for service interfaces (ModelProvider, CacheInvalidationPolicy)
 ├── utils.py                   # Shared helpers: utcnow(), resolve_repository()
+│
+├── startup/                   # Declarative startup step runner
+│   ├── __init__.py            #   Re-exports run_startup, run_shutdown, StartupContext, Step
+│   ├── protocol.py            #   Step Protocol, StepOutcome dataclass, StartupContext dataclass
+│   ├── runner.py              #   run_startup / run_shutdown loops with timing, logging, error handling
+│   └── steps/                 #   One module per startup step (s01–s15)
 │
 ├── api/                       # Route handlers (8 modules)
 │   ├── auth.py                # OAuth flow, consolidated session dependency
