@@ -1171,14 +1171,14 @@ async def send_message(
         _settings = _get_settings()
         if _settings.ai_provider in ("copilot", "azure_openai"):
             ai_available = True
-    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+    except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
         pass
 
     # Try to get the new ChatAgentService
     chat_agent_service = None
     try:
         chat_agent_service = get_chat_agent_service()
-    except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+    except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
         pass
 
     if not ai_available and chat_agent_service is None:
@@ -1400,7 +1400,7 @@ async def _extract_transcript_content(file_urls: list[str]) -> str | None:
                 )
                 continue
             content = file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:  # noqa: BLE001 — reason: API endpoint resilience; failure logged, request continues
+        except Exception:  # noqa: BLE001 — reason: mixed exception surface; operation failure is non-critical
             continue
 
         original_name = filename[9:] if len(filename) > 9 and filename[8] == "-" else filename
