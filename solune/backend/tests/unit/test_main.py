@@ -71,7 +71,7 @@ class TestLifespan:
 
         with (
             patch("src.main.get_settings") as mock_s,
-            patch("src.main.setup_logging"),
+            patch("src.config.setup_logging"),
             patch(
                 "src.services.database.init_database",
                 new_callable=AsyncMock,
@@ -85,9 +85,18 @@ class TestLifespan:
                 "src.services.database.close_database",
                 new_callable=AsyncMock,
             ) as mock_close,
-            patch("src.main._session_cleanup_loop", side_effect=_noop_loop),
-            patch("src.main._polling_watchdog_loop", side_effect=_noop_loop),
-            patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock),
+            patch(
+                "src.startup.steps.s15_background_loops._session_cleanup_loop",
+                side_effect=_noop_loop,
+            ),
+            patch(
+                "src.startup.steps.s15_background_loops._polling_watchdog_loop",
+                side_effect=_noop_loop,
+            ),
+            patch(
+                "src.startup.steps.s11_copilot_polling._auto_start_copilot_polling",
+                new_callable=AsyncMock,
+            ),
             patch(
                 "src.services.signal_bridge.start_signal_ws_listener",
                 new_callable=AsyncMock,
@@ -120,19 +129,19 @@ class TestLifespan:
     async def test_lifespan_cleanup_on_startup_failure(self):
         """Resources initialised before failure should still be cleaned up.
 
-        Validates the try/finally guard: if start_signal_ws_listener()
-        raises, the DB and cleanup task that were already started must
-        still be torn down, but stop_signal_ws_listener() must NOT be
-        called because Signal was never started.
+        Validates the try/finally guard: if a fatal step fails after DB init,
+        the DB must still be closed via run_shutdown but stop_signal_ws_listener
+        must NOT be called because Signal was never started.
         """
         from src.main import lifespan
+        from src.startup.protocol import StartupError
 
         mock_db = AsyncMock()
         mock_app = MagicMock()
 
         with (
             patch("src.main.get_settings") as mock_s,
-            patch("src.main.setup_logging"),
+            patch("src.config.setup_logging"),
             patch(
                 "src.services.database.init_database",
                 new_callable=AsyncMock,
@@ -147,17 +156,14 @@ class TestLifespan:
                 new_callable=AsyncMock,
             ) as mock_close,
             patch(
-                "src.services.signal_bridge.start_signal_ws_listener",
-                new_callable=AsyncMock,
-                side_effect=RuntimeError("signal connect failed"),
-            ),
-            patch(
                 "src.services.signal_bridge.stop_signal_ws_listener",
                 new_callable=AsyncMock,
             ) as mock_stop_signal,
+            # PipelineCacheStep (fatal=True) fails after DatabaseStep succeeds
             patch(
                 "src.services.pipeline_state_store.init_pipeline_state_store",
                 new_callable=AsyncMock,
+                side_effect=RuntimeError("pipeline cache failed"),
             ),
         ):
             mock_s.return_value = MagicMock(
@@ -170,7 +176,7 @@ class TestLifespan:
                 otel_service_name="solune-backend",
                 sentry_dsn="",
             )
-            with pytest.raises(RuntimeError, match="signal connect failed"):
+            with pytest.raises(StartupError):
                 async with lifespan(mock_app):
                     pytest.fail("lifespan should have raised before yielding")
 
@@ -194,8 +200,8 @@ class TestSessionCleanupLoop:
                 raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_fake_sleep),
+            patch("src.config.get_settings") as mock_s,
+            patch("asyncio.sleep", side_effect=_fake_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
             patch(
                 "src.services.session_store.purge_expired_sessions",
@@ -218,8 +224,8 @@ class TestSessionCleanupLoop:
                 raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_fake_sleep),
+            patch("src.config.get_settings") as mock_s,
+            patch("asyncio.sleep", side_effect=_fake_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
             patch(
                 "src.services.session_store.purge_expired_sessions",
@@ -245,8 +251,8 @@ class TestSessionCleanupLoop:
             raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_capture_sleep),
+            patch("src.config.get_settings") as mock_s,
+            patch("asyncio.sleep", side_effect=_capture_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
         ):
             mock_s.return_value = MagicMock(session_cleanup_interval=3600)
@@ -268,8 +274,8 @@ class TestSessionCleanupLoop:
                 raise asyncio.CancelledError
 
         with (
-            patch("src.main.get_settings") as mock_s,
-            patch("src.main.asyncio.sleep", side_effect=_capture_sleep),
+            patch("src.config.get_settings") as mock_s,
+            patch("asyncio.sleep", side_effect=_capture_sleep),
             patch("src.services.database.get_db", return_value=MagicMock()),
             patch(
                 "src.services.session_store.purge_expired_sessions",
@@ -330,7 +336,7 @@ class TestShutdownPollingLogging:
 
         with (
             patch("src.main.get_settings") as mock_s,
-            patch("src.main.setup_logging"),
+            patch("src.config.setup_logging"),
             patch(
                 "src.services.database.init_database",
                 new_callable=AsyncMock,
@@ -352,9 +358,18 @@ class TestShutdownPollingLogging:
                 "src.services.signal_bridge.stop_signal_ws_listener",
                 new_callable=AsyncMock,
             ),
-            patch("src.main._auto_start_copilot_polling", new_callable=AsyncMock),
-            patch("src.main._session_cleanup_loop", side_effect=_noop_loop),
-            patch("src.main._polling_watchdog_loop", side_effect=_noop_loop),
+            patch(
+                "src.startup.steps.s11_copilot_polling._auto_start_copilot_polling",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "src.startup.steps.s15_background_loops._session_cleanup_loop",
+                side_effect=_noop_loop,
+            ),
+            patch(
+                "src.startup.steps.s15_background_loops._polling_watchdog_loop",
+                side_effect=_noop_loop,
+            ),
             patch(
                 "src.services.pipeline_state_store.init_pipeline_state_store",
                 new_callable=AsyncMock,
@@ -368,7 +383,8 @@ class TestShutdownPollingLogging:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("polling stop failed"),
             ),
-            patch("src.main.logger") as mock_logger,
+            patch("src.main.logger") as _,
+            patch("src.startup.runner.logger") as mock_logger,
         ):
             mock_s.return_value = MagicMock(
                 debug=True,
@@ -387,8 +403,11 @@ class TestShutdownPollingLogging:
             mock_logger.warning.assert_called()
             # Verify the warning includes the shutdown context and traceback
             warning_args = mock_logger.warning.call_args
-            assert "Error stopping Copilot polling during shutdown" in str(warning_args)
-            assert warning_args.kwargs.get("exc_info") is True
+            assert "shutdown-stop-polling failed" in str(warning_args)
+            assert (
+                warning_args.kwargs.get("exc_info") is True
+                or warning_args[1].get("exc_info") is True
+            )
 
 
 # ── _auto_start_copilot_polling webhook token fallback ──────────────────────

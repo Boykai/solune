@@ -120,14 +120,29 @@ The backend is the operational core of Solune. It handles authentication, GitHub
 - Supports both standard JSON chat responses and streaming SSE responses
 - Uses `session_id:conversation_id` keys for multi-conversation dashboard chat while leaving the floating popup conversation-unaware
 
-### Startup lifecycle (`main.py`)
+### Startup lifecycle (`src/startup/`)
 
-1. Configure logging and the global asyncio exception handler
-2. Open SQLite, run pending migrations, and seed default rows
-3. Register shared services on `app.state`
-4. Resume polling / Signal background loops
-5. Start session cleanup, watchdog, and MCP sync background tasks
-6. On shutdown, drain task registries, stop listeners, and close the database
+Application startup is managed by a declarative step runner in `src/startup/`. The `lifespan()` handler in `main.py` builds a `StartupContext` and delegates to `run_startup()`, which iterates an ordered list of 15 named steps. Each step implements a `Step` protocol with `name`, `fatal`, and `run()` — fatal steps abort the cold start, non-fatal failures are logged and skipped. Shutdown mirrors the pattern via `run_shutdown()`.
+
+Step inventory (in execution order):
+
+1. **logging** — configure structured logging
+2. **asyncio_exception_handler** — install the global asyncio exception handler
+3. **database** — open SQLite, run pending migrations, seed default rows
+4. **pipeline_state_cache** — initialise the pipeline state store
+5. **done_items_cache** — initialise the done-items cache
+6. **singleton_services** — register shared services on `app.state`
+7. **alert_dispatcher** — wire up alert dispatch hooks
+8. **otel** — OpenTelemetry instrumentation (skipped when disabled)
+9. **sentry** — Sentry error tracking (skipped when no DSN configured)
+10. **signal_ws_listener** — start the Signal WebSocket listener
+11. **copilot_polling_autostart** — auto-start Copilot polling if configured
+12. **multi_project_discovery** — discover and register active projects
+13. **app_pipeline_polling_restore** — restore in-flight pipeline polling
+14. **agent_mcp_sync** — synchronise agent MCP tool registrations
+15. **background_loops** — enqueue session cleanup and polling watchdog loops
+
+On shutdown, `run_shutdown()` executes registered shutdown hooks in LIFO order, then drains the task registry, stops polling, and closes the database.
 
 ### nginx reverse proxy
 
